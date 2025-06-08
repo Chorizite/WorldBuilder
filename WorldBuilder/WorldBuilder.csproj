@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+		<OutputPath>..\bin\net8.0\</OutputPath>
+		<AvaloniaAccessUnstablePrivateApis>true</AvaloniaAccessUnstablePrivateApis>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Avalonia.Skia" Version="11.3.1" />
+		<PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
+		<PackageReference Include="Avalonia.Themes.Simple" Version="11.3.1" />
+		<PackageReference Include="Raylib-cs" Version="7.0.1" />
+		<PackageReference Include="SkiaSharp" Version="3.119.0" />
+		<PackageReference Include="Krafs.Publicizer" Version="2.3.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Publicize Include="Avalonia.Base" MemberPattern="^Avalonia\..*" />
+		<Publicize Include="Avalonia" MemberPattern="^Avalonia\..*" />
+		<Publicize Include="Avalonia.Skia" MemberPattern="^Avalonia\..*" />
+		<Publicize Include="Avalonia.Desktop" MemberPattern="^Avalonia\..*" />
+	</ItemGroup>
+
+</Project>
