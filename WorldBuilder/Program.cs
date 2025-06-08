@@ -10,6 +10,7 @@ using Raylib_cs;
 using WorldBuilder.Lib.Avalonia;
 using static System.Formats.Asn1.AsnWriter;
 using Color = Raylib_cs.Color;
+using MatrixMode = Raylib_cs.MatrixMode;
 
 namespace WorldBuilder {
     class Program {
@@ -33,7 +34,7 @@ namespace WorldBuilder {
 
         static void Main(string[] args) {
             Raylib.InitWindow(ScreenWidth, ScreenHeight, "WorldBuilder");
-            //Raylib.SetTargetFPS(60);
+            Raylib.SetTargetFPS(144);
 
             var app = AppBuilder.Configure<App>()
                 .UseChorizite()
@@ -82,6 +83,7 @@ namespace WorldBuilder {
 
             ProcessInput(controls);
 
+            RaylibPlatform.GRContext.ResetContext(SkiaSharp.GRBackendState.All);
             // something about this seems to corrupt the opengl state,
             // and then later when we render text with raylib, it doesnt render properly...
             // this is not a per frame thing but will happen every frame afte avalonia has
@@ -112,30 +114,7 @@ namespace WorldBuilder {
         }
 
         private static void ResetOpenGLState() {
-            Rlgl.DisableFramebuffer();
-            Rlgl.BindFramebuffer(0, 0);
-
-            Rlgl.Viewport(0, 0, ScreenWidth, ScreenHeight);
-
-            Rlgl.MatrixMode(MatrixMode.Projection);
-            Rlgl.LoadIdentity();
-            Rlgl.Ortho(0, ScreenWidth, ScreenHeight, 0, 0.1f, 100.0f); 
-            Rlgl.MatrixMode(MatrixMode.ModelView);
-            Rlgl.LoadIdentity();
-
-            Rlgl.SetTexture(0);
-            Font font = Raylib.GetFontDefault();
-            Rlgl.EnableTexture(font.Texture.Id);
-
-            Rlgl.DisableShader();
-            Rlgl.DisableVertexArray();
-
-            Rlgl.EnableVertexArray(0);
-            Rlgl.DisableVertexAttribute(0);
-            Rlgl.DisableVertexAttribute(1);
-            Rlgl.DisableVertexAttribute(2);
-
-            Rlgl.SetBlendMode(BlendMode.Alpha);
+            
         }
 
         private static RaylibAvaloniaControl CreateFrameCounterControl() {
