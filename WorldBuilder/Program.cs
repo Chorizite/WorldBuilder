@@ -2,24 +2,24 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Skia;
 using Raylib_cs;
+using Silk.NET.OpenGL;
+using WorldBuilder.Lib;
 using WorldBuilder.Lib.Avalonia;
 using static System.Formats.Asn1.AsnWriter;
 using Color = Raylib_cs.Color;
 using MatrixMode = Raylib_cs.MatrixMode;
 
 namespace WorldBuilder {
+
     class Program {
         const int ScreenWidth = 800;
         const int ScreenHeight = 450;
-
-        // Dimensions for Avalonia controls
-        const int UiWidth = 300;
-        const int UiHeight = 300;
 
         public static AppBuilder BuildAvaloniaApp()
         => AppBuilder
@@ -28,13 +28,19 @@ namespace WorldBuilder {
 
         private static ConcurrentQueue<Action> _actions = new ConcurrentQueue<Action>();
         private static Camera3D camera;
-        private static List<(RaylibAvaloniaControl Control, Vector2 Position)> controls;
+        private static Raylib_cs.Image _image;
+        private static Texture2D _texture;
+        private static GL? _GL;
+
+        public static WindowManager WindowManager { get; } = new WindowManager();
 
         public static void Invoke(Action action) => _actions.Enqueue(action);
 
-        static void Main(string[] args) {
+        unsafe static void Main(string[] args) {
             Raylib.InitWindow(ScreenWidth, ScreenHeight, "WorldBuilder");
-            Raylib.SetTargetFPS(144);
+            Raylib.SetWindowState(ConfigFlags.ResizableWindow | ConfigFlags.VSyncHint);
+
+            _GL = GL.GetApi(new SilkRaylibContext());
 
             var app = AppBuilder.Configure<App>()
                 .UseChorizite()
@@ -48,54 +54,35 @@ namespace WorldBuilder {
                 FovY = 45.0f,
                 Projection = CameraProjection.Perspective
             };
+            _image = Raylib.LoadImage("avalonia.png");
+            _texture = Raylib.LoadTexture("avalonia.png");
 
-            // Create Avalonia controls
-            controls = new List<(RaylibAvaloniaControl Control, Vector2 Position)>
-            {
-                // Control 1: Frame counter at position (10, 10)
-                (CreateFrameCounterControl(), new Vector2(0, 0)),
-                // Control 2: FPS and title at position (10, 120)
-                //(CreateFpsControl(), new Vector2(10, 120))
-            };
-
-            // Initialize controls
-            foreach (var (control, _) in controls) {
-                control.Size = new Avalonia.Size(UiWidth, UiHeight);
-                control.Ready();
-            }
+            WindowManager.AddWindow(CreateFrameCounterControl());
 
             // UI update variables
             while (!Raylib.WindowShouldClose()) {
-                DoRender();
+                Update();
+                Render();
             }
 
-            // Cleanup
-            foreach (var (control, _) in controls) {
-                control.Dispose();
-            }
+            WindowManager.Dispose();
             Raylib.CloseWindow();
         }
 
-        private static void DoRender() {
+        private static void Update() {
             while (_actions.TryDequeue(out var action)) {
                 action?.Invoke();
             }
 
-            ProcessInput(controls);
+            WindowManager.Update();
+        }
 
-            RaylibPlatform.GRContext.ResetContext(SkiaSharp.GRBackendState.All);
-            // something about this seems to corrupt the opengl state,
-            // and then later when we render text with raylib, it doesnt render properly...
-            // this is not a per frame thing but will happen every frame afte avalonia has
-            // used skia to render.
-            foreach (var (control, position) in controls) {
-               control.Render(position);
-            }
-
+        private static void Render() {
             ResetOpenGLState();
 
             Raylib.BeginDrawing();
-            Raylib.ClearBackground(Color.Black);
+
+            Raylib.ClearBackground(Color.DarkGray);
 
             Raylib.BeginMode3D(camera);
             Raylib.DrawCube(new Vector3(0.0f, 0.0f, 0.0f), 2.0f, 6.0f, 2.0f, Color.Red);
@@ -103,38 +90,59 @@ namespace WorldBuilder {
             Raylib.DrawGrid(10, 1.0f);
             Raylib.EndMode3D();
 
-            foreach (var (control, position) in controls) {
-                control.RenderTexture(position);
-            }
+            WindowManager.Render();
 
-            Font font = Raylib.GetFontDefault();
+            Raylib.DrawText("Hello World!", 5, 5, 22, Color.Gold);
             Raylib.DrawFPS(ScreenWidth - 100, 10);
+            Raylib.DrawTexturePro(
+                _texture,
+                new Rectangle(0, 0, _image.Width, _image.Height),
+                new Rectangle(20, 20, 50, 50),
+                Vector2.Zero,
+                0.0f,
+                Color.White
+                );
 
             Raylib.EndDrawing();
         }
 
         private static void ResetOpenGLState() {
-            
+            if (_GL == null) return;
+
+            // enable states expected by raylib
+            _GL.Enable(EnableCap.Blend);
+            _GL.Enable(EnableCap.ProgramPointSize);
+            _GL.Enable(EnableCap.Multisample);
+            _GL.Enable(EnableCap.Dither);
+            _GL.FrontFace(FrontFaceDirection.CW);
+            _GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
+            _GL.DrawBuffer(DrawBufferMode.Back);
+            _GL.DepthMask(true);
+
+            // disable states modified by Skia
+            _GL.Disable(EnableCap.FramebufferSrgb);
+            _GL.Disable(EnableCap.ScissorTest);
+            _GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+            // restore buffer bindings
+            _GL.BindBuffer(GLEnum.ElementArrayBuffer, 0);
+            _GL.BindBuffer(GLEnum.ArrayBuffer, 0);
+            _GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, 0);
+            _GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, 0);
+            _GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+
+            // restore texture and sampler bindings
+            _GL.ActiveTexture(TextureUnit.Texture0);
+            _GL.BindTexture(TextureTarget.Texture2D, 0);
+            _GL.BindSampler(0, 0);
+            _GL.ActiveTexture(TextureUnit.Texture31);
+            _GL.BindTexture(TextureTarget.Texture2D, 0);
+            _GL.ActiveTexture(TextureUnit.Texture0);
+
         }
 
         private static RaylibAvaloniaControl CreateFrameCounterControl() {
-            return new RaylibAvaloniaControl { Control = new HelloWorldView() };
-        }
-
-        private static void ProcessInput(List<(RaylibAvaloniaControl Control, Vector2 Position)> controls) {
-            var mousePos = Raylib.GetMousePosition();
-
-            foreach (var (control, position) in controls) {
-                var scaledWidth = control.Size.Width * control.RenderScaling;
-                var scaledHeight = control.Size.Height * control.RenderScaling;
-                var isInControl = mousePos.X >= position.X && mousePos.X < position.X + scaledWidth &&
-                                 mousePos.Y >= position.Y && mousePos.Y < position.Y + scaledHeight;
-
-                control.HasFocus = isInControl;
-                if (isInControl) {
-                    control.ProcessInput();
-                }
-            }
+            return new RaylibAvaloniaControl { Control = new HelloWorldView(), Position = new Vector2(10, 10), Size = new Size(ScreenWidth - 20, ScreenHeight - 20) };
         }
     }
 }

@@ -16,6 +16,7 @@
 		<PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
 		<PackageReference Include="Avalonia.Themes.Simple" Version="11.3.1" />
 		<PackageReference Include="Raylib-cs" Version="7.0.1" />
+		<PackageReference Include="Silk.NET.OpenGL" Version="2.22.0" />
 		<PackageReference Include="SkiaSharp" Version="3.119.0" />
 		<PackageReference Include="Krafs.Publicizer" Version="2.3.0">
 			<PrivateAssets>all</PrivateAssets>
@@ -28,6 +29,12 @@
 		<Publicize Include="Avalonia" MemberPattern="^Avalonia\..*" />
 		<Publicize Include="Avalonia.Skia" MemberPattern="^Avalonia\..*" />
 		<Publicize Include="Avalonia.Desktop" MemberPattern="^Avalonia\..*" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Update="avalonia.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
 	</ItemGroup>
 
 </Project>

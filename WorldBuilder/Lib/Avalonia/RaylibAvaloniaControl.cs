@@ -31,7 +31,7 @@ namespace WorldBuilder.Lib.Avalonia {
         private bool _autoConvertUIActions = false;
 
 
-
+        public Vector2 Position { get; set; }
         public Size Size { get; set; } = new Size(300, 300);
 
         public AvControl? Control {
@@ -78,6 +78,12 @@ namespace WorldBuilder.Lib.Avalonia {
         }
 
         public RaylibAvaloniaControl() {
+        
+        }
+
+        public RaylibAvaloniaControl(Vector2 vector2, Size size) {
+            Position = vector2;
+            Size = size;
         }
 
         public RaylibTopLevel GetTopLevel() =>
@@ -124,8 +130,8 @@ namespace WorldBuilder.Lib.Avalonia {
                 _topLevel.PointerPressed += (s, e) => Console.WriteLine($"TopLevel PointerPressed: {e.GetPosition(_topLevel)}, Handled: {e.Handled}");
                 _topLevel.PointerReleased += (s, e) => Console.WriteLine($"TopLevel PointerReleased: {e.GetPosition(_topLevel)}");
 
-                Console.WriteLine("Raylib Avalonia control initialized successfully");
-                LogVisualTree(_control);
+                //Console.WriteLine("Raylib Avalonia control initialized successfully");
+                //LogVisualTree(_control);
             }
             catch (Exception ex) {
                 Console.WriteLine($"Failed to initialize Raylib Avalonia control: {ex.Message}");
@@ -150,7 +156,7 @@ namespace WorldBuilder.Lib.Avalonia {
             }
 
             var timestamp = (ulong)(Raylib.GetTime());
-            var mousePos = Raylib.GetMousePosition();
+            var mousePos = Raylib.GetMousePosition() - Position;
             var scaledMousePos = new Vector2(mousePos.X / (float)RenderScaling, mousePos.Y / (float)RenderScaling);
             var isPointInControl = IsPointInControl((int)mousePos.X, (int)mousePos.Y);
 
@@ -486,7 +492,7 @@ namespace WorldBuilder.Lib.Avalonia {
 
         internal void RenderAvalonia() => _topLevel?.Impl.OnDraw(new Rect(Size));
 
-        public void Render(Vector2 position) {
+        public void RenderToTexture() {
             if (_topLevel?.Impl is not RaylibTopLevelImpl impl || _renderTarget == null) {
                 Console.WriteLine("Cannot render: TopLevel or render target is null");
                 return;
@@ -495,14 +501,14 @@ namespace WorldBuilder.Lib.Avalonia {
             impl.Render();
         }
 
-        public void RenderTexture(Vector2 position) {
+        public void RenderTexture() {
             if (_topLevel?.Impl is not RaylibTopLevelImpl impl || _renderTarget == null) {
                 Console.WriteLine("Cannot render: TopLevel or render target is null");
                 return;
             }
 
             var sourceRect = new Rectangle(0, 0, _renderTarget.Value.Texture.Width, -_renderTarget.Value.Texture.Height); // Flip Y for correct orientation
-            var destRect = new Rectangle((int)position.X, (int)position.Y,
+            var destRect = new Rectangle((int)Position.X, (int)Position.Y,
                 (int)(Size.Width * RenderScaling), (int)(Size.Height * RenderScaling));
 
             Raylib.DrawTexturePro(
