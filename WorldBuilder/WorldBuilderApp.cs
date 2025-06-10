@@ -30,7 +30,7 @@ namespace WorldBuilder {
         public WindowManager WindowManager { get; private set; }
 
         public WorldBuilderApp(int width, int height) {
-            WindowManager = new WindowManager();
+            //WindowManager = new WindowManager();
             Width = width;
             Height = height;
 
@@ -45,11 +45,11 @@ namespace WorldBuilder {
             }
             _GL = GL.GetApi(new SilkRaylibContext());
 
-            var app = AppBuilder.Configure<App>()
-                .UseChorizite()
-                .SetupWithoutStarting();
+            //var app = AppBuilder.Configure<App>()
+            //    .UseChorizite()
+            //    .SetupWithoutStarting();
 
-            WindowManager.AddWindow(CreateFrameCounterControl());
+            //WindowManager.AddWindow(CreateFrameCounterControl());
 
             camera = new Camera3D {
                 Position = new Vector3(0.0f, 0.0f, 7.0f),
@@ -75,6 +75,8 @@ namespace WorldBuilder {
                 Height = Raylib.GetScreenHeight();
             }
 
+            camera.Position = new Vector3(0.0f, 1.3f, 7.0f);
+
             var delta = Raylib.GetFrameTime();
             _multi?.Update(delta, camera.Position);
             _tayne?.Update(delta);
@@ -89,6 +91,7 @@ namespace WorldBuilder {
             Raylib.ClearBackground(Color.Black);
 
             Raylib.BeginMode3D(camera);
+            Rlgl.DisableBackfaceCulling();
             _multi?.Render(camera);
             _tayne?.Render(camera);
             Raylib.EndMode3D();

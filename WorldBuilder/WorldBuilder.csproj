@@ -49,10 +49,82 @@
 	  <None Update="Resources\Shaders\lighting.vs">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
+	  <None Update="Resources\Shaders\pbr.fs">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Shaders\pbr.vs">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
 	  <None Update="Resources\Textures\liquid-gold.jpg">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
 	  <None Update="Resources\Textures\liquid-silver.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\MetalCorrodedHeavy001_COL_1K_METALNESS.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\MetalCorrodedHeavy001_DISP_1K_METALNESS.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\MetalCorrodedHeavy001_METALNESS_1K_METALNESS.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\MetalCorrodedHeavy001_NRM_1K_METALNESS.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\MetalCorrodedHeavy001_ROUGHNESS_1K_METALNESS.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\MetalGalvanizedSteelWorn001_COL_2K_METALNESS.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\MetalGalvanizedSteelWorn001_METALNESS_2K_METALNESS.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\MetalGalvanizedSteelWorn001_NRM_2K_METALNESS.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\MetalGalvanizedSteelWorn001_ROUGHNESS_2K_METALNESS.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\Poliigon_MetalGoldPaint_7253_AmbientOcclusion.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\Poliigon_MetalGoldPaint_7253_BaseColor.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\Poliigon_MetalGoldPaint_7253_Displacement.tiff">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\Poliigon_MetalGoldPaint_7253_Metallic.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\Poliigon_MetalGoldPaint_7253_Normal.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\Poliigon_MetalGoldPaint_7253_ORM.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\Poliigon_MetalGoldPaint_7253_Roughness.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\Poliigon_MetalSteelBrushed_7174_AmbientOcclusion.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\Poliigon_MetalSteelBrushed_7174_BaseColor.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\Poliigon_MetalSteelBrushed_7174_Metallic.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\Poliigon_MetalSteelBrushed_7174_Normal.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\Poliigon_MetalSteelBrushed_7174_ORM.jpg">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Resources\Textures\Poliigon_MetalSteelBrushed_7174_Roughness.jpg">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
 	  <None Update="Resources\Textures\tayne.gif">
