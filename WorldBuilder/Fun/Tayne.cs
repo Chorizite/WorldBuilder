@@ -2,6 +2,8 @@
 using System.Numerics;
 using Raylib_cs;
 using WorldBuilder.Lib;
+using Color = Raylib_cs.Color;
+using Image = Raylib_cs.Image;
 
 namespace WorldBuilder.Fun {
     public class Tayne : IDisposable {
@@ -19,6 +21,8 @@ namespace WorldBuilder.Fun {
 
         private const int MaxFrameDelay = 60;
         private const int MinFrameDelay = 30;
+
+        internal static bool SHOW = false;
 
         public Tayne(string gifPath, Vector3 position, float scale = 1.0f, int initialFrameDelay = 8) {
             _position = position;
@@ -49,13 +53,14 @@ namespace WorldBuilder.Fun {
 
             // Load initial texture
             _texture = Raylib.LoadTextureFromImage(_image);
+            Raylib.SetTextureWrap(_texture, TextureWrap.Repeat);
 
             // Log frame information for debugging
             Console.WriteLine($"Tayne: Loaded {_frameCount} frames, width={_frameWidth}, height={_frameHeight}, frameSize={_frameSize}");
         }
 
         private unsafe void MakeWhitishPixelsTransparent(ref Image image) {
-            const byte whiteThreshold = 150; // Threshold for "whitish" pixels
+            const byte whiteThreshold = 200; // Threshold for "whitish" pixels
 
             // Get pixel data
             Color* pixels = (Color*)image.Data;
@@ -76,7 +81,9 @@ namespace WorldBuilder.Fun {
             // No need to update image data since we modified it directly
         }
 
+        private DateTime _lastFrameUpdate = DateTime.Now;
         public void Update(float deltaTime) {
+            if (!SHOW) return;
             // Handle frame delay control with keyboard
             if (Raylib.IsKeyPressed(KeyboardKey.Right)) {
                 _frameDelay = Math.Min(_frameDelay + 1, MaxFrameDelay);
@@ -87,11 +94,10 @@ namespace WorldBuilder.Fun {
                 Console.WriteLine($"Tayne: Frame delay decreased to {_frameDelay}");
             }
 
-            _frameDelay = 300;
-
             // Update animation frame
             _frameCounter++;
-            if (_frameCounter >= _frameDelay) {
+            if (DateTime.Now - _lastFrameUpdate >= TimeSpan.FromSeconds(1.0 / 20)) {
+                _lastFrameUpdate = DateTime.Now;
                 _currentAnimFrame = (_currentAnimFrame + 1) % _frameCount;
                 _frameCounter = 0;
 
@@ -119,6 +125,7 @@ namespace WorldBuilder.Fun {
         }
 
         public void Render(Camera3D camera) {
+            if (!SHOW) return;
             // Draw as a billboard in 3D space
             Raylib.DrawBillboard(camera, _texture, _position, _scale, Color.White);
         }

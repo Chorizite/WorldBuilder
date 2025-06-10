@@ -9,6 +9,8 @@ using Avalonia.Platform;
 using Avalonia.Rendering.Composition;
 using Raylib_cs;
 using SkiaSharp;
+using Point = Avalonia.Point;
+using Size = Avalonia.Size;
 
 namespace WorldBuilder.Lib.Avalonia {
     internal sealed class RaylibTopLevelImpl : ITopLevelImpl {
@@ -24,7 +26,6 @@ namespace WorldBuilder.Lib.Avalonia {
         private RenderTexture2D? _renderTarget;
 
         public double RenderScaling { get; private set; } = 1.0;
-        double ITopLevelImpl.DesktopScaling => 1.0;
         public Compositor Compositor { get; }
         public Size ClientSize { get; private set; }
 
@@ -53,6 +54,8 @@ namespace WorldBuilder.Lib.Avalonia {
             => new(1.0, 1.0, 1.0);
 
         public IPlatformHandle? Handle => null;
+
+        public Size? FrameSize => new Size(_renderSize.Width, _renderSize.Height);
 
         public RaylibTopLevelImpl(RenderTexture2D renderTarget, RaylibPlatformGraphics platformGraphics, IClipboard clipboard, Compositor compositor) {
             _renderTarget = renderTarget;

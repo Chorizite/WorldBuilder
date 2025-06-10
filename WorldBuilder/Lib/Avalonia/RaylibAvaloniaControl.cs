@@ -13,9 +13,12 @@ using Avalonia.Rendering.Composition;
 using Avalonia.VisualTree;
 using Raylib_cs;
 using AvControl = Avalonia.Controls.Control;
+using Brushes = Avalonia.Media.Brushes;
 using Color = Raylib_cs.Color;
+using KeyEventArgs = Avalonia.Input.KeyEventArgs;
 using MouseButton = Raylib_cs.MouseButton;
 using Point = Avalonia.Point;
+using Rectangle = Raylib_cs.Rectangle;
 using Size = Avalonia.Size;
 
 namespace WorldBuilder.Lib.Avalonia {

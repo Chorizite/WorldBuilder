@@ -3,11 +3,19 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
-    x:Class="WorldBuilder.HelloWorldView"
-	Background="Transparent">
+    mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="400"
+    x:Class="WorldBuilder.Views.HelloWorldView">
 
-	<Grid RowDefinitions="Auto,Auto">
-		<Button Content="Show Me Tayne" Name="Button2" HorizontalAlignment="Left" MinWidth="100" />
+	<Grid RowDefinitions="Auto,Auto" >
+		<TextBox
+			Name="MyTextBox"
+            Width="300"
+            Height="50"
+            FontSize="18"
+            TextAlignment="Left"
+            Text="Type your notes here"
+            ScrollViewer.VerticalScrollBarVisibility="Auto"
+            Grid.Row="0" />
+		<Button Grid.Row="1" Content="Show Me Tayne" Name="Button2" HorizontalAlignment="Left" MinWidth="100" />
 	</Grid>
 </UserControl>

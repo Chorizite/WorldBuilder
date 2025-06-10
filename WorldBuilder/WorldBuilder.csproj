@@ -1,40 +1,39 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
 	<PropertyGroup>
-		<OutputType>Exe</OutputType>
 		<TargetFramework>net8.0</TargetFramework>
-		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<LangVersion>latest</LangVersion>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-		<OutputPath>..\bin\net8.0\</OutputPath>
 		<AvaloniaAccessUnstablePrivateApis>true</AvaloniaAccessUnstablePrivateApis>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Avalonia.Skia" Version="11.3.1" />
-		<PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
-		<PackageReference Include="Avalonia.Themes.Simple" Version="11.3.1" />
-		<PackageReference Include="Raylib-cs" Version="7.0.1" />
+		<AvaloniaResource Include="Assets\**" />
+		<WasmFilesToIncludeInFileSystem Include="Resources\**\*.*" TargetPath="Resources\%(RecursiveDir)\%(Filename)%(Extension)" />
+	</ItemGroup>
+	<PropertyGroup>
+		<EmccFlags>-s USE_GLFW=3 -O3 -lexports.js</EmccFlags>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
+		<PackageReference Include="Avalonia.Skia" Version="$(AvaloniaVersion)" />
+		<PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
+		<PackageReference Include="Avalonia.Fonts.Inter" Version="$(AvaloniaVersion)" />
+		<PackageReference Include="Avalonia.ReactiveUI" Version="$(AvaloniaVersion)" />
+		<!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
+		<PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="$(AvaloniaVersion)" />
+		<PackageReference Include="Raylib-cs" Version="7.0.0" />
 		<PackageReference Include="Silk.NET.OpenGL" Version="2.22.0" />
 		<PackageReference Include="SkiaSharp" Version="3.119.0" />
-		<PackageReference Include="Krafs.Publicizer" Version="2.3.0">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
+		<PackageReference Include="SkiaSharp.NativeAssets.WebAssembly" Version="3.119.0" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<Publicize Include="Avalonia.Base" MemberPattern="^Avalonia\..*" />
-		<Publicize Include="Avalonia" MemberPattern="^Avalonia\..*" />
-		<Publicize Include="Avalonia.Skia" MemberPattern="^Avalonia\..*" />
-		<Publicize Include="Avalonia.Desktop" MemberPattern="^Avalonia\..*" />
+		<WasmFilesToIncludeInFileSystem Include="Resources\**\*.*" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <None Update="avalonia.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
 	  <None Update="Resources\Models\asheronstext.obj">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
@@ -50,19 +49,14 @@
 	  <None Update="Resources\Shaders\lighting.vs">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="Resources\Textures\diamond-metal.png">
+	  <None Update="Resources\Textures\liquid-gold.jpg">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="Resources\Textures\images.jpg">
+	  <None Update="Resources\Textures\liquid-silver.jpg">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
 	  <None Update="Resources\Textures\tayne.gif">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
 	</ItemGroup>
-
-	<ItemGroup>
-	  <Folder Include="Resources\Shaders\" />
-	</ItemGroup>
-
 </Project>

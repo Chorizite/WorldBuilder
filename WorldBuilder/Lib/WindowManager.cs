@@ -22,10 +22,6 @@ namespace WorldBuilder.Lib {
             ProcessInput();
             RaylibPlatform.GRContext.ResetContext(SkiaSharp.GRBackendState.All);
             foreach (var window in Windows) {
-                // something about this render seems to "corrupt" the opengl state,
-                // and then later when we render text with raylib, it doesnt render properly...
-                // this is not a per frame thing but will happen every frame after avalonia has
-                // used skia to render.
                 window.RenderToTexture();
             }
         }

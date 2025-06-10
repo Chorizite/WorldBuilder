@@ -1,4 +1,4 @@
-#version 330
+#version 300 es
 
 in vec3 vertexPosition;
 in vec3 vertexNormal;
@@ -15,7 +15,7 @@ uniform int useNormalFix; // Added to toggle fix
 void main()
 {
     fragPosition = vec3(model * vec4(vertexPosition, 1.0));
-        fragNormal = normalize(vec3(vertexNormal.x, vertexNormal.y, 0.1)); // Add Z-component
+    fragNormal = normalize(vec3(vertexNormal.x, vertexNormal.y, vertexNormal.z));
     fragTexCoord = vertexTexCoord;
     gl_Position = mvp * vec4(vertexPosition, 1.0);
 }

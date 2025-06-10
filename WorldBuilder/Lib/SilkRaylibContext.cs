@@ -1,4 +1,5 @@
 ﻿using Silk.NET.Core.Contexts;
+using System;
 
 namespace WorldBuilder.Lib {
     public class SilkRaylibContext : IGLContext {
@@ -32,7 +33,10 @@ namespace WorldBuilder.Lib {
             else if (OperatingSystem.IsMacOS()) {
                 return GetNSOpenGLCurrentContext();
             }
-            return nint.Zero;
+            else if (OperatingSystem.IsBrowser()) {
+                return 1;
+            }
+            return 0;
         }
 
         private static nint GetOpenGLProcAddress(string proc) {
@@ -42,7 +46,7 @@ namespace WorldBuilder.Lib {
             else if (OperatingSystem.IsLinux()) {
                 return glXGetProcAddress(proc);
             }
-            return nint.Zero;
+            return 0;
         }
 
         // Platform-specific P/Invoke declarations
@@ -63,16 +67,16 @@ namespace WorldBuilder.Lib {
         }
 
         public void SwapInterval(int interval) {
-            
+
         }
 
         public void Clear() {
-            
+
         }
 
         public bool TryGetProcAddress(string proc, out nint addr, int? slot = null) {
             addr = GetProcAddress(proc, slot);
-            return addr != nint.Zero;
+            return addr != 0;
         }
     }
 }

@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+	<PropertyGroup>
+		<TargetFramework>net9.0-browser</TargetFramework>
+		<OutputType>Exe</OutputType>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<WasmAllowUndefinedSymbols>true</WasmAllowUndefinedSymbols>
+		<RuntimeIdentifier>browser-wasm</RuntimeIdentifier>
+		<InvariantGlobalization>true</InvariantGlobalization>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+		<EnableAggressiveTrimming>true</EnableAggressiveTrimming>
+		<PublishTrimmed>true</PublishTrimmed>
+		<TrimMode>full</TrimMode>
+		<WasmBuildNative>true</WasmBuildNative>
+		<WasmNativeStrip>true</WasmNativeStrip>
+	</PropertyGroup>
+
+
+	<PropertyGroup>
+		<EmccFlags>-s USE_GLFW=3  -s MAX_WEBGL_VERSION=2 -s MIN_WEBGL_VERSION=2 -O3 -lexports.js --embed-file ../WorldBuilder/Resources/Textures/liquid-gold.jpg@/Resources/Textures/liquid-gold.jpg --embed-file ../WorldBuilder/Resources/Textures/liquid-silver.jpg@/Resources/Textures/liquid-silver.jpg --embed-file ../WorldBuilder/Resources/Textures/tayne.gif@/Resources/Textures/tayne.gif --embed-file ../WorldBuilder/Resources/Shaders/lighting.fs@/Resources/Shaders/lighting.fs --embed-file ../WorldBuilder/Resources/Shaders/lighting.vs@/Resources/Shaders/lighting.vs --embed-file ../WorldBuilder/Resources/Models/asheronstext.obj@/Resources/Models/asheronstext.obj --embed-file ../WorldBuilder/Resources/Models/calltext.obj@/Resources/Models/calltext.obj --embed-file ../WorldBuilder/Resources/Models/logo.obj@/Resources/Models/logo.obj </EmccFlags>
+		
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Avalonia.Browser" Version="$(AvaloniaVersion)" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<NativeFileReference Include="raylib.a" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\WorldBuilder\WorldBuilder.csproj" />
+	</ItemGroup>
+
+</Project>

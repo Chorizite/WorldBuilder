@@ -1,4 +1,6 @@
 ﻿using Avalonia.Threading;
+using System;
+using System.Threading;
 using WorldBuilder;
 
 internal sealed class RaylibDispatcherImpl : IDispatcherImpl {
@@ -31,11 +33,11 @@ internal sealed class RaylibDispatcherImpl : IDispatcherImpl {
     }
 
     private void OnTimerTick(object? state) {
-        Program.Invoke(() => _invokeTimer(state));
+        WorldBuilderApp.Invoke(() => _invokeTimer(state));
     }
 
     public void Signal() {
-        Program.Invoke(() => _invokeSignaled(this));
+        WorldBuilderApp.Invoke(() => _invokeSignaled(this));
     }
 
     private void InvokeSignaled(object? state) => Signaled?.Invoke();
