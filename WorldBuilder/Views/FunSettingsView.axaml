@@ -1,0 +1,53 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d" d:DesignWidth="350" d:DesignHeight="300"
+    xmlns:vm="clr-namespace:WorldBuilder.ViewModels"
+    x:Class="WorldBuilder.Views.FunSettingsView"
+	x:DataType="vm:FunViewModel">
+	<Design.DataContext>
+		<vm:FunViewModel />
+	</Design.DataContext>
+	<StackPanel>
+		<CheckBox IsChecked="{Binding UseTexAlbedo}" HorizontalAlignment="Left" VerticalAlignment="Center" Content="Use Albeto"  />
+		<CheckBox IsChecked="{Binding UseTexMRA}" HorizontalAlignment="Left" VerticalAlignment="Center" Content="Use Metallic Roughness" />
+		<CheckBox IsChecked="{Binding UseTexNormal}" HorizontalAlignment="Left" VerticalAlignment="Center" Content="Use Normal" />
+
+		<StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+			<TextBlock Text="Light Intensity" VerticalAlignment="Center" Margin="0,0,20,0" Width="120" />
+			<Slider Value="{Binding LightIntensity}" VerticalAlignment="Center" Width="200" Maximum="3" Minimum="0" />
+		</StackPanel>
+		<StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+			<TextBlock Text="Ambient Intensity" VerticalAlignment="Center" Margin="0,0,20,0" Width="120" />
+			<Slider Value="{Binding AmbientIntensity}" VerticalAlignment="Center" Width="200" Maximum="0.8" Minimum="0" />
+		</StackPanel>
+
+		<StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+			<TextBlock Text="Gold Metallness" VerticalAlignment="Center" Margin="0,0,20,0" Width="120" />
+			<Slider Value="{Binding GoldMetallness}" VerticalAlignment="Center" Width="200" Maximum="1" Minimum="0" />
+		</StackPanel>
+		<StackPanel Orientation="Horizontal">
+			<TextBlock Text="Gold Roughness" VerticalAlignment="Center" Margin="0,0,20,0" Width="120" />
+			<Slider Value="{Binding GoldRoughness}"  VerticalAlignment="Center" Width="200" Maximum="1" Minimum="0" />
+		</StackPanel>
+		<StackPanel Orientation="Horizontal">
+			<TextBlock Text="Gold Occlusion" VerticalAlignment="Center" Margin="0,0,20,0" Width="120" />
+			<Slider Value="{Binding GoldOcclusion}"  VerticalAlignment="Center" Width="200" Maximum="1" Minimum="0" />
+		</StackPanel>
+
+		<StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+			<TextBlock Text="Silver Metallness" VerticalAlignment="Center" Margin="0,0,20,0" Width="120" />
+			<Slider Value="{Binding SilverMetallness}"  VerticalAlignment="Center" Width="200" Maximum="1" Minimum="0" />
+		</StackPanel>
+		<StackPanel Orientation="Horizontal">
+			<TextBlock Text="Silver Roughness" VerticalAlignment="Center" Margin="0,0,20,0" Width="120" />
+			<Slider Value="{Binding SilverRoughness}"  VerticalAlignment="Center" Width="200" Maximum="1" Minimum="0" />
+		</StackPanel>
+		<StackPanel Orientation="Horizontal">
+			<TextBlock Text="Silver Occlusion" VerticalAlignment="Center" Margin="0,0,20,0"  Width="120" />
+			<Slider Value="{Binding SilverOcclusion}"  VerticalAlignment="Center" Width="200" Maximum="1" Minimum="0" />
+		</StackPanel>
+	</StackPanel>
+</UserControl>

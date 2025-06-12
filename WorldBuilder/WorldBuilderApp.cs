@@ -36,7 +36,7 @@ namespace WorldBuilder {
         public WindowManager WindowManager { get; private set; }
 
         public WorldBuilderApp(int width, int height) {
-            //WindowManager = new WindowManager();
+            WindowManager = new WindowManager();
             Width = width;
             Height = height;
 
@@ -55,7 +55,9 @@ namespace WorldBuilder {
                 .UseChorizite()
                 .SetupWithoutStarting();
 
-            //WindowManager.AddWindow(CreateFrameCounterControl());
+            var vm = new FunViewModel();
+
+            WindowManager.AddWindow(CreateFrameCounterControl(vm));
 
             camera = new Camera3D {
                 Position = new Vector3(0.0f, 0.0f, 7.0f),
@@ -65,7 +67,7 @@ namespace WorldBuilder {
                 Projection = CameraProjection.Perspective
             };
 
-            _multi = new ModelGroupRenderer();
+            _multi = new ModelGroupRenderer(vm);
             _tayne = new Tayne("Resources/Textures/tayne.gif", new Vector3(0, -2f, 0));
         }
 
@@ -100,8 +102,7 @@ namespace WorldBuilder {
             var delta = Raylib.GetFrameTime();
             _multi?.Update(delta, camera);
             _tayne?.Update(delta);
-            //WindowManager.Windows.First().Size = new Size(Width, Height);
-            //WindowManager?.Update();
+            WindowManager?.Update();
 
         }
 
@@ -177,13 +178,13 @@ namespace WorldBuilder {
             _GL.UseProgram(0);
         }
 
-        private RaylibAvaloniaControl CreateFrameCounterControl() {
+        private RaylibAvaloniaControl CreateFrameCounterControl(ViewModelBase vm) {
             return new RaylibAvaloniaControl {
-                Control = new StartupScreen() {
-                    DataContext = new MainViewModel()
+                Control = new FunSettingsView() {
+                    DataContext = vm
                 },
-                Position = new Vector2(0, 0),
-                Size = new Size(Width, Height)
+                Position = new Vector2(10, 50),
+                Size = new Size(350, 500)
             };
         }
 

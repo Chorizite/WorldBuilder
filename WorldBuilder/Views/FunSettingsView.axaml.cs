@@ -4,9 +4,9 @@ using Avalonia.Markup.Xaml;
 
 namespace WorldBuilder.Views;
 
-public partial class StartupScreen : UserControl
+public partial class FunSettingsView : UserControl
 {
-    public StartupScreen()
+    public FunSettingsView()
     {
         InitializeComponent();
     }
