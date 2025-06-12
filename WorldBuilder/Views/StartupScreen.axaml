@@ -1,0 +1,28 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="300"
+    xmlns:vm="clr-namespace:WorldBuilder.ViewModels"
+    x:Class="WorldBuilder.Views.StartupScreen"
+	x:DataType="vm:MainViewModel">
+	<Design.DataContext>
+		<vm:MainViewModel />
+	</Design.DataContext>
+	<Grid ColumnDefinitions="*,*">
+		<StackPanel Grid.Column="0">
+			<TextBlock Text="Recent Projects" FontSize="24" />
+			<Separator />
+			<StackPanel Orientation="Vertical">
+				<TextBlock Text="Project 1" />
+				<TextBlock Text="Project 2" />
+				<TextBlock Text="Project 3" />
+			</StackPanel>
+		</StackPanel>
+		<StackPanel Grid.Column="1">
+			<TextBlock Text="New Project" FontSize="24" />
+			<Button Name="MyButton" Content="Test" />
+		</StackPanel>
+	</Grid>
+</UserControl>

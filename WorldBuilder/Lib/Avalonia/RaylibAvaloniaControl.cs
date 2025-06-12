@@ -32,11 +32,30 @@ namespace WorldBuilder.Lib.Avalonia {
         private bool _mouseIsOver = false;
         private RenderTexture2D? _renderTarget;
         private bool _autoConvertUIActions = false;
-
+        private Size size = new Size(300, 300);
 
         public Vector2 Position { get; set; }
-        public Size Size { get; set; } = new Size(300, 300);
-
+        public Size Size {
+            get => size;
+            set {
+                if (size != value) {
+                    size = value;
+                    if (_topLevel is not null) {
+                        _topLevel.Width = value.Width;
+                        _topLevel.Height = value.Height;
+                        _topLevel.UpdateLayout();
+                    }
+                    else {
+                        Console.WriteLine("TopLevel is null");
+                    }
+                    _control.Width = value.Width;
+                    _control.Height = value.Height;
+                    _control.UpdateLayout();
+                    UpdateRenderTarget();
+                    RenderAvalonia();
+                }
+            }
+        }
         public AvControl? Control {
             get => _control;
             set {
@@ -522,6 +541,9 @@ namespace WorldBuilder.Lib.Avalonia {
                 0.0f,
                 Color.White // Ensure no tinting that could affect transparency
             );
+
+            // draw rect for debuggin
+            Raylib.DrawRectangleLines((int)Position.X + 1, (int)Position.Y + 1, (int)Size.Width - 2, (int)Size.Height - 2, Color.Red);
         }
 
         private void UpdateRenderTarget() {

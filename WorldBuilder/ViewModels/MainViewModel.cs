@@ -1,6 +1,18 @@
-﻿namespace WorldBuilder.ViewModels;
+﻿using Avalonia;
+using ReactiveUI;
+
+namespace WorldBuilder.ViewModels;
 
 public class MainViewModel : ViewModelBase
 {
-    public string Greeting => "Welcome to Avalonia!";
+    private string greeting = "Welcome to Avalonia!";
+
+    public string Greeting {
+        get => greeting;
+        set {
+            this.RaiseAndSetIfChanged(ref greeting, value);
+        }
+    }
+
+    public string Test { get; set; }
 }

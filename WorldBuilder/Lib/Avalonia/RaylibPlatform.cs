@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading;
+using System.Timers;
 using Avalonia;
 using Avalonia.Controls.Platform;
 using Avalonia.Dialogs;
@@ -17,8 +18,9 @@ namespace WorldBuilder.Lib.Avalonia;
 internal static class RaylibPlatform {
 
 	private static AvCompositor? _compositor;
+    private static ManualRenderTimer _renderTimer;
 
-	public static AvCompositor Compositor
+    public static AvCompositor Compositor
 		=> _compositor ?? throw new InvalidOperationException($"{nameof(RaylibPlatform)} hasn't been initialized");
     public static GRContext GRContext { get; } = GRContext.CreateGl(new GRContextOptions() {
         AvoidStencilBuffers = true
@@ -28,7 +30,7 @@ internal static class RaylibPlatform {
 		AvaloniaSynchronizationContext.AutoInstall = true;
 
 		var platformGraphics = new RaylibPlatformGraphics();
-		var renderTimer = new ManualRenderTimer();
+        _renderTimer = new ManualRenderTimer();
 
 		AvaloniaLocator.CurrentMutable
 			.Bind<IClipboard>().ToConstant(new RaylibClipboard())
@@ -39,7 +41,7 @@ internal static class RaylibPlatform {
             .Bind<IPlatformGraphics>().ToConstant(platformGraphics)
 			.Bind<IPlatformIconLoader>().ToConstant(new StubPlatformIconLoader())
 			.Bind<IPlatformSettings>().ToConstant(new RaylibPlatformSettings())
-			.Bind<IRenderTimer>().ToConstant(renderTimer)
+			.Bind<IRenderTimer>().ToConstant(_renderTimer)
 			.Bind<IWindowingPlatform>().ToConstant(new RaylibWindowingPlatform())
 			.Bind<IStorageProviderFactory>().ToConstant(new RaylibStorageProviderFactory())
 			.Bind<PlatformHotkeyConfiguration>().ToConstant(CreatePlatformHotKeyConfiguration())
@@ -52,4 +54,10 @@ internal static class RaylibPlatform {
 		=> OperatingSystem.IsMacOS()
 			? new PlatformHotkeyConfiguration(commandModifiers: KeyModifiers.Meta, wholeWordTextActionModifiers: KeyModifiers.Alt)
 			: new PlatformHotkeyConfiguration(commandModifiers: KeyModifiers.Control);
+    public static void TriggerRenderTick() {
+        if (_renderTimer is null)
+            return;
+
+        _renderTimer.TriggerTick(TimeSpan.FromSeconds(Raylib.GetTime()));
+    }
 }

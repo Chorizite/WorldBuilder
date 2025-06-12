@@ -28,19 +28,31 @@ namespace WorldBuilder.Fun {
         private Material silverMaterial;
         private Shader pbrShader;
         private float rotationAngle;
-        private float lightArcTime; // Time for light arc animation
+        private float lightArcTime;
+        internal float lightDepth = 5.4f;
+        internal Vector3 lightPosition;
+
+        // Spin control variables
+        private float spinSpeed = 45.0f; // Default spin speed (degrees per second)
+        private bool isDragging = false;
+        private Vector2 lastMousePosition;
+        private float baseSpin = 45.0f; // Base spin speed to return to
+        private const float minSpinSpeed = -1540.0f; // Allow reverse spinning
+        private const float maxSpinSpeed = 1540.0f;
+        private const float dragSensitivity = 1.0f; // How sensitive the drag is
 
         public ModelGroupRenderer() {
             // Load models
             logoModel = Raylib.LoadModel("Resources/Models/logo.obj");
             asheronsTextModel = Raylib.LoadModel("Resources/Models/asheronstext.obj");
             callTextModel = Raylib.LoadModel("Resources/Models/calltext.obj");
+            ReverseModelNormals(ref logoModel, "Logo");
 
             goldAlbedoTexture = Raylib.LoadTexture("Resources/Textures/MetalCorrodedHeavy001_COL_1K_METALNESS.jpg");
             goldMetalnessTexture = Raylib.LoadTexture("Resources/Textures/MetalCorrodedHeavy001_METALNESS_1K_METALNESS.jpg");
             goldNormalTexture = Raylib.LoadTexture("Resources/Textures/MetalCorrodedHeavy001_NRM_1K_METALNESS.jpg");
             goldRoughnessTexture = Raylib.LoadTexture("Resources/Textures/MetalCorrodedHeavy001_ROUGHNESS_1K_METALNESS.jpg");
-            goldDisplacementTexture = Raylib.LoadTexture("Resources/Textures/MetalCorrodedHeavy001_DISP_1K_METALNESS.jpg"); 
+            goldDisplacementTexture = Raylib.LoadTexture("Resources/Textures/MetalCorrodedHeavy001_DISP_1K_METALNESS.jpg");
 
             silverAlbedoTexture = Raylib.LoadTexture("Resources/Textures/MetalCorrodedHeavy001_COL_1K_METALNESS.jpg");
             silverMetalnessTexture = Raylib.LoadTexture("Resources/Textures/MetalCorrodedHeavy001_METALNESS_1K_METALNESS.jpg");
@@ -61,6 +73,35 @@ namespace WorldBuilder.Fun {
 
             rotationAngle = 0.0f;
             lightArcTime = 0.0f;
+        }
+
+        private void ReverseModelNormals(ref Model model, string modelName) {
+            unsafe {
+                for (int i = 0; i < model.MeshCount; i++) {
+                    Mesh mesh = model.Meshes[i];
+
+                    // Ensure the mesh has normals
+                    if (mesh.Normals == null) {
+                        Console.WriteLine($"[WARNING] {modelName}: Mesh {i} has no normals to reverse.");
+                        continue;
+                    }
+
+                    // Access the normals array
+                    float* normals = mesh.Normals;
+                    int vertexCount = mesh.VertexCount;
+
+                    // Invert each normal (x, y, z)
+                    for (int j = 0; j < vertexCount * 3; j += 3) {
+                        normals[j] = -normals[j];     // Invert X
+                        normals[j + 1] = -normals[j + 1]; // Invert Y
+                        normals[j + 2] = -normals[j + 2]; // Invert Z
+                    }
+
+                    // Update the mesh on the GPU
+                    Raylib.UpdateMeshBuffer(mesh, 2, normals, vertexCount * 3 * sizeof(float), 0);
+                    Console.WriteLine($"[DEBUG] {modelName}: Reversed normals for mesh {i}.");
+                }
+            }
         }
 
         private void CreatePBRMaterials() {
@@ -123,34 +164,74 @@ namespace WorldBuilder.Fun {
             }
         }
 
-        public void Update(float deltaTime, Vector3 cameraPosition) {
-            rotationAngle += 45.0f * deltaTime;
+        private void HandleSpinControl() {
+            Vector2 currentMousePosition = new Vector2(Raylib.GetMouseX(), Raylib.GetMouseY());
+
+            if (Raylib.IsMouseButtonPressed(MouseButton.Left)) {
+                isDragging = true;
+                lastMousePosition = currentMousePosition;
+            }
+            else if (Raylib.IsMouseButtonReleased(MouseButton.Left)) {
+                isDragging = false;
+            }
+
+            if (isDragging && Raylib.IsMouseButtonDown(MouseButton.Left)) {
+                Vector2 mouseDelta = new Vector2(
+                    currentMousePosition.X - lastMousePosition.X,
+                    currentMousePosition.Y - lastMousePosition.Y
+                );
+
+                float deltaX = mouseDelta.X;
+                spinSpeed += deltaX * dragSensitivity;
+                spinSpeed = Math.Clamp(spinSpeed, -maxSpinSpeed, maxSpinSpeed);
+                lastMousePosition = currentMousePosition;
+            }
+            else if (Math.Abs(spinSpeed) > baseSpin) {
+                float frictionRate = 2.0f; // How many "half-lives" per second
+                float frictionFactor = (float)Math.Pow(0.5, frictionRate * Raylib.GetFrameTime());
+                spinSpeed *= frictionFactor;
+            }
+        }
+
+        public void Update(float deltaTime, Camera3D camera) {
+            var cameraPosition = camera.Position;
+
+            // Handle spin control input
+            HandleSpinControl();
+
+            // Update rotation based on current spin speed
+            rotationAngle += spinSpeed * deltaTime;
             if (rotationAngle >= 360.0f) rotationAngle -= 360.0f;
+            else if (rotationAngle < 0.0f) rotationAngle += 360.0f;
 
-            // Update light arc animation
-            lightArcTime += deltaTime * 1.1f; // Adjust speed as needed
-            if (lightArcTime >= 2.0f * MathF.PI) lightArcTime -= 2.0f * MathF.PI;
+            lightDepth += Raylib.GetMouseWheelMove() * 0.3f;
 
-            // Calculate light position in an arc
-            float arcRadius = 12.0f;
-            float baseHeight = 1.0f; 
-            float arcHeight = 3f;
+            // Get mouse ray for light position
+            Vector2 mousePosition = new Vector2(Raylib.GetMouseX(), Raylib.GetMouseY());
+            Ray mouseRay = Raylib.GetMouseRay(mousePosition, camera);
+            lightPosition = cameraPosition + mouseRay.Direction * lightDepth;
 
-            var lightPosition = new Vector3(
-                arcRadius * MathF.Sin(lightArcTime),
-                baseHeight + arcHeight * MathF.Sin(lightArcTime * 0.5f),
-                3.6f
-            );
-
-            // Update shader uniforms
+            // Update shader uniforms with correct uniform names
             int viewPosLoc = Raylib.GetShaderLocation(pbrShader, "viewPos");
             Raylib.SetShaderValue(pbrShader, viewPosLoc, new float[] { cameraPosition.X, cameraPosition.Y, cameraPosition.Z }, ShaderUniformDataType.Vec3);
 
             int lightPosLoc = Raylib.GetShaderLocation(pbrShader, "lightPos");
             Raylib.SetShaderValue(pbrShader, lightPosLoc, new float[] { lightPosition.X, lightPosition.Y, lightPosition.Z }, ShaderUniformDataType.Vec3);
 
-            int scaleLocation = Raylib.GetShaderLocation(pbrShader, "textureScale");
+            // FIXED: Create rotation matrix WITHOUT scale for lighting calculations
+            Matrix4x4 rotationMatrix = Matrix4x4.CreateRotationY(rotationAngle * Raylib.DEG2RAD);
 
+            // Use only rotation for the model matrix in shader (for lighting)
+            int modelMatrixLoc = Raylib.GetShaderLocation(pbrShader, "matModel");
+            Raylib.SetShaderValueMatrix(pbrShader, modelMatrixLoc, rotationMatrix);
+
+            // Calculate normal matrix from rotation only (no scale interference)
+            Matrix4x4 normalMatrix = Matrix4x4.Transpose(rotationMatrix);
+            Matrix4x4.Invert(normalMatrix, out var inverted);
+            int normalMatrixLoc = Raylib.GetShaderLocation(pbrShader, "matNormal");
+            Raylib.SetShaderValueMatrix(pbrShader, normalMatrixLoc, inverted);
+
+            int scaleLocation = Raylib.GetShaderLocation(pbrShader, "textureScale");
             float defaultScale = 0.4f;
             Raylib.SetShaderValue(pbrShader, scaleLocation, new float[] { defaultScale, defaultScale }, ShaderUniformDataType.Vec2);
 
@@ -197,22 +278,25 @@ namespace WorldBuilder.Fun {
                 (distance * MathF.Tan(fovY / 2.0f)) / (size.Y / 2.0f)
             ) * 0.9f;
 
-            Vector3 rotationAxis = new Vector3(0.0f, 1.0f, 0.0f);
-            Matrix4x4 rotationMatrix = Matrix4x4.CreateRotationY(rotationAngle * Raylib.DEG2RAD);
-
+            // Set gold texture scale before rendering logo
             int scaleLocation = Raylib.GetShaderLocation(pbrShader, "textureScale");
             float goldScale = .6f;
             Raylib.SetShaderValue(pbrShader, scaleLocation, new float[] { goldScale, goldScale }, ShaderUniformDataType.Vec2);
 
-            logoModel.Transform = rotationMatrix;
-            Raylib.DrawModel(logoModel, new Vector3(0.0f, -15.0f, -100.0f), scale * 20, Color.Gold);
+            // FIXED: Scale is applied only during rendering, not in shader uniforms
+            // The shader uses rotation-only matrices for proper lighting
+            Raylib.DrawModelEx(logoModel, new Vector3(0.0f, 0f, -3f),
+                              new Vector3(0.0f, 1.0f, 0.0f), rotationAngle,
+                              new Vector3(scale, scale, scale) * 2.0f, Color.Gold);
 
             // Set silver texture scale before rendering text models
             float silverScale = 0.5f;
             Raylib.SetShaderValue(pbrShader, scaleLocation, new float[] { silverScale, silverScale }, ShaderUniformDataType.Vec2);
 
-            Raylib.DrawModel(asheronsTextModel, new Vector3(0.0f, .38f, 1.1f), scale, Color.White);
-            Raylib.DrawModel(callTextModel, new Vector3(0.15f, 0.38f, 1.0f), scale, Color.White);
+            // Text models don't rotate, so use regular DrawModel
+            Raylib.DrawModel(asheronsTextModel, new Vector3(0.0f, 0, 1.01f), scale, Color.White);
+            Raylib.DrawModel(callTextModel, new Vector3(0.15f, 0, 1.0f), scale, Color.White);
+
         }
 
         public void Dispose() {

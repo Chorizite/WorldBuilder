@@ -1,7 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-
+using System;
 using WorldBuilder.ViewModels;
 using WorldBuilder.Views;
 
@@ -22,6 +22,7 @@ public partial class App : Application
             {
                 DataContext = new MainViewModel()
             };
+            Console.WriteLine("ClassicDesktopStyleApplicationLifetime");
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
@@ -29,6 +30,7 @@ public partial class App : Application
             {
                 DataContext = new MainViewModel()
             };
+            Console.WriteLine("SingleViewPlatform");
         }
 
         base.OnFrameworkInitializationCompleted();

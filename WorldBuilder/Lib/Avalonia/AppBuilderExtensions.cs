@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.ReactiveUI;
 
 namespace WorldBuilder.Lib.Avalonia;
 
@@ -8,6 +9,7 @@ public static class AppBuilderExtensions {
 		=> builder
 			.UseStandardRuntimePlatformSubsystem()
 			.UseSkia()
+            .UseReactiveUI()
             .UseWindowingSubsystem(() => {
                 RaylibPlatform.Initialize();
             });

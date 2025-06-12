@@ -1,6 +1,10 @@
 ﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
+using Avalonia.Data;
+using Avalonia.Media;
 using Raylib_cs;
+using ReactiveUI;
 using Silk.NET.OpenGL;
 using System;
 using System.Collections.Concurrent;
@@ -8,11 +12,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using WorldBuilder.Fun;
 using WorldBuilder.Lib;
 using WorldBuilder.Lib.Avalonia;
+using WorldBuilder.ViewModels;
 using WorldBuilder.Views;
 
 namespace WorldBuilder {
@@ -45,9 +51,9 @@ namespace WorldBuilder {
             }
             _GL = GL.GetApi(new SilkRaylibContext());
 
-            //var app = AppBuilder.Configure<App>()
-            //    .UseChorizite()
-            //    .SetupWithoutStarting();
+            var app = AppBuilder.Configure<App>()
+                .UseChorizite()
+                .SetupWithoutStarting();
 
             //WindowManager.AddWindow(CreateFrameCounterControl());
 
@@ -69,26 +75,52 @@ namespace WorldBuilder {
             Raylib.SetWindowSize(width, height);
         }
 
+        bool _didBind = false;
         public void Update() {
+            ProcessInvokeQueue();
+
             if (!OperatingSystem.IsBrowser() && Raylib.IsWindowResized()) {
                 Width = Raylib.GetScreenWidth();
                 Height = Raylib.GetScreenHeight();
             }
-
+            /*
+            var mvm = (WindowManager.Windows.First().Control.DataContext as MainViewModel);
             camera.Position = new Vector3(0.0f, 1.3f, 7.0f);
-
+            if (!_didBind) {
+                var btn = (WindowManager.Windows.First().Control as StartupScreen).Get<Button>("MyButton");
+                var binding = new Binding {
+                    Source = mvm,
+                    Path = nameof(MainViewModel.Greeting)
+                };
+                btn.Bind(Button.ContentProperty, binding);
+                _didBind = true;
+            }
+            mvm.Greeting = $"Hello World! 123 456";
+            */
             var delta = Raylib.GetFrameTime();
-            _multi?.Update(delta, camera.Position);
+            _multi?.Update(delta, camera);
             _tayne?.Update(delta);
+            //WindowManager.Windows.First().Size = new Size(Width, Height);
+            //WindowManager?.Update();
 
-            WindowManager?.Update();
+        }
+
+        private void ProcessInvokeQueue() {
+            while (_actions.TryDequeue(out var action)) {
+                try {
+                    action();
+                }
+                catch (Exception ex) {
+                    Console.WriteLine(ex);
+                }
+            }
         }
 
         public void Render() {
             ResetOpenGLState();
 
             Raylib.BeginDrawing();
-            Raylib.ClearBackground(Color.Black);
+            Raylib.ClearBackground(Raylib_cs.Color.Black);
 
             Raylib.BeginMode3D(camera);
             Rlgl.DisableBackfaceCulling();
@@ -96,9 +128,14 @@ namespace WorldBuilder {
             _tayne?.Render(camera);
             Raylib.EndMode3D();
 
+            if (_multi?.lightPosition != null) {
+                Raylib.DrawText($"Scroll For Lighting Depth: {_multi.lightDepth:N1}", 10, 10, 16, Raylib_cs.Color.DarkGray);
+                Raylib.DrawText($"Drag to rotate", 10, 26, 16, Raylib_cs.Color.DarkGray);
+            }
+
             WindowManager?.Render();
 
-            Raylib.DrawFPS(10, 10);
+            //Raylib.DrawFPS(10, 10);
 
             Raylib.EndDrawing();
         }
@@ -140,8 +177,14 @@ namespace WorldBuilder {
             _GL.UseProgram(0);
         }
 
-        private static RaylibAvaloniaControl CreateFrameCounterControl() {
-            return new RaylibAvaloniaControl { Control = new HelloWorldView(), Position = new Vector2(10, 50), Size = new Size(300, 200) };
+        private RaylibAvaloniaControl CreateFrameCounterControl() {
+            return new RaylibAvaloniaControl {
+                Control = new StartupScreen() {
+                    DataContext = new MainViewModel()
+                },
+                Position = new Vector2(0, 0),
+                Size = new Size(Width, Height)
+            };
         }
 
         public void Dispose() {
