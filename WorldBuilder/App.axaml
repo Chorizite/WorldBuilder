@@ -1,10 +1,29 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+			 xmlns:local="using:WorldBuilder"
              x:Class="WorldBuilder.App"
+			 Name="WorldBuilder"
              RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+	<Application.DataTemplates>
+		<local:ViewLocator />
+	</Application.DataTemplates>
 
-    <Application.Styles>
-        <SimpleTheme />
-    </Application.Styles>
+	<Application.Resources>
+		<ControlRecycling x:Key="ControlRecyclingKey" />
+	</Application.Resources>
+
+	<Application.Styles>
+
+		<FluentTheme />
+
+		<StyleInclude Source="avares://Dock.Avalonia/Themes/DockFluentTheme.axaml" />
+		<DockFluentTheme />
+		<StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
+
+		<Style Selector="DockControl">
+			<Setter Property="(ControlRecyclingDataTemplate.ControlRecycling)" Value="{StaticResource ControlRecyclingKey}" />
+		</Style>
+
+	</Application.Styles>
+
 </Application>

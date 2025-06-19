@@ -1,13 +1,17 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.13.35931.197 d17.13
+VisualStudioVersion = 17.13.35931.197
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldBuilder", "WorldBuilder\WorldBuilder.csproj", "{68139CCA-A7F3-EF30-ED0F-7130E224FFB1}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldBuilder.Browser", "WorldBuilder.Browser\WorldBuilder.Browser.csproj", "{E76A4075-7FFD-4FE7-93BB-75E20D6E043B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldBuilder.Desktop", "WorldBuilder.Desktop\WorldBuilder.Desktop.csproj", "{5B78EE0E-6AE2-BCA2-867D-C3A49FF2FCD7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldBuilder.Server", "WorldBuilder.Server\WorldBuilder.Server.csproj", "{22B803D1-6EBE-4CF3-9511-56894E1F178F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldBuilder.Shared", "WorldBuilder.Shared\WorldBuilder.Shared.csproj", "{A6A9D063-7B7D-49CA-8633-F0CB48FC9109}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,11 +31,19 @@ Global
 		{5B78EE0E-6AE2-BCA2-867D-C3A49FF2FCD7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5B78EE0E-6AE2-BCA2-867D-C3A49FF2FCD7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5B78EE0E-6AE2-BCA2-867D-C3A49FF2FCD7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{22B803D1-6EBE-4CF3-9511-56894E1F178F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{22B803D1-6EBE-4CF3-9511-56894E1F178F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{22B803D1-6EBE-4CF3-9511-56894E1F178F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{22B803D1-6EBE-4CF3-9511-56894E1F178F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A6A9D063-7B7D-49CA-8633-F0CB48FC9109}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A6A9D063-7B7D-49CA-8633-F0CB48FC9109}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A6A9D063-7B7D-49CA-8633-F0CB48FC9109}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A6A9D063-7B7D-49CA-8633-F0CB48FC9109}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {42EF5BCF-6A9E-4C17-8ABB-197A99975B59}
+		SolutionGuid = {3A6783D3-BB21-472F-8AE4-4D2FD81CD0BC}
 	EndGlobalSection
 EndGlobal

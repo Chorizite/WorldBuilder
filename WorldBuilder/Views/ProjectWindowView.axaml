@@ -1,0 +1,18 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+		xmlns:vm="using:WorldBuilder.ViewModels"
+        UseLayoutRounding="True" RenderOptions.BitmapInterpolationMode="HighQuality"
+        WindowState="Normal" WindowStartupLocation="CenterScreen"
+        mc:Ignorable="d" 
+        x:Class="WorldBuilder.Views.ProjectWindow"
+		x:DataType="vm:ProjectWindowViewModel"
+		Width="800" Height="400"
+        Title="ProjectWindow">
+	<StackPanel Margin="20" Spacing="20">
+		<TextBlock FontSize="24" Text="{Binding Project.Name, StringFormat='Project Name: {0}'}" />
+		<TextBlock FontSize="16" Text="{Binding Project.Guid, StringFormat='GUID: {0}'}" />
+		<TextBlock FontSize="16" Text="{Binding Project.FilePath, StringFormat='Project Path: {0}'}" />
+	</StackPanel>
+</Window>
