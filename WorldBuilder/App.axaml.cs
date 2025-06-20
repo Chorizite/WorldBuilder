@@ -16,6 +16,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using WorldBuilder.Messages;
 using WorldBuilder.Factories;
 using System;
+using WorldBuilder.ViewModels.Dialogs;
 
 namespace WorldBuilder;
 
@@ -53,44 +54,58 @@ public partial class App : Application {
     }
 
     public override void OnFrameworkInitializationCompleted() {
-        var appSettings = _services.GetRequiredService<WorldBuilderSettings>();
-        switch (ApplicationLifetime) {
-            case IClassicDesktopStyleApplicationLifetime desktopLifetime: {
-                    var gettingStartedWindow = new GettingStartedWindow() {
-                        DataContext = _services.GetRequiredService<GettingStartedWindowViewModel>()
-                    };
+        try {
+            var appSettings = _services.GetRequiredService<WorldBuilderSettings>();
+            switch (ApplicationLifetime) {
+                case IClassicDesktopStyleApplicationLifetime desktopLifetime: {
+                        var gettingStartedWindow = new GettingStartedWindow() {
+                            DataContext = _services.GetRequiredService<GettingStartedWindowViewModel>()
+                        };
 
-                    desktopLifetime.MainWindow = gettingStartedWindow;
+                        desktopLifetime.MainWindow = gettingStartedWindow;
 
-                    desktopLifetime.Exit += (s, e) => {
-                        if (desktopLifetime.MainWindow is GettingStartedWindow gettingStartedWindow) {
-                            _cancellationTokenSource.Cancel();
-                        }
-                    };
-
-                    WeakReferenceMessenger.Default.Register<OpenProjectMessage>(this, (r, m) => {
-                        if (m.Value is not null) {
-                            appSettings.AddRecentProject(m.Value);
-
-                            var projectWindow = new ProjectWindow() {
-                                DataContext = new ProjectWindowViewModel(_services.GetRequiredService<PageFactory>(), m.Value)
-                            };
-
-                            projectWindow.Show();
-                            desktopLifetime.MainWindow.Close();
-                            desktopLifetime.MainWindow = projectWindow;
-
-                            projectWindow.Closing += (s, e) => {
+                        desktopLifetime.Exit += (s, e) => {
+                            if (desktopLifetime.MainWindow is GettingStartedWindow gettingStartedWindow) {
                                 _cancellationTokenSource.Cancel();
-                            };
-                        }
-                    });
+                            }
+                        };
 
-                    break;
-                }
-            case ISingleViewApplicationLifetime singleViewLifetime: {
-                    throw new System.Exception("SingleViewApplicationLifetime is not supported");
-                }
+                        WeakReferenceMessenger.Default.Register<OpenProjectMessage>(this, (r, m) => {
+                            if (m.Value is not null) {
+                                appSettings.AddRecentProject(m.Value);
+
+                                var projectWindow = new ProjectWindow() {
+                                    DataContext = new ProjectWindowViewModel(_services.GetRequiredService<PageFactory>(), m.Value)
+                                };
+
+                                projectWindow.Show();
+                                desktopLifetime.MainWindow.Close();
+                                desktopLifetime.MainWindow = projectWindow;
+
+                                projectWindow.Closing += (s, e) => {
+                                    _cancellationTokenSource.Cancel();
+                                };
+                            }
+                        });
+
+                        WeakReferenceMessenger.Default.Register<ExportDatsMessage>(this, (r, m) => {
+                            // Create an instance of MusicStoreWindow and set MusicStoreViewModel as its DataContext.
+                            var dialog = new ExportDatWindow {
+                                DataContext = new ExportDatWindowViewModel(m.Value)
+                            };
+                            (dialog.DataContext as ExportDatWindowViewModel).ParentWindow = dialog;
+                            dialog.ShowDialog(desktopLifetime.MainWindow);
+                        });
+
+                        break;
+                    }
+                case ISingleViewApplicationLifetime singleViewLifetime: {
+                        throw new System.Exception("SingleViewApplicationLifetime is not supported");
+                    }
+            }
+        }
+        catch (Exception ex) {
+            Console.WriteLine(ex);
         }
 
         base.OnFrameworkInitializationCompleted();

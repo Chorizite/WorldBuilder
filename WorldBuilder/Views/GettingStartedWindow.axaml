@@ -9,7 +9,7 @@
         Foreground="{DynamicResource DockThemeForegroundBrush}"
         mc:Ignorable="d"
         x:Class="WorldBuilder.Views.GettingStartedWindow"
-		Width="600" Height="350"
+		Width="600" Height="400"
         Title="WorldBuilder">
 	<Panel Margin="10,20,10,10" Name="GettingStartedPage">
 		<ContentControl Content="{Binding CurrentPage}" />

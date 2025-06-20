@@ -4,32 +4,39 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 			 xmlns:vmpages="using:WorldBuilder.ViewModels.Pages"
 			 x:DataType="vmpages:NewLocalProjectPageViewModel"
-             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="300"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="350"
              x:Class="WorldBuilder.Views.Pages.NewLocalProjectPageView">
 	<Design.DataContext>
 		<vmpages:NewLocalProjectPageViewModelDesign />
 	</Design.DataContext>
-	<Grid ColumnDefinitions="auto,*" RowDefinitions="auto,auto,auto,auto,auto,*" Margin="20" RowSpacing="10" ColumnSpacing="10">
-		<TextBlock FontSize="36" Grid.ColumnSpan="2">Create a New Project</TextBlock>
+	<Grid ColumnDefinitions="auto,*" RowDefinitions="auto,auto,auto,auto,auto,auto,*" Margin="20" RowSpacing="10" ColumnSpacing="10">
+		<TextBlock FontSize="20" Grid.ColumnSpan="2">Create a New Project</TextBlock>
 		
 		<Label Grid.Row="1" Grid.Column="0" VerticalAlignment="Center">Project Name:</Label>
 		<TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Name}" Name="ProjectNameTextBox" />
 
-		<Label Grid.Row="2" Grid.Column="0" VerticalAlignment="Center">Location:</Label>
+		<Label Grid.Row="2" Grid.Column="0" VerticalAlignment="Center">Project Location:</Label>
 		<Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*,auto">
 			<TextBox Grid.Column="0" Text="{Binding Location}" Margin="0,0,10,0" />
 			<Button Grid.Column="1" Command="{Binding SelectLocationCommand}">Browse</Button>
 		</Grid>
-		
-		<CheckBox Grid.Row="3" Grid.ColumnSpan="2" IsEnabled="False">Allow remote access</CheckBox>
 
-		<StackPanel Orientation="Vertical" Grid.Row="4" Grid.ColumnSpan="2">
+		<Label Grid.Row="3" Grid.Column="0" VerticalAlignment="Center">Base Dat Directory:</Label>
+		<Grid Grid.Row="3" Grid.Column="1" ColumnDefinitions="*,auto">
+			<TextBox Grid.Column="0" Text="{Binding BaseDatDirectory}" Margin="0,0,10,0" />
+			<Button Grid.Column="1" Command="{Binding SelectBaseDatDirectoryCommand}">Browse</Button>
+		</Grid>
+		
+		<CheckBox Grid.Row="4" Grid.ColumnSpan="2" IsEnabled="False">Allow remote access</CheckBox>
+
+		<StackPanel Orientation="Vertical" Grid.Row="5" Grid.ColumnSpan="2">
 			<TextBlock IsVisible="{Binding ProjectExists}" Foreground="Red">A project with this name already exists at that location.</TextBlock>
 			<TextBlock IsVisible="{Binding !NameIsValid}" Foreground="Red">Enter a valid project name.</TextBlock>
+			<TextBlock IsVisible="{Binding !BaseDatDirectoryIsValid}" Foreground="Red">Invalid base dat directory.</TextBlock>
 			<TextBlock TextWrapping="WrapWithOverflow" IsVisible="{Binding IsValid}" Text="{Binding FullLocation, StringFormat='Project will be created at: {0}'}" />
 		</StackPanel>
 		
-		<StackPanel Grid.Row="5" Grid.ColumnSpan="2" Orientation="Horizontal" VerticalAlignment="Bottom" HorizontalAlignment="Right" Spacing="10">
+		<StackPanel Grid.Row="6" Grid.ColumnSpan="2" Orientation="Horizontal" VerticalAlignment="Bottom" HorizontalAlignment="Right" Spacing="10">
 			<Button Command="{Binding GoBackCommand}">Cancel</Button>
 			<Button Command="{Binding CreateProjectCommand}">Create</Button>
 		</StackPanel>

@@ -7,7 +7,7 @@
              xmlns:models="using:WorldBuilder.Shared.Models"
              xmlns:i="https://github.com/projektanker/icons.avalonia"
              x:CompileBindings="True" x:DataType="vmpages:GettingStartedPageViewModel"
-             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="300"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="350"
              x:Class="WorldBuilder.Views.Pages.GettingStartedPageView">
 	<Design.DataContext>
 		<vmpages:GettingStartedPageViewModelDesign />

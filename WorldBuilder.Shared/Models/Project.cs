@@ -3,6 +3,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Xml.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
+using DatReaderWriter;
+using DatReaderWriter.DBObjs;
+using DatReaderWriter.Options;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Data.Sqlite;
 
@@ -15,6 +18,9 @@ namespace WorldBuilder.Shared.Models {
         private string _name;
 
         [ObservableProperty]
+        private string _baseDatDirectory;
+
+        [ObservableProperty]
         private Guid _guid;
 
         [JsonIgnore]
@@ -22,6 +28,8 @@ namespace WorldBuilder.Shared.Models {
 
         [JsonIgnore]
         public DocumentManager DocumentManager { get; private set; }
+        [JsonIgnore]
+        public DatCollection Dats { get; private set; }
 
         public static Project? FromDisk(string projectFilePath) {
             if (!File.Exists(projectFilePath)) {
@@ -32,22 +40,44 @@ namespace WorldBuilder.Shared.Models {
             if (project != null) {
                 project.FilePath = projectFilePath;
                 project.DocumentManager = new DocumentManager(project);
+                project.Dats = new DatCollection(new DatCollectionOptions() {
+                    AccessType = DatAccessType.Read,
+                    DatDirectory = project.BaseDatDirectory
+                });
             }
             return project;
         }
 
-        public static Project Create(string projectName, string projectFilePath) {
+        public static Project Create(string projectName, string projectFilePath, string baseDatDirectory) {
             var projectDir = Path.GetDirectoryName(projectFilePath);
             if (!Directory.Exists(projectDir)) {
                 Directory.CreateDirectory(projectDir);
             }
 
+            if (!Directory.Exists(baseDatDirectory)) {
+                return null;
+            }
+
+            if (!Directory.Exists(Path.Combine(projectDir, "dats", "base"))) {
+                Directory.CreateDirectory(Path.Combine(projectDir, "dats", "base"));
+            }
+
+            File.Copy(Path.Combine(baseDatDirectory, "client_cell_1.dat"), Path.Combine(projectDir, "dats", "base", "client_cell_1.dat"));
+            File.Copy(Path.Combine(baseDatDirectory, "client_portal.dat"), Path.Combine(projectDir, "dats", "base", "client_portal.dat"));
+            File.Copy(Path.Combine(baseDatDirectory, "client_highres.dat"), Path.Combine(projectDir, "dats", "base", "client_highres.dat"));
+            File.Copy(Path.Combine(baseDatDirectory, "client_local_English.dat"), Path.Combine(projectDir, "dats", "base", "client_local_English.dat"));
+
             var project = new Project() {
                 Name = projectName,
                 FilePath = projectFilePath,
+                BaseDatDirectory = baseDatDirectory,
                 Guid = Guid.NewGuid()
             };
             project.DocumentManager = new DocumentManager(project);
+            project.Dats = new DatCollection(new DatCollectionOptions() {
+                AccessType = DatAccessType.Read,
+                DatDirectory = project.BaseDatDirectory
+            });
             project.Save();
             return project;
         }
@@ -65,6 +95,40 @@ namespace WorldBuilder.Shared.Models {
             finally {
                 File.Delete(tmp);
             }
+        }
+
+        public bool ExportDats(string exportDirectory, int cellIteration, int portalIteration, int languageIteration, int highResIteration) {
+            if (File.Exists(Path.Combine(exportDirectory, "client_cell_1.dat"))) {
+                return false;
+            }
+            if (!Directory.Exists(exportDirectory)) {
+                Directory.CreateDirectory(exportDirectory);
+            }
+
+            // first copy base dats
+            File.Copy(Path.Combine(BaseDatDirectory, "client_cell_1.dat"), Path.Combine(exportDirectory, "client_cell_1.dat"));
+            File.Copy(Path.Combine(BaseDatDirectory, "client_portal.dat"), Path.Combine(exportDirectory, "client_portal.dat"));
+            File.Copy(Path.Combine(BaseDatDirectory, "client_highres.dat"), Path.Combine(exportDirectory, "client_highres.dat"));
+            File.Copy(Path.Combine(BaseDatDirectory, "client_local_English.dat"), Path.Combine(exportDirectory, "client_local_English.dat"));
+
+
+            using var writer = new DatCollection(new() {
+                AccessType = DatAccessType.ReadWrite,
+                DatDirectory = exportDirectory
+            });
+
+            writer.Cell.Iteration.CurrentIteration = cellIteration;
+            writer.Portal.Iteration.CurrentIteration = portalIteration;
+            writer.Local.Iteration.CurrentIteration = languageIteration;
+            writer.HighRes.Iteration.CurrentIteration = highResIteration;
+
+            writer.Cell.TryWriteFile(writer.Cell.Iteration);
+            writer.Portal.TryWriteFile(writer.Portal.Iteration);
+            writer.Local.TryWriteFile(writer.Local.Iteration);
+            writer.HighRes.TryWriteFile(writer.HighRes.Iteration);
+
+
+            return true;
         }
 
         public void Dispose() {

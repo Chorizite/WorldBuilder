@@ -14,5 +14,11 @@
 		<TextBlock FontSize="24" Text="{Binding Project.Name, StringFormat='Project Name: {0}'}" />
 		<TextBlock FontSize="16" Text="{Binding Project.Guid, StringFormat='GUID: {0}'}" />
 		<TextBlock FontSize="16" Text="{Binding Project.FilePath, StringFormat='Project Path: {0}'}" />
+		<TextBlock FontSize="16" Text="{Binding Project.BaseDatDirectory, StringFormat='Base Dat Path: {0}'}" />
+		<TextBlock FontSize="16" Text="{Binding Project.Dats.Cell.Iteration.CurrentIteration, StringFormat='Cell Iteration: {0}'}" />
+		<TextBlock FontSize="16" Text="{Binding Project.Dats.Portal.Iteration.CurrentIteration, StringFormat='Portal Iteration: {0}'}" />
+		<TextBlock FontSize="16" Text="{Binding Project.Dats.HighRes.Iteration.CurrentIteration, StringFormat='HighRes Iteration: {0}'}" />
+		<TextBlock FontSize="16" Text="{Binding Project.Dats.Local.Iteration.CurrentIteration, StringFormat='Language Iteration: {0}'}" />
+		<Button Command="{Binding ExportDatsCommand}">Export Dats</Button>
 	</StackPanel>
 </Window>
