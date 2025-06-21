@@ -12,10 +12,10 @@ using Microsoft.Data.Sqlite;
 namespace WorldBuilder.Shared.Models {
     public partial class Project : ObservableObject, IDisposable {
         private static JsonSerializerOptions _opts = new JsonSerializerOptions { WriteIndented = true };
-        private string _filePath;
+        private string _filePath = string.Empty;
 
         [ObservableProperty]
-        private string _name;
+        private string _name = string.Empty;
 
         [ObservableProperty]
         private Guid _guid;
@@ -48,7 +48,7 @@ namespace WorldBuilder.Shared.Models {
             return project;
         }
 
-        public static Project Create(string projectName, string projectFilePath, string baseDatDirectory) {
+        public static Project? Create(string projectName, string projectFilePath, string baseDatDirectory) {
             var projectDir = Path.GetDirectoryName(projectFilePath);
             if (!Directory.Exists(projectDir)) {
                 Directory.CreateDirectory(projectDir);
@@ -128,6 +128,7 @@ namespace WorldBuilder.Shared.Models {
         }
 
         public void Dispose() {
+            Dats?.Dispose();
             DocumentManager?.Dispose();
         }
     }
