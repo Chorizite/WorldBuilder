@@ -3,53 +3,123 @@ using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System;
-using System.Collections.Generic;
+using System.Collections;
+using System.ComponentModel;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-using WorldBuilder.Factories;
-using WorldBuilder.Lib;
 using Avalonia;
-using WorldBuilder.Shared.Models;
-using CommunityToolkit.Mvvm.Messaging;
-using WorldBuilder.Messages;
 using Avalonia.Platform.Storage;
+using CommunityToolkit.Mvvm.Messaging;
+using WorldBuilder.Factories;
+using WorldBuilder.Messages;
+using WorldBuilder.Shared.Models;
+using System.Collections.Generic;
+using System.Linq;
+using WorldBuilder.Lib;
+using WorldBuilder.Lib.Validation;
 
 namespace WorldBuilder.ViewModels.Pages {
-    public partial class NewLocalProjectPageViewModel : PageViewModel {
+    public class NewLocalProjectPageViewModelValidator {
+        public ValidationResult Validate(NewLocalProjectPageViewModel model) {
+            var result = new ValidationResult();
+
+            // Validate name
+            if (string.IsNullOrWhiteSpace(model.Name) || model.Name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) {
+                result.AddError(nameof(NewLocalProjectPageViewModel.Name), "Enter a valid project name.");
+            }
+
+            // Validate location
+            if (string.IsNullOrWhiteSpace(model.Location) || !Directory.Exists(model.Location)) {
+                result.AddError(nameof(NewLocalProjectPageViewModel.Location), "Select a valid project location.");
+            }
+
+            // Validate project doesn't already exist
+            if (!string.IsNullOrWhiteSpace(model.Name) && !string.IsNullOrWhiteSpace(model.Location) &&
+                Directory.Exists(Path.Combine(model.Location, model.Name))) {
+                result.AddError(nameof(NewLocalProjectPageViewModel.Name), "A project with this name already exists at that location.");
+            }
+
+            // Validate base dat directory
+            if (!ValidateBaseDatDirectory(model.BaseDatDirectory)) {
+                result.AddError(nameof(NewLocalProjectPageViewModel.BaseDatDirectory), "Invalid base dat directory.");
+            }
+
+            result.IsValid = result.Errors.Count == 0;
+            return result;
+        }
+
+        private bool ValidateBaseDatDirectory(string baseDatDirectory) {
+            if (string.IsNullOrWhiteSpace(baseDatDirectory) || !Directory.Exists(baseDatDirectory)) {
+                return false;
+            }
+
+            var requiredFiles = new[] {
+                "client_cell_1.dat",
+                "client_portal.dat",
+                "client_highres.dat",
+                "client_local_English.dat"
+            };
+
+            return requiredFiles.All(file => File.Exists(Path.Combine(baseDatDirectory, file)));
+        }
+    }
+
+    public partial class NewLocalProjectPageViewModel : PageViewModel, INotifyDataErrorInfo {
+        private readonly NewLocalProjectPageViewModelValidator _validator = new();
+        private readonly Dictionary<string, List<string>> _errors = new();
+
         public override string WindowName => "New Local Project";
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(FullLocation))]
-        [NotifyCanExecuteChangedFor(nameof(CreateProjectCommand))]
         private string _name = string.Empty;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(FullLocation))]
-        [NotifyCanExecuteChangedFor(nameof(CreateProjectCommand))]
         private string _location = string.Empty;
 
         [ObservableProperty]
-        [NotifyCanExecuteChangedFor(nameof(CreateProjectCommand))]
         private string _baseDatDirectory = @"C:\Turbine\Asheron's Call\";
+
+        [ObservableProperty]
+        private ValidationResult _validationResult = new();
 
         public string FullLocation => Path.Combine(Location, Name);
 
-        [ObservableProperty]
-        private bool _projectExists;
+        public bool HasErrors => _errors.Any(e => e.Value.Count > 0);
 
-        [ObservableProperty]
-        private bool _nameIsValid;
+        public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
 
-        [ObservableProperty]
-        private bool _baseDatDirectoryIsValid;
-
-        [ObservableProperty]
-        private bool _isValid;
+        public IEnumerable GetErrors(string? propertyName) {
+            return propertyName != null && _errors.TryGetValue(propertyName, out var errors) ? errors : Enumerable.Empty<string>();
+        }
 
         public NewLocalProjectPageViewModel(WorldBuilderSettings settings) {
             Location = Path.GetFullPath(Path.Combine(settings.DataPath, "Projects"));
+            UpdateValidation();
+        }
+
+        partial void OnNameChanged(string value) => UpdateValidation();
+        partial void OnLocationChanged(string value) => UpdateValidation();
+        partial void OnBaseDatDirectoryChanged(string value) => UpdateValidation();
+
+        private void UpdateValidation() {
+            _errors.Clear();
+            var result = _validator.Validate(this);
+            var errorsByField = result.Errors.GroupBy(e => e.Field);
+
+            foreach (var fieldGroup in errorsByField) {
+                var fieldName = fieldGroup.Key;
+                var fieldErrors = fieldGroup.Select(e => e.Message).ToList();
+                _errors[fieldName] = fieldErrors;
+            }
+
+            ValidationResult = result;
+            CreateProjectCommand.NotifyCanExecuteChanged();
+
+            ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(nameof(Name)));
+            ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(nameof(Location)));
+            ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(nameof(BaseDatDirectory)));
         }
 
         [RelayCommand]
@@ -63,9 +133,9 @@ namespace WorldBuilder.ViewModels.Pages {
                 ? desktop.MainWindow
                 : null);
 
-            if (topLevel == null || topLevel.StorageProvider.CanPickFolder == false) return;
+            if (topLevel == null || !topLevel.StorageProvider.CanPickFolder) return;
 
-            var dir = string.IsNullOrWhiteSpace(BaseDatDirectory) ? Path.GetDirectoryName(GetType().Assembly.Location) : Location;
+            var dir = string.IsNullOrWhiteSpace(Location) ? Path.GetDirectoryName(GetType().Assembly.Location) : Location;
             var res = await topLevel.StorageProvider.OpenFolderPickerAsync(new() {
                 AllowMultiple = false,
                 Title = "Select Project Location",
@@ -83,7 +153,8 @@ namespace WorldBuilder.ViewModels.Pages {
                 ? desktop.MainWindow
                 : null);
 
-            if (topLevel == null || topLevel.StorageProvider.CanPickFolder == false) return;
+            if (topLevel == null || !topLevel.StorageProvider.CanPickFolder) return;
+
             var dir = string.IsNullOrWhiteSpace(BaseDatDirectory) ? Path.GetDirectoryName(GetType().Assembly.Location) : BaseDatDirectory;
             var res = await topLevel.StorageProvider.OpenFolderPickerAsync(new() {
                 AllowMultiple = false,
@@ -104,20 +175,7 @@ namespace WorldBuilder.ViewModels.Pages {
             return Task.CompletedTask;
         }
 
-        private bool CanCreateProject() {
-            // TODO: this should happen not here probably...
-            NameIsValid = !string.IsNullOrWhiteSpace(Name);
-            ProjectExists = NameIsValid && Directory.Exists(Path.Combine(Location, Name));
-            BaseDatDirectoryIsValid = !string.IsNullOrWhiteSpace(BaseDatDirectory) && Directory.Exists(BaseDatDirectory)
-                && File.Exists(Path.Combine(BaseDatDirectory, $"client_cell_1.dat"))
-                && File.Exists(Path.Combine(BaseDatDirectory, $"client_portal.dat"))
-                && File.Exists(Path.Combine(BaseDatDirectory, $"client_highres.dat"))
-                && File.Exists(Path.Combine(BaseDatDirectory, $"client_local_English.dat"));
-
-            IsValid = NameIsValid && !ProjectExists && BaseDatDirectoryIsValid;
-
-            return IsValid;
-        }
+        private bool CanCreateProject() => ValidationResult.IsValid;
     }
 
     public class NewLocalProjectPageViewModelDesign : NewLocalProjectPageViewModel {
