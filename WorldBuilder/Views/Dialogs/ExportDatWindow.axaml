@@ -1,38 +1,97 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-		xmlns:vm="clr-namespace:WorldBuilder.ViewModels.Dialogs"
-        mc:Ignorable="d" Width="600" Height="350"
-        UseLayoutRounding="True" RenderOptions.BitmapInterpolationMode="HighQuality"
-        WindowState="Normal" WindowStartupLocation="CenterScreen"
-        x:Class="WorldBuilder.ExportDatWindow"
-		x:DataType="vm:ExportDatWindowViewModel"
-        Title="ExportDatWindow">
-	<Grid ColumnDefinitions="auto,*" RowDefinitions="auto,auto,auto,auto,auto,auto,*" Margin="20" RowSpacing="10" ColumnSpacing="10">
-		<TextBlock FontSize="20" Grid.ColumnSpan="2">Export Dats</TextBlock>
+<Window
+    x:Class="WorldBuilder.ExportDatWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:WorldBuilder.ViewModels.Dialogs"
+    Title="ExportDatWindow"
+    Width="600"
+    Height="350"
+    x:DataType="vm:ExportDatWindowViewModel"
+    RenderOptions.BitmapInterpolationMode="HighQuality"
+    UseLayoutRounding="True"
+    WindowStartupLocation="CenterScreen"
+    WindowState="Normal"
+    mc:Ignorable="d">
+    <Grid
+        Margin="20"
+        ColumnDefinitions="auto,*"
+        ColumnSpacing="10"
+        RowDefinitions="auto,auto,auto,auto,auto,auto,*"
+        RowSpacing="10">
+        <TextBlock Grid.ColumnSpan="2" FontSize="20">Export Dats</TextBlock>
 
-		<Label Grid.Row="1" Grid.Column="0" VerticalAlignment="Center">Cell Iteration:</Label>
-		<TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CellIteration}"/>
+        <Label
+            Grid.Row="1"
+            Grid.Column="0"
+            VerticalAlignment="Center">
+            Cell Iteration:
+        </Label>
+        <TextBox
+            Grid.Row="1"
+            Grid.Column="1"
+            Text="{Binding CellIteration}" />
 
-		<Label Grid.Row="2" Grid.Column="0" VerticalAlignment="Center">Portal Iteration:</Label>
-		<TextBox Grid.Row="2" Grid.Column="1" Text="{Binding PortalIteration}"/>
+        <Label
+            Grid.Row="2"
+            Grid.Column="0"
+            VerticalAlignment="Center">
+            Portal Iteration:
+        </Label>
+        <TextBox
+            Grid.Row="2"
+            Grid.Column="1"
+            Text="{Binding PortalIteration}" />
 
-		<Label Grid.Row="3" Grid.Column="0" VerticalAlignment="Center">Language Iteration:</Label>
-		<TextBox Grid.Row="3" Grid.Column="1" Text="{Binding LanguageIteration}"/>
+        <Label
+            Grid.Row="3"
+            Grid.Column="0"
+            VerticalAlignment="Center">
+            Language Iteration:
+        </Label>
+        <TextBox
+            Grid.Row="3"
+            Grid.Column="1"
+            Text="{Binding LanguageIteration}" />
 
-		<Label Grid.Row="4" Grid.Column="0" VerticalAlignment="Center">HighRes Iteration:</Label>
-		<TextBox Grid.Row="4" Grid.Column="1" Text="{Binding HighResIteration}"/>
+        <Label
+            Grid.Row="4"
+            Grid.Column="0"
+            VerticalAlignment="Center">
+            HighRes Iteration:
+        </Label>
+        <TextBox
+            Grid.Row="4"
+            Grid.Column="1"
+            Text="{Binding HighResIteration}" />
 
-		<Label Grid.Row="5" Grid.Column="0" VerticalAlignment="Center">Export Directory:</Label>
-		<Grid Grid.Row="5" Grid.Column="1" ColumnDefinitions="*,auto">
-			<TextBox Grid.Column="0" Text="{Binding ExportDirectory}" Margin="0,0,10,0" />
-			<Button Grid.Column="1" Command="{Binding SelectExportDirectoryCommand}">Browse</Button>
-		</Grid>
+        <Label
+            Grid.Row="5"
+            Grid.Column="0"
+            VerticalAlignment="Center">
+            Export Directory:
+        </Label>
+        <Grid
+            Grid.Row="5"
+            Grid.Column="1"
+            ColumnDefinitions="*,auto">
+            <TextBox
+                Grid.Column="0"
+                Margin="0,0,10,0"
+                Text="{Binding ExportDirectory}" />
+            <Button Grid.Column="1" Command="{Binding SelectExportDirectoryCommand}">Browse</Button>
+        </Grid>
 
-		<StackPanel Grid.Row="6" Grid.ColumnSpan="2" Orientation="Horizontal" VerticalAlignment="Bottom" HorizontalAlignment="Right" Spacing="10">
-			<Button Command="{Binding GoBackCommand}">Cancel</Button>
-			<Button Command="{Binding ExportDatsCommand}">Export</Button>
-		</StackPanel>
-	</Grid> 
+        <StackPanel
+            Grid.Row="6"
+            Grid.ColumnSpan="2"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Orientation="Horizontal"
+            Spacing="10">
+            <Button Command="{Binding GoBackCommand}">Cancel</Button>
+            <Button Command="{Binding ExportDatsCommand}">Export</Button>
+        </StackPanel>
+    </Grid>
 </Window>

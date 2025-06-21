@@ -1,57 +1,96 @@
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:vmpages="using:WorldBuilder.ViewModels.Pages"
-             x:DataType="vmpages:NewLocalProjectPageViewModel"
-             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="350"
-             x:Class="WorldBuilder.Views.Pages.NewLocalProjectPageView">
-	<Design.DataContext>
-		<vmpages:NewLocalProjectPageViewModelDesign />
-	</Design.DataContext>
-	<UserControl.Styles>
-		<Style Selector="TextBox:error">
-			<Setter Property="BorderBrush" Value="Red" />
-			<Setter Property="BorderThickness" Value="2" />
-		</Style>
-	</UserControl.Styles>
-	<Grid ColumnDefinitions="auto,*" RowDefinitions="auto,auto,auto,auto,auto,auto,*" Margin="20" RowSpacing="10" ColumnSpacing="10">
-		<TextBlock FontSize="20" Grid.ColumnSpan="2">Create a New Project</TextBlock>
+<UserControl
+    x:Class="WorldBuilder.Views.Pages.NewLocalProjectPageView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vmpages="using:WorldBuilder.ViewModels.Pages"
+    d:DesignHeight="350"
+    d:DesignWidth="600"
+    x:DataType="vmpages:NewLocalProjectPageViewModel"
+    mc:Ignorable="d">
+    <Design.DataContext>
+        <vmpages:NewLocalProjectPageViewModelDesign />
+    </Design.DataContext>
+    <Grid
+        Margin="20"
+        ColumnDefinitions="auto,*"
+        ColumnSpacing="10"
+        RowDefinitions="auto,auto,auto,auto,auto,auto,*"
+        RowSpacing="10">
+        <TextBlock Grid.ColumnSpan="2" FontSize="20">Create a New Project</TextBlock>
 
-		<Label Grid.Row="1" Grid.Column="0" VerticalAlignment="Center">Project Name:</Label>
-		<TextBox Grid.Row="1" Grid.Column="1"
-                 Text="{Binding Name}"
-                 Name="ProjectNameTextBox" />
+        <Label
+            Grid.Row="1"
+            Grid.Column="0"
+            VerticalAlignment="Center">
+            Project Name:
+        </Label>
+        <TextBox
+            Name="ProjectNameTextBox"
+            Grid.Row="1"
+            Grid.Column="1"
+            Text="{Binding Name}" />
 
-		<Label Grid.Row="2" Grid.Column="0" VerticalAlignment="Center">Project Location:</Label>
-		<Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*,auto">
-			<TextBox Grid.Column="0"
-                     Text="{Binding Location}"
-                     Margin="0,0,10,0"
-                     Name="LocationTextBox" />
-			<Button Grid.Column="1" Command="{Binding SelectLocationCommand}">Browse</Button>
-		</Grid>
+        <Label
+            Grid.Row="2"
+            Grid.Column="0"
+            VerticalAlignment="Center">
+            Project Location:
+        </Label>
+        <Grid
+            Grid.Row="2"
+            Grid.Column="1"
+            ColumnDefinitions="*,auto">
+            <TextBox
+                Name="LocationTextBox"
+                Grid.Column="0"
+                Margin="0,0,10,0"
+                Text="{Binding Location}" />
+            <Button Grid.Column="1" Command="{Binding SelectLocationCommand}">Browse</Button>
+        </Grid>
 
-		<Label Grid.Row="3" Grid.Column="0" VerticalAlignment="Center">Base Dat Directory:</Label>
-		<Grid Grid.Row="3" Grid.Column="1" ColumnDefinitions="*,auto">
-			<TextBox Grid.Column="0"
-                     Text="{Binding BaseDatDirectory}"
-                     Margin="0,0,10,0"
-                     Name="BaseDatTextBox" />
-			<Button Grid.Column="1" Command="{Binding SelectBaseDatDirectoryCommand}">Browse</Button>
-		</Grid>
+        <Label
+            Grid.Row="3"
+            Grid.Column="0"
+            VerticalAlignment="Center">
+            Base Dat Directory:
+        </Label>
+        <Grid
+            Grid.Row="3"
+            Grid.Column="1"
+            ColumnDefinitions="*,auto">
+            <TextBox
+                Name="BaseDatTextBox"
+                Grid.Column="0"
+                Margin="0,0,10,0"
+                Text="{Binding BaseDatDirectory}" />
+            <Button Grid.Column="1" Command="{Binding SelectBaseDatDirectoryCommand}">Browse</Button>
+        </Grid>
 
-		<CheckBox Grid.Row="4" Grid.ColumnSpan="2" IsEnabled="False">Allow remote access</CheckBox>
+        <CheckBox
+            Grid.Row="4"
+            Grid.ColumnSpan="2"
+            IsEnabled="False">
+            Allow remote access
+        </CheckBox>
 
-		<StackPanel Orientation="Vertical" Grid.Row="5" Grid.ColumnSpan="2">
-			<TextBlock TextWrapping="WrapWithOverflow"
-                       IsVisible="{Binding ValidationResult.IsValid}"
-                       Text="{Binding FullLocation, StringFormat='Project will be created at: {0}'}" />
-		</StackPanel>
+        <TextBlock
+            Grid.Row="5"
+            Grid.ColumnSpan="2"
+            IsVisible="{Binding ValidationResult.IsValid}"
+            Text="{Binding FullLocation, StringFormat='Project will be created at: {0}'}"
+            TextWrapping="WrapWithOverflow" />
 
-		<StackPanel Grid.Row="6" Grid.ColumnSpan="2" Orientation="Horizontal" VerticalAlignment="Bottom" HorizontalAlignment="Right" Spacing="10">
-			<Button Command="{Binding GoBackCommand}">Cancel</Button>
-			<Button Command="{Binding CreateProjectCommand}">Create</Button>
-		</StackPanel>
-	</Grid>
+        <StackPanel
+            Grid.Row="6"
+            Grid.ColumnSpan="2"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Orientation="Horizontal"
+            Spacing="10">
+            <Button Command="{Binding GoBackCommand}">Cancel</Button>
+            <Button Command="{Binding CreateProjectCommand}">Create</Button>
+        </StackPanel>
+    </Grid>
 </UserControl>

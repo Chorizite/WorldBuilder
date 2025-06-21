@@ -1,49 +1,67 @@
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:vm="using:WorldBuilder.ViewModels"
-             xmlns:vmpages="using:WorldBuilder.ViewModels.Pages"
-             xmlns:models="using:WorldBuilder.Shared.Models"
-             xmlns:i="https://github.com/projektanker/icons.avalonia"
-             x:CompileBindings="True" x:DataType="vmpages:GettingStartedPageViewModel"
-             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="350"
-             x:Class="WorldBuilder.Views.Pages.GettingStartedPageView">
-	<Design.DataContext>
-		<vmpages:GettingStartedPageViewModelDesign />
-	</Design.DataContext>
-	<Grid ColumnDefinitions="*,auto" RowDefinitions="*">
-		<Panel Grid.Column="0" Margin="20">
-			<Grid RowDefinitions="auto, *">
-				<TextBlock FontSize="24" Grid.Row="0">Recent Projects</TextBlock>
-				<Panel Grid.Row="1">
-					<ScrollViewer>
-						<ListBox ItemsSource="{Binding RecentProjects}" Padding="8">
-							<ListBox.ItemTemplate>
-								<DataTemplate DataType="vm:RecentProject">
-									<StackPanel Orientation="Horizontal" DoubleTapped="OnRecentProjectDoubleClick">
-										<i:Icon Value="mdi-web-sync" IsVisible="{Binding IsRemote}" FontSize="36" Margin="0,0,10,0" />
-										<i:Icon Value="mdi-file-document-outline" IsVisible="{Binding !IsRemote}" FontSize="36" Margin="0,0,10,0" />
-										<StackPanel>
-											<TextBlock Text="{Binding Name}" FontSize="14" FontWeight="Bold"/>
-											<TextBlock Text="{Binding Path}" FontSize="12"/>
-											<TextBlock Text="{Binding RemoteUrl}" FontSize="12" IsVisible="{Binding IsRemote}"/>
-										</StackPanel>
-									</StackPanel>
-								</DataTemplate>
-							</ListBox.ItemTemplate>
-						</ListBox>
-					</ScrollViewer>
-				</Panel>
-			</Grid>
-		</Panel>
-		<Panel Grid.Column="1">
-			<StackPanel Spacing="20" Margin="20">
-				<TextBlock FontSize="24">Get Started</TextBlock>
-				<Button Name="NewLocalProjectButton" Command="{Binding GotoNewLocalProjectCommand}">New Local Project</Button>
-				<Button Name="NewRemoteProjectButton" IsEnabled="False">New Remote Project</Button>
-				<Button Name="OpenExistingProjectButton" Command="{Binding OpenExistingLocalProjectCommand}">Open Existing Project</Button>
-			</StackPanel>
-		</Panel>
-	</Grid>
+<UserControl
+    x:Class="WorldBuilder.Views.Pages.GettingStartedPageView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:i="https://github.com/projektanker/icons.avalonia"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:WorldBuilder.Shared.Models"
+    xmlns:vm="using:WorldBuilder.ViewModels"
+    xmlns:vmpages="using:WorldBuilder.ViewModels.Pages"
+    d:DesignHeight="350"
+    d:DesignWidth="600"
+    x:CompileBindings="True"
+    x:DataType="vmpages:GettingStartedPageViewModel"
+    mc:Ignorable="d">
+    <Design.DataContext>
+        <vmpages:GettingStartedPageViewModelDesign />
+    </Design.DataContext>
+    <Grid ColumnDefinitions="*,auto" RowDefinitions="*">
+        <Panel Grid.Column="0" Margin="20">
+            <Grid RowDefinitions="auto, *">
+                <TextBlock Grid.Row="0" FontSize="24">Recent Projects</TextBlock>
+                <Panel Grid.Row="1">
+                    <ScrollViewer>
+                        <ListBox Padding="8" ItemsSource="{Binding RecentProjects}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="vm:RecentProject">
+                                    <StackPanel DoubleTapped="OnRecentProjectDoubleClick" Orientation="Horizontal">
+                                        <i:Icon
+                                            Margin="0,0,10,0"
+                                            FontSize="36"
+                                            IsVisible="{Binding IsRemote}"
+                                            Value="mdi-web-sync" />
+                                        <i:Icon
+                                            Margin="0,0,10,0"
+                                            FontSize="36"
+                                            IsVisible="{Binding !IsRemote}"
+                                            Value="mdi-file-document-outline" />
+                                        <StackPanel>
+                                            <TextBlock
+                                                FontSize="14"
+                                                FontWeight="Bold"
+                                                Text="{Binding Name}" />
+                                            <TextBlock FontSize="12" Text="{Binding Path}" />
+                                            <TextBlock
+                                                FontSize="12"
+                                                IsVisible="{Binding IsRemote}"
+                                                Text="{Binding RemoteUrl}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </ScrollViewer>
+                </Panel>
+            </Grid>
+        </Panel>
+        <Panel Grid.Column="1">
+            <StackPanel Margin="20" Spacing="20">
+                <TextBlock FontSize="24">Get Started</TextBlock>
+                <Button Name="NewLocalProjectButton" Command="{Binding GotoNewLocalProjectCommand}">New Local Project</Button>
+                <Button Name="NewRemoteProjectButton" IsEnabled="False">New Remote Project</Button>
+                <Button Name="OpenExistingProjectButton" Command="{Binding OpenExistingLocalProjectCommand}">Open Existing Project</Button>
+            </StackPanel>
+        </Panel>
+    </Grid>
 </UserControl>

@@ -1,17 +1,22 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:vm="using:WorldBuilder.ViewModels"
-        x:CompileBindings="True" x:DataType="vm:GettingStartedWindowViewModel"
-        UseLayoutRounding="True" RenderOptions.BitmapInterpolationMode="HighQuality"
-        WindowState="Normal" WindowStartupLocation="CenterScreen"
-        Foreground="{DynamicResource DockThemeForegroundBrush}"
-        mc:Ignorable="d"
-        x:Class="WorldBuilder.Views.GettingStartedWindow"
-		Width="600" Height="400"
-        Title="WorldBuilder">
-	<Panel Margin="10,20,10,10" Name="GettingStartedPage">
-		<ContentControl Content="{Binding CurrentPage}" />
-	</Panel>
+<Window
+    x:Class="WorldBuilder.Views.GettingStartedWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:WorldBuilder.ViewModels"
+    Title="WorldBuilder"
+    Width="600"
+    Height="400"
+    x:CompileBindings="True"
+    x:DataType="vm:GettingStartedWindowViewModel"
+    Foreground="{DynamicResource DockThemeForegroundBrush}"
+    RenderOptions.BitmapInterpolationMode="HighQuality"
+    UseLayoutRounding="True"
+    WindowStartupLocation="CenterScreen"
+    WindowState="Normal"
+    mc:Ignorable="d">
+    <Panel Name="GettingStartedPage" Margin="10,20,10,10">
+        <ContentControl Content="{Binding CurrentPage}" />
+    </Panel>
 </Window>

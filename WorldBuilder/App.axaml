@@ -1,29 +1,30 @@
-<Application xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-			 xmlns:local="using:WorldBuilder"
-             x:Class="WorldBuilder.App"
-			 Name="WorldBuilder"
-             RequestedThemeVariant="Default">
-	<Application.DataTemplates>
-		<local:ViewLocator />
-	</Application.DataTemplates>
+<Application
+    x:Class="WorldBuilder.App"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WorldBuilder"
+    Name="WorldBuilder"
+    RequestedThemeVariant="Default">
+    <Application.DataTemplates>
+        <local:ViewLocator />
+    </Application.DataTemplates>
 
-	<Application.Resources>
-		<ControlRecycling x:Key="ControlRecyclingKey" />
-	</Application.Resources>
+    <Application.Resources>
+        <ControlRecycling x:Key="ControlRecyclingKey" />
+    </Application.Resources>
 
-	<Application.Styles>
+    <Application.Styles>
 
-		<FluentTheme />
+        <FluentTheme />
 
-		<StyleInclude Source="avares://Dock.Avalonia/Themes/DockFluentTheme.axaml" />
-		<DockFluentTheme />
-		<StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
+        <StyleInclude Source="avares://Dock.Avalonia/Themes/DockFluentTheme.axaml" />
+        <DockFluentTheme />
+        <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
 
-		<Style Selector="DockControl">
-			<Setter Property="(ControlRecyclingDataTemplate.ControlRecycling)" Value="{StaticResource ControlRecyclingKey}" />
-		</Style>
+        <Style Selector="DockControl">
+            <Setter Property="(ControlRecyclingDataTemplate.ControlRecycling)" Value="{StaticResource ControlRecyclingKey}" />
+        </Style>
 
-	</Application.Styles>
+    </Application.Styles>
 
 </Application>
