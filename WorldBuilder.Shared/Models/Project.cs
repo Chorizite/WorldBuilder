@@ -18,16 +18,16 @@ namespace WorldBuilder.Shared.Models {
         private string _name;
 
         [ObservableProperty]
-        private string _baseDatDirectory;
-
-        [ObservableProperty]
         private Guid _guid;
+
+        public string BaseDatDirectory => Path.Combine(Path.GetDirectoryName(FilePath), "dats", "base");
 
         [JsonIgnore]
         public string FilePath { get => _filePath; set => SetProperty(ref _filePath, value); }
 
         [JsonIgnore]
         public DocumentManager DocumentManager { get; private set; }
+
         [JsonIgnore]
         public DatCollection Dats { get; private set; }
 
@@ -70,7 +70,6 @@ namespace WorldBuilder.Shared.Models {
             var project = new Project() {
                 Name = projectName,
                 FilePath = projectFilePath,
-                BaseDatDirectory = baseDatDirectory,
                 Guid = Guid.NewGuid()
             };
             project.DocumentManager = new DocumentManager(project);
@@ -98,9 +97,6 @@ namespace WorldBuilder.Shared.Models {
         }
 
         public bool ExportDats(string exportDirectory, int cellIteration, int portalIteration, int languageIteration, int highResIteration) {
-            if (File.Exists(Path.Combine(exportDirectory, "client_cell_1.dat"))) {
-                return false;
-            }
             if (!Directory.Exists(exportDirectory)) {
                 Directory.CreateDirectory(exportDirectory);
             }
