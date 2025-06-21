@@ -89,7 +89,7 @@ public partial class App : Application {
                         });
 
                         WeakReferenceMessenger.Default.Register<ExportDatsMessage>(this, (r, m) => {
-                            // Create an instance of MusicStoreWindow and set MusicStoreViewModel as its DataContext.
+                            if (m.Value is null) return;
                             var dialog = new ExportDatWindow {
                                 DataContext = new ExportDatWindowViewModel(m.Value)
                             };

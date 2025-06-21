@@ -90,13 +90,13 @@ namespace WorldBuilder.ViewModels.Pages {
 
         public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
 
-        public IEnumerable GetErrors(string? propertyName) {
-            return propertyName != null && _errors.TryGetValue(propertyName, out var errors) ? errors : Enumerable.Empty<string>();
-        }
-
         public NewLocalProjectPageViewModel(WorldBuilderSettings settings) {
             Location = Path.GetFullPath(Path.Combine(settings.DataPath, "Projects"));
             UpdateValidation();
+        }
+
+        public IEnumerable GetErrors(string? propertyName) {
+            return propertyName != null && _errors.TryGetValue(propertyName, out var errors) ? errors : Enumerable.Empty<string>();
         }
 
         partial void OnNameChanged(string value) => UpdateValidation();
