@@ -279,10 +279,9 @@ public partial class OpenGlLeasePage : UserControl {
                             var srcWidth = _tool.RenderTarget.Texture.Width;
                             var srcHeight = _tool.RenderTarget.Texture.Height;
 
-                            // Scale the render target to fit the canvas area
                             glContext.GlInterface.BlitFramebuffer(
-                                0, 0, srcWidth, srcHeight,          // Source rectangle (full render target)
-                                dst.Left, dst.Top, dst.Right, dst.Bottom,     // Destination rectangle (canvas area)
+                                0, 0, srcWidth, srcHeight,
+                                dst.Left, dst.Top, dst.Right, dst.Bottom,
                                 GL_COLOR_BUFFER_BIT,
                                 GL_LINEAR
                             );

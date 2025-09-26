@@ -2,6 +2,5 @@
 
 namespace WorldBuilder.ViewModels;
 
-public abstract class ViewModelBase : ObservableObject
-{
+public abstract class ViewModelBase : ObservableObject {
 }
