@@ -1,0 +1,63 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+	</PropertyGroup>
+	<ItemGroup>
+	  <None Remove="Shaders\Landscape.frag" />
+	  <None Remove="Shaders\Landscape.vert" />
+	  <None Remove="Shaders\Text.frag" />
+	  <None Remove="Shaders\Text.vert" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="NAudio" Version="2.2.1" />
+		<PackageReference Include="Silk.NET.OpenGL" Version="2.22.0" />
+		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
+		<PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.9" />
+	</ItemGroup>
+	<ItemGroup>
+	  <EmbeddedResource Include="Shaders\Landscape.frag">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Shaders\Landscape.vert">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Shaders\Text.frag">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Shaders\Text.vert">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Shaders\World.frag">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Shaders\World.vert">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Shaders\UI.frag">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Shaders\UI.vert">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	</ItemGroup>
+	<ItemGroup>
+	  <ProjectReference Include="..\..\Chorizite\Chorizite.Core\Chorizite.Core.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+	  <None Update="Fonts\Apache License.txt">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Fonts\DroidSans-Bold.ttf">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Fonts\DroidSans.ttf">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="Fonts\" />
+	</ItemGroup>
+</Project>

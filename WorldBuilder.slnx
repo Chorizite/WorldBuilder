@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="Directory.Build.props" />
+  </Folder>
+  <Project Path="../Chorizite/Chorizite.Core/Chorizite.Core.csproj" />
+  <Project Path="Chorizite.OpenGLSDLBackend/Chorizite.OpenGLSDLBackend.csproj" />
+  <Project Path="WorldBuilder.Browser/WorldBuilder.Browser.csproj" />
+  <Project Path="WorldBuilder.Desktop/WorldBuilder.Desktop.csproj" />
+  <Project Path="WorldBuilder.Shared/WorldBuilder.Shared.csproj" />
+  <Project Path="WorldBuilder/WorldBuilder.csproj" />
+</Solution>

@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+	<PropertyGroup>
+		<TargetFramework>net9.0-browser</TargetFramework>
+		<OutputType>Exe</OutputType>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<Nullable>enable</Nullable>
+		<RunAOTCompilation>false</RunAOTCompilation>
+		<BlazorEnableTimeZoneSupport>false</BlazorEnableTimeZoneSupport>
+		<BlazorWebAssemblyPreserveCollationData>false</BlazorWebAssemblyPreserveCollationData>
+		<InvariantGlobalization>true</InvariantGlobalization>
+		<PublishTrimmed>false</PublishTrimmed>
+		<TrimMode>none</TrimMode>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="Avalonia.Browser" Version="11.3.6" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\WorldBuilder\WorldBuilder.csproj" />
+	</ItemGroup>
+</Project>

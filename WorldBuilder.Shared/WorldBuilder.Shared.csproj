@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<LangVersion>12</LangVersion>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Chorizite.DatReaderWriter" Version="1.0.1-beta.1" />
+		<PackageReference Include="MemoryPack" Version="1.21.4" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.9" />
+		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+	</ItemGroup>
+
+</Project>

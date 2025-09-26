@@ -1,0 +1,111 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:WorldBuilder.ViewModels"
+             xmlns:tutorial="clr-namespace:WorldBuilder"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="WorldBuilder.Views.MainView"
+             x:DataType="vm:MainViewModel">
+	<Design.DataContext>
+		<!-- This only sets the DataContext for the previewer in an IDE,
+         to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+		<vm:MainViewModel />
+	</Design.DataContext>
+
+	<DockPanel>
+		<!-- Menu Bar at the top -->
+		<Menu DockPanel.Dock="Top">
+			<MenuItem Header="File">
+				<MenuItem Header="New" />
+				<MenuItem Header="Open" />
+				<MenuItem Header="Save" />
+				<Separator />
+				<MenuItem Header="Exit" />
+			</MenuItem>
+			<MenuItem Header="Edit">
+				<MenuItem Header="Undo" />
+				<MenuItem Header="Redo" />
+				<Separator />
+				<MenuItem Header="Cut" />
+				<MenuItem Header="Copy" />
+				<MenuItem Header="Paste" />
+			</MenuItem>
+			<MenuItem Header="View">
+				<MenuItem Header="Zoom In" />
+				<MenuItem Header="Zoom Out" />
+				<MenuItem Header="Reset Zoom" />
+			</MenuItem>
+			<MenuItem Header="Help">
+				<MenuItem Header="About" />
+			</MenuItem>
+			<MenuItem Header="File">
+				<MenuItem Header="New" />
+				<MenuItem Header="Open" />
+				<MenuItem Header="Save" />
+				<Separator />
+				<MenuItem Header="Exit" />
+			</MenuItem>
+			<MenuItem Header="Edit">
+				<MenuItem Header="Undo" />
+				<MenuItem Header="Redo" />
+				<Separator />
+				<MenuItem Header="Cut" />
+				<MenuItem Header="Copy" />
+				<MenuItem Header="Paste" />
+			</MenuItem>
+			<MenuItem Header="View">
+				<MenuItem Header="Zoom In" />
+				<MenuItem Header="Zoom Out" />
+				<MenuItem Header="Reset Zoom" />
+			</MenuItem>
+			<MenuItem Header="Help">
+				<MenuItem Header="About" />
+			</MenuItem>
+		</Menu>
+
+		<!-- Main content area with resizable side panel -->
+		<Grid>
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="250" MinWidth="150" MaxWidth="500" />
+				<ColumnDefinition Width="Auto" />
+				<ColumnDefinition Width="*" />
+			</Grid.ColumnDefinitions>
+
+			<!-- Left Side Panel -->
+			<Border Grid.Column="0"
+					Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+					BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+					BorderThickness="0,0,1,0">
+				<StackPanel Margin="10">
+					<TextBlock Text="Side Panel"
+							   FontWeight="Bold"
+							   Margin="0,0,0,10" />
+
+					<!-- Add your side panel content here -->
+					<TextBlock Text="Tools" FontWeight="SemiBold" Margin="0,5" />
+					<Button Content="Tool 1" Margin="0,2" HorizontalAlignment="Stretch" />
+					<Button Content="Tool 2" Margin="0,2" HorizontalAlignment="Stretch" />
+					<Button Content="Tool 3" Margin="0,2" HorizontalAlignment="Stretch" />
+
+					<TextBlock Text="Properties" FontWeight="SemiBold" Margin="0,15,0,5" />
+					<TextBox Watermark="Property 1" Margin="0,2" />
+					<TextBox Watermark="Property 2" Margin="0,2" />
+					<TextBox Watermark="Property 3" Margin="0,2" />
+				</StackPanel>
+			</Border>
+
+			<!-- Splitter for resizing -->
+			<GridSplitter Grid.Column="1"
+						  Width="5"
+						  HorizontalAlignment="Center"
+						  VerticalAlignment="Stretch"
+						  Background="Transparent" />
+
+			<!-- Main content area -->
+			<Grid Grid.Column="2">
+				<tutorial:OpenGlLeasePage/>
+			</Grid>
+		</Grid>
+	</DockPanel>
+</UserControl>
