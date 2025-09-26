@@ -51,6 +51,11 @@
 		<ProjectReference Include="..\Chorizite.OpenGLSDLBackend\Chorizite.OpenGLSDLBackend.csproj" />
 		<ProjectReference Include="..\WorldBuilder.Shared\WorldBuilder.Shared.csproj" />
 	</ItemGroup>
+	<ItemGroup>
+	  <Compile Update="Views\Base3DView.axaml.cs">
+	    <DependentUpon>Base3DView.axaml</DependentUpon>
+	  </Compile>
+	</ItemGroup>
 
 	<ItemGroup>
 		<None Update="shader.frag">
