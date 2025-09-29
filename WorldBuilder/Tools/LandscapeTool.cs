@@ -23,10 +23,8 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Tools.Landscape;
 using CullMode = Chorizite.Core.Render.Enums.CullMode;
 
-namespace WorldBuilder.Tools
-{
-    public class LandscapeTool : ITool
-    {
+namespace WorldBuilder.Tools {
+    public class LandscapeTool : ITool {
         private Project _project;
         private IDatReaderWriter _dats;
         private IRenderer render;
@@ -64,8 +62,7 @@ namespace WorldBuilder.Tools
         private bool _hasViewportFocus;
         private bool _hasMouseDown;
 
-        public void Init(Project project, OpenGLRenderer render)
-        {
+        public void Init(Project project, OpenGLRenderer render) {
             _project = project;
             _dats = project.DocumentManager.Dats;
             this.render = render;
@@ -108,8 +105,7 @@ namespace WorldBuilder.Tools
             Console.WriteLine($"Initial chunk load in {sw.ElapsedMilliseconds}ms");
         }
 
-        private void UpdateChunkGeneration()
-        {
+        private void UpdateChunkGeneration() {
             if (_terrainGenerator == null) return;
 
             // Create view-projection matrix for frustum culling
@@ -126,33 +122,28 @@ namespace WorldBuilder.Tools
         }
 
         private bool _isQPressedLastFrame = false;
-        public void Update(double deltaTime, AvaloniaInputState input)
-        {
-            try
-            {
-                if (input.IsKeyDown(Key.Q) ) {
-                    if (!_isQPressedLastFrame)
-                    {
+        public void Update(double deltaTime, AvaloniaInputState input) {
+            try {
+                _cameraManager.Current.ScreenSize = new Vector2(Width, Height);
+
+                if (input.IsKeyDown(Key.Q)) {
+                    if (!_isQPressedLastFrame) {
                         Console.WriteLine("Switching camera");
-                        if (_cameraManager.Current == _perspectiveCamera)
-                        {
+                        if (_cameraManager.Current == _perspectiveCamera) {
                             _cameraManager.SwitchCamera(_topDownCamera);
                         }
-                        else
-                        {
+                        else {
                             _cameraManager.SwitchCamera(_perspectiveCamera);
                         }
                     }
                     // Prevent switching again until key is released
                     _isQPressedLastFrame = true;
                 }
-                else
-                {
+                else {
                     _isQPressedLastFrame = false;
                 }
 
-                if (input.IsKeyDown(Key.W))
-                {
+                if (input.IsKeyDown(Key.W)) {
                     _cameraManager.Current.ProcessKeyboard(CameraMovement.Forward, deltaTime);
                 }
                 if (input.IsKeyDown(Key.S))
@@ -162,117 +153,83 @@ namespace WorldBuilder.Tools
                 if (input.IsKeyDown(Key.D))
                     _cameraManager.Current.ProcessKeyboard(CameraMovement.Right, deltaTime);
 
-                if (input.MouseState.RightPressed)
-                {
-                    var diff = input.MouseState.Delta;
-                    _cameraManager.Current.ProcessMouseMovement(diff.X, diff.Y);
-                }
+                _cameraManager.Current.ProcessMouseMovement(input.MouseState);
 
                 _currentTool?.Update(deltaTime, _editingContext);
                 // Update graphics buffers for all modified chunks
                 UpdateModifiedLandblocks();
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Console.WriteLine(ex.ToString());
             }
         }
 
-        public void Render()
-        {
+        public void Render() {
             // Update chunk generation based on camera movement
             UpdateChunkGeneration();
-
-            if (Width <= 0 || Height <= 0) return;
-
-            if (RenderTarget == null || RenderTarget.Texture.Width != Width || RenderTarget.Texture.Height != Height) {
-                RenderTarget?.Dispose();
-                RenderTarget = render.CreateRenderTarget(Width, Height);
-            }
-
-            render.BindRenderTarget(RenderTarget);
-            RenderTarget.Viewport = new(0, 0, Width, Height);
-            render.GraphicsDevice.Viewport = new(0, 0, Width, Height);
             //render.UIShader.Bind();
-            RenderTarget.Clear(ColorVec.Black);
-            render.GraphicsDevice.CullMode = CullMode.None;
+            render.GraphicsDevice.CullMode = CullMode.Back;
 
-            if (_renderer != null && _terrainGenerator != null)
-            {
+            if (_renderer != null && _terrainGenerator != null) {
                 var visibleChunks = _terrainGenerator.GetVisibleChunks();
                 _renderer.RenderChunks(_cameraManager.Current, ((float)Width / Height), visibleChunks, _editingContext, Width, Height);
             }
 
             // Render tool overlay if the tool supports it
-            if (_renderer != null && _currentTool != null)
-            {
+            if (_renderer != null && _currentTool != null) {
                 _currentTool.RenderOverlay(_editingContext, render, _cameraManager.Current, ((float)Width / Height));
             }
-
-            render.BindRenderTarget(null);
 
             //_fpsCounter.UpdateFPS(deltaTime);
 
         }
 
-        private void UpdateModifiedLandblocks()
-        {
+        private void UpdateModifiedLandblocks() {
             var modified = _editingContext.ModifiedLandblocks.ToArray();
-            foreach (var lbId in modified)
-            {
+            foreach (var lbId in modified) {
                 _terrainGenerator.UpdateLandblock((uint)(lbId >> 8) & 0xFF, (uint)lbId & 0xFF);
             }
             _editingContext.ClearModifiedLandblocks();
         }
 
-        public void Dispose()
-        {
+        public void Dispose() {
             RenderTarget?.Dispose();
             _renderer?.Dispose();
             _terrainGenerator?.Dispose();
         }
 
-        internal void OnMouseScroll(PointerWheelEventArgs e, Vector2 _lastMousePosition)
-        {
+        internal void HandleMouseScroll(PointerWheelEventArgs e, Vector2 _lastMousePosition) {
             var relativePos = _lastMousePosition;
-            if (_cameraManager.Current is PerspectiveCamera perspectiveCamera)
-            {
+            if (_cameraManager.Current is PerspectiveCamera perspectiveCamera) {
                 perspectiveCamera.ProcessMouseScroll((float)e.Delta.Y);
             }
-            else if (_cameraManager.Current is OrthographicTopDownCamera orthoCamera)
-            {
+            else if (_cameraManager.Current is OrthographicTopDownCamera orthoCamera) {
                 orthoCamera.ProcessMouseScrollAtCursor((float)e.Delta.Y, relativePos, new Vector2(Width, Height));
             }
         }
 
-        internal bool HandleMouseMove(PointerEventArgs e, TerrainEditingContext editingContext, MouseState _currentMouseState)
-        {
+        internal bool HandleMouseMove(PointerEventArgs e, MouseState _currentMouseState) {
             // Let the current tool handle the mouse move first
-            if (_currentTool != null)
-            {
+            if (_currentTool != null) {
                 bool handled = _currentTool.HandleMouseMove(_currentMouseState, _editingContext);
                 return handled;
             }
             return false;
         }
 
-        internal bool HandleMouseUp(MouseState mouseState, TerrainEditingContext editingContext)
-        {
+        internal bool HandleMouseUp(PointerReleasedEventArgs e, MouseState mouseState) {
             // Let the current tool handle the mouse move first
-            if (_currentTool != null)
-            {
-                bool handled = _currentTool.HandleMouseUp(mouseState, editingContext);
+            if (_currentTool != null) {
+                bool handled = _currentTool.HandleMouseUp(mouseState, _editingContext);
                 return handled;
             }
             return false;
         }
 
-        internal bool HandleMouseDown(MouseState mouseState, TerrainEditingContext editingContext)
-        {
+        internal bool HandleMouseDown(PointerPressedEventArgs e, MouseState mouseState) {
             // Let the current tool handle the mouse move first
-            if (_currentTool != null)
-            {
-                bool handled = _currentTool.HandleMouseDown(mouseState, editingContext);
+            if (_currentTool != null) {
+                bool handled = _currentTool.HandleMouseDown(mouseState, _editingContext);
                 return handled;
             }
             return false;

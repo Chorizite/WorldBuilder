@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Numerics;
+using WorldBuilder.Tools.Landscape;
 
 namespace WorldBuilder.Lib {
     public interface ICamera {
@@ -8,11 +9,13 @@ namespace WorldBuilder.Lib {
         Vector3 Up { get; }
         Vector3 Right { get; }
 
+        Vector2 ScreenSize { get; set;  }
+
         Matrix4x4 GetViewMatrix();
         Matrix4x4 GetProjectionMatrix(float aspectRatio, float nearPlane = 0.1f, float farPlane = 10000.0f);
 
         void ProcessKeyboard(CameraMovement direction, double deltaTime);
-        void ProcessMouseMovement(float xOffset, float yOffset, bool constrainPitch = true);
+        void ProcessMouseMovement(MouseState mouseState);
         void ProcessMouseScroll(float yOffset);
 
         void SetMovementSpeed(float speed);
@@ -35,11 +38,15 @@ namespace WorldBuilder.Lib {
         internal float movementSpeed;
         internal float mouseSensitivity;
         internal float fov = 45.0f;
+        private bool _isDragging;
+        private Vector2 _previousMousePosition;
 
         public Vector3 Position => position;
         public Vector3 Front => front;
         public Vector3 Up => up;
         public Vector3 Right => right;
+
+        public Vector2 ScreenSize { get; set; }
 
         // Camera options - corrected for Z-up system
         private const float DefaultYaw = 0.0f;  // 0° points along +Y
@@ -95,22 +102,33 @@ namespace WorldBuilder.Lib {
             }
         }
 
-        public void ProcessMouseMovement(float xOffset, float yOffset, bool constrainPitch = true) {
-            xOffset *= mouseSensitivity;
-            yOffset *= mouseSensitivity;
+        public void ProcessMouseMovement(MouseState mouseState) {
+            if (mouseState.RightPressed) {
+                if (!_isDragging) {
+                    _isDragging = true;
+                    _previousMousePosition = mouseState.Position;
+                }
+                else {
+                    // Calculate per-frame delta
+                    var xOffset = (mouseState.Position.X - _previousMousePosition.X) * mouseSensitivity;
+                    var yOffset = (mouseState.Position.Y - _previousMousePosition.Y) * mouseSensitivity;
 
-            yaw -= xOffset;
-            pitch -= yOffset; // Fixed: don't negate yOffset for Z-up
+                    // Update yaw and pitch (inverted for intuitive control)
+                    yaw -= xOffset; // Dragging right decreases yaw (rotates left)
+                    pitch -= yOffset; // Dragging up decreases pitch (tilts down)
 
-            // Constrain pitch
-            if (constrainPitch) {
-                if (pitch > 89.0f)
-                    pitch = 89.0f;
-                if (pitch < -89.0f)
-                    pitch = -89.0f;
+                    // Constrain pitch to avoid flipping
+                    pitch = Math.Clamp(pitch, -89.0f, 89.0f);
+
+                    UpdateCameraVectors();
+
+                    // Update previous position after processing movement
+                    _previousMousePosition = mouseState.Position;
+                }
             }
-
-            UpdateCameraVectors();
+            else {
+                _isDragging = false;
+            }
         }
 
         public void ProcessMouseScroll(float yOffset) {
@@ -175,12 +193,17 @@ namespace WorldBuilder.Lib {
         private float movementSpeed;
         private float mouseSensitivity;
         private float orthographicSize = 1800f; // Size of the orthographic view
+        private bool _isDragging;
+        private Vector2 _previousMousePosition;
+        private Vector2 _worldPointUnderMouse;
 
         public Vector3 Position => position;
         public Vector3 Front => front;
         public Vector3 Up => up;
         public Vector3 Right => right;
         public float OrthographicSize => orthographicSize;
+
+        public Vector2 ScreenSize { get; set; }
 
         private const float DefaultSpeed = 50.0f;
         private const float DefaultSensitivity = 0.08f;
@@ -247,16 +270,34 @@ namespace WorldBuilder.Lib {
             }
         }
 
-        public void ProcessMouseMovement(float xOffset, float yOffset, bool constrainPitch = true) {
-            // Scale mouse movement based on orthographic size for consistent terrain tracking
-            float scaledSensitivity = mouseSensitivity * (orthographicSize / 50.0f);
+        public void ProcessMouseMovement(MouseState mouseState) {
+            if (mouseState.RightPressed) {
+                if (!_isDragging) {
+                    _isDragging = true;
+                    _previousMousePosition = mouseState.Position;
+                }
+                else {
+                    // Calculate delta in screen space
+                    Vector2 mouseDelta = mouseState.Position - _previousMousePosition;
 
-            position += new Vector3(-xOffset * scaledSensitivity, yOffset * scaledSensitivity, 0);
+                    // Convert delta to world space
+                    float aspectRatio = ScreenSize.X / ScreenSize.Y;
+                    float worldDeltaX = -mouseDelta.X * (orthographicSize * aspectRatio / ScreenSize.X);
+                    float worldDeltaY = mouseDelta.Y * (orthographicSize / ScreenSize.Y);
+
+                    // Update camera position
+                    position += new Vector3(worldDeltaX, worldDeltaY, 0);
+
+                    // Update previous position after processing movement
+                    _previousMousePosition = mouseState.Position;
+                }
+            }
+            else {
+                _isDragging = false;
+            }
         }
 
         public void ProcessMouseScroll(float yOffset) {
-            // Calculate zoom factor based on current orthographic size
-            // When closer (smaller orthographicSize), zoom changes are smaller
             float zoomSensitivity = orthographicSize * 0.1f; // 10% of current zoom level
 
             float oldSize = orthographicSize;

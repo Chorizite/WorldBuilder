@@ -31,8 +31,6 @@ namespace WorldBuilder.Tools.Landscape {
         private const int PseudoRandomBase = 1379576222;
         private const int PseudoRandomOffset = 1372186442;
 
-        private readonly DatReaderWriter.Types.TexMerge _textureMergeData;
-
         // UV coordinate lookup tables
         private static readonly Vector2[] LandUVs = new Vector2[]
         {
@@ -76,7 +74,7 @@ namespace WorldBuilder.Tools.Landscape {
             AlphaAtlas = _renderer.GraphicsDevice.CreateTextureArray(TextureFormat.RGBA8, 512, 512, 16);
 
             _landSurface = _region.TerrainInfo.LandSurfaces;
-            _textureMergeData = _region.TerrainInfo.LandSurfaces.TexMerge;
+            var _textureMergeData = _region.TerrainInfo.LandSurfaces.TexMerge;
 
             SurfaceInfoByPalette = new Dictionary<uint, SurfaceInfo>();
             SurfacesBySurfaceNumber = new Dictionary<uint, TextureMergeInfo>();

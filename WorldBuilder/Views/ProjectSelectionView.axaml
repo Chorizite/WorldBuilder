@@ -1,0 +1,201 @@
+<UserControl
+    x:Class="WorldBuilder.Views.ProjectSelectionView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:lib="clr-namespace:WorldBuilder.Lib"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:WorldBuilder.ViewModels"
+    d:DesignHeight="600"
+    d:DesignWidth="1000"
+    x:DataType="vm:ProjectSelectionViewModel"
+    mc:Ignorable="d">
+
+    <Grid Margin="20">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300" />
+            <ColumnDefinition Width="20" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  Recent Projects Section  -->
+        <Grid Grid.Column="0" Margin="0,0,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="20" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" FontSize="18">Recent Projects</TextBlock>
+
+            <ScrollViewer Grid.Row="2">
+                <ItemsControl ItemsSource="{Binding RecentProjects}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="lib:RecentProject">
+                            <Button
+                                Margin="0,0,10,15"
+                                Padding="0"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Command="{Binding $parent[UserControl].((vm:ProjectSelectionViewModel)DataContext).OpenRecentProjectCommand}"
+                                CommandParameter="{Binding}"
+                                Cursor="Hand">
+                                <Border
+                                    Padding="10"
+                                    Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
+                                    CornerRadius="8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock
+                                                FontSize="16"
+                                                Text="{Binding Name}"
+                                                TextTrimming="CharacterEllipsis" />
+                                            <TextBlock
+                                                Margin="0,4,0,0"
+                                                FontSize="12"
+                                                Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                                Text="{Binding FileDirectory}"
+                                                TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <DropDownButton
+                                            Grid.Column="1"
+                                            Width="32"
+                                            ToolTip.Tip="Project options">
+                                            <DropDownButton.Flyout>
+                                                <MenuFlyout>
+                                                    <MenuItem
+                                                        Command="{Binding $parent[UserControl].((vm:ProjectSelectionViewModel)DataContext).OpenRecentProjectCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        Header="Open" />
+                                                    <MenuItem
+                                                        Command="{Binding $parent[UserControl].((vm:ProjectSelectionViewModel)DataContext).OpenInExplorerCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        Header="Open in file explorer" />
+                                                    <MenuItem
+                                                        Command="{Binding $parent[UserControl].((vm:ProjectSelectionViewModel)DataContext).RemoveRecentProjectCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        Header="Remove from recent" />
+                                                </MenuFlyout>
+                                            </DropDownButton.Flyout>
+                                        </DropDownButton>
+                                    </Grid>
+                                </Border>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!--  Empty State - overlay it on the same row  -->
+            <Border
+                Grid.Row="2"
+                Padding="20"
+                Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
+                CornerRadius="8"
+                IsVisible="{Binding !RecentProjects.Count}">
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Text="No recent projects" />
+            </Border>
+        </Grid>
+
+        <!--  Right Section with App Title and Project Creation  -->
+        <StackPanel
+            Grid.Column="2"
+            VerticalAlignment="Top"
+            Spacing="30">
+
+            <!--  App Header  -->
+            <StackPanel Spacing="5">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock FontSize="42" Text="WorldBuilder" />
+                    <TextBlock
+                        Margin="0,0,0,8"
+                        VerticalAlignment="Bottom"
+                        FontSize="14"
+                        Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                        Text="{Binding AppVersion}" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Spacing="15">
+                <!--  Create New Project  -->
+                <Border
+                    Padding="20"
+                    Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
+                    CornerRadius="8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="New Project" />
+                            <TextBlock
+                                Margin="0,4,0,0"
+                                FontSize="12"
+                                Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                Text="Open a new blank project." />
+                        </StackPanel>
+
+                        <Button
+                            Grid.Column="1"
+                            Width="80"
+                            Padding="15,8"
+                            HorizontalContentAlignment="Center"
+                            Background="{DynamicResource SystemControlBackgroundAccentBrush}"
+                            Command="{Binding NewProjectCommand}"
+                            Content="Create"
+                            Cursor="Hand" />
+                    </Grid>
+                </Border>
+
+                <!--  Open Existing Project  -->
+                <Border
+                    Padding="20"
+                    Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
+                    CornerRadius="8">
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Open Existing" />
+                            <TextBlock
+                                Margin="0,4,0,0"
+                                FontSize="12"
+                                Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                Text="Open an existing project from the filesystem." />
+                        </StackPanel>
+
+                        <Button
+                            Grid.Column="1"
+                            Width="80"
+                            Padding="15,8"
+                            HorizontalContentAlignment="Center"
+                            Background="{DynamicResource SystemControlBackgroundAccentBrush}"
+                            Command="{Binding OpenExistingProjectCommand}"
+                            Content="Open"
+                            Cursor="Hand" />
+                    </Grid>
+                </Border>
+
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+
+</UserControl>

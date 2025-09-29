@@ -1,0 +1,140 @@
+<UserControl
+    x:Class="WorldBuilder.Views.CreateProjectView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:WorldBuilder.ViewModels"
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    x:DataType="vm:CreateProjectViewModel"
+    mc:Ignorable="d">
+
+    <UserControl.Styles>
+        <Style Selector="TextBox.error">
+            <Setter Property="BorderBrush" Value="Red" />
+            <Setter Property="BorderThickness" Value="2" />
+        </Style>
+        <Style Selector="TextBlock.error">
+            <Setter Property="Foreground" Value="Red" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0,2,0,2" />
+        </Style>
+        <Style Selector="Button:disabled">
+            <Setter Property="Opacity" Value="0.5" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!--  Form Content  -->
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+            <StackPanel MaxWidth="600" Spacing="16">
+                <!--  Title  -->
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    FontSize="20"
+                    FontWeight="Bold"
+                    Text="Create New Project" />
+
+                <!--  Base DAT Directory  -->
+                <StackPanel>
+                    <TextBlock
+                        Margin="0,0,0,5"
+                        FontWeight="SemiBold"
+                        Text="Base DAT Directory *" />
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBox
+                            Grid.Column="0"
+                            Text="{Binding BaseDatDirectory}"
+                            Watermark="Select directory containing DAT files..." />
+
+                        <Button
+                            Grid.Column="1"
+                            Margin="5,0,0,0"
+                            Padding="15,5"
+                            Command="{Binding BrowseBaseDatDirectoryCommand}"
+                            Content="Browse..." />
+                    </Grid>
+                </StackPanel>
+
+                <!--  Project Name  -->
+                <StackPanel>
+                    <TextBlock
+                        Margin="0,0,0,5"
+                        FontWeight="SemiBold"
+                        Text="Project Name *" />
+
+                    <TextBox Text="{Binding ProjectName}" Watermark="Enter project name..." />
+                </StackPanel>
+
+                <!--  Project Path  -->
+                <StackPanel>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock
+                            Margin="0,0,0,5"
+                            FontWeight="SemiBold"
+                            Text="Project will be created at:" />
+
+                        <Button
+                            Grid.Column="1"
+                            Margin="5,0,0,0"
+                            Padding="15,5"
+                            Command="{Binding BrowseLocationCommand}"
+                            Content="Change..." />
+                    </Grid>
+                    <Border
+                        Padding="10"
+                        Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                        CornerRadius="3">
+                        <TextBlock
+                            FontFamily="Consolas,Courier New,monospace"
+                            Text="{Binding ProjectLocation}"
+                            TextWrapping="Wrap" />
+                    </Border>
+
+                    <!--  Error display for Project Path  -->
+                    <ItemsControl ItemsSource="{Binding LocationErrors}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Classes="error" Text="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!--  Navigation Buttons  -->
+        <Grid Grid.Row="1" Margin="0,20,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button
+                Grid.Column="0"
+                MinWidth="100"
+                Padding="20,10"
+                HorizontalContentAlignment="Center"
+                Command="{Binding GoBackCommand}"
+                Content="← Back" />
+
+            <Button
+                Grid.Column="2"
+                MinWidth="100"
+                Padding="20,10"
+                HorizontalContentAlignment="Center"
+                Classes="accent"
+                Command="{Binding GoNextCommand}"
+                Content="Next →" />
+        </Grid>
+    </Grid>
+</UserControl>

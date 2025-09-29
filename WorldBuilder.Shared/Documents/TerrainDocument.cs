@@ -57,7 +57,7 @@ namespace WorldBuilder.Shared.Documents {
         private TerrainData _terrainData = new();
 
         // Cache for base terrain data - loaded once at init
-        private readonly ConcurrentDictionary<ushort, uint[]> _baseTerrainCache = new();
+        private readonly ConcurrentDictionary<ushort, uint[]> _baseTerrainCache = new(8, 255 * 255);
 
         // Dirty tracking for efficient saves
         private readonly HashSet<ushort> _dirtyLandblocks = new();

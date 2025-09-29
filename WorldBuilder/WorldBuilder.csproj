@@ -53,8 +53,11 @@
 		<ProjectReference Include="..\WorldBuilder.Shared\WorldBuilder.Shared.csproj" />
 	</ItemGroup>
 	<ItemGroup>
-	  <Compile Update="Views\Base3DView.axaml.cs">
-	    <DependentUpon>Base3DView.axaml</DependentUpon>
+	  <Compile Update="Views\ProjectSelectionView.axaml.cs">
+	    <DependentUpon>ProjectSelectionView.axaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Views\SplashPageWindow.axaml.cs">
+	    <DependentUpon>SplashPageWindow.axaml</DependentUpon>
 	  </Compile>
 	</ItemGroup>
 

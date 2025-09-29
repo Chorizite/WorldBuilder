@@ -18,29 +18,13 @@ namespace WorldBuilder.Tools.Landscape {
         private Dictionary<ushort, TerrainEntry[]> _operationStartState = new();
         private bool _isCapturingOperation = false;
         private string _currentOperationName = "";
-        private static readonly Dictionary<ushort, HashSet<ushort>> _neighborCache = new();
+        private static readonly Dictionary<ushort, HashSet<ushort>> _neighborCache = new(255 * 255);
 
         public TerrainEditingContext(TerrainDocument terrain, TerrainProvider terrainProvider) {
             Terrain = terrain;
             TerrainProvider = terrainProvider;
             ModifiedLandblocks = new HashSet<ushort>();
 
-            for (int x = 0; x < 254; x++) {
-                for (int y = 0; y < 254; y++) {
-                    ushort lbId = (ushort)((x << 8) | y);
-                    var neighbors = new HashSet<ushort> { lbId };
-                    for (int dx = -1; dx <= 1; dx++) {
-                        for (int dy = -1; dy <= 1; dy++) {
-                            if (dx == 0 && dy == 0) continue;
-                            int nx = x + dx, ny = y + dy;
-                            if (nx >= 0 && nx < 254 && ny >= 0 && ny < 254) {
-                                neighbors.Add((ushort)((nx << 8) | ny));
-                            }
-                        }
-                    }
-                    _neighborCache[lbId] = neighbors;
-                }
-            }
         }
 
         public void BeginOperation(string operationName) {

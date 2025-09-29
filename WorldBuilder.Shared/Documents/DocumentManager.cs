@@ -67,7 +67,7 @@ namespace WorldBuilder.Shared.Documents {
                 var tDoc = Activator.CreateInstance(typeof(T), _logger) as T;
 
                 if (tDoc is null) {
-                    _logger.LogError("Failed to create document {DocumentId} of type {Type}", documentId, tType);
+                    _logger.LogError("Failed to create 1 document {DocumentId} of type {Type}", documentId, tType);
                     return null;
                 }
                 tDoc.Id = documentId;
@@ -102,7 +102,8 @@ namespace WorldBuilder.Shared.Documents {
                 return tDoc;
             }
             catch (Exception ex) {
-                _logger.LogError(ex, "Failed to create document {DocumentId} of type {Type}", documentId, typeof(T).Name);
+                _logger.LogError(ex.ToString());
+                _logger.LogError(ex, "Failed to create 2 document {DocumentId} of type {Type}", documentId, typeof(T).Name);
                 return null;
             }
         }

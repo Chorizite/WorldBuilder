@@ -1,5 +1,5 @@
 <Window
-    x:Class="WorldBuilder.Views.MainWindow"
+    x:Class="WorldBuilder.Views.SplashPageWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -7,12 +7,18 @@
     xmlns:views="clr-namespace:WorldBuilder.Views"
     xmlns:vm="using:WorldBuilder.ViewModels"
     Title="WorldBuilder"
-    Width="1200"
-    Height="800"
+    Width="800"
+    Height="400"
     d:DesignHeight="450"
     d:DesignWidth="800"
+    x:DataType="vm:SplashPageViewModel"
+    CanResize="false"
     Icon="/Assets/avalonia-logo.ico"
     WindowStartupLocation="CenterScreen"
     mc:Ignorable="d">
-    <views:MainView />
+    <TransitioningContentControl Grid.Row="1" Content="{Binding CurrentPage}">
+        <TransitioningContentControl.PageTransition>
+            <CrossFade Duration="0:0:0.2" />
+        </TransitioningContentControl.PageTransition>
+    </TransitioningContentControl>
 </Window>

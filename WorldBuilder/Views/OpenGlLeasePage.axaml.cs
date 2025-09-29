@@ -86,9 +86,9 @@ public partial class OpenGlLeasePage : UserControl {
             var position = e.GetPosition(this);
             UpdateMouseState(position, e.Properties);
 
-            if (_glVisual._tool?.HandleMouseMove(e, _glVisual._tool._editingContext, InputState.MouseState) == true) {
-                _lastMousePosition = new Vector2((float)position.X, (float)position.Y);
-            }
+//            if (_glVisual._tool?.HandleMouseMove(e, _glVisual._tool._editingContext, InputState.MouseState) == true) {
+//                _lastMousePosition = new Vector2((float)position.X, (float)position.Y);
+//            }
         }
         catch (Exception ex) {
             LogException(ex);
@@ -101,7 +101,7 @@ public partial class OpenGlLeasePage : UserControl {
         if (_glVisual != null) {
             var position = e.GetPosition(this);
             var adjustedPosition = new Vector2((float)position.X, (float)position.Y);
-            _glVisual._tool?.OnMouseScroll(e, adjustedPosition);
+            //_glVisual._tool?.OnMouseScroll(e, adjustedPosition);
         }
     }
 
@@ -117,7 +117,7 @@ public partial class OpenGlLeasePage : UserControl {
         try {
             var position = e.GetPosition(this);
             UpdateMouseState(position, e.Properties);
-            _glVisual._tool?.HandleMouseDown(InputState.MouseState, _glVisual._tool._editingContext);
+            //_glVisual._tool?.HandleMouseDown(InputState.MouseState, _glVisual._tool._editingContext);
         }
         catch (Exception ex) {
             LogException(ex);
@@ -131,7 +131,7 @@ public partial class OpenGlLeasePage : UserControl {
         try {
             var position = e.GetPosition(this);
             UpdateMouseState(position, e.Properties);
-            _glVisual._tool?.HandleMouseUp(InputState.MouseState, _glVisual._tool._editingContext);
+            //_glVisual._tool?.HandleMouseUp(InputState.MouseState, _glVisual._tool._editingContext);
         }
         catch (Exception ex) {
             LogException(ex);
