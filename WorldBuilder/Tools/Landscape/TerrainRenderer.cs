@@ -73,8 +73,8 @@ public unsafe class TerrainRenderer : IDisposable {
 
     private void InitializeSphereGeometry() {
         // Create a sphere mesh (icosphere or UV sphere)
-        var vertices = CreateSphere(16, 12); // 16 longitude, 12 latitude segments
-        var indices = CreateSphereIndices(16, 12);
+        var vertices = CreateSphere(8, 6); // 16 longitude, 12 latitude segments
+        var indices = CreateSphereIndices(8, 6);
         _sphereIndexCount = indices.Length;
 
         gl.GenVertexArrays(1, out _sphereVAO);

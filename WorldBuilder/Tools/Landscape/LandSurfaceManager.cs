@@ -156,7 +156,7 @@ namespace WorldBuilder.Tools.Landscape {
         /// </summary>
         /// <remarks>This method supports multiple terrain overlays, alpha overlays, and road overlays,
         /// applying appropriate texture coordinates and rotations for each. Only the relevant fields of the vertex
-        /// structure are updated; unused texture coordinates are initialized to -1. The method is intended for use in
+        /// structure are updated; unused texture coordinates are initialized to 255. The method is intended for use in
         /// landscape mesh generation and rendering scenarios.</remarks>
         /// <param name="landblockID">The identifier of the landblock containing the cell for which vertex data is generated.</param>
         /// <param name="cellX">The X coordinate of the cell within the landblock, used to determine the vertex position.</param>
@@ -175,17 +175,12 @@ namespace WorldBuilder.Tools.Landscape {
             v.Position.Y = baseLandblockY + cellY * 24f;
             v.Position.Z = _region.LandDefs.LandHeightTable[heightIdx];
 
-            // Initialize texture coordinates to -1 (unused)
-            v.TexCoord1.Z = -1;
-            v.TexCoord1.W = -1;
-            v.TexCoord2.Z = -1;
-            v.TexCoord2.W = -1;
-            v.TexCoord3.Z = -1;
-            v.TexCoord3.W = -1;
-            v.TexCoord4.Z = -1;
-            v.TexCoord4.W = -1;
-            v.TexCoord5.Z = -1;
-            v.TexCoord5.W = -1;
+            // Initialize packed texture coordinates to "unused" state (255 for indices, -1 for UVs)
+            v.PackedOverlay0 = VertexLandscape.PackTexCoord(-1, -1, 255, 255);
+            v.PackedOverlay1 = VertexLandscape.PackTexCoord(-1, -1, 255, 255);
+            v.PackedOverlay2 = VertexLandscape.PackTexCoord(-1, -1, 255, 255);
+            v.PackedRoad0 = VertexLandscape.PackTexCoord(-1, -1, 255, 255);
+            v.PackedRoad1 = VertexLandscape.PackTexCoord(-1, -1, 255, 255);
 
             // Base terrain texture (no rotation)
             var baseIndex = GetTextureAtlasIndex(surfInfo.TerrainBase.TexGID);
@@ -194,49 +189,43 @@ namespace WorldBuilder.Tools.Landscape {
 
             // Terrain overlays (up to 3, with individual rotations)
             for (int i = 0; i < surfInfo.TerrainOverlays.Count && i < 3; i++) {
-                var overlayIndex = GetTextureAtlasIndex(surfInfo.TerrainOverlays[i].TexGID);
+                var overlayIndex = (byte)GetTextureAtlasIndex(surfInfo.TerrainOverlays[i].TexGID);
                 var rotIndex = i < surfInfo.TerrainRotations.Count ? (byte)surfInfo.TerrainRotations[i] : (byte)0;
                 var rotatedUV = LandUVsRotated[rotIndex][cornerIndex];
 
-                switch (i) {
-                    case 0: v.TexCoord1 = new Vector4(rotatedUV.X, rotatedUV.Y, overlayIndex, v.TexCoord1.W); break;
-                    case 1: v.TexCoord2 = new Vector4(rotatedUV.X, rotatedUV.Y, overlayIndex, v.TexCoord2.W); break;
-                    case 2: v.TexCoord3 = new Vector4(rotatedUV.X, rotatedUV.Y, overlayIndex, v.TexCoord3.W); break;
-                }
-            }
+                // Start with no alpha
+                byte alphaIndex = 255;
 
-            // Terrain alpha overlays (up to 3)
-            for (int i = 0; i < surfInfo.TerrainAlphaOverlays.Count && i < 3; i++) {
-                var alphaIndex = GetAlphaAtlasIndex(surfInfo.TerrainAlphaOverlays[i].TexGID);
+                // Check if there's a corresponding alpha overlay
+                if (i < surfInfo.TerrainAlphaOverlays.Count) {
+                    alphaIndex = (byte)GetAlphaAtlasIndex(surfInfo.TerrainAlphaOverlays[i].TexGID);
+                }
+
                 switch (i) {
-                    case 0: v.TexCoord1 = new Vector4(v.TexCoord1.X, v.TexCoord1.Y, v.TexCoord1.Z, alphaIndex); break;
-                    case 1: v.TexCoord2 = new Vector4(v.TexCoord2.X, v.TexCoord2.Y, v.TexCoord2.Z, alphaIndex); break;
-                    case 2: v.TexCoord3 = new Vector4(v.TexCoord3.X, v.TexCoord3.Y, v.TexCoord3.Z, alphaIndex); break;
+                    case 0: v.SetOverlay0(rotatedUV.X, rotatedUV.Y, overlayIndex, alphaIndex); break;
+                    case 1: v.SetOverlay1(rotatedUV.X, rotatedUV.Y, overlayIndex, alphaIndex); break;
+                    case 2: v.SetOverlay2(rotatedUV.X, rotatedUV.Y, overlayIndex, alphaIndex); break;
                 }
             }
 
             // Road overlay (with rotation)
             if (surfInfo.RoadOverlay != null) {
-                var roadOverlayIndex = GetTextureAtlasIndex(surfInfo.RoadOverlay.TexGID);
+                var roadOverlayIndex = (byte)GetTextureAtlasIndex(surfInfo.RoadOverlay.TexGID);
+
                 // First road
                 var rotIndex = surfInfo.RoadRotations.Count > 0 ? (byte)surfInfo.RoadRotations[0] : (byte)0;
                 var rotatedUV = LandUVsRotated[rotIndex][cornerIndex];
-                v.TexCoord4 = new Vector4(rotatedUV.X, rotatedUV.Y, roadOverlayIndex, v.TexCoord4.W);
+                byte alphaIndex = surfInfo.RoadAlphaOverlays.Count > 0
+                    ? (byte)GetAlphaAtlasIndex(surfInfo.RoadAlphaOverlays[0].TexGID)
+                    : (byte)255;
+                v.SetRoad0(rotatedUV.X, rotatedUV.Y, roadOverlayIndex, alphaIndex);
 
                 // Second road
                 if (surfInfo.RoadAlphaOverlays.Count > 1) {
                     var rotIndex2 = surfInfo.RoadRotations.Count > 1 ? (byte)surfInfo.RoadRotations[1] : (byte)0;
                     var rotatedUV2 = LandUVsRotated[rotIndex2][cornerIndex];
-                    v.TexCoord5 = new Vector4(rotatedUV2.X, rotatedUV2.Y, roadOverlayIndex, v.TexCoord5.W);
-                }
-            }
-
-            // Road alpha overlays (up to 2)
-            for (int i = 0; i < surfInfo.RoadAlphaOverlays.Count && i < 2; i++) {
-                var alphaIndex = GetAlphaAtlasIndex(surfInfo.RoadAlphaOverlays[i].TexGID);
-                switch (i) {
-                    case 0: v.TexCoord4 = new Vector4(v.TexCoord4.X, v.TexCoord4.Y, v.TexCoord4.Z, alphaIndex); break;
-                    case 1: v.TexCoord5 = new Vector4(v.TexCoord5.X, v.TexCoord5.Y, v.TexCoord5.Z, alphaIndex); break;
+                    byte alphaIndex2 = (byte)GetAlphaAtlasIndex(surfInfo.RoadAlphaOverlays[1].TexGID);
+                    v.SetRoad1(rotatedUV2.X, rotatedUV2.Y, roadOverlayIndex, alphaIndex2);
                 }
             }
         }

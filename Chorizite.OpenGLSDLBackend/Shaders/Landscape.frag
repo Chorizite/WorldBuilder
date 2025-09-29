@@ -60,18 +60,25 @@ vec4 combineOverlays(vec3 pTexUV, vec4 pOverlay0, vec4 pOverlay1, vec4 pOverlay2
     vec4 result = vec4(0.0);
     if (h0 > 0.0) {
         overlay0 = texture(xOverlays, vec3(uvb, pOverlay0.z));
-        overlayAlpha0 = texture(xAlphas, pOverlay0.xyw);
-        overlay0.a = overlayAlpha0.a;
+        // Only sample alpha if alphaIdx is valid
+        if (pOverlay0.w >= 0.0) {
+            overlayAlpha0 = texture(xAlphas, pOverlay0.xyw);
+            overlay0.a = overlayAlpha0.a;
+        }
     }
     if (h1 > 0.0) {
         overlay1 = texture(xOverlays, vec3(uvb, pOverlay1.z));
-        overlayAlpha1 = texture(xAlphas, pOverlay1.xyw);
-        overlay1.a = overlayAlpha1.a;
+        if (pOverlay1.w >= 0.0) {
+            overlayAlpha1 = texture(xAlphas, pOverlay1.xyw);
+            overlay1.a = overlayAlpha1.a;
+        }
     }
     if (h2 > 0.0) {
         overlay2 = texture(xOverlays, vec3(uvb, pOverlay2.z));
-        overlayAlpha2 = texture(xAlphas, pOverlay2.xyw);
-        overlay2.a = overlayAlpha2.a;
+        if (pOverlay2.w >= 0.0) {
+            overlayAlpha2 = texture(xAlphas, pOverlay2.xyw);
+            overlay2.a = overlayAlpha2.a;
+        }
     }
     result = maskBlend3(overlay0, overlay1, overlay2, h0, h1, h2);
     return result;
@@ -84,11 +91,13 @@ vec4 combineRoad(vec3 pTexUV, vec4 pRoad0, vec4 pRoad1) {
     vec4 result = vec4(0.0);
     if (h0 > 0.0) {
         result = texture(xOverlays, vec3(uvb, pRoad0.z));
-        vec4 roadAlpha0 = texture(xAlphas, pRoad0.xyw);
-        result.a = 1.0 - roadAlpha0.a;
-        if (h1 > 0.0) {
-            vec4 roadAlpha1 = texture(xAlphas, pRoad1.xyw);
-            result.a = 1.0 - (roadAlpha0.a * roadAlpha1.a);
+        if (pRoad0.w >= 0.0) {
+            vec4 roadAlpha0 = texture(xAlphas, pRoad0.xyw);
+            result.a = 1.0 - roadAlpha0.a;
+            if (h1 > 0.0 && pRoad1.w >= 0.0) {
+                vec4 roadAlpha1 = texture(xAlphas, pRoad1.xyw);
+                result.a = 1.0 - (roadAlpha0.a * roadAlpha1.a);
+            }
         }
     }
     return result;

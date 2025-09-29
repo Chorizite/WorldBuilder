@@ -47,6 +47,9 @@ namespace Chorizite.OpenGLSDLBackend {
         private GLEnum Convert(Core.Render.Enums.VertexAttribType type) => type switch {
             Core.Render.Enums.VertexAttribType.Float => GLEnum.Float,
             Core.Render.Enums.VertexAttribType.Int => GLEnum.Int,
+            Core.Render.Enums.VertexAttribType.UnsignedInt => GLEnum.UnsignedInt,
+            Core.Render.Enums.VertexAttribType.UnsignedByte => GLEnum.UnsignedByte,
+            Core.Render.Enums.VertexAttribType.Byte => GLEnum.Byte,
             _ => throw new NotSupportedException()
         };
 

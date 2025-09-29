@@ -8,6 +8,7 @@
     xmlns:vm="clr-namespace:WorldBuilder.ViewModels"
     d:DesignHeight="600"
     d:DesignWidth="1000"
+    x:CompileBindings="True"
     x:DataType="vm:ProjectSelectionViewModel"
     mc:Ignorable="d">
 

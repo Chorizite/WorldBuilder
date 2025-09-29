@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using Chorizite.OpenGLSDLBackend;
 using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
@@ -10,6 +11,7 @@ using System;
 using WorldBuilder.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Tools;
+using WorldBuilder.Tools.Landscape;
 
 namespace WorldBuilder.Views.Editors;
 
@@ -17,10 +19,17 @@ public partial class LandscapeEditorView : Base3DView {
     private GL _gl;
     private LandscapeTool _tool;
     private bool _didInit;
+    private FPSCounter _fpsCounter;
+    private TextBlock? _fpsTextBlock;
 
     public LandscapeEditorView() {
         InitializeComponent();
         InitializeBase3DView();
+
+        _fpsCounter = new FPSCounter();
+
+        // get the TextBlock named "FPSCounter"
+        _fpsTextBlock = this.Find<TextBlock>("FPSCounter");
     }
 
     protected override void OnGlInit(GL gl, PixelSize canvasSize) {
@@ -36,6 +45,12 @@ public partial class LandscapeEditorView : Base3DView {
     }
 
     protected override void OnGlRender(double frameTime) {
+        _fpsCounter.UpdateFPS(frameTime);
+        Dispatcher.UIThread.Post(() => {
+
+            _fpsTextBlock.Text = $"FPS: {_fpsCounter.getCombinedString()}";
+        });
+
         if (!_didInit && ProjectManager.Instance.CurrentProject?.DocumentManager != null) {
             _tool.Init(ProjectManager.Instance.CurrentProject, Renderer);
             _didInit = true;

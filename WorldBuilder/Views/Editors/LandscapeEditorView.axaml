@@ -7,6 +7,7 @@
     xmlns:views="using:WorldBuilder.Views"
     d:DesignHeight="450"
     d:DesignWidth="800"
+    x:CompileBindings="True"
     mc:Ignorable="d">
     <Grid>
         <Grid.ColumnDefinitions>
@@ -37,6 +38,7 @@
             BorderThickness="0,0,1,0">
             <StackPanel Margin="10">
                 <TextBlock
+                    x:Name="FPSCounter"
                     Margin="0,0,0,10"
                     FontWeight="Bold"
                     Text="Side Panel" />
