@@ -1,12 +1,9 @@
-using Autofac.Core;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
-using Avalonia.Threading;
 using Chorizite.Core.Render;
 using Chorizite.OpenGLSDLBackend;
-using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
 using System;
 using System.Collections.Generic;
@@ -20,12 +17,12 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Tools;
 using WorldBuilder.Tools.Landscape;
 using WorldBuilder.ViewModels.Editors;
+using WorldBuilder.ViewModels.Editors.LandscapeEditor;
 
 namespace WorldBuilder.Views.Editors;
 
 public partial class LandscapeEditorView : Base3DView {
     private GL _gl;
-
     public PixelSize CanvasSize { get; private set; }
 
     private Project _project;
@@ -40,14 +37,18 @@ public partial class LandscapeEditorView : Base3DView {
     internal TerrainEditingContext _editingContext;
     private bool _didInit;
 
-    // Tools
-    private readonly Dictionary<string, ITerrainTool> _tools = new();
-    private ITerrainTool _currentTool;
+    // Tool management
+    private ITerrainTool _currentToolInstance;
+    private TexturePaintingTool _texturePaintingTool;
+    private RoadDrawingTool _roadDrawingTool;
+
     private PerspectiveCamera _perspectiveCamera;
     private OrthographicTopDownCamera _topDownCamera;
     private int _loadedChunks;
     private int _visibleChunks;
     private bool _isQPressedLastFrame;
+
+    private LandscapeEditorViewModel ViewModel => (LandscapeEditorViewModel)DataContext;
 
     public LandscapeEditorView() {
         InitializeComponent();
@@ -55,6 +56,102 @@ public partial class LandscapeEditorView : Base3DView {
 
         Console.WriteLine($"ADDING DataContext LandscapeEditorViewModel");
         DataContext = ProjectManager.Instance.GetProjectService<LandscapeEditorViewModel>();
+
+        // Subscribe to tool changes
+        if (ViewModel != null) {
+            ViewModel.PropertyChanged += ViewModel_PropertyChanged;
+        }
+    }
+
+    private void ViewModel_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e) {
+        if (e.PropertyName == nameof(LandscapeEditorViewModel.SelectedTool)) {
+            OnToolChanged();
+        }
+    }
+
+    private void OnToolChanged() {
+        if (!_didInit || ViewModel?.SelectedTool == null) return;
+
+        // Deactivate current tool
+        _currentToolInstance?.OnDeactivated(_editingContext);
+
+        // Switch to new tool
+        if (ViewModel.SelectedTool is TexturePaintingToolViewModel) {
+            _currentToolInstance = _texturePaintingTool;
+            UpdateTexturePaintingToolFromViewModel();
+        }
+        else if (ViewModel.SelectedTool is RoadDrawingToolViewModel) {
+            _currentToolInstance = _roadDrawingTool;
+        }
+
+        // Activate new tool
+        _currentToolInstance?.OnActivated(_editingContext);
+
+        // Subscribe to subtool changes
+        if (ViewModel.SelectedTool != null) {
+            ViewModel.SelectedTool.PropertyChanged -= SelectedTool_PropertyChanged;
+            ViewModel.SelectedTool.PropertyChanged += SelectedTool_PropertyChanged;
+            OnSubToolChanged();
+        }
+    }
+
+    private void SelectedTool_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e) {
+        if (e.PropertyName == nameof(ToolViewModelBase.SelectedSubTool)) {
+            OnSubToolChanged();
+        }
+    }
+
+    private void OnSubToolChanged() {
+        if (!_didInit || ViewModel?.SelectedTool == null) return;
+
+        if (ViewModel.SelectedTool is TexturePaintingToolViewModel textureVM) {
+            UpdateTexturePaintingToolFromViewModel();
+        }
+        // Handle other tools as needed
+    }
+
+    private void UpdateTexturePaintingToolFromViewModel() {
+        if (_texturePaintingTool == null || ViewModel?.SelectedTool?.SelectedSubTool == null) return;
+
+        var subTool = ViewModel.SelectedTool.SelectedSubTool;
+
+        if (subTool is BrushSubToolViewModel brushVM) {
+            _texturePaintingTool.SetPaintMode(TexturePaintingTool.PaintSubMode.Brush);
+            _texturePaintingTool.BrushRadius = brushVM.BrushRadius;
+            _texturePaintingTool.SelectedTerrainType = brushVM.SelectedTerrainType;
+
+            // Subscribe to property changes for real-time updates
+            brushVM.PropertyChanged -= BrushVM_PropertyChanged;
+            brushVM.PropertyChanged += BrushVM_PropertyChanged;
+        }
+        else if (subTool is BucketFillSubToolViewModel bucketVM) {
+            _texturePaintingTool.SetPaintMode(TexturePaintingTool.PaintSubMode.Bucket);
+            _texturePaintingTool.SelectedTerrainType = bucketVM.SelectedTerrainType;
+
+            bucketVM.PropertyChanged -= BucketVM_PropertyChanged;
+            bucketVM.PropertyChanged += BucketVM_PropertyChanged;
+        }
+    }
+
+    private void BrushVM_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e) {
+        if (_texturePaintingTool == null) return;
+        var vm = (BrushSubToolViewModel)sender;
+
+        if (e.PropertyName == nameof(BrushSubToolViewModel.BrushRadius)) {
+            _texturePaintingTool.BrushRadius = vm.BrushRadius;
+        }
+        else if (e.PropertyName == nameof(BrushSubToolViewModel.SelectedTerrainType)) {
+            _texturePaintingTool.SelectedTerrainType = vm.SelectedTerrainType;
+        }
+    }
+
+    private void BucketVM_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e) {
+        if (_texturePaintingTool == null) return;
+        var vm = (BucketFillSubToolViewModel)sender;
+
+        if (e.PropertyName == nameof(BucketFillSubToolViewModel.SelectedTerrainType)) {
+            _texturePaintingTool.SelectedTerrainType = vm.SelectedTerrainType;
+        }
     }
 
     protected override void OnGlInit(GL gl, PixelSize canvasSize) {
@@ -81,12 +178,10 @@ public partial class LandscapeEditorView : Base3DView {
         _editingContext = new TerrainEditingContext(_terrain, _terrainGenerator);
         Console.WriteLine($"Initialized editing context in {sw.ElapsedMilliseconds}ms");
 
-        // Initialize tools
-        _tools["Textures"] = new TexturePaintingTool();
-        _tools["Roads"] = new RoadDrawingTool();
-
-        _currentTool = _tools["Textures"];
-
+        // Initialize tool instances
+        _texturePaintingTool = new TexturePaintingTool();
+        _roadDrawingTool = new RoadDrawingTool();
+        _currentToolInstance = _texturePaintingTool;
 
         _perspectiveCamera = new PerspectiveCamera(new Vector3(192f * 254f / 2f, 192f * 254f / 2f, 1000), Vector3.UnitZ);
         _topDownCamera = new OrthographicTopDownCamera(new Vector3(0, 0, 200f));
@@ -103,20 +198,20 @@ public partial class LandscapeEditorView : Base3DView {
         // Force initial chunk loading
         UpdateChunkGeneration();
         Console.WriteLine($"Initial chunk load in {sw.ElapsedMilliseconds}ms");
+
+        // Initialize tool from view model
+        OnToolChanged();
     }
 
     private void UpdateChunkGeneration() {
         if (_terrainGenerator == null) return;
 
-        // Create view-projection matrix for frustum culling
         var view = _cameraManager.Current.GetViewMatrix();
         var projection = _cameraManager.Current.GetProjectionMatrix(((float)CanvasSize.Width / CanvasSize.Height), 1.0f, 80000f);
         var viewProjection = view * projection;
 
-        // Update chunks based on camera position
         _terrainGenerator.UpdateChunks(_cameraManager.Current.Position, viewProjection);
 
-        // Update performance metrics
         _loadedChunks = _terrainGenerator.GetLoadedChunkCount();
         _visibleChunks = _terrainGenerator.GetVisibleChunkCount();
     }
@@ -130,8 +225,8 @@ public partial class LandscapeEditorView : Base3DView {
             Init(ProjectManager.Instance.CurrentProject, Renderer);
             _didInit = true;
         }
-        
-        if (_didInit){
+
+        if (_didInit) {
             try {
                 _cameraManager.Current.ScreenSize = new Vector2(CanvasSize.Width, CanvasSize.Height);
 
@@ -145,7 +240,6 @@ public partial class LandscapeEditorView : Base3DView {
                             _cameraManager.SwitchCamera(_perspectiveCamera);
                         }
                     }
-                    // Prevent switching again until key is released
                     _isQPressedLastFrame = true;
                 }
                 else {
@@ -164,14 +258,12 @@ public partial class LandscapeEditorView : Base3DView {
 
                 _cameraManager.Current.ProcessMouseMovement(InputState.MouseState);
 
-                _currentTool?.Update(deltaTime, _editingContext);
+                _currentToolInstance?.Update(deltaTime, _editingContext);
 
                 // Update graphics buffers for all modified chunks
                 UpdateModifiedLandblocks();
                 // Update chunk generation based on camera movement
                 UpdateChunkGeneration();
-                //render.UIShader.Bind();
-                //render.GraphicsDevice.CullMode = CullMode.Back;
 
                 if (_renderer != null && _terrainGenerator != null) {
                     var visibleChunks = _terrainGenerator.GetVisibleChunks();
@@ -179,11 +271,9 @@ public partial class LandscapeEditorView : Base3DView {
                 }
 
                 // Render tool overlay if the tool supports it
-                if (_renderer != null && _currentTool != null) {
-                    _currentTool.RenderOverlay(_editingContext, render, _cameraManager.Current, ((float)CanvasSize.Width / CanvasSize.Height));
+                if (_renderer != null && _currentToolInstance != null) {
+                    _currentToolInstance.RenderOverlay(_editingContext, render, _cameraManager.Current, ((float)CanvasSize.Width / CanvasSize.Height));
                 }
-
-                //_fpsCounter.UpdateFPS(deltaTime);
             }
             catch (Exception ex) {
                 Console.WriteLine(ex.ToString());
@@ -210,8 +300,8 @@ public partial class LandscapeEditorView : Base3DView {
     protected override void OnGlPointerMoved(PointerEventArgs e, Vector2 mousePositionScaled) {
         if (!_didInit) return;
 
-        if (_currentTool != null) {
-            bool handled = _currentTool.HandleMouseMove(InputState.MouseState, _editingContext);
+        if (_currentToolInstance != null) {
+            bool handled = _currentToolInstance.HandleMouseMove(InputState.MouseState, _editingContext);
         }
     }
 
@@ -229,16 +319,16 @@ public partial class LandscapeEditorView : Base3DView {
     protected override void OnGlPointerPressed(PointerPressedEventArgs e) {
         if (!_didInit) return;
 
-        if (_currentTool != null) {
-            bool handled = _currentTool.HandleMouseDown(InputState.MouseState, _editingContext);
+        if (_currentToolInstance != null) {
+            bool handled = _currentToolInstance.HandleMouseDown(InputState.MouseState, _editingContext);
         }
     }
 
     protected override void OnGlPointerReleased(PointerReleasedEventArgs e) {
         if (!_didInit) return;
 
-        if (_currentTool != null) {
-            bool handled = _currentTool.HandleMouseUp(InputState.MouseState, _editingContext);
+        if (_currentToolInstance != null) {
+            bool handled = _currentToolInstance.HandleMouseUp(InputState.MouseState, _editingContext);
         }
     }
 
@@ -269,5 +359,13 @@ public partial class LandscapeEditorView : Base3DView {
         RenderTarget?.Dispose();
         _renderer?.Dispose();
         _terrainGenerator?.Dispose();
+
+        // Unsubscribe from events
+        if (ViewModel != null) {
+            ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
+            if (ViewModel.SelectedTool != null) {
+                ViewModel.SelectedTool.PropertyChanged -= SelectedTool_PropertyChanged;
+            }
+        }
     }
 }

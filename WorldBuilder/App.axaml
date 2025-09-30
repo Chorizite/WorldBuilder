@@ -8,6 +8,13 @@
 
     <Application.Styles>
         <FluentTheme />
+        <Style Selector="Button.selected">
+            <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundAccentBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}" />
+        </Style>
+        <Style Selector="Button.selected:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundAccentBrush}" />
+        </Style>
     </Application.Styles>
     <Application.DataTemplates>
         <lib:ViewLocator />

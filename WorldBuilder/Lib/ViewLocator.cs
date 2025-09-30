@@ -17,6 +17,8 @@ namespace WorldBuilder.Lib {
             var name = data.GetType().FullName!.Replace("ViewModel", "View");
             var type = Type.GetType(name);
 
+            Console.WriteLine($"Request: {data.GetType().FullName} -> {name}");
+
             if (type == null) {
                 return new TextBlock { Text = "Not Found: " + name };
             }
@@ -38,7 +40,7 @@ namespace WorldBuilder.Lib {
                 return (Control)control!;
             }
 
-            return new TextBlock { Text = "Not Found: " + name };
+            return new TextBlock { Text = $"Not Found: {type.Name} {name}" };
         }
 
         public bool Match(object? data) {

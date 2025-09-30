@@ -1,5 +1,4 @@
-﻿
-using Chorizite.Core.Render;
+﻿using Chorizite.Core.Render;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
 using System;
@@ -11,16 +10,21 @@ using WorldBuilder.Shared.Documents;
 
 namespace WorldBuilder.Tools.Landscape {
     public class TexturePaintingTool : ITerrainTool {
-        private TerrainTextureType _selectedTerrainType = TerrainTextureType.Volcano1;
-        private PaintSubMode _paintSubMode = PaintSubMode.Brush;
+        public TerrainTextureType SelectedTerrainType { get; set; } = TerrainTextureType.Volcano1;
+        public PaintSubMode PaintMode { get; private set; } = PaintSubMode.Brush;
+        public float BrushRadius { get; set; } = 5f;
+
         private bool _isPainting = false;
-        private float BrushRadius = 5f;
 
         public string Name => "Texture Painting";
 
         public enum PaintSubMode {
             Brush,
             Bucket
+        }
+
+        public void SetPaintMode(PaintSubMode mode) {
+            PaintMode = mode;
         }
 
         public void OnActivated(TerrainEditingContext context) {
@@ -40,24 +44,24 @@ namespace WorldBuilder.Tools.Landscape {
 
             var hitResult = mouseState.TerrainHit.Value;
 
-            if (_paintSubMode == PaintSubMode.Brush) {
+            if (PaintMode == PaintSubMode.Brush) {
                 _isPainting = true;
 
                 // Begin paint operation
-                context.BeginOperation($"Paint {_selectedTerrainType} Brush");
+                context.BeginOperation($"Paint {SelectedTerrainType} Brush");
 
                 // Capture affected landblocks before painting
                 var affectedLandblocks = context.GetAffectedLandblocks(hitResult.NearestVertice, BrushRadius * 12f);
                 context.CaptureTerrainState(affectedLandblocks);
 
-                PaintTextureBrush(hitResult.NearestVertice, _selectedTerrainType, context);
+                PaintTextureBrush(hitResult.NearestVertice, SelectedTerrainType, context);
             }
-            else if (_paintSubMode == PaintSubMode.Bucket) {
+            else if (PaintMode == PaintSubMode.Bucket) {
                 // Begin bucket fill operation
-                context.BeginOperation($"Bucket Fill {_selectedTerrainType}");
+                context.BeginOperation($"Bucket Fill {SelectedTerrainType}");
 
                 // Let FillTexture handle state capture
-                FillTexture(hitResult, _selectedTerrainType, context);
+                FillTexture(hitResult, SelectedTerrainType, context);
 
                 // End operation immediately for bucket fill
                 context.EndOperation();
@@ -82,7 +86,7 @@ namespace WorldBuilder.Tools.Landscape {
             var hitResult = mouseState.TerrainHit.Value;
             context.ActiveVertices.Clear();
 
-            if (_paintSubMode == PaintSubMode.Brush) {
+            if (PaintMode == PaintSubMode.Brush) {
                 var affected = GetAffectedVertices(hitResult.NearestVertice, BrushRadius, context);
                 foreach (var (_, _, pos) in affected) {
                     context.ActiveVertices.Add(pos);
@@ -93,7 +97,7 @@ namespace WorldBuilder.Tools.Landscape {
                     var affectedLandblocks = context.GetAffectedLandblocks(hitResult.NearestVertice, BrushRadius * 12f);
                     context.CaptureTerrainState(affectedLandblocks);
 
-                    PaintTextureBrush(hitResult.NearestVertice, _selectedTerrainType, context);
+                    PaintTextureBrush(hitResult.NearestVertice, SelectedTerrainType, context);
                 }
             }
             else {
