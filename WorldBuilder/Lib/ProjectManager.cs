@@ -118,8 +118,12 @@ namespace WorldBuilder.Lib {
             SetProject(project);
         }
 
-        public T GetProjectService<T>() where T : class {
-            return _projectProvider?.GetService<T>() ?? _rootProvider.GetRequiredService<T>();
+        public T? GetProjectService<T>() where T : class {
+            return _projectProvider?.GetService<T>() ?? _rootProvider.GetService<T>();
+        }
+
+        public T? GetProjectService<T>(Type t) where T : class {
+            return (_projectProvider?.GetService(t) ?? _rootProvider.GetService(t)) as T;
         }
 
         private async Task AddRecentProject(string name, string filePath) {

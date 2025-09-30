@@ -17,12 +17,28 @@ namespace WorldBuilder.Lib {
             var name = data.GetType().FullName!.Replace("ViewModel", "View");
             var type = Type.GetType(name);
 
-            if (type != null) {
-                return (Control)Activator.CreateInstance(type)!;
-            }
-            else {
+            if (type == null) {
                 return new TextBlock { Text = "Not Found: " + name };
             }
+
+            var control = ProjectManager.Instance?.GetProjectService<Control>(type);
+            if (control != null) {
+                return (Control)control!;
+            }
+
+            control = App.Services?.GetService(type) as Control;
+
+            if (control != null) {
+                return (Control)control!;
+            }
+
+            control = Activator.CreateInstance(type) as Control;
+
+            if (control != null) {
+                return (Control)control!;
+            }
+
+            return new TextBlock { Text = "Not Found: " + name };
         }
 
         public bool Match(object? data) {
