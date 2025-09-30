@@ -18,7 +18,7 @@ using WorldBuilder.Views;
 namespace WorldBuilder;
 
 public partial class App : Application {
-    private ServiceProvider? _services;
+    internal static ServiceProvider? Services;
     private ProjectManager? _projectManager;
 
     public override void Initialize() {
@@ -31,10 +31,10 @@ public partial class App : Application {
         var services = new ServiceCollection();
         services.AddCommonServices();
 
-        _services = services.BuildServiceProvider();
-        _projectManager = _services.GetRequiredService<ProjectManager>();
+        Services = services.BuildServiceProvider();
+        _projectManager = Services.GetRequiredService<ProjectManager>();
 
-        var projectSelectionVM = _services.GetRequiredService<SplashPageViewModel>();
+        var projectSelectionVM = Services.GetRequiredService<SplashPageViewModel>();
 
         _projectManager.CurrentProjectChanged += (s, e) => {
             var project = _projectManager.CurrentProject;

@@ -8,14 +8,11 @@ using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Lib.Factories {
     public class SplashPageFactory {
-        private readonly IServiceCollection _services;
-
-        public SplashPageFactory(IServiceCollection services) {
-            _services = services;
+        public SplashPageFactory() {
         }
 
         public T Create<T>() where T : SplashPageViewModelBase {
-            return _services.BuildServiceProvider().GetRequiredService<T>();
+            return App.Services.GetRequiredService<T>();
         }
     }
 }

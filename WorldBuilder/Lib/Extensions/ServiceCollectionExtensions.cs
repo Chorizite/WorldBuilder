@@ -18,7 +18,7 @@ namespace WorldBuilder.Lib.Extensions {
 
             collection.AddSingleton<ProjectManager>();
             collection.AddSingleton<WorldBuilderSettings>();
-            collection.AddSingleton<SplashPageFactory>(c => new SplashPageFactory(collection));
+            collection.AddSingleton<SplashPageFactory>();
 
             // splash page
             collection.AddTransient<RecentProject>();

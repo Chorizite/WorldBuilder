@@ -19,6 +19,7 @@ using WorldBuilder.Shared.Documents;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.ViewModels;
+using WorldBuilder.ViewModels.Editors;
 
 namespace WorldBuilder.Lib {
     public partial class ProjectManager : ObservableObject, IRecipient<OpenProjectMessage>, IRecipient<CreateProjectMessage> {
@@ -41,6 +42,7 @@ namespace WorldBuilder.Lib {
         public event EventHandler<EventArgs>? CurrentProjectChanged;
 
         public ProjectManager(IServiceProvider rootProvider, ILogger<ProjectSelectionViewModel> log, WorldBuilderSettings settings) {
+            if (Instance != null) throw new Exception("ProjectManager already exists");
             Instance = this;
             _rootProvider = rootProvider;
             _log = log;
@@ -67,18 +69,26 @@ namespace WorldBuilder.Lib {
 
         private void SetProject(Project project) {
             var services = new ServiceCollection();
-            services.AddCommonServices();
 
             // Project-specific services
             services.AddDbContext<DocumentDbContext>(
                 o => o.UseSqlite($"DataSource={project.DatabasePath}"),
                 ServiceLifetime.Scoped);
 
+            services.AddLogging((c) => c.AddProvider(new ColorConsoleLoggerProvider()));
+
+            services.AddSingleton(_rootProvider.GetRequiredService<WorldBuilderSettings>());
+            services.AddSingleton(_rootProvider.GetRequiredService<ProjectManager>());
+
             services.AddSingleton<DocumentManager>();
             services.AddSingleton<IDocumentStorageService, DocumentStorageService>();
             services.AddSingleton(project);
 
+            services.AddTransient<LandscapeEditorViewModel>();
+
             _projectProvider = services.BuildServiceProvider();
+
+            _log.LogError($"ADDING TRANSIENT LandscapeEditorViewModel: {_projectProvider.GetRequiredService<LandscapeEditorViewModel>()}");
 
             CurrentProject = project;
 
@@ -109,7 +119,7 @@ namespace WorldBuilder.Lib {
         }
 
         public T GetProjectService<T>() where T : class {
-            return _projectProvider?.GetRequiredService<T>() ?? _rootProvider.GetRequiredService<T>();
+            return _projectProvider?.GetService<T>() ?? _rootProvider.GetRequiredService<T>();
         }
 
         private async Task AddRecentProject(string name, string filePath) {

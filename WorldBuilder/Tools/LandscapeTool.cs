@@ -24,7 +24,7 @@ using WorldBuilder.Tools.Landscape;
 using CullMode = Chorizite.Core.Render.Enums.CullMode;
 
 namespace WorldBuilder.Tools {
-    public class LandscapeTool : ITool {
+    public class LandscapeTool22 : ITool {
         private Project _project;
         private IDatReaderWriter _dats;
         private IRenderer render;

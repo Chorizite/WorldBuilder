@@ -34,7 +34,7 @@ sealed class Program
             .With(new Win32PlatformOptions() {
                 RenderingMode = new List<Win32RenderingMode>()  {
                     Win32RenderingMode.AngleEgl
-                }
+                },
             })
             .With(new AngleOptions
             {

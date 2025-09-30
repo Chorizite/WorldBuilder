@@ -35,11 +35,6 @@ namespace WorldBuilder.Tools.Landscape {
             }
         }
 
-        public void EditAtPosition(TerrainRaycast.TerrainRaycastHit hitResult, TerrainEditingContext context)
-        {
-            // Implementation if needed
-        }
-
         public bool HandleMouseDown(MouseState mouseState, TerrainEditingContext context) {
             if (!mouseState.IsOverTerrain || !mouseState.TerrainHit.HasValue || !mouseState.LeftPressed) return false;
 
@@ -111,7 +106,6 @@ namespace WorldBuilder.Tools.Landscape {
         public void RenderOverlay(TerrainEditingContext context, IRenderer renderer, ICamera camera, float aspectRatio) {
             // Existing rendering code
         }
-
 
         private List<(ushort LandblockId, int VertexIndex, Vector3 Position)> GetAffectedVertices(Vector3 position, float radius, TerrainEditingContext context) {
             radius = (radius * 12f) + 1f;

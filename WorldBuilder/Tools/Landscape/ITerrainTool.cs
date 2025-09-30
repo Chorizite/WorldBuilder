@@ -17,8 +17,6 @@ namespace WorldBuilder.Tools.Landscape {
     public interface ITerrainTool {
         string Name { get; }
 
-        void EditAtPosition(TerrainRaycast.TerrainRaycastHit hitResult, TerrainEditingContext context);
-
         bool HandleMouseDown(MouseState mouseState, TerrainEditingContext context) => false;
         bool HandleMouseUp(MouseState mouseState, TerrainEditingContext context) => false;
         bool HandleMouseMove(MouseState mouseState, TerrainEditingContext context) => false;
