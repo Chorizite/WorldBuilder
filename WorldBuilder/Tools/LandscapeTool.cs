@@ -168,7 +168,7 @@ namespace WorldBuilder.Tools {
             // Update chunk generation based on camera movement
             UpdateChunkGeneration();
             //render.UIShader.Bind();
-            render.GraphicsDevice.CullMode = CullMode.Back;
+            //render.GraphicsDevice.CullMode = CullMode.Back;
 
             if (_renderer != null && _terrainGenerator != null) {
                 var visibleChunks = _terrainGenerator.GetVisibleChunks();
@@ -208,7 +208,7 @@ namespace WorldBuilder.Tools {
             }
         }
 
-        internal bool HandleMouseMove(PointerEventArgs e, MouseState _currentMouseState) {
+        internal bool HandleMouseMove(PointerEventArgs e, MouseState _currentMouseState, Vector2 mousePositionScaled) {
             // Let the current tool handle the mouse move first
             if (_currentTool != null) {
                 bool handled = _currentTool.HandleMouseMove(_currentMouseState, _editingContext);

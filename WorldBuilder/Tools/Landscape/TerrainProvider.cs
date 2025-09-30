@@ -374,7 +374,7 @@ namespace WorldBuilder.Tools.Landscape {
             // Get surface and rotation info
             uint surfNum = 0;
             var rotation = TextureMergeInfo.Rotation.Rot0;
-            GetCellRotation(landblockID, landblockData, cellX, cellY, ref surfNum, ref rotation);
+            GetCellRotation(LandSurf, landblockID, landblockData, cellX, cellY, ref surfNum, ref rotation);
             var surfInfo = LandSurf.GetLandSurface(surfNum);
 
             // Get heights for the four corners
@@ -423,70 +423,6 @@ namespace WorldBuilder.Tools.Landscape {
 
             currentVertexIndex += (uint)VerticesPerCell;
             currentIndexPosition += (uint)IndicesPerCell;
-        }
-
-        public void GetCellRotation(uint landblockID, TerrainEntry[] terrain, uint x, uint y, ref uint surfNum, ref TextureMergeInfo.Rotation rotation) {
-            var globalCellX = (int)((landblockID >> 8) + x);
-            var globalCellY = (int)((landblockID & 0xFF) + y);
-
-            // Indices for SW/SE/NE/NW
-            var i = (int)(9 * x + y);
-            var t1 = terrain[i].Type;
-            var r1 = terrain[i].Road;
-
-            var j = (int)(9 * (x + 1) + y);
-            var t2 = terrain[j].Type;
-            var r2 = terrain[j].Road;
-
-            var t3 = terrain[j + 1].Type;
-            var r3 = terrain[j + 1].Road;
-
-            var t4 = terrain[i + 1].Type;
-            var r4 = terrain[i + 1].Road;
-
-            var palCodes = new List<uint> { GetPalCode(r1, r2, r3, r4, t1, t2, t3, t4) };
-
-            LandSurf.SelectTerrain(globalCellX, globalCellY, out surfNum, out rotation, palCodes);
-        }
-
-        public static uint GetPalCode(int r1, int r2, int r3, int r4, int t1, int t2, int t3, int t4) {
-            var terrainBits = t1 << 15 | t2 << 10 | t3 << 5 | t4;
-            var roadBits = r1 << 26 | r2 << 24 | r3 << 22 | r4 << 20;
-            var sizeBits = 1 << 28;
-            return (uint)(sizeBits | roadBits | terrainBits);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void CalculateVertexNormals(ref VertexLandscape v0, ref VertexLandscape v1,
-                                            ref VertexLandscape v2, ref VertexLandscape v3) {
-            // Approximate normal using three points (SW, SE, NW)
-            var edge1 = v1.Position - v0.Position;
-            var edge2 = v3.Position - v0.Position;
-            var normal = Vector3.Normalize(Vector3.Cross(edge1, edge2));
-
-            v0.Normal = normal;
-            v1.Normal = normal;
-            v2.Normal = normal;
-            v3.Normal = normal;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static TerrainEntry GetTerrainEntryForCell(TerrainEntry[] landblockData, uint cellX, uint cellY) {
-            var heightIndex = (int)(cellX * 9 + cellY);
-            return landblockData != null && heightIndex < landblockData.Length
-                ? landblockData[heightIndex]
-                : new TerrainEntry(0);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool CalculateSplitDirection(uint landblockX, uint cellX, uint landblockY, uint cellY) {
-            uint seedA = (landblockX * 8 + cellX) * 214614067u;
-            uint seedB = (landblockY * 8 + cellY) * 1109124029u;
-            uint magicA = seedA + 1813693831u;
-            uint magicB = seedB;
-            float splitDir = (float)(magicA - magicB - 1369149221u);
-
-            return (splitDir * 2.3283064e-10f) >= 0.5f;
         }
         
         /// <summary>
@@ -650,8 +586,6 @@ namespace WorldBuilder.Tools.Landscape {
                 }
             }
 
-            // FIX: Properly adjust indices to account for the base vertex offset in the chunk buffer
-            // Only adjust valid indices (those that were actually written)
             for (int i = 0; i < currentIndexPosition; i++) {
                 indices[i] += baseVertexIndex;
             }
@@ -663,10 +597,7 @@ namespace WorldBuilder.Tools.Landscape {
         private void UpdateVertexBufferRange(IVertexBuffer buffer, VertexLandscape[] newVertices, int offset) {
             if (buffer == null || newVertices == null || newVertices.Length == 0) return;
 
-            // Calculate byte offset
             int byteOffset = offset * VertexLandscape.Size;
-
-            // Update the buffer with new data
             buffer.SetSubData(newVertices, byteOffset);
         }
 
@@ -676,10 +607,7 @@ namespace WorldBuilder.Tools.Landscape {
         private void UpdateIndexBufferRange(IIndexBuffer buffer, uint[] newIndices, int offset, uint baseVertexIndex) {
             if (buffer == null || newIndices == null || newIndices.Length == 0) return;
 
-            // Calculate byte offset
             int byteOffset = offset * sizeof(uint);
-
-            // Update the buffer with new data
             buffer.SetSubData(newIndices, byteOffset);
         }
 
@@ -691,8 +619,8 @@ namespace WorldBuilder.Tools.Landscape {
         public void UpdateLandblock(uint landblockX, uint landblockY) {
             var landblockId = (landblockX << 8) | landblockY;
             var modifiedLandblocks = new Dictionary<uint, Vector2> {
-        { landblockId, new Vector2(landblockX, landblockY) }
-    };
+                { landblockId, new Vector2(landblockX, landblockY) }
+            };
 
             UpdateModifiedLandblocks(modifiedLandblocks);
         }
@@ -710,6 +638,70 @@ namespace WorldBuilder.Tools.Landscape {
             }
 
             UpdateModifiedLandblocks(modifiedLandblocks);
+        }
+
+        public static void GetCellRotation(LandSurfaceManager landSurf, uint landblockID, TerrainEntry[] terrain, uint x, uint y, ref uint surfNum, ref TextureMergeInfo.Rotation rotation) {
+            var globalCellX = (int)((landblockID >> 8) + x);
+            var globalCellY = (int)((landblockID & 0xFF) + y);
+
+            // Indices for SW/SE/NE/NW
+            var i = (int)(9 * x + y);
+            var t1 = terrain[i].Type;
+            var r1 = terrain[i].Road;
+
+            var j = (int)(9 * (x + 1) + y);
+            var t2 = terrain[j].Type;
+            var r2 = terrain[j].Road;
+
+            var t3 = terrain[j + 1].Type;
+            var r3 = terrain[j + 1].Road;
+
+            var t4 = terrain[i + 1].Type;
+            var r4 = terrain[i + 1].Road;
+
+            var palCodes = new List<uint> { GetPalCode(r1, r2, r3, r4, t1, t2, t3, t4) };
+
+            landSurf.SelectTerrain(globalCellX, globalCellY, out surfNum, out rotation, palCodes);
+        }
+
+        public static uint GetPalCode(int r1, int r2, int r3, int r4, int t1, int t2, int t3, int t4) {
+            var terrainBits = t1 << 15 | t2 << 10 | t3 << 5 | t4;
+            var roadBits = r1 << 26 | r2 << 24 | r3 << 22 | r4 << 20;
+            var sizeBits = 1 << 28;
+            return (uint)(sizeBits | roadBits | terrainBits);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void CalculateVertexNormals(ref VertexLandscape v0, ref VertexLandscape v1,
+                                            ref VertexLandscape v2, ref VertexLandscape v3) {
+            // Approximate normal using three points (SW, SE, NW)
+            var edge1 = v1.Position - v0.Position;
+            var edge2 = v3.Position - v0.Position;
+            var normal = Vector3.Normalize(Vector3.Cross(edge1, edge2));
+
+            v0.Normal = normal;
+            v1.Normal = normal;
+            v2.Normal = normal;
+            v3.Normal = normal;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static TerrainEntry GetTerrainEntryForCell(TerrainEntry[] landblockData, uint cellX, uint cellY) {
+            var heightIndex = (int)(cellX * 9 + cellY);
+            return landblockData != null && heightIndex < landblockData.Length
+                ? landblockData[heightIndex]
+                : new TerrainEntry(0);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool CalculateSplitDirection(uint landblockX, uint cellX, uint landblockY, uint cellY) {
+            uint seedA = (landblockX * 8 + cellX) * 214614067u;
+            uint seedB = (landblockY * 8 + cellY) * 1109124029u;
+            uint magicA = seedA + 1813693831u;
+            uint magicB = seedB;
+            float splitDir = (float)(magicA - magicB - 1369149221u);
+
+            return (splitDir * 2.3283064e-10f) >= 0.5f;
         }
 
         /// <summary>
@@ -795,130 +787,6 @@ namespace WorldBuilder.Tools.Landscape {
             }
 
             return 0f; // Default height if index is out of bounds
-        }
-
-        /// <summary>
-        /// Calculates the height at a given world position using the triangle-based approach
-        /// This method respects the actual triangle split direction used in terrain rendering
-        /// </summary>
-        /// <param name="worldX">World X coordinate</param>
-        /// <param name="worldY">World Y coordinate</param>
-        /// <returns>The interpolated height at the given position using triangle interpolation</returns>
-        public float GetHeightAtPositionTriangulated(float worldX, float worldY) {
-            // Convert world coordinates to landblock coordinates
-            uint landblockX = (uint)Math.Floor(worldX / LandblockLength);
-            uint landblockY = (uint)Math.Floor(worldY / LandblockLength);
-
-            // Check if the landblock is within map bounds
-            if (landblockX >= MapSize || landblockY >= MapSize) {
-                return 0f;
-            }
-
-            // Get the landblock data
-            var landblockID = (uint)((landblockX << 8) | landblockY);
-            var landblockData = _terrain.GetLandblock((ushort)landblockID);
-
-            if (landblockData == null) {
-                return 0f;
-            }
-
-            // Calculate position within the landblock
-            float localX = worldX - (landblockX * LandblockLength);
-            float localY = worldY - (landblockY * LandblockLength);
-
-            // Convert to cell coordinates
-            float cellX = localX / CellSize;
-            float cellY = localY / CellSize;
-
-            // Get the cell indices
-            uint cellIndexX = (uint)Math.Floor(cellX);
-            uint cellIndexY = (uint)Math.Floor(cellY);
-
-            // Clamp to valid cell range
-            cellIndexX = Math.Min(cellIndexX, LandblockEdgeCellCount - 1);
-            cellIndexY = Math.Min(cellIndexY, LandblockEdgeCellCount - 1);
-
-            // Calculate interpolation factors within the cell (0-1 range)
-            float fracX = cellX - cellIndexX;
-            float fracY = cellY - cellIndexY;
-
-            // Get the four corner heights
-            var heightSW = GetHeightFromTerrainData(landblockData, cellIndexX, cellIndexY);
-            var heightSE = GetHeightFromTerrainData(landblockData, cellIndexX + 1, cellIndexY);
-            var heightNW = GetHeightFromTerrainData(landblockData, cellIndexX, cellIndexY + 1);
-            var heightNE = GetHeightFromTerrainData(landblockData, cellIndexX + 1, cellIndexY + 1);
-
-            // Determine which triangle we're in based on the split direction
-            bool splitDiagonal = CalculateSplitDirection(landblockX, cellIndexX, landblockY, cellIndexY);
-
-            float interpolatedHeight;
-
-            if (!splitDiagonal) {
-                // SW to NE split
-                if (fracX + fracY <= 1.0f) {
-                    // We're in the SW triangle (SW, SE, NW)
-                    interpolatedHeight = InterpolateTriangle(
-                        heightSW, heightSE, heightNW,
-                        0f, 1f, 0f,     // SW corner (0,0)
-                        1f, 0f, 0f, fracX,  // SE corner (1,0) 
-                        fracY           // fracY
-                    );
-                }
-                else {
-                    // We're in the NE triangle (SE, NE, NW)
-                    interpolatedHeight = InterpolateTriangle(
-                        heightSE, heightNE, heightNW,
-                        1f, 1f, 0f,     // SE corner (1,0)
-                        1f, 0f, 1f,     // NE corner (1,1)
-                        fracX, fracY    // Position
-                    );
-                }
-            }
-            else {
-                // SE to NW split
-                if (fracX >= fracY) {
-                    // We're in the SE triangle (SW, SE, NE)
-                    interpolatedHeight = InterpolateTriangle(
-                        heightSW, heightSE, heightNE,
-                        0f, 1f, 1f,     // Triangle corners
-                        0f, 0f, 1f,
-                        fracX, fracY
-                    );
-                }
-                else {
-                    // We're in the NW triangle (SW, NE, NW)
-                    interpolatedHeight = InterpolateTriangle(
-                        heightSW, heightNE, heightNW,
-                        0f, 1f, 0f,
-                        1f, 1f, 1f,
-                        fracX, fracY
-                    );
-                }
-            }
-
-            return interpolatedHeight;
-        }
-
-        /// <summary>
-        /// Performs barycentric interpolation within a triangle
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private float InterpolateTriangle(float h1, float h2, float h3,
-                                         float x1, float y1, float x2, float y2, float x3, float y3,
-                                         float px, float py) {
-            // Calculate barycentric coordinates
-            float denom = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3);
-
-            if (Math.Abs(denom) < 1e-10f) {
-                // Degenerate triangle, fall back to simple average
-                return (h1 + h2 + h3) / 3f;
-            }
-
-            float w1 = ((y2 - y3) * (px - x3) + (x3 - x2) * (py - y3)) / denom;
-            float w2 = ((y3 - y1) * (px - x3) + (x1 - x3) * (py - y3)) / denom;
-            float w3 = 1f - w1 - w2;
-
-            return w1 * h1 + w2 * h2 + w3 * h3;
         }
 
         public void Dispose() {

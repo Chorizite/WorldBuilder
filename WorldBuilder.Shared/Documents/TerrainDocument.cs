@@ -57,7 +57,7 @@ namespace WorldBuilder.Shared.Documents {
         private TerrainData _terrainData = new();
 
         // Cache for base terrain data - loaded once at init
-        private readonly ConcurrentDictionary<ushort, uint[]> _baseTerrainCache = new(8, 255 * 255);
+        private ConcurrentDictionary<ushort, uint[]> _baseTerrainCache;
 
         // Dirty tracking for efficient saves
         private readonly HashSet<ushort> _dirtyLandblocks = new();
@@ -292,6 +292,20 @@ namespace WorldBuilder.Shared.Documents {
         }
 
         protected override Task<bool> InitInternal(IDatReaderWriter datreader) {
+            if (!string.IsNullOrWhiteSpace(_cacheDirectory) && File.Exists(Path.Combine(_cacheDirectory, "terrain.dat"))) {
+                _logger.LogInformation("Loading terrain data from cache...");
+                _baseTerrainCache = MemoryPackSerializer.Deserialize<ConcurrentDictionary<ushort, uint[]>>(File.ReadAllBytes(Path.Combine(_cacheDirectory, "terrain.dat"))) ?? [];
+                if (_baseTerrainCache.Count > 0) {
+                    _logger.LogInformation("Loaded {Count} landblocks from cache", _baseTerrainCache.Count);
+                    return Task.FromResult(true);
+                }
+                else {
+                    _logger.LogWarning("Failed to load terrain data from cache");
+                }
+            }
+
+            _baseTerrainCache = new ConcurrentDictionary<ushort, uint[]>(8, 255 * 255);
+
             _logger.LogInformation("Loading base terrain data...");
             var loadedCount = 0;
 
@@ -324,6 +338,22 @@ namespace WorldBuilder.Shared.Documents {
                     }
                 }
             });
+
+            _logger.LogInformation($"Cache dir is: {_cacheDirectory}");
+
+            if (!string.IsNullOrWhiteSpace(_cacheDirectory)) {
+                _logger.LogInformation("Saving base terrain data to cache directory {CacheDirectory}", _cacheDirectory);
+                if (!Directory.Exists(_cacheDirectory)) {
+                    Directory.CreateDirectory(_cacheDirectory);
+                }
+                try {
+                    var serialized = MemoryPackSerializer.Serialize(_baseTerrainCache);
+                    File.WriteAllBytes(Path.Combine(_cacheDirectory, "terrain.dat"), serialized);
+                }
+                catch (Exception ex) {
+                    _logger.LogError(ex, "Failed to serialize base terrain data to cache directory {CacheDirectory}", _cacheDirectory);
+                }
+            }
 
             _logger.LogInformation("Loaded {Count} base terrain landblocks", _baseTerrainCache.Count);
             return Task.FromResult(true);

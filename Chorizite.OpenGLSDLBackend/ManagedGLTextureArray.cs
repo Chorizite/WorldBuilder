@@ -56,37 +56,13 @@ namespace Chorizite.OpenGLSDLBackend {
             GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
             GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
             GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-
-            // Try to enable anisotropic filtering if available
-            TrySetAnisotropicFiltering();
-
+            
             GLHelpers.CheckErrors();
-        }
-
-        private void TrySetAnisotropicFiltering() {
-            /*
-            try {
-                // Check if anisotropic filtering extension is available
-                string extensions = GL.GetStringS(GLEnum.Extensions);
-                if (extensions.Contains("GL_EXT_texture_filter_anisotropic")) {
-                    // Get max anisotropy level
-                    GL.GetFloat(GetPName.MaxTextureMaxAnisotropy, out float maxAnisotropy);
-
-                    // Use a reasonable anisotropy level (clamp to 16.0f for performance)
-                    float anisotropy = Math.Min(maxAnisotropy, 16.0f);
-
-                    GL.TexParameter(GLEnum.Texture2DArray, (TextureParameterName)0x84FE, anisotropy); // GL_TEXTURE_MAX_ANISOTROPY_EXT
-                    GLHelpers.CheckErrors();
-                }
-            }
-            catch {
-                
-            }
-            */
         }
 
         /// <inheritdoc />
         public void Bind(int slot = 0) {
+            GL.BindSampler((uint)slot, 0);
             GL.ActiveTexture(GLEnum.Texture0 + slot);
             GLHelpers.CheckErrors();
             GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
@@ -148,16 +124,6 @@ namespace Chorizite.OpenGLSDLBackend {
                 throw new InvalidOperationException("Layer is already free.");
             }
             _usedLayers[layer] = false;
-        }
-
-        /// <summary>
-        /// Force immediate mipmap regeneration for all layers
-        /// </summary>
-        public void RegenerateMipmaps() {
-            Bind();
-            GL.GenerateMipmap(GLEnum.Texture2DArray);
-            GLHelpers.CheckErrors();
-            _needsMipmapRegeneration = false;
         }
 
         /// <inheritdoc />

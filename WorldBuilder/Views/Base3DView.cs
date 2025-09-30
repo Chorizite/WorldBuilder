@@ -95,11 +95,11 @@ namespace WorldBuilder.Views {
             InputState.Modifiers = e.KeyModifiers;
             UpdateMouseState(position, e.Properties);
             _lastMousePosition = new Vector2((float)position.X, (float)position.Y);
-
-            OnGlPointerMoved(e);
+            var scaledPosition = new Vector2((float)position.X * InputScale.X, (float)position.Y / InputScale.Y);
+            OnGlPointerMoved(e, scaledPosition);
         }
 
-        protected abstract void OnGlPointerMoved(PointerEventArgs e);
+        protected abstract void OnGlPointerMoved(PointerEventArgs e, Vector2 mousePositionScaled);
 
         protected override void OnPointerWheelChanged(PointerWheelEventArgs e) {
             base.OnPointerWheelChanged(e);
@@ -222,7 +222,6 @@ namespace WorldBuilder.Views {
             Renderer.BindRenderTarget(RenderTarget);
 
             OnGlRender(frameTime);
-
             Renderer.BindRenderTarget(null);
         }
 
@@ -239,13 +238,14 @@ namespace WorldBuilder.Views {
         private class GlVisual : CompositionCustomVisualHandler {
             private OpenGLRenderer _renderer;
             private bool _contentInitialized;
-            private IGlContext? _gl;
+            internal IGlContext? _gl;
             private PixelSize _lastSize;
 
             private AvaloniaInputState _inputState => _parent.InputState;
             private readonly Base3DView _parent;
 
             public DateTime LastRenderTime { get; private set; } = DateTime.MinValue;
+            public GL SilkGl { get; private set; }
 
             public GlVisual(Base3DView parent) {
                 _parent = parent;
@@ -268,7 +268,7 @@ namespace WorldBuilder.Views {
                         if (grContext == null) return;
 
                         var dst = skiaLease.SkCanvas.DeviceClipBounds;
-                        var canvasSize = new PixelSize((int)bounds.Width, (int)bounds.Height);
+                        var canvasSize = new PixelSize(dst.Width, dst.Height);
 
                         using (var platformApiLease = skiaLease.TryLeasePlatformGraphicsApi()) {
                             if (platformApiLease?.Context is not IGlContext glContext) return;
@@ -279,6 +279,9 @@ namespace WorldBuilder.Views {
                             }
 
                             var gl = GL.GetApi(glContext.GlInterface.GetProcAddress);
+                            SilkGl = gl;
+
+                            _parent.InputScale = new Vector2(dst.Width / (float)size.Width, dst.Height / (float)size.Height);
 
                             glContext.GlInterface.GetIntegerv(GL_FRAMEBUFFER_BINDING, out var oldFb);
                             SetDefaultStates(gl);
@@ -380,6 +383,8 @@ namespace WorldBuilder.Views {
                 }
             }
         }
+
+        public Vector2 InputScale { get; private set; }
 
         #endregion
 

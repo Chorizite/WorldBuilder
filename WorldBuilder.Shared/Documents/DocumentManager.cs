@@ -28,6 +28,8 @@ namespace WorldBuilder.Shared.Documents {
 
         private record DocumentUpdate(string DocumentId, BaseDocument Document, DateTime Timestamp);
 
+        private string? _cacheDirectory;
+
         public DocumentManager(IDocumentStorageService documentService, ILogger<DocumentManager> logger) {
             _documentService = documentService;
             _logger = logger;
@@ -48,6 +50,13 @@ namespace WorldBuilder.Shared.Documents {
                 _cancellationTokenSource.Token,
                 TaskCreationOptions.LongRunning,
                 TaskScheduler.Default).Unwrap();
+        }
+
+        public void SetCacheDirectory(string cacheDirectory) {
+            _cacheDirectory = cacheDirectory;
+            foreach (var doc in _activeDocs.Values.ToArray()) {
+                doc.SetCacheDirectory(cacheDirectory);
+            }
         }
 
         public async Task<T?> GetOrCreateDocumentAsync<T>(string documentId) where T : BaseDocument {
@@ -71,6 +80,7 @@ namespace WorldBuilder.Shared.Documents {
                     return null;
                 }
                 tDoc.Id = documentId;
+                tDoc.SetCacheDirectory(_cacheDirectory);
 
                 if (dbDoc == null) {
                     dbDoc = await _documentService.CreateDocumentAsync(documentId, tType, tDoc.SaveToProjection());

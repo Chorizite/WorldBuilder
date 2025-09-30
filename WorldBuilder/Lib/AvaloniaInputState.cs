@@ -53,9 +53,9 @@ namespace WorldBuilder.Lib
 
 
 
-        internal void UpdateMouseState(Point p, PointerPointProperties properties, int Width, int Height, ICamera camera, TerrainProvider provider)
+        internal void UpdateMouseState(Point p, PointerPointProperties properties, int Width, int Height, Vector2 inputScale, ICamera camera, TerrainProvider provider)
         {
-            Vector2 relativePos =  new Vector2((float)p.X, (float)p.Y);
+            Vector2 relativePos =  new Vector2((float)p.X, (float)p.Y) * inputScale;
             var hitResult = TerrainRaycast.Raycast(
                 relativePos.X, relativePos.Y,
                 Width, Height,

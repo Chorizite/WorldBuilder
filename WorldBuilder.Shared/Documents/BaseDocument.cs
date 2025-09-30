@@ -43,12 +43,16 @@ namespace WorldBuilder.Shared.Documents {
         /// </summary>
         public event EventHandler<UpdateEventArgs>? Update;
 
+        protected string? _cacheDirectory;
+
         public BaseDocument(ILogger logger) {
             _logger = logger;
             Update += (s, e) => {
                 OnPropertyChanged();
             };
         }
+
+        public void SetCacheDirectory(string cacheDirectory) => _cacheDirectory = cacheDirectory;
 
         /// <summary>
         /// Raise the update event

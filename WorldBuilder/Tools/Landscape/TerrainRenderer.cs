@@ -32,6 +32,7 @@ public unsafe class TerrainRenderer : IDisposable {
 
     public float AmbientLightIntensity = 0.45f;
     private IShader _sphereShader;
+    private float _aspectRatio;
 
     // Grid properties
     public bool ShowGrid { get; set; } = true;
@@ -181,18 +182,27 @@ public unsafe class TerrainRenderer : IDisposable {
     public void RenderChunks(ICamera camera, float aspectRatio, IEnumerable<TerrainChunk> visibleChunks, TerrainEditingContext editingContext, float width, float height) {
         var center = 254 * 192f / 2f;
 
+        gl.Enable(EnableCap.DepthTest);
+        gl.DepthFunc(DepthFunction.Less);
+        gl.DepthMask(true);
+
         // Clear the screen first
         gl.ClearColor(0.2f, 0.3f, 0.8f, 1.0f); // Sky blue background
-        gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+        gl.ClearDepth(1f);
+        gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
+
+        // Ensure proper culling
+        gl.Enable(EnableCap.CullFace);
+        gl.CullFace(TriangleFace.Back);
+
+        _aspectRatio = aspectRatio;
 
         // Calculate matrices once
         Matrix4x4 model = Matrix4x4.Identity;
         Matrix4x4 view = camera.GetViewMatrix();
-        Matrix4x4 projection = camera.GetProjectionMatrix(aspectRatio, 1.0f, center * 4f);
+        Matrix4x4 projection = camera.GetProjectionMatrix(aspectRatio, 1f, 10000f);
         Matrix4x4 viewProjection = view * projection;
 
-        // Estimate camera distance to terrain (average height or a reference plane)
-        // For simplicity, assume terrain is near z=0
         float cameraDistance = MathF.Abs(camera.Position.Z);
         if (camera is OrthographicTopDownCamera orthoCamera)
         {
@@ -201,22 +211,23 @@ public unsafe class TerrainRenderer : IDisposable {
         }
 
         // Render terrain chunks
-        RenderTerrain(visibleChunks, model, viewProjection, cameraDistance, width, height);
+        RenderTerrain(visibleChunks, model, camera, cameraDistance, width, height);
 
         // Render active vertex spheres
-        if (editingContext.ActiveVertices.Count > 0)
-        {
+        if (editingContext.ActiveVertices.Count > 0) {
+            gl.Disable(EnableCap.DepthTest);
             RenderActiveSpheres(editingContext, camera, model, viewProjection);
         }
 
     }
 
-    private void RenderTerrain(IEnumerable<TerrainChunk> visibleChunks, Matrix4x4 model, Matrix4x4 viewProjection, float cameraDistance, float width, float height) {
+    private void RenderTerrain(IEnumerable<TerrainChunk> visibleChunks, Matrix4x4 model, ICamera camera, float cameraDistance, float width, float height) {
         _terrainShader.Bind();
 
         _terrainShader.SetUniform("xAmbient", AmbientLightIntensity);
         _terrainShader.SetUniform("xWorld", model);
-        _terrainShader.SetUniform("xViewProjection", viewProjection);
+        _terrainShader.SetUniform("xView", camera.GetViewMatrix());
+        _terrainShader.SetUniform("xProjection", camera.GetProjectionMatrix(_aspectRatio, 1f, 192f * 255f * 2f));
         _terrainShader.SetUniform("uAlpha", 1f);
 
         // Set grid uniforms

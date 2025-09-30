@@ -100,7 +100,7 @@ namespace WorldBuilder.Tools {
             float ndcY = (2.0f * mouseY) / viewportHeight - 1.0f;
 
             // Create ray in world space
-            Matrix4x4 projection = camera.GetProjectionMatrix(viewportWidth / (float)viewportHeight, 1.0f, 80000f);
+            Matrix4x4 projection = camera.GetProjectionMatrix(viewportWidth / (float)viewportHeight, 0.1f, 80000f);
             Matrix4x4 view = camera.GetViewMatrix();
             Matrix4x4 viewProjectionInverse;
             if (!Matrix4x4.Invert(view * projection, out viewProjectionInverse)) {

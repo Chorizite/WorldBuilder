@@ -82,7 +82,12 @@ namespace WorldBuilder.Lib {
 
             CurrentProject = project;
 
+            var cacheDir = Path.Combine(_settings.AppDataDirectory, "cache", project.Name);
+            if (!Directory.Exists(cacheDir)) {
+                Directory.CreateDirectory(cacheDir);
+            }
             project.DocumentManager = _projectProvider.GetRequiredService<DocumentManager>();
+            project.DocumentManager.SetCacheDirectory(cacheDir);
             project.DocumentManager.Dats = new DefaultDatReaderWriter(project.BaseDatDirectory, DatReaderWriter.Options.DatAccessType.Read);
 
             var dbCtx = _projectProvider.GetRequiredService<DocumentDbContext>();

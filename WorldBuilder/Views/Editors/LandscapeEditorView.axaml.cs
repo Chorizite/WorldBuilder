@@ -8,6 +8,7 @@ using Chorizite.OpenGLSDLBackend;
 using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
 using System;
+using System.Numerics;
 using WorldBuilder.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Tools;
@@ -45,12 +46,6 @@ public partial class LandscapeEditorView : Base3DView {
     }
 
     protected override void OnGlRender(double frameTime) {
-        _fpsCounter.UpdateFPS(frameTime);
-        Dispatcher.UIThread.Post(() => {
-
-            _fpsTextBlock.Text = $"FPS: {_fpsCounter.getCombinedString()}";
-        });
-
         if (!_didInit && ProjectManager.Instance.CurrentProject?.DocumentManager != null) {
             _tool.Init(ProjectManager.Instance.CurrentProject, Renderer);
             _didInit = true;
@@ -70,10 +65,10 @@ public partial class LandscapeEditorView : Base3DView {
         if (!_didInit) return;
     }
 
-    protected override void OnGlPointerMoved(PointerEventArgs e) {
+    protected override void OnGlPointerMoved(PointerEventArgs e, Vector2 mousePositionScaled) {
         if (!_didInit) return;
 
-        _tool.HandleMouseMove(e, InputState.MouseState);
+        _tool.HandleMouseMove(e, InputState.MouseState, mousePositionScaled);
     }
 
     protected override void OnGlPointerWheelChanged(PointerWheelEventArgs e) {
@@ -112,6 +107,7 @@ public partial class LandscapeEditorView : Base3DView {
             properties,
             _tool.Width,
             _tool.Height,
+            InputScale,
             _tool._cameraManager?.Current,
             _tool._terrainGenerator);
     }

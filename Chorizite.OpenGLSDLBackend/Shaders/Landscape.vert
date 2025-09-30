@@ -4,7 +4,8 @@ precision highp int;
 precision highp sampler2D;
 precision highp sampler2DArray;
 
-uniform mat4 xViewProjection;
+uniform mat4 xView;
+uniform mat4 xProjection;
 uniform mat4 xWorld;
 uniform vec3 xLightDirection;
 
@@ -53,7 +54,7 @@ vec4 unpackTexCoord(uvec4 packed) {
 }
 
 void main() {
-    gl_Position = xViewProjection * xWorld * vec4(inPosition, 1.0);
+    gl_Position = xProjection * xView * xWorld * vec4(inPosition, 1.0);
     vWorldPos = inPosition.xy;
  
     vTexUV = inTextureCoord;

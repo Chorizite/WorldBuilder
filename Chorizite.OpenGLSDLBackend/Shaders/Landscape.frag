@@ -224,7 +224,6 @@ void main() {
     // Blend grid with terrain
     vec3 finalColor = mix(terrainColor, gridColor, length(gridColor));
     
-    FragColor = vec4(finalColor, 1.0);
-    FragColor *= saturate(vLightingFactor) + xAmbient;
-    FragColor.a *= uAlpha;
+    vec3 litColor = finalColor * (saturate(vLightingFactor) + xAmbient);
+    FragColor = vec4(litColor, uAlpha);
 }
