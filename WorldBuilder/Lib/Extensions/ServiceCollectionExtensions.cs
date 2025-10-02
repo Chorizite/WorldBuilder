@@ -1,15 +1,14 @@
-﻿using Autofac.Core;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Silk.NET.OpenGL;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using WorldBuilder.Lib.Factories;
 using WorldBuilder.Shared.Documents;
+using WorldBuilder.Shared.Lib;
+using WorldBuilder.Shared.Models;
 using WorldBuilder.ViewModels;
+using WorldBuilder.ViewModels.Editors;
+using WorldBuilder.ViewModels.Editors.LandscapeEditor;
 
 namespace WorldBuilder.Lib.Extensions {
     public static class ServiceCollectionExtensions {
@@ -28,6 +27,30 @@ namespace WorldBuilder.Lib.Extensions {
 
             // app
             collection.AddTransient<MainViewModel>();
+        }
+
+        public static void AddProjectServices(this IServiceCollection collection, Project project, IServiceProvider rootProvider) {
+            collection.AddDbContext<DocumentDbContext>(
+                o => o.UseSqlite($"DataSource={project.DatabasePath}"),
+                ServiceLifetime.Scoped);
+
+            collection.AddLogging((c) => c.AddProvider(new ColorConsoleLoggerProvider()));
+
+            collection.AddSingleton(rootProvider.GetRequiredService<WorldBuilderSettings>());
+            collection.AddSingleton(rootProvider.GetRequiredService<ProjectManager>());
+
+            collection.AddSingleton<DocumentManager>();
+            collection.AddSingleton<IDocumentStorageService, DocumentStorageService>();
+            collection.AddSingleton(project);
+
+            collection.AddTransient<LandscapeEditorViewModel>();
+            collection.AddTransient<TexturePaintingToolViewModel>();
+            collection.AddTransient<BrushSubToolViewModel>();
+            collection.AddTransient<BucketFillSubToolViewModel>();
+            collection.AddTransient<RoadDrawingToolViewModel>();
+            collection.AddTransient<RoadDrawSubToolViewModel>();
+            collection.AddTransient<RoadEditSubToolViewModel>();
+            collection.AddTransient<RoadEraseSubToolViewModel>();
         }
     }
 }

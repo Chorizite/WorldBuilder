@@ -46,77 +46,55 @@
                         FontWeight="Bold"
                         Text="Tools" />
 
-                    <!--  Tool Selection Buttons  -->
+                    <!--  All Tools with SubTools  -->
                     <ItemsControl ItemsSource="{Binding Tools}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel Orientation="Horizontal" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Button
-                                    Margin="0,0,5,5"
-                                    Padding="5,5"
-                                    Classes.selected="{Binding IsSelected}"
-                                    Command="{Binding $parent[ItemsControl].((vm:LandscapeEditorViewModel)DataContext).SelectToolCommand}"
-                                    CommandParameter="{Binding}">
-                                    <StackPanel HorizontalAlignment="Center" Spacing="5">
-                                        <TextBlock
-                                            HorizontalAlignment="Center"
-                                            FontSize="20"
-                                            Text="{Binding IconGlyph}"
-                                            ToolTip.Tip="{Binding Name}" />
-                                    </StackPanel>
-                                </Button>
+                                <StackPanel Margin="0,0,0,15" Spacing="10">
+                                    <!--  Tool Name  -->
+                                    <TextBlock
+                                        FontSize="14"
+                                        FontWeight="SemiBold"
+                                        Text="{Binding Name}" />
+
+                                    <!--  SubTool Selection Buttons  -->
+                                    <ItemsControl ItemsSource="{Binding AllSubTools}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button
+                                                    Margin="0,0,5,5"
+                                                    Padding="5"
+                                                    Classes.selected="{Binding IsSelected}"
+                                                    Command="{Binding $parent[views:Base3DView].((vm:LandscapeEditorViewModel)DataContext).SelectSubToolCommand}"
+                                                    CommandParameter="{Binding}">
+                                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                                        <TextBlock
+                                                            FontSize="16"
+                                                            Text="{Binding IconGlyph}"
+                                                            ToolTip.Tip="{Binding Name}" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <!--  Separator between tools  -->
+                                    <Separator Margin="0,5" />
+                                </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <!--  Separator  -->
-                    <Separator />
-
-                    <!--  SubTools Section (only shown when tool is selected)  -->
-                    <Panel IsVisible="{Binding SelectedTool, Converter={x:Static ObjectConverters.IsNotNull}}">
-                        <StackPanel Spacing="10">
-                            <TextBlock
-                                FontSize="14"
-                                FontWeight="SemiBold"
-                                Text="{Binding SelectedTool.Name, StringFormat='{}Sub-Tools'}" />
-
-                            <!--  SubTool Selection Buttons  -->
-                            <ItemsControl ItemsSource="{Binding SelectedTool.AllSubTools}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Button
-                                            Margin="0,0,5,5"
-                                            Padding="5"
-                                            Classes.selected="{Binding IsSelected}"
-                                            Command="{Binding $parent[ItemsControl].((vm:LandscapeEditorViewModel)DataContext).SelectedTool.SelectSubToolCommand}"
-                                            CommandParameter="{Binding}">
-                                            <StackPanel Orientation="Horizontal" Spacing="5">
-                                                <TextBlock
-                                                    FontSize="16"
-                                                    Text="{Binding IconGlyph}"
-                                                    ToolTip.Tip="{Binding Name}" />
-                                            </StackPanel>
-                                        </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-
-                            <!--  Separator  -->
-                            <Separator Margin="0,5" />
-
-                            <!--  SubTool Settings (using ViewLocator)  -->
-                            <ContentControl HorizontalContentAlignment="Stretch" Content="{Binding SelectedTool.SelectedSubTool}" />
-                        </StackPanel>
-                    </Panel>
+                    <!--  SubTool Settings (shown when this tool's subtool is selected)  -->
+                    <ContentControl
+                        HorizontalContentAlignment="Stretch"
+                        Content="{Binding SelectedSubTool}"
+                        IsVisible="{Binding SelectedSubTool, Converter={x:Static ObjectConverters.IsNotNull}}" />
                 </StackPanel>
             </ScrollViewer>
         </Border>

@@ -20,6 +20,7 @@ using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.ViewModels;
 using WorldBuilder.ViewModels.Editors;
+using WorldBuilder.ViewModels.Editors.LandscapeEditor;
 
 namespace WorldBuilder.Lib {
     public partial class ProjectManager : ObservableObject, IRecipient<OpenProjectMessage>, IRecipient<CreateProjectMessage> {
@@ -70,21 +71,7 @@ namespace WorldBuilder.Lib {
         private void SetProject(Project project) {
             var services = new ServiceCollection();
 
-            // Project-specific services
-            services.AddDbContext<DocumentDbContext>(
-                o => o.UseSqlite($"DataSource={project.DatabasePath}"),
-                ServiceLifetime.Scoped);
-
-            services.AddLogging((c) => c.AddProvider(new ColorConsoleLoggerProvider()));
-
-            services.AddSingleton(_rootProvider.GetRequiredService<WorldBuilderSettings>());
-            services.AddSingleton(_rootProvider.GetRequiredService<ProjectManager>());
-
-            services.AddSingleton<DocumentManager>();
-            services.AddSingleton<IDocumentStorageService, DocumentStorageService>();
-            services.AddSingleton(project);
-
-            services.AddTransient<LandscapeEditorViewModel>();
+            services.AddProjectServices(project, _rootProvider);
 
             _projectProvider = services.BuildServiceProvider();
 

@@ -1,10 +1,13 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using DatReaderWriter.Enums;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Numerics;
+using WorldBuilder.Lib;
+using WorldBuilder.Shared.Documents;
+using WorldBuilder.Tools;
 using WorldBuilder.Tools.Landscape;
 
 namespace WorldBuilder.ViewModels.Editors.LandscapeEditor {
@@ -17,14 +20,34 @@ namespace WorldBuilder.ViewModels.Editors.LandscapeEditor {
 
         public override ObservableCollection<SubToolViewModelBase> AllSubTools => SubTools;
 
-        public TexturePaintingToolViewModel() {
-            SubTools.Add(new BrushSubToolViewModel());
-            SubTools.Add(new BucketFillSubToolViewModel());
-            SelectSubTool(SubTools[0]);
+        public TexturePaintingToolViewModel(BrushSubToolViewModel brushSubTool, BucketFillSubToolViewModel bucketFillSubTool) {
+            SubTools.Add(brushSubTool);
+            SubTools.Add(bucketFillSubTool);
+            ActivateSubTool(SubTools[0]);
         }
 
-        public override ITerrainTool CreateTool() {
-            return new TexturePaintingTool();
+        public override void OnActivated() {
+            SelectedSubTool?.OnActivated();
+        }
+
+        public override void OnDeactivated() {
+            SelectedSubTool?.OnDeactivated();
+        }
+
+        public override bool HandleMouseDown(MouseState mouseState) {
+            return SelectedSubTool?.HandleMouseDown(mouseState) ?? false;
+        }
+
+        public override bool HandleMouseUp(MouseState mouseState) {
+            return SelectedSubTool?.HandleMouseUp(mouseState) ?? false;
+        }
+
+        public override bool HandleMouseMove(MouseState mouseState) {
+            return SelectedSubTool?.HandleMouseMove(mouseState) ?? false;
+        }
+
+        public override void Update(double deltaTime) {
+            SelectedSubTool?.Update(deltaTime);
         }
     }
 }

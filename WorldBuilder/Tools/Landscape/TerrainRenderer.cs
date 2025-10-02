@@ -74,7 +74,7 @@ public unsafe class TerrainRenderer : IDisposable {
 
     private void InitializeSphereGeometry() {
         // Create a sphere mesh (icosphere or UV sphere)
-        var vertices = CreateSphere(8, 6); // 16 longitude, 12 latitude segments
+        var vertices = CreateSphere(8, 6);
         var indices = CreateSphereIndices(8, 6);
         _sphereIndexCount = indices.Length;
 
@@ -267,14 +267,15 @@ public unsafe class TerrainRenderer : IDisposable {
     }
 
     private void RenderActiveSpheres(TerrainEditingContext editingContext, ICamera camera, Matrix4x4 model, Matrix4x4 viewProjection) {
-        if (editingContext.ActiveVertices.Count == 0) return;
+        var activeVerts = editingContext.ActiveVertices.ToArray();
+        if (activeVerts.Length == 0) return;
 
-        int count = editingContext.ActiveVertices.Count;
+        int count = activeVerts.Length;
         var positions = new Vector3[count];
         for (int i = 0; i < count; i++) {
             try
             {
-                var vertex = editingContext.ActiveVertices[i];
+                var vertex = activeVerts[i];
                 positions[i] = new Vector3(vertex.X, vertex.Y, editingContext.TerrainProvider.GetHeightAtPosition(vertex.X, vertex.Y) + SphereHeightOffset);
             }
             catch

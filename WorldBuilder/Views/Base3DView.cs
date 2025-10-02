@@ -59,21 +59,36 @@ namespace WorldBuilder.Views {
         #region Input Event Handlers
 
         protected override void OnKeyDown(KeyEventArgs e) {
-            base.OnKeyDown(e);
-            if (IsEffectivelyVisible && IsFocused) {
-                InputState.Modifiers = e.KeyModifiers;
-                InputState.SetKey(e.Key, true);
-                OnGlKeyDown(e);
+            try {
+                base.OnKeyDown(e);
+                if (IsEffectivelyVisible && (IsFocused || IsPointerOver)) {
+                    InputState.Modifiers = e.KeyModifiers;
+                    InputState.SetKey(e.Key, true);
+                    OnGlKeyDown(e);
+                }
+            }
+            catch (Exception ex) {
+                Console.WriteLine($"Error in OnKeyDown: {ex}");
             }
         }
 
         protected abstract void OnGlKeyDown(KeyEventArgs e);
 
         protected override void OnKeyUp(KeyEventArgs e) {
-            base.OnKeyUp(e);
-            InputState.Modifiers = e.KeyModifiers;
-            InputState.SetKey(e.Key, false);
-            OnGlKeyUp(e);
+            try {
+                var hadKeyDown = InputState.IsKeyDown(e.Key);
+                base.OnKeyUp(e);
+
+                InputState.Modifiers = e.KeyModifiers;
+                InputState.SetKey(e.Key, false);
+
+                if (hadKeyDown) {
+                    OnGlKeyUp(e);
+                }
+            }
+            catch (Exception ex) {
+                Console.WriteLine($"Error in OnKeyUp: {ex}");
+            }
         }
 
         protected abstract void OnGlKeyUp(KeyEventArgs e);
@@ -81,67 +96,91 @@ namespace WorldBuilder.Views {
         protected override void OnPointerEntered(PointerEventArgs e) {
             base.OnPointerEntered(e);
             _hasPointer = true;
+            Console.WriteLine("OnPointerEntered");
         }
 
         protected override void OnPointerExited(PointerEventArgs e) {
             base.OnPointerExited(e);
             _hasPointer = false;
+            Console.WriteLine("OnPointerExited");
         }
 
         protected override void OnPointerMoved(PointerEventArgs e) {
-            if (!IsValidForInput()) return;
+            try {
+                if (!IsValidForMouseInput()) return;
 
-            var position = e.GetPosition(this);
-            InputState.Modifiers = e.KeyModifiers;
-            UpdateMouseState(position, e.Properties);
-            _lastMousePosition = new Vector2((float)position.X, (float)position.Y);
-            var scaledPosition = new Vector2((float)position.X * InputScale.X, (float)position.Y / InputScale.Y);
-            OnGlPointerMoved(e, scaledPosition);
+                var position = e.GetPosition(this);
+                InputState.Modifiers = e.KeyModifiers;
+                UpdateMouseState(position, e.Properties);
+                _lastMousePosition = new Vector2((float)position.X, (float)position.Y);
+                var scaledPosition = new Vector2((float)position.X * InputScale.X, (float)position.Y / InputScale.Y);
+                OnGlPointerMoved(e, scaledPosition);
+            }
+            catch (Exception ex) {
+                Console.WriteLine($"Error in OnPointerMoved: {ex}");
+            }
         }
 
         protected abstract void OnGlPointerMoved(PointerEventArgs e, Vector2 mousePositionScaled);
 
         protected override void OnPointerWheelChanged(PointerWheelEventArgs e) {
-            base.OnPointerWheelChanged(e);
+            try {
+                base.OnPointerWheelChanged(e);
 
-            if (_glVisual != null) {
-                var position = e.GetPosition(this);
-                InputState.Modifiers = e.KeyModifiers;
-                UpdateMouseState(position, e.Properties);
-                _lastMousePosition = new Vector2((float)position.X, (float)position.Y);
+                if (!IsValidForMouseInput()) return;
+
+                if (_glVisual != null) {
+                    var position = e.GetPosition(this);
+                    InputState.Modifiers = e.KeyModifiers;
+                    UpdateMouseState(position, e.Properties);
+                    _lastMousePosition = new Vector2((float)position.X, (float)position.Y);
+                }
+
+                OnGlPointerWheelChanged(e);
             }
-
-            OnGlPointerWheelChanged(e);
+            catch (Exception ex) {
+                Console.WriteLine($"Error in OnPointerWheelChanged: {ex}");
+            }
         }
 
         protected abstract void OnGlPointerWheelChanged(PointerWheelEventArgs e);
-        private bool IsValidForInput() => IsEffectivelyVisible && _hasPointer && IsFocused;
 
         protected override void OnPointerPressed(PointerPressedEventArgs e) {
-            base.OnPointerPressed(e);
-            if (!IsValidForInput()) return;
+            try {
+                base.OnPointerPressed(e);
+                if (!IsValidForMouseInput()) return;
 
-            var position = e.GetPosition(this);
-            InputState.Modifiers = e.KeyModifiers;
-            UpdateMouseState(position, e.Properties);
+                var position = e.GetPosition(this);
+                InputState.Modifiers = e.KeyModifiers;
+                UpdateMouseState(position, e.Properties);
 
-            OnGlPointerPressed(e);
+                OnGlPointerPressed(e);
+            }
+            catch (Exception ex) {
+                Console.WriteLine($"Error in OnPointerPressed: {ex}");
+            }
         }
 
         protected abstract void OnGlPointerPressed(PointerPressedEventArgs e);
 
         protected override void OnPointerReleased(PointerReleasedEventArgs e) {
-            base.OnPointerReleased(e);
-            if (!IsValidForInput()) return;
+            try {
+                base.OnPointerReleased(e);
+                if (!IsValidForMouseInput()) return;
 
-            var position = e.GetPosition(this);
-            InputState.Modifiers = e.KeyModifiers;
-            UpdateMouseState(position, e.Properties);
+                var position = e.GetPosition(this);
+                InputState.Modifiers = e.KeyModifiers;
+                UpdateMouseState(position, e.Properties);
 
-            OnGlPointerReleased(e);
+                OnGlPointerReleased(e);
+            }
+            catch (Exception ex) {
+                Console.WriteLine($"Error in OnPointerReleased: {ex}");
+            }
         }
 
         protected abstract void OnGlPointerReleased(PointerReleasedEventArgs e);
+        private bool IsValidForMouseInput() => IsEffectivelyVisible && _hasPointer;
 
         #endregion
 

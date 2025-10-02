@@ -4,6 +4,7 @@ using Avalonia.Win32;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace WorldBuilder.Desktop;
 
@@ -17,6 +18,14 @@ sealed class Program
     {
         try
         {
+            TaskScheduler.UnobservedTaskException += (sender, e) => {
+                Console.WriteLine(e.Exception);
+            };
+            AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+            {
+                Console.WriteLine(e.ExceptionObject);
+            };
+
             BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
         }
