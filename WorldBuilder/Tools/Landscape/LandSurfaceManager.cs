@@ -2,6 +2,7 @@
 using Chorizite.Core.Render;
 using Chorizite.Core.Render.Enums;
 using Chorizite.Core.Render.Vertex;
+using Chorizite.OpenGLSDLBackend;
 using DatReaderWriter;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
@@ -20,7 +21,6 @@ namespace WorldBuilder.Tools.Landscape {
     /// Manages landscape surfaces
     /// </summary>
     public class LandSurfaceManager {
-        private readonly IRenderer _renderer;
         private readonly IDatReaderWriter _dats;
         private readonly Region _region;
         private DatReaderWriter.Types.LandSurf _landSurface;
@@ -50,6 +50,7 @@ namespace WorldBuilder.Tools.Landscape {
         };
 
         private uint _nextSurfaceNumber;
+        private OpenGLRenderer _renderer;
 
         public ITextureArray TerrainAtlas { get; private set; }
         public ITextureArray AlphaAtlas { get; private set; }
@@ -64,8 +65,8 @@ namespace WorldBuilder.Tools.Landscape {
 
         public uint TotalUniqueSurfaces { get; private set; }
 
-        public LandSurfaceManager(IRenderer render, IDatReaderWriter dats, Region region) {
-            _renderer = render ?? throw new ArgumentNullException(nameof(render));
+        public LandSurfaceManager(OpenGLRenderer renderer, IDatReaderWriter dats, Region region) {
+            _renderer = renderer;
             _dats = dats ?? throw new ArgumentNullException(nameof(dats));
             _region = region ?? throw new ArgumentNullException(nameof(region));
 

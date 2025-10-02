@@ -389,7 +389,7 @@ namespace WorldBuilder.Tools.Landscape {
             ref VertexLandscape v3 = ref verticesSpan[(int)currentVertexIndex + 3]; // NW
 
             // Calculate split direction
-            bool splitDiagonal = CalculateSplitDirection(landblockID >> 8, cellX, landblockID & 0xFF, cellY);
+            var splitDirection = CalculateSplitDirection(landblockID >> 8, cellX, landblockID & 0xFF, cellY);
 
             LandSurf.FillVertexData(landblockID, cellX, cellY, baseLandblockX, baseLandblockY, ref v0, bottomLeft.Height, surfInfo, 0); // SW
             LandSurf.FillVertexData(landblockID, cellX + 1, cellY, baseLandblockX, baseLandblockY, ref v1, bottomRight.Height, surfInfo, 1); // SE
@@ -402,7 +402,7 @@ namespace WorldBuilder.Tools.Landscape {
             // Generate indices with counter-clockwise winding
             ref uint indexRef = ref indicesSpan[(int)currentIndexPosition];
 
-            if (!splitDiagonal) {
+            if (splitDirection == CellSplitDirection.SWtoNE) {
                 // SW to NE split - reversed winding
                 Unsafe.Add(ref indexRef, 0) = currentVertexIndex + 0; // SW
                 Unsafe.Add(ref indexRef, 1) = currentVertexIndex + 3; // NW
@@ -693,15 +693,20 @@ namespace WorldBuilder.Tools.Landscape {
                 : new TerrainEntry(0);
         }
 
+        public enum CellSplitDirection {
+            SWtoNE,
+            SEtoNW
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool CalculateSplitDirection(uint landblockX, uint cellX, uint landblockY, uint cellY) {
+        public static CellSplitDirection CalculateSplitDirection(uint landblockX, uint cellX, uint landblockY, uint cellY) {
             uint seedA = (landblockX * 8 + cellX) * 214614067u;
             uint seedB = (landblockY * 8 + cellY) * 1109124029u;
             uint magicA = seedA + 1813693831u;
             uint magicB = seedB;
             float splitDir = (float)(magicA - magicB - 1369149221u);
 
-            return (splitDir * 2.3283064e-10f) >= 0.5f;
+            return (splitDir * 2.3283064e-10f) >= 0.5f ? CellSplitDirection.SEtoNW : CellSplitDirection.SWtoNE;
         }
 
         /// <summary>

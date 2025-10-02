@@ -1,0 +1,86 @@
+﻿
+// ===== Core Data Structures =====
+
+using Chorizite.Core.Render.Enums;
+using Chorizite.Core.Render.Vertex;
+using Chorizite.OpenGLSDLBackend;
+using System;
+using System.Collections.Generic;
+using WorldBuilder.Tools.Landscape;
+
+namespace WorldBuilder.Test {
+    // ===== GPU Resource Manager =====
+
+    /// <summary>
+    /// Manages GPU resources for terrain chunks
+    /// </summary>
+    public class TerrainGPUResourceManager : IDisposable {
+        private readonly OpenGLRenderer _renderer;
+        private readonly Dictionary<ulong, ChunkRenderData> _renderData = new();
+
+        public TerrainGPUResourceManager(OpenGLRenderer renderer) {
+            _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
+        }
+
+        /// <summary>
+        /// Creates or updates GPU resources for a chunk
+        /// </summary>
+        public void CreateOrUpdateResources(
+            TerrainChunk chunk,
+            TerrainDataManager dataManager,
+            LandSurfaceManager surfaceManager) {
+
+            var chunkId = chunk.GetChunkId();
+
+            // Dispose old resources if updating
+            if (_renderData.TryGetValue(chunkId, out var oldData)) {
+                oldData.Dispose();
+                _renderData.Remove(chunkId);
+            }
+
+            // Calculate buffer sizes
+            var vertexCount = (int)(chunk.ActualLandblockCountX * chunk.ActualLandblockCountY * 64 * 4);
+            var indexCount = (int)(chunk.ActualLandblockCountX * chunk.ActualLandblockCountY * 64 * 6);
+
+            var vertices = new VertexLandscape[vertexCount];
+            var indices = new uint[indexCount];
+
+            // Generate geometry
+            TerrainGeometryGenerator.GenerateChunkGeometry(
+                chunk, dataManager, surfaceManager,
+                vertices, indices,
+                out int actualVertexCount, out int actualIndexCount);
+
+            if (actualVertexCount == 0 || actualIndexCount == 0) return;
+
+            // Create GPU buffers
+            var vb = _renderer.GraphicsDevice.CreateVertexBuffer(
+                VertexLandscape.Size * actualVertexCount,
+                BufferUsage.Dynamic);
+            vb.SetData(vertices.AsSpan(0, actualVertexCount));
+
+            var ib = _renderer.GraphicsDevice.CreateIndexBuffer(
+                4 * actualIndexCount,
+                BufferUsage.Dynamic);
+            ib.SetData(indices.AsSpan(0, actualIndexCount));
+
+            var va = _renderer.GraphicsDevice.CreateArrayBuffer(vb, VertexLandscape.Format);
+
+            _renderData[chunkId] = new ChunkRenderData(vb, ib, va, actualVertexCount, actualIndexCount);
+            chunk.ClearDirty();
+        }
+
+        public ChunkRenderData GetRenderData(ulong chunkId) {
+            return _renderData.TryGetValue(chunkId, out var data) ? data : null;
+        }
+
+        public bool HasRenderData(ulong chunkId) => _renderData.ContainsKey(chunkId);
+
+        public void Dispose() {
+            foreach (var data in _renderData.Values) {
+                data.Dispose();
+            }
+            _renderData.Clear();
+        }
+    }
+}

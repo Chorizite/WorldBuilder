@@ -18,6 +18,7 @@ using WorldBuilder.ViewModels.Editors.LandscapeEditor;
 
 namespace WorldBuilder.Views.Editors;
 
+// this is an avalonia control.
 public partial class LandscapeEditorView : Base3DView {
     private GL _gl;
     public PixelSize CanvasSize { get; private set; }

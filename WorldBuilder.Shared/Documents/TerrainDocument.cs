@@ -89,12 +89,12 @@ namespace WorldBuilder.Shared.Documents {
             return result;
         }
 
-        public void UpdateLandblock(ushort lbKey, TerrainEntry[] newEntries, out List<ushort> modifiedLandblocks) {
+        public void UpdateLandblock(ushort lbKey, TerrainEntry[] newEntries, out HashSet<ushort> modifiedLandblocks) {
             if (newEntries.Length != LANDBLOCK_SIZE) {
                 throw new ArgumentException($"newEntries array must be of length {LANDBLOCK_SIZE}.");
             }
 
-            modifiedLandblocks = new List<ushort>();
+            modifiedLandblocks = new HashSet<ushort>();
 
             // Get current landblock data for comparison
             var currentEntries = GetLandblock(lbKey);
@@ -132,7 +132,7 @@ namespace WorldBuilder.Shared.Documents {
         /// <summary>
         /// Optimized edge synchronization - only sync vertices that actually changed
         /// </summary>
-        public void SynchronizeEdgeVerticesFor(ushort baseLandblockId, TerrainEntry[] lbTerrain, List<ushort> modifiedLandblocks) {
+        public void SynchronizeEdgeVerticesFor(ushort baseLandblockId, TerrainEntry[] lbTerrain, HashSet<ushort> modifiedLandblocks) {
             var startLbX = (baseLandblockId >> 8) & 0xFF;
             var startLbY = baseLandblockId & 0xFF;
 
