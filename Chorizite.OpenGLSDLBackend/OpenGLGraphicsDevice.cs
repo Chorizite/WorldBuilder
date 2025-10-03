@@ -245,5 +245,9 @@ namespace Chorizite.OpenGLSDLBackend {
         public override void Dispose() {
             
         }
+
+        public override IUniformBuffer CreateUniformBuffer(BufferUsage usage, int size) {
+            throw new NotImplementedException();
+        }
     }
 }
