@@ -21,8 +21,11 @@
                 MaxWidth="500" />
         </Grid.ColumnDefinitions>
 
-        <!--  Main 3D viewport area  -->
-        <Control x:Name="Viewport" Grid.Column="0" />
+        <!--  Main 3D viewport area, this *MUST* have a background to make it hit testable  -->
+        <Panel
+            x:Name="Viewport"
+            Grid.Column="0"
+            Background="Transparent" />
 
         <!--  Splitter for resizing  -->
         <GridSplitter
@@ -71,7 +74,8 @@
                                                     Padding="5"
                                                     Classes.selected="{Binding IsSelected}"
                                                     Command="{Binding $parent[Grid].((vm:LandscapeEditorViewModel)DataContext).SelectSubToolCommand}"
-                                                    CommandParameter="{Binding}">
+                                                    CommandParameter="{Binding}"
+                                                    Focusable="False">
                                                     <StackPanel Orientation="Horizontal" Spacing="5">
                                                         <TextBlock
                                                             FontSize="16"

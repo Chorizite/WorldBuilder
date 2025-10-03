@@ -32,7 +32,7 @@ namespace WorldBuilder.Views {
         private GlVisual? _glVisual;
         private CompositionCustomVisual? _visual;
         public AvaloniaInputState InputState { get; } = new();
-        private bool _hasPointer;
+        private bool _isPointerOverViewport;
         private Vector2 _lastMousePosition;
         private Size _lastViewportSize;
 
@@ -42,8 +42,16 @@ namespace WorldBuilder.Views {
         private PixelSize _renderSize;
 
         protected Base3DView() {
-            this.AttachedToVisualTree += (s, e) => this.Focus();
+            this.AttachedToVisualTree += OnAttachedToVisualTree;
         }
+
+        private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e) {
+            // Focus the control when attached, but only if no other control has focus
+            if (TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() == null) {
+                this.Focus();
+            }
+        }
+
         protected void InitializeBase3DView() {
             Focusable = true;
             Background = Brushes.Transparent;
@@ -51,19 +59,35 @@ namespace WorldBuilder.Views {
             _viewport = this.FindControl<Control>("Viewport") ?? throw new InvalidOperationException("Viewport control not found");
             _viewport.AttachedToVisualTree += ViewportAttachedToVisualTree;
             _viewport.DetachedFromVisualTree += ViewportDetachedFromVisualTree;
-            _hasPointer = true;
+
+            // Add pointer tracking to viewport
+            _viewport.PointerEntered += ViewportPointerEntered;
+            _viewport.PointerExited += ViewportPointerExited;
+        }
+
+        private void ViewportPointerEntered(object? sender, PointerEventArgs e) {
+            _isPointerOverViewport = true;
+        }
+
+        private void ViewportPointerExited(object? sender, PointerEventArgs e) {
+            _isPointerOverViewport = false;
         }
 
         #region Input Event Handlers
 
         protected override void OnKeyDown(KeyEventArgs e) {
+            base.OnKeyDown(e);
+
+            // Only process keyboard input if focused and not interacting with other controls
+            if (!ShouldProcessKeyboardInput()) {
+                return;
+            }
+
             try {
-                base.OnKeyDown(e);
-                if (IsEffectivelyVisible && (IsFocused || IsPointerOver)) {
-                    InputState.Modifiers = e.KeyModifiers;
-                    InputState.SetKey(e.Key, true);
-                    OnGlKeyDown(e);
-                }
+                InputState.Modifiers = e.KeyModifiers;
+                InputState.SetKey(e.Key, true);
+                OnGlKeyDown(e);
+                e.Handled = true; // Mark as handled to prevent bubbling
             }
             catch (Exception ex) {
                 Console.WriteLine($"Error in OnKeyDown: {ex}");
@@ -73,19 +97,21 @@ namespace WorldBuilder.Views {
         protected abstract void OnGlKeyDown(KeyEventArgs e);
 
         protected override void OnKeyUp(KeyEventArgs e) {
-            try {
-                var hadKeyDown = InputState.IsKeyDown(e.Key);
-                base.OnKeyUp(e);
+            base.OnKeyUp(e);
 
-                InputState.Modifiers = e.KeyModifiers;
-                InputState.SetKey(e.Key, false);
+            var hadKeyDown = InputState.IsKeyDown(e.Key);
+            InputState.Modifiers = e.KeyModifiers;
+            InputState.SetKey(e.Key, false);
 
-                if (hadKeyDown) {
+            // Only call the GL event if we're focused and had the key down
+            if (hadKeyDown && ShouldProcessKeyboardInput()) {
+                try {
                     OnGlKeyUp(e);
+                    e.Handled = true;
                 }
-            }
-            catch (Exception ex) {
-                Console.WriteLine($"Error in OnKeyUp: {ex}");
+                catch (Exception ex) {
+                    Console.WriteLine($"Error in OnKeyUp: {ex}");
+                }
             }
         }
 
@@ -93,25 +119,26 @@ namespace WorldBuilder.Views {
 
         protected override void OnPointerEntered(PointerEventArgs e) {
             base.OnPointerEntered(e);
-            _hasPointer = true;
-            Console.WriteLine("OnPointerEntered");
+            // We track viewport entry separately now
         }
 
         protected override void OnPointerExited(PointerEventArgs e) {
             base.OnPointerExited(e);
-            _hasPointer = false;
-            Console.WriteLine("OnPointerExited");
+            // We track viewport exit separately now
         }
 
         protected override void OnPointerMoved(PointerEventArgs e) {
-            try {
-                if (!IsValidForMouseInput()) return;
+            base.OnPointerMoved(e);
 
-                var position = e.GetPosition(this);
+            // Check if pointer is over viewport
+            if (!_isPointerOverViewport || !IsEffectivelyVisible || !IsEnabled) return;
+
+            try {
+                var position = e.GetPosition(_viewport);
                 InputState.Modifiers = e.KeyModifiers;
                 UpdateMouseState(position, e.Properties);
                 _lastMousePosition = new Vector2((float)position.X, (float)position.Y);
-                var scaledPosition = new Vector2((float)position.X * InputScale.X, (float)position.Y / InputScale.Y);
+                var scaledPosition = new Vector2((float)position.X * InputScale.X, (float)position.Y * InputScale.Y);
                 OnGlPointerMoved(e, scaledPosition);
             }
             catch (Exception ex) {
@@ -122,19 +149,19 @@ namespace WorldBuilder.Views {
         protected abstract void OnGlPointerMoved(PointerEventArgs e, Vector2 mousePositionScaled);
 
         protected override void OnPointerWheelChanged(PointerWheelEventArgs e) {
+            base.OnPointerWheelChanged(e);
+
+            // Check if pointer is over viewport
+            if (!_isPointerOverViewport || !IsEffectivelyVisible || !IsEnabled) return;
+
             try {
-                base.OnPointerWheelChanged(e);
-
-                if (!IsValidForMouseInput()) return;
-
-                if (_glVisual != null) {
-                    var position = e.GetPosition(this);
-                    InputState.Modifiers = e.KeyModifiers;
-                    UpdateMouseState(position, e.Properties);
-                    _lastMousePosition = new Vector2((float)position.X, (float)position.Y);
-                }
+                var position = e.GetPosition(_viewport);
+                InputState.Modifiers = e.KeyModifiers;
+                UpdateMouseState(position, e.Properties);
+                _lastMousePosition = new Vector2((float)position.X, (float)position.Y);
 
                 OnGlPointerWheelChanged(e);
+                e.Handled = true; // Prevent scrolling parent controls
             }
             catch (Exception ex) {
                 Console.WriteLine($"Error in OnPointerWheelChanged: {ex}");
@@ -144,33 +171,44 @@ namespace WorldBuilder.Views {
         protected abstract void OnGlPointerWheelChanged(PointerWheelEventArgs e);
 
         protected override void OnPointerPressed(PointerPressedEventArgs e) {
-            try {
-                base.OnPointerPressed(e);
-                if (!IsValidForMouseInput()) return;
+            base.OnPointerPressed(e);
 
-                var position = e.GetPosition(this);
-                InputState.Modifiers = e.KeyModifiers;
-                UpdateMouseState(position, e.Properties);
+            Console.WriteLine($"OnPointerPressed: {_isPointerOverViewport} {IsEffectivelyVisible} {IsEnabled}");
 
-                OnGlPointerPressed(e);
-            }
-            catch (Exception ex) {
-                Console.WriteLine($"Error in OnPointerPressed: {ex}");
+            // Check if pointer is over viewport before processing
+            if (_isPointerOverViewport && IsEffectivelyVisible && IsEnabled) {
+                // Request focus when clicked on viewport
+                this.Focus();
+
+                try {
+                    var position = e.GetPosition(_viewport);
+                    InputState.Modifiers = e.KeyModifiers;
+                    UpdateMouseState(position, e.Properties);
+
+                    OnGlPointerPressed(e);
+                    e.Handled = true;
+                }
+                catch (Exception ex) {
+                    Console.WriteLine($"Error in OnPointerPressed: {ex}");
+                }
             }
         }
 
         protected abstract void OnGlPointerPressed(PointerPressedEventArgs e);
 
         protected override void OnPointerReleased(PointerReleasedEventArgs e) {
-            try {
-                base.OnPointerReleased(e);
-                if (!IsValidForMouseInput()) return;
+            base.OnPointerReleased(e);
 
-                var position = e.GetPosition(this);
+            // Check if pointer is over viewport
+            if (!_isPointerOverViewport || !IsEffectivelyVisible || !IsEnabled) return;
+
+            try {
+                var position = e.GetPosition(_viewport);
                 InputState.Modifiers = e.KeyModifiers;
                 UpdateMouseState(position, e.Properties);
 
                 OnGlPointerReleased(e);
+                e.Handled = true;
             }
             catch (Exception ex) {
                 Console.WriteLine($"Error in OnPointerReleased: {ex}");
@@ -178,7 +216,27 @@ namespace WorldBuilder.Views {
         }
 
         protected abstract void OnGlPointerReleased(PointerReleasedEventArgs e);
-        private bool IsValidForMouseInput() => IsEffectivelyVisible && _hasPointer;
+
+        /// <summary>
+        /// Determines if keyboard input should be processed for this control
+        /// Only processes if focused and the focused element is not a text input control
+        /// </summary>
+        private bool ShouldProcessKeyboardInput() {
+            if (!IsEffectivelyVisible || !IsEnabled || !IsFocused) {
+                return false;
+            }
+
+            // Check if focus is on a text input control that needs keyboard input
+            var focusedElement = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
+            if (focusedElement != null && focusedElement != this) {
+                // Only block keyboard input if it's a control that needs text input
+                if (focusedElement is TextBox || focusedElement is ComboBox) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
 
         #endregion
 
@@ -201,6 +259,9 @@ namespace WorldBuilder.Views {
             _glVisual = new GlVisual(this);
             _visual = visual.Compositor.CreateCustomVisual(_glVisual);
             ElementComposition.SetElementChildVisual(_viewport, _visual);
+
+            // Update size immediately
+            UpdateSize(_viewport.Bounds.Size);
         }
 
         private void ViewportDetachedFromVisualTree(object? sender, VisualTreeAttachmentEventArgs e) {
@@ -229,8 +290,9 @@ namespace WorldBuilder.Views {
         }
 
         private void UpdateSize(Size size) {
-            if (_visual != null)
+            if (_visual != null && size.Width > 0 && size.Height > 0) {
                 _visual.Size = new Avalonia.Vector(size.Width, size.Height);
+            }
         }
         #endregion
 
@@ -264,6 +326,8 @@ namespace WorldBuilder.Views {
 
         protected virtual void OnGlDestroyInternal() {
             OnGlDestroy();
+            RenderTarget?.Dispose();
+            RenderTarget = null;
         }
 
         protected abstract void OnGlInit(GL gl, PixelSize canvasSize);
@@ -325,7 +389,7 @@ namespace WorldBuilder.Views {
                             if (!_contentInitialized) {
                                 _parent.OnGlInitInternal(gl, canvasSize);
                                 _contentInitialized = true;
-                                
+
                                 string openGLVersion = gl.GetStringS(StringName.Version);
                                 Console.WriteLine($"OpenGL Version: {openGLVersion}");
 
@@ -374,7 +438,6 @@ namespace WorldBuilder.Views {
                 gl.Enable(EnableCap.DepthTest);
                 gl.DepthFunc(DepthFunction.Greater);
 
-
                 gl.Enable(EnableCap.CullFace);
                 gl.CullFace(TriangleFace.Back);
                 gl.FrontFace(FrontFaceDirection.Ccw);
@@ -408,6 +471,7 @@ namespace WorldBuilder.Views {
                 try {
                     if (_contentInitialized) {
                         using (_gl.MakeCurrent()) {
+                            _parent.OnGlDestroyInternal();
                             _contentInitialized = false;
                         }
                     }
