@@ -254,6 +254,7 @@ namespace WorldBuilder.Editors.Landscape {
                 renderData.VertexArray.Bind();
                 renderData.VertexBuffer.Bind();
                 renderData.IndexBuffer.Bind();
+                GLHelpers.CheckErrors();
 
                 _render.GraphicsDevice.DrawElements(Chorizite.Core.Render.Enums.PrimitiveType.TriangleList, renderData.IndexCount);
 
