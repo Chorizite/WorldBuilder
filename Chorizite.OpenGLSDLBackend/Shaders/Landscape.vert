@@ -11,7 +11,7 @@ uniform vec3 xLightDirection;
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inNormal;
-layout(location = 2) in vec3 inTextureCoord;
+layout(location = 2) in uvec4 inPackedBase;
 layout(location = 3) in uvec4 inPackedOverlay0;
 layout(location = 4) in uvec4 inPackedOverlay1;
 layout(location = 5) in uvec4 inPackedOverlay2;
@@ -57,7 +57,7 @@ void main() {
     gl_Position = xProjection * xView * xWorld * vec4(inPosition, 1.0);
     vWorldPos = inPosition.xy;
  
-    vTexUV = inTextureCoord;
+    vTexUV = unpackTexCoord(inPackedBase).xyz;
     
     // Unpack all compressed texture coordinates
     vOverlay0 = unpackTexCoord(inPackedOverlay0);

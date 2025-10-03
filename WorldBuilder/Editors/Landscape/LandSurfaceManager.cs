@@ -134,6 +134,7 @@ namespace WorldBuilder.Editors.Landscape {
             v.Position.Y = baseLandblockY + cellY * 24f;
             v.Position.Z = _region.LandDefs.LandHeightTable[heightIdx];
 
+            v.PackedBase = VertexLandscape.PackTexCoord(0, 0, 255, 255);
             v.PackedOverlay0 = VertexLandscape.PackTexCoord(-1, -1, 255, 255);
             v.PackedOverlay1 = VertexLandscape.PackTexCoord(-1, -1, 255, 255);
             v.PackedOverlay2 = VertexLandscape.PackTexCoord(-1, -1, 255, 255);
@@ -142,7 +143,7 @@ namespace WorldBuilder.Editors.Landscape {
 
             var baseIndex = GetTextureAtlasIndex(surfInfo.TerrainBase.TexGID);
             var baseUV = LandUVs[cornerIndex];
-            v.TexCoord0 = new Vector3(baseUV.X, baseUV.Y, baseIndex);
+            v.SetBase(baseUV.X, baseUV.Y, (byte)baseIndex, 255);
 
             for (int i = 0; i < surfInfo.TerrainOverlays.Count && i < 3; i++) {
                 var overlayIndex = (byte)GetTextureAtlasIndex(surfInfo.TerrainOverlays[i].TexGID);

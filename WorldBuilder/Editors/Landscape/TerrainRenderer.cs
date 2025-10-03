@@ -1,7 +1,4 @@
-﻿
-// ===== Core Data Structures =====
-
-using Chorizite.Core.Render;
+﻿using Chorizite.Core.Render;
 using Chorizite.Core.Render.Vertex;
 using Chorizite.OpenGLSDLBackend;
 using Silk.NET.OpenGL;

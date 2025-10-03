@@ -187,7 +187,7 @@ namespace WorldBuilder.Services {
             // Base terrain texture (no rotation)
             var baseIndex = _atlasData.GetTextureIndex(surfInfo.TerrainBase.TexGID);
             var baseUV = LandUVs[cornerIndex];
-            v.TexCoord0 = new Vector3(baseUV.X, baseUV.Y, baseIndex);
+            v.SetBase(baseUV.X, baseUV.Y, (byte)baseIndex, 255);
 
             // Terrain overlays (up to 3, with individual rotations)
             for (int i = 0; i < surfInfo.TerrainOverlays.Count && i < 3; i++) {

@@ -1,7 +1,4 @@
-﻿
-// ===== Core Data Structures =====
-
-using Chorizite.Core.Lib;
+﻿using Chorizite.Core.Lib;
 using DatReaderWriter.DBObjs;
 using System;
 using System.Collections.Generic;
