@@ -32,7 +32,6 @@ namespace WorldBuilder.Views {
         private GlVisual? _glVisual;
         private CompositionCustomVisual? _visual;
         public AvaloniaInputState InputState { get; } = new();
-        public CameraManager CameraManager { get; }
         private bool _hasPointer;
         private Vector2 _lastMousePosition;
         private Size _lastViewportSize;
@@ -44,7 +43,6 @@ namespace WorldBuilder.Views {
 
         protected Base3DView() {
             this.AttachedToVisualTree += (s, e) => this.Focus();
-            CameraManager = new CameraManager(new OrthographicTopDownCamera(new()));
         }
         protected void InitializeBase3DView() {
             Focusable = true;

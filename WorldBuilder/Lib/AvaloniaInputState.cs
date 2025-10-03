@@ -3,15 +3,10 @@ using Avalonia.Input;
 using System;
 using System.Collections;
 using System.Numerics;
-using WorldBuilder.Test;
-using WorldBuilder.Tools;
-using WorldBuilder.Tools.Landscape;
+using WorldBuilder.Editors.Landscape;
 
-namespace WorldBuilder.Lib
-{
-
-    public class AvaloniaInputState
-    {
+namespace WorldBuilder.Lib {
+    public class AvaloniaInputState {
         private readonly BitArray _keys = new((int)Key.DeadCharProcessed + 1);
         private readonly BitArray _keysPrevious = new((int)Key.DeadCharProcessed + 1);
         private MouseState _currentMouseState;
@@ -21,11 +16,10 @@ namespace WorldBuilder.Lib
         private Vector2 _lastMousePos = new();
 
         /// <summary>
-        /// Called internally at the start of each frame (before OpenTkRender) to copy keyboard state to the previous frame's buffer.
+        /// Called internally at the start of each frame to copy keyboard state to the previous frame's buffer.
         /// You probably don't want to call this, but it's public just-in-case.
         /// </summary>
-        public void OnFrame()
-        {
+        public void OnFrame() {
             _keysPrevious.SetAll(false);
             _keysPrevious.Or(_keys);
             _lastMousePos = MouseState.Position;
@@ -52,19 +46,15 @@ namespace WorldBuilder.Lib
         /// <returns>True if the key was down, false if it was up.</returns>
         public bool WasKeyDownLastFrame(Key key) => _keysPrevious.Get((int)key);
 
-
-
-        internal void UpdateMouseState(Point p, PointerPointProperties properties, int Width, int Height, Vector2 inputScale, ICamera camera, TerrainSystem provider)
-        {
-            Vector2 relativePos =  new Vector2((float)p.X, (float)p.Y) * inputScale;
+        internal void UpdateMouseState(Point p, PointerPointProperties properties, int Width, int Height, Vector2 inputScale, ICamera camera, TerrainSystem provider) {
+            Vector2 relativePos = new Vector2((float)p.X, (float)p.Y) * inputScale;
             var hitResult = TerrainRaycast.Raycast(
                 relativePos.X, relativePos.Y,
                 Width, Height,
                 camera,
                 provider
             );
-            _currentMouseState = new MouseState
-            {
+            _currentMouseState = new MouseState {
                 Position = relativePos,
                 LeftPressed = properties.IsLeftButtonPressed,
                 RightPressed = properties.IsRightButtonPressed,

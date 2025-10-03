@@ -7,8 +7,8 @@ using WorldBuilder.Shared.Documents;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.ViewModels;
-using WorldBuilder.ViewModels.Editors;
-using WorldBuilder.ViewModels.Editors.LandscapeEditor;
+using WorldBuilder.Editors.Landscape.ViewModels;
+using WorldBuilder.Editors.Landscape;
 
 namespace WorldBuilder.Lib.Extensions {
     public static class ServiceCollectionExtensions {
@@ -42,15 +42,7 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton<DocumentManager>();
             collection.AddSingleton<IDocumentStorageService, DocumentStorageService>();
             collection.AddSingleton(project);
-
             collection.AddTransient<LandscapeEditorViewModel>();
-            collection.AddTransient<TexturePaintingToolViewModel>();
-            collection.AddTransient<BrushSubToolViewModel>();
-            collection.AddTransient<BucketFillSubToolViewModel>();
-            collection.AddTransient<RoadDrawingToolViewModel>();
-            collection.AddTransient<RoadDrawSubToolViewModel>();
-            collection.AddTransient<RoadEditSubToolViewModel>();
-            collection.AddTransient<RoadEraseSubToolViewModel>();
         }
     }
 }

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Numerics;
-using WorldBuilder.Tools.Landscape;
 
 namespace WorldBuilder.Lib {
     public interface ICamera {

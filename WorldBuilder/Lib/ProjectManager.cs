@@ -19,18 +19,17 @@ using WorldBuilder.Shared.Documents;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.ViewModels;
-using WorldBuilder.ViewModels.Editors;
-using WorldBuilder.ViewModels.Editors.LandscapeEditor;
+using WorldBuilder.Editors.Landscape.ViewModels;
 
 namespace WorldBuilder.Lib {
+
     public partial class ProjectManager : ObservableObject, IRecipient<OpenProjectMessage>, IRecipient<CreateProjectMessage> {
         private readonly ILogger<ProjectSelectionViewModel> _log;
         private readonly WorldBuilderSettings _settings;
-        private readonly IServiceProvider _rootProvider;
-
-        private ServiceProvider? _projectProvider;
+        private ServiceProvider _projectProvider;
 
         internal static ProjectManager Instance;
+        private readonly IServiceProvider _rootProvider;
 
         private string _recentProjectsFilePath => Path.Combine(_settings.AppDataDirectory, "recentprojects.json");
 
@@ -39,6 +38,7 @@ namespace WorldBuilder.Lib {
 
         [ObservableProperty]
         private Project? _currentProject = null;
+        public CompositeServiceProvider? CompositeProvider { get; private set; }
 
         public event EventHandler<EventArgs>? CurrentProjectChanged;
 
@@ -74,8 +74,7 @@ namespace WorldBuilder.Lib {
             services.AddProjectServices(project, _rootProvider);
 
             _projectProvider = services.BuildServiceProvider();
-
-            _log.LogError($"ADDING TRANSIENT LandscapeEditorViewModel: {_projectProvider.GetRequiredService<LandscapeEditorViewModel>()}");
+            CompositeProvider = new(_projectProvider, _rootProvider);
 
             CurrentProject = project;
 
@@ -83,11 +82,11 @@ namespace WorldBuilder.Lib {
             if (!Directory.Exists(cacheDir)) {
                 Directory.CreateDirectory(cacheDir);
             }
-            project.DocumentManager = _projectProvider.GetRequiredService<DocumentManager>();
+            project.DocumentManager = CompositeProvider.GetRequiredService<DocumentManager>();
             project.DocumentManager.SetCacheDirectory(cacheDir);
             project.DocumentManager.Dats = new DefaultDatReaderWriter(project.BaseDatDirectory, DatReaderWriter.Options.DatAccessType.Read);
 
-            var dbCtx = _projectProvider.GetRequiredService<DocumentDbContext>();
+            var dbCtx = CompositeProvider.GetRequiredService<DocumentDbContext>();
             dbCtx.Database.EnsureCreated();
 
             AddRecentProject(project.Name, project.FilePath);
@@ -103,6 +102,10 @@ namespace WorldBuilder.Lib {
                 throw new Exception($"Failed to load project: {projectPath}");
             }
             SetProject(project);
+        }
+
+        public IServiceScope? CreateProjectScope() {
+            return _projectProvider?.CreateScope();
         }
 
         public T? GetProjectService<T>() where T : class {

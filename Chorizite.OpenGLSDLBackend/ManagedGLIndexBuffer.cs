@@ -61,6 +61,41 @@ namespace Chorizite.OpenGLSDLBackend {
 
 
         /// <inheritdoc />
+        public unsafe void SetSubData(Span<uint> data, int destinationOffsetBytes, int sourceOffsetElements = 0, int lengthElements = 0) {
+            if (Usage != BufferUsage.Dynamic) {
+                throw new InvalidOperationException("Cannot update a buffer that is not dynamic.");
+            }
+
+            if (lengthElements <= 0) {
+                lengthElements = data.Length - sourceOffsetElements;
+            }
+
+            uint dataSizeBytes = (uint)lengthElements * sizeof(uint);
+
+            if (dataSizeBytes == 0) {
+                return;
+            }
+
+            // Make sure we're not trying to write past the end of the buffer
+            if (destinationOffsetBytes + dataSizeBytes > Size) {
+                throw new ArgumentException($"Update would exceed buffer size. Buffer size: {Size}, Update range: {destinationOffsetBytes} to {destinationOffsetBytes + dataSizeBytes}");
+            }
+
+            GL.BindBuffer(GLEnum.ElementArrayBuffer, bufferId);
+            GLHelpers.CheckErrors();
+
+            fixed (uint* dataPtr = &data[sourceOffsetElements]) {
+                GL.BufferSubData(
+                    GLEnum.ElementArrayBuffer,
+                    destinationOffsetBytes,
+                    dataSizeBytes,
+                    (void*)dataPtr);
+                GLHelpers.CheckErrors();
+            }
+        }
+
+
+        /// <inheritdoc />
         public unsafe void SetSubData(uint[] data, int destinationOffsetBytes, int sourceOffsetElements = 0, int lengthElements = 0) {
             if (Usage != BufferUsage.Dynamic) {
                 throw new InvalidOperationException("Cannot update a buffer that is not dynamic.");

@@ -52,19 +52,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
         /// <inheritdoc />
         public unsafe void SetData<T>(T[] data) where T : IVertex {
-            uint dataSize = (uint)data.Length * (uint)Marshal.SizeOf<T>();
-            GL.BindBuffer(GLEnum.ArrayBuffer, bufferId);
-            GLHelpers.CheckErrors();
-
-            GCHandle handle = GCHandle.Alloc(data, GCHandleType.Pinned);
-            try {
-                IntPtr dataPtr = handle.AddrOfPinnedObject();
-                GL.BufferData(GLEnum.ArrayBuffer, dataSize, (void*)dataPtr, Usage.ToGL());
-                GLHelpers.CheckErrors();
-            }
-            finally {
-                handle.Free();
-            }
+            SetData(data.AsSpan());
         }
 
         /// <inheritdoc />
@@ -88,8 +76,12 @@ namespace Chorizite.OpenGLSDLBackend {
             }
         }
 
-        /// <inheritdoc />
         public unsafe void SetSubData<T>(T[] data, int destinationOffsetBytes, int sourceOffsetElements = 0, int lengthElements = 0) where T : IVertex {
+            SetSubData(data.AsSpan(), destinationOffsetBytes, sourceOffsetElements, lengthElements);
+        }
+
+        /// <inheritdoc />
+        public unsafe void SetSubData<T>(Span<T> data, int destinationOffsetBytes, int sourceOffsetElements = 0, int lengthElements = 0) where T : IVertex {
             if (Usage != BufferUsage.Dynamic) {
                 throw new InvalidOperationException("Cannot update a buffer that is not dynamic.");
             }
@@ -108,7 +100,10 @@ namespace Chorizite.OpenGLSDLBackend {
             GL.BindBuffer(GLEnum.ArrayBuffer, bufferId);
             GLHelpers.CheckErrors();
 
-            GCHandle handle = GCHandle.Alloc(data, GCHandleType.Pinned);
+
+            var b = ArrayPool<T>.Shared.Rent(data.Length);
+            data.CopyTo(b);
+            GCHandle handle = GCHandle.Alloc(b, GCHandleType.Pinned);
             try {
                 IntPtr dataPtr = handle.AddrOfPinnedObject();
                 GL.BufferSubData(
@@ -120,6 +115,7 @@ namespace Chorizite.OpenGLSDLBackend {
             }
             finally {
                 handle.Free();
+                ArrayPool<T>.Shared.Return(b);
             }
         }
 
