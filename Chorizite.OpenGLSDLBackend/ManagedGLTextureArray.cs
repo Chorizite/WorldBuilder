@@ -92,6 +92,11 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         /// <inheritdoc />
+        public unsafe int AddLayer(Span<byte> data) {
+            return AddLayer(data.ToArray());
+        }
+
+        /// <inheritdoc />
         public void UpdateLayer(int layer, byte[] data) {
             Bind();
             UpdateLayerInternal(layer, data);

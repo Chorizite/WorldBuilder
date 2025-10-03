@@ -67,8 +67,6 @@ namespace WorldBuilder.Editors.Landscape {
             LandSurfaceManager surfaceManager, Region region,
             ref uint currentVertexIndex, ref uint currentIndexPosition,
             Span<VertexLandscape> vertices, Span<uint> indices) {
-
-            // Use current implementation from TerrainProvider.GenerateCell
             uint surfNum = 0;
             var rotation = TextureMergeInfo.Rotation.Rot0;
             GetCellRotation(surfaceManager, landblockID, landblockData, cellX, cellY, ref surfNum, ref rotation);

@@ -1,0 +1,47 @@
+<UserControl
+    x:Class="WorldBuilder.Editors.Landscape.Views.BrushSubToolView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:WorldBuilder.Editors.Landscape.ViewModels"
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    x:CompileBindings="True"
+    x:DataType="vm:BrushSubToolViewModel"
+    mc:Ignorable="d">
+    <StackPanel Spacing="10">
+        <TextBlock
+            FontSize="14"
+            FontWeight="SemiBold"
+            Text="Brush Settings" />
+
+        <!--  Brush Radius  -->
+        <StackPanel Spacing="5">
+            <TextBlock Text="Brush Radius" />
+            <Grid ColumnDefinitions="*,60">
+                <Slider
+                    Grid.Column="0"
+                    IsSnapToTickEnabled="True"
+                    Maximum="50"
+                    Minimum="0.5"
+                    TickFrequency="0.5"
+                    Value="{Binding BrushRadius}" />
+                <TextBlock
+                    Grid.Column="1"
+                    Margin="10,0,0,0"
+                    VerticalAlignment="Center"
+                    Text="{Binding BrushRadius, StringFormat='{}{0:F1}'}" />
+            </Grid>
+        </StackPanel>
+
+        <!--  Terrain Type Selection  -->
+        <StackPanel Spacing="5">
+            <TextBlock Text="Terrain Type" />
+            <ComboBox
+                HorizontalAlignment="Stretch"
+                ItemsSource="{Binding AvailableTerrainTypes}"
+                SelectedItem="{Binding SelectedTerrainType}" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

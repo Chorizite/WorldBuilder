@@ -31,6 +31,11 @@ public partial class LandscapeEditorView : Base3DView {
         InitializeComponent();
         InitializeBase3DView();
 
+        // check if we are in the designer
+        if (Design.IsDesignMode) {
+            return;
+        }
+
         _viewModel = ProjectManager.Instance.GetProjectService<LandscapeEditorViewModel>()
             ?? throw new Exception("Failed to get LandscapeEditorViewModel");
 

@@ -7,7 +7,6 @@ using WorldBuilder.Lib;
 using WorldBuilder.Shared.Documents;
 
 namespace WorldBuilder.Editors.Landscape.ViewModels {
-    /*
     public partial class BucketFillSubToolViewModel : SubToolViewModelBase {
         public override string Name => "Bucket Fill";
         public override string IconGlyph => "🪣";
@@ -37,7 +36,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             if (Vector3.Distance(_currentHitPosition.NearestVertice, _lastHitPosition.NearestVertice) < 0.01f) return;
 
             Context.ActiveVertices.Clear();
-            Context.ActiveVertices.Add(_currentHitPosition.NearestVertice);
+            Context.ActiveVertices.Add(new Vector2(_currentHitPosition.NearestVertice.X, _currentHitPosition.NearestVertice.Y));
 
             _lastHitPosition = _currentHitPosition;
         }
@@ -57,9 +56,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         public override bool HandleMouseDown(MouseState mouseState) {
             if (!mouseState.IsOverTerrain || !mouseState.TerrainHit.HasValue || !mouseState.LeftPressed) return false;
 
-            Context.BeginOperation($"Bucket Fill {SelectedTerrainType}");
             FillTexture(mouseState.TerrainHit.Value, SelectedTerrainType, Context);
-            Context.EndOperation();
 
             return true;
         }
@@ -75,7 +72,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             uint startCellY = (uint)hitResult.CellY;
 
             uint startLbID = (startLbX << 8) | startLbY;
-            var startData = context.Terrain.GetLandblock((ushort)startLbID);
+            var startData = context.TerrainDocument.GetLandblock((ushort)startLbID);
             if (startData == null) return;
 
             int startIndex = (int)(startCellX * 9 + startCellY);
@@ -99,11 +96,11 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
 
                 var lbID = (ushort)((lbX << 8) | lbY);
                 if (!allAffectedLandblocks.Contains(lbID)) {
-                    allAffectedLandblocks.UnionWith(context.GetNeighboringLandblockIds(lbID));
+                    //allAffectedLandblocks.UnionWith(GetNeighboringLandblockIds(lbID));
                 }
 
                 if (!landblockDataCache.TryGetValue(lbID, out var data)) {
-                    data = context.Terrain.GetLandblock(lbID);
+                    data = context.TerrainDocument.GetLandblock(lbID);
                     if (data == null) continue;
                     landblockDataCache[lbID] = data;
                 }
@@ -124,7 +121,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
                 if (cellX < 8) {
                     queue.Enqueue((lbX, lbY, cellX + 1, cellY));
                 }
-                else if (lbX < (uint)TerrainProvider.MapSize - 1) {
+                else if (lbX < (uint)255 - 1) {
                     queue.Enqueue((lbX + 1, lbY, 0, cellY));
                 }
                 if (cellY > 0) {
@@ -136,17 +133,15 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
                 if (cellY < 8) {
                     queue.Enqueue((lbX, lbY, cellX, cellY + 1));
                 }
-                else if (lbY < (uint)TerrainProvider.MapSize - 1) {
+                else if (lbY < (uint)255 - 1) {
                     queue.Enqueue((lbX, lbY + 1, cellX, 0));
                 }
             }
 
-            context.CaptureTerrainState(allAffectedLandblocks);
-
             var allModifiedLandblocks = new HashSet<ushort>();
             foreach (var lbID in modifiedLandblocks) {
                 if (landblockDataCache.TryGetValue(lbID, out var data)) {
-                    context.Terrain.UpdateLandblock(lbID, data, out var modified);
+                    context.TerrainDocument.UpdateLandblock(lbID, data, out var modified);
                     foreach (var mod in modified) {
                         allModifiedLandblocks.Add(mod);
                     }
@@ -154,13 +149,12 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             }
 
             foreach (var lbId in allModifiedLandblocks) {
-                var data = context.Terrain.GetLandblock(lbId);
+                var data = context.TerrainDocument.GetLandblock(lbId);
                 if (data != null) {
-                    context.Terrain.SynchronizeEdgeVerticesFor(lbId, data, new List<ushort>());
-                    context.TrackModifiedLandblock(lbId);
+                    context.TerrainDocument.SynchronizeEdgeVerticesFor(lbId, data, new HashSet<ushort>());
+                    context.MarkLandblockModified(lbId);
                 }
             }
         }
     }
-    */
 }

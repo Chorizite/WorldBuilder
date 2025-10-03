@@ -58,21 +58,36 @@ namespace Chorizite.OpenGLSDLBackend {
         /// <inheritdoc />
         public unsafe void SetData<T>(Span<T> data) where T : IVertex {
             uint dataSize = (uint)data.Length * (uint)Marshal.SizeOf<T>();
+
+            // Ensure the buffer size is sufficient
+            if (dataSize > Size) {
+                throw new ArgumentException($"Data size ({dataSize} bytes) exceeds buffer size ({Size} bytes).");
+            }
+
             GL.BindBuffer(GLEnum.ArrayBuffer, bufferId);
             GLHelpers.CheckErrors();
 
-            var b = ArrayPool<T>.Shared.Rent(data.Length);
-            data.CopyTo(b);
+            // Map the buffer for writing
+            void* mappedPtr = GL.MapBufferRange(
+                GLEnum.ArrayBuffer,
+                0, // offset
+                dataSize,
+                MapBufferAccessMask.WriteBit | MapBufferAccessMask.InvalidateBufferBit // Overwrite entire buffer
+            );
 
-            GCHandle handle = GCHandle.Alloc(b, GCHandleType.Pinned);
+            if (mappedPtr == null) {
+                throw new Exception("Failed to map buffer for writing.");
+            }
+
             try {
-                IntPtr dataPtr = handle.AddrOfPinnedObject();
-                GL.BufferData(GLEnum.ArrayBuffer, dataSize, (void*)dataPtr, Usage.ToGL());
-                GLHelpers.CheckErrors();
+                // Copy data directly to mapped memory
+                Span<T> mappedSpan = new Span<T>(mappedPtr, data.Length);
+                data.CopyTo(mappedSpan);
             }
             finally {
-                handle.Free();
-                ArrayPool<T>.Shared.Return(b);
+                // Unmap the buffer
+                GL.UnmapBuffer(GLEnum.ArrayBuffer);
+                GLHelpers.CheckErrors();
             }
         }
 
@@ -92,7 +107,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
             uint dataSizeBytes = (uint)lengthElements * (uint)Marshal.SizeOf<T>();
 
-            // Make sure we're not trying to write past the end of the buffer
+            // Validate buffer bounds
             if (destinationOffsetBytes + dataSizeBytes > Size) {
                 throw new ArgumentException($"Update would exceed buffer size. Buffer size: {Size}, Update range: {destinationOffsetBytes} to {destinationOffsetBytes + dataSizeBytes}");
             }
@@ -100,22 +115,27 @@ namespace Chorizite.OpenGLSDLBackend {
             GL.BindBuffer(GLEnum.ArrayBuffer, bufferId);
             GLHelpers.CheckErrors();
 
+            // Map the specific range of the buffer
+            void* mappedPtr = GL.MapBufferRange(
+                GLEnum.ArrayBuffer,
+                destinationOffsetBytes,
+                dataSizeBytes,
+                MapBufferAccessMask.WriteBit // Write access for partial update
+            );
 
-            var b = ArrayPool<T>.Shared.Rent(data.Length);
-            data.CopyTo(b);
-            GCHandle handle = GCHandle.Alloc(b, GCHandleType.Pinned);
+            if (mappedPtr == null) {
+                throw new Exception("Failed to map buffer for writing.");
+            }
+
             try {
-                IntPtr dataPtr = handle.AddrOfPinnedObject();
-                GL.BufferSubData(
-                    GLEnum.ArrayBuffer,
-                    destinationOffsetBytes,
-                    dataSizeBytes,
-                    (void*)dataPtr);
-                GLHelpers.CheckErrors();
+                // Copy the specified range of data to the mapped memory
+                Span<T> mappedSpan = new Span<T>(mappedPtr, lengthElements);
+                data.Slice(sourceOffsetElements, lengthElements).CopyTo(mappedSpan);
             }
             finally {
-                handle.Free();
-                ArrayPool<T>.Shared.Return(b);
+                // Unmap the buffer
+                GL.UnmapBuffer(GLEnum.ArrayBuffer);
+                GLHelpers.CheckErrors();
             }
         }
 

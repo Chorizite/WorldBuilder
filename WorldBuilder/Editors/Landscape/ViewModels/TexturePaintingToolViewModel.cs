@@ -19,8 +19,9 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
 
         public override ObservableCollection<SubToolViewModelBase> AllSubTools => SubTools;
 
-        public TexturePaintingToolViewModel(BrushSubToolViewModel brushSubTool) {
+        public TexturePaintingToolViewModel(BrushSubToolViewModel brushSubTool, BucketFillSubToolViewModel bucketFillSubTool) {
             SubTools.Add(brushSubTool);
+            SubTools.Add(bucketFillSubTool);
         }
 
         public override void OnActivated() {

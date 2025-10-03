@@ -54,12 +54,13 @@ namespace WorldBuilder.Editors.Landscape {
             collection.AddSingleton(EditingContext);
             collection.AddSingleton<TerrainRenderer>();
 
-            collection.AddSingleton<RoadDrawSubToolViewModel>();
-            collection.AddSingleton<RoadEditSubToolViewModel>();
-            collection.AddSingleton<RoadEraseSubToolViewModel>();
+            collection.AddSingleton<RoadLineSubToolViewModel>();
+            collection.AddSingleton<RoadPointSubToolViewModel>();
+            collection.AddSingleton<RoadRemoveSubToolViewModel>();
             collection.AddSingleton<RoadDrawingToolViewModel>();
 
             collection.AddSingleton<BrushSubToolViewModel>();
+            collection.AddSingleton<BucketFillSubToolViewModel>();
             collection.AddSingleton<TexturePaintingToolViewModel>();
 
             collection.AddSingleton(TerrainDoc);

@@ -58,7 +58,6 @@ namespace WorldBuilder.Editors.Landscape {
         }
 
         private void InitializeShaders() {
-            // Use current implementation from old TerrainRenderer
             var a1 = typeof(OpenGLRenderer).Assembly;
             _terrainShader = _render.GraphicsDevice.CreateShader("Landscape",
                 GetEmbeddedResource("Shaders.Landscape.vert", a1),
@@ -176,9 +175,6 @@ namespace WorldBuilder.Editors.Landscape {
             }
         }
 
-        /// <summary>
-        /// Main render method - now takes terrain system and editing context
-        /// </summary>
         public void Render(
             ICamera camera,
             float aspectRatio,

@@ -9,6 +9,7 @@ using DatReaderWriter.Enums;
 using DatReaderWriter.Lib.IO;
 using DatReaderWriter.Types;
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
@@ -16,61 +17,40 @@ using System.Runtime.CompilerServices;
 using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Editors.Landscape {
-
-    /// <summary>
-    /// Manages landscape surfaces
-    /// </summary>
     public class LandSurfaceManager {
-        private readonly IDatReaderWriter _dats;
-        private readonly Region _region;
-        private DatReaderWriter.Types.LandSurf _landSurface;
+        private readonly IDatReaderWriter _dats; private readonly Region _region; private readonly DatReaderWriter.Types.LandSurf _landSurface; private readonly ValueDictionary<uint, int> _textureAtlasIndexLookup; private readonly ValueDictionary<uint, int> _alphaAtlasIndexLookup; private readonly byte[] _textureBuffer; private uint _nextSurfaceNumber; private readonly OpenGLRenderer _renderer;
 
-        private readonly Dictionary<uint, int> _textureAtlasIndexLookup = new();
-        private readonly Dictionary<uint, int> _alphaAtlasIndexLookup = new();
-        private const double PseudoRandomMultiplier = 2.3283064e-10;
-        private const int PseudoRandomBase = 1379576222;
-        private const int PseudoRandomOffset = 1372186442;
-
-        // UV coordinate lookup tables
         private static readonly Vector2[] LandUVs = new Vector2[]
         {
-            new Vector2(0, 1), // SW corner
-            new Vector2(1, 1), // SE corner  
-            new Vector2(1, 0), // NE corner
-            new Vector2(0, 0)  // NW corner
+        new Vector2(0, 1), new Vector2(1, 1), new Vector2(1, 0), new Vector2(0, 0)
         };
 
-        // Rotated UV lookup tables
         private static readonly Vector2[][] LandUVsRotated = new Vector2[4][]
         {
-            new Vector2[] { LandUVs[0], LandUVs[1], LandUVs[2], LandUVs[3] }, // No rotation
-            new Vector2[] { LandUVs[3], LandUVs[0], LandUVs[1], LandUVs[2] }, // 90° rotation
-            new Vector2[] { LandUVs[2], LandUVs[3], LandUVs[0], LandUVs[1] }, // 180° rotation  
-            new Vector2[] { LandUVs[1], LandUVs[2], LandUVs[3], LandUVs[0] }  // 270° rotation
+        new Vector2[] { LandUVs[0], LandUVs[1], LandUVs[2], LandUVs[3] },
+        new Vector2[] { LandUVs[3], LandUVs[0], LandUVs[1], LandUVs[2] },
+        new Vector2[] { LandUVs[2], LandUVs[3], LandUVs[0], LandUVs[1] },
+        new Vector2[] { LandUVs[1], LandUVs[2], LandUVs[3], LandUVs[0] }
         };
-
-        private uint _nextSurfaceNumber;
-        private OpenGLRenderer _renderer;
 
         public ITextureArray TerrainAtlas { get; private set; }
         public ITextureArray AlphaAtlas { get; private set; }
-
         public List<TerrainAlphaMap> CornerTerrainMaps { get; private set; }
         public List<TerrainAlphaMap> SideTerrainMaps { get; private set; }
         public List<RoadAlphaMap> RoadMaps { get; private set; }
         public List<TMTerrainDesc> TerrainDescriptors { get; private set; }
-
         public Dictionary<uint, SurfaceInfo> SurfaceInfoByPalette { get; private set; }
         public Dictionary<uint, TextureMergeInfo> SurfacesBySurfaceNumber { get; private set; }
-
         public uint TotalUniqueSurfaces { get; private set; }
 
         public LandSurfaceManager(OpenGLRenderer renderer, IDatReaderWriter dats, Region region) {
             _renderer = renderer;
             _dats = dats ?? throw new ArgumentNullException(nameof(dats));
             _region = region ?? throw new ArgumentNullException(nameof(region));
+            _textureAtlasIndexLookup = new ValueDictionary<uint, int>();
+            _alphaAtlasIndexLookup = new ValueDictionary<uint, int>();
+            _textureBuffer = ArrayPool<byte>.Shared.Rent(512 * 512 * 4);
 
-            // Create texture atlases
             TerrainAtlas = _renderer.GraphicsDevice.CreateTextureArray(TextureFormat.RGBA8, 512, 512, 36);
             AlphaAtlas = _renderer.GraphicsDevice.CreateTextureArray(TextureFormat.RGBA8, 512, 512, 16);
 
@@ -86,12 +66,12 @@ namespace WorldBuilder.Editors.Landscape {
             RoadMaps = _textureMergeData.RoadMaps;
             TerrainDescriptors = _textureMergeData.TerrainDesc;
 
-                LoadTextures();
+            LoadTextures();
+            ArrayPool<byte>.Shared.Return(_textureBuffer);
         }
 
         private void LoadTextures() {
-            var bytes = new byte[512 * 512 * 4];
-            // Load terrain base textures
+            Span<byte> bytes = _textureBuffer.AsSpan(0, 512 * 512 * 4);
             foreach (var tmDesc in _region.TerrainInfo.LandSurfaces.TexMerge.TerrainDesc) {
                 if (!_dats.TryGet<SurfaceTexture>(tmDesc.TerrainTex.TexGID, out var t)) {
                     throw new Exception($"Unable to load SurfaceTexture: {tmDesc.TerrainType}: 0x{tmDesc.TerrainTex.TexGID:X8}");
@@ -103,12 +83,11 @@ namespace WorldBuilder.Editors.Landscape {
                 if (_textureAtlasIndexLookup.ContainsKey(tmDesc.TerrainTex.TexGID)) {
                     continue;
                 }
-                GetTerrainTexture(texture, ref bytes);
+                GetTerrainTexture(texture, bytes);
                 var layerIndex = TerrainAtlas.AddLayer(bytes);
                 _textureAtlasIndexLookup.Add(tmDesc.TerrainTex.TexGID, layerIndex);
             }
 
-            // Load road overlays
             foreach (var overlay in _region.TerrainInfo.LandSurfaces.TexMerge.RoadMaps) {
                 if (_alphaAtlasIndexLookup.ContainsKey(overlay.TexGID)) continue;
 
@@ -116,13 +95,12 @@ namespace WorldBuilder.Editors.Landscape {
                     throw new Exception($"Unable to load SurfaceTexture: 0x{overlay.TexGID:X8}");
                 }
                 if (_dats.TryGet<RenderSurface>(t.Textures[^1], out var overlayTexture)) {
-                    GetAlphaTexture(overlayTexture, ref bytes);
+                    GetAlphaTexture(overlayTexture, bytes);
                     var layerIndex = AlphaAtlas.AddLayer(bytes);
                     _alphaAtlasIndexLookup.Add(overlay.TexGID, layerIndex);
                 }
             }
 
-            // Load alpha textures for corners
             foreach (var overlay in _region.TerrainInfo.LandSurfaces.TexMerge.CornerTerrainMaps) {
                 if (_alphaAtlasIndexLookup.ContainsKey(overlay.TexGID)) continue;
 
@@ -130,13 +108,12 @@ namespace WorldBuilder.Editors.Landscape {
                     throw new Exception($"Unable to load SurfaceTexture: 0x{overlay.TexGID:X8}");
                 }
                 if (_dats.TryGet<RenderSurface>(t.Textures[^1], out var overlayTexture)) {
-                    GetAlphaTexture(overlayTexture, ref bytes);
+                    GetAlphaTexture(overlayTexture, bytes);
                     var layerIndex = AlphaAtlas.AddLayer(bytes);
                     _alphaAtlasIndexLookup.Add(overlay.TexGID, layerIndex);
                 }
             }
 
-            // Load alpha textures for sides
             foreach (var overlay in _region.TerrainInfo.LandSurfaces.TexMerge.SideTerrainMaps) {
                 if (_alphaAtlasIndexLookup.ContainsKey(overlay.TexGID)) continue;
 
@@ -144,60 +121,35 @@ namespace WorldBuilder.Editors.Landscape {
                     throw new Exception($"Unable to load SurfaceTexture: 0x{overlay.TexGID:X8}");
                 }
                 if (_dats.TryGet<RenderSurface>(t.Textures[^1], out var overlayTexture)) {
-                    GetAlphaTexture(overlayTexture, ref bytes);
+                    GetAlphaTexture(overlayTexture, bytes);
                     var layerIndex = AlphaAtlas.AddLayer(bytes);
                     _alphaAtlasIndexLookup.Add(overlay.TexGID, layerIndex);
                 }
             }
         }
 
-        /// <summary>
-        /// Fills the specified vertex structure with landscape position, height, and texture data for a given cell and
-        /// corner within a landblock.
-        /// </summary>
-        /// <remarks>This method supports multiple terrain overlays, alpha overlays, and road overlays,
-        /// applying appropriate texture coordinates and rotations for each. Only the relevant fields of the vertex
-        /// structure are updated; unused texture coordinates are initialized to 255. The method is intended for use in
-        /// landscape mesh generation and rendering scenarios.</remarks>
-        /// <param name="landblockID">The identifier of the landblock containing the cell for which vertex data is generated.</param>
-        /// <param name="cellX">The X coordinate of the cell within the landblock, used to determine the vertex position.</param>
-        /// <param name="cellY">The Y coordinate of the cell within the landblock, used to determine the vertex position.</param>
-        /// <param name="baseLandblockX">The base X position of the landblock in world coordinates, used as an origin for vertex placement.</param>
-        /// <param name="baseLandblockY">The base Y position of the landblock in world coordinates, used as an origin for vertex placement.</param>
-        /// <param name="v">A reference to the vertex structure to be populated with position, height, and texture information.</param>
-        /// <param name="heightIdx">The index into the land height table used to determine the Z (height) value of the vertex.</param>
-        /// <param name="surfInfo">The surface and texture information for the cell, including base terrain, overlays, and road data.</param>
-        /// <param name="cornerIndex">The index of the cell corner for which the vertex data is being filled. Determines texture coordinate
-        /// selection and rotation.</param>
         public void FillVertexData(uint landblockID, uint cellX, uint cellY, float baseLandblockX, float baseLandblockY,
                                  ref VertexLandscape v, int heightIdx, TextureMergeInfo surfInfo, int cornerIndex) {
-            // Position
             v.Position.X = baseLandblockX + cellX * 24f;
             v.Position.Y = baseLandblockY + cellY * 24f;
             v.Position.Z = _region.LandDefs.LandHeightTable[heightIdx];
 
-            // Initialize packed texture coordinates to "unused" state (255 for indices, -1 for UVs)
             v.PackedOverlay0 = VertexLandscape.PackTexCoord(-1, -1, 255, 255);
             v.PackedOverlay1 = VertexLandscape.PackTexCoord(-1, -1, 255, 255);
             v.PackedOverlay2 = VertexLandscape.PackTexCoord(-1, -1, 255, 255);
             v.PackedRoad0 = VertexLandscape.PackTexCoord(-1, -1, 255, 255);
             v.PackedRoad1 = VertexLandscape.PackTexCoord(-1, -1, 255, 255);
 
-            // Base terrain texture (no rotation)
             var baseIndex = GetTextureAtlasIndex(surfInfo.TerrainBase.TexGID);
             var baseUV = LandUVs[cornerIndex];
             v.TexCoord0 = new Vector3(baseUV.X, baseUV.Y, baseIndex);
 
-            // Terrain overlays (up to 3, with individual rotations)
             for (int i = 0; i < surfInfo.TerrainOverlays.Count && i < 3; i++) {
                 var overlayIndex = (byte)GetTextureAtlasIndex(surfInfo.TerrainOverlays[i].TexGID);
                 var rotIndex = i < surfInfo.TerrainRotations.Count ? (byte)surfInfo.TerrainRotations[i] : (byte)0;
                 var rotatedUV = LandUVsRotated[rotIndex][cornerIndex];
-
-                // Start with no alpha
                 byte alphaIndex = 255;
 
-                // Check if there's a corresponding alpha overlay
                 if (i < surfInfo.TerrainAlphaOverlays.Count) {
                     alphaIndex = (byte)GetAlphaAtlasIndex(surfInfo.TerrainAlphaOverlays[i].TexGID);
                 }
@@ -209,11 +161,8 @@ namespace WorldBuilder.Editors.Landscape {
                 }
             }
 
-            // Road overlay (with rotation)
             if (surfInfo.RoadOverlay != null) {
                 var roadOverlayIndex = (byte)GetTextureAtlasIndex(surfInfo.RoadOverlay.TexGID);
-
-                // First road
                 var rotIndex = surfInfo.RoadRotations.Count > 0 ? (byte)surfInfo.RoadRotations[0] : (byte)0;
                 var rotatedUV = LandUVsRotated[rotIndex][cornerIndex];
                 byte alphaIndex = surfInfo.RoadAlphaOverlays.Count > 0
@@ -221,7 +170,6 @@ namespace WorldBuilder.Editors.Landscape {
                     : (byte)255;
                 v.SetRoad0(rotatedUV.X, rotatedUV.Y, roadOverlayIndex, alphaIndex);
 
-                // Second road
                 if (surfInfo.RoadAlphaOverlays.Count > 1) {
                     var rotIndex2 = surfInfo.RoadRotations.Count > 1 ? (byte)surfInfo.RoadRotations[1] : (byte)0;
                     var rotatedUV2 = LandUVsRotated[rotIndex2][cornerIndex];
@@ -231,12 +179,6 @@ namespace WorldBuilder.Editors.Landscape {
             }
         }
 
-        /// <summary>
-        /// Gets the atlas index associated with the specified texture id
-        /// </summary>
-        /// <param name="texGID">The id of the texture for which to retrieve the atlas index.</param>
-        /// <returns>The atlas index corresponding to the specified texture id.</returns>
-        /// <exception cref="Exception">Thrown if the specified texture id does not exist in the atlas.</exception>
         public int GetTextureAtlasIndex(uint texGID) {
             if (_textureAtlasIndexLookup.TryGetValue(texGID, out var index)) {
                 return index;
@@ -244,12 +186,6 @@ namespace WorldBuilder.Editors.Landscape {
             throw new Exception($"Texture GID not found in atlas: 0x{texGID:X8}");
         }
 
-        /// <summary>
-        /// Gets the atlas index associated with the specified texture id
-        /// </summary>
-        /// <param name="texGID">The id of the texture for which to retrieve the atlas index.</param>
-        /// <returns>The atlas index corresponding to the specified texture id.</returns>
-        /// <exception cref="Exception">Thrown if the specified texture id does not exist in the atlas.</exception>
         public int GetAlphaAtlasIndex(uint texGID) {
             if (_alphaAtlasIndexLookup.TryGetValue(texGID, out var index)) {
                 return index;
@@ -257,22 +193,22 @@ namespace WorldBuilder.Editors.Landscape {
             throw new Exception($"Texture GID not found in atlas: 0x{texGID:X8}");
         }
 
-        private static void GetAlphaTexture(RenderSurface texture, ref byte[] bytes) {
+        private void GetAlphaTexture(RenderSurface texture, Span<byte> bytes) {
             if (texture.Width != 512 || texture.Height != 512) {
                 throw new Exception("Texture size does not match atlas dimensions");
             }
-            GetExpandedAlphaTexture(texture.SourceData, texture.Width * texture.Height, ref bytes);
+            GetExpandedAlphaTexture(texture.SourceData.AsSpan(), bytes);
         }
 
-        private static void GetTerrainTexture(RenderSurface texture, ref byte[] bytes) {
+        private void GetTerrainTexture(RenderSurface texture, Span<byte> bytes) {
             if (texture.Width != 512 || texture.Height != 512) {
                 throw new Exception("Texture size does not match atlas dimensions");
             }
-            GetReversedRGBA(texture.SourceData, texture.Width * texture.Height, ref bytes);
+            GetReversedRGBA(texture.SourceData.AsSpan(), bytes);
         }
 
-        private static void GetReversedRGBA(byte[] sourceData, int pixelCount, ref byte[] data) {
-            for (int i = 0; i < pixelCount; i++) {
+        private static void GetReversedRGBA(Span<byte> sourceData, Span<byte> data) {
+            for (int i = 0; i < sourceData.Length / 4; i++) {
                 data[i * 4] = sourceData[i * 4 + 2];
                 data[i * 4 + 1] = sourceData[i * 4 + 1];
                 data[i * 4 + 2] = sourceData[i * 4 + 0];
@@ -280,20 +216,16 @@ namespace WorldBuilder.Editors.Landscape {
             }
         }
 
-        private static byte[] GetExpandedAlphaTexture(byte[] sourceData, int pixelCount, ref byte[] data) {
-            for (int i = 0; i < pixelCount; i++) {
+        private static void GetExpandedAlphaTexture(Span<byte> sourceData, Span<byte> data) {
+            for (int i = 0; i < sourceData.Length; i++) {
                 byte alpha = sourceData[i];
-                data[i * 4] = alpha;     // R
-                data[i * 4 + 1] = alpha; // G
-                data[i * 4 + 2] = alpha; // B
-                data[i * 4 + 3] = alpha; // A
+                data[i * 4] = alpha;
+                data[i * 4 + 1] = alpha;
+                data[i * 4 + 2] = alpha;
+                data[i * 4 + 3] = alpha;
             }
-            return data;
         }
 
-        /// <summary>
-        /// Selects terrain for the given coordinates and palette codes
-        /// </summary>
         public bool SelectTerrain(int x, int y, out uint surfaceNumber, out TextureMergeInfo.Rotation rotation, List<uint> paletteCodes) {
             surfaceNumber = 0;
             rotation = TextureMergeInfo.Rotation.Rot0;
@@ -313,11 +245,8 @@ namespace WorldBuilder.Editors.Landscape {
             return surface != null && AddNewSurface(surface, paletteCode, out surfaceNumber);
         }
 
-        /// <summary>
-        /// Adds a new surface to the manager
-        /// </summary>
         private bool AddNewSurface(TextureMergeInfo surface, uint paletteCode, out uint surfaceNumber) {
-            surfaceNumber = GetNextFreeSurfaceNumber();
+            surfaceNumber = _nextSurfaceNumber++;
 
             var surfaceInfo = new SurfaceInfo {
                 Surface = surface,
@@ -333,20 +262,11 @@ namespace WorldBuilder.Editors.Landscape {
             return true;
         }
 
-        private uint GetNextFreeSurfaceNumber() {
-            return _nextSurfaceNumber++;
-        }
-
-        /// <summary>
-        /// Retrieves a land surface by its surface ID
-        /// </summary>
         public TextureMergeInfo GetLandSurface(uint surfaceId) {
             SurfacesBySurfaceNumber.TryGetValue(surfaceId, out var surface);
             return surface;
         }
-        /// <summary>
-        /// Builds a composite texture from palette code
-        /// </summary>
+
         public TextureMergeInfo BuildTexture(uint paletteCode, uint textureSize) {
             var terrainTextures = GetTerrainTextures(paletteCode, out var terrainCodes);
             var roadCodes = GetRoadCodes(paletteCode, out var allRoad);
@@ -356,7 +276,6 @@ namespace WorldBuilder.Editors.Landscape {
                 TerrainCodes = terrainCodes
             };
 
-            // Handle all-road case
             if (allRoad) {
                 result.TerrainBase = roadTexture;
                 result.PostProcessing();
@@ -364,7 +283,6 @@ namespace WorldBuilder.Editors.Landscape {
             }
 
             result.TerrainBase = terrainTextures[0];
-
             ProcessTerrainOverlays(result, paletteCode, terrainTextures, terrainCodes);
 
             if (roadTexture != null) {
@@ -404,9 +322,6 @@ namespace WorldBuilder.Editors.Landscape {
         }
 
         private TerrainTex GetTerrainTexture(TerrainTextureType terrainType) {
-            if (TerrainDescriptors?.Count == 0)
-                throw new InvalidOperationException("No terrain descriptors available");
-
             var descriptor = TerrainDescriptors.FirstOrDefault(d => d.TerrainType == terrainType);
             return descriptor?.TerrainTex ?? TerrainDescriptors[0].TerrainTex;
         }
@@ -414,18 +329,17 @@ namespace WorldBuilder.Editors.Landscape {
         private List<TerrainTextureType> ExtractTerrainCodes(uint paletteCode) {
             return new List<TerrainTextureType>
             {
-                (TerrainTextureType)((paletteCode >> 15) & 0x1F),
-                (TerrainTextureType)((paletteCode >> 10) & 0x1F),
-                (TerrainTextureType)((paletteCode >> 5) & 0x1F),
-                (TerrainTextureType)(paletteCode & 0x1F)
-            };
+            (TerrainTextureType)((paletteCode >> 15) & 0x1F),
+            (TerrainTextureType)((paletteCode >> 10) & 0x1F),
+            (TerrainTextureType)((paletteCode >> 5) & 0x1F),
+            (TerrainTextureType)(paletteCode & 0x1F)
+        };
         }
 
         private List<TerrainTex> GetTerrainTextures(uint paletteCode, out List<uint> terrainCodes) {
             terrainCodes = new List<uint> { 0, 0, 0 };
             var paletteCodes = ExtractTerrainCodes(paletteCode);
 
-            // Check for duplicate terrain codes
             for (int i = 0; i < 4; i++) {
                 for (int j = i + 1; j < 4; j++) {
                     if (paletteCodes[i] == paletteCodes[j])
@@ -433,13 +347,11 @@ namespace WorldBuilder.Editors.Landscape {
                 }
             }
 
-            // No duplicates - use all four terrain types
             var terrainTextures = new List<TerrainTex>(4);
             for (int i = 0; i < 4; i++) {
                 terrainTextures.Add(GetTerrainTexture(paletteCodes[i]));
             }
 
-            // Set terrain codes for blending
             for (int i = 0; i < 3; i++) {
                 terrainCodes[i] = (uint)(1 << (i + 1));
             }
@@ -481,23 +393,21 @@ namespace WorldBuilder.Editors.Landscape {
             var roadCodes = new List<uint> { 0, 0 };
             uint mask = 0;
 
-            // Extract road bits from palette code
-            if ((paletteCode & 0xC000000) != 0) mask |= 1;    // upper left
-            if ((paletteCode & 0x3000000) != 0) mask |= 2;    // upper right  
-            if ((paletteCode & 0xC00000) != 0) mask |= 4;     // bottom right
-            if ((paletteCode & 0x300000) != 0) mask |= 8;     // bottom left
+            if ((paletteCode & 0xC000000) != 0) mask |= 1;
+            if ((paletteCode & 0x3000000) != 0) mask |= 2;
+            if ((paletteCode & 0xC00000) != 0) mask |= 4;
+            if ((paletteCode & 0x300000) != 0) mask |= 8;
 
             allRoad = mask == 0xF;
 
             if (allRoad) return roadCodes;
 
-            // Map road patterns to codes
             switch (mask) {
-                case 0xE: roadCodes[0] = 6; roadCodes[1] = 12; break;  // 1+2+3
-                case 0xD: roadCodes[0] = 9; roadCodes[1] = 12; break;  // 0+2+3
-                case 0xB: roadCodes[0] = 9; roadCodes[1] = 3; break;   // 0+1+3
-                case 0x7: roadCodes[0] = 3; roadCodes[1] = 6; break;   // 0+1+2
-                case 0x0: break; // no roads
+                case 0xE: roadCodes[0] = 6; roadCodes[1] = 12; break;
+                case 0xD: roadCodes[0] = 9; roadCodes[1] = 12; break;
+                case 0xB: roadCodes[0] = 9; roadCodes[1] = 3; break;
+                case 0x7: roadCodes[0] = 3; roadCodes[1] = 6; break;
+                case 0x0: break;
                 default: roadCodes[0] = mask; break;
             }
 
@@ -508,19 +418,16 @@ namespace WorldBuilder.Editors.Landscape {
             rotation = TextureMergeInfo.Rotation.Rot0;
             alphaIndex = 0;
 
-            // Determine if corner or side terrain
             var isCornerTerrain = terrainCode == 1 || terrainCode == 2 || terrainCode == 4 || terrainCode == 8;
             var terrainMaps = isCornerTerrain ? CornerTerrainMaps : SideTerrainMaps;
             var baseIndex = isCornerTerrain ? 0 : 4;
 
             if (terrainMaps?.Count == 0) return null;
 
-            // Pseudo-random selection based on palette code
             var randomIndex = GeneratePseudoRandomIndex(paletteCode, terrainMaps.Count);
             var alpha = terrainMaps[randomIndex];
             alphaIndex = baseIndex + randomIndex;
 
-            // Find correct rotation
             var rotationCount = 0;
             var currentAlphaCode = alpha.TCode;
 
@@ -563,7 +470,7 @@ namespace WorldBuilder.Editors.Landscape {
         }
 
         private int GeneratePseudoRandomIndex(uint paletteCode, int count) {
-            var pseudoRandom = (int)Math.Floor((PseudoRandomBase * paletteCode - PseudoRandomOffset) * PseudoRandomMultiplier * count);
+            var pseudoRandom = (int)Math.Floor((1379576222 * paletteCode - 1372186442) * 2.3283064e-10 * count);
             return pseudoRandom >= count ? 0 : pseudoRandom;
         }
 
@@ -572,4 +479,18 @@ namespace WorldBuilder.Editors.Landscape {
             return code >= 16 ? code - 15 : code;
         }
     }
+
+    // Simple value-optimized dictionary for uint keys
+    internal class ValueDictionary<TKey, TValue> where TKey : struct {
+        private readonly Dictionary<TKey, TValue> _inner;
+
+        public ValueDictionary() => _inner = new Dictionary<TKey, TValue>();
+
+        public bool TryGetValue(TKey key, out TValue value) => _inner.TryGetValue(key, out value);
+
+        public void Add(TKey key, TValue value) => _inner[key] = value;
+
+        public bool ContainsKey(TKey key) => _inner.ContainsKey(key);
+    }
+
 }
