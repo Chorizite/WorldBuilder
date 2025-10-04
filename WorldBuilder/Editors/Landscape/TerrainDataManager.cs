@@ -138,9 +138,9 @@ namespace WorldBuilder.Editors.Landscape {
         /// <summary>
         /// Marks landblocks as dirty for incremental updates
         /// </summary>
-        public void MarkLandblocksDirty(IEnumerable<uint> landblockIds) {
+        public void MarkLandblocksDirty(HashSet<ushort> landblockIds) {
             foreach (var lbId in landblockIds) {
-                var chunk = GetChunkForLandblock(lbId >> 8, lbId & 0xFF);
+                var chunk = GetChunkForLandblock((uint)lbId >> 8, (uint)lbId & 0xFF);
                 chunk?.MarkDirty(lbId);
             }
         }

@@ -10,41 +10,51 @@ namespace WorldBuilder.Editors.Landscape.Commands {
     public abstract class TerrainVertexChangeCommand : ICommand {
         protected readonly TerrainEditingContext _context;
         protected readonly Dictionary<ushort, List<(int VertexIndex, byte OriginalValue, byte NewValue)>> _changes = new();
+
         public abstract string Description { get; }
         public bool CanExecute => true;
         public bool CanUndo => true;
 
         protected TerrainVertexChangeCommand(TerrainEditingContext context) {
-            _context = context;
+            _context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
         protected abstract byte GetEntryValue(TerrainEntry entry);
         protected abstract TerrainEntry SetEntryValue(TerrainEntry entry, byte value);
 
         protected bool Apply(bool isUndo) {
-            var modifiedLandblocks = new HashSet<ushort>();
+            if (_changes.Count == 0) return false;
+
+            // Convert changes to batch format
+            var batchChanges = new Dictionary<ushort, Dictionary<byte, uint>>();
             var landblockDataCache = new Dictionary<ushort, TerrainEntry[]>();
 
-            foreach (var (lbId, changes) in _changes) {
+            foreach (var (lbId, changeList) in _changes) {
                 if (!landblockDataCache.TryGetValue(lbId, out var data)) {
                     data = _context.TerrainDocument.GetLandblock(lbId);
                     if (data == null) continue;
                     landblockDataCache[lbId] = data;
                 }
 
-                foreach (var (vIndex, original, newVal) in changes) {
-                    byte val = isUndo ? original : newVal;
-                    if (GetEntryValue(data[vIndex]) == val) continue;
-                    data[vIndex] = SetEntryValue(data[vIndex], val);
+                if (!batchChanges.TryGetValue(lbId, out var lbChanges)) {
+                    lbChanges = new Dictionary<byte, uint>();
+                    batchChanges[lbId] = lbChanges;
                 }
 
-                _context.TerrainDocument.UpdateLandblock(lbId, data, out var modified);
-                modifiedLandblocks.UnionWith(modified);
+                foreach (var (vIndex, original, newVal) in changeList) {
+                    byte val = isUndo ? original : newVal;
+
+                    // Skip if already at target value
+                    if (GetEntryValue(data[vIndex]) == val) continue;
+
+                    var updatedEntry = SetEntryValue(data[vIndex], val);
+                    lbChanges[(byte)vIndex] = updatedEntry.ToUInt();
+                }
             }
 
-            foreach (var lbId in modifiedLandblocks) {
-                _context.MarkLandblockModified(lbId);
-            }
+            // Single batch update with all changes
+            _context.TerrainDocument.UpdateLandblocksBatch(batchChanges, out var modifiedLandblocks);
+            _context.MarkLandblocksModified(modifiedLandblocks);
 
             return true;
         }

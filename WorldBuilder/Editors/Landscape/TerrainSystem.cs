@@ -84,7 +84,7 @@ namespace WorldBuilder.Editors.Landscape {
         }
 
         /// <summary>
-        /// Updates terrain based on camera and frustum - now with landblock-level updates
+        /// Updates terrain based on camera and frustum
         /// </summary>
         public void Update(Vector3 cameraPosition, Matrix4x4 viewProjectionMatrix) {
             var frustum = new Frustum(viewProjectionMatrix);
@@ -96,12 +96,11 @@ namespace WorldBuilder.Editors.Landscape {
                 var chunk = DataManager.GetOrCreateChunk(chunkX, chunkY);
 
                 if (!GPUManager.HasRenderData(chunkId)) {
-                    // Create initial chunk resources
                     GPUManager.CreateChunkResources(chunk, DataManager, SurfaceManager);
                 }
                 else if (chunk.IsDirty) {
-                    // Update only the dirty landblocks
-                    GPUManager.UpdateLandblocks(chunk, chunk.DirtyLandblocks, DataManager, SurfaceManager);
+                    var dirtyLandblocks = chunk.DirtyLandblocks.ToList();
+                    GPUManager.UpdateLandblocks(chunk, dirtyLandblocks, DataManager, SurfaceManager);
                 }
             }
         }

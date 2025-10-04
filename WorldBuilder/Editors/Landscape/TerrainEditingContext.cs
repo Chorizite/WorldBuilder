@@ -33,15 +33,15 @@ namespace WorldBuilder.Editors.Landscape {
         /// <summary>
         /// Marks a landblock as modified and queues it for GPU update
         /// </summary>
-        public void MarkLandblockModified(uint landblockId) {
+        public void MarkLandblockModified(ushort landblockId) {
             _modifiedLandblocks.Add(landblockId);
-            _terrainSystem.DataManager.MarkLandblocksDirty(new[] { landblockId });
+            _terrainSystem.DataManager.MarkLandblocksDirty(new HashSet<ushort>() { landblockId });
         }
 
         /// <summary>
         /// Marks multiple landblocks as modified
         /// </summary>
-        public void MarkLandblocksModified(IEnumerable<uint> landblockIds) {
+        public void MarkLandblocksModified(HashSet<ushort> landblockIds) {
             foreach (var id in landblockIds) {
                 _modifiedLandblocks.Add(id);
             }

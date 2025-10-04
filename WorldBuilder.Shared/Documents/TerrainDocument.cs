@@ -5,22 +5,20 @@ using DatReaderWriter.Enums;
 using MemoryPack;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
-using System.IO.Compression;
 using System.Runtime.CompilerServices;
 using WorldBuilder.Shared.Lib;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace WorldBuilder.Shared.Documents {
     [MemoryPackable]
     public partial record TerrainData {
         public Dictionary<ushort, uint[]> Landblocks = new(0xFF * 0xFF);
     }
+
     [MemoryPackable]
     public partial class TerrainUpdateEvent : BaseDocumentEvent {
         public Dictionary<ushort, Dictionary<byte, uint>> Changes = new();
     }
 
-    // Optimized terrain entry with better packing
     public readonly record struct TerrainEntry {
         public byte Road { get; init; }
         public byte Scenery { get; init; }
@@ -48,7 +46,7 @@ namespace WorldBuilder.Shared.Documents {
     public partial class TerrainDocument : BaseDocument {
         const int MAP_WIDTH = 254;
         const int MAP_HEIGHT = 254;
-        const int LANDBLOCK_SIZE = 81; // 9x9 grid
+        const int LANDBLOCK_SIZE = 81;
 
         public override string Type => nameof(TerrainDocument);
         public override string Id => "terrain";
@@ -56,10 +54,7 @@ namespace WorldBuilder.Shared.Documents {
         [ObservableProperty]
         private TerrainData _terrainData = new();
 
-        // Cache for base terrain data - loaded once at init
         private ConcurrentDictionary<ushort, uint[]> _baseTerrainCache;
-
-        // Dirty tracking for efficient saves
         private readonly HashSet<ushort> _dirtyLandblocks = new();
         private readonly object _dirtyLock = new();
 
@@ -67,12 +62,10 @@ namespace WorldBuilder.Shared.Documents {
         }
 
         public TerrainEntry[]? GetLandblock(ushort lbKey) {
-            // Check modified landblocks first
             if (TerrainData.Landblocks.TryGetValue(lbKey, out var lbTerrain)) {
                 return ConvertToTerrainEntries(lbTerrain);
             }
 
-            // Fall back to base terrain
             if (_baseTerrainCache.TryGetValue(lbKey, out lbTerrain)) {
                 return ConvertToTerrainEntries(lbTerrain);
             }
@@ -89,21 +82,72 @@ namespace WorldBuilder.Shared.Documents {
             return result;
         }
 
+        /// <summary>
+        /// NEW: Batch update method that collects all changes before applying
+        /// </summary>
+        public void UpdateLandblocksBatch(
+            Dictionary<ushort, Dictionary<byte, uint>> allChanges,
+            out HashSet<ushort> modifiedLandblocks) {
+
+            modifiedLandblocks = new HashSet<ushort>();
+
+            if (allChanges.Count == 0) return;
+
+            // Phase 1: Collect all changes including edge synchronization
+            var finalChanges = new Dictionary<ushort, Dictionary<byte, uint>>();
+
+            foreach (var (lbKey, changes) in allChanges) {
+                // Add the primary changes
+                if (!finalChanges.TryGetValue(lbKey, out var lbChanges)) {
+                    lbChanges = new Dictionary<byte, uint>();
+                    finalChanges[lbKey] = lbChanges;
+                }
+
+                foreach (var (idx, value) in changes) {
+                    lbChanges[idx] = value;
+                }
+
+                modifiedLandblocks.Add(lbKey);
+            }
+
+            // Phase 2: Calculate edge synchronization for all affected landblocks
+            foreach (var (lbKey, changes) in allChanges) {
+                var lbData = GetLandblock(lbKey);
+                if (lbData == null) continue;
+
+                // Apply changes to temporary data for edge calculation
+                var tempData = new TerrainEntry[lbData.Length];
+                Array.Copy(lbData, tempData, lbData.Length);
+
+                foreach (var (idx, value) in changes) {
+                    tempData[idx] = new TerrainEntry(value);
+                }
+
+                CollectEdgeSync(lbKey, tempData, finalChanges, modifiedLandblocks);
+            }
+
+            // Phase 3: Apply all changes in a single batch
+            if (finalChanges.Count > 0) {
+                var updateEvent = new TerrainUpdateEvent { Changes = finalChanges };
+                Apply(updateEvent);
+            }
+        }
+
+        /// <summary>
+        /// Original single-landblock update - kept for compatibility
+        /// </summary>
         public void UpdateLandblock(ushort lbKey, TerrainEntry[] newEntries, out HashSet<ushort> modifiedLandblocks) {
             if (newEntries.Length != LANDBLOCK_SIZE) {
                 throw new ArgumentException($"newEntries array must be of length {LANDBLOCK_SIZE}.");
             }
 
             modifiedLandblocks = new HashSet<ushort>();
-
-            // Get current landblock data for comparison
             var currentEntries = GetLandblock(lbKey);
             if (currentEntries == null) {
                 _logger.LogError("Cannot update landblock {LbKey:X4} - not found", lbKey);
                 return;
             }
 
-            // Only create changes for vertices that actually changed
             var landblockChanges = new Dictionary<byte, uint>();
             for (byte i = 0; i < newEntries.Length; i++) {
                 if (!currentEntries[i].Equals(newEntries[i])) {
@@ -111,150 +155,95 @@ namespace WorldBuilder.Shared.Documents {
                 }
             }
 
-            if (landblockChanges.Count == 0) {
-                return; // No actual changes
-            }
+            if (landblockChanges.Count == 0) return;
 
-            // Create the main landblock update event
-            var changes = new Dictionary<ushort, Dictionary<byte, uint>> {
+            // Use batch method for single update too
+            var batchChanges = new Dictionary<ushort, Dictionary<byte, uint>> {
                 [lbKey] = landblockChanges
             };
 
-            // Apply the main update
-            var updateEvent = new TerrainUpdateEvent { Changes = changes };
-            Apply(updateEvent);
-            modifiedLandblocks.Add(lbKey);
-
-            // Handle edge synchronization by creating additional events
-            SynchronizeEdgeVerticesFor(lbKey, newEntries, modifiedLandblocks);
+            UpdateLandblocksBatch(batchChanges, out modifiedLandblocks);
         }
 
-        /// <summary>
-        /// Optimized edge synchronization - only sync vertices that actually changed
-        /// </summary>
-        private void SynchronizeEdgeVerticesFor(ushort baseLandblockId, TerrainEntry[] lbTerrain, HashSet<ushort> modifiedLandblocks) {
-            var startLbX = (baseLandblockId >> 8) & 0xFF;
-            var startLbY = baseLandblockId & 0xFF;
+        private void CollectEdgeSync(
+            ushort baseLbKey,
+            TerrainEntry[] lbTerrain,
+            Dictionary<ushort, Dictionary<byte, uint>> allChanges,
+            HashSet<ushort> modifiedLandblocks) {
 
-            // Collect all synchronization operations first, then batch them
-            var allChanges = new Dictionary<ushort, Dictionary<byte, uint>>();
+            var startLbX = (baseLbKey >> 8) & 0xFF;
+            var startLbY = baseLbKey & 0xFF;
 
-            // Helper to add changes to the batch
             void AddChange(ushort neighborLbKey, int neighborVertIdx, TerrainEntry sourceEntry) {
+                var neighbor = GetLandblock(neighborLbKey);
+                if (neighbor == null) return;
+
+                // Only sync if the values are different
+                if (neighbor[neighborVertIdx].Equals(sourceEntry)) return;
+
                 if (!allChanges.TryGetValue(neighborLbKey, out var changes)) {
                     changes = new Dictionary<byte, uint>();
                     allChanges[neighborLbKey] = changes;
                 }
+
                 changes[(byte)neighborVertIdx] = sourceEntry.ToUInt();
+                modifiedLandblocks.Add(neighborLbKey);
             }
 
-            // Top Left Neighbor (diagonal)
+            // Top Left Neighbor
             if (startLbX > 0 && startLbY < 0xFF) {
                 var neighborLbKey = (ushort)(((startLbX - 1) << 8) | (startLbY + 1));
-                SynchronizeSingleVertexBatch(neighborLbKey, CellVertXYToIdx(8, 0), lbTerrain[CellVertXYToIdx(0, 8)], AddChange);
+                AddChange(neighborLbKey, CellVertXYToIdx(8, 0), lbTerrain[CellVertXYToIdx(0, 8)]);
             }
 
             // Top Neighbor
             if (startLbY < 0xFF) {
                 var neighborLbKey = (ushort)((startLbX << 8) | (startLbY + 1));
-                SynchronizeHorizontalEdgeBatch(neighborLbKey, lbTerrain, 0, 8, AddChange);
+                for (int x = 0; x <= 8; x++) {
+                    AddChange(neighborLbKey, CellVertXYToIdx(x, 0), lbTerrain[CellVertXYToIdx(x, 8)]);
+                }
             }
 
-            // Top Right Neighbor (diagonal)
+            // Top Right Neighbor
             if (startLbX < 0xFF && startLbY < 0xFF) {
                 var neighborLbKey = (ushort)(((startLbX + 1) << 8) | (startLbY + 1));
-                SynchronizeSingleVertexBatch(neighborLbKey, CellVertXYToIdx(0, 0), lbTerrain[CellVertXYToIdx(8, 8)], AddChange);
+                AddChange(neighborLbKey, CellVertXYToIdx(0, 0), lbTerrain[CellVertXYToIdx(8, 8)]);
             }
 
             // Left Neighbor
             if (startLbX > 0) {
                 var neighborLbKey = (ushort)(((startLbX - 1) << 8) | startLbY);
-                SynchronizeVerticalEdgeBatch(neighborLbKey, lbTerrain, 8, 0, AddChange);
+                for (int y = 0; y <= 8; y++) {
+                    AddChange(neighborLbKey, CellVertXYToIdx(8, y), lbTerrain[CellVertXYToIdx(0, y)]);
+                }
             }
 
             // Right Neighbor
             if (startLbX < 0xFF) {
                 var neighborLbKey = (ushort)(((startLbX + 1) << 8) | startLbY);
-                SynchronizeVerticalEdgeBatch(neighborLbKey, lbTerrain, 0, 8, AddChange);
+                for (int y = 0; y <= 8; y++) {
+                    AddChange(neighborLbKey, CellVertXYToIdx(0, y), lbTerrain[CellVertXYToIdx(8, y)]);
+                }
             }
 
-            // Bottom Left Neighbor (diagonal)
+            // Bottom Left Neighbor
             if (startLbX > 0 && startLbY > 0) {
                 var neighborLbKey = (ushort)(((startLbX - 1) << 8) | (startLbY - 1));
-                SynchronizeSingleVertexBatch(neighborLbKey, CellVertXYToIdx(8, 8), lbTerrain[CellVertXYToIdx(0, 0)], AddChange);
+                AddChange(neighborLbKey, CellVertXYToIdx(8, 8), lbTerrain[CellVertXYToIdx(0, 0)]);
             }
 
             // Bottom Neighbor
             if (startLbY > 0) {
                 var neighborLbKey = (ushort)((startLbX << 8) | (startLbY - 1));
-                SynchronizeHorizontalEdgeBatch(neighborLbKey, lbTerrain, 8, 0, AddChange);
+                for (int x = 0; x <= 8; x++) {
+                    AddChange(neighborLbKey, CellVertXYToIdx(x, 8), lbTerrain[CellVertXYToIdx(x, 0)]);
+                }
             }
 
-            // Bottom Right Neighbor (diagonal)
+            // Bottom Right Neighbor
             if (startLbX < 0xFF && startLbY > 0) {
                 var neighborLbKey = (ushort)(((startLbX + 1) << 8) | (startLbY - 1));
-                SynchronizeSingleVertexBatch(neighborLbKey, CellVertXYToIdx(0, 8), lbTerrain[CellVertXYToIdx(8, 0)], AddChange);
-            }
-
-            // Apply all changes in a single batch
-            if (allChanges.Count > 0) {
-                var updateEvent = new TerrainUpdateEvent { Changes = allChanges };
-                Apply(updateEvent);
-
-                foreach (var neighborLbKey in allChanges.Keys) {
-                    if (!modifiedLandblocks.Contains(neighborLbKey)) {
-                        modifiedLandblocks.Add(neighborLbKey);
-                    }
-                }
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void SynchronizeSingleVertexBatch(ushort neighborLbKey, int neighborVertIdx, TerrainEntry sourceEntry,
-            Action<ushort, int, TerrainEntry> addChange) {
-            var neighbor = GetLandblock(neighborLbKey);
-            if (neighbor == null) {
-                return;
-            }
-
-            if (!neighbor[neighborVertIdx].Equals(sourceEntry)) {
-                addChange(neighborLbKey, neighborVertIdx, sourceEntry);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void SynchronizeHorizontalEdgeBatch(ushort neighborLbKey, TerrainEntry[] sourceTerrain, int neighborY, int sourceY,
-            Action<ushort, int, TerrainEntry> addChange) {
-            var neighbor = GetLandblock(neighborLbKey);
-            if (neighbor == null) {
-                return;
-            }
-
-            for (int x = 0; x <= 8; x++) {
-                var neighborIdx = CellVertXYToIdx(x, neighborY);
-                var sourceIdx = CellVertXYToIdx(x, sourceY);
-
-                if (!neighbor[neighborIdx].Equals(sourceTerrain[sourceIdx])) {
-                    addChange(neighborLbKey, neighborIdx, sourceTerrain[sourceIdx]);
-                }
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void SynchronizeVerticalEdgeBatch(ushort neighborLbKey, TerrainEntry[] sourceTerrain, int neighborX, int sourceX,
-            Action<ushort, int, TerrainEntry> addChange) {
-            var neighbor = GetLandblock(neighborLbKey);
-            if (neighbor == null) {
-                return;
-            }
-
-            for (int y = 0; y <= 8; y++) {
-                var neighborIdx = CellVertXYToIdx(neighborX, y);
-                var sourceIdx = CellVertXYToIdx(sourceX, y);
-
-                if (!neighbor[neighborIdx].Equals(sourceTerrain[sourceIdx])) {
-                    addChange(neighborLbKey, neighborIdx, sourceTerrain[sourceIdx]);
-                }
+                AddChange(neighborLbKey, CellVertXYToIdx(0, 8), lbTerrain[CellVertXYToIdx(8, 0)]);
             }
         }
 
@@ -280,7 +269,6 @@ namespace WorldBuilder.Shared.Documents {
                         lbTerrain[index] = value;
                     }
 
-                    // Mark as dirty for efficient saves
                     lock (_dirtyLock) {
                         _dirtyLandblocks.Add(lbKey);
                     }
@@ -299,18 +287,12 @@ namespace WorldBuilder.Shared.Documents {
                     _logger.LogInformation("Loaded {Count} landblocks from cache", _baseTerrainCache.Count);
                     return Task.FromResult(true);
                 }
-                else {
-                    _logger.LogWarning("Failed to load terrain data from cache");
-                }
             }
 
             _baseTerrainCache = new ConcurrentDictionary<ushort, uint[]>(8, 255 * 255);
-
             _logger.LogInformation("Loading base terrain data...");
             var loadedCount = 0;
 
-            // Use parallel processing to load landblocks faster
-            var lockObject = new object();
             Parallel.For(0, MAP_WIDTH + 1, x => {
                 for (var y = 0; y <= MAP_HEIGHT; y++) {
                     var lbId = (uint)((y + (x << 8)) << 16) | 0xFFFF;
@@ -323,7 +305,6 @@ namespace WorldBuilder.Shared.Documents {
                     for (int i = 0; i < LANDBLOCK_SIZE; i++) {
                         var terrain = lb.Terrain[i];
                         var height = lb.Height[i];
-
                         lbTerrain[i] = (uint)(terrain.Road |
                                             ((uint)terrain.Scenery << 8) |
                                             ((uint)terrain.Type << 16) |
@@ -332,26 +313,19 @@ namespace WorldBuilder.Shared.Documents {
 
                     var lbKey = (ushort)((lbId >> 16) & 0xFFFF);
                     _baseTerrainCache.TryAdd(lbKey, lbTerrain);
-
-                    lock (lockObject) {
-                        loadedCount++;
-                    }
+                    Interlocked.Increment(ref loadedCount);
                 }
             });
 
-            _logger.LogInformation($"Cache dir is: {_cacheDirectory}");
-
             if (!string.IsNullOrWhiteSpace(_cacheDirectory)) {
-                _logger.LogInformation("Saving base terrain data to cache directory {CacheDirectory}", _cacheDirectory);
-                if (!Directory.Exists(_cacheDirectory)) {
-                    Directory.CreateDirectory(_cacheDirectory);
-                }
+                _logger.LogInformation("Saving base terrain data to cache");
+                Directory.CreateDirectory(_cacheDirectory);
                 try {
                     var serialized = MemoryPackSerializer.Serialize(_baseTerrainCache);
                     File.WriteAllBytes(Path.Combine(_cacheDirectory, "terrain.dat"), serialized);
                 }
                 catch (Exception ex) {
-                    _logger.LogError(ex, "Failed to serialize base terrain data to cache directory {CacheDirectory}", _cacheDirectory);
+                    _logger.LogError(ex, "Failed to serialize base terrain data");
                 }
             }
 
@@ -412,9 +386,6 @@ namespace WorldBuilder.Shared.Documents {
             return Task.FromResult(true);
         }
 
-        /// <summary>
-        /// Get statistics about the current terrain state
-        /// </summary>
         public (int ModifiedLandblocks, int DirtyLandblocks, int BaseLandblocks) GetStats() {
             lock (_dirtyLock) {
                 return (TerrainData.Landblocks.Count, _dirtyLandblocks.Count, _baseTerrainCache.Count);

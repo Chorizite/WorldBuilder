@@ -21,18 +21,17 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
 
         [ObservableProperty]
         private List<TerrainTextureType> _availableTerrainTypes;
+
         private bool _isPainting;
         private TerrainRaycast.TerrainRaycastHit _currentHitPosition;
         private TerrainRaycast.TerrainRaycastHit _lastHitPosition;
         private readonly CommandHistory _commandHistory;
         private readonly Dictionary<ushort, List<(int VertexIndex, byte OriginalType, byte NewType)>> _pendingChanges;
-        private readonly HashSet<ushort> _modifiedLandblocks;
 
         public BrushSubToolViewModel(TerrainEditingContext context, CommandHistory commandHistory) : base(context) {
             _availableTerrainTypes = Enum.GetValues<TerrainTextureType>().ToList();
             _commandHistory = commandHistory ?? throw new ArgumentNullException(nameof(commandHistory));
             _pendingChanges = new Dictionary<ushort, List<(int, byte, byte)>>();
-            _modifiedLandblocks = new HashSet<ushort>();
         }
 
         partial void OnBrushRadiusChanged(float value) {
@@ -44,7 +43,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             Context.ActiveVertices.Clear();
             _lastHitPosition = _currentHitPosition = new TerrainRaycast.TerrainRaycastHit();
             _pendingChanges.Clear();
-            _modifiedLandblocks.Clear();
         }
 
         public override void OnDeactivated() {
@@ -94,7 +92,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
 
             _isPainting = true;
             _pendingChanges.Clear();
-            _modifiedLandblocks.Clear();
             var hitResult = mouseState.TerrainHit.Value;
             ApplyPreviewChanges(hitResult.NearestVertice);
 
@@ -104,8 +101,9 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         private void ApplyPreviewChanges(Vector3 centerPosition) {
             var affected = PaintCommand.GetAffectedVertices(centerPosition, BrushRadius, Context);
             var landblockDataCache = new Dictionary<ushort, TerrainEntry[]>();
-            var allModifiedLandblocks = new HashSet<ushort>();
 
+            // Collect all changes to be applied
+            var batchChanges = new Dictionary<ushort, Dictionary<byte, uint>>();
             byte newType = (byte)SelectedTerrainType;
 
             foreach (var (lbId, vIndex, _) in affected) {
@@ -126,14 +124,21 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
                 if (original == newType) continue;
 
                 list.Add((vIndex, original, newType));
-                data[vIndex] = data[vIndex] with { Type = newType };
-                Context.TerrainDocument.UpdateLandblock(lbId, data, out var modifiedLandblocks);
-                allModifiedLandblocks.UnionWith(modifiedLandblocks);
-                _modifiedLandblocks.Add(lbId);
+
+                // Prepare batch change
+                if (!batchChanges.TryGetValue(lbId, out var lbChanges)) {
+                    lbChanges = new Dictionary<byte, uint>();
+                    batchChanges[lbId] = lbChanges;
+                }
+
+                var newEntry = data[vIndex] with { Type = newType };
+                lbChanges[(byte)vIndex] = newEntry.ToUInt();
             }
 
-            foreach (var lbId in allModifiedLandblocks) {
-                Context.MarkLandblockModified(lbId);
+            // Apply all changes in a single batch operation
+            if (batchChanges.Count > 0) {
+                Context.TerrainDocument.UpdateLandblocksBatch(batchChanges, out var modifiedLandblocks);
+                Context.MarkLandblocksModified(modifiedLandblocks);
             }
         }
 
@@ -144,7 +149,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             _commandHistory.ExecuteCommand(command);
 
             _pendingChanges.Clear();
-            _modifiedLandblocks.Clear();
         }
     }
 }

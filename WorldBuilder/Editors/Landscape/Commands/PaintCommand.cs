@@ -26,7 +26,6 @@ namespace WorldBuilder.Editors.Landscape.Commands {
         public override string Description => $"Paint {Enum.GetName(typeof(TerrainTextureType), _terrainType)}";
 
         protected override byte GetEntryValue(TerrainEntry entry) => entry.Type;
-
         protected override TerrainEntry SetEntryValue(TerrainEntry entry, byte value) => entry with { Type = value };
 
         private void CollectChanges(Vector3 position, float brushRadius) {
@@ -85,56 +84,49 @@ namespace WorldBuilder.Editors.Landscape.Commands {
                     Vector3 vertPos = new Vector3(vert2D.X, vert2D.Y, z);
                     affected.Add((lbId, vertexIndex, vertPos));
 
-                    // Left neighbor
+                    // Edge neighbor handling
                     if (localVX == 0 && lbX > 0) {
                         ushort leftLbId = (ushort)(((lbX - 1) << 8) | lbY);
                         int leftVertexIndex = 8 * 9 + localVY;
                         affected.Add((leftLbId, leftVertexIndex, vertPos));
                     }
 
-                    // Right neighbor
                     if (localVX == 8 && lbX < mapSize - 1) {
                         ushort rightLbId = (ushort)(((lbX + 1) << 8) | lbY);
                         int rightVertexIndex = 0 * 9 + localVY;
                         affected.Add((rightLbId, rightVertexIndex, vertPos));
                     }
 
-                    // Bottom neighbor
                     if (localVY == 0 && lbY > 0) {
                         ushort bottomLbId = (ushort)((lbX << 8) | (lbY - 1));
                         int bottomVertexIndex = localVX * 9 + 8;
                         affected.Add((bottomLbId, bottomVertexIndex, vertPos));
                     }
 
-                    // Top neighbor
                     if (localVY == 8 && lbY < mapSize - 1) {
                         ushort topLbId = (ushort)((lbX << 8) | (lbY + 1));
                         int topVertexIndex = localVX * 9 + 0;
                         affected.Add((topLbId, topVertexIndex, vertPos));
                     }
 
-                    // Bottom-left diagonal
                     if (localVX == 0 && localVY == 0 && lbX > 0 && lbY > 0) {
                         ushort diagLbId = (ushort)(((lbX - 1) << 8) | (lbY - 1));
                         int diagVertexIndex = 8 * 9 + 8;
                         affected.Add((diagLbId, diagVertexIndex, vertPos));
                     }
 
-                    // Bottom-right diagonal
                     if (localVX == 8 && localVY == 0 && lbX < mapSize - 1 && lbY > 0) {
                         ushort diagLbId = (ushort)(((lbX + 1) << 8) | (lbY - 1));
                         int diagVertexIndex = 0 * 9 + 8;
                         affected.Add((diagLbId, diagVertexIndex, vertPos));
                     }
 
-                    // Top-left diagonal
                     if (localVX == 0 && localVY == 8 && lbX > 0 && lbY < mapSize - 1) {
                         ushort diagLbId = (ushort)(((lbX - 1) << 8) | (lbY + 1));
                         int diagVertexIndex = 8 * 9 + 0;
                         affected.Add((diagLbId, diagVertexIndex, vertPos));
                     }
 
-                    // Top-right diagonal
                     if (localVX == 8 && localVY == 8 && lbX < mapSize - 1 && lbY < mapSize - 1) {
                         ushort diagLbId = (ushort)(((lbX + 1) << 8) | (lbY + 1));
                         int diagVertexIndex = 0 * 9 + 0;
