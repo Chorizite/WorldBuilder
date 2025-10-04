@@ -7,9 +7,6 @@ using System.Threading.Tasks;
 using WorldBuilder.Shared.Documents;
 
 namespace WorldBuilder.Editors.Landscape.Commands {
-    /// <summary>
-    /// Optimized FillCommand with batched updates
-    /// </summary>
     public class FillCommand : TerrainVertexChangeCommand {
         private readonly TerrainRaycast.TerrainRaycastHit _hitResult;
         private readonly byte _newType;

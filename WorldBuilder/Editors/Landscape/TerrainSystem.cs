@@ -14,7 +14,7 @@ using WorldBuilder.Shared.Models;
 
 namespace WorldBuilder.Editors.Landscape {
     /// <summary>
-    /// Main terrain system coordinator with landblock-level update support
+    /// Main terrain system coordinator
     /// </summary>
     public class TerrainSystem : IDisposable {
         public TerrainDataManager DataManager { get; }
