@@ -1,29 +1,29 @@
-﻿using System;
+﻿using DatReaderWriter.Enums;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using WorldBuilder.Lib;
+using WorldBuilder.Shared.Documents;
 
 namespace WorldBuilder.Editors.Landscape.Commands {
-    public class RoadLineCommand : ICommand {
-        private readonly TerrainEditingContext _context;
+    public class RoadLineCommand : TerrainVertexChangeCommand {
         private readonly Vector3 _startPosition;
         private readonly Vector3 _endPosition;
-        private readonly Dictionary<ushort, (int VertexIndex, byte OriginalRoad, byte NewRoad)[]> _changes;
 
-        public string Description => "Draw road line";
-
-        public bool CanExecute => true;
-        public bool CanUndo => true;
-
-        public RoadLineCommand(TerrainEditingContext context, Vector3 startPosition, Vector3 endPosition) {
-            _context = context;
+        public RoadLineCommand(TerrainEditingContext context, Vector3 startPosition, Vector3 endPosition) : base(context) {
             _startPosition = startPosition;
             _endPosition = endPosition;
-            _changes = new Dictionary<ushort, (int, byte, byte)[]>();
+            CollectChanges();
         }
 
-        public bool Execute() {
+        public override string Description => "Draw road line";
+
+        protected override byte GetEntryValue(TerrainEntry entry) => entry.Road;
+
+        protected override TerrainEntry SetEntryValue(TerrainEntry entry, byte value) => entry with { Road = value };
+
+        private void CollectChanges() {
             var vertices = GenerateOptimalPath();
             var changesByLb = new Dictionary<ushort, Dictionary<int, byte>>();
 
@@ -39,52 +39,26 @@ namespace WorldBuilder.Editors.Landscape.Commands {
                 lbChanges[hit.Value.VerticeIndex] = 1;
             }
 
-            var allModified = new HashSet<ushort>();
+            var landblockDataCache = new Dictionary<ushort, TerrainEntry[]>();
+
             foreach (var (lbId, lbChanges) in changesByLb) {
-                var data = _context.TerrainDocument.GetLandblock(lbId);
-                if (data == null) continue;
-
-                if (!_changes.ContainsKey(lbId)) {
-                    _changes[lbId] = new List<(int, byte, byte)>().ToArray();
+                if (!landblockDataCache.TryGetValue(lbId, out var data)) {
+                    data = _context.TerrainDocument.GetLandblock(lbId);
+                    if (data == null) continue;
+                    landblockDataCache[lbId] = data;
                 }
 
-                var currentChanges = _changes[lbId].ToList();
+                if (!_changes.TryGetValue(lbId, out var list)) {
+                    list = new List<(int, byte, byte)>();
+                    _changes[lbId] = list;
+                }
+
                 foreach (var (index, value) in lbChanges) {
-                    currentChanges.Add((index, data[index].Road, value));
-                    data[index] = data[index] with { Road = value };
+                    byte original = data[index].Road;
+                    if (original == value) continue;
+                    list.Add((index, original, value));
                 }
-                _changes[lbId] = currentChanges.ToArray();
-
-                _context.TerrainDocument.UpdateLandblock(lbId, data, out var modified);
-                allModified.UnionWith(modified);
             }
-
-            foreach (var lbId in allModified) {
-                _context.MarkLandblockModified(lbId);
-            }
-
-            return true;
-        }
-
-        public bool Undo() {
-            var modifiedLandblocks = new HashSet<ushort>();
-            foreach (var (lbId, changes) in _changes) {
-                var data = _context.TerrainDocument.GetLandblock(lbId);
-                if (data == null) continue;
-
-                foreach (var (vIndex, originalRoad, _) in changes) {
-                    data[vIndex] = data[vIndex] with { Road = originalRoad };
-                }
-
-                _context.TerrainDocument.UpdateLandblock(lbId, data, out var modified);
-                modifiedLandblocks.UnionWith(modified);
-            }
-
-            foreach (var lbId in modifiedLandblocks) {
-                _context.MarkLandblockModified(lbId);
-            }
-
-            return true;
         }
 
         private List<Vector3> GenerateOptimalPath() {
@@ -100,7 +74,7 @@ namespace WorldBuilder.Editors.Landscape.Commands {
             var startWorldPos = new Vector3(
                 currentX * 24f,
                 currentY * 24f,
-                _context.TerrainSystem.DataManager.GetHeightAtPosition(currentX * 24f, currentY * 24f));
+                _context.GetHeightAtPosition(currentX * 24f, currentY * 24f));
             path.Add(startWorldPos);
 
             while (currentX != endGridX || currentY != endGridY) {
@@ -121,7 +95,7 @@ namespace WorldBuilder.Editors.Landscape.Commands {
                 var worldPos = new Vector3(
                     currentX * 24f,
                     currentY * 24f,
-                    _context.TerrainSystem.DataManager.GetHeightAtPosition(currentX * 24f, currentY * 24f));
+                    _context.GetHeightAtPosition(currentX * 24f, currentY * 24f));
                 path.Add(worldPos);
             }
 
@@ -153,5 +127,4 @@ namespace WorldBuilder.Editors.Landscape.Commands {
             };
         }
     }
-
 }

@@ -88,7 +88,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             var landblockId = hitResult.LandblockId;
             var vertexIndex = hitResult.VerticeIndex;
 
-            // Skip if this vertex was already modified in this drag
             if (_pendingChanges.Any(c => c.LandblockId == landblockId && c.VertexIndex == vertexIndex)) return;
 
             var landblockData = Context.TerrainDocument.GetLandblock(landblockId);
@@ -97,24 +96,22 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             byte originalRoad = landblockData[vertexIndex].Road;
             const byte newRoad = 1;
 
+            if (originalRoad == newRoad) return;
+
             _pendingChanges.Add((landblockId, vertexIndex, originalRoad, newRoad));
             landblockData[vertexIndex] = landblockData[vertexIndex] with { Road = newRoad };
             Context.TerrainDocument.UpdateLandblock(landblockId, landblockData, out var modifiedLandblocks);
 
-            // Synchronize edge vertices for preview
             _modifiedLandblocks.UnionWith(modifiedLandblocks);
             foreach (var lbId in _modifiedLandblocks) {
-                var data = Context.TerrainDocument.GetLandblock(lbId);
-                if (data != null) {
-                    Context.MarkLandblockModified(lbId);
-                }
+                Context.MarkLandblockModified(lbId);
             }
         }
 
         private void FinalizePainting() {
             if (_pendingChanges.Count == 0) return;
 
-            var command = new RoadPointCommand(Context, _pendingChanges);
+            var command = new RoadChangeCommand(Context, _pendingChanges, 1);
             _commandHistory.ExecuteCommand(command);
 
             _pendingChanges.Clear();

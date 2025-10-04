@@ -110,7 +110,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         private Vector3 SnapToNearestVertex(Vector3 worldPosition) {
             var gridX = Math.Round(worldPosition.X / 24.0) * 24.0;
             var gridY = Math.Round(worldPosition.Y / 24.0) * 24.0;
-            var gridZ = Context.TerrainSystem.DataManager.GetHeightAtPosition((float)gridX, (float)gridY);
+            var gridZ = Context.GetHeightAtPosition((float)gridX, (float)gridY);
             return new Vector3((float)gridX, (float)gridY, gridZ);
         }
 
@@ -138,7 +138,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             var startWorldPos = new Vector3(
                 currentX * 24f,
                 currentY * 24f,
-                Context.TerrainSystem.DataManager.GetHeightAtPosition(currentX * 24f, currentY * 24f));
+                Context.GetHeightAtPosition(currentX * 24f, currentY * 24f));
             path.Add(startWorldPos);
 
             while (currentX != endX || currentY != endY) {
@@ -159,7 +159,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
                 var worldPos = new Vector3(
                     currentX * 24f,
                     currentY * 24f,
-                    Context.TerrainSystem.DataManager.GetHeightAtPosition(currentX * 24f, currentY * 24f));
+                    Context.GetHeightAtPosition(currentX * 24f, currentY * 24f));
                 path.Add(worldPos);
             }
 

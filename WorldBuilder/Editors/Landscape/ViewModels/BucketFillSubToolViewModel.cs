@@ -57,7 +57,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         public override bool HandleMouseDown(MouseState mouseState) {
             if (!mouseState.IsOverTerrain || !mouseState.TerrainHit.HasValue || !mouseState.LeftPressed) return false;
 
-            var command = new BucketFillCommand(Context, mouseState.TerrainHit.Value, SelectedTerrainType);
+            var command = new FillCommand(Context, mouseState.TerrainHit.Value, SelectedTerrainType);
             _commandHistory.ExecuteCommand(command);
 
             return true;

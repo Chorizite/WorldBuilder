@@ -57,7 +57,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             if (Vector3.Distance(_currentHitPosition.NearestVertice, _lastHitPosition.NearestVertice) < 0.01f) return;
 
             Context.ActiveVertices.Clear();
-            var affected = BrushPaintCommand.GetAffectedVertices(_currentHitPosition.NearestVertice, BrushRadius, Context);
+            var affected = PaintCommand.GetAffectedVertices(_currentHitPosition.NearestVertice, BrushRadius, Context);
 
             foreach (var (_, _, pos) in affected) {
                 Context.ActiveVertices.Add(new Vector2(pos.X, pos.Y));
@@ -102,9 +102,11 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         }
 
         private void ApplyPreviewChanges(Vector3 centerPosition) {
-            var affected = BrushPaintCommand.GetAffectedVertices(centerPosition, BrushRadius, Context);
+            var affected = PaintCommand.GetAffectedVertices(centerPosition, BrushRadius, Context);
             var landblockDataCache = new Dictionary<ushort, TerrainEntry[]>();
             var allModifiedLandblocks = new HashSet<ushort>();
+
+            byte newType = (byte)SelectedTerrainType;
 
             foreach (var (lbId, vIndex, _) in affected) {
                 if (!landblockDataCache.TryGetValue(lbId, out var data)) {
@@ -113,33 +115,32 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
                     landblockDataCache[lbId] = data;
                 }
 
-                if (!_pendingChanges.ContainsKey(lbId)) {
-                    _pendingChanges[lbId] = new List<(int, byte, byte)>();
+                if (!_pendingChanges.TryGetValue(lbId, out var list)) {
+                    list = new List<(int, byte, byte)>();
+                    _pendingChanges[lbId] = list;
                 }
 
-                var existingChange = _pendingChanges[lbId].FirstOrDefault(c => c.VertexIndex == vIndex);
-                if (existingChange.VertexIndex == vIndex) continue;
+                if (list.Any(c => c.VertexIndex == vIndex)) continue;
 
-                _pendingChanges[lbId].Add((vIndex, data[vIndex].Type, (byte)SelectedTerrainType));
-                data[vIndex] = data[vIndex] with { Type = (byte)SelectedTerrainType };
+                byte original = data[vIndex].Type;
+                if (original == newType) continue;
+
+                list.Add((vIndex, original, newType));
+                data[vIndex] = data[vIndex] with { Type = newType };
                 Context.TerrainDocument.UpdateLandblock(lbId, data, out var modifiedLandblocks);
                 allModifiedLandblocks.UnionWith(modifiedLandblocks);
                 _modifiedLandblocks.Add(lbId);
             }
 
-            // Synchronize edge vertices for all affected landblocks, including neighbors
             foreach (var lbId in allModifiedLandblocks) {
-                var data = Context.TerrainDocument.GetLandblock(lbId);
-                if (data != null) {
-                    Context.MarkLandblockModified(lbId);
-                }
+                Context.MarkLandblockModified(lbId);
             }
         }
 
         private void FinalizePainting() {
             if (_pendingChanges.Count == 0) return;
 
-            var command = new BrushPaintCommand(Context, SelectedTerrainType, _pendingChanges);
+            var command = new PaintCommand(Context, SelectedTerrainType, _pendingChanges);
             _commandHistory.ExecuteCommand(command);
 
             _pendingChanges.Clear();
