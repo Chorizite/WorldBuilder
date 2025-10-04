@@ -384,10 +384,9 @@ namespace WorldBuilder.Shared.Documents {
             }
         }
 
-        protected override Task<bool> SaveToDatsInternal(IDatReaderWriter datwriter) {
+        protected override Task<bool> SaveToDatsInternal(IDatReaderWriter datwriter, int iteration = 0) {
             _logger.LogInformation("Saving {Count} modified landblocks to DAT files", TerrainData.Landblocks.Count);
             foreach (var (lbKey, lbTerrain) in TerrainData.Landblocks) {
-
                 var lbId = (uint)(lbKey << 16) | 0xFFFF;
                 if (!datwriter.TryGet<LandBlock>(lbId, out var lb)) {
                     _logger.LogError("Failed to load landblock 0x{LandBlockId:X8}", lbId);
@@ -404,7 +403,7 @@ namespace WorldBuilder.Shared.Documents {
                     lb.Height[i] = (byte)(terrainData >> 24);
                 }
 
-                if (!datwriter.TrySave(lb)) {
+                if (!datwriter.TrySave(lb, iteration)) {
                     _logger.LogError("Failed to save landblock 0x{LandBlockId:X8}", lbId);
                 }
             }

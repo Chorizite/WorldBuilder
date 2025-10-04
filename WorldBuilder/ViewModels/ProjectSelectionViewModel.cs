@@ -14,7 +14,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using WorldBuilder.Lib;
-using WorldBuilder.Lib.Extensions;
+using WorldBuilder.Lib.Settings;
 using WorldBuilder.Shared.Models;
 using static WorldBuilder.ViewModels.SplashPageViewModel;
 
@@ -45,7 +45,7 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
         var files = await TopLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions() {
             Title = "Open existing project",
             AllowMultiple = false,
-            SuggestedStartLocation = await TopLevel.StorageProvider.TryGetFolderFromPathAsync(_settings.ProjectsDirectory),
+            SuggestedStartLocation = await TopLevel.StorageProvider.TryGetFolderFromPathAsync(_settings.App.ProjectsDirectory),
             FileTypeFilter = new[] {
                 new FilePickerFileType("WorldBuilder Project") {
                     Patterns = new[] { "*.wbproj" }

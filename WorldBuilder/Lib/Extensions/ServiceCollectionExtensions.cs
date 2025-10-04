@@ -9,6 +9,7 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.ViewModels;
 using WorldBuilder.Editors.Landscape.ViewModels;
 using WorldBuilder.Editors.Landscape;
+using WorldBuilder.Lib.Settings;
 
 namespace WorldBuilder.Lib.Extensions {
     public static class ServiceCollectionExtensions {

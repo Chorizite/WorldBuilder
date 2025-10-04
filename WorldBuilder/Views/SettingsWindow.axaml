@@ -1,0 +1,86 @@
+<Window
+    x:Class="WorldBuilder.Views.SettingsWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:settings="clr-namespace:WorldBuilder.Lib.Settings"
+    Title="Settings"
+    Width="700"
+    Height="500"
+    MinWidth="600"
+    MinHeight="400"
+    x:DataType="settings:WorldBuilderSettings"
+    Icon="avares://WorldBuilder/Assets/avalonia-logo.ico">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.SettingLabel">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+        <Style Selector="TextBlock.SettingDescription">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource SystemBaseMediumColor}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+        <Style Selector="Border.SettingGroup">
+            <Setter Property="Margin" Value="0,0,0,16" />
+        </Style>
+        <Style Selector="ListBoxItem.NavSection">
+            <Setter Property="Padding" Value="16,10" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="ListBoxItem.NavSection:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SystemAccentColor}" />
+        </Style>
+        <Style Selector="ListBoxItem.NavSubSection">
+            <Setter Property="Padding" Value="32,8" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <Style Selector="ListBoxItem.NavSubSection:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SystemAccentColorLight1}" />
+        </Style>
+        <Style Selector="ListBoxItem.NavSubSection:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SystemControlHighlightListLowBrush}" />
+        </Style>
+    </Window.Styles>
+
+    <DockPanel>
+        <!--  Bottom buttons  -->
+        <StackPanel
+            Margin="16"
+            HorizontalAlignment="Right"
+            DockPanel.Dock="Bottom"
+            Orientation="Horizontal"
+            Spacing="8">
+            <Button
+                Width="130"
+                Click="ResetToDefaults_Click"
+                Content="Reset to Defaults" />
+            <Button
+                Width="80"
+                Classes="accent"
+                Click="Save_Click"
+                Content="Save" />
+            <Button
+                Width="80"
+                Click="Cancel_Click"
+                Content="Cancel" />
+        </StackPanel>
+
+        <!--  Left Navigation  -->
+        <Border
+            Width="200"
+            BorderBrush="{DynamicResource SystemBaseLowColor}"
+            BorderThickness="0,0,1,0"
+            DockPanel.Dock="Left">
+            <ScrollViewer>
+                <Panel x:Name="NavigationContainer" />
+            </ScrollViewer>
+        </Border>
+
+        <!--  Main content area  -->
+        <Panel x:Name="ContentContainer" Margin="16,16,16,0" />
+
+    </DockPanel>
+
+</Window>

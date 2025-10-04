@@ -142,9 +142,9 @@ namespace WorldBuilder.Shared.Documents {
         /// </summary>
         /// <param name="datwriter"></param>
         /// <returns></returns>
-        public virtual Task<bool> SaveToDats(IDatReaderWriter datwriter) {
+        public virtual Task<bool> SaveToDats(IDatReaderWriter datwriter, int iteration = 0) {
             lock (_stateLock) {
-                return SaveToDatsInternal(datwriter);
+                return SaveToDatsInternal(datwriter, iteration);
             }
         }
 
@@ -153,7 +153,7 @@ namespace WorldBuilder.Shared.Documents {
         /// </summary>
         /// <param name="datwriter"></param>
         /// <returns></returns>
-        protected abstract Task<bool> SaveToDatsInternal(IDatReaderWriter datwriter);
+        protected abstract Task<bool> SaveToDatsInternal(IDatReaderWriter datwriter, int iteration = 0);
 
         public virtual void Dispose() {
 

@@ -20,6 +20,7 @@ using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.ViewModels;
 using WorldBuilder.Editors.Landscape.ViewModels;
+using WorldBuilder.Lib.Settings;
 
 namespace WorldBuilder.Lib {
 

@@ -9,7 +9,7 @@ using System.Diagnostics.CodeAnalysis;
 namespace WorldBuilder.Shared.Lib {
     public class DefaultDatReaderWriter : IDatReaderWriter {
         private object _lock = new object();
-        private DatCollection Dats { get; }
+        public DatCollection Dats { get; }
 
         public DefaultDatReaderWriter(string datPath, DatAccessType accessType) {
             Dats = new DatCollection(new DatCollectionOptions() {

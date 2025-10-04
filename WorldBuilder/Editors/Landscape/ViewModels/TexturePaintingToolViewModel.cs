@@ -7,7 +7,6 @@ using System.Linq;
 using System.Numerics;
 using WorldBuilder.Lib;
 using WorldBuilder.Shared.Documents;
-using WorldBuilder.Tools;
 
 namespace WorldBuilder.Editors.Landscape.ViewModels {
     public partial class TexturePaintingToolViewModel : ToolViewModelBase {

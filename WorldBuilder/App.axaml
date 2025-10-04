@@ -2,12 +2,15 @@
     x:Class="WorldBuilder.App"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:dialog="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
     xmlns:lib="clr-namespace:WorldBuilder.Lib"
     RequestedThemeVariant="Default">
     <!--  "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options.  -->
 
     <Application.Styles>
         <FluentTheme />
+        <dialog:DialogHostStyles />
+        <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
         <Style Selector="Button.selected">
             <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundAccentBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}" />

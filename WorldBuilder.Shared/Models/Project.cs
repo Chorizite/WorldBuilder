@@ -148,11 +148,18 @@ namespace WorldBuilder.Shared.Models {
 
             using var writer = new DefaultDatReaderWriter(exportDirectory, DatAccessType.ReadWrite);
 
+            if (portalIteration == DatReaderWriter.Dats.Portal.Iteration.CurrentIteration) {
+                portalIteration = 0;
+            }
+
+            // TODO: save all documents, not just terrain
             var doc = DocumentManager.GetOrCreateDocumentAsync<TerrainDocument>("terrain").Result;
-            doc.SaveToDats(writer);
-            /*
+            doc.SaveToDats(writer, portalIteration);
+
+            // TODO: all other dat iterations
             writer.Dats.Portal.Iteration.CurrentIteration = portalIteration;
 
+            /*
             writer.Dats.Cell.TryWriteFile(writer.Dats.Cell.Iteration);
             writer.Dats.Portal.TryWriteFile(writer.Dats.Portal.Iteration);
             writer.Dats.Local.TryWriteFile(writer.Dats.Local.Iteration);

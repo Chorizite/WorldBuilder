@@ -23,10 +23,9 @@
         <!--  Menu Bar at the top  -->
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="File">
-                <MenuItem Header="Export Dats" />
-                <MenuItem Header="Exit" />
+                <MenuItem Command="{Binding OpenExportDatsWindowCommand}" Header="Export Dats" />
             </MenuItem>
-            <MenuItem Header="Settings" />
+            <MenuItem Command="{Binding OpenSettingsWindowCommand}" Header="Settings" />
         </Menu>
         <Grid>
             <Grid.RowDefinitions>

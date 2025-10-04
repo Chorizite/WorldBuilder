@@ -23,7 +23,6 @@ using WorldBuilder.Shared.Documents;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Lib.Extensions;
 using WorldBuilder.Shared.Models;
-using WorldBuilder.Tools;
 using static Avalonia.OpenGL.GlConsts;
 
 namespace WorldBuilder.Views {

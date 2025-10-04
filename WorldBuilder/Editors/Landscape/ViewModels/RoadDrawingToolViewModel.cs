@@ -2,7 +2,6 @@
 using System.Collections.ObjectModel;
 using WorldBuilder.Lib;
 using WorldBuilder.Shared.Documents;
-using WorldBuilder.Tools;
 
 namespace WorldBuilder.Editors.Landscape.ViewModels {
     public partial class RoadDrawingToolViewModel : ToolViewModelBase {

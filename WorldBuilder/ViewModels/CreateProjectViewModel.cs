@@ -12,8 +12,8 @@ using System.Linq;
 using System.Runtime;
 using System.Threading.Tasks;
 using WorldBuilder.Lib;
-using WorldBuilder.Lib.Extensions;
 using WorldBuilder.Lib.Messages;
+using WorldBuilder.Lib.Settings;
 using static WorldBuilder.ViewModels.SplashPageViewModel;
 
 namespace WorldBuilder.ViewModels;
@@ -66,7 +66,7 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
         _log = log;
         _settings = settings;
 
-        _location = settings.ProjectsDirectory;
+        _location = settings.App.ProjectsDirectory;
         ValidateLocation();
         UpdateCanProceed();
 
@@ -95,7 +95,7 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
         var files = await TopLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions() {
             Title = "Choose Base DAT directory",
             AllowMultiple = false,
-            SuggestedStartLocation = await TopLevel.StorageProvider.TryGetFolderFromPathAsync(_settings.ProjectsDirectory)
+            SuggestedStartLocation = await TopLevel.StorageProvider.TryGetFolderFromPathAsync(_settings.App.ProjectsDirectory)
         });
 
         if (files.Count == 0) return;
@@ -111,7 +111,7 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
         var files = await TopLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions() {
             Title = "Choose project location",
             AllowMultiple = false,
-            SuggestedStartLocation = await TopLevel.StorageProvider.TryGetFolderFromPathAsync(_settings.ProjectsDirectory)
+            SuggestedStartLocation = await TopLevel.StorageProvider.TryGetFolderFromPathAsync(_settings.App.ProjectsDirectory)
         });
 
         if (files.Count == 0) return;

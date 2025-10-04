@@ -1,0 +1,102 @@
+<Window
+    x:Class="WorldBuilder.Views.ExportDatsWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dialog="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:WorldBuilder.ViewModels"
+    Title="Export Dats"
+    Width="500"
+    Height="350"
+    x:DataType="vm:ExportDatsWindowViewModel"
+    WindowStartupLocation="CenterOwner"
+    mc:Ignorable="d">
+
+    <dialog:DialogHost Identifier="ExportDialogHost">
+        <Grid Margin="10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!--  Form Content  -->
+            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+                <StackPanel MaxWidth="600" Spacing="16">
+                    <StackPanel>
+                        <TextBlock
+                            Margin="0,0,0,5"
+                            FontWeight="SemiBold"
+                            Text="Export Directory *" />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox
+                                Grid.Column="0"
+                                Classes.error="{Binding HasDirectoryError}"
+                                Text="{Binding ExportDirectory}"
+                                Watermark="Select directory to export DAT files..." />
+                            <Button
+                                Grid.Column="1"
+                                Margin="5,0,0,0"
+                                Padding="15,5"
+                                Command="{Binding BrowseExportDirectoryCommand}"
+                                Content="Browse..." />
+                        </Grid>
+                        <TextBlock
+                            Classes.error="{Binding HasDirectoryError}"
+                            IsVisible="{Binding HasDirectoryError}"
+                            Text="{Binding DirectoryErrorMessage}" />
+                    </StackPanel>
+
+                    <StackPanel>
+                        <TextBlock
+                            Margin="0,0,0,5"
+                            FontWeight="SemiBold"
+                            Text="Portal Iteration *" />
+                        <TextBox
+                            Classes.error="{Binding HasIterationError}"
+                            Text="{Binding PortalIteration}"
+                            Watermark="Portal Iteration" />
+                        <TextBlock
+                            Classes.error="{Binding HasIterationError}"
+                            IsVisible="{Binding HasIterationError}"
+                            Text="{Binding IterationErrorMessage}" />
+                    </StackPanel>
+
+                    <StackPanel>
+                        <CheckBox
+                            Margin="0,10,0,0"
+                            Content="Overwrite existing DAT files"
+                            IsChecked="{Binding OverwriteFiles}" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!--  Navigation Buttons  -->
+            <Grid Grid.Row="1" Margin="0,20,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Button
+                    Grid.Column="0"
+                    MinWidth="100"
+                    Padding="20,10"
+                    HorizontalContentAlignment="Center"
+                    Click="Cancel_Click"
+                    Content="Cancel" />
+
+                <Button
+                    Grid.Column="2"
+                    MinWidth="100"
+                    Padding="20,10"
+                    HorizontalContentAlignment="Center"
+                    Classes="accent"
+                    Click="Export_Click"
+                    Content="Export"
+                    IsEnabled="{Binding CanExport}" />
+            </Grid>
+        </Grid>
+    </dialog:DialogHost>
+</Window>
