@@ -50,7 +50,6 @@ namespace WorldBuilder.Editors.Landscape.Commands {
             foreach (var lbId in modifiedLandblocks) {
                 var data = _context.TerrainDocument.GetLandblock(lbId);
                 if (data != null) {
-                    _context.TerrainDocument.SynchronizeEdgeVerticesFor(lbId, data, new HashSet<ushort>());
                     _context.MarkLandblockModified(lbId);
                 }
             }
@@ -78,7 +77,6 @@ namespace WorldBuilder.Editors.Landscape.Commands {
             foreach (var lbId in modifiedLandblocks) {
                 var data = _context.TerrainDocument.GetLandblock(lbId);
                 if (data != null) {
-                    _context.TerrainDocument.SynchronizeEdgeVerticesFor(lbId, data, new HashSet<ushort>());
                     _context.MarkLandblockModified(lbId);
                 }
             }

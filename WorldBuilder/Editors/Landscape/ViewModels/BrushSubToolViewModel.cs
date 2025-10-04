@@ -131,7 +131,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             foreach (var lbId in allModifiedLandblocks) {
                 var data = Context.TerrainDocument.GetLandblock(lbId);
                 if (data != null) {
-                    Context.TerrainDocument.SynchronizeEdgeVerticesFor(lbId, data, new HashSet<ushort>());
                     Context.MarkLandblockModified(lbId);
                 }
             }
