@@ -1,7 +1,4 @@
-﻿
-// ===== Core Data Structures =====
-
-using Chorizite.Core.Render;
+﻿using Chorizite.Core.Render;
 using Chorizite.OpenGLSDLBackend;
 using DatReaderWriter.DBObjs;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,11 +11,10 @@ using WorldBuilder.Lib;
 using WorldBuilder.Shared.Documents;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace WorldBuilder.Editors.Landscape {
     /// <summary>
-    /// Main terrain system coordinator
+    /// Main terrain system coordinator with landblock-level update support
     /// </summary>
     public class TerrainSystem : IDisposable {
         public TerrainDataManager DataManager { get; }
@@ -43,7 +39,6 @@ namespace WorldBuilder.Editors.Landscape {
                 ?? throw new InvalidOperationException("Terrain document not found");
             EditingContext = new TerrainEditingContext(project.DocumentManager, this);
 
-            // Initialize cameras
             var mapCenter = new Vector3(192f * 254f / 2f, 192f * 254f / 2f, 1000);
             PerspectiveCamera = new PerspectiveCamera(mapCenter, Vector3.UnitZ);
             TopDownCamera = new OrthographicTopDownCamera(new Vector3(0, 0, 200f));
@@ -89,7 +84,7 @@ namespace WorldBuilder.Editors.Landscape {
         }
 
         /// <summary>
-        /// Updates terrain based on camera and frustum
+        /// Updates terrain based on camera and frustum - now with landblock-level updates
         /// </summary>
         public void Update(Vector3 cameraPosition, Matrix4x4 viewProjectionMatrix) {
             var frustum = new Frustum(viewProjectionMatrix);
@@ -100,9 +95,56 @@ namespace WorldBuilder.Editors.Landscape {
                 var chunkY = (uint)(chunkId & 0xFFFFFFFF);
                 var chunk = DataManager.GetOrCreateChunk(chunkX, chunkY);
 
-                // Create/update GPU resources if needed
-                if (!GPUManager.HasRenderData(chunkId) || chunk.IsDirty) {
-                    GPUManager.CreateOrUpdateResources(chunk, DataManager, SurfaceManager);
+                if (!GPUManager.HasRenderData(chunkId)) {
+                    // Create initial chunk resources
+                    GPUManager.CreateChunkResources(chunk, DataManager, SurfaceManager);
+                }
+                else if (chunk.IsDirty) {
+                    // Update only the dirty landblocks
+                    GPUManager.UpdateLandblocks(chunk, chunk.DirtyLandblocks, DataManager, SurfaceManager);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Forces a full regeneration of specific chunks
+        /// </summary>
+        public void RegenerateChunks(IEnumerable<ulong> chunkIds) {
+            foreach (var chunkId in chunkIds) {
+                var chunkX = (uint)(chunkId >> 32);
+                var chunkY = (uint)(chunkId & 0xFFFFFFFF);
+                var chunk = DataManager.GetOrCreateChunk(chunkX, chunkY);
+
+                GPUManager.CreateChunkResources(chunk, DataManager, SurfaceManager);
+            }
+        }
+
+        /// <summary>
+        /// Updates specific landblocks across potentially multiple chunks
+        /// </summary>
+        public void UpdateLandblocks(IEnumerable<uint> landblockIds) {
+            // Group landblocks by their containing chunks
+            var landblocksByChunk = new Dictionary<ulong, List<uint>>();
+
+            foreach (var landblockId in landblockIds) {
+                var landblockX = landblockId >> 8;
+                var landblockY = landblockId & 0xFF;
+                var chunk = DataManager.GetChunkForLandblock(landblockX, landblockY);
+
+                if (chunk == null) continue;
+
+                var chunkId = chunk.GetChunkId();
+                if (!landblocksByChunk.ContainsKey(chunkId)) {
+                    landblocksByChunk[chunkId] = new List<uint>();
+                }
+                landblocksByChunk[chunkId].Add(landblockId);
+            }
+
+            // Update each chunk's landblocks
+            foreach (var kvp in landblocksByChunk) {
+                var chunk = DataManager.GetChunk(kvp.Key);
+                if (chunk != null) {
+                    GPUManager.UpdateLandblocks(chunk, kvp.Value, DataManager, SurfaceManager);
                 }
             }
         }

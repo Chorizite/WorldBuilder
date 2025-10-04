@@ -251,14 +251,14 @@ namespace WorldBuilder.Editors.Landscape {
 
             // Render each chunk
             foreach (var (chunk, renderData) in renderableChunks) {
-                renderData.VertexArray.Bind();
+                renderData.ArrayBuffer.Bind();
                 renderData.VertexBuffer.Bind();
                 renderData.IndexBuffer.Bind();
                 GLHelpers.CheckErrors();
 
-                _render.GraphicsDevice.DrawElements(Chorizite.Core.Render.Enums.PrimitiveType.TriangleList, renderData.IndexCount);
+                _render.GraphicsDevice.DrawElements(Chorizite.Core.Render.Enums.PrimitiveType.TriangleList, renderData.TotalIndexCount);
 
-                renderData.VertexArray.Unbind();
+                renderData.ArrayBuffer.Unbind();
                 renderData.VertexBuffer.Unbind();
                 renderData.IndexBuffer.Unbind();
             }

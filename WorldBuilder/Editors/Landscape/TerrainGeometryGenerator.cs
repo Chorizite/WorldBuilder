@@ -2,7 +2,6 @@
 using Chorizite.Core.Render.Vertex;
 using DatReaderWriter.DBObjs;
 using System;
-using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using WorldBuilder.Shared.Documents;
@@ -14,9 +13,16 @@ namespace WorldBuilder.Editors.Landscape {
     }
 
     /// <summary>
-    /// Stateless geometry generation
+    /// Stateless geometry generation - now supports landblock-level generation
     /// </summary>
     public static class TerrainGeometryGenerator {
+        public const int CellsPerLandblock = 64; // 8x8
+        public const int VerticesPerLandblock = CellsPerLandblock * 4;
+        public const int IndicesPerLandblock = CellsPerLandblock * 6;
+
+        /// <summary>
+        /// Generates geometry for an entire chunk
+        /// </summary>
         public static void GenerateChunkGeometry(
             TerrainChunk chunk,
             TerrainDataManager dataManager,
@@ -41,24 +47,76 @@ namespace WorldBuilder.Editors.Landscape {
 
                     if (landblockData == null) continue;
 
-                    float baseLandblockX = landblockX * TerrainDataManager.LandblockLength;
-                    float baseLandblockY = landblockY * TerrainDataManager.LandblockLength;
-
-                    for (uint cellY = 0; cellY < TerrainDataManager.LandblockEdgeCellCount; cellY++) {
-                        for (uint cellX = 0; cellX < TerrainDataManager.LandblockEdgeCellCount; cellX++) {
-                            GenerateCell(
-                                baseLandblockX, baseLandblockY, cellX, cellY,
-                                landblockData, landblockID, surfaceManager, dataManager.Region,
-                                ref currentVertexIndex, ref currentIndexPosition,
-                                vertices, indices
-                            );
-                        }
-                    }
+                    GenerateLandblockGeometry(
+                        landblockX, landblockY, landblockID,
+                        landblockData, surfaceManager, dataManager.Region,
+                        ref currentVertexIndex, ref currentIndexPosition,
+                        vertices, indices
+                    );
                 }
             }
 
             actualVertexCount = (int)currentVertexIndex;
             actualIndexCount = (int)currentIndexPosition;
+        }
+
+        /// <summary>
+        /// Generates geometry for a single landblock
+        /// </summary>
+        public static void GenerateLandblockGeometry(
+            uint landblockX,
+            uint landblockY,
+            uint landblockID,
+            TerrainEntry[] landblockData,
+            LandSurfaceManager surfaceManager,
+            Region region,
+            ref uint currentVertexIndex,
+            ref uint currentIndexPosition,
+            Span<VertexLandscape> vertices,
+            Span<uint> indices) {
+
+            float baseLandblockX = landblockX * TerrainDataManager.LandblockLength;
+            float baseLandblockY = landblockY * TerrainDataManager.LandblockLength;
+
+            for (uint cellY = 0; cellY < TerrainDataManager.LandblockEdgeCellCount; cellY++) {
+                for (uint cellX = 0; cellX < TerrainDataManager.LandblockEdgeCellCount; cellX++) {
+                    GenerateCell(
+                        baseLandblockX, baseLandblockY, cellX, cellY,
+                        landblockData, landblockID, surfaceManager, region,
+                        ref currentVertexIndex, ref currentIndexPosition,
+                        vertices, indices
+                    );
+                }
+            }
+        }
+
+        /// <summary>
+        /// Generates geometry for a single landblock into standalone buffers
+        /// </summary>
+        public static void GenerateLandblockGeometryStandalone(
+            uint landblockX,
+            uint landblockY,
+            TerrainEntry[] landblockData,
+            LandSurfaceManager surfaceManager,
+            Region region,
+            Span<VertexLandscape> vertices,
+            Span<uint> indices,
+            out int vertexCount,
+            out int indexCount) {
+
+            uint currentVertexIndex = 0;
+            uint currentIndexPosition = 0;
+            var landblockID = landblockX << 8 | landblockY;
+
+            GenerateLandblockGeometry(
+                landblockX, landblockY, landblockID,
+                landblockData, surfaceManager, region,
+                ref currentVertexIndex, ref currentIndexPosition,
+                vertices, indices
+            );
+
+            vertexCount = (int)currentVertexIndex;
+            indexCount = (int)currentIndexPosition;
         }
 
         private static void GenerateCell(
@@ -67,6 +125,7 @@ namespace WorldBuilder.Editors.Landscape {
             LandSurfaceManager surfaceManager, Region region,
             ref uint currentVertexIndex, ref uint currentIndexPosition,
             Span<VertexLandscape> vertices, Span<uint> indices) {
+
             uint surfNum = 0;
             var rotation = TextureMergeInfo.Rotation.Rot0;
             GetCellRotation(surfaceManager, landblockID, landblockData, cellX, cellY, ref surfNum, ref rotation);
@@ -118,7 +177,6 @@ namespace WorldBuilder.Editors.Landscape {
             var globalCellX = (int)((landblockID >> 8) + x);
             var globalCellY = (int)((landblockID & 0xFF) + y);
 
-            // Indices for SW/SE/NE/NW
             var i = (int)(9 * x + y);
             var t1 = terrain[i].Type;
             var r1 = terrain[i].Road;
@@ -133,7 +191,7 @@ namespace WorldBuilder.Editors.Landscape {
             var t4 = terrain[i + 1].Type;
             var r4 = terrain[i + 1].Road;
 
-            var palCodes = new List<uint> { GetPalCode(r1, r2, r3, r4, t1, t2, t3, t4) };
+            var palCodes = new System.Collections.Generic.List<uint> { GetPalCode(r1, r2, r3, r4, t1, t2, t3, t4) };
 
             landSurf.SelectTerrain(globalCellX, globalCellY, out surfNum, out rotation, palCodes);
         }
@@ -147,48 +205,38 @@ namespace WorldBuilder.Editors.Landscape {
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void CalculateVertexNormals(CellSplitDirection splitDirection, ref VertexLandscape v0, ref VertexLandscape v1, ref VertexLandscape v2, ref VertexLandscape v3) {
-            // Extract positions
-            Vector3 p0 = v0.Position; // SW
-            Vector3 p1 = v1.Position; // SE
-            Vector3 p2 = v2.Position; // NE
-            Vector3 p3 = v3.Position; // NW
+            Vector3 p0 = v0.Position;
+            Vector3 p1 = v1.Position;
+            Vector3 p2 = v2.Position;
+            Vector3 p3 = v3.Position;
 
             if (splitDirection == CellSplitDirection.SWtoNE) {
-                // Two triangles: (SW, NW, SE) and (SE, NW, NE)
-                // Triangle 1: SW -> NW -> SE
-                Vector3 edge1_t1 = p3 - p0; // SW to NW
-                Vector3 edge2_t1 = p1 - p0; // SW to SE
+                Vector3 edge1_t1 = p3 - p0;
+                Vector3 edge2_t1 = p1 - p0;
                 Vector3 normal1 = Vector3.Normalize(Vector3.Cross(edge1_t1, edge2_t1));
 
-                // Triangle 2: SE -> NW -> NE
-                Vector3 edge1_t2 = p3 - p1; // SE to NW
-                Vector3 edge2_t2 = p2 - p1; // SE to NE
+                Vector3 edge1_t2 = p3 - p1;
+                Vector3 edge2_t2 = p2 - p1;
                 Vector3 normal2 = Vector3.Normalize(Vector3.Cross(edge1_t2, edge2_t2));
 
-                // Assign normals based on which triangles each vertex belongs to
-                v0.Normal = normal1;                                    // SW: only in triangle 1
-                v1.Normal = Vector3.Normalize(normal1 + normal2);       // SE: shared by both triangles
-                v2.Normal = normal2;                                    // NE: only in triangle 2
-                v3.Normal = Vector3.Normalize(normal1 + normal2);       // NW: shared by both triangles
+                v0.Normal = normal1;
+                v1.Normal = Vector3.Normalize(normal1 + normal2);
+                v2.Normal = normal2;
+                v3.Normal = Vector3.Normalize(normal1 + normal2);
             }
-            else // CellSplitDirection.SEtoNW
-            {
-                // Two triangles: (SW, NE, SE) and (SW, NW, NE)
-                // Triangle 1: SW -> NE -> SE
-                Vector3 edge1_t1 = p2 - p0; // SW to NE
-                Vector3 edge2_t1 = p1 - p0; // SW to SE
+            else {
+                Vector3 edge1_t1 = p2 - p0;
+                Vector3 edge2_t1 = p1 - p0;
                 Vector3 normal1 = Vector3.Normalize(Vector3.Cross(edge1_t1, edge2_t1));
 
-                // Triangle 2: SW -> NW -> NE
-                Vector3 edge1_t2 = p3 - p0; // SW to NW
-                Vector3 edge2_t2 = p2 - p0; // SW to NE
+                Vector3 edge1_t2 = p3 - p0;
+                Vector3 edge2_t2 = p2 - p0;
                 Vector3 normal2 = Vector3.Normalize(Vector3.Cross(edge1_t2, edge2_t2));
 
-                // Assign normals based on which triangles each vertex belongs to
-                v0.Normal = Vector3.Normalize(normal1 + normal2);       // SW: shared by both triangles
-                v1.Normal = normal1;                                    // SE: only in triangle 1
-                v2.Normal = Vector3.Normalize(normal1 + normal2);       // NE: shared by both triangles
-                v3.Normal = normal2;                                    // NW: only in triangle 2
+                v0.Normal = Vector3.Normalize(normal1 + normal2);
+                v1.Normal = normal1;
+                v2.Normal = Vector3.Normalize(normal1 + normal2);
+                v3.Normal = normal2;
             }
         }
 
