@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using WorldBuilder.Lib;
 using WorldBuilder.Shared.Documents;
 
 namespace WorldBuilder.Editors.Landscape {
@@ -13,6 +14,7 @@ namespace WorldBuilder.Editors.Landscape {
     public class TerrainEditingContext {
         private readonly TerrainDocument _terrainDoc;
         private readonly TerrainSystem _terrainSystem;
+
         private readonly HashSet<uint> _modifiedLandblocks = new();
 
         /// <summary>

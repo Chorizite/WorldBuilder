@@ -1,5 +1,10 @@
-﻿using System.Numerics;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Numerics;
+using WorldBuilder.Editors.Landscape.Commands;
 using WorldBuilder.Lib;
+
 namespace WorldBuilder.Editors.Landscape.ViewModels {
     public partial class RoadPointSubToolViewModel : SubToolViewModelBase {
         public override string Name => "Point";
@@ -8,19 +13,27 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         private bool _isPainting;
         private TerrainRaycast.TerrainRaycastHit _currentHitPosition;
         private TerrainRaycast.TerrainRaycastHit _lastHitPosition;
+        private readonly CommandHistory _commandHistory;
+        private readonly List<(ushort LandblockId, int VertexIndex, byte OriginalRoad, byte NewRoad)> _pendingChanges;
+        private readonly HashSet<ushort> _modifiedLandblocks;
 
-        public RoadPointSubToolViewModel(TerrainEditingContext context) : base(context) {
+        public RoadPointSubToolViewModel(TerrainEditingContext context, CommandHistory commandHistory) : base(context) {
+            _commandHistory = commandHistory ?? throw new ArgumentNullException(nameof(commandHistory));
+            _pendingChanges = new List<(ushort, int, byte, byte)>();
+            _modifiedLandblocks = new HashSet<ushort>();
         }
 
         public override void OnActivated() {
             Context.ActiveVertices.Clear();
             _isPainting = false;
             _lastHitPosition = _currentHitPosition = new TerrainRaycast.TerrainRaycastHit();
+            _pendingChanges.Clear();
+            _modifiedLandblocks.Clear();
         }
 
         public override void OnDeactivated() {
             if (_isPainting) {
-                _isPainting = false;
+                FinalizePainting();
             }
         }
 
@@ -39,6 +52,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         public override bool HandleMouseUp(MouseState mouseState) {
             if (_isPainting && !mouseState.LeftPressed) {
                 _isPainting = false;
+                FinalizePainting();
                 return true;
             }
             return false;
@@ -51,7 +65,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             _currentHitPosition = hitResult;
 
             if (_isPainting) {
-                ApplyRoadAtPosition(hitResult);
+                ApplyPreviewChanges(hitResult);
                 return true;
             }
 
@@ -62,24 +76,50 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             if (!mouseState.IsOverTerrain || !mouseState.TerrainHit.HasValue || !mouseState.LeftPressed) return false;
 
             _isPainting = true;
+            _pendingChanges.Clear();
+            _modifiedLandblocks.Clear();
             var hitResult = mouseState.TerrainHit.Value;
-
-            ApplyRoadAtPosition(hitResult);
+            ApplyPreviewChanges(hitResult);
 
             return true;
         }
 
-        private void ApplyRoadAtPosition(TerrainRaycast.TerrainRaycastHit hitResult) {
-            var landblockData = Context.TerrainDocument.GetLandblock(hitResult.LandblockId);
+        private void ApplyPreviewChanges(TerrainRaycast.TerrainRaycastHit hitResult) {
+            var landblockId = hitResult.LandblockId;
+            var vertexIndex = hitResult.VerticeIndex;
+
+            // Skip if this vertex was already modified in this drag
+            if (_pendingChanges.Any(c => c.LandblockId == landblockId && c.VertexIndex == vertexIndex)) return;
+
+            var landblockData = Context.TerrainDocument.GetLandblock(landblockId);
             if (landblockData == null) return;
 
-            landblockData[hitResult.VerticeIndex] = landblockData[hitResult.VerticeIndex] with { Road = 1 };
+            byte originalRoad = landblockData[vertexIndex].Road;
+            const byte newRoad = 1;
 
-            Context.TerrainDocument.UpdateLandblock(hitResult.LandblockId, landblockData, out var modifiedLandblocks);
+            _pendingChanges.Add((landblockId, vertexIndex, originalRoad, newRoad));
+            landblockData[vertexIndex] = landblockData[vertexIndex] with { Road = newRoad };
+            Context.TerrainDocument.UpdateLandblock(landblockId, landblockData, out var modifiedLandblocks);
 
-            foreach (var lbId in modifiedLandblocks) {
-                Context.MarkLandblockModified(lbId);
+            // Synchronize edge vertices for preview
+            _modifiedLandblocks.UnionWith(modifiedLandblocks);
+            foreach (var lbId in _modifiedLandblocks) {
+                var data = Context.TerrainDocument.GetLandblock(lbId);
+                if (data != null) {
+                    Context.TerrainDocument.SynchronizeEdgeVerticesFor(lbId, data, new HashSet<ushort>());
+                    Context.MarkLandblockModified(lbId);
+                }
             }
+        }
+
+        private void FinalizePainting() {
+            if (_pendingChanges.Count == 0) return;
+
+            var command = new RoadPointCommand(Context, _pendingChanges);
+            _commandHistory.ExecuteCommand(command);
+
+            _pendingChanges.Clear();
+            _modifiedLandblocks.Clear();
         }
     }
 }

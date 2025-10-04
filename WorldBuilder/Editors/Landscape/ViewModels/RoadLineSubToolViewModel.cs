@@ -1,20 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
+using WorldBuilder.Editors.Landscape.Commands;
 using WorldBuilder.Lib;
 
 namespace WorldBuilder.Editors.Landscape.ViewModels {
     public partial class RoadLineSubToolViewModel : SubToolViewModelBase {
-        public override string Name => "Line";
-        public override string IconGlyph => "📏";
+        public override string Name => "Line"; public override string IconGlyph => "📏";
 
         private bool _isDrawingLine = false;
         private Vector3? _lineStartPosition = null;
         private Vector3? _lineEndPosition = null;
         private List<Vector3> _previewVertices = new();
         private TerrainRaycast.TerrainRaycastHit _currentHitPosition;
+        private readonly CommandHistory _commandHistory;
 
-        public RoadLineSubToolViewModel(TerrainEditingContext context) : base(context) {
+        public RoadLineSubToolViewModel(TerrainEditingContext context, CommandHistory commandHistory) : base(context) {
+            _commandHistory = commandHistory ?? throw new ArgumentNullException(nameof(commandHistory));
         }
 
         public override void OnActivated() {
@@ -75,7 +77,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
 
             if (mouseState.LeftPressed) {
                 if (!_isDrawingLine) {
-                    // Start line
                     _lineStartPosition = SnapToNearestVertex(hitResult.HitPosition);
                     _lineEndPosition = _lineStartPosition;
                     _isDrawingLine = true;
@@ -83,9 +84,9 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
                     return true;
                 }
                 else {
-                    // Finish line
                     _lineEndPosition = SnapToNearestVertex(hitResult.HitPosition);
-                    ApplyLineRoad();
+                    var command = new RoadLineCommand(Context, _lineStartPosition.Value, _lineEndPosition.Value);
+                    _commandHistory.ExecuteCommand(command);
 
                     _isDrawingLine = false;
                     _lineStartPosition = null;
@@ -96,7 +97,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             }
 
             if (mouseState.RightPressed && _isDrawingLine) {
-                // Cancel line
                 _isDrawingLine = false;
                 _lineStartPosition = null;
                 _lineEndPosition = null;
@@ -165,65 +165,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
 
             return path;
         }
-
-        private void ApplyLineRoad() {
-            if (!_lineStartPosition.HasValue || !_lineEndPosition.HasValue) return;
-
-            var changesByLb = new Dictionary<ushort, Dictionary<int, byte>>();
-
-            foreach (var vertex in _previewVertices) {
-                var hit = FindTerrainVertexAtPosition(vertex);
-                if (!hit.HasValue) continue;
-
-                var lbId = hit.Value.LandblockId;
-                if (!changesByLb.TryGetValue(lbId, out var lbChanges)) {
-                    lbChanges = new Dictionary<int, byte>();
-                    changesByLb[lbId] = lbChanges;
-                }
-                lbChanges[hit.Value.VerticeIndex] = 1;
-            }
-
-            var allModified = new HashSet<ushort>();
-            foreach (var (lbId, lbChanges) in changesByLb) {
-                var data = Context.TerrainDocument.GetLandblock(lbId);
-                if (data == null) continue;
-
-                foreach (var (index, value) in lbChanges) {
-                    data[index] = data[index] with { Road = value };
-                }
-
-                Context.TerrainDocument.UpdateLandblock(lbId, data, out var modified);
-                allModified.UnionWith(modified);
-            }
-
-            foreach (var lbId in allModified) {
-                Context.MarkLandblockModified(lbId);
-            }
-        }
-
-        private TerrainRaycast.TerrainRaycastHit? FindTerrainVertexAtPosition(Vector3 worldPos) {
-            var lbX = (int)(worldPos.X / 192.0);
-            var lbY = (int)(worldPos.Y / 192.0);
-            var landblockId = (ushort)((lbX << 8) | lbY);
-
-            var localX = worldPos.X - (lbX * 192f);
-            var localY = worldPos.Y - (lbY * 192f);
-
-            var cellX = (int)Math.Round(localX / 24f);
-            var cellY = (int)Math.Round(localY / 24f);
-
-            cellX = Math.Max(0, Math.Min(8, cellX));
-            cellY = Math.Max(0, Math.Min(8, cellY));
-
-            var verticeIndex = cellY * 9 + cellX;
-
-            if (verticeIndex < 0 || verticeIndex >= 81) return null;
-
-            return new TerrainRaycast.TerrainRaycastHit {
-                LandcellId = (uint)((landblockId << 16) + (cellX * 8 + cellY)),
-                HitPosition = worldPos,
-                Hit = true
-            };
-        }
     }
+
 }

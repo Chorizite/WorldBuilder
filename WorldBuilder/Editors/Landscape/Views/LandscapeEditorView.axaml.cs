@@ -132,12 +132,22 @@ public partial class LandscapeEditorView : Base3DView {
 
     protected override void OnGlKeyDown(KeyEventArgs e) {
         if (!_didInit) return;
-        // Add custom key handling here if needed
+
+        if (e.Key == Key.Z && e.KeyModifiers.HasFlag(KeyModifiers.Control)) {
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) {
+                _viewModel.TerrainSystem.CommandHistory.Redo();
+            }
+            else {
+                _viewModel.TerrainSystem.CommandHistory.Undo();
+            }
+        }
+        if (e.Key == Key.Y && e.KeyModifiers.HasFlag(KeyModifiers.Control)) {
+            _viewModel.TerrainSystem.CommandHistory.Redo();
+        }
     }
 
     protected override void OnGlKeyUp(KeyEventArgs e) {
         if (!_didInit) return;
-        // Add custom key handling here if needed
     }
 
     protected override void OnGlPointerMoved(PointerEventArgs e, Vector2 mousePositionScaled) {

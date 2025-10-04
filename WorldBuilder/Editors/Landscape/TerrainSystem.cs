@@ -32,6 +32,7 @@ namespace WorldBuilder.Editors.Landscape {
         public TerrainEditingContext EditingContext { get; private set; }
         public TerrainRenderer Renderer { get; private set; }
         public IServiceProvider Services { get; private set; }
+        public CommandHistory CommandHistory { get; }
 
         public TerrainSystem(OpenGLRenderer renderer, Project project, IDatReaderWriter dats) {
             if (!dats.TryGet<Region>(0x13000000, out var region)) {
@@ -67,6 +68,7 @@ namespace WorldBuilder.Editors.Landscape {
             collection.AddSingleton(dats);
             collection.AddSingleton(project);
             collection.AddSingleton(renderer);
+            collection.AddSingleton(new CommandHistory(50));
 
             collection.AddTransient<PerspectiveCamera>();
             collection.AddTransient<OrthographicTopDownCamera>();
@@ -75,6 +77,8 @@ namespace WorldBuilder.Editors.Landscape {
                 ?? throw new InvalidOperationException("Document manager not found");
 
             Services = new CompositeServiceProvider(collection.BuildServiceProvider(), ProjectManager.Instance.CompositeProvider);
+
+            CommandHistory = Services.GetRequiredService<CommandHistory>();
 
             CameraManager = Services.GetRequiredService<CameraManager>();
             Renderer = Services.GetRequiredService<TerrainRenderer>();

@@ -60,6 +60,8 @@ namespace WorldBuilder.Lib {
                 _history.RemoveRange(_currentIndex + 1, _history.Count - _currentIndex - 1);
             }
 
+            Console.WriteLine($"Adding command to history: {command.Description}");
+
             // Add new command to history
             var entry = new HistoryEntry(command);
             _history.Add(entry);

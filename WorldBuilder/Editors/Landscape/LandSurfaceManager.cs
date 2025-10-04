@@ -18,7 +18,14 @@ using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Editors.Landscape {
     public class LandSurfaceManager {
-        private readonly IDatReaderWriter _dats; private readonly Region _region; private readonly DatReaderWriter.Types.LandSurf _landSurface; private readonly ValueDictionary<uint, int> _textureAtlasIndexLookup; private readonly ValueDictionary<uint, int> _alphaAtlasIndexLookup; private readonly byte[] _textureBuffer; private uint _nextSurfaceNumber; private readonly OpenGLRenderer _renderer;
+        private readonly IDatReaderWriter _dats; 
+        private readonly Region _region; 
+        private readonly DatReaderWriter.Types.LandSurf _landSurface; 
+        private readonly Dictionary<uint, int> _textureAtlasIndexLookup; 
+        private readonly Dictionary<uint, int> _alphaAtlasIndexLookup; 
+        private readonly byte[] _textureBuffer; 
+        private uint _nextSurfaceNumber; 
+        private readonly OpenGLRenderer _renderer;
 
         private static readonly Vector2[] LandUVs = new Vector2[]
         {
@@ -47,8 +54,8 @@ namespace WorldBuilder.Editors.Landscape {
             _renderer = renderer;
             _dats = dats ?? throw new ArgumentNullException(nameof(dats));
             _region = region ?? throw new ArgumentNullException(nameof(region));
-            _textureAtlasIndexLookup = new ValueDictionary<uint, int>();
-            _alphaAtlasIndexLookup = new ValueDictionary<uint, int>();
+            _textureAtlasIndexLookup = new Dictionary<uint, int>(36);
+            _alphaAtlasIndexLookup = new Dictionary<uint, int>(16);
             _textureBuffer = ArrayPool<byte>.Shared.Rent(512 * 512 * 4);
 
             TerrainAtlas = _renderer.GraphicsDevice.CreateTextureArray(TextureFormat.RGBA8, 512, 512, 36);
@@ -480,18 +487,4 @@ namespace WorldBuilder.Editors.Landscape {
             return code >= 16 ? code - 15 : code;
         }
     }
-
-    // Simple value-optimized dictionary for uint keys
-    internal class ValueDictionary<TKey, TValue> where TKey : struct {
-        private readonly Dictionary<TKey, TValue> _inner;
-
-        public ValueDictionary() => _inner = new Dictionary<TKey, TValue>();
-
-        public bool TryGetValue(TKey key, out TValue value) => _inner.TryGetValue(key, out value);
-
-        public void Add(TKey key, TValue value) => _inner[key] = value;
-
-        public bool ContainsKey(TKey key) => _inner.ContainsKey(key);
-    }
-
 }
