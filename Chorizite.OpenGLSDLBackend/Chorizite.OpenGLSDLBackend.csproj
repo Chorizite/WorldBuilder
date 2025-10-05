@@ -12,6 +12,7 @@
 	  <None Remove="Shaders\Text.vert" />
 	</ItemGroup>
 	<ItemGroup>
+		<PackageReference Include="Chorizite.Core" Version="0.0.16" />
 		<PackageReference Include="NAudio" Version="2.2.1" />
 		<PackageReference Include="Silk.NET.OpenGL" Version="2.22.0" />
 		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
@@ -42,9 +43,6 @@
 	  <EmbeddedResource Include="Shaders\UI.vert">
 	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 	  </EmbeddedResource>
-	</ItemGroup>
-	<ItemGroup>
-	  <ProjectReference Include="..\..\Chorizite\Chorizite.Core\Chorizite.Core.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 	  <None Update="Fonts\Apache License.txt">

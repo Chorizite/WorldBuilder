@@ -60,7 +60,6 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.9" />
 	</ItemGroup>
 	<ItemGroup>
-		<ProjectReference Include="..\..\Chorizite\Chorizite.Core\Chorizite.Core.csproj" />
 		<ProjectReference Include="..\Chorizite.OpenGLSDLBackend\Chorizite.OpenGLSDLBackend.csproj" />
 		<ProjectReference Include="..\WorldBuilder.Shared\WorldBuilder.Shared.csproj" />
 	</ItemGroup>

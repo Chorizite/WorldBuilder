@@ -1,0 +1,117 @@
+name: Stable Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags like v1.0.0
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  stable-release:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Install GitVersion
+      uses: gittools/actions/gitversion/setup@v0.10.2
+      with:
+        versionSpec: '5.x'
+    
+    - name: Determine Version
+      id: gitversion
+      uses: gittools/actions/gitversion/execute@v0.10.2
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build
+      run: dotnet build --configuration Release --no-restore /p:Version=${{ steps.gitversion.outputs.semVer }}
+    
+    - name: Test
+      run: dotnet test --configuration Release --no-build --verbosity normal
+    
+    - name: Publish
+      run: dotnet publish --configuration Release --no-build --output ./publish /p:Version=${{ steps.gitversion.outputs.semVer }}
+    
+    - name: Create Release Archive
+      run: |
+        Compress-Archive -Path ./publish/* -DestinationPath ./YourApp-${{ steps.gitversion.outputs.semVer }}.zip
+      shell: pwsh
+    
+    - name: Generate NetSparkle Signature
+      id: sign
+      run: |
+        dotnet tool install --global NetSparkleUpdater.Tools
+        $signature = netsparkle-dsa sign_file ./YourApp-${{ steps.gitversion.outputs.semVer }}.zip "${{ secrets.SPARKLE_PRIVATE_KEY }}"
+        echo "signature=$signature" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+    
+    - name: Update Stable Appcast
+      run: |
+        $version = "${{ steps.gitversion.outputs.semVer }}"
+        $downloadUrl = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/YourApp-$version.zip"
+        $releaseNotes = "https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+        $signature = "${{ steps.sign.outputs.signature }}"
+        $date = Get-Date -Format "ddd, dd MMM yyyy HH:mm:ss K"
+        
+        $stableXml = @"
+        <?xml version="1.0" encoding="utf-8"?>
+        <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+          <channel>
+            <title>Your App Stable Channel</title>
+            <link>https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/appcast-stable.xml</link>
+            <description>Stable releases for Your App</description>
+            <language>en</language>
+            <item>
+              <title>Version $version</title>
+              <sparkle:releaseNotesLink>$releaseNotes</sparkle:releaseNotesLink>
+              <pubDate>$date</pubDate>
+              <enclosure 
+                url="$downloadUrl" 
+                sparkle:version="$version" 
+                sparkle:shortVersionString="$version" 
+                type="application/octet-stream"
+                sparkle:edSignature="$signature"
+              />
+            </item>
+          </channel>
+        </rss>
+        "@
+        
+        New-Item -ItemType Directory -Force -Path ./appcast
+        $stableXml | Out-File -FilePath ./appcast/appcast-stable.xml -Encoding UTF8
+        
+        # Keep the edge appcast if it exists
+        if (Test-Path ./docs/appcast-edge.xml) {
+          Copy-Item ./docs/appcast-edge.xml ./appcast/appcast-edge.xml
+        }
+      shell: pwsh
+    
+    - name: Automatic Releases
+      uses: marvinpinto/action-automatic-releases@latest
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        prerelease: false
+        title: "Release ${{ steps.gitversion.outputs.semVer }}"
+        files: |
+          ./YourApp-${{ steps.gitversion.outputs.semVer }}.zip
+    
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./appcast
+        keep_files: false

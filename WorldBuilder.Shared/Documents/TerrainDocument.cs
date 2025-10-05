@@ -82,9 +82,6 @@ namespace WorldBuilder.Shared.Documents {
             return result;
         }
 
-        /// <summary>
-        /// NEW: Batch update method that collects all changes before applying
-        /// </summary>
         public void UpdateLandblocksBatch(
             Dictionary<ushort, Dictionary<byte, uint>> allChanges,
             out HashSet<ushort> modifiedLandblocks) {
@@ -93,7 +90,7 @@ namespace WorldBuilder.Shared.Documents {
 
             if (allChanges.Count == 0) return;
 
-            // Phase 1: Collect all changes including edge synchronization
+            // Collect all changes including edge synchronization
             var finalChanges = new Dictionary<ushort, Dictionary<byte, uint>>();
 
             foreach (var (lbKey, changes) in allChanges) {
@@ -110,7 +107,7 @@ namespace WorldBuilder.Shared.Documents {
                 modifiedLandblocks.Add(lbKey);
             }
 
-            // Phase 2: Calculate edge synchronization for all affected landblocks
+            // Calculate edge synchronization for all affected landblocks
             foreach (var (lbKey, changes) in allChanges) {
                 var lbData = GetLandblock(lbKey);
                 if (lbData == null) continue;
@@ -126,16 +123,13 @@ namespace WorldBuilder.Shared.Documents {
                 CollectEdgeSync(lbKey, tempData, finalChanges, modifiedLandblocks);
             }
 
-            // Phase 3: Apply all changes in a single batch
+            // Apply all changes in a single batch
             if (finalChanges.Count > 0) {
                 var updateEvent = new TerrainUpdateEvent { Changes = finalChanges };
                 Apply(updateEvent);
             }
         }
 
-        /// <summary>
-        /// Original single-landblock update - kept for compatibility
-        /// </summary>
         public void UpdateLandblock(ushort lbKey, TerrainEntry[] newEntries, out HashSet<ushort> modifiedLandblocks) {
             if (newEntries.Length != LANDBLOCK_SIZE) {
                 throw new ArgumentException($"newEntries array must be of length {LANDBLOCK_SIZE}.");
