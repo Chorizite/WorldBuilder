@@ -9,7 +9,7 @@ permissions:
   pages: write
   id-token: write
 jobs:
-  build-and-release:
+  build-and-release-edge:
     runs-on: ubuntu-latest
     
     steps:
