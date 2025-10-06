@@ -5,7 +5,7 @@
     <description>Most recent changes with links to updates</description>
     <language>en</language>
     <item>
-      <title>WorldBuilder 0.1.0+49</title>
+      <title>WorldBuilder 0.1.0+50</title>
       <description>## 📦 Uncategorized
 
 - wip
@@ -103,12 +103,14 @@
 - wip
    - PR: #0
 - wip
+   - PR: #0
+- wip
    - PR: #0</description>
-      <pubDate>Mon, 06 Oct 2025 04:13:01 +00:00</pubDate>
-      <sparkle:version>0.1.0+49</sparkle:version>
+      <pubDate>Mon, 06 Oct 2025 04:20:15 +00:00</pubDate>
+      <sparkle:version>0.1.0+50</sparkle:version>
       <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
       <sparkle:channel>edge</sparkle:channel>
-      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.0%2B49.exe" sparkle:version="0.1.0+49" sparkle:shortVersionString="0.1.0" length="19748742" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="rPbLpghgObSUdFwvdwqc0SVEF9R+3FFCu0ZMXafjlsLfuu5h7Jh1cYMIzn7u7qiP+I4BTfvhIIysa1z5CNvBDA==" />
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.0%2B50.exe" sparkle:version="0.1.0+50" sparkle:shortVersionString="0.1.0" length="19748724" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="2RVdtykjlIqH9d9YDdYpp4CfkcmgZxe0bO29orjyIFAo3/SOfKI/kimdBloLTxj7pNqXgM13149NUeZjxK68DQ==" />
     </item>
   </channel>
 </rss>
