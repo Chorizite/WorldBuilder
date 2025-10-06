@@ -63,7 +63,7 @@ jobs:
         mkdir -p appcast
         cp ./WorldBuilderInstaller-${{ steps.gitversion.outputs.semVer }}.exe appcast/
         cd appcast
-        curl -f -o appcast.xml https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/appcast.xml
+        curl -f -o appcast.xml https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/appcast.xml || true
         echo "Downloaded existing appcast:"
         cat appcast.xml
         netsparkle-generate-appcast -b . -f true --os windows-x64 -n WorldBuilder --overwrite-old-items --reparse-existing true --human-readable true --channel edge --change-log-path ../changelog.md --base-url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/releases/downloads/latest/"
