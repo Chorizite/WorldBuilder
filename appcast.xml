@@ -5,18 +5,7 @@
     <description>Most recent changes with links to updates</description>
     <language>en</language>
     <item>
-      <title>WorldBuilder 0.1.0</title>
-      <description>## 🎉 Release 0.1.0
-
-- Initialize GitHub / Avalonia release</description>
-      <pubDate>Mon, 06 Oct 2025 04:38:40 +00:00</pubDate>
-      <sparkle:version>0.1.0</sparkle:version>
-      <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
-      <sparkle:channel>stable</sparkle:channel>
-      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/v0.1.0/WorldBuilderInstaller-0.1.0.exe" sparkle:version="0.1.0" sparkle:shortVersionString="0.1.0" length="19748667" sparkle:os="windows-x64" type="application/octet-stream" sparkle:criticalUpdate="false" sparkle:signature="+yisvc2YMJgNqFMA6Y5hiR3BSbVaM0yxRXzl5XOE+SCDdlIvZ9Mne7+k/Q3AS7uob1CiaKExFr1jhEynzZy1Dg==" />
-    </item>
-    <item>
-      <title>WorldBuilder 0.1.0+1</title>
+      <title>WorldBuilder 0.1.1+2</title>
       <description>## 📦 Uncategorized
 
 - wip
@@ -126,12 +115,25 @@
 - wip
    - PR: #0
 - Fixes #6 - Allows for project creation when default projects directory doesn't exist (#7)
+   - PR: #0
+- Fixes #8 - autoupdater is using the wrong version info (#11)
    - PR: #0</description>
-      <pubDate>Mon, 06 Oct 2025 05:34:49 +00:00</pubDate>
-      <sparkle:version>0.1.0+1</sparkle:version>
-      <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+      <pubDate>Mon, 06 Oct 2025 06:15:09 +00:00</pubDate>
+      <sparkle:version>0.1.1+2</sparkle:version>
+      <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
       <sparkle:channel>edge</sparkle:channel>
-      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.0%2B1.exe" sparkle:version="0.1.0+1" sparkle:shortVersionString="0.1.0" length="19748701" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="XXi3uBdEiLGKfB5E6as/ALSzN5PVBQx+Io+P9vgzL1yw18g66Rtar3DgoEfawUj+sG8Dq39IBnrxHGQ15Ng/DA==" />
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.1%2B2.exe" sparkle:version="0.1.1+2" sparkle:shortVersionString="0.1.1" length="19748574" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="a9WlyjuaHlZeNZf4chmGle0bIbKea1xVw8YhiDfceJ18WcMBErXLbhupPeciQ8KyFZhfqmmpMXwPQZ7qrXtBAQ==" />
+    </item>
+    <item>
+      <title>WorldBuilder 0.1.0</title>
+      <description>## 🎉 Release 0.1.0
+
+- Initialize GitHub / Avalonia release</description>
+      <pubDate>Mon, 06 Oct 2025 04:38:40 +00:00</pubDate>
+      <sparkle:version>0.1.0</sparkle:version>
+      <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+      <sparkle:channel>stable</sparkle:channel>
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/v0.1.0/WorldBuilderInstaller-0.1.0.exe" sparkle:version="0.1.0" sparkle:shortVersionString="0.1.0" length="19748667" sparkle:os="windows-x64" type="application/octet-stream" sparkle:criticalUpdate="false" sparkle:signature="+yisvc2YMJgNqFMA6Y5hiR3BSbVaM0yxRXzl5XOE+SCDdlIvZ9Mne7+k/Q3AS7uob1CiaKExFr1jhEynzZy1Dg==" />
     </item>
   </channel>
 </rss>
