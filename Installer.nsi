@@ -61,11 +61,7 @@ WriteRegStr HKLM "Software\${PRODUCT}" "Install_Dir" "$INSTDIR"
 SetOutPath "$INSTDIR"
 
 ; Copy main application files
-File "${BUILDPATH}\*.*"
-
-; Copy native runtime files
-SetOutPath "$INSTDIR\runtimes\win-x64\native"
-File "${BUILDPATH}\runtimes\win-x64\native\*.*"
+File "${BUILDPATH}*.*"
 
 ; Write uninstaller information to registry
 WriteRegStr   HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT}" "DisplayName" "${PRODUCT}"

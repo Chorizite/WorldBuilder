@@ -31,11 +31,6 @@
 		</Exec>
 	</Target>
 
-	<Target Name="Build Installer" Condition="$(Configuration) == 'Release' And $(MSBuildRuntimeType)=='Full'" AfterTargets="Build">
-		<Message Text="Build Installer" Importance="High" />
-		<Exec Command="$(NuGetPackageRoot)\nsis-tool\3.10.0\tools\makensis.exe -DVERSION=$(Version) -DBUILDPATH=$(MSBuildProjectDirectory)\$(OutDir) $(MSBuildProjectDirectory)\..\Installer.nsi" />
-	</Target>
-
 	<ItemGroup>
 		<Content Include="avalonia-logo.ico" />
 	</ItemGroup>
@@ -50,10 +45,6 @@
 			<IncludeAssets>none</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="HotAvalonia" Version="3.0.0" PrivateAssets="All" Publish="True" />
-		<PackageReference Include="NSIS-Tool" Version="3.11.0">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
 		<PackageReference Include="GitVersion.MsBuild" Version="6.4.0">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
