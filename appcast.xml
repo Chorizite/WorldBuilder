@@ -7,15 +7,16 @@
     <item>
       <title>WorldBuilder 0.1.1</title>
       <description>### 📋 Changelog
- - Fix bug where project creation failed if default projects directory didn't exist.
- - Fix various auto updater issues.
- - App now forces check for updates on startup.
- - Fix default install path missing a directory separator.</description>
-      <pubDate>Mon, 06 Oct 2025 06:37:08 +00:00</pubDate>
+
+- Fix bug where project creation failed if default projects directory didn't exist.
+- Fix various auto updater issues.
+- App now forces check for updates on startup.
+- Fix default install path missing a directory separator.</description>
+      <pubDate>Mon, 06 Oct 2025 06:49:08 +00:00</pubDate>
       <sparkle:version>0.1.1</sparkle:version>
       <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
       <sparkle:channel>stable</sparkle:channel>
-      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/v0.1.1/WorldBuilderInstaller-0.1.1.exe" sparkle:version="0.1.1" sparkle:shortVersionString="0.1.1" length="19748354" sparkle:os="windows-x64" type="application/octet-stream" sparkle:criticalUpdate="false" sparkle:signature="xvB8iwx3h4y0JU+ouY32JXp4c1p8/oA7wI8MVnnVHT0BIgq4WbsubP2RRKnX4yCiBg8JwWtrkzFlC+KCQiGFAg==" />
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/v0.1.1/WorldBuilderInstaller-0.1.1.exe" sparkle:version="0.1.1" sparkle:shortVersionString="0.1.1" length="19748378" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="ymH4YoRpfEOEk44Vk0jBRL8kJs3xS03LJKXjSN9Pe6VPkmtu1TZCE45wZNGvJ/s5CVOk/x8tJWZ6BdevikufCw==" />
     </item>
     <item>
       <title>WorldBuilder 0.1.1+6</title>
@@ -143,7 +144,7 @@
       <sparkle:version>0.1.1+6</sparkle:version>
       <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
       <sparkle:channel>edge</sparkle:channel>
-      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.1%2B6.exe" sparkle:version="0.1.1+6" sparkle:shortVersionString="0.1.1" length="19748399" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="cwDbczEGbxwU7jllUpybiyrc3/0T9Xe+Hdk0LKnGxsZAK3XcGoXLc8IjSDGmof5XuMZUaDvzWIyicfW4vga1AQ==" />
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.1%2B6.exe" sparkle:version="0.1.1+6" sparkle:shortVersionString="0.1.1" length="19748399" sparkle:os="windows-x64" type="application/octet-stream" sparkle:criticalUpdate="false" sparkle:signature="cwDbczEGbxwU7jllUpybiyrc3/0T9Xe+Hdk0LKnGxsZAK3XcGoXLc8IjSDGmof5XuMZUaDvzWIyicfW4vga1AQ==" />
     </item>
   </channel>
 </rss>
