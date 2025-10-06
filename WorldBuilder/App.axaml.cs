@@ -80,13 +80,14 @@ public partial class App : Application {
     private void SetupAutoUpdater() {
         _sparkle = new SparkleUpdater(
             "https://chorizite.github.io/WorldBuilder/appcast.xml",
-            new Ed25519Checker(SecurityMode.Strict, "CxN3A8g5g9l31yJ+HhUXeb0j5locPqamt9UMdgKQCB0=")
+            new Ed25519Checker(SecurityMode.Strict, "CxN3A8g5g9l31yJ+HhUXeb0j5locPqamt9UMdgKQCB0="),
+            "WorldBuilder.Desktop.exe"
         ) {
             UIFactory = new NetSparkleUpdater.UI.Avalonia.UIFactory(),
             RelaunchAfterUpdate = false,
-            LogWriter = new ColorConsoleLogger("SparkleUpdater", () => new ColorConsoleLoggerConfiguration())
+            LogWriter = new ColorConsoleLogger("SparkleUpdater", () => new ColorConsoleLoggerConfiguration()),
         };
-        var filter = new OSAppCastFilter(_sparkle.LogWriter) { RemoveOlderItems = false };
+        var filter = new OSAppCastFilter(_sparkle.LogWriter);
         _sparkle.AppCastHelper.AppCastFilter = filter;
         _sparkle.StartLoop(true);
         _sparkle.UpdateDetected += (s, e) => {

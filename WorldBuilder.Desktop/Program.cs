@@ -30,7 +30,7 @@ sealed class Program
             try
             {
                 Assembly currentAssembly = Assembly.GetExecutingAssembly();
-                string currentAssemblyPath = currentAssembly.Location;
+                string currentAssemblyPath = currentAssembly.Location.Replace(".dll", ".exe");
 
                 FileVersionInfo currentFvi = FileVersionInfo.GetVersionInfo(currentAssemblyPath);
 
