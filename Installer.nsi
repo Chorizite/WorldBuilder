@@ -16,7 +16,7 @@
 
 Name "${PRODUCT}"
 OutFile "${PRODUCT}Installer-${VERSION}.exe"
-InstallDir "$PROGRAMFILES64${PRODUCT}"
+InstallDir "$PROGRAMFILES64\${PRODUCT}"
 InstallDirRegKey HKLM "Software${PRODUCT}" "Install_Dir"
 RequestExecutionLevel admin
 
@@ -81,7 +81,7 @@ WriteUninstaller "$INSTDIR\uninstall.exe"
 SectionEnd
 
 Section "Start Menu Shortcuts" SEC_SHORTCUTS ; Create start menu directory
-CreateDirectory "$SMPROGRAMS${PRODUCT}"
+CreateDirectory "$SMPROGRAMS\${PRODUCT}"
 
 ; Create shortcuts
 CreateShortcut "$SMPROGRAMS\${PRODUCT}\Uninstall.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0
