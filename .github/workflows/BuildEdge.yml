@@ -24,6 +24,7 @@ jobs:
         sudo rm -f /var/lib/man-db/auto-update # Disable man-db update
         sudo apt update && sudo apt install -y nsis nsis-pluginapi
         dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator
+        dotnet tool install --global NetSparkleUpdater.Tools.DSAHelper
     
     - name: Install GitVersion
       uses: gittools/actions/gitversion/setup@v0.10.2
