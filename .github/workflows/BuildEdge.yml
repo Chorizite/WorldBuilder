@@ -48,10 +48,10 @@ jobs:
       run: dotnet restore
     
     - name: Build
-      run: dotnet build -r win-x64 --configuration Release --no-restore -p:Version=${{ steps.gitversion.outputs.semVer }}
+      run: dotnet build WorldBuilder.Desktop/WorldBuilder.Desktop.csproj -r win-x64 --configuration Release --no-restore -p:Version=${{ steps.gitversion.outputs.semVer }}
     
     - name: Publish
-      run: dotnet publish -r win-x64 --no-build -p:Version=${{ steps.gitversion.outputs.semVer }}
+      run: dotnet publish WorldBuilder.Desktop/WorldBuilder.Desktop.csproj -r win-x64 --no-build -p:Version=${{ steps.gitversion.outputs.semVer }}
     
     - name: Build installer
       run: |
