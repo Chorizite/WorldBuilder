@@ -44,7 +44,7 @@ namespace WorldBuilder.Lib {
 
 
                 // Ignore edge channels if we are not on an edge channel
-                if (!IsEdgeChannel && appCastItemChannel.Contains("+")) {
+                if (!IsEdgeChannel && appCastItemChannel.Contains("edge")) {
                     return false;
                 }
 

@@ -60,6 +60,11 @@ jobs:
         # Download existing appcast if it exists
         curl -f -o appcast.xml https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/appcast.xml || true
         
+        # Remove all stable channel releases from existing appcast (we'll re-add them)
+        if [ -f appcast.xml ]; then
+          python3 ${{ github.workspace }}/.github/scripts/clean_appcast.py appcast.xml stable || true
+        fi
+        
         # Generate new appcast with stable channel
         netsparkle-generate-appcast \
           -b . \
