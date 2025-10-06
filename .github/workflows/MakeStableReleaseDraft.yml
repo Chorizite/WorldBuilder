@@ -73,13 +73,8 @@ jobs:
         tag_name: ${{ env.TAG_NAME }}
         name: "Release ${{ env.APP_VERSION }}"
         body: |
-          ## 🎉 Release ${{ env.APP_VERSION }}
-          
           ### 📋 Changelog
           ${{ steps.changelog.outputs.changelog }}
-          
-          ### 📦 Installation
-          Download and run `WorldBuilderInstaller-${{ env.APP_VERSION }}.exe`
         files: ./WorldBuilderInstaller-${{ env.APP_VERSION }}.exe
         draft: true
         prerelease: false

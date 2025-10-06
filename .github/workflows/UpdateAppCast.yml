@@ -106,7 +106,10 @@ jobs:
         INSTALLER_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/WorldBuilderInstaller-${{ steps.version.outputs.version }}.exe"
         
         # Prepare the release notes (escape quotes and newlines for JSON)
-        RELEASE_NOTES=$(echo '${{ github.event.release.body }}' | jq -Rs .)
+        RELEASE_NOTES=$(cat << 'HEREDOC' | jq -Rs .
+        ${{ github.event.release.body }}
+        HEREDOC
+        )
         
         # Create Discord embed
         cat << EOF > discord_payload.json
@@ -114,13 +117,13 @@ jobs:
           "content": "🎉 **New Release Available!**",
           "embeds": [{
             "title": "WorldBuilder v${{ steps.version.outputs.version }}",
-            "description": $RELEASE_NOTES,
+            "description": ${RELEASE_NOTES},
             "color": 5814783,
             "url": "${{ github.event.release.html_url }}",
             "fields": [
               {
                 "name": "📥 Download Installer",
-                "value": "[WorldBuilderInstaller-${{ steps.version.outputs.version }}.exe]($INSTALLER_URL)",
+                "value": "[WorldBuilderInstaller-${{ steps.version.outputs.version }}.exe](${INSTALLER_URL})",
                 "inline": false
               },
               {
