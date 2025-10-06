@@ -5,12 +5,108 @@
     <description>Most recent changes with links to updates</description>
     <language>en</language>
     <item>
+      <title>WorldBuilder 0.1.0-edge.44</title>
+      <description>## 📦 Uncategorized
+
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0
+- wip
+   - PR: #0</description>
+      <pubDate>Mon, 06 Oct 2025 01:10:36 +00:00</pubDate>
+      <sparkle:version>0.1.0-edge.44</sparkle:version>
+      <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+      <sparkle:channel>edge</sparkle:channel>
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.0-edge.44.exe" sparkle:version="0.1.0-edge.44" sparkle:shortVersionString="0.1.0" length="19378908" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="QqeMYRI2omQvQS+y+/eOG0qvJLBF9S/4Z9dhT/XdXQvdd9crZOlnvTbTWGNBJyoJdst2narA2X8wsX9mOdp/Cg==" />
+    </item>
+    <item>
       <title>WorldBuilder 0.1.0-edge.43</title>
       <pubDate>Mon, 06 Oct 2025 01:05:07 +00:00</pubDate>
       <sparkle:version>0.1.0-edge.43</sparkle:version>
       <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
       <sparkle:channel>edge</sparkle:channel>
-      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.0-edge.43.exe" sparkle:version="0.1.0-edge.43" sparkle:shortVersionString="0.1.0" length="19378876" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="ScvbaJ7jkxNabm5HB7Z524FxXry+G9kGNMqvX55A+hnFMT1Uols/OZxmzTjU+vKCUQZ6QRnf/9nr+SCAZHVyDA==" />
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.0-edge.43.exe" sparkle:version="0.1.0-edge.43" sparkle:shortVersionString="0.1.0" length="19378876" sparkle:os="windows-x64" type="application/octet-stream" sparkle:criticalUpdate="false" sparkle:signature="ScvbaJ7jkxNabm5HB7Z524FxXry+G9kGNMqvX55A+hnFMT1Uols/OZxmzTjU+vKCUQZ6QRnf/9nr+SCAZHVyDA==" />
     </item>
     <item>
       <title>WorldBuilder 0.1.0-edge.42</title>
