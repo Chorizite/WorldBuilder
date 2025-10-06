@@ -21,7 +21,7 @@
 		<ApplicationIcon>avalonia-logo.ico</ApplicationIcon>
 		<UpdateAssemblyInfo>false</UpdateAssemblyInfo>
 	</PropertyGroup>
-	
+
 	<Target Name="VSGitVersion" BeforeTargets="PreBuildEvent;BeforeCompile" Condition="$(MSBuildRuntimeType)=='Full'">
 		<Exec Command="$(NuGetPackageRoot)\gitversion.msbuild\6.4.0\tools\net8.0\gitversion.exe -showvariable Major" ConsoleToMSBuild="true">
 			<Output TaskParameter="ConsoleOutput" PropertyName="GitVersion_Major" />
@@ -40,9 +40,13 @@
 			<AssemblyVersion>$(GitVersion_Major).0.0</AssemblyVersion>
 			<Version Condition="'$(GitVersion_PreReleaseTag)' != ''">$(GitVersion_MajorMinorPatch)+$(GitVersion_CommitsSinceVersionSource)</Version>
 			<Version Condition="'$(GitVersion_PreReleaseTag)' == ''">$(GitVersion_MajorMinorPatch)</Version>
+			<FileVersion Condition="'$(GitVersion_PreReleaseTag)' != ''">$(GitVersion_MajorMinorPatch)+$(GitVersion_CommitsSinceVersionSource)</FileVersion>
+			<FileVersion Condition="'$(GitVersion_PreReleaseTag)' == ''">$(GitVersion_MajorMinorPatch)</FileVersion>
+			<ProductVersion Condition="'$(GitVersion_PreReleaseTag)' != ''">$(GitVersion_MajorMinorPatch)+$(GitVersion_CommitsSinceVersionSource)</ProductVersion>
+			<ProductVersion Condition="'$(GitVersion_PreReleaseTag)' == ''">$(GitVersion_MajorMinorPatch)</ProductVersion>
 		</PropertyGroup>
 	</Target>
-	
+
 	<ItemGroup>
 		<Content Include="avalonia-logo.ico" />
 	</ItemGroup>
