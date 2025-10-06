@@ -18,11 +18,12 @@ jobs:
       with:
         fetch-depth: 0  # Required for GitVersion and changelog
 
-    - name: Install makensis
+    - name: Install Dependencies
       run: |
         sudo sed -i 's/yes/no/g' /etc/initramfs-tools/update-initramfs.conf # Disable initramfs update
         sudo rm -f /var/lib/man-db/auto-update # Disable man-db update
         sudo apt update && sudo apt install -y nsis nsis-pluginapi
+        dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator
     
     - name: Install GitVersion
       uses: gittools/actions/gitversion/setup@v0.10.2
@@ -34,19 +35,7 @@ jobs:
       uses: gittools/actions/gitversion/execute@v0.10.2
       with:
         useConfigFile: true
-    
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
 
-    - name: Setup NetSparkleUpdater
-      run: |
-        dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator
-    
-    - name: Restore dependencies
-      run: dotnet restore
-    
     - name: Build
       run: dotnet publish WorldBuilder.Desktop/WorldBuilder.Desktop.csproj -r win-x64 -p:Version=${{ steps.gitversion.outputs.semVer }}
     
