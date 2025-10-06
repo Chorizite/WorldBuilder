@@ -89,7 +89,7 @@ public partial class App : Application {
         };
         var filter = new OSAppCastFilter(_sparkle.LogWriter);
         _sparkle.AppCastHelper.AppCastFilter = filter;
-        _sparkle.StartLoop(true);
+        _sparkle.StartLoop(true, true, TimeSpan.FromHours(1));
         _sparkle.UpdateDetected += (s, e) => {
             _sparkle.TmpDownloadFileNameWithExtension = $"WorldBuilderInstaller-{e.LatestVersion.SemVerLikeVersion}.exe";
         };
