@@ -64,7 +64,7 @@ jobs:
         cp ./WorldBuilderInstaller-${{ steps.gitversion.outputs.semVer }}.exe appcast/
         cd appcast
         curl -f -o appcast.xml https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/appcast.xml || true
-        netsparkle-generate-appcast -b . -f true --os windows-x64 -n WorldBuilder --file-version "${{ steps.gitversion.outputs.semVer }}" --overwrite-old-items --reparse-existing true --human-readable true --channel edge --change-log-path ../changelog.md --base-url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/releases/downloads/latest/"
+        netsparkle-generate-appcast -b . -f true --os windows-x64 -n WorldBuilder --file-version "${{ steps.gitversion.outputs.semVer }}" --overwrite-old-items --reparse-existing true --human-readable true --channel edge --change-log-path ../changelog.md --base-url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/releases/download/latest/"
         echo "Updated appcast.xml:"
         cat appcast.xml
         rm WorldBuilderInstaller-${{ steps.gitversion.outputs.semVer }}.exe
@@ -105,6 +105,6 @@ jobs:
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./appcast
-        keep_files: false
+        keep_files: true
         user_name: 'github-actions[bot]'
         user_email: 'github-actions[bot]@users.noreply.github.com'
