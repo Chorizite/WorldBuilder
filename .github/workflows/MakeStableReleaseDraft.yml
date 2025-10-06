@@ -51,7 +51,7 @@ jobs:
         fi
 
     - name: Build
-      run: dotnet publish WorldBuilder.Desktop/WorldBuilder.Desktop.csproj -r win-x64 -p:ProductVersion=${{ env.APP_VERSION }} -p:FileVersion=${{ env.APP_VERSION }} -p:Version=${{ env.APP_VERSION }} -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
+      run: dotnet publish WorldBuilder.Desktop/WorldBuilder.Desktop.csproj -r win-x64 -p:InformationalVersion=${{ env.APP_VERSION }} -p:Version=${{ env.APP_VERSION }} -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
     
     - name: Generate Changelog
       id: changelog
