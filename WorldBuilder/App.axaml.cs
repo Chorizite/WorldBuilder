@@ -7,6 +7,9 @@ using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using NetSparkleUpdater;
+using NetSparkleUpdater.Enums;
+using NetSparkleUpdater.SignatureVerifiers;
 using System;
 using System.Linq;
 using WorldBuilder.Lib;
@@ -20,6 +23,7 @@ namespace WorldBuilder;
 public partial class App : Application {
     internal static ServiceProvider? Services;
     private ProjectManager? _projectManager;
+    private SparkleUpdater _sparkle;
 
     public override void Initialize() {
         AvaloniaXamlLoader.Load(this);
@@ -27,6 +31,8 @@ public partial class App : Application {
 
     public override void OnFrameworkInitializationCompleted() {
         DisableAvaloniaDataAnnotationValidation();
+
+        SetupAutoUpdater();
 
         var services = new ServiceCollection();
         services.AddCommonServices();
@@ -65,6 +71,17 @@ public partial class App : Application {
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private void SetupAutoUpdater() {
+        _sparkle = new SparkleUpdater(
+            "https://chorizite.github.io/WorldBuilder/appcast.xml",
+            new Ed25519Checker(SecurityMode.Strict, "CxN3A8g5g9l31yJ+HhUXeb0j5locPqamt9UMdgKQCB0=") 
+        ) {
+            UIFactory = new NetSparkleUpdater.UI.Avalonia.UIFactory(),
+            RelaunchAfterUpdate = true
+        };
+        _sparkle.StartLoop(true);
     }
 
     private void DisableAvaloniaDataAnnotationValidation() {

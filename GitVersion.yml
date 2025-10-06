@@ -3,5 +3,5 @@ tag-prefix: '^v?'
 assembly-versioning-scheme: Major
 branches:
   main:
-    label: edge
-    increment: Patch
+    increment: None
+    label: ''
