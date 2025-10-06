@@ -68,9 +68,12 @@ jobs:
         echo "Updated appcast.xml:"
         cat appcast.xml
         rm WorldBuilderInstaller-${{ steps.gitversion.outputs.semVer }}.exe
+        pwd
+        ls -lah
       shell: bash
       env:
         SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        SPARKLE_PUBLIC_KEY: ${{ secrets.SPARKLE_PUBLIC_KEY }}
     
     - name: Delete existing 'latest' release
       run: |
