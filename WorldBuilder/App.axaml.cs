@@ -93,7 +93,6 @@ public partial class App : Application {
         _sparkle.UpdateDetected += (s, e) => {
             _sparkle.TmpDownloadFileNameWithExtension = $"WorldBuilderInstaller-{e.LatestVersion.SemVerLikeVersion}.exe";
         };
-        _sparkle.CheckForUpdatesAtUserRequest();
     }
 
     private void DisableAvaloniaDataAnnotationValidation() {
