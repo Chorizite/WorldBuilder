@@ -5,12 +5,12 @@
     <description>Most recent changes with links to updates</description>
     <language>en</language>
     <item>
-      <title>WorldBuilder 0.1.0-edge.41</title>
-      <pubDate>Mon, 06 Oct 2025 00:48:28 +00:00</pubDate>
-      <sparkle:version>0.1.0-edge.41</sparkle:version>
+      <title>WorldBuilder 0.1.0-edge.42</title>
+      <pubDate>Mon, 06 Oct 2025 00:56:54 +00:00</pubDate>
+      <sparkle:version>0.1.0-edge.42</sparkle:version>
       <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
       <sparkle:channel>edge</sparkle:channel>
-      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.0-edge.41.exe" sparkle:version="0.1.0-edge.41" sparkle:shortVersionString="0.1.0" length="19378914" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" />
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.0-edge.42.exe" sparkle:version="0.1.0-edge.42" sparkle:shortVersionString="0.1.0" length="19378884" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="vfxIRANoUfZjrxoBqpjBqgJHDCdbeVrXE2HWj8gOk6M6daOfpjgknKoEE9LizcjC7lOech0HxQgyn9Pn0gZoCA==" />
     </item>
   </channel>
 </rss>
