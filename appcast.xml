@@ -4,5 +4,13 @@
     <title>WorldBuilder</title>
     <description>Most recent changes with links to updates</description>
     <language>en</language>
+    <item>
+      <title>WorldBuilder 0.1.0-edge.39</title>
+      <pubDate>Mon, 06 Oct 2025 00:40:34 +00:00</pubDate>
+      <sparkle:version>0.1.0-edge.39</sparkle:version>
+      <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+      <sparkle:channel>edge</sparkle:channel>
+      <enclosure url="https://Chorizite.github.io/WorldBuilder/releases/downloads/latest/WorldBuilderInstaller-0.1.0-edge.39.exe" sparkle:version="0.1.0-edge.39" sparkle:shortVersionString="0.1.0" length="19378915" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" />
+    </item>
   </channel>
 </rss>
