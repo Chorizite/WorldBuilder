@@ -5,7 +5,7 @@
     <description>Most recent changes with links to updates</description>
     <language>en</language>
     <item>
-      <title>WorldBuilder 0.1.1+2</title>
+      <title>WorldBuilder 0.1.1+3</title>
       <description>## 📦 Uncategorized
 
 - wip
@@ -117,12 +117,14 @@
 - Fixes #6 - Allows for project creation when default projects directory doesn't exist (#7)
    - PR: #0
 - Fixes #8 - autoupdater is using the wrong version info (#11)
+   - PR: #0
+- Fixes #12 force check for updates on startup (#13)
    - PR: #0</description>
-      <pubDate>Mon, 06 Oct 2025 06:15:09 +00:00</pubDate>
-      <sparkle:version>0.1.1+2</sparkle:version>
+      <pubDate>Mon, 06 Oct 2025 06:18:57 +00:00</pubDate>
+      <sparkle:version>0.1.1+3</sparkle:version>
       <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
       <sparkle:channel>edge</sparkle:channel>
-      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.1%2B2.exe" sparkle:version="0.1.1+2" sparkle:shortVersionString="0.1.1" length="19748574" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="a9WlyjuaHlZeNZf4chmGle0bIbKea1xVw8YhiDfceJ18WcMBErXLbhupPeciQ8KyFZhfqmmpMXwPQZ7qrXtBAQ==" />
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.1%2B3.exe" sparkle:version="0.1.1+3" sparkle:shortVersionString="0.1.1" length="19748621" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="HGgO+GqozbzTeTtHEOqUBun8/XPnQjLcMkPNow2YVgD0C4N5zxqRZ+AM+lB7+ugWnhT7ZjNro7VGTVnNiwb8AQ==" />
     </item>
     <item>
       <title>WorldBuilder 0.1.0</title>
