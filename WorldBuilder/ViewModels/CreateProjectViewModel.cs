@@ -192,9 +192,6 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
         if (string.IsNullOrWhiteSpace(Location)) {
             errors.Add("Location is required.");
         }
-        else if (!Directory.Exists(Location)) {
-            errors.Add("Location directory does not exist.");
-        }
         else if (!string.IsNullOrWhiteSpace(ProjectName)) {
             var projectPath = Path.Combine(Location, ProjectName);
             if (Directory.Exists(projectPath))
