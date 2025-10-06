@@ -2,6 +2,7 @@
   <Folder Name="/Solution Items/">
     <File Path=".github/changelog-config.json" />
     <File Path=".github/workflows/BuildEdge.yml" />
+    <File Path="clean_appcast.py" />
     <File Path="Directory.Build.props" />
     <File Path="DotNetCore.nsh" />
     <File Path="GitVersion.yml" />

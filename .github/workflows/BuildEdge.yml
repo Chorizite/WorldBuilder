@@ -60,6 +60,12 @@ jobs:
         cp ./WorldBuilderInstaller-${{ steps.gitversion.outputs.semVer }}.exe appcast/
         cd appcast
         curl -f -o appcast.xml https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/appcast.xml || true
+        
+        # Remove all edge channel releases from existing appcast
+        if [ -f appcast.xml ]; then
+          python3 ${{ github.workspace }}/.github/scripts/clean_appcast.py appcast.xml edge
+        fi
+        
         netsparkle-generate-appcast -b . -f true --os windows-x64 -n WorldBuilder --file-version "${{ steps.gitversion.outputs.semVer }}" --overwrite-old-items --reparse-existing true --human-readable true --channel edge --change-log-path ../ --base-url "https://github.com/${{ github.repository_owner }}/${{ github.event.repository.name }}/releases/download/latest/"
         echo "Updated appcast.xml:"
         cat appcast.xml
