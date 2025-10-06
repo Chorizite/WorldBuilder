@@ -8,12 +8,12 @@
       <title>WorldBuilder 0.1.0</title>
       <description>## 🎉 Release 0.1.0
 
-Initial avalonia release.</description>
-      <pubDate>Mon, 06 Oct 2025 04:25:36 +00:00</pubDate>
+- Initialize GitHub / Avalonia release</description>
+      <pubDate>Mon, 06 Oct 2025 04:38:40 +00:00</pubDate>
       <sparkle:version>0.1.0</sparkle:version>
       <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
       <sparkle:channel>stable</sparkle:channel>
-      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/v0.1.0/WorldBuilderInstaller-0.1.0.exe" sparkle:version="0.1.0" sparkle:shortVersionString="0.1.0" length="19748687" sparkle:os="windows-x64" type="application/octet-stream" sparkle:criticalUpdate="false" sparkle:signature="hD3hBeJVFXQxkorTiXumETlRI3nvhV6bz/rYj1NjohRD8kQx/vb+oNp+8caYRZsdcHU+YymDja2VBD8GVO6IAQ==" />
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/v0.1.0/WorldBuilderInstaller-0.1.0.exe" sparkle:version="0.1.0" sparkle:shortVersionString="0.1.0" length="19748667" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="+yisvc2YMJgNqFMA6Y5hiR3BSbVaM0yxRXzl5XOE+SCDdlIvZ9Mne7+k/Q3AS7uob1CiaKExFr1jhEynzZy1Dg==" />
     </item>
     <item>
       <title>WorldBuilder 0.1.0+54</title>
@@ -129,7 +129,7 @@ Initial avalonia release.</description>
       <sparkle:version>0.1.0+54</sparkle:version>
       <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
       <sparkle:channel>edge</sparkle:channel>
-      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.0%2B54.exe" sparkle:version="0.1.0+54" sparkle:shortVersionString="0.1.0" length="19748700" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="AA3BqJv14JMYuy52IONN0Eci0ovY2yyuQB/2J3B+h9a2F1GUf9g0UJEUO7cumA1Qq/7MtWbmMvehGQtpoYk4BA==" />
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.0%2B54.exe" sparkle:version="0.1.0+54" sparkle:shortVersionString="0.1.0" length="19748700" sparkle:os="windows-x64" type="application/octet-stream" sparkle:criticalUpdate="false" sparkle:signature="AA3BqJv14JMYuy52IONN0Eci0ovY2yyuQB/2J3B+h9a2F1GUf9g0UJEUO7cumA1Qq/7MtWbmMvehGQtpoYk4BA==" />
     </item>
   </channel>
 </rss>
