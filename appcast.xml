@@ -5,6 +5,17 @@
     <description>Most recent changes with links to updates</description>
     <language>en</language>
     <item>
+      <title>WorldBuilder 0.1.0</title>
+      <description>## 🎉 Release 0.1.0
+
+Initial avalonia release.</description>
+      <pubDate>Mon, 06 Oct 2025 04:25:36 +00:00</pubDate>
+      <sparkle:version>0.1.0</sparkle:version>
+      <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+      <sparkle:channel>stable</sparkle:channel>
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/v0.1.0/WorldBuilderInstaller-0.1.0.exe" sparkle:version="0.1.0" sparkle:shortVersionString="0.1.0" length="19748687" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="hD3hBeJVFXQxkorTiXumETlRI3nvhV6bz/rYj1NjohRD8kQx/vb+oNp+8caYRZsdcHU+YymDja2VBD8GVO6IAQ==" />
+    </item>
+    <item>
       <title>WorldBuilder 0.1.0+51</title>
       <description>## 📦 Uncategorized
 
@@ -112,7 +123,7 @@
       <sparkle:version>0.1.0+51</sparkle:version>
       <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
       <sparkle:channel>edge</sparkle:channel>
-      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.0%2B51.exe" sparkle:version="0.1.0+51" sparkle:shortVersionString="0.1.0" length="19748715" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="aJX8DgC63HMqXaULB204w5Q989lpdfG5yjRfa3/V+fXLR71ojmuuw336ODq4tC8fbUDsCQQzVyiujU6cZB0mDQ==" />
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.0%2B51.exe" sparkle:version="0.1.0+51" sparkle:shortVersionString="0.1.0" length="19748715" sparkle:os="windows-x64" type="application/octet-stream" sparkle:criticalUpdate="false" sparkle:signature="aJX8DgC63HMqXaULB204w5Q989lpdfG5yjRfa3/V+fXLR71ojmuuw336ODq4tC8fbUDsCQQzVyiujU6cZB0mDQ==" />
     </item>
   </channel>
 </rss>
