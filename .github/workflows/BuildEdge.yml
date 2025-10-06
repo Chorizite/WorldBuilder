@@ -53,18 +53,14 @@ jobs:
       run: |
           makensis -DVERSION="${{ steps.gitversion.outputs.semVer }}" -DBUILDPATH="${{ github.workspace }}/WorldBuilder.Desktop/bin/Release/net8.0/win-x64/publish/" "${{ github.workspace }}/Installer.nsi"
     
-    - name: Download existing appcast from GitHub Pages
-      run: |
-      shell: bash
-    
     - name: Generate updated appcast
       run: |
-        echo "${{ steps.changelog.outputs.changelog }}" > changelog.md
+        echo "${{ steps.changelog.outputs.changelog }}" > "${{ steps.gitversion.outputs.semVer }}.md"
         mkdir -p appcast
         cp ./WorldBuilderInstaller-${{ steps.gitversion.outputs.semVer }}.exe appcast/
         cd appcast
         curl -f -o appcast.xml https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/appcast.xml || true
-        netsparkle-generate-appcast -b . -f true --os windows-x64 -n WorldBuilder --file-version "${{ steps.gitversion.outputs.semVer }}" --overwrite-old-items --reparse-existing true --human-readable true --channel edge --change-log-path ../changelog.md --base-url "https://github.com/${{ github.repository_owner }}/${{ github.event.repository.name }}/releases/download/latest/"
+        netsparkle-generate-appcast -b . -f true --os windows-x64 -n WorldBuilder --file-version "${{ steps.gitversion.outputs.semVer }}" --overwrite-old-items --reparse-existing true --human-readable true --channel edge --change-log-path ../ --base-url "https://github.com/${{ github.repository_owner }}/${{ github.event.repository.name }}/releases/download/latest/"
         echo "Updated appcast.xml:"
         cat appcast.xml
         rm WorldBuilderInstaller-${{ steps.gitversion.outputs.semVer }}.exe
