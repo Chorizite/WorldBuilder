@@ -61,7 +61,7 @@ WriteRegStr HKLM "Software\${PRODUCT}" "Install_Dir" "$INSTDIR"
 SetOutPath "$INSTDIR"
 
 ; Copy main application files
-File "${BUILDPATH}*.*"
+File "${BUILDPATH}\*.*"
 
 ; Write uninstaller information to registry
 WriteRegStr   HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT}" "DisplayName" "${PRODUCT}"
