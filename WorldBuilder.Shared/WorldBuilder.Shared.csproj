@@ -8,7 +8,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Chorizite.DatReaderWriter" Version="1.0.1-beta.1" />
+		<PackageReference Include="Chorizite.DatReaderWriter" Version="1.0.0" />
 		<PackageReference Include="MemoryPack" Version="1.21.4" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.9" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
