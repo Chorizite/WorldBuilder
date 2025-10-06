@@ -7,8 +7,10 @@ using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NetSparkleUpdater;
 using NetSparkleUpdater.Enums;
+using NetSparkleUpdater.Interfaces;
 using NetSparkleUpdater.SignatureVerifiers;
 using System;
 using System.Linq;
@@ -25,6 +27,8 @@ public partial class App : Application {
     private ProjectManager? _projectManager;
     private SparkleUpdater _sparkle;
 
+    public static string Version { get; set; } = "0.0.0";
+
     public override void Initialize() {
         AvaloniaXamlLoader.Load(this);
     }
@@ -32,12 +36,12 @@ public partial class App : Application {
     public override void OnFrameworkInitializationCompleted() {
         DisableAvaloniaDataAnnotationValidation();
 
-        SetupAutoUpdater();
-
         var services = new ServiceCollection();
         services.AddCommonServices();
 
         Services = services.BuildServiceProvider();
+        SetupAutoUpdater();
+
         _projectManager = Services.GetRequiredService<ProjectManager>();
 
         var projectSelectionVM = Services.GetRequiredService<SplashPageViewModel>();
@@ -76,12 +80,19 @@ public partial class App : Application {
     private void SetupAutoUpdater() {
         _sparkle = new SparkleUpdater(
             "https://chorizite.github.io/WorldBuilder/appcast.xml",
-            new Ed25519Checker(SecurityMode.Strict, "CxN3A8g5g9l31yJ+HhUXeb0j5locPqamt9UMdgKQCB0=") 
+            new Ed25519Checker(SecurityMode.Strict, "CxN3A8g5g9l31yJ+HhUXeb0j5locPqamt9UMdgKQCB0=")
         ) {
             UIFactory = new NetSparkleUpdater.UI.Avalonia.UIFactory(),
-            RelaunchAfterUpdate = true
+            RelaunchAfterUpdate = false,
+            LogWriter = new ColorConsoleLogger("SparkleUpdater", () => new ColorConsoleLoggerConfiguration())
         };
+        var filter = new OSAppCastFilter(_sparkle.LogWriter) { RemoveOlderItems = false };
+        _sparkle.AppCastHelper.AppCastFilter = filter;
         _sparkle.StartLoop(true);
+        _sparkle.UpdateDetected += (s, e) => {
+            _sparkle.TmpDownloadFileNameWithExtension = $"WorldBuilderInstaller-{e.LatestVersion.SemVerLikeVersion}.exe";
+        };
+        _sparkle.CheckForUpdatesAtUserRequest();
     }
 
     private void DisableAvaloniaDataAnnotationValidation() {

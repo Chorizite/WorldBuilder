@@ -27,7 +27,7 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
 
     public ObservableCollection<RecentProject> RecentProjects => _projectManager.RecentProjects;
 
-    public string AppVersion => "v" + typeof(MainViewModel).Assembly.GetName().Version?.ToString() ?? "???";
+    public string AppVersion => $"v{App.Version}";
 
     public ProjectSelectionViewModel(WorldBuilderSettings settings, ProjectManager projectManager, ILogger<ProjectSelectionViewModel> log) {
         _log = log;

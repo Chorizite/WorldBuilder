@@ -46,8 +46,7 @@ namespace WorldBuilder.Lib
     }
     public sealed class ColorConsoleLogger(
         string name,
-        Func<ColorConsoleLoggerConfiguration> getCurrentConfig) : ILogger
-    {
+        Func<ColorConsoleLoggerConfiguration> getCurrentConfig) : ILogger, NetSparkleUpdater.Interfaces.ILogger {
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => default!;
 
         public bool IsEnabled(LogLevel logLevel) =>
@@ -66,6 +65,10 @@ namespace WorldBuilder.Lib
             {
                 Console.WriteLine($"[{eventId.Id,2}: {logLevel,-12}] {name} - {formatter(state, exception)}");
             }
+        }
+
+        public void PrintMessage(string message, params object[]? arguments) {
+            Console.WriteLine(message, arguments);
         }
     }
 }
