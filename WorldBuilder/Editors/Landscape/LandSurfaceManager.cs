@@ -18,26 +18,24 @@ using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Editors.Landscape {
     public class LandSurfaceManager {
-        private readonly IDatReaderWriter _dats; 
-        private readonly Region _region; 
-        private readonly DatReaderWriter.Types.LandSurf _landSurface; 
-        private readonly Dictionary<uint, int> _textureAtlasIndexLookup; 
-        private readonly Dictionary<uint, int> _alphaAtlasIndexLookup; 
-        private readonly byte[] _textureBuffer; 
-        private uint _nextSurfaceNumber; 
+        private readonly IDatReaderWriter _dats;
+        private readonly Region _region;
+        private readonly DatReaderWriter.Types.LandSurf _landSurface;
+        private readonly Dictionary<uint, int> _textureAtlasIndexLookup;
+        private readonly Dictionary<uint, int> _alphaAtlasIndexLookup;
+        private readonly byte[] _textureBuffer;
+        private uint _nextSurfaceNumber;
         private readonly OpenGLRenderer _renderer;
 
-        private static readonly Vector2[] LandUVs = new Vector2[]
-        {
-        new Vector2(0, 1), new Vector2(1, 1), new Vector2(1, 0), new Vector2(0, 0)
+        private static readonly Vector2[] LandUVs = new Vector2[] {
+            new Vector2(0, 1), new Vector2(1, 1), new Vector2(1, 0), new Vector2(0, 0)
         };
 
-        private static readonly Vector2[][] LandUVsRotated = new Vector2[4][]
-        {
-        new Vector2[] { LandUVs[0], LandUVs[1], LandUVs[2], LandUVs[3] },
-        new Vector2[] { LandUVs[3], LandUVs[0], LandUVs[1], LandUVs[2] },
-        new Vector2[] { LandUVs[2], LandUVs[3], LandUVs[0], LandUVs[1] },
-        new Vector2[] { LandUVs[1], LandUVs[2], LandUVs[3], LandUVs[0] }
+        private static readonly Vector2[][] LandUVsRotated = new Vector2[4][] {
+            new Vector2[] { LandUVs[0], LandUVs[1], LandUVs[2], LandUVs[3] },
+            new Vector2[] { LandUVs[3], LandUVs[0], LandUVs[1], LandUVs[2] },
+            new Vector2[] { LandUVs[2], LandUVs[3], LandUVs[0], LandUVs[1] },
+            new Vector2[] { LandUVs[1], LandUVs[2], LandUVs[3], LandUVs[0] }
         };
 
         public ITextureArray TerrainAtlas { get; private set; }
@@ -58,8 +56,10 @@ namespace WorldBuilder.Editors.Landscape {
             _alphaAtlasIndexLookup = new Dictionary<uint, int>(16);
             _textureBuffer = ArrayPool<byte>.Shared.Rent(512 * 512 * 4);
 
-            TerrainAtlas = _renderer.GraphicsDevice.CreateTextureArray(TextureFormat.RGBA8, 512, 512, 36);
-            AlphaAtlas = _renderer.GraphicsDevice.CreateTextureArray(TextureFormat.RGBA8, 512, 512, 16);
+            TerrainAtlas = _renderer.GraphicsDevice.CreateTextureArray(TextureFormat.RGBA8, 512, 512, 36)
+                ?? throw new Exception("Unable to create terrain atlas.");
+            AlphaAtlas = _renderer.GraphicsDevice.CreateTextureArray(TextureFormat.RGBA8, 512, 512, 16)
+                ?? throw new Exception("Unable to create terrain atlas.");
 
             _landSurface = _region.TerrainInfo.LandSurfaces;
             var _textureMergeData = _region.TerrainInfo.LandSurfaces.TexMerge;
@@ -75,6 +75,13 @@ namespace WorldBuilder.Editors.Landscape {
 
             LoadTextures();
             ArrayPool<byte>.Shared.Return(_textureBuffer);
+        }
+
+        public List<TMTerrainDesc> GetAvailableTerrainTextures() {
+            return TerrainDescriptors
+                .Where(t => t.TerrainType != TerrainTextureType.RoadType)
+                .OrderBy(t => t.TerrainType.ToString())
+                .ToList();
         }
 
         private void LoadTextures() {

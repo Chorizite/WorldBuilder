@@ -113,31 +113,6 @@ namespace WorldBuilder.Shared.Documents {
         protected abstract bool LoadFromProjectionInternal(byte[] projection);
 
         /// <summary>
-        /// Apply an update to the document
-        /// </summary>
-        /// <param name="type"></param>
-        /// <param name="update"></param>
-        public virtual bool ApplyStateEvent(string type, byte[] update) {
-            lock (_stateLock) {
-                try {
-                    return ApplyStateEventInternal(type, update);
-                }
-                catch (Exception ex) {
-                    _logger.LogError(ex, "Failed to apply state event {EventType}", type);
-                    return false;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Apply an update to the document
-        /// </summary>
-        /// <param name="type"></param>
-        /// <param name="update"></param>
-        /// <returns></returns>
-        protected abstract bool ApplyStateEventInternal(string type, byte[] update);
-
-        /// <summary>
         /// Save the document to the dat files
         /// </summary>
         /// <param name="datwriter"></param>
