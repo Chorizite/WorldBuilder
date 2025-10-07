@@ -4,6 +4,7 @@ on:
     branches:
       - master
       - main
+      - '**'  # Run on all branches
 permissions:
   contents: write
   pages: write
@@ -54,12 +55,28 @@ jobs:
 
     - name: Generate Changelog
       id: changelog
-      uses: mikepenz/release-changelog-builder-action@v4
-      with:
-        configuration: ".github/changelog-config.json"
-        toTag: ${{ github.sha }}
-        fetchViaCommits: true
-        fromTag: ${{ steps.get_latest_release.outputs.LATEST_TAG }}
+      run: |
+        gh api \
+          --method POST \
+          -H "Accept: application/vnd.github+json" \
+          /repos/${{ github.repository }}/releases/generate-notes \
+          -f tag_name='latest' \
+          -f target_commitish='${{ github.sha }}' \
+          -f previous_tag_name='${{ steps.get_latest_release.outputs.LATEST_TAG }}' \
+          > changelog.json
+        
+        # Extract the body from the response
+        CHANGELOG_BODY=$(jq -r '.body' changelog.json)
+        
+        # Save to file and output
+        echo "$CHANGELOG_BODY" > "${{ env.APP_VERSION }}.md"
+        
+        # Set output using multiline syntax
+        {
+          echo 'changelog<<EOF'
+          echo "$CHANGELOG_BODY"
+          echo 'EOF'
+        } >> $GITHUB_OUTPUT
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -69,7 +86,6 @@ jobs:
     
     - name: Generate updated appcast
       run: |
-        echo "${{ steps.changelog.outputs.changelog }}" > "${{ env.APP_VERSION }}.md"
         mkdir -p appcast
         cp ./WorldBuilderInstaller-${{ env.APP_VERSION }}.exe appcast/
         cd appcast
@@ -84,14 +100,13 @@ jobs:
         echo "Updated appcast.xml:"
         cat appcast.xml
         rm WorldBuilderInstaller-${{ env.APP_VERSION }}.exe
-        pwd
-        ls -lah
       shell: bash
       env:
         SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         SPARKLE_PUBLIC_KEY: ${{ secrets.SPARKLE_PUBLIC_KEY }}
     
     - name: Delete existing 'latest' release
+      if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
       run: |
         gh release delete latest --yes || true
         git push origin :refs/tags/latest || true
@@ -99,6 +114,7 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Create/Update Pre-release
+      if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
       uses: softprops/action-gh-release@v1
       with:
         tag_name: latest
@@ -120,6 +136,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Deploy appcast to GitHub Pages
+      if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
