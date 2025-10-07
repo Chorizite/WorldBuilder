@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using DatReaderWriter.Enums;
+using DatReaderWriter.Types;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,7 +18,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         private float _brushRadius = 5f;
 
         [ObservableProperty]
-        private TerrainTextureType _selectedTerrainType = TerrainTextureType.Volcano1;
+        private TerrainTextureType _selectedTerrainType;
 
         [ObservableProperty]
         private List<TerrainTextureType> _availableTerrainTypes;
@@ -29,7 +30,9 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         private readonly Dictionary<ushort, List<(int VertexIndex, byte OriginalType, byte NewType)>> _pendingChanges;
 
         public BrushSubToolViewModel(TerrainEditingContext context, CommandHistory commandHistory) : base(context) {
-            _availableTerrainTypes = Enum.GetValues<TerrainTextureType>().ToList();
+            _availableTerrainTypes = context.TerrainSystem.SurfaceManager.GetAvailableTerrainTextures()
+                .Select(t => t.TerrainType).ToList();
+            _selectedTerrainType = _availableTerrainTypes.First();
             _commandHistory = commandHistory ?? throw new ArgumentNullException(nameof(commandHistory));
             _pendingChanges = new Dictionary<ushort, List<(int, byte, byte)>>();
         }

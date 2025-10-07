@@ -27,25 +27,25 @@
   "empty_template": "- No changes",
   "label_extractor": [
     {
-      "pattern": "^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\\(.+\\))?!?: (.+)",
+      "pattern": "^(build|chore|ci|docs|feat|fix|fixes|perf|refactor|revert|style|test) (.+)",
       "target": "$1"
     }
   ],
   "transformers": [
     {
-      "pattern": "^feat:",
+      "pattern": "^feat",
       "target": "feature"
     },
     {
-      "pattern": "^fix:",
+      "pattern": "^fix(es)",
       "target": "bug"
     },
     {
-      "pattern": "^docs:",
+      "pattern": "^docs",
       "target": "documentation"
     },
     {
-      "pattern": "^chore:",
+      "pattern": "^chore",
       "target": "chore"
     }
   ],

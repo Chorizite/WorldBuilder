@@ -336,22 +336,6 @@ namespace WorldBuilder.Shared.Documents {
             return TerrainData != null;
         }
 
-        protected override bool ApplyStateEventInternal(string type, byte[] update) {
-            switch (type) {
-                case nameof(TerrainUpdateEvent):
-                    var updateTerrainEvent = MemoryPackSerializer.Deserialize<TerrainUpdateEvent>(update);
-                    if (updateTerrainEvent == null) {
-                        _logger.LogError("Failed to deserialize UpdateTerrainEvent");
-                        return false;
-                    }
-                    return Apply(updateTerrainEvent);
-
-                default:
-                    _logger.LogError("Unknown event type {EventType}", type);
-                    return false;
-            }
-        }
-
         protected override Task<bool> SaveToDatsInternal(IDatReaderWriter datwriter, int iteration = 0) {
             _logger.LogInformation("Saving {Count} modified landblocks to DAT files", TerrainData.Landblocks.Count);
             foreach (var (lbKey, lbTerrain) in TerrainData.Landblocks) {
