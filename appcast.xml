@@ -5,6 +5,18 @@
     <description>Most recent changes with links to updates</description>
     <language>en</language>
     <item>
+      <title>WorldBuilder 0.1.2+1</title>
+      <description>## 📦 Uncategorized
+
+- 17 terraintype selection for landscape tools shouldnt show roadtype texture
+   - PR: #21</description>
+      <pubDate>Tue, 07 Oct 2025 05:11:21 +00:00</pubDate>
+      <sparkle:version>0.1.2+1</sparkle:version>
+      <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
+      <sparkle:channel>edge</sparkle:channel>
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.2%2B1.exe" sparkle:version="0.1.2+1" sparkle:shortVersionString="0.1.2" length="19748637" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="R2Ltq87fJaIbEvFfjjj/h8BQlXQq10eSOyIGZuIVbxX7yUWxBINY57FfFZPfVeFNLEZKC/78yd1inTaiFlggCw==" />
+    </item>
+    <item>
       <title>WorldBuilder 0.1.1</title>
       <description>### 📋 Changelog
 
@@ -16,135 +28,7 @@
       <sparkle:version>0.1.1</sparkle:version>
       <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
       <sparkle:channel>stable</sparkle:channel>
-      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/v0.1.1/WorldBuilderInstaller-0.1.1.exe" sparkle:version="0.1.1" sparkle:shortVersionString="0.1.1" length="19748378" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="ymH4YoRpfEOEk44Vk0jBRL8kJs3xS03LJKXjSN9Pe6VPkmtu1TZCE45wZNGvJ/s5CVOk/x8tJWZ6BdevikufCw==" />
-    </item>
-    <item>
-      <title>WorldBuilder 0.1.1+6</title>
-      <description>## 📦 Uncategorized
-
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- wip
-   - PR: #0
-- Fixes #6 - Allows for project creation when default projects directory doesn't exist (#7)
-   - PR: #0
-- Fixes #8 - autoupdater is using the wrong version info (#11)
-   - PR: #0
-- Fixes #12 force check for updates on startup (#13)
-   - PR: #0
-- manually set Informational version (Fixes app pulling the right version when checking for updates) (#14)
-   - PR: #0
-- Fix default install path missing directory separator (#15)
-   - PR: #0
-- fix issue with discord webhook in appcast workflow (#16)
-   - PR: #0</description>
-      <pubDate>Mon, 06 Oct 2025 06:45:19 +00:00</pubDate>
-      <sparkle:version>0.1.1+6</sparkle:version>
-      <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
-      <sparkle:channel>edge</sparkle:channel>
-      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.1%2B6.exe" sparkle:version="0.1.1+6" sparkle:shortVersionString="0.1.1" length="19748399" sparkle:os="windows-x64" type="application/octet-stream" sparkle:criticalUpdate="false" sparkle:signature="cwDbczEGbxwU7jllUpybiyrc3/0T9Xe+Hdk0LKnGxsZAK3XcGoXLc8IjSDGmof5XuMZUaDvzWIyicfW4vga1AQ==" />
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/v0.1.1/WorldBuilderInstaller-0.1.1.exe" sparkle:version="0.1.1" sparkle:shortVersionString="0.1.1" length="19748378" sparkle:os="windows-x64" type="application/octet-stream" sparkle:criticalUpdate="false" sparkle:signature="ymH4YoRpfEOEk44Vk0jBRL8kJs3xS03LJKXjSN9Pe6VPkmtu1TZCE45wZNGvJ/s5CVOk/x8tJWZ6BdevikufCw==" />
     </item>
   </channel>
 </rss>
