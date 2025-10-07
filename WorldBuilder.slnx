@@ -1,6 +1,5 @@
 <Solution>
   <Folder Name="/Solution Items/">
-    <File Path=".github/changelog-config.json" />
     <File Path=".github/scripts/clean_appcast.py" />
     <File Path=".github/workflows/BuildEdge.yml" />
     <File Path=".github/workflows/MakeStableReleaseDraft.yml" />
