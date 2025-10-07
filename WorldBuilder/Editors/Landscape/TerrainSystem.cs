@@ -8,6 +8,7 @@ using System.Linq;
 using System.Numerics;
 using WorldBuilder.Editors.Landscape.ViewModels;
 using WorldBuilder.Lib;
+using WorldBuilder.Lib.Settings;
 using WorldBuilder.Shared.Documents;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
@@ -24,24 +25,26 @@ namespace WorldBuilder.Editors.Landscape {
         public PerspectiveCamera PerspectiveCamera { get; private set; }
         public OrthographicTopDownCamera TopDownCamera { get; private set; }
         public CameraManager CameraManager { get; private set; }
+        public WorldBuilderSettings Settings { get; }
         public TerrainDocument TerrainDoc { get; private set; }
         public TerrainEditingContext EditingContext { get; private set; }
         public TerrainRenderer Renderer { get; private set; }
         public IServiceProvider Services { get; private set; }
         public CommandHistory CommandHistory { get; }
 
-        public TerrainSystem(OpenGLRenderer renderer, Project project, IDatReaderWriter dats) {
+        public TerrainSystem(OpenGLRenderer renderer, Project project, IDatReaderWriter dats, WorldBuilderSettings settings) {
             if (!dats.TryGet<Region>(0x13000000, out var region)) {
                 throw new Exception("Failed to load region");
             }
 
+            Settings = settings ?? throw new ArgumentNullException(nameof(settings));
             TerrainDoc = project.DocumentManager.GetOrCreateDocumentAsync<TerrainDocument>("terrain").Result
                 ?? throw new InvalidOperationException("Terrain document not found");
             EditingContext = new TerrainEditingContext(project.DocumentManager, this);
 
             var mapCenter = new Vector3(192f * 254f / 2f, 192f * 254f / 2f, 1000);
-            PerspectiveCamera = new PerspectiveCamera(mapCenter, Vector3.UnitZ);
-            TopDownCamera = new OrthographicTopDownCamera(new Vector3(0, 0, 200f));
+            PerspectiveCamera = new PerspectiveCamera(mapCenter, Settings);
+            TopDownCamera = new OrthographicTopDownCamera(new Vector3(0, 0, 200f), Settings);
 
             var collection = new ServiceCollection();
             collection.AddSingleton(this);
@@ -49,6 +52,7 @@ namespace WorldBuilder.Editors.Landscape {
             collection.AddSingleton<TerrainSystem>();
             collection.AddSingleton(EditingContext);
             collection.AddSingleton<TerrainRenderer>();
+            collection.AddSingleton<WorldBuilderSettings>(Settings);
 
             collection.AddSingleton<RoadLineSubToolViewModel>();
             collection.AddSingleton<RoadPointSubToolViewModel>();

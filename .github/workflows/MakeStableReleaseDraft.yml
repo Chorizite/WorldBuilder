@@ -64,12 +64,28 @@ jobs:
 
     - name: Generate Changelog
       id: changelog
-      uses: mikepenz/release-changelog-builder-action@v4
-      with:
-        configuration: ".github/changelog-config.json"
-        toTag: ${{ github.sha }}
-        fetchViaCommits: true
-        fromTag: ${{ steps.get_latest_release.outputs.LATEST_TAG }}
+      run: |
+        gh api \
+          --method POST \
+          -H "Accept: application/vnd.github+json" \
+          /repos/${{ github.repository }}/releases/generate-notes \
+          -f tag_name='latest' \
+          -f target_commitish='${{ github.sha }}' \
+          -f previous_tag_name='${{ steps.get_latest_release.outputs.LATEST_TAG }}' \
+          > changelog.json
+        
+        # Extract the body from the response
+        CHANGELOG_BODY=$(jq -r '.body' changelog.json)
+        
+        # Save to file and output
+        echo "$CHANGELOG_BODY" > "${{ env.APP_VERSION }}.md"
+        
+        # Set output using multiline syntax
+        {
+          echo 'changelog<<EOF'
+          echo "$CHANGELOG_BODY"
+          echo 'EOF'
+        } >> $GITHUB_OUTPUT
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -81,7 +97,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ env.TAG_NAME }}
-        name: "Release ${{ env.APP_VERSION }}"
+        name: ${{ env.TAG_NAME }}
         body: |
           ### 📋 Changelog
           ${{ steps.changelog.outputs.changelog }}

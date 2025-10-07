@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Numerics;
+using WorldBuilder.Lib.Settings;
 
 namespace WorldBuilder.Lib {
     public interface ICamera {
@@ -11,7 +12,7 @@ namespace WorldBuilder.Lib {
         Vector2 ScreenSize { get; set;  }
 
         Matrix4x4 GetViewMatrix();
-        Matrix4x4 GetProjectionMatrix(float aspectRatio, float nearPlane = 0.1f, float farPlane = 10000.0f);
+        Matrix4x4 GetProjectionMatrix();
 
         void ProcessKeyboard(CameraMovement direction, double deltaTime);
         void ProcessMouseMovement(MouseState mouseState);
@@ -33,10 +34,21 @@ namespace WorldBuilder.Lib {
 
         private float yaw;
         private float pitch;
+        private WorldBuilderSettings settings;
 
-        internal float movementSpeed;
-        internal float mouseSensitivity;
-        internal float fov = 45.0f;
+        internal float movementSpeed {
+            get => settings.Landscape.Camera.MovementSpeed;
+            set => settings.Landscape.Camera.MovementSpeed = value;
+        }
+
+        internal float mouseSensitivity {
+            get => settings.Landscape.Camera.MouseSensitivity / 10f;
+            set => settings.Landscape.Camera.MouseSensitivity = value * 10f;
+        }
+        internal float fov {
+            get => settings.Landscape.Camera.FieldOfView;
+            set => settings.Landscape.Camera.FieldOfView = (int)value;
+        }
         private bool _isDragging;
         private Vector2 _previousMousePosition;
 
@@ -47,20 +59,16 @@ namespace WorldBuilder.Lib {
 
         public Vector2 ScreenSize { get; set; }
 
-        // Camera options - corrected for Z-up system
+        // Camera options
         private const float DefaultYaw = 0.0f;  // 0° points along +Y
         private const float DefaultPitch = -30.0f; // Look down at terrain by default
-        private const float DefaultSpeed = 200.5f;
-        private const float DefaultSensitivity = 0.1f;
 
-        public PerspectiveCamera(Vector3 position, Vector3 up, float yaw = DefaultYaw, float pitch = DefaultPitch) {
+        public PerspectiveCamera(Vector3 position, WorldBuilderSettings settings) {
             this.position = position;
-            this.worldUp = -up;
-            this.yaw = yaw;
-            this.pitch = pitch;
-
-            this.movementSpeed = DefaultSpeed;
-            this.mouseSensitivity = DefaultSensitivity;
+            this.worldUp = -Vector3.UnitZ;
+            this.yaw = DefaultYaw;
+            this.pitch = DefaultPitch;
+            this.settings = settings;
 
             UpdateCameraVectors();
         }
@@ -69,12 +77,12 @@ namespace WorldBuilder.Lib {
             return Matrix4x4.CreateLookAtLeftHanded(position, position + front, up);
         }
 
-        public Matrix4x4 GetProjectionMatrix(float aspectRatio, float nearPlane = 0.1f, float farPlane = 10000.0f) {
+        public Matrix4x4 GetProjectionMatrix() {
             return Matrix4x4.CreatePerspectiveFieldOfViewLeftHanded(
                 MathHelper.DegreesToRadians(fov),
-                aspectRatio,
-                nearPlane,
-                farPlane);
+                ScreenSize.X / ScreenSize.Y,
+                0.1f,
+                settings.Landscape.Camera.MaxDrawDistance);
         }
 
         public void ProcessKeyboard(CameraMovement direction, double deltaTime) {
@@ -183,14 +191,21 @@ namespace WorldBuilder.Lib {
     }
 
     public class OrthographicTopDownCamera : ICamera {
+        private WorldBuilderSettings settings;
         private Vector3 position;
         private Vector3 front;
         private Vector3 up;
         private Vector3 right;
         private Vector3 worldUp;
 
-        private float movementSpeed;
-        private float mouseSensitivity;
+        private float movementSpeed {
+            get { return settings.Landscape.Camera.MovementSpeed / 40f; }
+            set { settings.Landscape.Camera.MovementSpeed = value * 40f; }
+        }
+        private float mouseSensitivity {
+            get { return settings.Landscape.Camera.MouseSensitivity / 10f; }
+            set { settings.Landscape.Camera.MouseSensitivity = value * 10f; }
+        }
         private float orthographicSize = 1800f; // Size of the orthographic view
         private bool _isDragging;
         private Vector2 _previousMousePosition;
@@ -204,11 +219,10 @@ namespace WorldBuilder.Lib {
 
         public Vector2 ScreenSize { get; set; }
 
-        private const float DefaultSpeed = 50.0f;
-        private const float DefaultSensitivity = 0.08f;
         private const float DefaultHeight = 1000.0f;
 
-        public OrthographicTopDownCamera(Vector3 position) {
+        public OrthographicTopDownCamera(Vector3 position, WorldBuilderSettings settings) {
+            this.settings = settings;
             // Position the camera above the target point
             this.position = new Vector3(position.X, position.Y, position.Z + DefaultHeight);
 
@@ -217,24 +231,21 @@ namespace WorldBuilder.Lib {
             this.worldUp = new Vector3(0, 0, 0); // Y is up in world space for horizontal movement
             this.up = new Vector3(0, -1, 0);
             this.right = new Vector3(1, 0, 0);
-
-            this.movementSpeed = DefaultSpeed;
-            this.mouseSensitivity = DefaultSensitivity;
         }
 
         public Matrix4x4 GetViewMatrix() {
             return Matrix4x4.CreateLookAtLeftHanded(position, position + front, up);
         }
 
-        public Matrix4x4 GetProjectionMatrix(float aspectRatio, float nearPlane = 0.1f, float farPlane = 10000.0f) {
-            float width = orthographicSize * aspectRatio;
+        public Matrix4x4 GetProjectionMatrix() {
+            float width = orthographicSize * (ScreenSize.X / ScreenSize.Y);
             float height = orthographicSize;
 
             return Matrix4x4.CreateOrthographicLeftHanded(
                 width,
                 height,
-                nearPlane,
-                farPlane);
+                0.1f,
+                100000f);
         }
 
         public void ProcessKeyboard(CameraMovement direction, double deltaTime) {
