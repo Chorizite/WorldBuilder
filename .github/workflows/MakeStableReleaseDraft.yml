@@ -53,13 +53,23 @@ jobs:
     - name: Build
       run: dotnet publish WorldBuilder.Desktop/WorldBuilder.Desktop.csproj -r win-x64 -p:InformationalVersion=${{ env.APP_VERSION }} -p:Version=${{ env.APP_VERSION }} -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
     
+
+    - name: Get Latest Release Tag
+      id: get_latest_release
+      run: |
+        latest_tag=$(gh release list --exclude-pre-releases --limit 1 --json tagName --jq '.[0].tagName')
+        echo "LATEST_TAG=$latest_tag" >> $GITHUB_OUTPUT
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Generate Changelog
       id: changelog
       uses: mikepenz/release-changelog-builder-action@v4
       with:
         configuration: ".github/changelog-config.json"
         toTag: ${{ github.sha }}
-        commitMode: true
+        fetchViaCommits: true
+        fromTag: ${{ steps.get_latest_release.outputs.LATEST_TAG }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
