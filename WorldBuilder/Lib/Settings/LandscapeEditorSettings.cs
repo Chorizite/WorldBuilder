@@ -22,7 +22,7 @@ namespace WorldBuilder.Lib.Settings {
     public partial class CameraSettings : ObservableObject {
         [ObservableProperty]
         [SettingDescription("Maximum distance for rendering objects in the scene")]
-        [SettingRange(100, 10000, 100, 500)]
+        [SettingRange(100, 100000, 100, 500)]
         [SettingFormat("{0:F0}")]
         [SettingOrder(0)]
         private float _maxDrawDistance = 4000f;
@@ -43,19 +43,14 @@ namespace WorldBuilder.Lib.Settings {
 
         [ObservableProperty]
         [SettingDescription("Camera movement speed in units per second")]
-        [SettingRange(10, 1000, 10, 50)]
+        [SettingRange(1, 20000, 10, 50)]
         [SettingFormat("{0:F0}")]
         [SettingOrder(3)]
-        private float _movementSpeed = 200f;
+        private float _movementSpeed = 1000f;
     }
 
     [SettingCategory("Rendering", ParentCategory = "Landscape Editor", Order = 1)]
     public partial class RenderingSettings : ObservableObject {
-        [ObservableProperty]
-        [SettingDescription("Display wireframe overlay on terrain mesh")]
-        [SettingOrder(0)]
-        private bool _showWireframe = true;
-
         [ObservableProperty]
         [SettingDescription("Intensity of the scene lighting")]
         [SettingRange(0.0, 2.0, 0.05, 0.2)]
@@ -113,13 +108,5 @@ namespace WorldBuilder.Lib.Settings {
         [SettingFormat("{0:F1}")]
         [SettingOrder(1)]
         private float _sphereRadius = 4.6f;
-
-        [ObservableProperty]
-        [SettingDescription("Vertical offset of the selection sphere from terrain")]
-        [SettingDisplayName("Sphere Height Offset")]
-        [SettingRange(-10.0, 10.0, 0.1, 1.0)]
-        [SettingFormat("{0:F1}")]
-        [SettingOrder(2)]
-        private float _sphereHeightOffset = 0.0f;
     }
 }

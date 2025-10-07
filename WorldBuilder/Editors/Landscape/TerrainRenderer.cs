@@ -9,10 +9,12 @@ using System.Linq;
 using System.Numerics;
 using System.Reflection;
 using WorldBuilder.Lib;
+using WorldBuilder.Lib.Settings;
 
 namespace WorldBuilder.Editors.Landscape {
     public unsafe class TerrainRenderer : IDisposable {
         private readonly IRenderer _render;
+        private readonly WorldBuilderSettings _settings;
         private readonly GL gl;
 
         // Shader resources
@@ -30,16 +32,40 @@ namespace WorldBuilder.Editors.Landscape {
         private float _aspectRatio;
 
         // Rendering properties
-        public float AmbientLightIntensity { get; set; } = 0.45f;
-        public bool ShowGrid { get; set; } = true;
-        public Vector3 LandblockGridColor { get; set; } = new Vector3(1.0f, 0f, 1.0f);
-        public Vector3 CellGridColor { get; set; } = new Vector3(0f, 1f, 1f);
-        public float GridLineWidth { get; set; } = 1f;
-        public float GridOpacity { get; set; } = .40f;
+        public float AmbientLightIntensity {
+            get => _settings.Landscape.Rendering.LightIntensity;
+            set => _settings.Landscape.Rendering.LightIntensity = value;
+        }
+        public bool ShowGrid {
+            get => _settings.Landscape.Grid.ShowGrid;
+            set => _settings.Landscape.Grid.ShowGrid = value;
+        }
+        public Vector3 LandblockGridColor {
+            get => _settings.Landscape.Grid.LandblockColor;
+            set => _settings.Landscape.Grid.LandblockColor = value;
+        }
+        public Vector3 CellGridColor {
+            get => _settings.Landscape.Grid.CellColor;
+            set => _settings.Landscape.Grid.CellColor = value;
+        }
+        public float GridLineWidth {
+            get => _settings.Landscape.Grid.LineWidth;
+            set => _settings.Landscape.Grid.LineWidth = value;
+        }
+        public float GridOpacity {
+            get => _settings.Landscape.Grid.Opacity;
+            set => _settings.Landscape.Grid.Opacity = value;
+        }
 
         // Sphere properties
-        public Vector3 SphereColor { get; set; } = new Vector3(1.0f, 1.0f, 1.0f);
-        public float SphereRadius { get; set; } = 4.6f;
+        public Vector3 SphereColor {
+            get => _settings.Landscape.Selection.SphereColor;
+            set => _settings.Landscape.Selection.SphereColor = value;
+        }
+        public float SphereRadius {
+            get => _settings.Landscape.Selection.SphereRadius;
+            set => _settings.Landscape.Selection.SphereRadius = value;
+        }
         public float SphereHeightOffset { get; set; } = 0.0f;
         public Vector3 LightDirection { get; set; } = new Vector3(0.5f, 0.3f, -0.3f);
         public float SpecularPower { get; set; } = 32.0f;
@@ -47,8 +73,9 @@ namespace WorldBuilder.Editors.Landscape {
         public float SphereGlowIntensity { get; set; } = 1.0f;
         public float SphereGlowPower { get; set; } = 0.5f;
 
-        public TerrainRenderer(OpenGLRenderer render) {
+        public TerrainRenderer(OpenGLRenderer render, WorldBuilderSettings settings) {
             _render = render;
+            _settings = settings;
             gl = render.GraphicsDevice.GL;
             InitializeShaders();
             InitializeSphereGeometry();
@@ -195,7 +222,7 @@ namespace WorldBuilder.Editors.Landscape {
             // Calculate matrices
             Matrix4x4 model = Matrix4x4.Identity;
             Matrix4x4 view = camera.GetViewMatrix();
-            Matrix4x4 projection = camera.GetProjectionMatrix(aspectRatio, 1f, 10000f);
+            Matrix4x4 projection = camera.GetProjectionMatrix();
             Matrix4x4 viewProjection = view * projection;
 
             float cameraDistance = MathF.Abs(camera.Position.Z);
@@ -232,7 +259,7 @@ namespace WorldBuilder.Editors.Landscape {
             _terrainShader.SetUniform("xAmbient", AmbientLightIntensity);
             _terrainShader.SetUniform("xWorld", model);
             _terrainShader.SetUniform("xView", camera.GetViewMatrix());
-            _terrainShader.SetUniform("xProjection", camera.GetProjectionMatrix(_aspectRatio, 1f, 192f * 255f * 2f));
+            _terrainShader.SetUniform("xProjection", camera.GetProjectionMatrix());
             _terrainShader.SetUniform("uAlpha", 1f);
             _terrainShader.SetUniform("uShowLandblockGrid", ShowGrid ? 1 : 0);
             _terrainShader.SetUniform("uShowCellGrid", ShowGrid ? 1 : 0);

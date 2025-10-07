@@ -60,7 +60,7 @@ namespace WorldBuilder.Lib.Settings {
                 var json = JsonSerializer.Serialize(this)
                     ?? throw new Exception("Failed to serialize settings to json");
                 File.WriteAllText(tmpFile, json);
-                File.Move(tmpFile, SettingsFilePath);
+                File.Move(tmpFile, SettingsFilePath, true);
             }
             catch(Exception ex) {
                 _log?.LogError(ex, "Failed to save settings");

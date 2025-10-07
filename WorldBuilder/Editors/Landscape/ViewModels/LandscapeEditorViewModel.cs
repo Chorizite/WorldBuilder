@@ -15,6 +15,7 @@ using WorldBuilder.ViewModels;
 using WorldBuilder.Editors.Landscape.ViewModels;
 using WorldBuilder.Editors.Landscape;
 using Microsoft.Extensions.DependencyInjection;
+using WorldBuilder.Lib.Settings;
 
 namespace WorldBuilder.Editors.Landscape.ViewModels {
     public partial class LandscapeEditorViewModel : ViewModelBase {
@@ -30,15 +31,17 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         private Project _project;
         private IDatReaderWriter _dats;
         public TerrainSystem TerrainSystem { get; private set; }
+        public WorldBuilderSettings Settings { get; }
 
-        public LandscapeEditorViewModel() {
+        public LandscapeEditorViewModel(WorldBuilderSettings settings) {
+            Settings = settings;
         }
 
         internal void Init(Project project, OpenGLRenderer render, Avalonia.PixelSize canvasSize) {
             _dats = project.DocumentManager.Dats;
             _project = project;
 
-            TerrainSystem = new TerrainSystem(render, project, _dats);
+            TerrainSystem = new TerrainSystem(render, project, _dats, Settings);
 
             Tools.Add(TerrainSystem.Services.GetRequiredService<TexturePaintingToolViewModel>());
             Tools.Add(TerrainSystem.Services.GetRequiredService<RoadDrawingToolViewModel>());
@@ -71,11 +74,9 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         private void UpdateTerrain(Avalonia.PixelSize canvasSize) {
             if (TerrainSystem == null) return;
 
+            TerrainSystem.CameraManager.Current.ScreenSize = new Vector2(canvasSize.Width, canvasSize.Height);
             var view = TerrainSystem.CameraManager.Current.GetViewMatrix();
-            var projection = TerrainSystem.CameraManager.Current.GetProjectionMatrix(
-                (float)canvasSize.Width / canvasSize.Height,
-                1.0f,
-                80000f);
+            var projection = TerrainSystem.CameraManager.Current.GetProjectionMatrix();
             var viewProjection = view * projection;
 
             // Update terrain system (handles chunk streaming and GPU updates)
