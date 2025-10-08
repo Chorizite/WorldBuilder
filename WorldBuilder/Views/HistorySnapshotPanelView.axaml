@@ -43,6 +43,8 @@
 
                         <ListBox
                             x:Name="SnapshotsListBox"
+                            BorderBrush="Gray"
+                            BorderThickness="0,0,0,1"
                             ItemsSource="{Binding SnapshotItems}"
                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                             SelectedItem="{Binding SelectedSnapshot}">

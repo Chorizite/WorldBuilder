@@ -190,6 +190,13 @@ namespace WorldBuilder.Lib {
             OnHistoryChanged();
         }
 
+        public void ResetToBase() {
+            _currentIndex = -1;
+            ValidateIndex();
+            UpdateCurrentStateMarkers();
+            // Do not invoke OnHistoryChanged here, as state is set externally
+        }
+
         private void TrimHistory() {
             try {
                 while (_history.Count > _maxHistorySize && _history.Count > 0) {

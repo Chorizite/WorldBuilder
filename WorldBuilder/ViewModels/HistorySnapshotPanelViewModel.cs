@@ -18,6 +18,7 @@ namespace WorldBuilder.ViewModels {
         private readonly CommandHistory _commandHistory;
         private bool _isUpdatingSelection;
         private List<DBSnapshot> _cachedSnapshots;
+        private byte[]? _tempOriginalProjection;
 
         [ObservableProperty]
         private ObservableCollection<HistoryListItem> _snapshotItems;
@@ -54,11 +55,36 @@ namespace WorldBuilder.ViewModels {
 
         private async void InitializeAsync() {
             await LoadSnapshotsAsync();
+            _tempOriginalProjection = _terrainSystem.TerrainDoc.SaveToProjection();
             UpdateHistoryList(null);
         }
 
         private void OnCommandHistoryChanged(object? sender, EventArgs e) {
             UpdateHistoryList(SelectedItem);
+            UpdateTempOriginal();
+        }
+
+        private void UpdateTempOriginal() {
+            if (_commandHistory.History.Count == 0) {
+                // If history is empty, save the current document state as the temporary original
+                _tempOriginalProjection = _terrainSystem.TerrainDoc.SaveToProjection();
+            }
+            else {
+                // Temporarily disable history change events to prevent recursive updates
+                _commandHistory.HistoryChanged -= OnCommandHistoryChanged;
+                try {
+                    int currentIndex = _commandHistory.CurrentIndex;
+                    // Jump to the base state (Index = -1) to capture the original state
+                    if (_commandHistory.JumpToHistory(-1)) {
+                        _tempOriginalProjection = _terrainSystem.TerrainDoc.SaveToProjection();
+                        // Restore to the original history index
+                        _commandHistory.JumpToHistory(currentIndex);
+                    }
+                }
+                finally {
+                    _commandHistory.HistoryChanged += OnCommandHistoryChanged;
+                }
+            }
         }
 
         private async Task LoadSnapshotsAsync() {
@@ -148,7 +174,6 @@ namespace WorldBuilder.ViewModels {
                     currentItems.Insert(i, newItem);
                 }
             }
-
             while (currentItems.Count > newItems.Count) {
                 currentItems.RemoveAt(currentItems.Count - 1);
             }
@@ -203,23 +228,47 @@ namespace WorldBuilder.ViewModels {
 
         [RelayCommand]
         private async Task RevertToState(HistoryListItem? item) {
-            if (item == null || item.IsCurrent) return;
+            if (item == null) return;
+
+            var startLandblocks = _terrainSystem.TerrainDoc.TerrainData.Landblocks.Keys.ToHashSet();
+            bool success = false;
 
             if (item.IsSnapshot) {
-                var startLandblocks = _terrainSystem.TerrainDoc.TerrainData.Landblocks.Keys.ToHashSet();
                 var snapshot = _cachedSnapshots.FirstOrDefault(s => s.Id == item.SnapshotId!.Value)
                     ?? await _documentStorageService.GetSnapshotAsync(item.SnapshotId!.Value);
-                if (snapshot != null && _terrainSystem.TerrainDoc.LoadFromProjection(snapshot.Data)) {
-                    var modifiedLandblockIds = new HashSet<ushort>(
-                        _terrainSystem.TerrainDoc.TerrainData.Landblocks.Keys);
-                    modifiedLandblockIds.UnionWith(startLandblocks);
-                    _terrainSystem.EditingContext.MarkLandblocksModified(modifiedLandblockIds);
+                if (snapshot != null) {
+                    success = _terrainSystem.TerrainDoc.LoadFromProjection(snapshot.Data);
+                    // Reset history to base state when loading a snapshot
+                    _commandHistory.ResetToBase();
                 }
-                UpdateHistoryList(item);
             }
             else {
-                _commandHistory.JumpToHistory(item.Index);
+                if (_tempOriginalProjection == null) {
+                    // Fallback: Save current state as temp original if not set
+                    _tempOriginalProjection = _terrainSystem.TerrainDoc.SaveToProjection();
+                }
+
+                // Always start from the original state for history navigation
+                success = _terrainSystem.TerrainDoc.LoadFromProjection(_tempOriginalProjection);
+                Console.WriteLine($"Reverting to original state: {success}");
+                if (success && item.Index >= 0) {
+                    // Only reset to base and jump if not selecting the original document
+                    _commandHistory.ResetToBase();
+                    success = _commandHistory.JumpToHistory(item.Index);
+                }
+                else if (success && item.Index == -1) {
+                    // For original document, just reset to base state
+                    _commandHistory.ResetToBase();
+                }
             }
+
+            if (success) {
+                var modifiedLandblockIds = new HashSet<ushort>(_terrainSystem.TerrainDoc.TerrainData.Landblocks.Keys);
+                modifiedLandblockIds.UnionWith(startLandblocks);
+                _terrainSystem.EditingContext.MarkLandblocksModified(modifiedLandblockIds);
+            }
+
+            UpdateHistoryList(item, isUserSelection: true);
         }
 
         [RelayCommand]
@@ -299,9 +348,7 @@ namespace WorldBuilder.ViewModels {
                 UpdateDimming();
                 UpdateCanRevert();
 
-                if (!item.IsCurrent) {
-                    _ = RevertToState(item);
-                }
+                _ = RevertToState(item);
 
                 SelectedHistory = null;
             }
@@ -312,6 +359,7 @@ namespace WorldBuilder.ViewModels {
 
         [RelayCommand]
         private void SelectHistoryItem(HistoryListItem? item) {
+            Console.WriteLine($"SelectHistoryItem: {item?.Description} // {item?.IsCurrent}");
             if (item == null || _isUpdatingSelection) return;
 
             _isUpdatingSelection = true;
@@ -322,9 +370,7 @@ namespace WorldBuilder.ViewModels {
                 UpdateDimming();
                 UpdateCanRevert();
 
-                if (!item.IsCurrent) {
-                    _ = RevertToState(item);
-                }
+                _ = RevertToState(item);
 
                 SelectedSnapshot = null;
             }

@@ -32,7 +32,16 @@ namespace WorldBuilder.Lib.Extensions {
 
         public static void AddProjectServices(this IServiceCollection collection, Project project, IServiceProvider rootProvider) {
             collection.AddDbContext<DocumentDbContext>(
-                o => o.UseSqlite($"DataSource={project.DatabasePath}"),
+                o => {
+                    o.UseSqlite($"DataSource={project.DatabasePath}");
+                    // Configure logging
+                    o.UseLoggerFactory(LoggerFactory.Create(builder => {
+                        builder
+                            .AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
+                    }));
+                    // Optional: Enable sensitive data logging (e.g., for parameter values in queries)
+                    o.EnableSensitiveDataLogging();
+                },
                 ServiceLifetime.Scoped);
 
             collection.AddLogging((c) => c.AddProvider(new ColorConsoleLoggerProvider()));
