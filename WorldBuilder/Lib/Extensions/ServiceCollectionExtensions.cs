@@ -44,6 +44,7 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton<IDocumentStorageService, DocumentStorageService>();
             collection.AddSingleton(project);
             collection.AddTransient<LandscapeEditorViewModel>();
+            collection.AddTransient<HistorySnapshotPanelViewModel>();
         }
     }
 }

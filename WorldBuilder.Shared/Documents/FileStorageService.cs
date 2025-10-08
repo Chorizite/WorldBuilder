@@ -321,5 +321,25 @@ namespace WorldBuilder.Shared.Documents {
         public void Dispose() {
             // No resources to dispose
         }
+
+        public Task<DBSnapshot> CreateSnapshotAsync(DBSnapshot snapshot) {
+            throw new NotImplementedException();
+        }
+
+        public Task<DBSnapshot?> GetSnapshotAsync(Guid snapshotId) {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<DBSnapshot>> GetSnapshotsAsync(string documentId) {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> DeleteSnapshotAsync(Guid snapshotId) {
+            throw new NotImplementedException();
+        }
+
+        public Task UpdateSnapshotNameAsync(Guid snapshotId, string newName) {
+            throw new NotImplementedException();
+        }
     }
 }
