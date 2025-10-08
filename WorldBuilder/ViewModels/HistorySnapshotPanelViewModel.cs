@@ -76,7 +76,7 @@ namespace WorldBuilder.ViewModels {
                 IsCurrent = false,
                 IsSnapshot = true,
                 SnapshotId = s.Id
-            }).OrderByDescending(i => i.Timestamp);
+            }).OrderBy(i => i.Timestamp);
 
             foreach (var item in snapshotItems) {
                 SnapshotItems.Add(item);
@@ -92,11 +92,11 @@ namespace WorldBuilder.ViewModels {
             }
         }
 
-        private void UpdateHistoryList(HistoryListItem? targetSelection) {
+        private void UpdateHistoryList(HistoryListItem? targetSelection, bool isUserSelection = false) {
             var selectedIndex = targetSelection?.IsSnapshot == false ? targetSelection.Index : -1;
             var wasSnapshot = targetSelection?.IsSnapshot == true;
 
-            var newHistoryItems = _commandHistory.GetHistoryList().OrderBy(i => i.Timestamp).ToList();
+            var newHistoryItems = _commandHistory.GetHistoryList().OrderBy(i => i.Index).ToList();
             UpdateCollection(HistoryItems, newHistoryItems);
 
             UpdateDimming();
@@ -108,30 +108,24 @@ namespace WorldBuilder.ViewModels {
 
             _isUpdatingSelection = true;
             try {
-                HistoryListItem? itemToSelect = null;
+                // Default to the current item
+                var itemToSelect = HistoryItems.FirstOrDefault(i => i.IsCurrent) ?? HistoryItems.LastOrDefault();
 
-                // If no target selection specified, always select the current item
-                if (targetSelection == null) {
-                    itemToSelect = HistoryItems.FirstOrDefault(i => i.IsCurrent) ?? HistoryItems.LastOrDefault();
-                }
-                // If target is specified and not a snapshot, try to find it
-                else if (!wasSnapshot && selectedIndex >= -1) {
-                    itemToSelect = HistoryItems.FirstOrDefault(i => i.Index == selectedIndex)
-                        ?? HistoryItems.FirstOrDefault(i => i.IsCurrent)
-                        ?? HistoryItems.LastOrDefault();
-                }
-                // Fallback to current or last item
-                else {
-                    itemToSelect = HistoryItems.FirstOrDefault(i => i.IsCurrent) ?? HistoryItems.LastOrDefault();
+                // Only use targetSelection for explicit user selections (e.g., UI click)
+                if (isUserSelection && targetSelection != null && !wasSnapshot && selectedIndex >= -1) {
+                    var matchingItem = HistoryItems.FirstOrDefault(i => i.Index == selectedIndex);
+                    if (matchingItem != null) {
+                        itemToSelect = matchingItem;
+                    }
                 }
 
                 SelectedHistory = itemToSelect;
                 SelectedItem = itemToSelect;
+                SelectedSnapshot = null; // Clear snapshot selection when selecting history
             }
             finally {
                 _isUpdatingSelection = false;
             }
-
             UpdateCanRevert();
         }
 
@@ -221,7 +215,7 @@ namespace WorldBuilder.ViewModels {
                     modifiedLandblockIds.UnionWith(startLandblocks);
                     _terrainSystem.EditingContext.MarkLandblocksModified(modifiedLandblockIds);
                 }
-                UpdateHistoryList(null);
+                UpdateHistoryList(item);
             }
             else {
                 _commandHistory.JumpToHistory(item.Index);

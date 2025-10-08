@@ -7,7 +7,7 @@ namespace WorldBuilder.Lib.Converters {
     public class BoolToStringConverter : IValueConverter {
         public static readonly BoolToStringConverter DocumentOrHistory = new BoolToStringConverter();
 
-        public object Convert(object value, Type targetType, object parameter, CultureInfo cultureソーシャルメディアculture) {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture) {
             if (value is bool boolValue && targetType == typeof(string)) {
                 return boolValue ? "📄" : "🕒";
             }
