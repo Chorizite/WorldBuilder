@@ -49,5 +49,11 @@ namespace WorldBuilder.Shared.Documents {
         /// <param name="update"></param>
         /// <returns></returns>
         Task<DBDocumentUpdate> CreateUpdateAsync(string documentId, string type, byte[] update);
+
+        Task<DBSnapshot> CreateSnapshotAsync(DBSnapshot snapshot);
+        Task<DBSnapshot?> GetSnapshotAsync(Guid snapshotId);
+        Task<List<DBSnapshot>> GetSnapshotsAsync(string documentId);
+        Task<bool> DeleteSnapshotAsync(Guid snapshotId);
+        Task UpdateSnapshotNameAsync(Guid snapshotId, string newName);
     }
 }

@@ -7,7 +7,7 @@ using WorldBuilder.Shared.Lib;
 namespace WorldBuilder.Shared.Documents {
     public class DocumentManager : IDisposable {
         private readonly SemaphoreSlim _semaphore = new(1, 1);
-        private readonly IDocumentStorageService _documentService;
+        public readonly IDocumentStorageService DocumentStorageService;
         private readonly ILogger<DocumentManager> _logger;
         public IDatReaderWriter Dats { get; set; }
         private readonly ConcurrentDictionary<string, BaseDocument> _activeDocs = new();
@@ -31,7 +31,7 @@ namespace WorldBuilder.Shared.Documents {
         private string? _cacheDirectory;
 
         public DocumentManager(IDocumentStorageService documentService, ILogger<DocumentManager> logger) {
-            _documentService = documentService;
+            DocumentStorageService = documentService;
             _logger = logger;
 
             // Initialize update batching
@@ -72,7 +72,7 @@ namespace WorldBuilder.Shared.Documents {
 
             try {
                 var tType = typeof(T).Name;
-                var dbDoc = await _documentService.GetDocumentAsync(documentId);
+                var dbDoc = await DocumentStorageService.GetDocumentAsync(documentId);
                 var tDoc = Activator.CreateInstance(typeof(T), _logger) as T;
 
                 if (tDoc is null) {
@@ -83,7 +83,7 @@ namespace WorldBuilder.Shared.Documents {
                 tDoc.SetCacheDirectory(_cacheDirectory);
 
                 if (dbDoc == null) {
-                    dbDoc = await _documentService.CreateDocumentAsync(documentId, tType, tDoc.SaveToProjection());
+                    dbDoc = await DocumentStorageService.CreateDocumentAsync(documentId, tType, tDoc.SaveToProjection());
                     _logger.LogInformation("Creating new Document {DocumentId}({Type})", documentId, typeof(T));
                 }
                 else {
@@ -133,7 +133,7 @@ namespace WorldBuilder.Shared.Documents {
                         // Fallback: save immediately to avoid data loss
                         try {
                             var projection = e.Document.SaveToProjection();
-                            await _documentService.UpdateDocumentAsync(e.Document.Id, projection);
+                            await DocumentStorageService.UpdateDocumentAsync(e.Document.Id, projection);
                         }
                         catch (Exception ex2) {
                             _logger.LogError(ex2, "Failed to process immediate update for document {DocumentId}", e.Document.Id);
@@ -188,6 +188,7 @@ namespace WorldBuilder.Shared.Documents {
 
         private async Task ProcessBatch(List<DocumentUpdate> batch) {
             try {
+                _logger.LogInformation("Processing batch of {Count} updates", batch.Count);
                 var latestUpdates = batch
                     .GroupBy(u => u.DocumentId)
                     .Select(g => g.OrderByDescending(u => u.Timestamp).First())
@@ -195,10 +196,11 @@ namespace WorldBuilder.Shared.Documents {
 
                 var semaphore = new SemaphoreSlim(16); // Adjustable concurrency limit
                 var tasks = latestUpdates.Select(async update => {
+                    _logger.LogInformation("Processing update for document {DocumentId}", update.DocumentId);
                     await semaphore.WaitAsync();
                     try {
                         var projection = update.Document.SaveToProjection();
-                        await _documentService.UpdateDocumentAsync(update.DocumentId, projection);
+                        await DocumentStorageService.UpdateDocumentAsync(update.DocumentId, projection);
                     }
                     catch (Exception ex) {
                         _logger.LogError(ex, "Failed to process batched update for document {DocumentId}", update.DocumentId);
@@ -221,7 +223,7 @@ namespace WorldBuilder.Shared.Documents {
                 doc.Update -= HandleDocumentUpdate;
                 try {
                     var projection = doc.SaveToProjection();
-                    await _documentService.UpdateDocumentAsync(documentId, projection);
+                    await DocumentStorageService.UpdateDocumentAsync(documentId, projection);
                 }
                 catch (Exception ex) {
                     _logger.LogError(ex, "Failed to save document {DocumentId} on close", documentId);
@@ -265,7 +267,7 @@ namespace WorldBuilder.Shared.Documents {
             finally {
                 _cancellationTokenSource.Dispose();
                 _activeDocs.Clear();
-                _documentService.Dispose();
+                DocumentStorageService.Dispose();
             }
         }
     }

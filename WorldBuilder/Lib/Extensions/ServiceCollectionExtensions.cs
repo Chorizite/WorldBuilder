@@ -32,7 +32,9 @@ namespace WorldBuilder.Lib.Extensions {
 
         public static void AddProjectServices(this IServiceCollection collection, Project project, IServiceProvider rootProvider) {
             collection.AddDbContext<DocumentDbContext>(
-                o => o.UseSqlite($"DataSource={project.DatabasePath}"),
+                o => {
+                    o.UseSqlite($"DataSource={project.DatabasePath}");
+                },
                 ServiceLifetime.Scoped);
 
             collection.AddLogging((c) => c.AddProvider(new ColorConsoleLoggerProvider()));
@@ -44,6 +46,7 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton<IDocumentStorageService, DocumentStorageService>();
             collection.AddSingleton(project);
             collection.AddTransient<LandscapeEditorViewModel>();
+            collection.AddTransient<HistorySnapshotPanelViewModel>();
         }
     }
 }

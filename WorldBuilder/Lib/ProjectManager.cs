@@ -89,6 +89,7 @@ namespace WorldBuilder.Lib {
 
             var dbCtx = CompositeProvider.GetRequiredService<DocumentDbContext>();
             dbCtx.Database.EnsureCreated();
+            dbCtx.InitializeSqliteAsync().Wait();
 
             AddRecentProject(project.Name, project.FilePath);
             CurrentProjectChanged?.Invoke(this, EventArgs.Empty);

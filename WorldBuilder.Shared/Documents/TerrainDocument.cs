@@ -268,8 +268,9 @@ namespace WorldBuilder.Shared.Documents {
                     }
                 }
             }
-
+            _logger.LogInformation("Applying {Count} landblock changes", evt.Changes.Count);
             OnUpdate(evt);
+            _logger.LogInformation("Update event raised for document {Id}", Id);
             return true;
         }
 

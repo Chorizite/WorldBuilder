@@ -12,6 +12,7 @@ using WorldBuilder.Lib.Settings;
 using WorldBuilder.Shared.Documents;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Editors.Landscape {
     /// <summary>
@@ -53,22 +54,19 @@ namespace WorldBuilder.Editors.Landscape {
             collection.AddSingleton(EditingContext);
             collection.AddSingleton<TerrainRenderer>();
             collection.AddSingleton<WorldBuilderSettings>(Settings);
-
             collection.AddSingleton<RoadLineSubToolViewModel>();
             collection.AddSingleton<RoadPointSubToolViewModel>();
             collection.AddSingleton<RoadRemoveSubToolViewModel>();
             collection.AddSingleton<RoadDrawingToolViewModel>();
-
             collection.AddSingleton<BrushSubToolViewModel>();
             collection.AddSingleton<BucketFillSubToolViewModel>();
             collection.AddSingleton<TexturePaintingToolViewModel>();
-
             collection.AddSingleton(TerrainDoc);
             collection.AddSingleton(dats);
             collection.AddSingleton(project);
             collection.AddSingleton(renderer);
             collection.AddSingleton(new CommandHistory(50));
-
+            collection.AddSingleton<HistorySnapshotPanelViewModel>();
             collection.AddTransient<PerspectiveCamera>();
             collection.AddTransient<OrthographicTopDownCamera>();
 
@@ -87,9 +85,6 @@ namespace WorldBuilder.Editors.Landscape {
             GPUManager = new TerrainGPUResourceManager(renderer);
         }
 
-        /// <summary>
-        /// Updates terrain based on camera and frustum
-        /// </summary>
         public void Update(Vector3 cameraPosition, Matrix4x4 viewProjectionMatrix) {
             var frustum = new Frustum(viewProjectionMatrix);
             var requiredChunks = DataManager.GetRequiredChunks(cameraPosition);
@@ -109,9 +104,6 @@ namespace WorldBuilder.Editors.Landscape {
             }
         }
 
-        /// <summary>
-        /// Forces a full regeneration of specific chunks
-        /// </summary>
         public void RegenerateChunks(IEnumerable<ulong> chunkIds) {
             foreach (var chunkId in chunkIds) {
                 var chunkX = (uint)(chunkId >> 32);
@@ -122,11 +114,7 @@ namespace WorldBuilder.Editors.Landscape {
             }
         }
 
-        /// <summary>
-        /// Updates specific landblocks across potentially multiple chunks
-        /// </summary>
         public void UpdateLandblocks(IEnumerable<uint> landblockIds) {
-            // Group landblocks by their containing chunks
             var landblocksByChunk = new Dictionary<ulong, List<uint>>();
 
             foreach (var landblockId in landblockIds) {
@@ -143,7 +131,6 @@ namespace WorldBuilder.Editors.Landscape {
                 landblocksByChunk[chunkId].Add(landblockId);
             }
 
-            // Update each chunk's landblocks
             foreach (var kvp in landblocksByChunk) {
                 var chunk = DataManager.GetChunk(kvp.Key);
                 if (chunk != null) {
@@ -152,9 +139,6 @@ namespace WorldBuilder.Editors.Landscape {
             }
         }
 
-        /// <summary>
-        /// Gets renderable chunks with their GPU data
-        /// </summary>
         public IEnumerable<(TerrainChunk chunk, ChunkRenderData renderData)> GetRenderableChunks(Frustum frustum) {
             foreach (var chunk in DataManager.GetAllChunks()) {
                 if (!frustum.IntersectsBoundingBox(chunk.Bounds)) continue;
@@ -171,6 +155,8 @@ namespace WorldBuilder.Editors.Landscape {
 
         public void Dispose() {
             GPUManager?.Dispose();
+            Services.GetRequiredService<DocumentManager>().CloseDocumentAsync(TerrainDoc.Id).GetAwaiter().GetResult();
         }
     }
+
 }
