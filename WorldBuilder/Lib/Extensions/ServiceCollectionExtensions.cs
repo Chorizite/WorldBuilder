@@ -34,13 +34,6 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddDbContext<DocumentDbContext>(
                 o => {
                     o.UseSqlite($"DataSource={project.DatabasePath}");
-                    // Configure logging
-                    o.UseLoggerFactory(LoggerFactory.Create(builder => {
-                        builder
-                            .AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
-                    }));
-                    // Optional: Enable sensitive data logging (e.g., for parameter values in queries)
-                    o.EnableSensitiveDataLogging();
                 },
                 ServiceLifetime.Scoped);
 

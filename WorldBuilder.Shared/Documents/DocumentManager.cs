@@ -188,6 +188,7 @@ namespace WorldBuilder.Shared.Documents {
 
         private async Task ProcessBatch(List<DocumentUpdate> batch) {
             try {
+                _logger.LogInformation("Processing batch of {Count} updates", batch.Count);
                 var latestUpdates = batch
                     .GroupBy(u => u.DocumentId)
                     .Select(g => g.OrderByDescending(u => u.Timestamp).First())
@@ -195,6 +196,7 @@ namespace WorldBuilder.Shared.Documents {
 
                 var semaphore = new SemaphoreSlim(16); // Adjustable concurrency limit
                 var tasks = latestUpdates.Select(async update => {
+                    _logger.LogInformation("Processing update for document {DocumentId}", update.DocumentId);
                     await semaphore.WaitAsync();
                     try {
                         var projection = update.Document.SaveToProjection();
