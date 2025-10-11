@@ -18,7 +18,8 @@ namespace WorldBuilder.ViewModels {
         private readonly CommandHistory _commandHistory;
         private bool _isUpdatingSelection;
         private List<DBSnapshot> _cachedSnapshots;
-        private byte[]? _tempOriginalProjection;
+        private byte[]? _originalDocumentProjection;
+        private byte[]? _baseProjection;
 
         [ObservableProperty]
         private ObservableCollection<HistoryListItem> _snapshotItems;
@@ -55,125 +56,108 @@ namespace WorldBuilder.ViewModels {
 
         private async void InitializeAsync() {
             await LoadSnapshotsAsync();
-            _tempOriginalProjection = _terrainSystem.TerrainDoc.SaveToProjection();
-            UpdateHistoryList(null);
+            // Capture the original document state (never changes)
+            _originalDocumentProjection = _terrainSystem.TerrainDoc.SaveToProjection();
+            _baseProjection = _originalDocumentProjection;
+            UpdateHistoryList();
         }
 
         private void OnCommandHistoryChanged(object? sender, EventArgs e) {
-            UpdateHistoryList(SelectedItem);
-            UpdateTempOriginal();
-        }
-
-        private void UpdateTempOriginal() {
-            if (_commandHistory.History.Count == 0) {
-                // If history is empty, save the current document state as the temporary original
-                _tempOriginalProjection = _terrainSystem.TerrainDoc.SaveToProjection();
-            }
-            else {
-                // Temporarily disable history change events to prevent recursive updates
-                _commandHistory.HistoryChanged -= OnCommandHistoryChanged;
-                try {
-                    int currentIndex = _commandHistory.CurrentIndex;
-                    // Jump to the base state (Index = -1) to capture the original state
-                    if (_commandHistory.JumpToHistory(-1)) {
-                        _tempOriginalProjection = _terrainSystem.TerrainDoc.SaveToProjection();
-                        // Restore to the original history index
-                        _commandHistory.JumpToHistory(currentIndex);
-                    }
-                }
-                finally {
-                    _commandHistory.HistoryChanged += OnCommandHistoryChanged;
-                }
-            }
+            UpdateHistoryList();
         }
 
         private async Task LoadSnapshotsAsync() {
             _cachedSnapshots = (await _documentStorageService.GetSnapshotsAsync(_terrainSystem.TerrainDoc.Id)).ToList();
-            UpdateSnapshotItems(null);
+            UpdateSnapshotItems();
         }
 
-        private void UpdateSnapshotItems(HistoryListItem? targetSelection) {
-            var selectedSnapshotId = targetSelection?.IsSnapshot == true ? targetSelection.SnapshotId : SelectedItem?.IsSnapshot == true ? SelectedItem.SnapshotId : null;
+        private void UpdateSnapshotItems() {
+            var selectedSnapshotId = SelectedItem?.IsSnapshot == true ? SelectedItem.SnapshotId : null;
+
             SnapshotItems.Clear();
-            var snapshotItems = _cachedSnapshots.Select(s => new HistoryListItem {
-                Index = -1,
-                Description = s.Name,
-                Timestamp = s.Timestamp,
-                IsCurrent = false,
-                IsSnapshot = true,
-                SnapshotId = s.Id
-            }).OrderBy(i => i.Timestamp);
+            var snapshotItems = _cachedSnapshots
+                .Select(s => new HistoryListItem {
+                    Index = -1,
+                    Description = s.Name,
+                    Timestamp = s.Timestamp,
+                    IsCurrent = false,
+                    IsSnapshot = true,
+                    SnapshotId = s.Id
+                })
+                .OrderBy(i => i.Timestamp);
 
             foreach (var item in snapshotItems) {
                 SnapshotItems.Add(item);
             }
 
+            // Restore snapshot selection if it still exists
             if (selectedSnapshotId.HasValue) {
-                _isUpdatingSelection = true;
                 var snapshotToSelect = SnapshotItems.FirstOrDefault(i => i.SnapshotId == selectedSnapshotId);
-                SelectedSnapshot = snapshotToSelect;
-                SelectedItem = snapshotToSelect;
-                SelectedHistory = null;
-                _isUpdatingSelection = false;
+                if (snapshotToSelect != null) {
+                    _isUpdatingSelection = true;
+                    SelectedSnapshot = snapshotToSelect;
+                    SelectedItem = snapshotToSelect;
+                    SelectedHistory = null;
+                    _isUpdatingSelection = false;
+                }
             }
         }
 
-        private void UpdateHistoryList(HistoryListItem? targetSelection, bool isUserSelection = false) {
-            var selectedIndex = targetSelection?.IsSnapshot == false ? targetSelection.Index : -1;
-            var wasSnapshot = targetSelection?.IsSnapshot == true;
+        private void UpdateHistoryList() {
+            var currentIsSnapshot = SelectedItem?.IsSnapshot == true;
 
             var newHistoryItems = _commandHistory.GetHistoryList().OrderBy(i => i.Index).ToList();
             UpdateCollection(HistoryItems, newHistoryItems);
 
-            UpdateDimming();
-
-            // If a snapshot is selected, don't update history selection
-            if (wasSnapshot) {
+            // If a snapshot is currently selected AND there's no new history, keep the snapshot selected
+            if (currentIsSnapshot && _commandHistory.CurrentIndex == -1) {
+                UpdateDimming();
                 return;
             }
 
             _isUpdatingSelection = true;
             try {
-                // Default to the current item
-                var itemToSelect = HistoryItems.FirstOrDefault(i => i.IsCurrent) ?? HistoryItems.LastOrDefault();
-
-                // Only use targetSelection for explicit user selections (e.g., UI click)
-                if (isUserSelection && targetSelection != null && !wasSnapshot && selectedIndex >= -1) {
-                    var matchingItem = HistoryItems.FirstOrDefault(i => i.Index == selectedIndex);
-                    if (matchingItem != null) {
-                        itemToSelect = matchingItem;
-                    }
-                }
+                // Auto-select the current history item 
+                var itemToSelect = HistoryItems.FirstOrDefault(i => i.IsCurrent)
+                    ?? HistoryItems.FirstOrDefault(i => i.Index == -1);
 
                 SelectedHistory = itemToSelect;
                 SelectedItem = itemToSelect;
-                SelectedSnapshot = null; // Clear snapshot selection when selecting history
+                SelectedSnapshot = null; // Clear snapshot when new history is created
             }
             finally {
                 _isUpdatingSelection = false;
             }
+
             UpdateCanRevert();
+            UpdateDimming();
         }
 
         private void UpdateCollection(ObservableCollection<HistoryListItem> currentItems, List<HistoryListItem> newItems) {
+            // Remove items that no longer exist
             for (int i = currentItems.Count - 1; i >= 0; i--) {
                 var current = currentItems[i];
-                if (!newItems.Any(n => n.Index == current.Index && n.IsSnapshot == current.IsSnapshot)) {
+                if (!newItems.Any(n => n.Index == current.Index)) {
                     currentItems.RemoveAt(i);
                 }
             }
 
+            // Update or insert items
             for (int i = 0; i < newItems.Count; i++) {
                 var newItem = newItems[i];
                 if (i < currentItems.Count && currentItems[i].Index == newItem.Index) {
+                    // Update existing item
                     currentItems[i].Description = newItem.Description;
                     currentItems[i].Timestamp = newItem.Timestamp;
                     currentItems[i].IsCurrent = newItem.IsCurrent;
                 }
                 else {
+                    // Insert new item
                     currentItems.Insert(i, newItem);
                 }
             }
+
+            // Remove excess items
             while (currentItems.Count > newItems.Count) {
                 currentItems.RemoveAt(currentItems.Count - 1);
             }
@@ -193,13 +177,10 @@ namespace WorldBuilder.ViewModels {
             }
 
             // When a snapshot is selected, dim ALL history items
-            // Otherwise, only dim forward history items
+            // Otherwise, only dim future history items (beyond current index)
             foreach (var item in HistoryItems) {
                 if (isSnapshotSelected) {
                     item.IsDimmed = true;
-                }
-                else if (item.IsOriginalDocument) {
-                    item.IsDimmed = false;
                 }
                 else {
                     item.IsDimmed = item.Index > currentIndex;
@@ -223,7 +204,7 @@ namespace WorldBuilder.ViewModels {
 
             await _documentStorageService.CreateSnapshotAsync(snapshot);
             _cachedSnapshots.Add(snapshot);
-            UpdateSnapshotItems(SelectedItem);
+            UpdateSnapshotItems();
         }
 
         [RelayCommand]
@@ -234,41 +215,71 @@ namespace WorldBuilder.ViewModels {
             bool success = false;
 
             if (item.IsSnapshot) {
+                // Load snapshot directly
                 var snapshot = _cachedSnapshots.FirstOrDefault(s => s.Id == item.SnapshotId!.Value)
                     ?? await _documentStorageService.GetSnapshotAsync(item.SnapshotId!.Value);
+
                 if (snapshot != null) {
                     success = _terrainSystem.TerrainDoc.LoadFromProjection(snapshot.Data);
-                    // Reset history to base state when loading a snapshot
-                    _commandHistory.ResetToBase();
+                    if (success) {
+                        // Update the working base projection to the snapshot state
+                        // This ensures new edits build on top of the snapshot
+                        _baseProjection = snapshot.Data;
+
+                        // Reset history to base state
+                        _commandHistory.HistoryChanged -= OnCommandHistoryChanged;
+                        _commandHistory.ResetToBase();
+                        _commandHistory.HistoryChanged += OnCommandHistoryChanged;
+                    }
                 }
             }
             else {
-                if (_tempOriginalProjection == null) {
-                    // Fallback: Save current state as temp original if not set
-                    _tempOriginalProjection = _terrainSystem.TerrainDoc.SaveToProjection();
+                // Determine which base to use
+                byte[]? baseToUse;
+                if (item.Index == -1) {
+                    // "Original Document" entry - always use the original
+                    baseToUse = _originalDocumentProjection;
+                    _baseProjection = _originalDocumentProjection; // Reset working base to original
+                }
+                else {
+                    // History entry - use current working base (could be original or snapshot)
+                    baseToUse = _baseProjection;
                 }
 
-                // Always start from the original state for history navigation
-                success = _terrainSystem.TerrainDoc.LoadFromProjection(_tempOriginalProjection);
-                Console.WriteLine($"Reverting to original state: {success}");
-                if (success && item.Index >= 0) {
-                    // Only reset to base and jump if not selecting the original document
-                    _commandHistory.ResetToBase();
-                    success = _commandHistory.JumpToHistory(item.Index);
+                if (baseToUse == null) {
+                    baseToUse = _terrainSystem.TerrainDoc.SaveToProjection();
+                    _originalDocumentProjection ??= baseToUse;
+                    _baseProjection = baseToUse;
                 }
-                else if (success && item.Index == -1) {
-                    // For original document, just reset to base state
-                    _commandHistory.ResetToBase();
+
+                success = _terrainSystem.TerrainDoc.LoadFromProjection(baseToUse);
+
+                if (success) {
+                    // Replay history to the target index
+                    if (item.Index >= 0) {
+                        _commandHistory.HistoryChanged -= OnCommandHistoryChanged;
+                        _commandHistory.ResetToBase();
+                        success = _commandHistory.JumpToHistory(item.Index);
+                        _commandHistory.HistoryChanged += OnCommandHistoryChanged;
+                    }
+                    else {
+                        // Just stay at base state (index -1)
+                        _commandHistory.HistoryChanged -= OnCommandHistoryChanged;
+                        _commandHistory.ResetToBase();
+                        _commandHistory.HistoryChanged += OnCommandHistoryChanged;
+                    }
                 }
             }
 
             if (success) {
+                // Mark all affected landblocks as modified
                 var modifiedLandblockIds = new HashSet<ushort>(_terrainSystem.TerrainDoc.TerrainData.Landblocks.Keys);
                 modifiedLandblockIds.UnionWith(startLandblocks);
                 _terrainSystem.EditingContext.MarkLandblocksModified(modifiedLandblockIds);
-            }
 
-            UpdateHistoryList(item, isUserSelection: true);
+                // Force a complete refresh
+                UpdateHistoryList();
+            }
         }
 
         [RelayCommand]
@@ -296,7 +307,20 @@ namespace WorldBuilder.ViewModels {
             if (confirmed) {
                 await _documentStorageService.DeleteSnapshotAsync(item.SnapshotId!.Value);
                 _cachedSnapshots.RemoveAll(s => s.Id == item.SnapshotId!.Value);
-                UpdateSnapshotItems(SelectedItem?.SnapshotId == item.SnapshotId ? null : SelectedItem);
+
+                // Clear selection if we deleted the selected snapshot
+                if (SelectedItem?.SnapshotId == item.SnapshotId) {
+                    _isUpdatingSelection = true;
+                    SelectedSnapshot = null;
+                    SelectedItem = null;
+                    _isUpdatingSelection = false;
+
+                    // Revert to current history state
+                    var currentHistoryItem = HistoryItems.FirstOrDefault(i => i.IsCurrent);
+                    await RevertToState(currentHistoryItem);
+                }
+
+                UpdateSnapshotItems();
             }
         }
 
@@ -310,7 +334,7 @@ namespace WorldBuilder.ViewModels {
 
             if (confirmed) {
                 _commandHistory.DeleteFromIndex(item.Index);
-                UpdateHistoryList(SelectedItem?.Index == item.Index ? null : SelectedItem);
+                UpdateHistoryList();
             }
         }
 
@@ -326,13 +350,12 @@ namespace WorldBuilder.ViewModels {
                 snapshot.Name = newName;
                 await _documentStorageService.UpdateSnapshotNameAsync(snapshot.Id, newName);
 
-                // Update the cached snapshot and UI
                 var cachedSnapshot = _cachedSnapshots.FirstOrDefault(s => s.Id == snapshot.Id);
                 if (cachedSnapshot != null) {
                     cachedSnapshot.Name = newName;
                 }
 
-                UpdateSnapshotItems(SelectedItem);
+                UpdateSnapshotItems();
             }
         }
 
@@ -344,13 +367,12 @@ namespace WorldBuilder.ViewModels {
             try {
                 SelectedSnapshot = item;
                 SelectedItem = item;
+                SelectedHistory = null;
 
                 UpdateDimming();
                 UpdateCanRevert();
 
                 _ = RevertToState(item);
-
-                SelectedHistory = null;
             }
             finally {
                 _isUpdatingSelection = false;
@@ -359,20 +381,18 @@ namespace WorldBuilder.ViewModels {
 
         [RelayCommand]
         private void SelectHistoryItem(HistoryListItem? item) {
-            Console.WriteLine($"SelectHistoryItem: {item?.Description} // {item?.IsCurrent}");
             if (item == null || _isUpdatingSelection) return;
 
             _isUpdatingSelection = true;
             try {
                 SelectedHistory = item;
                 SelectedItem = item;
+                SelectedSnapshot = null;
 
                 UpdateDimming();
                 UpdateCanRevert();
 
                 _ = RevertToState(item);
-
-                SelectedSnapshot = null;
             }
             finally {
                 _isUpdatingSelection = false;
