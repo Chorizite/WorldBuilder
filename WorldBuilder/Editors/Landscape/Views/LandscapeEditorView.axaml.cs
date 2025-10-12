@@ -143,14 +143,14 @@ public partial class LandscapeEditorView : Base3DView {
 
         if (e.Key == Key.Z && e.KeyModifiers.HasFlag(KeyModifiers.Control)) {
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) {
-                _viewModel.TerrainSystem.CommandHistory.Redo();
+                _viewModel.TerrainSystem.History.Redo();
             }
             else {
-                _viewModel.TerrainSystem.CommandHistory.Undo();
+                _viewModel.TerrainSystem.History.Undo();
             }
         }
         if (e.Key == Key.Y && e.KeyModifiers.HasFlag(KeyModifiers.Control)) {
-            _viewModel.TerrainSystem.CommandHistory.Redo();
+            _viewModel.TerrainSystem.History.Redo();
         }
     }
 

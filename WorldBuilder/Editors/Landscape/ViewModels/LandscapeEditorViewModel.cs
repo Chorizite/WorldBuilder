@@ -50,7 +50,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             }
 
             var documentStorageService = project.DocumentManager.DocumentStorageService;
-            HistorySnapshotPanel = new HistorySnapshotPanelViewModel(TerrainSystem, documentStorageService, TerrainSystem.CommandHistory);
+            HistorySnapshotPanel = new HistorySnapshotPanelViewModel(TerrainSystem, documentStorageService, TerrainSystem.History);
 
             UpdateTerrain(canvasSize);
         }

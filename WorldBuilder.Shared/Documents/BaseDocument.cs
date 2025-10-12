@@ -45,11 +45,21 @@ namespace WorldBuilder.Shared.Documents {
 
         protected string? _cacheDirectory;
 
+        public bool IsDirty {  get; set; }
+
         public BaseDocument(ILogger logger) {
             _logger = logger;
             Update += (s, e) => {
                 OnPropertyChanged();
             };
+        }
+        protected void MarkDirty() {
+            IsDirty = true;
+            _logger.LogInformation("Document {DocumentId} marked as dirty", Id);
+        }
+        protected void ClearDirty() {
+            IsDirty = false;
+            _logger.LogInformation("Document {DocumentId} dirty flag cleared", Id);
         }
 
         public void SetCacheDirectory(string cacheDirectory) => _cacheDirectory = cacheDirectory;

@@ -32,6 +32,7 @@ namespace WorldBuilder.Editors.Landscape {
         private float _aspectRatio;
 
         // Rendering properties
+        private Vector3 SpawnSphereColor = new Vector3(1.0f, 0.0f, 0.0f);
         public float AmbientLightIntensity {
             get => _settings.Landscape.Rendering.LightIntensity;
             set => _settings.Landscape.Rendering.LightIntensity = value;
@@ -241,6 +242,61 @@ namespace WorldBuilder.Editors.Landscape {
                 gl.Disable(EnableCap.DepthTest);
                 RenderActiveSpheres(editingContext, terrainSystem.DataManager, camera, model, viewProjection);
             }
+
+            // Render static spawns
+            var spawns = terrainSystem.GetAllStaticSpawns().ToArray();
+            if (spawns.Length > 0) {
+                RenderSpawnSpheres(spawns, camera, terrainSystem.DataManager, model, viewProjection);
+            }
+        }
+        private void RenderSpawnSpheres(
+            (Vector3 Pos, Quaternion Rot)[] spawns,
+            ICamera camera,
+            TerrainDataManager dataManager,
+            Matrix4x4 model,
+            Matrix4x4 viewProjection) {
+
+            int count = spawns.Length;
+            var positions = new Vector3[count];
+            for (int i = 0; i < count; i++) {
+                try {
+                    var vertex = spawns[i].Pos;
+                    positions[i] = new Vector3(
+                        vertex.X,
+                        vertex.Y,
+                        dataManager.GetHeightAtPosition(vertex.X, vertex.Y) + SphereHeightOffset);
+                }
+                catch {
+                    positions[i] = Vector3.Zero;
+                }
+            }
+
+            gl.Enable(EnableCap.Blend);
+            gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+            _sphereShader.Bind();
+            _sphereShader.SetUniform("uViewProjection", viewProjection);
+            _sphereShader.SetUniform("uCameraPosition", camera.Position);
+            _sphereShader.SetUniform("uSphereColor", SpawnSphereColor);
+            Vector3 normLight = Vector3.Normalize(LightDirection);
+            _sphereShader.SetUniform("uLightDirection", normLight);
+            _sphereShader.SetUniform("uAmbientIntensity", AmbientLightIntensity);
+            _sphereShader.SetUniform("uSpecularPower", SpecularPower);
+            _sphereShader.SetUniform("uGlowColor", SphereGlowColor);
+            _sphereShader.SetUniform("uGlowIntensity", SphereGlowIntensity);
+            _sphereShader.SetUniform("uGlowPower", SphereGlowPower);
+            _sphereShader.SetUniform("uSphereRadius", SphereRadius);
+
+            gl.BindBuffer(GLEnum.ArrayBuffer, _sphereInstanceVBO);
+            fixed (Vector3* posPtr = positions) {
+                gl.BufferData(GLEnum.ArrayBuffer, (nuint)(count * sizeof(Vector3)), posPtr, GLEnum.DynamicDraw);
+            }
+
+            gl.BindVertexArray(_sphereVAO);
+            gl.DrawElementsInstanced(GLEnum.Triangles, (uint)_sphereIndexCount, GLEnum.UnsignedInt, null, (uint)count);
+            gl.BindVertexArray(0);
+            gl.UseProgram(0);
+            gl.Disable(EnableCap.Blend);
         }
 
         private void RenderTerrain(

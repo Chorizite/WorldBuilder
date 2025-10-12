@@ -24,6 +24,7 @@ namespace WorldBuilder.Shared.Lib {
             lock (_lock) {
                 return typeof(T) switch {
                     Type _ when typeof(T) == typeof(LandBlock) => Dats.Cell.TryGet(id, out file),
+                    Type _ when typeof(T) == typeof(LandBlockInfo) => Dats.Cell.TryGet(id, out file),
                     Type _ when typeof(T) == typeof(Region) => Dats.Portal.TryGet(id, out file),
                     Type _ when typeof(T) == typeof(RenderTexture) => Dats.Portal.TryGet(id, out file),
                     Type _ when typeof(T) == typeof(RenderSurface) => Dats.Portal.TryGet(id, out file),
@@ -37,6 +38,7 @@ namespace WorldBuilder.Shared.Lib {
             lock (_lock) {
                 return typeof(T) switch {
                     Type _ when typeof(T) == typeof(LandBlock) => Dats.Cell.TryWriteFile(file, iteration),
+                    Type _ when typeof(T) == typeof(LandBlockInfo) => Dats.Cell.TryWriteFile(file, iteration),
                     Type _ when typeof(T) == typeof(Region) => Dats.Portal.TryWriteFile(file, iteration),
                     Type _ when typeof(T) == typeof(RenderTexture) => Dats.Portal.TryWriteFile(file, iteration),
                     Type _ when typeof(T) == typeof(RenderSurface) => Dats.Portal.TryWriteFile(file, iteration),

@@ -1,14 +1,20 @@
-﻿using System;
+﻿using DatReaderWriter.Lib;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Threading.Tasks;
+using WorldBuilder.Editors;
 using WorldBuilder.Lib.History;
 using WorldBuilder.Lib.Settings;
+using WorldBuilder.Shared.Documents;
 using WorldBuilder.ViewModels;
 
 public class CommandHistory {
     private readonly List<HistoryEntry> _history = new();
     private int _currentIndex = -1;
     private readonly AppSettings _settings;
+    private readonly IEditor _editor;
+
     private int _maxHistorySize => _settings.HistoryLimit;
 
     public event EventHandler? HistoryChanged;
@@ -18,8 +24,9 @@ public class CommandHistory {
     public int CurrentIndex => _currentIndex;
     public IReadOnlyList<HistoryEntry> History => _history.AsReadOnly();
 
-    public CommandHistory(AppSettings settings) {
+    public CommandHistory(AppSettings settings, IEditor editor) {
         _settings = settings;
+        _editor = editor;
         ValidateIndex();
 
         _settings.PropertyChanged += OnSettingsChanged;
@@ -55,6 +62,7 @@ public class CommandHistory {
         }
 
         var entry = new HistoryEntry(command);
+        entry.AffectedDocumentIds = command.AffectedDocumentIds ?? new();
         _history.Add(entry);
         _currentIndex = _history.Count - 1;
 
@@ -63,10 +71,10 @@ public class CommandHistory {
         OnHistoryChanged();
         return true;
     }
-
     public bool Undo() {
         if (!CanUndo) return false;
-
+        var entry = _history[_currentIndex];
+        var loadedTemp = LoadTempDocsAsync(entry.AffectedDocumentIds).Result;
         try {
             var command = _history[_currentIndex].Command;
             if (command.Undo()) {
@@ -76,19 +84,18 @@ public class CommandHistory {
                 OnHistoryChanged();
                 return true;
             }
+            return false;
         }
-        catch (ArgumentOutOfRangeException) {
-            // Handle invalid index
-            _currentIndex = Math.Max(-1, _history.Count - 1);
-            UpdateCurrentStateMarkers();
-            OnHistoryChanged();
+        finally {
+            _ = UnloadTempDocsAsync(loadedTemp, entry.AffectedDocumentIds);
         }
-        return false;
     }
 
     public bool Redo() {
         if (!CanRedo) return false;
-
+        _currentIndex++;
+        var entry = _history[_currentIndex];
+        var loadedTemp = LoadTempDocsAsync(entry.AffectedDocumentIds).Result;
         try {
             _currentIndex++;
             var command = _history[_currentIndex].Command;
@@ -99,13 +106,35 @@ public class CommandHistory {
                 return true;
             }
             _currentIndex--; // Revert index if execution fails
+            return false;
         }
-        catch (ArgumentOutOfRangeException) {
-            _currentIndex = Math.Max(-1, _history.Count - 1);
-            UpdateCurrentStateMarkers();
-            OnHistoryChanged();
+        finally {
+            _  = UnloadTempDocsAsync(loadedTemp, entry.AffectedDocumentIds);
         }
-        return false;
+    }
+
+    private async Task<List<string>> LoadTempDocsAsync(List<string> docIds) {
+        var tempLoaded = new List<string>();
+        foreach (var id in docIds) {
+            if (_editor.GetDocument(id) == null) {  // Assuming static access or injected editor
+                await _editor.LoadDocumentAsync(id, typeof(BaseDocument));  // Type inference or map
+                tempLoaded.Add(id);
+            }
+        }
+        return tempLoaded;
+    }
+
+    private async Task UnloadTempDocsAsync(List<string> tempLoaded, List<string> allIds) {
+        foreach (var id in tempLoaded) {
+            // Unload only if not needed (e.g., not in view)
+            if (!IsDocumentInView(id)) {  // Impl based on proximity
+                await _editor.UnloadDocumentAsync(id);
+            }
+        }
+    }
+    private bool IsDocumentInView(string docId) {
+        // Stub: Check via TerrainSystem proximity
+        return true;  // For now
     }
 
     public bool JumpToHistory(int targetIndex) {

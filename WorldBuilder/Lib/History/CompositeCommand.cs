@@ -14,6 +14,13 @@ namespace WorldBuilder.Lib.History {
 
         public bool CanUndo => Commands.All(c => c.CanUndo);
 
+        public List<string> AffectedDocumentIds {
+            get => Commands.SelectMany(c => c.AffectedDocumentIds).Distinct().ToList();
+            set {
+                throw new NotImplementedException();
+            }
+        }
+
         public bool Execute() {
             foreach (var cmd in Commands) {
                 if (!cmd.Execute()) {

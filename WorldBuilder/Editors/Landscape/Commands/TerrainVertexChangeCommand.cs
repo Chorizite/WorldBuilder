@@ -15,6 +15,8 @@ namespace WorldBuilder.Editors.Landscape.Commands {
         public bool CanExecute => true;
         public bool CanUndo => true;
 
+        public List<string> AffectedDocumentIds => new() { _context.TerrainDocument.Id };
+
         protected TerrainVertexChangeCommand(TerrainEditingContext context) {
             _context = context ?? throw new ArgumentNullException(nameof(context));
         }

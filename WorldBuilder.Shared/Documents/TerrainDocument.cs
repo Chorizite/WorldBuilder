@@ -247,6 +247,7 @@ namespace WorldBuilder.Shared.Documents {
         }
 
         public bool Apply(TerrainUpdateEvent evt) {
+            MarkDirty();
             lock (_stateLock) {
                 foreach (var (lbKey, updates) in evt.Changes) {
                     if (!TerrainData.Landblocks.TryGetValue(lbKey, out var lbTerrain)) {
