@@ -77,6 +77,10 @@ jobs:
           echo "$CHANGELOG_BODY"
           echo 'EOF'
         } >> $GITHUB_OUTPUT
+        
+        # Print changelog
+        echo "Changelog:"
+        cat "${{ env.APP_VERSION }}.md"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
