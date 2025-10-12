@@ -52,14 +52,6 @@ jobs:
         echo "LATEST_TAG=$latest_tag" >> $GITHUB_OUTPUT
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Delete existing 'latest' release
-      if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
-      run: |
-        gh release delete latest --yes || true
-        git push origin :refs/tags/latest || true
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Generate Changelog
       id: changelog
@@ -69,7 +61,7 @@ jobs:
           -H "Accept: application/vnd.github+json" \
           /repos/${{ github.repository }}/releases/generate-notes \
           -f tag_name='latest' \
-          -f target_commitish='${{ github.sha }}' \
+          -f target_commitish='${{ github.ref_name }}' \
           -f previous_tag_name='${{ steps.get_latest_release.outputs.LATEST_TAG }}' \
           > changelog.json
         
@@ -112,6 +104,14 @@ jobs:
       env:
         SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         SPARKLE_PUBLIC_KEY: ${{ secrets.SPARKLE_PUBLIC_KEY }}
+    
+    - name: Delete existing 'latest' release
+      if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+      run: |
+        gh release delete latest --yes || true
+        git push origin :refs/tags/latest || true
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Create/Update Pre-release
       if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
