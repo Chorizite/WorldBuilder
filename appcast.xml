@@ -5,19 +5,20 @@
     <description>Most recent changes with links to updates</description>
     <language>en</language>
     <item>
-      <title>WorldBuilder 0.1.2+4</title>
+      <title>WorldBuilder 0.1.2+5</title>
       <description>## What's Changed
 * 17 terraintype selection for landscape tools shouldnt show roadtype texture by @trevis in https://github.com/Chorizite/WorldBuilder/pull/21
 * chore: new changelog generation by @trevis in https://github.com/Chorizite/WorldBuilder/pull/22
 * fix: wire up settings by @trevis in https://github.com/Chorizite/WorldBuilder/pull/23
+* History snapshots - closes #24 by @trevis in https://github.com/Chorizite/WorldBuilder/pull/25
 
 
 **Full Changelog**: https://github.com/Chorizite/WorldBuilder/compare/v0.1.1...latest</description>
-      <pubDate>Sat, 11 Oct 2025 23:09:48 +00:00</pubDate>
-      <sparkle:version>0.1.2+4</sparkle:version>
+      <pubDate>Sun, 12 Oct 2025 00:08:55 +00:00</pubDate>
+      <sparkle:version>0.1.2+5</sparkle:version>
       <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
       <sparkle:channel>edge</sparkle:channel>
-      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.2%2B4.exe" sparkle:version="0.1.2+4" sparkle:shortVersionString="0.1.2" length="20015021" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="uO8hbvaxXcRbjVZ/cHD8qot3Eg0CdxqxxvDEXl7NBzxDJtJNVC/95KRuDmWlCe/UwH+S7wQI/4Ot0IkH6FkGDQ==" />
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.2%2B5.exe" sparkle:version="0.1.2+5" sparkle:shortVersionString="0.1.2" length="20016210" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="Zd5FuAf6lFyOWqHkuuVy4XUfByfwllOC/VnCVR5ECcY8D9pEGq0RZjJL+xPmDk+taj9ZfLGnrXr0PlzRLGUNCQ==" />
     </item>
     <item>
       <title>WorldBuilder 0.1.1</title>
