@@ -13,6 +13,7 @@ using NetSparkleUpdater.Enums;
 using NetSparkleUpdater.Interfaces;
 using NetSparkleUpdater.SignatureVerifiers;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using WorldBuilder.Lib;
 using WorldBuilder.Lib.Extensions;
@@ -25,7 +26,7 @@ namespace WorldBuilder;
 public partial class App : Application {
     internal static ServiceProvider? Services;
     private ProjectManager? _projectManager;
-    private SparkleUpdater _sparkle;
+    private SparkleUpdater? _sparkle;
 
     public static string Version { get; set; } = "0.0.0";
 
@@ -49,13 +50,14 @@ public partial class App : Application {
         _projectManager.CurrentProjectChanged += (s, e) => {
             var project = _projectManager.CurrentProject;
 
-            if (project == null) return;
+            Console.WriteLine($"Current project changed: {project?.Name}");
 
-            Console.WriteLine($"Selected project: {project.Name}");
+            if (project == null) return;
 
             var mainVM = _projectManager.GetProjectService<MainViewModel>();
 
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) {
+                Console.WriteLine("Switching to main window");
                 var old = desktop.MainWindow;
                 desktop.MainWindow = new MainWindow { DataContext = mainVM };
                 desktop.MainWindow.Show();
@@ -95,6 +97,7 @@ public partial class App : Application {
         };
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
     private void DisableAvaloniaDataAnnotationValidation() {
         var dataValidationPluginsToRemove = BindingPlugins.DataValidators.OfType<DataAnnotationsValidationPlugin>().ToArray();
 

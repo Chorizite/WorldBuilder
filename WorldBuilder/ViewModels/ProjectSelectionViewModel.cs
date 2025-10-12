@@ -58,14 +58,14 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
             return;
         }
 
-        LoadProject(files[0].TryGetLocalPath());
+        var localPath = files[0].TryGetLocalPath() ?? throw new Exception("Unable to get local path of project file");
+        LoadProject(localPath);
 
         await Task.CompletedTask;
     }
 
     [RelayCommand]
     private async Task OpenRecentProject(RecentProject? project) {
-        _log.LogInformation($"OpenRecentProject: {project.FilePath}");
         if (project == null) {
             _log.LogWarning("Recent project is null");
             return;

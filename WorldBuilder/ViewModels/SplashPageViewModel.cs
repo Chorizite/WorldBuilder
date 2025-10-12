@@ -26,7 +26,7 @@ public partial class SplashPageViewModel : ViewModelBase, IRecipient<SplashPageC
         _splashFactory = splashFactory;
 
         CurrentPage = GetPage(SplashPage.ProjectSelection);
-        WeakReferenceMessenger.Default.RegisterAll(this);
+        WeakReferenceMessenger.Default.Register<SplashPageChangedMessage>(this);
     }
 
     [RelayCommand]

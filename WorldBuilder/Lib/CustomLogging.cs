@@ -14,7 +14,6 @@ namespace WorldBuilder.Lib
     [ProviderAlias("ColorConsole")]
     public sealed class ColorConsoleLoggerProvider : ILoggerProvider
     {
-        private readonly IDisposable? _onChangeToken;
         private ColorConsoleLoggerConfiguration _currentConfig = new();
         private readonly ConcurrentDictionary<string, ColorConsoleLogger> _loggers =
             new(StringComparer.OrdinalIgnoreCase);
@@ -31,7 +30,6 @@ namespace WorldBuilder.Lib
         public void Dispose()
         {
             _loggers.Clear();
-            _onChangeToken?.Dispose();
         }
     }
 

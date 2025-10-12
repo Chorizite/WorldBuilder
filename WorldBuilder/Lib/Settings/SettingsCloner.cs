@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 
@@ -21,6 +22,8 @@ namespace WorldBuilder.Lib.Settings {
         /// <summary>
         /// Copies all properties from source to target
         /// </summary>
+        [UnconditionalSuppressMessage("Trimming", "IL2075")]
+        [UnconditionalSuppressMessage("Trimming", "IL2090")]
         public static void CopyProperties<T>(T source, T target) where T : class {
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (target == null) throw new ArgumentNullException(nameof(target));
@@ -53,6 +56,7 @@ namespace WorldBuilder.Lib.Settings {
             }
         }
 
+        [UnconditionalSuppressMessage("Trimming", "IL2075")]
         private static void CopyPropertiesNonGeneric(object source, object target) {
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (target == null) throw new ArgumentNullException(nameof(target));

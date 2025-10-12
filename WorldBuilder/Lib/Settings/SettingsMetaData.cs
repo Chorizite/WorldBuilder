@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 
@@ -51,6 +52,7 @@ namespace WorldBuilder.Lib.Settings {
         public List<SettingPropertyMetadata> Properties { get; }
         public List<SettingCategoryMetadata> SubCategories { get; }
 
+        [UnconditionalSuppressMessage("Trimming", "IL2070")]
         public SettingCategoryMetadata(Type type) {
             Type = type;
 
@@ -84,6 +86,7 @@ namespace WorldBuilder.Lib.Settings {
             _rootCategories = BuildHierarchy(categories);
         }
 
+        [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
         private List<SettingCategoryMetadata> DiscoverCategories(Type rootType) {
             var assembly = rootType.Assembly;
             return assembly.GetTypes()

@@ -8,28 +8,32 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using WorldBuilder.Editors.Landscape.ViewModels;
 using WorldBuilder.Lib.Extensions;
 using WorldBuilder.Lib.Messages;
+using WorldBuilder.Lib.Settings;
 using WorldBuilder.Shared.Documents;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.ViewModels;
-using WorldBuilder.Editors.Landscape.ViewModels;
-using WorldBuilder.Lib.Settings;
 
 namespace WorldBuilder.Lib {
 
     public partial class ProjectManager : ObservableObject, IRecipient<OpenProjectMessage>, IRecipient<CreateProjectMessage> {
         private readonly ILogger<ProjectSelectionViewModel> _log;
         private readonly WorldBuilderSettings _settings;
-        private ServiceProvider _projectProvider;
+        private ServiceProvider? _projectProvider;
 
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
         internal static ProjectManager Instance;
+#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
         private readonly IServiceProvider _rootProvider;
 
         private string _recentProjectsFilePath => Path.Combine(_settings.AppDataDirectory, "recentprojects.json");
@@ -51,7 +55,8 @@ namespace WorldBuilder.Lib {
             _settings = settings;
 
             LoadRecentProjects();
-            WeakReferenceMessenger.Default.RegisterAll(this);
+            WeakReferenceMessenger.Default.Register<OpenProjectMessage>(this);
+            WeakReferenceMessenger.Default.Register<CreateProjectMessage>(this);
         }
 
         public void Receive(OpenProjectMessage message) {
@@ -88,11 +93,10 @@ namespace WorldBuilder.Lib {
             project.DocumentManager.Dats = new DefaultDatReaderWriter(project.BaseDatDirectory, DatReaderWriter.Options.DatAccessType.Read);
 
             var dbCtx = CompositeProvider.GetRequiredService<DocumentDbContext>();
-            dbCtx.Database.EnsureCreated();
             dbCtx.InitializeSqliteAsync().Wait();
 
-            AddRecentProject(project.Name, project.FilePath);
             CurrentProjectChanged?.Invoke(this, EventArgs.Empty);
+            _ = AddRecentProject(project.Name, project.FilePath);
         }
 
         private void SetProject(string projectPath) {
@@ -156,7 +160,7 @@ namespace WorldBuilder.Lib {
                     return;
 
                 var json = await File.ReadAllTextAsync(_recentProjectsFilePath);
-                var projects = JsonSerializer.Deserialize<List<RecentProject>>(json);
+                var projects = JsonSerializer.Deserialize<List<RecentProject>>(json, SourceGenerationContext.Default.ListRecentProject);
 
                 if (projects != null) {
                     RecentProjects.Clear();
@@ -165,16 +169,15 @@ namespace WorldBuilder.Lib {
                     }
                 }
             }
-            catch (Exception) {
+            catch (Exception ex) {
+                _log.LogError(ex, "Failed to load recent projects");
                 RecentProjects.Clear();
             }
         }
 
         private async Task SaveRecentProjects() {
             try {
-                var json = JsonSerializer.Serialize(RecentProjects.ToList(), new JsonSerializerOptions {
-                    WriteIndented = true
-                });
+                var json = JsonSerializer.Serialize(RecentProjects.ToList(), SourceGenerationContext.Default.ListRecentProject);
                 await File.WriteAllTextAsync(_recentProjectsFilePath, json);
             }
             catch (Exception) {
@@ -182,17 +185,31 @@ namespace WorldBuilder.Lib {
             }
         }
     }
+
     public partial class RecentProject : ObservableObject {
-        [ObservableProperty]
         private string _name = string.Empty;
+        public string Name {
+            get => _name;
+            set => SetProperty(ref _name, value);
+        }
 
-        [ObservableProperty]
         private string _filePath = string.Empty;
+        public string FilePath {
+            get => _filePath;
+            set => SetProperty(ref _filePath, value);
+        }
 
-        [ObservableProperty]
         private DateTime _lastOpened;
+        public DateTime LastOpened {
+            get => _lastOpened;
+            set => SetProperty(ref _lastOpened, value);
+        }
 
+        // Your [JsonIgnore] properties remain unchanged
+        [JsonIgnore]
         public string LastOpenedDisplay => LastOpened.ToString("MMM dd, yyyy 'at' h:mm tt");
+
+        [JsonIgnore]
         public string FileDirectory => Path.GetDirectoryName(FilePath) ?? string.Empty;
     }
 }

@@ -17,11 +17,17 @@ namespace WorldBuilder.Lib.Settings {
         [JsonIgnore]
         public string SettingsFilePath => Path.Combine(AppDataDirectory, "settings.json");
 
-        [ObservableProperty]
         private AppSettings _app = new();
+        public AppSettings App {
+            get => _app;
+            set => SetProperty(ref _app, value);
+        }
 
-        [ObservableProperty]
         private LandscapeEditorSettings _landscape = new();
+        public LandscapeEditorSettings Landscape {
+            get => _landscape;
+            set => SetProperty(ref _landscape, value);
+        }
 
         public WorldBuilderSettings() { }
 
@@ -39,7 +45,7 @@ namespace WorldBuilder.Lib.Settings {
             if (File.Exists(SettingsFilePath)) {
                 try {
                     var json = File.ReadAllText(SettingsFilePath);
-                    var settings = JsonSerializer.Deserialize<WorldBuilderSettings>(json);
+                    var settings = JsonSerializer.Deserialize<WorldBuilderSettings>(json, SourceGenerationContext.Default.WorldBuilderSettings);
                     if (settings != null) {
                         foreach (var property in settings.GetType().GetProperties()) {
                             if (property.CanWrite) {
@@ -57,7 +63,7 @@ namespace WorldBuilder.Lib.Settings {
         public void Save() {
             var tmpFile = Path.GetTempFileName();
             try {
-                var json = JsonSerializer.Serialize(this)
+                var json = JsonSerializer.Serialize(this, SourceGenerationContext.Default.WorldBuilderSettings)
                     ?? throw new Exception("Failed to serialize settings to json");
                 File.WriteAllText(tmpFile, json);
                 File.Move(tmpFile, SettingsFilePath, true);

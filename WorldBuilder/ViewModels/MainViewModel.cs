@@ -18,7 +18,7 @@ public partial class MainViewModel : ViewModelBase {
     private bool _settingsOpen;
 
     public MainViewModel() {
-        
+        _settings = new WorldBuilderSettings();
     }
 
     public MainViewModel(WorldBuilderSettings settings) {
@@ -50,6 +50,8 @@ public partial class MainViewModel : ViewModelBase {
     private async Task OpenExportDatsWindow() {
 
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) {
+            if (desktop.MainWindow == null) throw new Exception("Unable to open export DATs window, main window is null.");
+
             var project = ProjectManager.Instance.CurrentProject
                 ?? throw new Exception("No project open, cannot export DATs.");
             var viewModel = new ExportDatsWindowViewModel(_settings, project, desktop.MainWindow);

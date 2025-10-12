@@ -77,11 +77,8 @@ namespace WorldBuilder.Editors.Landscape {
             _render = render;
             _settings = settings;
             gl = render.GraphicsDevice.GL;
-            InitializeShaders();
             InitializeSphereGeometry();
-        }
 
-        private void InitializeShaders() {
             var a1 = typeof(OpenGLRenderer).Assembly;
             _terrainShader = _render.GraphicsDevice.CreateShader("Landscape",
                 GetEmbeddedResource("Shaders.Landscape.vert", a1),
@@ -192,10 +189,12 @@ namespace WorldBuilder.Editors.Landscape {
                 resourceName = "Chorizite.OpenGLSDLBackend." + filename;
             }
 
-            using (Stream stream = assembly.GetManifestResourceStream(resourceName))
-            using (StreamReader reader = new StreamReader(stream)) {
-                string result = reader.ReadToEnd();
-                return result;
+            using (Stream? stream = assembly.GetManifestResourceStream(resourceName)) {
+                if (stream is null) throw new Exception($"Embedded resource '{resourceName}' not found.");
+                using (StreamReader reader = new StreamReader(stream)) {
+                    string result = reader.ReadToEnd();
+                    return result;
+                }
             }
         }
 

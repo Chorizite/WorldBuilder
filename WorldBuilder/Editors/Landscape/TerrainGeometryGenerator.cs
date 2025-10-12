@@ -129,7 +129,9 @@ namespace WorldBuilder.Editors.Landscape {
             uint surfNum = 0;
             var rotation = TextureMergeInfo.Rotation.Rot0;
             GetCellRotation(surfaceManager, landblockID, landblockData, cellX, cellY, ref surfNum, ref rotation);
-            var surfInfo = surfaceManager.GetLandSurface(surfNum);
+
+            var surfInfo = surfaceManager.GetLandSurface(surfNum)
+                ?? throw new Exception($"Could not find land surface for landblock {landblockID} at cell ({cellX}, {cellY})");
 
             var bottomLeft = GetTerrainEntryForCell(landblockData, cellX, cellY);
             var bottomRight = GetTerrainEntryForCell(landblockData, cellX + 1, cellY);

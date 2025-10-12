@@ -84,7 +84,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
                     _previewVertices.Clear();
                     return true;
                 }
-                else {
+                else if (_lineStartPosition.HasValue) {
                     _lineEndPosition = SnapToNearestVertex(hitResult.HitPosition);
                     var command = new RoadLineCommand(Context, _lineStartPosition.Value, _lineEndPosition.Value);
                     _commandHistory.ExecuteCommand(command);

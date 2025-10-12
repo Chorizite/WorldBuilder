@@ -6,6 +6,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
@@ -136,6 +137,7 @@ namespace WorldBuilder.Lib.Settings {
             return null;
         }
 
+        [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
         private Control? GeneratePropertyControl(SettingPropertyMetadata metadata, object instance) {
             var border = new Border {
                 Classes = { "SettingGroup" },
@@ -197,6 +199,7 @@ namespace WorldBuilder.Lib.Settings {
             return border;
         }
 
+        [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
         private Control? CreateInputControl(SettingPropertyMetadata metadata, object instance, string bindingPath) {
             var propType = metadata.Property.PropertyType;
 

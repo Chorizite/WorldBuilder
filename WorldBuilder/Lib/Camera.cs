@@ -209,7 +209,6 @@ namespace WorldBuilder.Lib {
         private float orthographicSize = 1800f; // Size of the orthographic view
         private bool _isDragging;
         private Vector2 _previousMousePosition;
-        private Vector2 _worldPointUnderMouse;
 
         public Vector3 Position => position;
         public Vector3 Front => front;

@@ -35,8 +35,8 @@ namespace WorldBuilder.Views {
         private Vector2 _lastMousePosition;
         private Size _lastViewportSize;
 
-        public RenderTarget RenderTarget { get; protected set; }
-        public OpenGLRenderer Renderer { get; private set; }
+        public RenderTarget? RenderTarget { get; protected set; }
+        public OpenGLRenderer? Renderer { get; private set; }
 
         private PixelSize _renderSize;
 
@@ -297,7 +297,7 @@ namespace WorldBuilder.Views {
 
         protected virtual void OnGlInitInternal(GL gl, PixelSize size) {
             var log = new ColorConsoleLogger("OpenGLRenderer", () => new ColorConsoleLoggerConfiguration());
-            Renderer = new OpenGLRenderer(gl, log, null, size.Width, size.Height);
+            Renderer = new OpenGLRenderer(gl, log, null!, size.Width, size.Height);
             _renderSize = size;
             OnGlInit(gl, size);
         }
@@ -314,9 +314,10 @@ namespace WorldBuilder.Views {
 
             if (RenderTarget == null || RenderTarget.Texture.Width != _renderSize.Width || RenderTarget.Texture.Height != _renderSize.Height) {
                 RenderTarget?.Dispose();
-                RenderTarget = Renderer.CreateRenderTarget(_renderSize.Width, _renderSize.Height);
+                RenderTarget = Renderer?.CreateRenderTarget(_renderSize.Width, _renderSize.Height);
             }
 
+            if (RenderTarget == null || Renderer == null) return;
             Renderer.BindRenderTarget(RenderTarget);
 
             OnGlRender(frameTime);
@@ -336,7 +337,6 @@ namespace WorldBuilder.Views {
 
         #region GlVisual Class
         private class GlVisual : CompositionCustomVisualHandler {
-            private OpenGLRenderer _renderer;
             private bool _contentInitialized;
             internal IGlContext? _gl;
             private PixelSize _lastSize;
@@ -345,7 +345,7 @@ namespace WorldBuilder.Views {
             private readonly Base3DView _parent;
 
             public DateTime LastRenderTime { get; private set; } = DateTime.MinValue;
-            public GL SilkGl { get; private set; }
+            public GL? SilkGl { get; private set; }
 
             public GlVisual(Base3DView parent) {
                 _parent = parent;

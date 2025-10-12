@@ -222,11 +222,6 @@ namespace WorldBuilder.Editors.Landscape {
                 data.Dispose();
             }
             _renderData.Clear();
-
-            _chunkVertexBuffer = null;
-            _chunkIndexBuffer = null;
-            _landblockVertexBuffer = null;
-            _landblockIndexBuffer = null;
         }
     }
 }
