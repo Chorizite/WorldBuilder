@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace WorldBuilder.Lib {
+namespace WorldBuilder.Lib.History {
     public interface ICommand {
         string Description { get; }
         bool CanExecute { get; }
