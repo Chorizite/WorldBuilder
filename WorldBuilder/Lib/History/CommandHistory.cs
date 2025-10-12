@@ -1,9 +1,13 @@
-﻿using DatReaderWriter.Lib;
+﻿using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
+using System.Numerics;
 using System.Threading.Tasks;
 using WorldBuilder.Editors;
+using WorldBuilder.Editors.Landscape;
+using WorldBuilder.Lib;
 using WorldBuilder.Lib.History;
 using WorldBuilder.Lib.Settings;
 using WorldBuilder.Shared.Documents;
@@ -12,6 +16,7 @@ using WorldBuilder.ViewModels;
 public class CommandHistory {
     private readonly List<HistoryEntry> _history = new();
     private int _currentIndex = -1;
+    private readonly ILogger _logger;
     private readonly AppSettings _settings;
     private readonly IEditor _editor;
 
@@ -24,9 +29,10 @@ public class CommandHistory {
     public int CurrentIndex => _currentIndex;
     public IReadOnlyList<HistoryEntry> History => _history.AsReadOnly();
 
-    public CommandHistory(AppSettings settings, IEditor editor) {
-        _settings = settings;
-        _editor = editor;
+    public CommandHistory(AppSettings settings, IEditor editor, ILogger logger) {
+        _logger = logger;
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _editor = editor ?? throw new ArgumentNullException(nameof(editor));
         ValidateIndex();
 
         _settings.PropertyChanged += OnSettingsChanged;
@@ -38,120 +44,165 @@ public class CommandHistory {
         }
     }
 
-    public bool ExecuteCommand(ICommand command) {
-        if (command?.CanExecute != true) return false;
+    public bool ExecuteCommand(ICommand command) => ExecuteCommandAsync(command).GetAwaiter().GetResult();
+    public bool Undo() => UndoAsync().GetAwaiter().GetResult();
+    public bool Redo() => RedoAsync().GetAwaiter().GetResult();
+    public bool JumpToHistory(int targetIndex) => JumpToHistoryAsync(targetIndex).GetAwaiter().GetResult();
+    public bool DeleteFromIndex(int index) => DeleteFromIndexAsync(index).GetAwaiter().GetResult();
 
+    public async Task<bool> ExecuteCommandAsync(ICommand command) {
+        if (command == null) return false;
         if (!command.Execute()) return false;
 
-        AddToHistory(command);
-        return true;
-    }
+        var entry = new HistoryEntry(command) {
+            AffectedDocumentIds = command.AffectedDocumentIds ?? new List<string>()
+        };
 
-    public bool AddToHistory(ICommand command) {
-        if (command == null) return false;
-
-        // Remove forward history
-        if (_currentIndex < _history.Count - 1 && _history.Count > 0) {
-            try {
-                _history.RemoveRange(_currentIndex + 1, _history.Count - _currentIndex - 1);
+        foreach (var docId in entry.AffectedDocumentIds) {
+            var doc = _editor.GetDocument(docId);
+            if (doc != null) {
+                doc.MarkDirty();
             }
-            catch (ArgumentOutOfRangeException) {
-                _history.Clear();
-                _currentIndex = -1;
+            else {
+                var docType = GetDocumentTypeFromId(docId);
+                var loadedDoc = await _editor.LoadDocumentAsync(docId, docType);
+                if (loadedDoc != null) {
+                    loadedDoc.MarkDirty();
+                }
+                else {
+                    _logger.LogWarning("Failed to load document {DocumentId} of type {Type}", docId, docType.Name);
+                }
             }
         }
 
-        var entry = new HistoryEntry(command);
-        entry.AffectedDocumentIds = command.AffectedDocumentIds ?? new();
+        if (_currentIndex < _history.Count - 1) {
+            _history.RemoveRange(_currentIndex + 1, _history.Count - _currentIndex - 1);
+        }
         _history.Add(entry);
-        _currentIndex = _history.Count - 1;
-
+        _currentIndex++;
         TrimHistory();
         UpdateCurrentStateMarkers();
         OnHistoryChanged();
         return true;
     }
-    public bool Undo() {
+
+    public async Task<bool> UndoAsync() {
         if (!CanUndo) return false;
         var entry = _history[_currentIndex];
-        var loadedTemp = LoadTempDocsAsync(entry.AffectedDocumentIds).Result;
+        var loadedTemp = await LoadTempDocsAsync(entry.AffectedDocumentIds);
         try {
-            var command = _history[_currentIndex].Command;
-            if (command.Undo()) {
+            if (entry.Command.Undo()) {
+                foreach (var docId in entry.AffectedDocumentIds) {
+                    if (_editor.GetDocument(docId) is BaseDocument doc) {
+                        doc.MarkDirty();
+                    }
+                }
                 _currentIndex--;
-                ValidateIndex();
                 UpdateCurrentStateMarkers();
                 OnHistoryChanged();
                 return true;
             }
-            return false;
         }
         finally {
-            _ = UnloadTempDocsAsync(loadedTemp, entry.AffectedDocumentIds);
+            await UnloadTempDocsAsync(loadedTemp);
         }
+        return false;
     }
 
-    public bool Redo() {
+    public async Task<bool> RedoAsync() {
         if (!CanRedo) return false;
-        _currentIndex++;
-        var entry = _history[_currentIndex];
-        var loadedTemp = LoadTempDocsAsync(entry.AffectedDocumentIds).Result;
+        var entry = _history[_currentIndex + 1];
+        var loadedTemp = await LoadTempDocsAsync(entry.AffectedDocumentIds);
         try {
-            _currentIndex++;
-            var command = _history[_currentIndex].Command;
-            if (command.Execute()) {
-                ValidateIndex();
+            if (entry.Command.Execute()) {
+                foreach (var docId in entry.AffectedDocumentIds) {
+                    if (_editor.GetDocument(docId) is BaseDocument doc) {
+                        doc.MarkDirty();
+                    }
+                }
+                _currentIndex++;
                 UpdateCurrentStateMarkers();
                 OnHistoryChanged();
                 return true;
             }
-            _currentIndex--; // Revert index if execution fails
-            return false;
         }
         finally {
-            _  = UnloadTempDocsAsync(loadedTemp, entry.AffectedDocumentIds);
+            await UnloadTempDocsAsync(loadedTemp);
         }
+        return false;
+    }
+
+    private Type GetDocumentTypeFromId(string documentId) {
+        if (documentId == "terrain") {
+            return typeof(TerrainDocument);
+        }
+        if (documentId.StartsWith("landblock_", StringComparison.OrdinalIgnoreCase)) {
+            return typeof(LandblockDocument);
+        }
+        throw new ArgumentException($"Unknown document type for ID {documentId}", nameof(documentId));
     }
 
     private async Task<List<string>> LoadTempDocsAsync(List<string> docIds) {
         var tempLoaded = new List<string>();
         foreach (var id in docIds) {
-            if (_editor.GetDocument(id) == null) {  // Assuming static access or injected editor
-                await _editor.LoadDocumentAsync(id, typeof(BaseDocument));  // Type inference or map
-                tempLoaded.Add(id);
+            if (_editor.GetDocument(id) == null) {
+                var docType = GetDocumentTypeFromId(id);
+                var doc = await _editor.LoadDocumentAsync(id, docType);
+                if (doc != null) {
+                    tempLoaded.Add(id);
+                }
+                else {
+                    _logger.LogWarning("Failed to load document {DocumentId} of type {Type}", id, docType.Name);
+                }
             }
         }
         return tempLoaded;
     }
 
-    private async Task UnloadTempDocsAsync(List<string> tempLoaded, List<string> allIds) {
+    private async Task UnloadTempDocsAsync(List<string> tempLoaded) {
         foreach (var id in tempLoaded) {
-            // Unload only if not needed (e.g., not in view)
-            if (!IsDocumentInView(id)) {  // Impl based on proximity
+            if (_editor.GetDocument(id) is BaseDocument doc && !IsDocumentInView(id)) {
                 await _editor.UnloadDocumentAsync(id);
             }
         }
     }
+
     private bool IsDocumentInView(string docId) {
-        // Stub: Check via TerrainSystem proximity
-        return true;  // For now
+        if (docId == "terrain") return true; // Terrain is always loaded
+        if (!docId.StartsWith("landblock_", StringComparison.OrdinalIgnoreCase)) return false;
+
+        // Extract landblock coordinates from ID (e.g., "landblock_0x1234" -> x=0x12, y=0x34)
+        var lbKey = ushort.Parse(docId.Replace("landblock_", ""), System.Globalization.NumberStyles.HexNumber);
+        var lbX = (lbKey >> 8) & 0xFF;
+        var lbY = lbKey & 0xFF;
+
+        // Get camera position from TerrainSystem (assumes IEditor is TerrainSystem)
+        if (_editor is TerrainSystem terrainSystem && terrainSystem.CameraManager?.Current is ICamera camera) {
+            var cameraPos = camera.Position;
+            var lbCenter = new Vector2(lbX * TerrainDataManager.LandblockLength + TerrainDataManager.LandblockLength / 2,
+                                       lbY * TerrainDataManager.LandblockLength + TerrainDataManager.LandblockLength / 2);
+            var dist2D = Vector2.Distance(new Vector2(cameraPos.X, cameraPos.Y), lbCenter);
+            return dist2D <= 500f; // ProximityThreshold from TerrainSystem
+        }
+        return false; // Default to unload if camera unavailable
     }
 
-    public bool JumpToHistory(int targetIndex) {
+    public async Task<bool> JumpToHistoryAsync(int targetIndex) {
         if (targetIndex < -1 || targetIndex >= _history.Count || _history.Count == 0) return false;
         if (targetIndex == _currentIndex) return true;
 
         try {
             while (_currentIndex < targetIndex) {
-                if (!Redo()) return false;
+                if (!await RedoAsync()) return false;
             }
             while (_currentIndex > targetIndex) {
-                if (!Undo()) return false;
+                if (!await UndoAsync()) return false;
             }
             ValidateIndex();
             return true;
         }
-        catch (ArgumentOutOfRangeException) {
+        catch (Exception ex) {
+            _logger.LogError(ex, "Failed to jump to history index {TargetIndex}", targetIndex);
             _currentIndex = Math.Max(-1, _history.Count - 1);
             UpdateCurrentStateMarkers();
             OnHistoryChanged();
@@ -159,13 +210,14 @@ public class CommandHistory {
         }
     }
 
-    public bool DeleteFromIndex(int index) {
+    public async Task<bool> DeleteFromIndexAsync(int index) {
         if (index < 0 || index >= _history.Count || _history.Count == 0) return false;
 
         try {
-            // Jump to previous state if deleting current or earlier
-            if (index <= _currentIndex && !JumpToHistory(index - 1)) {
-                return false;
+            if (index <= _currentIndex) {
+                if (!await JumpToHistoryAsync(index - 1)) {
+                    return false;
+                }
             }
 
             _history.RemoveRange(index, _history.Count - index);
@@ -175,7 +227,8 @@ public class CommandHistory {
             OnHistoryChanged();
             return true;
         }
-        catch (ArgumentOutOfRangeException) {
+        catch (Exception ex) {
+            _logger.LogError(ex, "Failed to delete history from index {Index}", index);
             _currentIndex = Math.Max(-1, _history.Count - 1);
             UpdateCurrentStateMarkers();
             OnHistoryChanged();
@@ -185,14 +238,14 @@ public class CommandHistory {
 
     public List<HistoryListItem> GetHistoryList() {
         var items = new List<HistoryListItem> {
-                new HistoryListItem {
-                    Index = -1,
-                    Description = "Original Document (Opened)",
-                    Timestamp = DateTime.MinValue,
-                    IsCurrent = _currentIndex == -1,
-                    IsSnapshot = false
-                }
-            };
+            new HistoryListItem {
+                Index = -1,
+                Description = "Original Document (Opened)",
+                Timestamp = DateTime.MinValue,
+                IsCurrent = _currentIndex == -1,
+                IsSnapshot = false
+            }
+        };
 
         for (int i = 0; i < _history.Count; i++) {
             var entry = _history[i];
@@ -229,18 +282,23 @@ public class CommandHistory {
                 var next = _history[1];
                 var mergedCommand = MergeCommands(oldest.Command, next.Command);
                 var newEntry = new HistoryEntry(mergedCommand) {
-                    Description = next.Description, // Keep the description of the new oldest entry
-                    Timestamp = next.Timestamp
+                    Description = next.Description,
+                    Timestamp = next.Timestamp,
+                    AffectedDocumentIds = next.AffectedDocumentIds // Preserve document IDs
                 };
                 _history[1] = newEntry;
                 _history.RemoveAt(0);
                 _currentIndex--;
             }
             ValidateIndex();
+            UpdateCurrentStateMarkers();
+            OnHistoryChanged();
         }
-        catch (ArgumentOutOfRangeException) {
+        catch (Exception ex) {
+            _logger.LogError(ex, "Failed to trim history");
             _currentIndex = Math.Max(-1, _history.Count - 1);
             UpdateCurrentStateMarkers();
+            OnHistoryChanged();
         }
     }
 
@@ -258,6 +316,11 @@ public class CommandHistory {
         else {
             composite.Commands.Add(second);
         }
+        // Merge AffectedDocumentIds
+        composite.AffectedDocumentIds = new List<string>();
+        if (first.AffectedDocumentIds != null) composite.AffectedDocumentIds.AddRange(first.AffectedDocumentIds);
+        if (second.AffectedDocumentIds != null) composite.AffectedDocumentIds.AddRange(second.AffectedDocumentIds);
+        composite.AffectedDocumentIds = composite.AffectedDocumentIds.Distinct().ToList();
         return composite;
     }
 

@@ -19,6 +19,7 @@ namespace WorldBuilder.Editors.Landscape.Commands {
 
         protected TerrainVertexChangeCommand(TerrainEditingContext context) {
             _context = context ?? throw new ArgumentNullException(nameof(context));
+            AffectedDocumentIds.Add(context.TerrainDocument.Id);
         }
 
         protected abstract byte GetEntryValue(TerrainEntry entry);

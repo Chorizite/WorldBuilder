@@ -14,6 +14,7 @@ namespace WorldBuilder.Lib.History {
             Description = command.Description;
             Timestamp = DateTime.UtcNow;
             IsCurrentState = false;
+            AffectedDocumentIds = command.AffectedDocumentIds;
         }
     }
 }

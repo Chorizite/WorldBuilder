@@ -2,6 +2,7 @@
 using Chorizite.OpenGLSDLBackend;
 using DatReaderWriter.DBObjs;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -36,8 +37,8 @@ namespace WorldBuilder.Editors.Landscape {
         public TerrainRenderer Renderer { get; private set; }
         public IServiceProvider Services { get; private set; }
 
-        public TerrainSystem(OpenGLRenderer renderer, Project project, IDatReaderWriter dats, WorldBuilderSettings settings)
-            : base(project.DocumentManager, settings) {
+        public TerrainSystem(OpenGLRenderer renderer, Project project, IDatReaderWriter dats, WorldBuilderSettings settings, ILogger<TerrainSystem> logger)
+            : base(project.DocumentManager, settings, logger) {
             if (!dats.TryGet<Region>(0x13000000, out var region)) {
                 throw new Exception("Failed to load region");
             }

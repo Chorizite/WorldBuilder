@@ -53,7 +53,7 @@ namespace WorldBuilder.Shared.Documents {
                 OnPropertyChanged();
             };
         }
-        protected void MarkDirty() {
+        public void MarkDirty() {
             IsDirty = true;
             _logger.LogInformation("Document {DocumentId} marked as dirty", Id);
         }

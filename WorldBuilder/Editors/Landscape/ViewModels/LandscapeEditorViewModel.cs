@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -32,15 +33,18 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         public TerrainSystem? TerrainSystem { get; private set; }
         public WorldBuilderSettings Settings { get; }
 
-        public LandscapeEditorViewModel(WorldBuilderSettings settings) {
+        private readonly ILogger<TerrainSystem> _logger;
+
+        public LandscapeEditorViewModel(WorldBuilderSettings settings, ILogger<TerrainSystem> logger) {
             Settings = settings;
+            _logger = logger;
         }
 
         internal void Init(Project project, OpenGLRenderer render, Avalonia.PixelSize canvasSize) {
             _dats = project.DocumentManager.Dats;
             _project = project;
 
-            TerrainSystem = new TerrainSystem(render, project, _dats, Settings);
+            TerrainSystem = new TerrainSystem(render, project, _dats, Settings, _logger);
 
             Tools.Add(TerrainSystem.Services.GetRequiredService<TexturePaintingToolViewModel>());
             Tools.Add(TerrainSystem.Services.GetRequiredService<RoadDrawingToolViewModel>());
