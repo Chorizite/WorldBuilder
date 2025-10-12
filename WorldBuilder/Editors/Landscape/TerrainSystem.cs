@@ -66,7 +66,7 @@ namespace WorldBuilder.Editors.Landscape {
             collection.AddSingleton(dats);
             collection.AddSingleton(project);
             collection.AddSingleton(renderer);
-            collection.AddSingleton(new CommandHistory(5));
+            collection.AddSingleton(new CommandHistory(Settings.App));
             collection.AddSingleton<HistorySnapshotPanelViewModel>();
             collection.AddTransient<PerspectiveCamera>();
             collection.AddTransient<OrthographicTopDownCamera>();

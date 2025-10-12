@@ -1,12 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using WorldBuilder.Lib.History;
+using WorldBuilder.Lib.Settings;
 using WorldBuilder.ViewModels;
 
 public class CommandHistory {
     private readonly List<HistoryEntry> _history = new();
     private int _currentIndex = -1;
-    private readonly int _maxHistorySize;
+    private readonly AppSettings _settings;
+    private int _maxHistorySize => _settings.HistoryLimit;
 
     public event EventHandler? HistoryChanged;
 
@@ -15,9 +18,17 @@ public class CommandHistory {
     public int CurrentIndex => _currentIndex;
     public IReadOnlyList<HistoryEntry> History => _history.AsReadOnly();
 
-    public CommandHistory(int maxHistorySize = 50) {
-        _maxHistorySize = maxHistorySize;
+    public CommandHistory(AppSettings settings) {
+        _settings = settings;
         ValidateIndex();
+
+        _settings.PropertyChanged += OnSettingsChanged;
+    }
+
+    private void OnSettingsChanged(object? sender, PropertyChangedEventArgs e) {
+        if (e.PropertyName == nameof(AppSettings.HistoryLimit)) {
+            TrimHistory();
+        }
     }
 
     public bool ExecuteCommand(ICommand command) {

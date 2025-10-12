@@ -25,5 +25,12 @@ namespace WorldBuilder.Lib.Settings {
         [SettingDescription("Enable verbose logging for database queries (may impact performance)")]
         [SettingOrder(2)]
         private bool _logDatabaseQueries = false;
+
+        [ObservableProperty]
+        [SettingDescription("Maximum number of history items to keep")]
+        [SettingRange(5, 10000, 1, 100)]
+        [SettingFormat("{0:F0}")]
+        [SettingOrder(3)]
+        private int _historyLimit = 50;
     }
 }
