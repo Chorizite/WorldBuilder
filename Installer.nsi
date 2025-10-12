@@ -8,7 +8,7 @@
 
 !define PRODUCT "WorldBuilder"
 !define ICON "WorldBuilder\Assets\avalonia-logo.ico"
-!define COMPANY "xAI"
+!define COMPANY "Thrungus"
 !define MUI_ICON "${ICON}"
 !define MUI_UNICON "${ICON}"
 
