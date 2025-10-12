@@ -5,7 +5,7 @@
     <description>Most recent changes with links to updates</description>
     <language>en</language>
     <item>
-      <title>WorldBuilder 0.1.2+7</title>
+      <title>WorldBuilder 0.1.2+8</title>
       <description>## What's Changed
 * 17 terraintype selection for landscape tools shouldnt show roadtype texture by @trevis in https://github.com/Chorizite/WorldBuilder/pull/21
 * chore: new changelog generation by @trevis in https://github.com/Chorizite/WorldBuilder/pull/22
@@ -14,14 +14,15 @@
 * hitting the history limit no longer causes data loss. Fixes #26 by @trevis in https://github.com/Chorizite/WorldBuilder/pull/27
 * update latest tag before generating changelog by @trevis in https://github.com/Chorizite/WorldBuilder/pull/28
 * more edge changelog by @trevis in https://github.com/Chorizite/WorldBuilder/pull/29
+* Add a setting for history limit: closes #30 by @trevis in https://github.com/Chorizite/WorldBuilder/pull/31
 
 
 **Full Changelog**: https://github.com/Chorizite/WorldBuilder/compare/v0.1.1...latest</description>
-      <pubDate>Sun, 12 Oct 2025 00:26:56 +00:00</pubDate>
-      <sparkle:version>0.1.2+7</sparkle:version>
+      <pubDate>Sun, 12 Oct 2025 00:55:24 +00:00</pubDate>
+      <sparkle:version>0.1.2+8</sparkle:version>
       <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
       <sparkle:channel>edge</sparkle:channel>
-      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.2%2B7.exe" sparkle:version="0.1.2+7" sparkle:shortVersionString="0.1.2" length="20016207" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="vrdW4l8xTJA3xTigV4FU2BiuZ5hUREcBfcNqf67I3hlEzckmeECnlEkEqLKPDaxV9J56EZk0xTLlmS5ExctkDw==" />
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.2%2B8.exe" sparkle:version="0.1.2+8" sparkle:shortVersionString="0.1.2" length="20016707" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="PiEsmFbbo3vyqBHIX1kJOlrybMWlAcTSbrTqgj6LMyhEl9kranG5YDupOGUTQ8wYph+dStuLb14MXcxKP3KfBA==" />
     </item>
     <item>
       <title>WorldBuilder 0.1.1</title>
