@@ -14,20 +14,20 @@ namespace WorldBuilder.Lib {
             return new WorldBuilderBackend();
         }
 
-        public override IRenderer Renderer => null;// WorldBuilderApp.Instance.Renderer ?? throw new InvalidOperationException();
+        public override IRenderer Renderer => null!;// WorldBuilderApp.Instance.Renderer ?? throw new InvalidOperationException();
 
         public override IInputManager Input { get; } = new NullInputManager();
 
         public override ChoriziteEnvironment Environment => ChoriziteEnvironment.Inspector;
 
-        public override event EventHandler<LogMessageEventArgs> OnLogMessage;
+        public override event EventHandler<LogMessageEventArgs>? OnLogMessage;
 
         public override string? GetClipboardText() {
             throw new NotImplementedException();
         }
 
         public override void HandleLogMessage(LogMessageEventArgs evt) {
-            
+            OnLogMessage?.Invoke(this, evt);
         }
 
         public override void Invoke(Action action) {

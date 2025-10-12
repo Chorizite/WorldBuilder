@@ -25,11 +25,11 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         private ToolViewModelBase? _selectedTool;
 
         [ObservableProperty]
-        private HistorySnapshotPanelViewModel _historySnapshotPanel;
+        private HistorySnapshotPanelViewModel? _historySnapshotPanel;
 
-        private Project _project;
-        private IDatReaderWriter _dats;
-        public TerrainSystem TerrainSystem { get; private set; }
+        private Project? _project;
+        private IDatReaderWriter? _dats;
+        public TerrainSystem? TerrainSystem { get; private set; }
         public WorldBuilderSettings Settings { get; }
 
         public LandscapeEditorViewModel(WorldBuilderSettings settings) {

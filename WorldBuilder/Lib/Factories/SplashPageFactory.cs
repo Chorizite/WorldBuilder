@@ -12,7 +12,7 @@ namespace WorldBuilder.Lib.Factories {
         }
 
         public T Create<T>() where T : SplashPageViewModelBase {
-            return App.Services.GetRequiredService<T>();
+            return App.Services!.GetRequiredService<T>();
         }
     }
 }

@@ -277,9 +277,11 @@ namespace WorldBuilder.Editors.Landscape {
             return true;
         }
 
-        public TextureMergeInfo GetLandSurface(uint surfaceId) {
-            SurfacesBySurfaceNumber.TryGetValue(surfaceId, out var surface);
-            return surface;
+        public TextureMergeInfo? GetLandSurface(uint surfaceId) {
+            if (SurfacesBySurfaceNumber.TryGetValue(surfaceId, out var surface)) {
+                return surface;
+            }
+            return null;
         }
 
         public TextureMergeInfo BuildTexture(uint paletteCode, uint textureSize) {
@@ -375,7 +377,7 @@ namespace WorldBuilder.Editors.Landscape {
         }
 
         private List<TerrainTex> BuildTerrainCodesWithDuplicates(List<TerrainTextureType> paletteCodes, List<uint> terrainCodes, int duplicateIndex) {
-            var terrainTextures = new List<TerrainTex> { null, null, null };
+            var terrainTextures = new List<TerrainTex> { new(), new(), new() };
             var primaryTerrain = paletteCodes[duplicateIndex];
             var secondaryTerrain = (TerrainTextureType)0;
 
@@ -429,7 +431,7 @@ namespace WorldBuilder.Editors.Landscape {
             return roadCodes;
         }
 
-        private TerrainAlphaMap FindTerrainAlpha(uint paletteCode, uint terrainCode, out TextureMergeInfo.Rotation rotation, out int alphaIndex) {
+        private TerrainAlphaMap? FindTerrainAlpha(uint paletteCode, uint terrainCode, out TextureMergeInfo.Rotation rotation, out int alphaIndex) {
             rotation = TextureMergeInfo.Rotation.Rot0;
             alphaIndex = 0;
 
@@ -437,7 +439,7 @@ namespace WorldBuilder.Editors.Landscape {
             var terrainMaps = isCornerTerrain ? CornerTerrainMaps : SideTerrainMaps;
             var baseIndex = isCornerTerrain ? 0 : 4;
 
-            if (terrainMaps?.Count == 0) return null;
+            if (terrainMaps.Count == 0) return null;
 
             var randomIndex = GeneratePseudoRandomIndex(paletteCode, terrainMaps.Count);
             var alpha = terrainMaps[randomIndex];
@@ -457,11 +459,11 @@ namespace WorldBuilder.Editors.Landscape {
             return alpha;
         }
 
-        private RoadAlphaMap FindRoadAlpha(uint paletteCode, uint roadCode, out TextureMergeInfo.Rotation rotation, out int alphaIndex) {
+        private RoadAlphaMap? FindRoadAlpha(uint paletteCode, uint roadCode, out TextureMergeInfo.Rotation rotation, out int alphaIndex) {
             rotation = TextureMergeInfo.Rotation.Rot0;
             alphaIndex = -1;
 
-            if (RoadMaps?.Count == 0) return null;
+            if (RoadMaps.Count == 0) return null;
 
             var randomIndex = GeneratePseudoRandomIndex(paletteCode, RoadMaps.Count);
 

@@ -18,12 +18,12 @@ using WorldBuilder.Views;
 namespace WorldBuilder.Editors.Landscape.Views;
 
 public partial class LandscapeEditorView : Base3DView {
-    private GL _gl;
-    private IRenderer _render;
+    private GL? _gl;
+    private IRenderer? _render;
     private bool _didInit;
     private bool _isQPressedLastFrame;
-    private LandscapeEditorViewModel _viewModel;
-    private ToolViewModelBase _currentActiveTool => _viewModel.SelectedTool;
+    private LandscapeEditorViewModel? _viewModel;
+    private ToolViewModelBase? _currentActiveTool => _viewModel?.SelectedTool;
 
     public PixelSize CanvasSize { get; private set; }
 
@@ -48,7 +48,7 @@ public partial class LandscapeEditorView : Base3DView {
     }
 
     public void Init(Project project, OpenGLRenderer render) {
-        _viewModel.Init(project, render, CanvasSize);
+        _viewModel?.Init(project, render, CanvasSize);
         _render = render;
     }
 
@@ -59,14 +59,14 @@ public partial class LandscapeEditorView : Base3DView {
     protected override void OnGlRender(double deltaTime) {
         try {
             // Initialize on first render when project is available
-            if (!_didInit && ProjectManager.Instance.CurrentProject?.DocumentManager != null) {
+            if (!_didInit && ProjectManager.Instance.CurrentProject?.DocumentManager != null && Renderer != null) {
                 Init(ProjectManager.Instance.CurrentProject, Renderer);
                 _didInit = true;
             }
 
             if (!_didInit) return;
             HandleInput(deltaTime);
-            _viewModel.DoRender(CanvasSize);
+            _viewModel?.DoRender(CanvasSize);
             RenderToolOverlay();
         }
         catch (Exception ex) {
@@ -75,6 +75,8 @@ public partial class LandscapeEditorView : Base3DView {
     }
 
     private void HandleInput(double deltaTime) {
+        if (_viewModel?.TerrainSystem == null) return;
+
         // Update camera screen size
         _viewModel.TerrainSystem.CameraManager.Current.ScreenSize = new Vector2(CanvasSize.Width, CanvasSize.Height);
 
@@ -92,6 +94,8 @@ public partial class LandscapeEditorView : Base3DView {
     }
 
     private void HandleCameraSwitching() {
+        if (_viewModel?.TerrainSystem == null) return;
+
         if (InputState.IsKeyDown(Key.Q)) {
             if (!_isQPressedLastFrame) {
                 if (_viewModel.TerrainSystem.CameraManager.Current == _viewModel.TerrainSystem.PerspectiveCamera) {
@@ -111,6 +115,8 @@ public partial class LandscapeEditorView : Base3DView {
     }
 
     private void HandleCameraMovement(double deltaTime) {
+        if (_viewModel?.TerrainSystem == null) return;
+
         var camera = _viewModel.TerrainSystem.CameraManager.Current;
 
         if (InputState.IsKeyDown(Key.W))
@@ -124,6 +130,8 @@ public partial class LandscapeEditorView : Base3DView {
     }
 
     private void RenderToolOverlay() {
+        if (_render == null || _viewModel?.TerrainSystem == null) return;
+
         _currentActiveTool?.RenderOverlay(
             _render,
             _viewModel.TerrainSystem.CameraManager.Current,
@@ -131,7 +139,7 @@ public partial class LandscapeEditorView : Base3DView {
     }
 
     protected override void OnGlKeyDown(KeyEventArgs e) {
-        if (!_didInit) return;
+        if (!_didInit || _viewModel?.TerrainSystem == null) return;
 
         if (e.Key == Key.Z && e.KeyModifiers.HasFlag(KeyModifiers.Control)) {
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) {
@@ -156,7 +164,7 @@ public partial class LandscapeEditorView : Base3DView {
     }
 
     protected override void OnGlPointerWheelChanged(PointerWheelEventArgs e) {
-        if (!_didInit) return;
+        if (!_didInit || _viewModel?.TerrainSystem == null) return;
 
         var camera = _viewModel.TerrainSystem.CameraManager.Current;
 
@@ -184,7 +192,7 @@ public partial class LandscapeEditorView : Base3DView {
     protected override void UpdateMouseState(Point position, PointerPointProperties properties) {
         base.UpdateMouseState(position, properties);
 
-        if (!_didInit) return;
+        if (!_didInit || _viewModel?.TerrainSystem == null) return;
 
         // Clamp mouse position to control bounds
         var controlWidth = (int)Bounds.Width;

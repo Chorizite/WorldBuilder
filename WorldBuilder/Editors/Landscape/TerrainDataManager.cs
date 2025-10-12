@@ -127,8 +127,8 @@ namespace WorldBuilder.Editors.Landscape {
             );
         }
 
-        public TerrainChunk GetChunk(ulong chunkId) => _chunks.TryGetValue(chunkId, out var chunk) ? chunk : null;
-        public TerrainChunk GetChunkForLandblock(uint landblockX, uint landblockY) {
+        public TerrainChunk? GetChunk(ulong chunkId) => _chunks.TryGetValue(chunkId, out var chunk) ? chunk : null;
+        public TerrainChunk? GetChunkForLandblock(uint landblockX, uint landblockY) {
             var chunkX = landblockX / _chunkSizeInLandblocks;
             var chunkY = landblockY / _chunkSizeInLandblocks;
             return GetChunk(GetChunkId(chunkX, chunkY));

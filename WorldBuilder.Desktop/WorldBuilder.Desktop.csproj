@@ -40,8 +40,6 @@
 			<AssemblyVersion>$(GitVersion_Major).0.0</AssemblyVersion>
 			<Version Condition="'$(GitVersion_PreReleaseTag)' != ''">$(GitVersion_MajorMinorPatch)+$(GitVersion_CommitsSinceVersionSource)</Version>
 			<Version Condition="'$(GitVersion_PreReleaseTag)' == ''">$(GitVersion_MajorMinorPatch)</Version>
-			<FileVersion Condition="'$(GitVersion_PreReleaseTag)' != ''">$(GitVersion_MajorMinorPatch)+$(GitVersion_CommitsSinceVersionSource)</FileVersion>
-			<FileVersion Condition="'$(GitVersion_PreReleaseTag)' == ''">$(GitVersion_MajorMinorPatch)</FileVersion>
 			<ProductVersion Condition="'$(GitVersion_PreReleaseTag)' != ''">$(GitVersion_MajorMinorPatch)+$(GitVersion_CommitsSinceVersionSource)</ProductVersion>
 			<ProductVersion Condition="'$(GitVersion_PreReleaseTag)' == ''">$(GitVersion_MajorMinorPatch)</ProductVersion>
 		</PropertyGroup>

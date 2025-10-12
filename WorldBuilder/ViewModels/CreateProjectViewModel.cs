@@ -52,10 +52,10 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
     public new event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
     
     // Add the HasErrors property (required by INotifyDataErrorInfo)
-    public bool HasErrors => _errors.Any();
+    public new bool HasErrors => _errors.Any();
 
     // Add the GetErrors method (required by INotifyDataErrorInfo)
-    public IEnumerable GetErrors(string? propertyName) {
+    public new IEnumerable GetErrors(string? propertyName) {
         if (string.IsNullOrEmpty(propertyName))
             return _errors.Values.SelectMany(e => e);
 
