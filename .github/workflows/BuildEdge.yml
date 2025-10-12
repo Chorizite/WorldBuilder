@@ -61,7 +61,7 @@ jobs:
           -H "Accept: application/vnd.github+json" \
           /repos/${{ github.repository }}/releases/generate-notes \
           -f tag_name='latest' \
-          -f target_commitish='${{ github.sha }}' \
+          -f target_commitish='${{ github.ref_name }}' \
           -f previous_tag_name='${{ steps.get_latest_release.outputs.LATEST_TAG }}' \
           > changelog.json
         
@@ -77,6 +77,10 @@ jobs:
           echo "$CHANGELOG_BODY"
           echo 'EOF'
         } >> $GITHUB_OUTPUT
+        
+        # Print changelog
+        echo "Changelog:"
+        cat "${{ env.APP_VERSION }}.md"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
