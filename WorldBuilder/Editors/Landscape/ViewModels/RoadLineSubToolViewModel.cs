@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using WorldBuilder.Editors.Landscape.Commands;
 using WorldBuilder.Lib;
+using WorldBuilder.Lib.History;
 
 namespace WorldBuilder.Editors.Landscape.ViewModels {
     public partial class RoadLineSubToolViewModel : SubToolViewModelBase {

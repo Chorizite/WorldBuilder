@@ -7,6 +7,7 @@ using System.Linq;
 using System.Numerics;
 using WorldBuilder.Editors.Landscape.Commands;
 using WorldBuilder.Lib;
+using WorldBuilder.Lib.History;
 using WorldBuilder.Shared.Documents;
 
 namespace WorldBuilder.Editors.Landscape.ViewModels {

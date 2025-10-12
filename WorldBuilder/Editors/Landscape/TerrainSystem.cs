@@ -8,6 +8,7 @@ using System.Linq;
 using System.Numerics;
 using WorldBuilder.Editors.Landscape.ViewModels;
 using WorldBuilder.Lib;
+using WorldBuilder.Lib.History;
 using WorldBuilder.Lib.Settings;
 using WorldBuilder.Shared.Documents;
 using WorldBuilder.Shared.Lib;
@@ -65,7 +66,7 @@ namespace WorldBuilder.Editors.Landscape {
             collection.AddSingleton(dats);
             collection.AddSingleton(project);
             collection.AddSingleton(renderer);
-            collection.AddSingleton(new CommandHistory(50));
+            collection.AddSingleton(new CommandHistory(5));
             collection.AddSingleton<HistorySnapshotPanelViewModel>();
             collection.AddTransient<PerspectiveCamera>();
             collection.AddTransient<OrthographicTopDownCamera>();

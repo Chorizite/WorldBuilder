@@ -1,7 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using System;
 
-namespace WorldBuilder.Lib {
+namespace WorldBuilder.ViewModels {
     public partial class HistoryListItem : ObservableObject {
         [ObservableProperty]
         private int _index; // Used for history entries, -1 for snapshots or original document

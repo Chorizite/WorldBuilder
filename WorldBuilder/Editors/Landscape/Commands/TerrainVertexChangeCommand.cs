@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using WorldBuilder.Lib;
+using WorldBuilder.Lib.History;
 using WorldBuilder.Shared.Documents;
 
 namespace WorldBuilder.Editors.Landscape.Commands {

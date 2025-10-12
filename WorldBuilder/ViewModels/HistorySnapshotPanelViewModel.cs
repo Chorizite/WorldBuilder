@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using WorldBuilder.Editors.Landscape;
 using WorldBuilder.Lib;
+using WorldBuilder.Lib.History;
 using WorldBuilder.Shared.Documents;
 using WorldBuilder.Shared.Models;
 
@@ -486,4 +487,5 @@ namespace WorldBuilder.ViewModels {
             _commandHistory.HistoryChanged -= OnCommandHistoryChanged;
         }
     }
+    
 }
