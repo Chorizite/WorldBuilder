@@ -34,7 +34,7 @@ namespace WorldBuilder.Editors.Landscape {
         public WorldBuilderSettings Settings { get; }
         public TerrainDocument TerrainDoc { get; private set; }
         public TerrainEditingContext EditingContext { get; private set; }
-        public TerrainRenderer Renderer { get; private set; }
+        public GameScene Renderer { get; private set; }
         public IServiceProvider Services { get; private set; }
 
         public TerrainSystem(OpenGLRenderer renderer, Project project, IDatReaderWriter dats, WorldBuilderSettings settings, ILogger<TerrainSystem> logger)
@@ -55,7 +55,8 @@ namespace WorldBuilder.Editors.Landscape {
             collection.AddSingleton(new CameraManager(TopDownCamera));
             collection.AddSingleton<TerrainSystem>();
             collection.AddSingleton(EditingContext);
-            collection.AddSingleton<TerrainRenderer>();
+            collection.AddSingleton<GameScene>();
+            collection.AddSingleton(project.DocumentManager);
             collection.AddSingleton<WorldBuilderSettings>(Settings);
             collection.AddSingleton<RoadLineSubToolViewModel>();
             collection.AddSingleton<RoadPointSubToolViewModel>();
@@ -79,17 +80,26 @@ namespace WorldBuilder.Editors.Landscape {
             Services = new CompositeServiceProvider(collection.BuildServiceProvider(), ProjectManager.Instance.CompositeProvider);
 
             CameraManager = Services.GetRequiredService<CameraManager>();
-            Renderer = Services.GetRequiredService<TerrainRenderer>();
+            Renderer = Services.GetRequiredService<GameScene>();
 
             DataManager = new TerrainDataManager(TerrainDoc, region, 16);
             SurfaceManager = new LandSurfaceManager(renderer, dats, region);
             GPUManager = new TerrainGPUResourceManager(renderer);
         }
+
         private async Task InitAsync(IDatReaderWriter dats) {
             TerrainDoc = (TerrainDocument?)await LoadDocumentAsync("terrain", typeof(TerrainDocument))
                 ?? throw new InvalidOperationException("Failed to load terrain document");
 
             await TerrainDoc.InitAsync(dats);
+        }
+
+        public IEnumerable<StaticObject> GetAllStaticObjects() {
+            foreach (var doc in GetActiveDocuments().OfType<LandblockDocument>()) {
+                foreach (var obj in doc.GetStaticObjects()) {
+                    yield return obj;
+                }
+            }
         }
 
         public override async Task<BaseDocument?> LoadDocumentAsync(string documentId, Type documentType, bool forceReload = false) {

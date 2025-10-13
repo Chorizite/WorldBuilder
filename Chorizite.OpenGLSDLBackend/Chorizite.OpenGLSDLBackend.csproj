@@ -8,6 +8,7 @@
 	<ItemGroup>
 	  <None Remove="Shaders\Landscape.frag" />
 	  <None Remove="Shaders\Landscape.vert" />
+	  <None Remove="Shaders\StaticObject.vert" />
 	  <None Remove="Shaders\Text.frag" />
 	  <None Remove="Shaders\Text.vert" />
 	</ItemGroup>
@@ -25,6 +26,8 @@
 	  <EmbeddedResource Include="Shaders\Landscape.vert">
 	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Shaders\StaticObject.frag" />
+	  <EmbeddedResource Include="Shaders\StaticObject.vert" />
 	  <EmbeddedResource Include="Shaders\Text.frag">
 	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 	  </EmbeddedResource>
