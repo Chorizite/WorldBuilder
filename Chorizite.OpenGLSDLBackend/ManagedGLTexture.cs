@@ -139,6 +139,9 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public void Bind(int slot = 0) {
+            GL.BindSampler((uint)slot, 0);
+            GL.ActiveTexture(GLEnum.Texture0 + slot);
+            GLHelpers.CheckErrors();
             GL.BindTexture(GLEnum.Texture2D, (uint)NativePtr);
             GLHelpers.CheckErrors();
         }

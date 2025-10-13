@@ -1,4 +1,5 @@
-﻿using Chorizite.Core.Render;
+﻿// StaticObjectManager.cs - Refactored to match ACViewer's batching system
+using Chorizite.Core.Render;
 using Chorizite.Core.Render.Enums;
 using Chorizite.OpenGLSDLBackend;
 using DatReaderWriter.DBObjs;
@@ -17,6 +18,8 @@ namespace WorldBuilder.Editors.Landscape {
         private readonly IDatReaderWriter _dats;
         private readonly Dictionary<uint, StaticObjectRenderData> _renderData = new();
         internal readonly IShader _objectShader;
+
+        // Texture atlases organized by format (width, height)
         private readonly Dictionary<(int Width, int Height), TextureAtlasManager> _atlasManagers = new();
 
         public StaticObjectManager(OpenGLRenderer renderer, IDatReaderWriter dats) {
@@ -51,20 +54,29 @@ namespace WorldBuilder.Editors.Landscape {
             var parts = new List<(uint GfxObjId, Matrix4x4 Transform)>();
 
             if (setup.PlacementFrames == null || setup.PlacementFrames.Count == 0) {
+                Console.WriteLine($"Setup 0x{id:X8}: No placement frames, using identity transforms");
                 for (int i = 0; i < setup.Parts.Count; i++) {
                     parts.Add((setup.Parts[i], Matrix4x4.Identity));
                 }
             }
             else {
                 var placementFrame = setup.PlacementFrames[0];
+
                 for (int i = 0; i < setup.Parts.Count; i++) {
                     var partId = setup.Parts[i];
                     Matrix4x4 transform = Matrix4x4.Identity;
 
+                    // Each part has its own frame at index i
                     if (placementFrame.Frames != null && i < placementFrame.Frames.Count) {
                         var frame = placementFrame.Frames[i];
-                        transform = Matrix4x4.CreateFromQuaternion(frame.Orientation) * Matrix4x4.CreateTranslation(frame.Origin);
+
+                        transform = Matrix4x4.CreateTranslation(frame.Origin);
+
+                       }
+                    else {
+                        Console.WriteLine($"Setup 0x{id:X8} Part {i} (0x{partId:X8}): No frame data, using identity");
                     }
+
                     parts.Add((partId, transform));
                 }
             }
@@ -83,118 +95,196 @@ namespace WorldBuilder.Editors.Landscape {
             return renderData;
         }
 
-        private unsafe StaticObjectRenderData CreateGfxObjRenderData(uint id, GfxObj gfxObj, Vector3 scale) {
-            var vertices = new List<VertexPositionNormalTexture>();
-            var UVLookup = new Dictionary<(ushort vertId, ushort uvIdx), ushort>();
-            var batchesByFormat = new Dictionary<(int Width, int Height), List<TextureBatch>>();
+        public static Dictionary<Tuple<ushort, ushort>, ushort> BuildUVLookup(DatReaderWriter.Types.VertexArray vertexArray) {
+            var uvLookupTable = new Dictionary<Tuple<ushort, ushort>, ushort>();
 
-            foreach (var poly in gfxObj.Polygons.Values) {
-                if (!ValidatePolygon(poly, gfxObj, out int surfaceIdx, out bool useNegSurface)) {
+            ushort i = 0;
+            foreach (var v in vertexArray.Vertices) {
+                if (v.Value.UVs == null || v.Value.UVs.Count == 0) {
+                    uvLookupTable.Add(new Tuple<ushort, ushort>(v.Key, 0), i++);
                     continue;
                 }
 
-                if (!LoadTextureData(gfxObj, poly, surfaceIdx, out var textureData, out var texWidth, out var texHeight)) {
+                for (ushort uvIdx = 0; uvIdx < v.Value.UVs.Count; uvIdx++)
+                    uvLookupTable.Add(new Tuple<ushort, ushort>(v.Key, uvIdx), i++);
+            }
+            return uvLookupTable;
+        }
+        private unsafe StaticObjectRenderData CreateGfxObjRenderData(uint id, GfxObj gfxObj, Vector3 scale) {
+            // Build expanded vertex array
+            var vertices = new List<VertexPositionNormalTexture>();
+
+            // Build UV lookup dictionary locally to ensure sequential indices
+            var UVLookup = new Dictionary<(ushort vertId, ushort uvIdx), ushort>();
+
+            // Build batches organized by texture format
+            var batchesByFormat = new Dictionary<(int Width, int Height), List<TextureBatch>>();
+
+            int polyCount = 0;
+            int skippedPolys = 0;
+
+            foreach (var poly in gfxObj.Polygons.Values) {
+                polyCount++;
+
+                // Validate polygon and determine surface index
+                if (!ValidatePolygon(poly, gfxObj, polyCount, out int surfaceIdx, out bool useNegSurface, ref skippedPolys)) {
+                    continue;
+                }
+
+                // Load texture data
+                if (!LoadTextureData(gfxObj, poly, surfaceIdx, polyCount, out var textureData, out var texWidth, out var texHeight)) {
+                    skippedPolys++;
                     continue;
                 }
 
                 var format = (texWidth, texHeight);
+
+                // Get or create atlas manager for this format
                 if (!_atlasManagers.TryGetValue(format, out var atlasManager)) {
                     atlasManager = new TextureAtlasManager(_renderer, format.texWidth, format.texHeight);
                     _atlasManagers[format] = atlasManager;
                 }
 
+                // Add texture to atlas and get index
                 int textureIndex = atlasManager.AddTexture(gfxObj.Surfaces[surfaceIdx], textureData);
+
+                // Get batches for this format
                 if (!batchesByFormat.TryGetValue(format, out var batches)) {
                     batches = new List<TextureBatch>();
                     batchesByFormat[format] = batches;
                 }
 
-                var batch = batches.FirstOrDefault(b => b.TextureIndex == textureIndex) ?? new TextureBatch { TextureIndex = textureIndex };
-                if (!batches.Contains(batch)) {
+                // Find or create batch for this texture index
+                var batch = batches.FirstOrDefault(b => b.TextureIndex == textureIndex);
+                if (batch == null) {
+                    batch = new TextureBatch { TextureIndex = textureIndex };
                     batches.Add(batch);
                 }
 
-                if (!BuildPolygonIndices(poly, gfxObj, scale, UVLookup, vertices, batch, useNegSurface, out int numTriangles)) {
+                // Build polygon indices (with useNegSurface passed)
+                if (!BuildPolygonIndices(poly, gfxObj, scale, polyCount, UVLookup, vertices, batch, useNegSurface, out int numTriangles)) {
+                    Console.WriteLine($"  Poly {polyCount}: Skipped due to invalid vertex or index data");
+                    skippedPolys++;
                     continue;
                 }
+
             }
 
-            return SetupGpuBuffers(vertices, batchesByFormat, id);
+
+            // Create GPU buffers
+            var renderData = SetupGpuBuffers(vertices, batchesByFormat, id);
+            return renderData;
         }
 
-        private bool ValidatePolygon(Polygon poly, GfxObj gfxObj, out int surfaceIdx, out bool useNegSurface) {
+        private bool ValidatePolygon(Polygon poly, GfxObj gfxObj, int polyCount, out int surfaceIdx, out bool useNegSurface, ref int skippedPolys) {
             surfaceIdx = poly.PosSurface;
             useNegSurface = false;
 
-            if (poly.VertexIds.Count < 3 || surfaceIdx >= gfxObj.Surfaces.Count) {
+            if (poly.VertexIds.Count < 3) {
+                Console.WriteLine($"  Poly {polyCount}: Skipped due to < 3 vertices ({poly.VertexIds.Count})");
+                skippedPolys++;
                 return false;
             }
 
             if (poly.Stippling == StipplingType.NoPos) {
                 if (poly.PosSurface >= 0 && poly.PosSurface < gfxObj.Surfaces.Count) {
+                    Console.WriteLine($"  Poly {polyCount}: NoPos stippling, using PosSurface {poly.PosSurface}");
                     surfaceIdx = poly.PosSurface;
                 }
                 else if (poly.NegSurface >= 0 && poly.NegSurface < gfxObj.Surfaces.Count) {
+                    Console.WriteLine($"  Poly {polyCount}: NoPos stippling, using NegSurface {poly.NegSurface}");
                     surfaceIdx = poly.NegSurface;
                     useNegSurface = true;
                 }
                 else {
+                    Console.WriteLine($"  Poly {polyCount}: Skipped due to NoPos stippling with no valid surface (PosSurface: {poly.PosSurface}, NegSurface: {poly.NegSurface})");
+                    skippedPolys++;
                     return false;
                 }
             }
-
-            var surfaceId = gfxObj.Surfaces[surfaceIdx];
-            return _dats.TryGet<Surface>(surfaceId, out var _);
-        }
-
-        private bool LoadTextureData(GfxObj gfxObj, Polygon poly, int surfaceIdx, out byte[] textureData, out int texWidth, out int texHeight) {
-            textureData = null;
-            texWidth = 0;
-            texHeight = 0;
-
-            var surfaceId = gfxObj.Surfaces[surfaceIdx];
-            if (!_dats.TryGet<Surface>(surfaceId, out var surface)) {
+            else if (surfaceIdx >= gfxObj.Surfaces.Count) {
+                Console.WriteLine($"  Poly {polyCount}: Skipped due to invalid PosSurface index {surfaceIdx} >= {gfxObj.Surfaces.Count}");
+                skippedPolys++;
                 return false;
             }
 
-            if (poly.Stippling == StipplingType.NoPos || surface.Type.HasFlag(SurfaceType.Base1Solid)) {
-                texWidth = texHeight = 32;
-                textureData = CreateSolidColorTexture(surface.ColorValue, texWidth, texHeight);
-            }
-            else if (_dats.TryGet<SurfaceTexture>(surface.OrigTextureId, out var surfaceTexture) && surfaceTexture.Textures?.Any() == true) {
-                var renderSurfaceId = surfaceTexture.Textures.Last();
-                if (_dats.TryGet<RenderSurface>(renderSurfaceId, out var renderSurface)) {
-                    texWidth = renderSurface.Width;
-                    texHeight = renderSurface.Height;
-                    textureData = new byte[texWidth * texHeight * 4];
-                    GetTexture(renderSurface, textureData.AsSpan());
-                }
-                else {
-                    return false;
-                }
-            }
-            else {
+            var surfaceId = gfxObj.Surfaces[surfaceIdx];
+            if (!_dats.TryGet<Surface>(surfaceId, out var surface)) {
+                Console.WriteLine($"  Poly {polyCount}: Skipped due to failure to load Surface 0x{surfaceId:X8}");
+                skippedPolys++;
                 return false;
             }
 
             return true;
         }
 
-        private bool BuildPolygonIndices(Polygon poly, GfxObj gfxObj, Vector3 scale,
-            Dictionary<(ushort vertId, ushort uvIdx), ushort> UVLookup,
-            List<VertexPositionNormalTexture> vertices, TextureBatch batch, bool useNegSurface, out int numTriangles) {
+        private bool LoadTextureData(GfxObj gfxObj, Polygon poly, int surfaceIdx, int polyCount, out byte[] textureData, out int texWidth, out int texHeight) {
+            textureData = null;
+            texWidth = 0;
+            texHeight = 0;
+
+            var surfaceId = gfxObj.Surfaces[surfaceIdx];
+            if (!_dats.TryGet<Surface>(surfaceId, out var surface)) {
+                Console.WriteLine($"  Poly {polyCount}: Skipped due to failure to load Surface 0x{surfaceId:X8}");
+                return false;
+            }
+
+            if (poly.Stippling == StipplingType.NoPos || surface.Type.HasFlag(SurfaceType.Base1Solid)) {
+                texWidth = texHeight = 32;
+                textureData = CreateSolidColorTexture(surface.ColorValue, texWidth, texHeight);
+                Console.WriteLine($"  Poly {polyCount}: Using solid color texture for Surface 0x{surfaceId:X8}");
+            }
+            else if (_dats.TryGet<SurfaceTexture>(surface.OrigTextureId, out var surfaceTexture)) {
+                if (surfaceTexture.Textures == null || !surfaceTexture.Textures.Any()) {
+                    Console.WriteLine($"  Poly {polyCount}: Skipped due to SurfaceTexture 0x{surface.OrigTextureId:X8} having no textures");
+                    return false;
+                }
+
+                var renderSurfaceId = surfaceTexture.Textures.Last();
+                if (!_dats.TryGet<RenderSurface>(renderSurfaceId, out var renderSurface)) {
+                    Console.WriteLine($"  Poly {polyCount}: Skipped due to failure to load RenderSurface 0x{renderSurfaceId:X8} from SurfaceTexture 0x{surface.OrigTextureId:X8}");
+                    return false;
+                }
+
+                texWidth = renderSurface.Width;
+                texHeight = renderSurface.Height;
+                textureData = new byte[texWidth * texHeight * 4];
+
+                try {
+                    GetTexture(renderSurface, textureData.AsSpan());
+                }
+                catch (Exception ex) {
+                    Console.WriteLine($"  Poly {polyCount}: Skipped due to failed texture decode from RenderSurface 0x{renderSurfaceId:X8}: {ex.Message}");
+                    return false;
+                }
+            }
+            else {
+                Console.WriteLine($"  Poly {polyCount}: Skipped due to failure to load SurfaceTexture 0x{surface.OrigTextureId:X8} for Surface 0x{surfaceId:X8} (Surface Type: {surface.Type})");
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool BuildPolygonIndices(Polygon poly, GfxObj gfxObj, Vector3 scale, int polyCount,
+    Dictionary<(ushort vertId, ushort uvIdx), ushort> UVLookup,
+    List<VertexPositionNormalTexture> vertices, TextureBatch batch, bool useNegSurface, out int numTriangles) {
 
             numTriangles = 0;
             var polyIndices = new List<ushort>();
 
+            // Validate input
             if (poly.VertexIds.Count < 3) {
+                Console.WriteLine($"  Poly {polyCount}: Skipped due to < 3 vertices ({poly.VertexIds.Count})");
                 return false;
             }
 
-            for (int i = poly.VertexIds.Count - 1; i >= 0; i--) {
+            // Build vertices and indices with reversal for correct winding
+            for (int i = poly.VertexIds.Count - 1; i >= 0; i--) {  // Reverse order to flip winding
                 ushort vertId = (ushort)poly.VertexIds[i];
                 ushort uvIdx = 0;
 
+                // Choose UV indices based on surface side
                 if (useNegSurface) {
                     if (poly.NegUVIndices != null && i < poly.NegUVIndices.Count) {
                         uvIdx = poly.NegUVIndices[i];
@@ -207,6 +297,7 @@ namespace WorldBuilder.Editors.Landscape {
                 }
 
                 if (vertId >= gfxObj.VertexArray.Vertices.Count) {
+                    Console.WriteLine($"  Poly {polyCount}: Invalid vertex ID {vertId}");
                     return false;
                 }
 
@@ -217,12 +308,14 @@ namespace WorldBuilder.Editors.Landscape {
 
                 var key = (vertId, uvIdx);
                 if (!UVLookup.TryGetValue(key, out var idx)) {
+                    // FIX: Potentially flip V coordinate for OpenGL
                     var uv = vertex.UVs.Count > 0
-                        ? new Vector2(vertex.UVs[uvIdx].U, 1.0f - vertex.UVs[uvIdx].V)
+                        ? new Vector2(vertex.UVs[uvIdx].U, 1.0f - vertex.UVs[uvIdx].V)  // Flip V
                         : Vector2.Zero;
 
+                    // FIX: Apply scale to position
                     var position = vertex.Origin * scale;
-                    var normal = Vector3.Normalize(vertex.Normal);
+                    var normal = Vector3.Normalize(vertex.Normal); // Ensure normalized
 
                     idx = (ushort)vertices.Count;
                     vertices.Add(new VertexPositionNormalTexture(position, normal, uv));
@@ -231,7 +324,8 @@ namespace WorldBuilder.Editors.Landscape {
                 polyIndices.Add(idx);
             }
 
-            for (int i = 2; i < polyIndices.Count; i++) {
+            // Triangulate polygon - fan triangulation with adjusted order for winding
+            for (int i = 2; i < polyIndices.Count; i++) {  // Adjusted to match working's flipped fan
                 batch.Indices.Add(polyIndices[i]);
                 batch.Indices.Add(polyIndices[i - 1]);
                 batch.Indices.Add(polyIndices[0]);
@@ -261,10 +355,14 @@ namespace WorldBuilder.Editors.Landscape {
             gl.VertexAttribPointer(2, 2, GLEnum.Float, false, (uint)stride, (void*)(6 * sizeof(float)));
 
             var renderBatches = new List<RenderBatch>();
+            int totalTriangles = 0;
+
             foreach (var (format, batches) in batchesByFormat) {
                 var atlasManager = _atlasManagers[format];
+
                 foreach (var batch in batches) {
                     if (batch.Indices.Count == 0) {
+                        Console.WriteLine($"  Warning: Batch for texture {batch.TextureIndex} (format {format.Width}x{format.Height}) has no indices");
                         continue;
                     }
 
@@ -281,6 +379,8 @@ namespace WorldBuilder.Editors.Landscape {
                         TextureIndex = batch.TextureIndex,
                         TextureSize = format
                     });
+
+                    totalTriangles += batch.Indices.Count / 3;
                 }
             }
 
@@ -296,6 +396,7 @@ namespace WorldBuilder.Editors.Landscape {
 
             _renderData[id] = renderData;
             gl.BindVertexArray(0);
+
             return renderData;
         }
 
@@ -314,7 +415,7 @@ namespace WorldBuilder.Editors.Landscape {
             switch (surface.Format) {
                 case DatReaderWriter.Enums.PixelFormat.PFID_INDEX16:
                     if (!_dats.TryGet<Palette>(surface.DefaultPaletteId, out var paletteData))
-                        throw new Exception("Unable to load palette");
+                        throw new Exception($"Unable to load Palette: 0x{surface.DefaultPaletteId:X8}");
                     for (int y = 0; y < surface.Height; y++) {
                         for (int x = 0; x < surface.Width; x++) {
                             var srcIdx = (y * surface.Width + x) * 2;
@@ -357,7 +458,7 @@ namespace WorldBuilder.Editors.Landscape {
                     }
                     break;
                 default:
-                    throw new NotSupportedException("Unsupported surface format");
+                    throw new NotSupportedException($"Unsupported surface format: {surface.Format}");
             }
         }
 
@@ -483,6 +584,7 @@ namespace WorldBuilder.Editors.Landscape {
         }
     }
 
+    // Helper classes
     internal class TextureBatch {
         public int TextureIndex { get; set; }
         public List<ushort> Indices { get; set; } = new();
@@ -500,7 +602,7 @@ namespace WorldBuilder.Editors.Landscape {
         private readonly OpenGLRenderer _renderer;
         private readonly int _textureWidth;
         private readonly int _textureHeight;
-        private readonly Dictionary<uint, int> _textureIndices = new();
+        private readonly Dictionary<uint, int> _textureIndices = new(); // SurfaceId -> TextureArrayIndex
         private int _nextIndex = 0;
         private const int InitialCapacity = 16;
 
@@ -518,10 +620,12 @@ namespace WorldBuilder.Editors.Landscape {
                 return existingIndex;
             }
 
+            // Expand array if needed
             var managedArray = TextureArray as ManagedGLTextureArray;
             if (_nextIndex >= managedArray?.Size) {
                 int newSize = managedArray.Size * 2;
                 var newArray = _renderer.GraphicsDevice.CreateTextureArray(TextureFormat.RGBA8, _textureWidth, _textureHeight, newSize);
+                // Note: In production, you'd want to copy existing textures to the new array
                 TextureArray = newArray;
             }
 
@@ -542,6 +646,8 @@ namespace WorldBuilder.Editors.Landscape {
         public int IndexCount { get; set; }
         public List<RenderBatch> Batches { get; set; } = new();
         public (int Width, int Height) TextureSize { get; set; }
+
+        // For Setup objects
         public bool IsSetup { get; set; }
         public List<(uint GfxObjId, Matrix4x4 Transform)> SetupParts { get; set; } = new();
     }

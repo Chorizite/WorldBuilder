@@ -321,11 +321,13 @@ namespace WorldBuilder.Editors.Landscape {
             }
 
             _gl.BindVertexArray(_sphereVAO);
-            _gl.DrawElementsInstanced(GLEnum.TriangleFan, (uint)_sphereIndexCount, GLEnum.UnsignedShort, null, (uint)count);
+            _gl.DrawElementsInstanced(GLEnum.Triangles, (uint)_sphereIndexCount, GLEnum.UnsignedInt, null, (uint)count);
             _gl.BindVertexArray(0);
             _gl.UseProgram(0);
             _gl.Disable(EnableCap.Blend);
         }
+
+
         private unsafe void RenderStaticObjects(List<StaticObject> objects, ICamera camera, Matrix4x4 viewProjection) {
             _gl.Enable(EnableCap.DepthTest);
             _gl.Enable(EnableCap.Blend);
@@ -343,7 +345,6 @@ namespace WorldBuilder.Editors.Landscape {
                 .ToDictionary(
                     g => g.Key,
                     g => g.Select(o => (
-                        // FIX: Include rotation in transform
                         Transform: Matrix4x4.CreateFromQuaternion(o.Orientation) * Matrix4x4.CreateTranslation(o.Origin),
                         Object: o
                     )).ToList()
@@ -364,8 +365,9 @@ namespace WorldBuilder.Editors.Landscape {
                         var partRenderData = _objectManager.GetRenderData(partId, false);
                         if (partRenderData == null) continue;
 
+                        // Create instance data for each instance of this setup
                         var instanceData = group.Value.Select(inst =>
-                            partTransform * inst.Transform  // This is correct: local-to-parent * parent-to-world
+                            partTransform * inst.Transform
                         ).ToList();
 
                         RenderBatchedObject(partRenderData, instanceData);
