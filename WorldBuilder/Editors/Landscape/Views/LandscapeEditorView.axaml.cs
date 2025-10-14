@@ -27,6 +27,7 @@ public partial class LandscapeEditorView : Base3DView {
 
     // Auto camera switching thresholds (dynamic based on MaxDrawDistance to avoid showing empty sky)
     private const float SWITCH_TO_PERSPECTIVE_ZOOM = 800f;  // Switch to perspective when zooming in closer than this (for orthographic mode)
+    private const float MIN_CAMERA_CLEARANCE = 20f;  // Minimum distance above terrain surface
     private bool _hasStartedTopDownAnimation = false;
     private double _lastCameraSwitchTime = 0;
     private double _totalElapsedTime = 0;
@@ -115,6 +116,9 @@ public partial class LandscapeEditorView : Base3DView {
 
         // Camera movement (WASD)
         HandleCameraMovement(deltaTime);
+
+        // Clamp camera above terrain
+        ClampCameraAboveTerrain();
 
         // Mouse input
         _viewModel.TerrainSystem.CameraManager.Current.ProcessMouseMovement(InputState.MouseState);
@@ -218,6 +222,22 @@ public partial class LandscapeEditorView : Base3DView {
             camera.ProcessKeyboard(CameraMovement.Right, deltaTime);
     }
 
+    private void ClampCameraAboveTerrain() {
+        if (_viewModel?.TerrainSystem == null) return;
+
+        var camera = _viewModel.TerrainSystem.CameraManager.Current;
+        var cameraPos = camera.Position;
+
+        // Get terrain height at camera X/Y position
+        float terrainHeight = _viewModel.TerrainSystem.GetTerrainHeightAtPosition(cameraPos.X, cameraPos.Y);
+        float minAltitude = terrainHeight + MIN_CAMERA_CLEARANCE;
+
+        // Clamp camera altitude if it's too low
+        if (cameraPos.Z < minAltitude) {
+            camera.SetPosition(cameraPos.X, cameraPos.Y, minAltitude);
+        }
+    }
+
     private void RenderToolOverlay() {
         if (_render == null || _viewModel?.TerrainSystem == null) return;
 
@@ -242,10 +262,15 @@ public partial class LandscapeEditorView : Base3DView {
             _viewModel.TerrainSystem.CommandHistory.Redo();
         }
         if (e.Key == Key.R && !e.KeyModifiers.HasFlag(KeyModifiers.Control)) {
-            // Reset camera orientation to north in orthographic mode
-            if (_viewModel.TerrainSystem.CameraManager.Current is OrthographicTopDownCamera orthoCamera) {
+            // Reset camera orientation to north
+            var currentCamera = _viewModel.TerrainSystem.CameraManager.Current;
+            if (currentCamera is OrthographicTopDownCamera orthoCamera) {
                 orthoCamera.ResetOrientation();
-                Console.WriteLine("Camera orientation reset to north");
+                Console.WriteLine("Orthographic camera orientation reset to north (top-down view)");
+            }
+            else if (currentCamera is PerspectiveCamera perspCamera) {
+                perspCamera.ResetOrientation();
+                Console.WriteLine("Perspective camera orientation reset to north (horizontal view)");
             }
         }
     }
@@ -266,6 +291,8 @@ public partial class LandscapeEditorView : Base3DView {
 
         if (camera is PerspectiveCamera perspectiveCamera) {
             perspectiveCamera.ProcessMouseScroll((float)e.Delta.Y);
+            // Clamp camera above terrain after scrolling
+            ClampCameraAboveTerrain();
         }
         else if (camera is OrthographicTopDownCamera orthoCamera) {
             orthoCamera.ProcessMouseScrollAtCursor(

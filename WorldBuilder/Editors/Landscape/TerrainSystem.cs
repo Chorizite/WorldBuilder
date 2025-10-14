@@ -154,6 +154,13 @@ namespace WorldBuilder.Editors.Landscape {
         public int GetLoadedChunkCount() => DataManager.GetAllChunks().Count();
         public int GetVisibleChunkCount(Frustum frustum) => GetRenderableChunks(frustum).Count();
 
+        /// <summary>
+        /// Get terrain height at a world position (for camera clipping)
+        /// </summary>
+        public float GetTerrainHeightAtPosition(float worldX, float worldY) {
+            return DataManager.GetHeightAtPosition(worldX, worldY);
+        }
+
         public void Dispose() {
             GPUManager?.Dispose();
             Services.GetRequiredService<DocumentManager>().CloseDocumentAsync(TerrainDoc.Id).GetAwaiter().GetResult();

@@ -276,6 +276,15 @@ namespace WorldBuilder.Lib {
         }
 
         /// <summary>
+        /// Reset camera orientation to face north at horizontal level
+        /// </summary>
+        public void ResetOrientation() {
+            yaw = 0.0f;     // Face north
+            pitch = 0.0f;   // Look horizontally
+            UpdateCameraVectors();
+        }
+
+        /// <summary>
         /// Check if the camera is currently animating
         /// </summary>
         public bool IsAnimating => isAnimating;
