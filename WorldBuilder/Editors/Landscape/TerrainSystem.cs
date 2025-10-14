@@ -22,7 +22,7 @@ namespace WorldBuilder.Editors.Landscape {
     /// Main terrain system coordinator
     /// </summary>
     public class TerrainSystem : EditorBase {
-        private const float ProximityThreshold = 500f;  // 2D distance for loading
+        private const float ProximityThreshold = 3500f;  // 2D distance for loading
         private float _velocityThreshold = 100f;
 
         public TerrainDataManager DataManager { get; }
@@ -92,7 +92,7 @@ namespace WorldBuilder.Editors.Landscape {
             TerrainDoc = (TerrainDocument?)await LoadDocumentAsync("terrain", typeof(TerrainDocument))
                 ?? throw new InvalidOperationException("Failed to load terrain document");
 
-            await TerrainDoc.InitAsync(dats);
+            await TerrainDoc.InitAsync(dats,  DocumentManager);
         }
 
         public IEnumerable<StaticObject> GetAllStaticObjects() {

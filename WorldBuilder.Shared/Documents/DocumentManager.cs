@@ -96,7 +96,6 @@ namespace WorldBuilder.Shared.Documents {
                         documentId, doc.GetType().Name, docTypeName);
                     return null;
                 }
-                _logger.LogInformation("Pulling Document {DocumentId}({Type}) from cache", documentId, doc.GetType().Name);
                 return doc;
             }
 
@@ -122,7 +121,7 @@ namespace WorldBuilder.Shared.Documents {
                     }
                 }
 
-                if (!await docInstance.InitAsync(Dats)) {
+                if (!await docInstance.InitAsync(Dats, this)) {
                     _logger.LogError("Failed to init document {DocumentId} of type {Type}", documentId, docTypeName);
                     return null;
                 }

@@ -275,7 +275,7 @@ namespace WorldBuilder.Shared.Documents {
             return true;
         }
 
-        protected override Task<bool> InitInternal(IDatReaderWriter datreader) {
+        protected override Task<bool> InitInternal(IDatReaderWriter datreader, DocumentManager documentManager) {
             if (!string.IsNullOrWhiteSpace(_cacheDirectory) && File.Exists(Path.Combine(_cacheDirectory, "terrain.dat"))) {
                 _logger.LogInformation("Loading terrain data from cache...");
                 _baseTerrainCache = MemoryPackSerializer.Deserialize<ConcurrentDictionary<ushort, uint[]>>(File.ReadAllBytes(Path.Combine(_cacheDirectory, "terrain.dat"))) ?? [];

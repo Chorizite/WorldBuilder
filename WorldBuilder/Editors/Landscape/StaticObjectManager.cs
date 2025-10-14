@@ -79,13 +79,19 @@ namespace WorldBuilder.Editors.Landscape {
         }
 
         private StaticObjectRenderData? CreateRenderData(uint id, bool isSetup) {
-            if (isSetup) {
-                if (!_dats.TryGet<Setup>(id, out var setup)) return null;
-                return CreateSetupRenderData(id, setup);
+            try {
+                if (isSetup) {
+                    if (!_dats.TryGet<Setup>(id, out var setup)) return null;
+                    return CreateSetupRenderData(id, setup);
+                }
+                else {
+                    if (!_dats.TryGet<GfxObj>(id, out var gfxObj)) return null;
+                    return CreateGfxObjRenderData(id, gfxObj, Vector3.One);
+                }
             }
-            else {
-                if (!_dats.TryGet<GfxObj>(id, out var gfxObj)) return null;
-                return CreateGfxObjRenderData(id, gfxObj, new Vector3(3, 3, 3));
+            catch (Exception ex) {
+                Console.WriteLine($"Error creating render data for object 0x{id:X8}: {ex.Message}");
+                return null;
             }
         }
 
@@ -95,7 +101,7 @@ namespace WorldBuilder.Editors.Landscape {
 
             for (int i = 0; i < setup.Parts.Count; i++) {
                 var partId = setup.Parts[i];
-                var transform = Matrix4x4.Identity * Matrix4x4.CreateScale(3, 3, 3);
+                var transform = Matrix4x4.Identity;
 
                 if (placementFrame?.Value.Frames != null && i < placementFrame.Value.Value.Frames.Count) {
                     transform = Matrix4x4.CreateTranslation(placementFrame.Value.Value.Frames[i].Origin);
@@ -122,6 +128,7 @@ namespace WorldBuilder.Editors.Landscape {
             foreach (var poly in gfxObj.Polygons.Values) {
                 if (poly.VertexIds.Count < 3) continue;
 
+                /*
                 int surfaceIdx = poly.PosSurface;
                 bool useNegSurface = false;
 
@@ -146,7 +153,6 @@ namespace WorldBuilder.Editors.Landscape {
 
                 byte[] textureData;
                 int texWidth, texHeight;
-                /*
                 if (poly.Stippling == StipplingType.NoPos || surface.Type.HasFlag(SurfaceType.Base1Solid)) {
                     texWidth = texHeight = 32;
                     textureData = CreateSolidColorTexture(surface.ColorValue, texWidth, texHeight);
@@ -176,6 +182,9 @@ namespace WorldBuilder.Editors.Landscape {
                 int textureIndex = atlasManager.AddTexture(surfaceId, textureData);
                 
                 */
+
+                var surfaceId = 0u;
+                var useNegSurface = false;
                 var textureIndex = 0;
                 var format = (0, 0);
                 if (!batchesByFormat.TryGetValue(format, out var batches)) {

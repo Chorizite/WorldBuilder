@@ -55,11 +55,9 @@ namespace WorldBuilder.Shared.Documents {
         }
         public void MarkDirty() {
             IsDirty = true;
-            _logger.LogInformation("Document {DocumentId} marked as dirty", Id);
         }
         protected void ClearDirty() {
             IsDirty = false;
-            _logger.LogInformation("Document {DocumentId} dirty flag cleared", Id);
         }
 
         public void SetCacheDirectory(string cacheDirectory) => _cacheDirectory = cacheDirectory;
@@ -75,9 +73,9 @@ namespace WorldBuilder.Shared.Documents {
         /// </summary>
         /// <param name="datreader"></param>
         /// <returns></returns>
-        public virtual Task<bool> InitAsync(IDatReaderWriter datreader) {
+        public virtual Task<bool> InitAsync(IDatReaderWriter datreader, DocumentManager documentManager) {
             lock (_stateLock) {
-                return InitInternal(datreader);
+                return InitInternal(datreader, documentManager);
             }
         }
 
@@ -86,7 +84,7 @@ namespace WorldBuilder.Shared.Documents {
         /// </summary>
         /// <param name="datreader"></param>
         /// <returns></returns>
-        protected abstract Task<bool> InitInternal(IDatReaderWriter datreader);
+        protected abstract Task<bool> InitInternal(IDatReaderWriter datreader, DocumentManager documentManager);
 
         /// <summary>
         /// Serialize the document to a byte array
