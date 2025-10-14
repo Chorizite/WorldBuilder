@@ -23,6 +23,7 @@ namespace WorldBuilder.Editors.Landscape {
     /// </summary>
     public class TerrainSystem : EditorBase {
         private const float ProximityThreshold = 500f;  // 2D distance for loading
+        private float _velocityThreshold = 100f;
 
         public TerrainDataManager DataManager { get; }
         public LandSurfaceManager SurfaceManager { get; }
@@ -115,12 +116,20 @@ namespace WorldBuilder.Editors.Landscape {
 
         public override async Task UnloadDocumentAsync(string documentId) {
             if (documentId == "terrain") return;  // Never unload terrain
+
+            var doc = GetDocument(documentId) as LandblockDocument;
+            if (doc != null) {
+                foreach (var obj in doc.GetStaticObjects()) {
+                    Renderer._objectManager.ReleaseRenderData(obj.Id, obj.IsSetup);
+                }
+            }
             await base.UnloadDocumentAsync(documentId);
         }
 
         public void Update(Vector3 cameraPosition, Matrix4x4 viewProjectionMatrix) {
             var frustum = new Frustum(viewProjectionMatrix);
             var requiredChunks = DataManager.GetRequiredChunks(cameraPosition);
+
             
             UpdateDynamicDocumentsAsync(cameraPosition).Wait();
 
@@ -142,22 +151,28 @@ namespace WorldBuilder.Editors.Landscape {
             var visibleLandblocks = GetProximateLandblocks(cameraPosition);
             var currentLoaded = ActiveDocuments.Keys.Where(k => k.StartsWith("landblock_")).ToHashSet();
 
-            // Load new ones
-            foreach (var lbKey in visibleLandblocks) {
-                var docId = $"landblock_{lbKey:X4}";
-                if (!currentLoaded.Contains(docId)) {
-                    await LoadDocumentAsync(docId, typeof(LandblockDocument));
-                }
+            // Load new ones in batch
+            var toLoad = visibleLandblocks
+                .Where(lbKey => !currentLoaded.Contains($"landblock_{lbKey:X4}"))
+                .Select(lbKey => $"landblock_{lbKey:X4}")
+                .ToList();
+
+            if (toLoad.Any()) {
+                var loadTasks = toLoad.Select(docId => LoadDocumentAsync(docId, typeof(LandblockDocument))).ToArray();
+                await Task.WhenAll(loadTasks);  // Parallel loads, each hits cache or DB
+                //_log.LogInformation("Batch-loaded {Count} new landblocks", toLoad.Count);
             }
 
-            // Unload out-of-range
-            foreach (var docId in currentLoaded) {
-                var lbKey = ushort.Parse(docId.Replace("landblock_", ""), System.Globalization.NumberStyles.HexNumber);
-                if (!visibleLandblocks.Contains(lbKey)) {
-                    await UnloadDocumentAsync(docId);
-                }
+            // Unload out-of-range (sequential is fine, unloads are rare/light)
+            var toUnload = currentLoaded
+                .Where(docId => !visibleLandblocks.Contains(ushort.Parse(docId.Replace("landblock_", ""), System.Globalization.NumberStyles.HexNumber)))
+                .ToList();
+
+            foreach (var docId in toUnload) {
+                await UnloadDocumentAsync(docId);
             }
         }
+
         private HashSet<ushort> GetProximateLandblocks(Vector3 cameraPosition) {
             var proximate = new HashSet<ushort>();
             var camLbX = (ushort)(cameraPosition.X / TerrainDataManager.LandblockLength);

@@ -5,6 +5,7 @@ using DatReaderWriter.Enums;
 using DatReaderWriter.Types;
 using Silk.NET.OpenGL;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
@@ -19,6 +20,7 @@ namespace WorldBuilder.Editors.Landscape {
         private readonly Dictionary<uint, StaticObjectRenderData> _renderData = new();
         internal readonly IShader _objectShader;
         private readonly Dictionary<(int Width, int Height), TextureAtlasManager> _atlasManagers = new();
+        private readonly ConcurrentDictionary<uint, int> _usageCount = new();
 
         public StaticObjectManager(OpenGLRenderer renderer, IDatReaderWriter dats) {
             _renderer = renderer;
@@ -31,8 +33,28 @@ namespace WorldBuilder.Editors.Landscape {
         }
 
         public StaticObjectRenderData? GetRenderData(uint id, bool isSetup) {
-            if (_renderData.TryGetValue(id, out var data)) return data;
-            return CreateRenderData(id, isSetup);
+            var key = (id << 1) | (isSetup ? 1u : 0u);  // Unique key
+            if (_renderData.TryGetValue(key, out var data)) {
+                _usageCount.AddOrUpdate(key, 1, (_, count) => count + 1);
+                return data;
+            }
+            data = CreateRenderData(id, isSetup);
+            if (data != null) {
+                _renderData[key] = data;
+                _usageCount[key] = 1;
+            }
+            return data;
+        }
+
+        public void ReleaseRenderData(uint id, bool isSetup) {
+            var key = (id << 1) | (isSetup ? 1u : 0u);
+            if (_usageCount.TryGetValue(key, out var count) && count > 0) {
+                var newCount = _usageCount.AddOrUpdate(key, 0, (_, c) => c - 1);
+                if (newCount == 0) {
+                    UnloadObject(key);  // Your existing UnloadObject, adjusted for key
+                    _usageCount.TryRemove(key, out _);
+                }
+            }
         }
 
         public void UnloadObject(uint id) {

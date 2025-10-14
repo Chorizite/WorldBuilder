@@ -21,7 +21,7 @@ namespace WorldBuilder.Editors.Landscape {
         private readonly GL _gl;
         private readonly IShader _terrainShader;
         private readonly IShader _sphereShader;
-        private readonly StaticObjectManager _objectManager;
+        internal readonly StaticObjectManager _objectManager;
         private readonly IDatReaderWriter _dats;
 
         // Sphere rendering resources (from TerrainRenderer)
