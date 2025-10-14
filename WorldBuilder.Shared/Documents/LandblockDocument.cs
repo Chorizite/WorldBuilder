@@ -79,7 +79,7 @@ namespace WorldBuilder.Shared.Documents {
             throw new NotImplementedException(); // Implement if needed
         }
 
-        public  void Apply(TerrainUpdateEvent update) {
+        public void Apply(TerrainUpdateEvent update) {
             // Example: Handle static object add/remove via update
             if (update is StaticObjectUpdateEvent staticUpdate) {
                 if (staticUpdate.IsAdd) {
@@ -99,7 +99,7 @@ namespace WorldBuilder.Shared.Documents {
         }
 
         public IEnumerable<StaticObject> GetStaticObjects() => _data.StaticObjects;
-    } 
+    }
     public class StaticObjectUpdateEvent : TerrainUpdateEvent {
         public StaticObject Object { get; }
         public bool IsAdd { get; } // True for add, false for remove

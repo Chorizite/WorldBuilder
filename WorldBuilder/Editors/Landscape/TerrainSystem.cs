@@ -22,7 +22,7 @@ namespace WorldBuilder.Editors.Landscape {
     /// Main terrain system coordinator
     /// </summary>
     public class TerrainSystem : EditorBase {
-        private const float ProximityThreshold = 3500f;  // 2D distance for loading
+        private const float ProximityThreshold = 500f;  // 2D distance for loading
 
         public TerrainDataManager DataManager { get; }
         public LandSurfaceManager SurfaceManager { get; }

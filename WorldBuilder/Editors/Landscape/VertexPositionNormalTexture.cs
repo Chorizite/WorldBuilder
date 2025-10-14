@@ -23,7 +23,7 @@ namespace WorldBuilder.Editors.Landscape {
         /// <summary>
         /// The size of the vertex, in bytes
         /// </summary>
-        public static int Size => Marshal.SizeOf<VertexPositionNormal>();
+        public static int Size => Marshal.SizeOf<VertexPositionNormalTexture>();
 
         /// <summary>
         /// The vertex format for this vertex type

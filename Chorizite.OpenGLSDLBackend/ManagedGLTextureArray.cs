@@ -22,11 +22,6 @@ namespace Chorizite.OpenGLSDLBackend {
             if (width <= 0 || height <= 0 || size <= 0) {
                 throw new ArgumentException($"Invalid texture array dimensions: {width}x{height}x{size}");
             }
-            int maxLayers = (int)graphicsDevice.GL.GetInteger(GLEnum.MaxArrayTextureLayers);
-            if (size > maxLayers) {
-                throw new ArgumentException($"Requested texture array size ({size}) exceeds maximum layers ({maxLayers}).");
-            }
-
             Format = format;
             Width = width;
             Height = height;
@@ -49,8 +44,8 @@ namespace Chorizite.OpenGLSDLBackend {
             GL.TexStorage3D(GLEnum.Texture2DArray, (uint)mipLevels, format.ToGL(), (uint)width, (uint)height, (uint)size);
             GLHelpers.CheckErrors();
 
-            GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
-            GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
+            GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
+            GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
             GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
             GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
             GLHelpers.CheckErrors();
