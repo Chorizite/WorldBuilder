@@ -421,13 +421,13 @@ namespace WorldBuilder.Editors.Landscape {
             // Render each batch with its texture
             foreach (var batch in renderData.Batches) {
                 if (batch.TextureArray == null) {
-                    Console.WriteLine($"Warning: Batch has null texture array");
-                    continue;
+                    //Console.WriteLine($"Warning: Batch has null texture array");
+                    //continue;
                 }
 
                 try {
                     // Bind the texture array for this batch
-                    batch.TextureArray.Bind(0);
+                    //batch.TextureArray.Bind(0);
                     _objectManager._objectShader.SetUniform("uTextureArray", 0);
 
                     // Set the texture layer index

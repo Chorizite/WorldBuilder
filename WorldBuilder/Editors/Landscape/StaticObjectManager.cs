@@ -85,7 +85,7 @@ namespace WorldBuilder.Editors.Landscape {
             }
             else {
                 if (!_dats.TryGet<GfxObj>(id, out var gfxObj)) return null;
-                return CreateGfxObjRenderData(id, gfxObj, Vector3.One);
+                return CreateGfxObjRenderData(id, gfxObj, new Vector3(3, 3, 3));
             }
         }
 
@@ -95,7 +95,7 @@ namespace WorldBuilder.Editors.Landscape {
 
             for (int i = 0; i < setup.Parts.Count; i++) {
                 var partId = setup.Parts[i];
-                var transform = Matrix4x4.Identity;
+                var transform = Matrix4x4.Identity * Matrix4x4.CreateScale(3, 3, 3);
 
                 if (placementFrame?.Value.Frames != null && i < placementFrame.Value.Value.Frames.Count) {
                     transform = Matrix4x4.CreateTranslation(placementFrame.Value.Value.Frames[i].Origin);
@@ -146,7 +146,7 @@ namespace WorldBuilder.Editors.Landscape {
 
                 byte[] textureData;
                 int texWidth, texHeight;
-
+                /*
                 if (poly.Stippling == StipplingType.NoPos || surface.Type.HasFlag(SurfaceType.Base1Solid)) {
                     texWidth = texHeight = 32;
                     textureData = CreateSolidColorTexture(surface.ColorValue, texWidth, texHeight);
@@ -174,7 +174,10 @@ namespace WorldBuilder.Editors.Landscape {
                 }
 
                 int textureIndex = atlasManager.AddTexture(surfaceId, textureData);
-
+                
+                */
+                var textureIndex = 0;
+                var format = (0, 0);
                 if (!batchesByFormat.TryGetValue(format, out var batches)) {
                     batches = new List<TextureBatch>();
                     batchesByFormat[format] = batches;
@@ -264,7 +267,7 @@ namespace WorldBuilder.Editors.Landscape {
             var renderBatches = new List<RenderBatch>();
 
             foreach (var (format, batches) in batchesByFormat) {
-                var atlasManager = _atlasManagers[format];
+                //var atlasManager = _atlasManagers[format];
 
                 foreach (var batch in batches) {
                     if (batch.Indices.Count == 0) continue;
@@ -278,7 +281,7 @@ namespace WorldBuilder.Editors.Landscape {
                     renderBatches.Add(new RenderBatch {
                         IBO = ibo,
                         IndexCount = batch.Indices.Count,
-                        TextureArray = atlasManager.TextureArray,
+                        //TextureArray = atlasManager.TextureArray,
                         TextureIndex = batch.TextureIndex,
                         TextureSize = format,
                         SurfaceId = batch.SurfaceId
