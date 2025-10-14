@@ -44,10 +44,17 @@ namespace WorldBuilder.Lib.Settings {
         private float _mouseSensitivity = 1f;
         public float MouseSensitivity { get => _mouseSensitivity; set => SetProperty(ref _mouseSensitivity, value); }
 
+        [SettingDescription("Mouse wheel zoom sensitivity multiplier")]
+        [SettingRange(0.1, 3.0, 0.1, 0.2)]
+        [SettingFormat("{0:F2}")]
+        [SettingOrder(3)]
+        private float _mouseWheelZoomSensitivity = 1f;
+        public float MouseWheelZoomSensitivity { get => _mouseWheelZoomSensitivity; set => SetProperty(ref _mouseWheelZoomSensitivity, value); }
+
         [SettingDescription("Camera movement speed in units per second")]
         [SettingRange(1, 20000, 10, 50)]
         [SettingFormat("{0:F0}")]
-        [SettingOrder(3)]
+        [SettingOrder(4)]
         private float _movementSpeed = 1000f;
         public float MovementSpeed { get => _movementSpeed; set => SetProperty(ref _movementSpeed, value); }
     }

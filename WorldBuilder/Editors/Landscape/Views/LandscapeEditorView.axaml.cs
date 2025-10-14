@@ -25,6 +25,29 @@ public partial class LandscapeEditorView : Base3DView {
     private LandscapeEditorViewModel? _viewModel;
     private ToolViewModelBase? _currentActiveTool => _viewModel?.SelectedTool;
 
+    // Auto camera switching thresholds (dynamic based on MaxDrawDistance to avoid showing empty sky)
+    private const float SWITCH_TO_PERSPECTIVE_ZOOM = 800f;  // Switch to perspective when zooming in closer than this (for orthographic mode)
+    private bool _hasStartedTopDownAnimation = false;
+    private double _lastCameraSwitchTime = 0;
+    private double _totalElapsedTime = 0;
+    private const double CAMERA_SWITCH_COOLDOWN = 1.0; // Seconds to wait before allowing another auto-switch
+
+    // Calculate altitude thresholds based on MaxDrawDistance setting
+    private float GetSwitchToTopDownAltitude() {
+        // Switch to top-down at 70% of max draw distance to avoid showing empty sky
+        return _viewModel?.TerrainSystem?.Settings.Landscape.Camera.MaxDrawDistance * 0.7f ?? 2500f;
+    }
+
+    private float GetStartAnimationAltitude() {
+        // Start animation at 55% of max draw distance
+        return _viewModel?.TerrainSystem?.Settings.Landscape.Camera.MaxDrawDistance * 0.55f ?? 2000f;
+    }
+
+    private float GetTargetAltitudeForPerspective() {
+        // Return to perspective at 30% of max draw distance (safe zone)
+        return _viewModel?.TerrainSystem?.Settings.Landscape.Camera.MaxDrawDistance * 0.3f ?? 1200f;
+    }
+
     public PixelSize CanvasSize { get; private set; }
 
     public LandscapeEditorView() : base() {
@@ -77,11 +100,18 @@ public partial class LandscapeEditorView : Base3DView {
     private void HandleInput(double deltaTime) {
         if (_viewModel?.TerrainSystem == null) return;
 
+        // Track total elapsed time for cooldown tracking
+        _totalElapsedTime += deltaTime;
+
         // Update camera screen size
         _viewModel.TerrainSystem.CameraManager.Current.ScreenSize = new Vector2(CanvasSize.Width, CanvasSize.Height);
 
-        // Camera switching (Q key)
+        // Update camera animations
+        _viewModel.TerrainSystem.CameraManager.Update(deltaTime);
+
+        // Camera switching (Q key and auto-switching based on altitude)
         HandleCameraSwitching();
+        HandleAutoCameraSwitching();
 
         // Camera movement (WASD)
         HandleCameraMovement(deltaTime);
@@ -100,17 +130,76 @@ public partial class LandscapeEditorView : Base3DView {
             if (!_isQPressedLastFrame) {
                 if (_viewModel.TerrainSystem.CameraManager.Current == _viewModel.TerrainSystem.PerspectiveCamera) {
                     _viewModel.TerrainSystem.CameraManager.SwitchCamera(_viewModel.TerrainSystem.TopDownCamera);
-                    Console.WriteLine("Switched to top-down camera");
+                    Console.WriteLine("Switched to top-down camera (manual)");
                 }
                 else {
                     _viewModel.TerrainSystem.CameraManager.SwitchCamera(_viewModel.TerrainSystem.PerspectiveCamera);
-                    Console.WriteLine("Switched to perspective camera");
+                    Console.WriteLine("Switched to perspective camera (manual)");
                 }
+                // Reset cooldown timer on manual switch to allow auto-switching after user action
+                _lastCameraSwitchTime = _totalElapsedTime;
+                _hasStartedTopDownAnimation = false;
             }
             _isQPressedLastFrame = true;
         }
         else {
             _isQPressedLastFrame = false;
+        }
+    }
+
+    private void HandleAutoCameraSwitching() {
+        if (_viewModel?.TerrainSystem == null) return;
+
+        // Check cooldown to prevent rapid switching
+        double timeSinceLastSwitch = _totalElapsedTime - _lastCameraSwitchTime;
+        bool canSwitch = timeSinceLastSwitch >= CAMERA_SWITCH_COOLDOWN;
+
+        var currentCamera = _viewModel.TerrainSystem.CameraManager.Current;
+        var currentAltitude = currentCamera.Position.Z;
+
+        // Get dynamic thresholds based on MaxDrawDistance setting
+        float switchToTopDownAltitude = GetSwitchToTopDownAltitude();
+        float startAnimationAltitude = GetStartAnimationAltitude();
+        float targetAltitude = GetTargetAltitudeForPerspective();
+
+        // Handle perspective mode (3D camera)
+        if (currentCamera == _viewModel.TerrainSystem.PerspectiveCamera) {
+            var perspCamera = _viewModel.TerrainSystem.PerspectiveCamera;
+
+            // Start animation when approaching the threshold
+            if (currentAltitude > startAnimationAltitude && !_hasStartedTopDownAnimation) {
+                if (!perspCamera.IsAnimating) {
+                    perspCamera.AnimateToTopDown();
+                    _hasStartedTopDownAnimation = true;
+                    Console.WriteLine($"Started top-down animation (altitude: {currentAltitude:F0}, threshold: {startAnimationAltitude:F0})");
+                }
+            }
+
+            // Reset animation flag if user descends before switching
+            if (currentAltitude < startAnimationAltitude) {
+                _hasStartedTopDownAnimation = false;
+            }
+
+            // Switch to top-down camera when altitude threshold is reached (with cooldown check)
+            if (currentAltitude > switchToTopDownAltitude && canSwitch) {
+                _viewModel.TerrainSystem.CameraManager.SwitchCamera(_viewModel.TerrainSystem.TopDownCamera);
+                _lastCameraSwitchTime = _totalElapsedTime;
+                Console.WriteLine($"Auto-switched to top-down view (altitude: {currentAltitude:F0}, threshold: {switchToTopDownAltitude:F0})");
+            }
+        }
+        // Handle orthographic top-down mode (flatmap)
+        else if (currentCamera is OrthographicTopDownCamera orthoCamera) {
+            // In orthographic mode, zoom is controlled by orthographicSize, not altitude
+            float currentZoom = orthoCamera.OrthographicSize;
+
+            // Switch back to perspective when zooming in close enough (with cooldown check)
+            if (currentZoom < SWITCH_TO_PERSPECTIVE_ZOOM && canSwitch) {
+                _viewModel.TerrainSystem.CameraManager.SwitchToPerspectiveFromTopDown(
+                    _viewModel.TerrainSystem.PerspectiveCamera, targetAltitude);
+                _hasStartedTopDownAnimation = false;
+                _lastCameraSwitchTime = _totalElapsedTime;
+                Console.WriteLine($"Auto-switched to perspective view with top-down orientation (zoom: {currentZoom:F0}, target altitude: {targetAltitude:F0})");
+            }
         }
     }
 
@@ -151,6 +240,13 @@ public partial class LandscapeEditorView : Base3DView {
         }
         if (e.Key == Key.Y && e.KeyModifiers.HasFlag(KeyModifiers.Control)) {
             _viewModel.TerrainSystem.CommandHistory.Redo();
+        }
+        if (e.Key == Key.R && !e.KeyModifiers.HasFlag(KeyModifiers.Control)) {
+            // Reset camera orientation to north in orthographic mode
+            if (_viewModel.TerrainSystem.CameraManager.Current is OrthographicTopDownCamera orthoCamera) {
+                orthoCamera.ResetOrientation();
+                Console.WriteLine("Camera orientation reset to north");
+            }
         }
     }
 
