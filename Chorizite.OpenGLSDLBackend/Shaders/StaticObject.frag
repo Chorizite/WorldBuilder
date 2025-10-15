@@ -14,8 +14,8 @@ uniform sampler2DArray uTextureArray;
 out vec4 FragColor;
 
 void main() {
-    //vec4 color = texture(uTextureArray, vec3(TexCoord, TextureIndex));
-    //if (color.a < 0.1) discard; // Handle transparency
-    //color.rgb *= LightingFactor;
-    FragColor = vec4(1.0,0.0,1.0,0.5);
+    vec4 color = texture(uTextureArray, vec3(TexCoord, TextureIndex));
+    if (color.a < 0.1) discard; // Handle transparency
+    color.rgb *= LightingFactor;
+    FragColor = color;
 }

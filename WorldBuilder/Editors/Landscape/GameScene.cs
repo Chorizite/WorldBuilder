@@ -420,25 +420,20 @@ namespace WorldBuilder.Editors.Landscape {
 
             // Render each batch with its texture
             foreach (var batch in renderData.Batches) {
-                if (batch.TextureArray == null) {
-                    //Console.WriteLine($"Warning: Batch has null texture array");
-                    //continue;
-                }
+                if (batch.TextureArray == null) continue;
 
                 try {
                     // Bind the texture array for this batch
-                    //batch.TextureArray.Bind(0);
+                    batch.TextureArray.Bind(0);
                     _objectManager._objectShader.SetUniform("uTextureArray", 0);
 
                     // Set the texture layer index
-                    // The shader should sample from this layer: texture(uTextureArray, vec3(uv, uTextureIndex))
                     _objectManager._objectShader.SetUniform("uTextureIndex", (float)batch.TextureIndex);
 
                     // Bind the index buffer for this batch
                     _gl.BindBuffer(GLEnum.ElementArrayBuffer, batch.IBO);
 
                     // Draw all instances with this batch
-                    // IMPORTANT: Using UnsignedShort because we're using ushort indices
                     _gl.DrawElementsInstanced(GLEnum.Triangles, (uint)batch.IndexCount, GLEnum.UnsignedShort, null, (uint)instanceTransforms.Count);
                 }
                 catch (Exception ex) {
