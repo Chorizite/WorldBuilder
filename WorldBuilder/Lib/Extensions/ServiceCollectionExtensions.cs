@@ -2,14 +2,15 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
+using WorldBuilder.Editors.Landscape;
+using WorldBuilder.Editors.Landscape.ViewModels;
+using WorldBuilder.Editors.Landscape.Views;
 using WorldBuilder.Lib.Factories;
+using WorldBuilder.Lib.Settings;
 using WorldBuilder.Shared.Documents;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.ViewModels;
-using WorldBuilder.Editors.Landscape.ViewModels;
-using WorldBuilder.Editors.Landscape;
-using WorldBuilder.Lib.Settings;
 
 namespace WorldBuilder.Lib.Extensions {
     public static class ServiceCollectionExtensions {
@@ -46,6 +47,7 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton<IDocumentStorageService, DocumentStorageService>();
             collection.AddSingleton(project);
             collection.AddTransient<LandscapeEditorViewModel>();
+            collection.AddTransient<ObjectDebugViewModel>();
             collection.AddTransient<HistorySnapshotPanelViewModel>();
         }
     }

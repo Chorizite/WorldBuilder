@@ -9,7 +9,7 @@ namespace WorldBuilder.Lib {
         Vector3 Up { get; }
         Vector3 Right { get; }
 
-        Vector2 ScreenSize { get; set;  }
+        Vector2 ScreenSize { get; set; }
 
         Matrix4x4 GetViewMatrix();
         Matrix4x4 GetProjectionMatrix();
@@ -214,7 +214,10 @@ namespace WorldBuilder.Lib {
         public Vector3 Front => front;
         public Vector3 Up => up;
         public Vector3 Right => right;
-        public float OrthographicSize => orthographicSize;
+        public float OrthographicSize {
+            get { return orthographicSize; }
+            set { orthographicSize = value; }
+        }
 
         public Vector2 ScreenSize { get; set; }
 

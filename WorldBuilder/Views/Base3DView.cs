@@ -172,8 +172,6 @@ namespace WorldBuilder.Views {
         protected override void OnPointerPressed(PointerPressedEventArgs e) {
             base.OnPointerPressed(e);
 
-            Console.WriteLine($"OnPointerPressed: {_isPointerOverViewport} {IsEffectivelyVisible} {IsEnabled}");
-
             // Check if pointer is over viewport before processing
             if (_isPointerOverViewport && IsEffectivelyVisible && IsEnabled) {
                 // Request focus when clicked on viewport

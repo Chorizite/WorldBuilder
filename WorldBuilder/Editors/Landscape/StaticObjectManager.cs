@@ -91,7 +91,7 @@ namespace WorldBuilder.Editors.Landscape {
                 }
             }
             catch (Exception ex) {
-                Console.WriteLine($"Error creating render data for object 0x{id:X8}: {ex.Message}");
+                Console.WriteLine($"Error creating render data for object 0x{id:X8}: {ex}");
                 return null;
             }
         }
@@ -285,9 +285,9 @@ namespace WorldBuilder.Editors.Landscape {
             }
 
             for (int i = 2; i < polyIndices.Count; i++) {
-                batch.Indices.Add(polyIndices[0]);
-                batch.Indices.Add(polyIndices[i - 1]);
                 batch.Indices.Add(polyIndices[i]);
+                batch.Indices.Add(polyIndices[i - 1]);
+                batch.Indices.Add(polyIndices[0]);
             }
         }
 

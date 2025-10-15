@@ -224,7 +224,6 @@ namespace WorldBuilder.Editors.Landscape {
 
             // Render active vertex spheres
             if (editingContext.ActiveVertices.Count > 0) {
-                _gl.Disable(EnableCap.DepthTest);
                 RenderActiveSpheres(editingContext, terrainSystem.DataManager, camera, model, viewProjection);
             }
 

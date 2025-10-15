@@ -15,7 +15,7 @@ out vec4 FragColor;
 
 void main() {
     vec4 color = texture(uTextureArray, vec3(TexCoord, TextureIndex));
-    if (color.a < 0.1) discard; // Handle transparency
+    if (color.a < 0.5) discard; // Handle transparency
     color.rgb *= LightingFactor;
     FragColor = color;
 }
