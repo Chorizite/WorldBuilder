@@ -305,7 +305,7 @@ namespace WorldBuilder.Shared.Documents {
                         )
                         DELETE FROM Updates
                         WHERE Id IN (SELECT Id FROM ToDelete)";
-                    // If both, combine: add AND RowNum > @MaxUpdates in the WHERE
+                    
                     if (maxUpdates > 0) {
                         sql = @"
                             WITH Ranked AS (
@@ -320,7 +320,6 @@ namespace WorldBuilder.Shared.Documents {
                             )
                             DELETE FROM Updates
                             WHERE Id IN (SELECT Id FROM ToDelete)";
-                        // Note: Adjust for your provider if needed (e.g., Postgres uses LIMIT/OFFSET)
                     }
                 }
 
@@ -410,14 +409,12 @@ namespace WorldBuilder.Shared.Documents {
             _disposed = true;
         }
 
-        // Helper: Get open connection (shares EF's)
         private DbConnection GetOpenConnection() {
             var conn = _context.Database.GetDbConnection();
             if (conn.State != ConnectionState.Open) conn.Open();
             return conn;
         }
 
-        // Helper: Add parameter safely
         private void AddParameter(IDbCommand cmd, string name, object value) {
             var param = cmd.CreateParameter();
             param.ParameterName = name;
@@ -425,7 +422,6 @@ namespace WorldBuilder.Shared.Documents {
             cmd.Parameters.Add(param);
         }
 
-        // Helpers: Mapping
         private DBDocument MapDocument(DbDataReader reader) {
             return new DBDocument {
                 Id = reader.GetString("Id"),
@@ -456,7 +452,6 @@ namespace WorldBuilder.Shared.Documents {
             };
         }
 
-        // Helper for UpdateDocumentAsync: Get type without full map
         private async Task<string> GetExistingTypeAsync(DbConnection conn, DbTransaction transaction, string documentId) {
             using var cmd = conn.CreateCommand();
             cmd.Transaction = transaction;
