@@ -35,7 +35,7 @@ namespace WorldBuilder.Editors.Landscape {
         /// </summary>
         public void MarkLandblockModified(ushort landblockId) {
             _modifiedLandblocks.Add(landblockId);
-            _terrainSystem.DataManager.MarkLandblocksDirty(new HashSet<ushort>() { landblockId });
+            _terrainSystem.Scene.DataManager.MarkLandblocksDirty(new HashSet<ushort>() { landblockId });
         }
 
         /// <summary>
@@ -45,7 +45,7 @@ namespace WorldBuilder.Editors.Landscape {
             foreach (var id in landblockIds) {
                 _modifiedLandblocks.Add(id);
             }
-            _terrainSystem.DataManager.MarkLandblocksDirty(landblockIds);
+            _terrainSystem.Scene.DataManager.MarkLandblocksDirty(landblockIds);
         }
 
         /// <summary>
@@ -59,7 +59,7 @@ namespace WorldBuilder.Editors.Landscape {
         /// Gets height at a world position using bilinear interpolation
         /// </summary>
         public float GetHeightAtPosition(float x, float y) {
-            return _terrainSystem.DataManager.GetHeightAtPosition(x, y);
+            return _terrainSystem.Scene.DataManager.GetHeightAtPosition(x, y);
         }
 
         /// <summary>

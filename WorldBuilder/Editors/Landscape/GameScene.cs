@@ -1,6 +1,8 @@
-﻿using Chorizite.Core.Render;
+﻿using Chorizite.ACProtocol.Types;
+using Chorizite.Core.Render;
 using Chorizite.Core.Render.Vertex;
 using Chorizite.OpenGLSDLBackend;
+using DatReaderWriter.DBObjs;
 using Silk.NET.OpenGL;
 using System;
 using System.Collections.Generic;
@@ -8,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
+using System.Threading.Tasks;
 using WorldBuilder.Lib;
 using WorldBuilder.Lib.Settings;
 using WorldBuilder.Shared.Documents;
@@ -15,7 +18,8 @@ using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Editors.Landscape {
     public class GameScene : IDisposable {
-        private readonly DocumentManager _documentManager;
+        private  float ProximityThreshold = 500f;  // 2D distance for loading
+
         private readonly OpenGLRenderer _renderer;
         private readonly WorldBuilderSettings _settings;
         private readonly GL _gl;
@@ -23,6 +27,19 @@ namespace WorldBuilder.Editors.Landscape {
         private readonly IShader _sphereShader;
         internal readonly StaticObjectManager _objectManager;
         private readonly IDatReaderWriter _dats;
+        private readonly DocumentManager _documentManager;
+        private readonly TerrainDocument _terrainDoc;
+        private readonly Region _region;
+
+        public TerrainDataManager DataManager { get; }
+        public LandSurfaceManager SurfaceManager { get; }
+        public TerrainGPUResourceManager GPUManager { get; }
+
+        public PerspectiveCamera PerspectiveCamera { get; private set; }
+        public OrthographicTopDownCamera TopDownCamera { get; private set; }
+        public CameraManager CameraManager { get; private set; }
+
+        private readonly Dictionary<ushort, List<StaticObject>> _sceneryObjects = new();
 
         // Sphere rendering resources (from TerrainRenderer)
         private uint _sphereVAO;
@@ -74,11 +91,24 @@ namespace WorldBuilder.Editors.Landscape {
         public float SphereGlowIntensity { get; set; } = 1.0f;
         public float SphereGlowPower { get; set; } = 0.5f;
 
-        public GameScene(OpenGLRenderer renderer, WorldBuilderSettings settings, IDatReaderWriter dats, DocumentManager documentManager) {
-            _documentManager = documentManager ?? throw new ArgumentNullException(nameof(documentManager));
+        public GameScene(OpenGLRenderer renderer, WorldBuilderSettings settings, IDatReaderWriter dats, DocumentManager documentManager, TerrainDocument terrainDoc, Region region) {
             _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _dats = dats ?? throw new ArgumentNullException(nameof(dats));
+            _documentManager = documentManager ?? throw new ArgumentNullException(nameof(documentManager));
+            _terrainDoc = terrainDoc ?? throw new ArgumentNullException(nameof(terrainDoc));
+            _region = region ?? throw new ArgumentNullException(nameof(region));
+
+            var mapCenter = new Vector3(192f * 254f / 2f, 192f * 254f / 2f, 1000);
+            PerspectiveCamera = new PerspectiveCamera(mapCenter, _settings);
+            TopDownCamera = new OrthographicTopDownCamera(new Vector3(0, 0, 200f), _settings);
+            CameraManager = new CameraManager(TopDownCamera);
+            //CameraManager.AddCamera(PerspectiveCamera);
+
+            DataManager = new TerrainDataManager(_terrainDoc, _region, 16);
+            SurfaceManager = new LandSurfaceManager(_renderer, _dats, _region);
+            GPUManager = new TerrainGPUResourceManager(_renderer);
+
             _gl = renderer.GraphicsDevice.GL;
             _objectManager = new StaticObjectManager(renderer, dats);
 
@@ -189,10 +219,315 @@ namespace WorldBuilder.Editors.Landscape {
             }
         }
 
+        public void Update(Vector3 cameraPosition, Matrix4x4 viewProjectionMatrix) {
+            ProximityThreshold = 2500;
+            var frustum = new Frustum(viewProjectionMatrix);
+            var requiredChunks = DataManager.GetRequiredChunks(cameraPosition);
+
+            UpdateDynamicDocumentsAsync(cameraPosition).GetAwaiter().GetResult();
+
+            foreach (var chunkId in requiredChunks) {
+                var chunkX = (uint)(chunkId >> 32);
+                var chunkY = (uint)(chunkId & 0xFFFFFFFF);
+                var chunk = DataManager.GetOrCreateChunk(chunkX, chunkY);
+
+                if (!GPUManager.HasRenderData(chunkId)) {
+                    GPUManager.CreateChunkResources(chunk, DataManager, SurfaceManager);
+                }
+                else if (chunk.IsDirty) {
+                    var dirtyLandblocks = chunk.DirtyLandblocks.ToList();
+                    GPUManager.UpdateLandblocks(chunk, dirtyLandblocks, DataManager, SurfaceManager);
+                }
+            }
+        }
+
+        private async Task UpdateDynamicDocumentsAsync(Vector3 cameraPosition) {
+            var visibleLandblocks = GetProximateLandblocks(cameraPosition);
+            var currentLoaded = _documentManager.ActiveDocs.Keys.Where(k => k.StartsWith("landblock_")).ToHashSet();
+
+            // Load new ones in batch
+            var toLoad = visibleLandblocks
+                .Where(lbKey => !currentLoaded.Contains($"landblock_{lbKey:X4}"))
+                .Select(lbKey => $"landblock_{lbKey:X4}")
+                .ToList();
+
+            if (toLoad.Any()) {
+                var loadTasks = toLoad.Select(docId => _documentManager.GetOrCreateDocumentAsync<LandblockDocument>(docId)).ToArray();
+                await Task.WhenAll(loadTasks);  // Parallel loads, each hits cache or DB
+
+                foreach (var docId in toLoad) {
+                    var lbKey = ushort.Parse(docId.Replace("landblock_", ""), System.Globalization.NumberStyles.HexNumber);
+                    var doc = _documentManager.GetOrCreateDocumentAsync<LandblockDocument>(docId).GetAwaiter().GetResult();
+                    if (doc != null) {
+                        var scenery = GenerateScenery(lbKey, doc);
+                        _sceneryObjects[lbKey] = scenery;
+                    }
+                }
+            }
+
+            // Unload out-of-range (sequential is fine, unloads are rare/light)
+            var toUnload = currentLoaded
+                .Where(docId => !visibleLandblocks.Contains(ushort.Parse(docId.Replace("landblock_", ""), System.Globalization.NumberStyles.HexNumber)))
+                .ToList();
+
+            foreach (var docId in toUnload) {
+                var doc = _documentManager.GetOrCreateDocumentAsync<LandblockDocument>(docId).GetAwaiter().GetResult();
+                if (doc != null) {
+                    foreach (var obj in doc.GetStaticObjects()) {
+                        _objectManager.ReleaseRenderData(obj.Id, obj.IsSetup);
+                    }
+                }
+
+                var lbKey = ushort.Parse(docId.Replace("landblock_", ""), System.Globalization.NumberStyles.HexNumber);
+                if (_sceneryObjects.TryGetValue(lbKey, out var scenery)) {
+                    foreach (var obj in scenery) {
+                        _objectManager.ReleaseRenderData(obj.Id, obj.IsSetup);
+                    }
+                    _sceneryObjects.Remove(lbKey);
+                }
+
+                await _documentManager.CloseDocumentAsync(docId);
+            }
+        }
+
+        private HashSet<ushort> GetProximateLandblocks(Vector3 cameraPosition) {
+            var proximate = new HashSet<ushort>();
+            var camLbX = (ushort)(cameraPosition.X / TerrainDataManager.LandblockLength);
+            var camLbY = (ushort)(cameraPosition.Y / TerrainDataManager.LandblockLength);
+
+            // Simple 2D grid search around camera (e.g., +/- 3 landblocks)
+            var lbd = (int)Math.Ceiling(ProximityThreshold / 192f / 2f);
+            for (int dx = -lbd; dx <= lbd; dx++) {
+                for (int dy = -lbd; dy <= lbd; dy++) {
+                    var lbX = (ushort)Math.Clamp(camLbX + dx, 0, TerrainDataManager.MapSize - 1);
+                    var lbY = (ushort)Math.Clamp(camLbY + dy, 0, TerrainDataManager.MapSize - 1);
+                    var lbKey = (ushort)((lbX << 8) | lbY);
+                    var lbCenter = new Vector2(lbX * TerrainDataManager.LandblockLength + TerrainDataManager.LandblockLength / 2,
+                                               lbY * TerrainDataManager.LandblockLength + TerrainDataManager.LandblockLength / 2);
+                    var dist2D = Vector2.Distance(new Vector2(cameraPosition.X, cameraPosition.Y), lbCenter);
+                    if (dist2D <= ProximityThreshold) {
+                        proximate.Add(lbKey);
+                    }
+                }
+            }
+            return proximate;
+        }
+
+        public void RegenerateChunks(IEnumerable<ulong> chunkIds) {
+            foreach (var chunkId in chunkIds) {
+                var chunkX = (uint)(chunkId >> 32);
+                var chunkY = (uint)(chunkId & 0xFFFFFFFF);
+                var chunk = DataManager.GetOrCreateChunk(chunkX, chunkY);
+
+                GPUManager.CreateChunkResources(chunk, DataManager, SurfaceManager);
+            }
+        }
+
+        public void UpdateLandblocks(IEnumerable<uint> landblockIds) {
+            var landblocksByChunk = new Dictionary<ulong, List<uint>>();
+
+            foreach (var landblockId in landblockIds) {
+                var landblockX = landblockId >> 8;
+                var landblockY = landblockId & 0xFF;
+                var chunk = DataManager.GetChunkForLandblock(landblockX, landblockY);
+
+                if (chunk == null) continue;
+
+                var chunkId = chunk.GetChunkId();
+                if (!landblocksByChunk.ContainsKey(chunkId)) {
+                    landblocksByChunk[chunkId] = new List<uint>();
+                }
+                landblocksByChunk[chunkId].Add(landblockId);
+
+                // Regenerate scenery for updated landblock if loaded
+                var lbKey = (ushort)landblockId;
+                if (_sceneryObjects.ContainsKey(lbKey)) {
+                    var doc = _documentManager.GetOrCreateDocumentAsync<LandblockDocument>($"landblock_{lbKey:X4}").GetAwaiter().GetResult();
+                    if (doc != null) {
+                        // Release old scenery render data
+                        foreach (var obj in _sceneryObjects[lbKey]) {
+                            _objectManager.ReleaseRenderData(obj.Id, obj.IsSetup);
+                        }
+                        var newScenery = GenerateScenery(lbKey, doc);
+                        _sceneryObjects[lbKey] = newScenery;
+                    }
+                }
+            }
+
+            foreach (var kvp in landblocksByChunk) {
+                var chunk = DataManager.GetChunk(kvp.Key);
+                if (chunk != null) {
+                    GPUManager.UpdateLandblocks(chunk, kvp.Value, DataManager, SurfaceManager);
+                }
+            }
+        }
+
+        private List<StaticObject> GenerateScenery(ushort lbKey, LandblockDocument lbDoc) {
+            var scenery = new List<StaticObject>();
+            var lbId = (uint)lbKey;
+            var lbTerrainEntries = _terrainDoc.GetLandblock(lbKey);
+            
+            if (lbTerrainEntries == null) {
+                return scenery;
+            }
+
+            var buildings = new HashSet<int>();
+            var lbGlobalX = (lbId >> 8) & 0xFF;
+            var lbGlobalY = lbId & 0xFF;
+            
+            // Build set of cells that contain buildings
+            foreach (var b in lbDoc.GetStaticObjects()) {
+                var localX = b.Origin.X - lbGlobalX * 192f;
+                var localY = b.Origin.Y - lbGlobalY * 192f;
+                var cellX = (int)MathF.Floor(localX / 24f);
+                var cellY = (int)MathF.Floor(localY / 24f);
+                
+                if (cellX >= 0 && cellX < 8 && cellY >= 0 && cellY < 8) {
+                    buildings.Add(cellX * 9 + cellY);
+                }
+            }
+
+            var blockCellX = (int)lbGlobalX * 8;
+            var blockCellY = (int)lbGlobalY * 8;
+
+            for (int i = 0; i < lbTerrainEntries.Length; i++) {
+                var entry = lbTerrainEntries[i];
+                var terrainType = entry.Type;
+                var sceneType = entry.Scenery;
+
+                if (terrainType >= _region.TerrainInfo.TerrainTypes.Count) continue;
+                
+                var terrainInfo = _region.TerrainInfo.TerrainTypes[(int)terrainType];
+                if (sceneType >= terrainInfo.SceneTypes.Count) continue;
+                
+                var sceneInfoIdx = terrainInfo.SceneTypes[(int)sceneType];
+                var sceneInfo = _region.SceneInfo.SceneTypes[(int)sceneInfoIdx];
+                
+                if (sceneInfo.Scenes.Count == 0) {
+                    continue;
+                }
+
+                var cellX = i / 9;
+                var cellY = i % 9;
+                var globalCellX = (uint)(blockCellX + cellX);
+                var globalCellY = (uint)(blockCellY + cellY);
+
+                // Scene selection
+                var cellMat = globalCellY * (712977289u * globalCellX + 1813693831u) - 1109124029u * globalCellX + 2139937281u;
+                var offset = cellMat * 2.3283064e-10f;
+                var sceneIdx = (int)(sceneInfo.Scenes.Count * offset);
+                sceneIdx = Math.Clamp(sceneIdx, 0, sceneInfo.Scenes.Count - 1);
+                var sceneId = sceneInfo.Scenes[sceneIdx];
+
+                if (!_dats.TryGet<Scene>(sceneId, out var scene) || scene.Objects.Count == 0) {
+                    continue;
+                }
+
+                // Skip roads and buildings
+                if (entry.Road != 0) {
+                    continue;
+                }
+                if (buildings.Contains(i)) {
+                    continue;
+                }
+
+                // FIXED: Use cellMat for noise calculation (not cellMat2)
+                var cellXMat = -1109124029 * (int)globalCellX;
+                var cellYMat = 1813693831 * (int)globalCellY;
+                var cellMat2 = 1360117743 * globalCellX * globalCellY + 1888038839;
+
+                for (uint j = 0; j < scene.Objects.Count; j++) {
+                    var obj = scene.Objects[(int)j];
+                    
+                    // FIXED: Check ObjectId and use correct noise calculation
+                    if (obj.ObjectId == 0) {
+                        continue;
+                    }
+
+                    // FIXED: Use cellMat2 in noise calculation and compare with < (not >=)
+                    var noise = (uint)(cellXMat + cellYMat - cellMat2 * (23399 + j)) * 2.3283064e-10f;
+                    if (noise >= obj.Frequency) continue;  // spawn when noise < frequency
+
+                    var localPos = SceneryHelpers.Displace(obj, globalCellX, globalCellY, j);
+                    var lx = cellX * 24f + localPos.X;
+                    var ly = cellY * 24f + localPos.Y;
+                    
+                    if (lx < 0 || ly < 0 || lx >= 192f || ly >= 192f) {
+                        continue;
+                    }
+
+                    if (TerrainGeometryGenerator.OnRoad(new Vector3(lx, ly, 0), lbTerrainEntries)) {
+                        continue;
+                    }
+
+                    // FIXED: Calculate lbOffset correctly without double-adding cell offset
+                    var lbOffset = new Vector3(lx, ly, 0);
+
+                    var z = TerrainGeometryGenerator.GetHeight(_region, lbTerrainEntries, lbGlobalX, lbGlobalY, lbOffset);
+                    localPos.Z = z;
+                    lbOffset.Z = z;
+
+                    var normal = TerrainGeometryGenerator.GetNormal(_region, lbTerrainEntries, lbGlobalX, lbGlobalY, lbOffset);
+                    
+                    if (!SceneryHelpers.CheckSlope(obj, normal.Z)) {
+                        continue;
+                    }
+
+                    Quaternion quat;
+                    if (obj.Align != 0) {
+                        quat = SceneryHelpers.ObjAlign(obj, normal, z, localPos);
+                    }
+                    else {
+                        quat = SceneryHelpers.RotateObj(obj, globalCellX, globalCellY, j, localPos);
+                    }
+
+                    // FIXED: Use calculated scale value
+                    var scaleVal = SceneryHelpers.ScaleObj(obj, globalCellX, globalCellY, j);
+                    var scale = new Vector3(scaleVal);
+
+                    // FIXED: Simplified world origin calculation (lx, ly already include cell offset)
+                    var blockX = (lbId >> 8) & 0xFF;
+                    var blockY = lbId & 0xFF;
+                    var worldOrigin = new Vector3(blockX * 192f + lx, blockY * 192f + ly, z);
+
+                    scenery.Add(new StaticObject {
+                        Id = obj.ObjectId,
+                        Origin = worldOrigin,
+                        Orientation = quat,
+                        IsSetup = (obj.ObjectId & 0x02000000) != 0,
+                        Scale = scale  // FIXED: Use calculated scale instead of Vector3.One
+                    });
+                }
+            }
+            return scenery;
+        }
+
+        public IEnumerable<(TerrainChunk chunk, ChunkRenderData renderData)> GetRenderableChunks(Frustum frustum) {
+            foreach (var chunk in DataManager.GetAllChunks()) {
+                if (!frustum.IntersectsBoundingBox(chunk.Bounds)) continue;
+
+                var renderData = GPUManager.GetRenderData(chunk.GetChunkId());
+                if (renderData != null) {
+                    yield return (chunk, renderData);
+                }
+            }
+        }
+
+        public int GetLoadedChunkCount() => DataManager.GetAllChunks().Count();
+        public int GetVisibleChunkCount(Frustum frustum) => GetRenderableChunks(frustum).Count();
+
+        public IEnumerable<StaticObject> GetAllStaticObjects() {
+            var statics = new List<StaticObject>();
+            foreach (var doc in _documentManager.ActiveDocs.Values.OfType<LandblockDocument>()) {
+                statics.AddRange(doc.GetStaticObjects());
+            }
+            statics.AddRange(_sceneryObjects.Values.SelectMany(x => x));
+            return statics;
+        }
+
         public void Render(
             ICamera camera,
             float aspectRatio,
-            TerrainSystem terrainSystem,
             TerrainEditingContext editingContext,
             float width,
             float height) {
@@ -217,18 +552,18 @@ namespace WorldBuilder.Editors.Landscape {
             }
 
             var frustum = new Frustum(viewProjection);
-            var renderableChunks = terrainSystem.GetRenderableChunks(frustum);
+            var renderableChunks = GetRenderableChunks(frustum);
 
             // Render terrain
-            RenderTerrain(renderableChunks, terrainSystem.SurfaceManager, model, camera, cameraDistance, width, height);
+            RenderTerrain(renderableChunks, model, camera, cameraDistance, width, height);
 
             // Render active vertex spheres
             if (editingContext.ActiveVertices.Count > 0) {
-                RenderActiveSpheres(editingContext, terrainSystem.DataManager, camera, model, viewProjection);
+                RenderActiveSpheres(editingContext, camera, model, viewProjection);
             }
 
             // Render static objects
-            var staticObjects = terrainSystem.GetAllStaticObjects().ToList();
+            var staticObjects = GetAllStaticObjects().ToList();
             if (staticObjects.Count > 0) {
                 RenderStaticObjects(staticObjects, camera, viewProjection);
             }
@@ -236,7 +571,6 @@ namespace WorldBuilder.Editors.Landscape {
 
         private void RenderTerrain(
             IEnumerable<(TerrainChunk chunk, ChunkRenderData renderData)> renderableChunks,
-            LandSurfaceManager surfaceManager,
             Matrix4x4 model,
             ICamera camera,
             float cameraDistance,
@@ -257,9 +591,9 @@ namespace WorldBuilder.Editors.Landscape {
             _terrainShader.SetUniform("uCameraDistance", cameraDistance);
             _terrainShader.SetUniform("uScreenHeight", height);
 
-            surfaceManager.TerrainAtlas.Bind(0);
+            SurfaceManager.TerrainAtlas.Bind(0);
             _terrainShader.SetUniform("xOverlays", 0);
-            surfaceManager.AlphaAtlas.Bind(1);
+            SurfaceManager.AlphaAtlas.Bind(1);
             _terrainShader.SetUniform("xAlphas", 1);
 
             foreach (var (chunk, renderData) in renderableChunks) {
@@ -276,7 +610,6 @@ namespace WorldBuilder.Editors.Landscape {
 
         private unsafe void RenderActiveSpheres(
             TerrainEditingContext editingContext,
-            TerrainDataManager dataManager,
             ICamera camera,
             Matrix4x4 model,
             Matrix4x4 viewProjection) {
@@ -291,7 +624,7 @@ namespace WorldBuilder.Editors.Landscape {
                     positions[i] = new Vector3(
                         vertex.X,
                         vertex.Y,
-                        dataManager.GetHeightAtPosition(vertex.X, vertex.Y) + SphereHeightOffset);
+                        DataManager.GetHeightAtPosition(vertex.X, vertex.Y) + SphereHeightOffset);
                 }
                 catch {
                     positions[i] = Vector3.Zero;
@@ -345,7 +678,7 @@ namespace WorldBuilder.Editors.Landscape {
                 .ToDictionary(
                     g => g.Key,
                     g => g.Select(o => (
-                        Transform: Matrix4x4.CreateFromQuaternion(o.Orientation) * Matrix4x4.CreateTranslation(o.Origin),
+                        Transform: Matrix4x4.CreateScale(o.Scale) * Matrix4x4.CreateFromQuaternion(o.Orientation) * Matrix4x4.CreateTranslation(o.Origin),
                         Object: o
                     )).ToList()
                 );
@@ -452,6 +785,7 @@ namespace WorldBuilder.Editors.Landscape {
                 _gl.DeleteBuffer(_sphereInstanceVBO);
                 _gl.DeleteVertexArray(_sphereVAO);
                 _objectManager?.Dispose();
+                GPUManager?.Dispose();
                 _disposed = true;
             }
         }

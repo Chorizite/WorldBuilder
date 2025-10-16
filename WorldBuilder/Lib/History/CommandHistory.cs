@@ -177,7 +177,7 @@ public class CommandHistory {
         var lbY = lbKey & 0xFF;
 
         // Get camera position from TerrainSystem (assumes IEditor is TerrainSystem)
-        if (_editor is TerrainSystem terrainSystem && terrainSystem.CameraManager?.Current is ICamera camera) {
+        if (_editor is TerrainSystem terrainSystem && terrainSystem.Scene.CameraManager?.Current is ICamera camera) {
             var cameraPos = camera.Position;
             var lbCenter = new Vector2(lbX * TerrainDataManager.LandblockLength + TerrainDataManager.LandblockLength / 2,
                                        lbY * TerrainDataManager.LandblockLength + TerrainDataManager.LandblockLength / 2);

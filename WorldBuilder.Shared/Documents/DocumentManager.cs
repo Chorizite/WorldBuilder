@@ -26,6 +26,7 @@ namespace WorldBuilder.Shared.Documents {
         private readonly int _maxBatchSize = 50; // Max updates per batch
 
         public Guid ClientId => _clientId;
+        public ConcurrentDictionary<string, BaseDocument> ActiveDocs => _activeDocs;
 
         private record DocumentUpdate(string DocumentId, BaseDocument Document, DateTime Timestamp);
 

@@ -78,7 +78,7 @@ public partial class LandscapeEditorView : Base3DView {
         if (_viewModel?.TerrainSystem == null) return;
 
         // Update camera screen size
-        _viewModel.TerrainSystem.CameraManager.Current.ScreenSize = new Vector2(CanvasSize.Width, CanvasSize.Height);
+        _viewModel.TerrainSystem.Scene.CameraManager.Current.ScreenSize = new Vector2(CanvasSize.Width, CanvasSize.Height);
 
         // Camera switching (Q key)
         HandleCameraSwitching();
@@ -87,7 +87,7 @@ public partial class LandscapeEditorView : Base3DView {
         HandleCameraMovement(deltaTime);
 
         // Mouse input
-        _viewModel.TerrainSystem.CameraManager.Current.ProcessMouseMovement(InputState.MouseState);
+        _viewModel.TerrainSystem.Scene.CameraManager.Current.ProcessMouseMovement(InputState.MouseState);
 
         // Update active tool
         _currentActiveTool?.Update(deltaTime);
@@ -98,12 +98,12 @@ public partial class LandscapeEditorView : Base3DView {
 
         if (InputState.IsKeyDown(Key.Q)) {
             if (!_isQPressedLastFrame) {
-                if (_viewModel.TerrainSystem.CameraManager.Current == _viewModel.TerrainSystem.PerspectiveCamera) {
-                    _viewModel.TerrainSystem.CameraManager.SwitchCamera(_viewModel.TerrainSystem.TopDownCamera);
+                if (_viewModel.TerrainSystem.Scene.CameraManager.Current == _viewModel.TerrainSystem.Scene.PerspectiveCamera) {
+                    _viewModel.TerrainSystem.Scene.CameraManager.SwitchCamera(_viewModel.TerrainSystem.Scene.TopDownCamera);
                     Console.WriteLine("Switched to top-down camera");
                 }
                 else {
-                    _viewModel.TerrainSystem.CameraManager.SwitchCamera(_viewModel.TerrainSystem.PerspectiveCamera);
+                    _viewModel.TerrainSystem.Scene.CameraManager.SwitchCamera(_viewModel.TerrainSystem.Scene.PerspectiveCamera);
                     Console.WriteLine("Switched to perspective camera");
                 }
             }
@@ -117,7 +117,7 @@ public partial class LandscapeEditorView : Base3DView {
     private void HandleCameraMovement(double deltaTime) {
         if (_viewModel?.TerrainSystem == null) return;
 
-        var camera = _viewModel.TerrainSystem.CameraManager.Current;
+        var camera = _viewModel.TerrainSystem.Scene.CameraManager.Current;
 
         if (InputState.IsKeyDown(Key.W))
             camera.ProcessKeyboard(CameraMovement.Forward, deltaTime);
@@ -134,7 +134,7 @@ public partial class LandscapeEditorView : Base3DView {
 
         _currentActiveTool?.RenderOverlay(
             _render,
-            _viewModel.TerrainSystem.CameraManager.Current,
+            _viewModel.TerrainSystem.Scene.CameraManager.Current,
             (float)CanvasSize.Width / CanvasSize.Height);
     }
 
@@ -166,7 +166,7 @@ public partial class LandscapeEditorView : Base3DView {
     protected override void OnGlPointerWheelChanged(PointerWheelEventArgs e) {
         if (!_didInit || _viewModel?.TerrainSystem == null) return;
 
-        var camera = _viewModel.TerrainSystem.CameraManager.Current;
+        var camera = _viewModel.TerrainSystem.Scene.CameraManager.Current;
 
         if (camera is PerspectiveCamera perspectiveCamera) {
             perspectiveCamera.ProcessMouseScroll((float)e.Delta.Y);
@@ -209,7 +209,7 @@ public partial class LandscapeEditorView : Base3DView {
             CanvasSize.Width,
             CanvasSize.Height,
             InputScale,
-            _viewModel.TerrainSystem.CameraManager.Current,
+            _viewModel.TerrainSystem.Scene.CameraManager.Current,
             _viewModel.TerrainSystem); // Changed from TerrainProvider
     }
 

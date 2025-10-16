@@ -1,6 +1,7 @@
 ﻿using Chorizite.Core.Render;
 using Chorizite.Core.Render.Vertex;
 using DatReaderWriter.DBObjs;
+using SkiaSharp;
 using System;
 using System.Numerics;
 using System.Runtime.CompilerServices;
@@ -19,6 +20,7 @@ namespace WorldBuilder.Editors.Landscape {
         public const int CellsPerLandblock = 64; // 8x8
         public const int VerticesPerLandblock = CellsPerLandblock * 4;
         public const int IndicesPerLandblock = CellsPerLandblock * 6;
+        public const float RoadWidth = 5f;
 
         /// <summary>
         /// Generates geometry for an entire chunk
@@ -176,6 +178,133 @@ namespace WorldBuilder.Editors.Landscape {
             return (uint)(sizeBits | roadBits | terrainBits);
         }
 
+        public static Vector3 GetNormal(Region region, TerrainEntry[] lbTerrainEntries, uint landblockX, uint landblockY, Vector3 localPos) {
+            uint cellX = (uint)(localPos.X / 24f);
+            uint cellY = (uint)(localPos.Y / 24f);
+            if (cellX >= 8 || cellY >= 8) return new Vector3(0, 0, 1);
+
+            var splitDirection = CalculateSplitDirection(landblockX, cellX, landblockY, cellY);
+
+            var bottomLeft = GetTerrainEntryForCell(lbTerrainEntries, cellX, cellY);
+            var bottomRight = GetTerrainEntryForCell(lbTerrainEntries, cellX + 1, cellY);
+            var topRight = GetTerrainEntryForCell(lbTerrainEntries, cellX + 1, cellY + 1);
+            var topLeft = GetTerrainEntryForCell(lbTerrainEntries, cellX, cellY + 1);
+            
+            float h0 = region.LandDefs.LandHeightTable[bottomLeft.Height];
+            float h1 = region.LandDefs.LandHeightTable[bottomRight.Height];
+            float h2 = region.LandDefs.LandHeightTable[topRight.Height];
+            float h3 = region.LandDefs.LandHeightTable[topLeft.Height];
+
+            // Local position within the cell (0-24 range)
+            float lx = localPos.X - cellX * 24f;
+            float ly = localPos.Y - cellY * 24f;
+
+            // Vertex positions in cell-local space
+            Vector3 p0 = new Vector3(0, 0, h0);      // bottom-left
+            Vector3 p1 = new Vector3(24, 0, h1);     // bottom-right
+            Vector3 p2 = new Vector3(24, 24, h2);    // top-right
+            Vector3 p3 = new Vector3(0, 24, h3);     // top-left
+
+            if (splitDirection == CellSplitDirection.SWtoNE) {
+                // Diagonal from bottom-left (0,0) to top-right (24,24)
+                // Triangle 1: p0, p1, p3
+                // Triangle 2: p1, p2, p3
+
+                Vector3 edge1_t1 = p1 - p0;
+                Vector3 edge2_t1 = p3 - p0;
+                Vector3 normal1 = Vector3.Normalize(Vector3.Cross(edge1_t1, edge2_t1));
+
+                Vector3 edge1_t2 = p2 - p1;
+                Vector3 edge2_t2 = p3 - p1;
+                Vector3 normal2 = Vector3.Normalize(Vector3.Cross(edge1_t2, edge2_t2));
+
+                // Point is in triangle 1 if below/left of the diagonal
+                bool inTri1 = (lx + ly <= 24f);
+                return inTri1 ? normal1 : normal2;
+            }
+            else { // SEtoNW
+                   // Diagonal from bottom-right (24,0) to top-left (0,24)
+                   // Triangle 1: p0, p1, p2
+                   // Triangle 2: p0, p2, p3
+
+                Vector3 edge1_t1 = p1 - p0;
+                Vector3 edge2_t1 = p2 - p0;
+                Vector3 normal1 = Vector3.Normalize(Vector3.Cross(edge1_t1, edge2_t1));
+
+                Vector3 edge1_t2 = p2 - p0;
+                Vector3 edge2_t2 = p3 - p0;
+                Vector3 normal2 = Vector3.Normalize(Vector3.Cross(edge1_t2, edge2_t2));
+
+                // Point is in triangle 1 if right of the diagonal (x >= y)
+                bool inTri1 = (lx >= ly);
+                return inTri1 ? normal1 : normal2;
+            }
+        }
+
+        public static float GetHeight(Region region, TerrainEntry[] lbTerrainEntries, uint landblockX, uint landblockY, Vector3 localPos) {
+            uint cellX = (uint)(localPos.X / 24f);
+            uint cellY = (uint)(localPos.Y / 24f);
+            if (cellX >= 8 || cellY >= 8) return 0f;
+
+            var splitDirection = CalculateSplitDirection(landblockX, cellX, landblockY, cellY);
+
+            var bottomLeft = GetTerrainEntryForCell(lbTerrainEntries, cellX, cellY);
+            var bottomRight = GetTerrainEntryForCell(lbTerrainEntries, cellX + 1, cellY);
+            var topRight = GetTerrainEntryForCell(lbTerrainEntries, cellX + 1, cellY + 1);
+            var topLeft = GetTerrainEntryForCell(lbTerrainEntries, cellX, cellY + 1);
+
+            float h0 = region.LandDefs.LandHeightTable[bottomLeft.Height];
+            float h1 = region.LandDefs.LandHeightTable[bottomRight.Height];
+            float h2 = region.LandDefs.LandHeightTable[topRight.Height];
+            float h3 = region.LandDefs.LandHeightTable[topLeft.Height];
+
+            // Local position within the cell (0-24 range)
+            float lx = localPos.X - cellX * 24f;
+            float ly = localPos.Y - cellY * 24f;
+
+            // Normalized coordinates (0-1 range)
+            float s = lx / 24f;
+            float t = ly / 24f;
+
+            if (splitDirection == CellSplitDirection.SWtoNE) {
+                // Diagonal from bottom-left to top-right
+                // Triangle 1: p0(0,0), p1(1,0), p3(0,1)
+                // Triangle 2: p1(1,0), p2(1,1), p3(0,1)
+
+                if (s + t <= 1f) {
+                    // Triangle 1: Barycentric interpolation
+                    // h = h0 * (1-s-t) + h1 * s + h3 * t
+                    return h0 * (1f - s - t) + h1 * s + h3 * t;
+                }
+                else {
+                    // Triangle 2: Barycentric interpolation
+                    // Transform to barycentric: p1 as origin
+                    // h = h1 * (1-(s+t-1)) + h2 * (s+t-1) + h3 * (1-s) where weights sum to 1
+                    // Simplified: h = h1 * (2-s-t) + h2 * (s+t-1) + h3 * (s-1)
+                    float u = s + t - 1f; // distance along p1->p2
+                    float v = 1f - s;     // distance along p1->p3
+                    float w = 1f - u - v; // remaining weight for p1
+                    return h1 * w + h2 * u + h3 * v;
+                }
+            }
+            else { // SEtoNW
+                   // Diagonal from bottom-right to top-left
+                   // Triangle 1: p0(0,0), p1(1,0), p2(1,1)
+                   // Triangle 2: p0(0,0), p2(1,1), p3(0,1)
+
+                if (s >= t) {
+                    // Triangle 1: Barycentric interpolation
+                    // h = h0 * (1-s) + h1 * (s-t) + h2 * t
+                    return h0 * (1f - s) + h1 * (s - t) + h2 * t;
+                }
+                else {
+                    // Triangle 2: Barycentric interpolation
+                    // h = h0 * (1-t) + h2 * s + h3 * (t-s)
+                    return h0 * (1f - t) + h2 * s + h3 * (t - s);
+                }
+            }
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void CalculateVertexNormals(CellSplitDirection splitDirection, ref VertexLandscape v0, ref VertexLandscape v1, ref VertexLandscape v2, ref VertexLandscape v3) {
             Vector3 p0 = v0.Position;
@@ -228,6 +357,99 @@ namespace WorldBuilder.Editors.Landscape {
             float splitDir = magicA - magicB - 1369149221u;
 
             return splitDir * 2.3283064e-10f >= 0.5f ? CellSplitDirection.SEtoNW : CellSplitDirection.SWtoNE;
+        }
+
+        public static bool OnRoad(Vector3 obj, TerrainEntry[] entries) {
+            int x = (int)(obj.X / 24f);
+            int y = (int)(obj.Y / 24f);
+
+            float rMin = RoadWidth;
+            float rMax = 24f - RoadWidth;
+
+            int x0 = x;
+            int x1 = x0 + 1;
+            int y0 = y;
+            int y1 = y0 + 1;
+
+            uint r0 = GetRoad(entries, x0, y0);
+            uint r1 = GetRoad(entries, x0, y1);
+            uint r2 = GetRoad(entries, x1, y0);
+            uint r3 = GetRoad(entries, x1, y1);
+
+            if (r0 == 0 && r1 == 0 && r2 == 0 && r3 == 0)
+                return false;
+
+            float dx = obj.X - x * 24f;
+            float dy = obj.Y - y * 24f;
+
+            if (r0 > 0) {
+                if (r1 > 0) {
+                    if (r2 > 0) {
+                        if (r3 > 0)
+                            return true;
+                        else
+                            return (dx < rMin || dy < rMin);
+                    }
+                    else {
+                        if (r3 > 0)
+                            return (dx < rMin || dy > rMax);
+                        else
+                            return (dx < rMin);
+                    }
+                }
+                else {
+                    if (r2 > 0) {
+                        if (r3 > 0)
+                            return (dx > rMax || dy < rMin);
+                        else
+                            return (dy < rMin);
+                    }
+                    else {
+                        if (r3 > 0)
+                            return (Math.Abs(dx - dy) < rMin);
+                        else
+                            return (dx + dy < rMin);
+                    }
+                }
+            }
+            else {
+                if (r1 > 0) {
+                    if (r2 > 0) {
+                        if (r3 > 0)
+                            return (dx > rMax || dy > rMax);
+                        else
+                            return (Math.Abs(dx + dy - 24f) < rMin);
+                    }
+                    else {
+                        if (r3 > 0)
+                            return (dy > rMax);
+                        else
+                            return (24f + dx - dy < rMin);
+                    }
+                }
+                else {
+                    if (r2 > 0) {
+                        if (r3 > 0)
+                            return (dx > rMax);
+                        else
+                            return (24f - dx + dy < rMin);
+                    }
+                    else {
+                        if (r3 > 0)
+                            return (24f * 2f - dx - dy < rMin);
+                        else
+                            return false;
+                    }
+                }
+            }
+        }
+
+        public static uint GetRoad(TerrainEntry[] entries, int x, int y) {
+            if (x < 0 || y < 0 || x >= 9 || y >= 9) return 0;
+            var idx = x * 9 + y;
+            if (idx >= entries.Length) return 0;
+            var road = entries[idx].Road;
+            return (uint)(road & 0x3); // Lower 2 bits
         }
     }
 }
