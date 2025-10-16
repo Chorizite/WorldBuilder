@@ -7,6 +7,7 @@ namespace Chorizite.OpenGLSDLBackend.Extensions {
         public static SizedInternalFormat ToGL(this Core.Render.Enums.TextureFormat format) {
             return format switch {
                 TextureFormat.RGBA8 => SizedInternalFormat.Rgba8,
+                TextureFormat.RGB8 => SizedInternalFormat.Rgb8,
                 TextureFormat.A8 => SizedInternalFormat.R8,
                 TextureFormat.Rgba32f => SizedInternalFormat.Rgba32f,
                 TextureFormat.DXT1 => SizedInternalFormat.CompressedRgbaS3TCDxt1Ext,
@@ -28,6 +29,7 @@ namespace Chorizite.OpenGLSDLBackend.Extensions {
         public static PixelFormat ToPixelFormat(this Core.Render.Enums.TextureFormat format) {
             return format switch {
                 Core.Render.Enums.TextureFormat.RGBA8 => PixelFormat.Rgba,
+                Core.Render.Enums.TextureFormat.RGB8 => PixelFormat.Rgb,
                 Core.Render.Enums.TextureFormat.A8 => PixelFormat.Red,
                 Core.Render.Enums.TextureFormat.Rgba32f => PixelFormat.Rgba,
                 _ => throw new NotSupportedException($"Texture format {format} is not supported."),
@@ -37,6 +39,7 @@ namespace Chorizite.OpenGLSDLBackend.Extensions {
         public static PixelType ToPixelType(this Core.Render.Enums.TextureFormat format) {
             return format switch {
                 TextureFormat.RGBA8 => PixelType.UnsignedByte,
+                TextureFormat.RGB8 => PixelType.UnsignedByte,
                 TextureFormat.A8 => PixelType.UnsignedByte,
                 TextureFormat.Rgba32f => PixelType.Float,
                 _ => throw new NotSupportedException($"Texture format {format} is not supported."),

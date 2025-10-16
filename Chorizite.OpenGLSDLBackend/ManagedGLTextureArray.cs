@@ -148,15 +148,6 @@ namespace Chorizite.OpenGLSDLBackend {
                 throw new ArgumentOutOfRangeException(nameof(layer), $"Layer index {layer} is out of range [0, {Size - 1}] (Slot={Slot}).");
             }
 
-            //int expectedSize = GetExpectedDataSize();
-            //if (data == null || data.Length != expectedSize) {  // Strict ==, not <
-            //    throw new ArgumentException($"Data size mismatch: got {data?.Length ?? 0}, expected {expectedSize} for {Format} {Width}x{Height} (Slot={Slot}). Alignment: width%4={Width % 4}, height%4={Height % 4}");
-           // }
-
-            if (_isCompressed && (Width % 4 != 0 || Height % 4 != 0)) {
-                Console.WriteLine($"Warning: Compressed texture {Width}x{Height} not block-aligned (4x4). Driver may clamp.");
-            }
-
             GCHandle pinnedArray = GCHandle.Alloc(data, GCHandleType.Pinned);
             try {
                 var pixelsPtr = (void*)pinnedArray.AddrOfPinnedObject();

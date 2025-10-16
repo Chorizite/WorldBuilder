@@ -234,6 +234,7 @@ namespace WorldBuilder.Editors.Landscape {
                                 break;
                             case DatReaderWriter.Enums.PixelFormat.PFID_R8G8B8:
                                 uploadPixelFormat = PixelFormat.Rgb;
+                                textureFormat = TextureFormat.RGB8;
                                 break;
                             case DatReaderWriter.Enums.PixelFormat.PFID_INDEX16:
                                 if (!_dats.TryGet<Palette>(renderSurface.DefaultPaletteId, out var paletteData))
