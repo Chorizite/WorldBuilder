@@ -115,47 +115,50 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         // --------------------------------------------------------------------
         [RelayCommand]
         private void Load() {
-            Status = "";
-            if (!TryParseId(ObjectIdText, out var id, out var isSetup)) {
-                Status = "Invalid ID (use hex with 0x or decimal)";
-                return;
-            }
+            // run on avalonia ui thread
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                Status = "";
+                if (!TryParseId(ObjectIdText, out var id, out var isSetup)) {
+                    Status = "Invalid ID (use hex with 0x or decimal)";
+                    return;
+                }
 
-            _currentId = id;
-            _isSetup = isSetup;
+                _currentId = id;
+                _isSetup = isSetup;
 
-            // Grab (or create) render data – exactly what GameScene does
-            _renderData = _objectManager.GetRenderData(id, isSetup);
-            if (_renderData == null) {
-                Status = "Object not found in DATs";
-                return;
-            }
+                // Grab (or create) render data – exactly what GameScene does
+                _renderData = _objectManager.GetRenderData(id, isSetup);
+                if (_renderData == null) {
+                    Status = "Object not found in DATs";
+                    return;
+                }
 
-            // Compute a rough AABB so we can auto-frame the camera
-            var bounds = EstimateObjectBounds(_renderData);
-            var size = bounds.Max - bounds.Min;
-            var center = (bounds.Max + bounds.Min) * 0.5f;
+                // Compute a rough AABB so we can auto-frame the camera
+                var (min, max) = EstimateObjectBounds(_renderData);
+                var size = max - min;
+                var center = (min + max) * 0.5f;
 
-            // Simple scale/translate so the object sits at origin and fits ~80% of view
-            var maxDim = MathF.Max(MathF.Max(size.X, size.Y), size.Z);
-            var scale = maxDim > 0 ? 4f / maxDim : 1f; // 4 world units ≈ view height
-            _modelMatrix = Matrix4x4.CreateScale(scale) *
-                           Matrix4x4.CreateTranslation(-center);
+                // Simple scale/translate so the object sits at origin and fits ~80% of view
+                var maxDim = MathF.Max(MathF.Max(size.X, size.Y), size.Z);
+                var scale = 1f; // Adjust if needed
+                _modelMatrix = Matrix4x4.CreateScale(scale) *
+                               Matrix4x4.CreateTranslation(-center);
 
-            // Adjust base camera distance (zoomed out more initially)
-            var baseCamDist = maxDim * 1.5f + 5f; // Increased from 0.7f + 2f to zoom out/up more
-            _zoomDistanceMultiplier = baseCamDist;
-            UpdateCameraPosition(baseCamDist, center);
-            _rotationAngleY = 45f;
-            _rotationAngleX = 0f;
+                // Adjust base camera distance (zoomed out more initially)
+                var baseCamDist = maxDim * 1.5f;
+                _zoomDistanceMultiplier = 1f;
+                _rotationAngleY = -45f;
+                _rotationAngleX = 0f;
+                UpdateCameraPosition(baseCamDist, center);
 
-            Console.WriteLine($"Loaded 0x{id:X8} ({(isSetup ? "Setup" : "GfxObj")})");
-            Console.WriteLine($"AABB: {bounds.Min} - {bounds.Max}");
-            Console.WriteLine($"Center: {center}");
-            Console.WriteLine($"Scale: {scale}");
-            Console.WriteLine($"BaseCamDist: {baseCamDist}");
+                Console.WriteLine($"Loaded 0x{id:X8} ({(isSetup ? "Setup" : "GfxObj")}): {size}");
+                Console.WriteLine($"AABB: {min} - {max}");
+                Console.WriteLine($"Center: {center}");
+                Console.WriteLine($"Scale: {scale}");
+                Console.WriteLine($"BaseCamDist: {baseCamDist}");
 
-            Status = $"Loaded 0x{id:X8} ({(isSetup ? "Setup" : "GfxObj")})";
+                Status = $"Loaded 0x{id:X8} ({(isSetup ? "Setup" : "GfxObj")})";
+            });
         }
 
         private void UpdateCameraPosition(float baseDist, Vector3 target) {
@@ -195,8 +198,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
                 return false;
 
             isSetup = (id & 0x02000000) != 0;
-            // Heuristic: Setup IDs live in the 0x01xx_xxxx range, GfxObj in 0x02xx_xxxx
-            // Adjust to your DAT layout – here we just query both and remember which succeeded later.
             return true;
         }
 
@@ -205,15 +206,28 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         // For Setups we recursively inspect each part (simplified here).
         // --------------------------------------------------------------------
         private (Vector3 Min, Vector3 Max) EstimateObjectBounds(StaticObjectRenderData data) {
+            return (new Vector3(-1,-1, 0), new Vector3(1, 1, 1));
+            /*
             if (data.IsSetup) {
                 // For a Setup we need to pull each part’s bounds and transform them.
-                // This sample simply returns a unit box; replace with real logic if needed.
-                return (new Vector3(-0.5f), new Vector3(0.5f));
+                var min = new Vector3(float.MaxValue);
+                var max = new Vector3(float.MinValue);
+                foreach (var (gfxId, transform) in data.SetupParts) {
+                    var childData = _objectManager.GetRenderData(gfxId, false);
+                    if (childData != null) {
+                        // Approximate transformed AABB
+                        var childMin = Vector3.Transform(childData.BoundsMin, transform);
+                        var childMax = Vector3.Transform(childData.BoundsMax, transform);
+                        min = Vector3.Min(min, childMin);
+                        max = Vector3.Max(max, childMax);
+                    }
+                }
+                return (min, max);
             }
-
-            // Simple GfxObj: read the VBO (CPU side copy would be best, but we only have GPU handles)
-            // For demo we just hard-code a safe default – you can extend by caching vertices in StaticObjectRenderData.
-            return (new Vector3(-1f), new Vector3(1f));
+            else {
+                return (data.BoundsMin, data.BoundsMax);
+            }
+            */
         }
 
         // --------------------------------------------------------------------
@@ -226,11 +240,12 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
 
             // Recompute position if object loaded
             if (_renderData != null) {
-                var bounds = EstimateObjectBounds(_renderData);
-                var center = (bounds.Max + bounds.Min) * 0.5f;
-                var maxDim = MathF.Max(MathF.Max((bounds.Max - bounds.Min).X, (bounds.Max - bounds.Min).Y), (bounds.Max - bounds.Min).Z);
+                var (min, max) = EstimateObjectBounds(_renderData);
+                var center = (min + max) * 0.5f;
+                var size = max - min;
+                var maxDim = MathF.Max(MathF.Max(size.X, size.Y), size.Z);
                 var baseCamDist = maxDim * 1.5f + 5f;
-                UpdateCameraPosition(baseCamDist, Vector3.Zero);
+                UpdateCameraPosition(baseCamDist, center);
             }
         }
 
@@ -239,9 +254,10 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
 
             // Recompute position if object loaded
             if (_renderData != null) {
-                var bounds = EstimateObjectBounds(_renderData);
-                var center = (bounds.Max + bounds.Min) * 0.5f;
-                var maxDim = MathF.Max(MathF.Max((bounds.Max - bounds.Min).X, (bounds.Max - bounds.Min).Y), (bounds.Max - bounds.Min).Z);
+                var (min, max) = EstimateObjectBounds(_renderData);
+                var center = (min + max) * 0.5f;
+                var size = max - min;
+                var maxDim = MathF.Max(MathF.Max(size.X, size.Y), size.Z);
                 var baseCamDist = maxDim * 1.5f + 5f;
                 UpdateCameraPosition(baseCamDist, center);
             }
@@ -251,6 +267,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             if (_renderData == null) return;
 
             var gl = _gl;
+            gl.FrontFace(FrontFaceDirection.CW);
             gl.Enable(EnableCap.DepthTest);
             gl.ClearColor(0.1f, 0.1f, 0.1f, 1f);
             gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
@@ -307,11 +324,14 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
                     continue;
                 }
 
-                // Update model in shader if needed (for per-batch, but here it's instanced)
+                if (!data.LocalAtlases[(batch.TextureSize.Width, batch.TextureSize.Height, batch.TextureFormat)].HasTexture(batch.Key)) {
+                    Console.WriteLine($"Warning: Mismatch for surface 0x{batch.SurfaceId:X8}");
+                }
+
                 batch.TextureArray.Bind(0);
                 var shader = _objectManager._objectShader;
                 shader.SetUniform("uTextureArray", 0);
-                shader.SetUniform("uTextureIndex", (float)batch.TextureIndex);
+                shader.SetUniform("uTextureIndex", batch.TextureIndex); // Ensure shader casts to int if needed
 
                 gl.BindBuffer(GLEnum.ElementArrayBuffer, batch.IBO);
                 gl.DrawElementsInstanced(GLEnum.Triangles, (uint)batch.IndexCount, GLEnum.UnsignedShort, null, 1);

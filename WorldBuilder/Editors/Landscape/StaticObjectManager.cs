@@ -21,7 +21,6 @@ namespace WorldBuilder.Editors.Landscape {
         private readonly IDatReaderWriter _dats;
         private readonly Dictionary<uint, StaticObjectRenderData> _renderData = new();
         internal readonly IShader _objectShader;
-        private readonly Dictionary<(int Width, int Height, TextureFormat Format), TextureAtlasManager> _atlasManagers = new();
         private readonly ConcurrentDictionary<uint, int> _usageCount = new();
 
         public StaticObjectManager(OpenGLRenderer renderer, IDatReaderWriter dats) {
@@ -69,11 +68,10 @@ namespace WorldBuilder.Editors.Landscape {
             foreach (var batch in data.Batches) {
                 if (batch.IBO != 0) gl.DeleteBuffer(batch.IBO);
 
-                // Release texture from atlas
-                var format = (batch.TextureSize.Width, batch.TextureSize.Height, batch.TextureFormat);
-                if (_atlasManagers.TryGetValue(format, out var atlasManager)) {
-                    atlasManager.ReleaseTexture(batch.SurfaceId);
-                }
+            }
+
+            foreach (var atlasManager in data.LocalAtlases.Values) {
+                atlasManager.Dispose();
             }
 
             _renderData.Remove(key);
@@ -98,30 +96,75 @@ namespace WorldBuilder.Editors.Landscape {
 
         private StaticObjectRenderData CreateSetupRenderData(uint id, Setup setup) {
             var parts = new List<(uint GfxObjId, Matrix4x4 Transform)>();
-            var placementFrame = setup.PlacementFrames?.FirstOrDefault();
+            var placementFrame = setup.PlacementFrames[0];
 
             for (int i = 0; i < setup.Parts.Count; i++) {
                 var partId = setup.Parts[i];
                 var transform = Matrix4x4.Identity;
 
-                if (placementFrame?.Value.Frames != null && i < placementFrame.Value.Value.Frames.Count) {
-                    transform = Matrix4x4.CreateTranslation(placementFrame.Value.Value.Frames[i].Origin);
+                if (placementFrame.Frames != null && i < placementFrame.Frames.Count) {
+                    transform = Matrix4x4.CreateFromQuaternion(placementFrame.Frames[i].Orientation)
+                        * Matrix4x4.CreateTranslation(placementFrame.Frames[i].Origin);
                 }
 
                 parts.Add((partId, transform));
             }
 
-            return new StaticObjectRenderData {
+            var data = new StaticObjectRenderData {
                 IsSetup = true,
                 SetupParts = parts,
                 Batches = new List<RenderBatch>()
             };
+
+            return data;
+        }
+        public (Vector3 Min, Vector3 Max)? GetBounds(uint id, bool isSetup) {
+            try {
+                if (isSetup) {
+                    if (!_dats.TryGet<Setup>(id, out var setup)) return null;
+                    var parts = new List<(uint GfxObjId, Matrix4x4 Transform)>();
+                    var placementFrame = setup.PlacementFrames[0];
+                    for (int i = 0; i < setup.Parts.Count; i++) {
+                        var partId = setup.Parts[i];
+                        var transform = Matrix4x4.Identity;
+                        if (placementFrame.Frames != null && i < placementFrame.Frames.Count) {
+                            transform = Matrix4x4.CreateFromQuaternion(placementFrame.Frames[i].Orientation) *
+                                        Matrix4x4.CreateTranslation(placementFrame.Frames[i].Origin);
+                        }
+                        parts.Add((partId, transform));
+                    }
+                    var min = new Vector3(float.MaxValue);
+                    var max = new Vector3(float.MinValue);
+                    bool hasBounds = false;
+                    foreach (var (partId, transform) in parts) {
+                        if (_dats.TryGet<GfxObj>(partId, out var partGfx)) {
+                            var (partMin, partMax) = ComputeBounds(partGfx, Vector3.One);
+                            // Approximate transformed AABB (same as original; for exact, transform 8 corners)
+                            var transMin = Vector3.Transform(partMin, transform);
+                            var transMax = Vector3.Transform(partMax, transform);
+                            min = Vector3.Min(min, transMin);
+                            max = Vector3.Max(max, transMax);
+                            hasBounds = true;
+                        }
+                    }
+                    return hasBounds ? (min, max) : null;
+                }
+                else {
+                    if (!_dats.TryGet<GfxObj>(id, out var gfxObj)) return null;
+                    return ComputeBounds(gfxObj, Vector3.One);
+                }
+            }
+            catch (Exception ex) {
+                Console.WriteLine($"Error computing bounds for 0x{id:X8}: {ex}");
+                return null;
+            }
         }
 
         private unsafe StaticObjectRenderData CreateGfxObjRenderData(uint id, GfxObj gfxObj, Vector3 scale) {
             var vertices = new List<VertexPositionNormalTexture>();
             var UVLookup = new Dictionary<(ushort vertId, ushort uvIdx), ushort>();
             var batchesByFormat = new Dictionary<(int Width, int Height, TextureFormat Format), List<TextureBatch>>();
+            var localAtlases = new Dictionary<(int Width, int Height, TextureFormat Format), TextureAtlasManager>();
 
             foreach (var poly in gfxObj.Polygons.Values) {
                 if (poly.VertexIds.Count < 3) continue;
@@ -154,8 +197,11 @@ namespace WorldBuilder.Editors.Landscape {
                 TextureFormat textureFormat;
                 PixelFormat? uploadPixelFormat = null;
                 PixelType? uploadPixelType = null;
+                bool isSolid = poly.Stippling == StipplingType.NoPos || surface.Type.HasFlag(SurfaceType.Base1Solid);
 
-                if (poly.Stippling == StipplingType.NoPos || surface.Type.HasFlag(SurfaceType.Base1Solid)) {
+                uint paletteId = 0;
+
+                if (isSolid) {
                     texWidth = texHeight = 32;
                     textureData = TextureHelpers.CreateSolidColorTexture(surface.ColorValue, texWidth, texHeight);
                     textureFormat = TextureFormat.RGBA8;
@@ -168,6 +214,7 @@ namespace WorldBuilder.Editors.Landscape {
 
                     texWidth = renderSurface.Width;
                     texHeight = renderSurface.Height;
+                    paletteId = renderSurface.DefaultPaletteId; // May be 0 if not INDEX16
 
                     if (TextureHelpers.IsCompressedFormat(renderSurface.Format)) {
                         textureFormat = renderSurface.Format switch {
@@ -206,12 +253,19 @@ namespace WorldBuilder.Editors.Landscape {
 
                 var format = (texWidth, texHeight, textureFormat);
 
-                if (!_atlasManagers.TryGetValue(format, out var atlasManager)) {
+                if (!localAtlases.TryGetValue(format, out var atlasManager)) {
                     atlasManager = new TextureAtlasManager(_renderer, texWidth, texHeight, textureFormat);
-                    _atlasManagers[format] = atlasManager;
+                    localAtlases[format] = atlasManager;
                 }
 
-                int textureIndex = atlasManager.AddTexture(surfaceId, textureData, uploadPixelFormat, uploadPixelType);
+                var key = new TextureAtlasManager.TextureKey {
+                    SurfaceId = surfaceId,
+                    PaletteId = paletteId,
+                    Stippling = poly.Stippling,
+                    IsSolid = isSolid
+                };
+
+                int textureIndex = atlasManager.AddTexture(key, textureData, uploadPixelFormat, uploadPixelType);
 
                 if (!batchesByFormat.TryGetValue(format, out var batches)) {
                     batches = new List<TextureBatch>();
@@ -220,14 +274,16 @@ namespace WorldBuilder.Editors.Landscape {
 
                 var batch = batches.FirstOrDefault(b => b.TextureIndex == textureIndex);
                 if (batch == null) {
-                    batch = new TextureBatch { TextureIndex = textureIndex, SurfaceId = surfaceId };
+                    batch = new TextureBatch { TextureIndex = textureIndex, SurfaceId = surfaceId, Key = key };
                     batches.Add(batch);
                 }
 
                 BuildPolygonIndices(poly, gfxObj, scale, UVLookup, vertices, batch, useNegSurface);
             }
 
-            return SetupGpuBuffers(vertices, batchesByFormat, id);
+            var renderData = SetupGpuBuffers(vertices, batchesByFormat, id, localAtlases);
+            renderData.LocalAtlases = localAtlases;
+            return renderData;
         }
 
         private static void FillIndex16(byte[] src, Palette palette, Span<byte> dst, int width, int height) {
@@ -263,9 +319,12 @@ namespace WorldBuilder.Editors.Landscape {
                 }
 
                 if (vertId >= gfxObj.VertexArray.Vertices.Count) continue;
+                if (uvIdx >= gfxObj.VertexArray.Vertices[vertId].UVs.Count) {
+                    Console.WriteLine($"Warning: UV index {uvIdx} out of range for vertex {vertId}. Using 0.");
+                    uvIdx = 0;
+                }
 
                 var vertex = gfxObj.VertexArray.Vertices[vertId];
-                if (uvIdx >= vertex.UVs.Count) uvIdx = 0;
 
                 var key = (vertId, uvIdx);
                 if (!UVLookup.TryGetValue(key, out var idx)) {
@@ -294,7 +353,7 @@ namespace WorldBuilder.Editors.Landscape {
         private unsafe StaticObjectRenderData SetupGpuBuffers(
             List<VertexPositionNormalTexture> vertices,
             Dictionary<(int Width, int Height, TextureFormat Format), List<TextureBatch>> batchesByFormat,
-            uint id) {
+            uint id, Dictionary<(int Width, int Height, TextureFormat Format), TextureAtlasManager> localAtlases) {
 
             var gl = _renderer.GraphicsDevice.GL;
             gl.GenVertexArrays(1, out uint vao);
@@ -317,7 +376,7 @@ namespace WorldBuilder.Editors.Landscape {
             var renderBatches = new List<RenderBatch>();
 
             foreach (var (format, batches) in batchesByFormat) {
-                var atlasManager = _atlasManagers[format];
+                var atlasManager = localAtlases[format];
 
                 foreach (var batch in batches) {
                     if (batch.Indices.Count == 0) continue;
@@ -335,7 +394,8 @@ namespace WorldBuilder.Editors.Landscape {
                         TextureIndex = batch.TextureIndex,
                         TextureSize = (format.Width, format.Height),
                         TextureFormat = format.Format,
-                        SurfaceId = batch.SurfaceId
+                        SurfaceId = batch.SurfaceId,
+                        Key = batch.Key
                     });
                 }
             }
@@ -351,6 +411,17 @@ namespace WorldBuilder.Editors.Landscape {
             return renderData;
         }
 
+        private (Vector3 Min, Vector3 Max) ComputeBounds(GfxObj gfxObj, Vector3 scale) {
+            var min = new Vector3(float.MaxValue);
+            var max = new Vector3(float.MinValue);
+            foreach (var vert in gfxObj.VertexArray.Vertices.Values) {
+                var p = vert.Origin * scale;
+                min = Vector3.Min(min, p);
+                max = Vector3.Max(max, p);
+            }
+            return (min, max);
+        }
+
         public void Dispose() {
             var gl = _renderer.GraphicsDevice.GL;
             foreach (var data in _renderData.Values) {
@@ -359,18 +430,18 @@ namespace WorldBuilder.Editors.Landscape {
                 foreach (var batch in data.Batches) {
                     if (batch.IBO != 0) gl.DeleteBuffer(batch.IBO);
                 }
-            }
-            foreach (var atlasManager in _atlasManagers.Values) {
-                atlasManager.Dispose();
+                foreach (var atlas in data.LocalAtlases.Values) {
+                    atlas.Dispose();
+                }
             }
             _renderData.Clear();
-            _atlasManagers.Clear();
         }
     }
 
     internal class TextureBatch {
         public int TextureIndex { get; set; }
         public uint SurfaceId { get; set; }
+        public TextureAtlasManager.TextureKey Key { get; set; }
         public List<ushort> Indices { get; set; } = new();
     }
 
@@ -382,6 +453,7 @@ namespace WorldBuilder.Editors.Landscape {
         public (int Width, int Height) TextureSize { get; set; }
         public TextureFormat TextureFormat { get; set; }
         public uint SurfaceId { get; set; }
+        public TextureAtlasManager.TextureKey Key { get; set; }
     }
 
     public class StaticObjectRenderData {
@@ -390,5 +462,6 @@ namespace WorldBuilder.Editors.Landscape {
         public List<RenderBatch> Batches { get; set; } = new();
         public bool IsSetup { get; set; }
         public List<(uint GfxObjId, Matrix4x4 Transform)> SetupParts { get; set; } = new();
+        public Dictionary<(int Width, int Height, TextureFormat Format), TextureAtlasManager> LocalAtlases { get; set; } = new();
     }
 }

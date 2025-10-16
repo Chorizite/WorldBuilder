@@ -331,6 +331,7 @@ namespace WorldBuilder.Editors.Landscape {
             _gl.Enable(EnableCap.DepthTest);
             _gl.Enable(EnableCap.Blend);
             _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+            _gl.Disable(EnableCap.CullFace);
 
             _objectManager._objectShader.Bind();
             _objectManager._objectShader.SetUniform("uViewProjection", viewProjection);
