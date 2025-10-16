@@ -90,35 +90,6 @@ namespace WorldBuilder.Editors.Landscape {
             }
         }
 
-        /// <summary>
-        /// Generates geometry for a single landblock into standalone buffers
-        /// </summary>
-        public static void GenerateLandblockGeometryStandalone(
-            uint landblockX,
-            uint landblockY,
-            TerrainEntry[] landblockData,
-            LandSurfaceManager surfaceManager,
-            Region region,
-            Span<VertexLandscape> vertices,
-            Span<uint> indices,
-            out int vertexCount,
-            out int indexCount) {
-
-            uint currentVertexIndex = 0;
-            uint currentIndexPosition = 0;
-            var landblockID = landblockX << 8 | landblockY;
-
-            GenerateLandblockGeometry(
-                landblockX, landblockY, landblockID,
-                landblockData, surfaceManager, region,
-                ref currentVertexIndex, ref currentIndexPosition,
-                vertices, indices
-            );
-
-            vertexCount = (int)currentVertexIndex;
-            indexCount = (int)currentIndexPosition;
-        }
-
         private static void GenerateCell(
             float baseLandblockX, float baseLandblockY, uint cellX, uint cellY,
             TerrainEntry[] landblockData, uint landblockID,
