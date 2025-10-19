@@ -10,8 +10,28 @@ using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Shared.Documents {
     [MemoryPackable]
+    [MemoryPackUnion(0, typeof(TerrainLayer))]
+    [MemoryPackUnion(1, typeof(TerrainLayerGroup))]
+    public abstract partial class TerrainLayerItem {
+        public string Name { get; set; } = string.Empty;
+        public bool IsVisible { get; set; } = true;
+        public bool IsExport { get; set; } = true;
+    }
+
+    [MemoryPackable]
+    public partial class TerrainLayer : TerrainLayerItem {
+        public string DocumentId { get; set; } = string.Empty;
+    }
+
+    [MemoryPackable]
+    public partial class TerrainLayerGroup : TerrainLayerItem {
+        public List<TerrainLayerItem> Children { get; set; } = new List<TerrainLayerItem>();
+    }
+
+    [MemoryPackable]
     public partial record TerrainData {
         public Dictionary<ushort, uint[]> Landblocks = new(0xFF * 0xFF);
+        public List<TerrainLayerItem> RootItems { get; set; } = new List<TerrainLayerItem>();
     }
 
     [MemoryPackable]
@@ -364,12 +384,6 @@ namespace WorldBuilder.Shared.Documents {
 
             _logger.LogInformation("Successfully saved {Count} landblocks", TerrainData.Landblocks.Count);
             return Task.FromResult(true);
-        }
-
-        public (int ModifiedLandblocks, int DirtyLandblocks, int BaseLandblocks) GetStats() {
-            lock (_dirtyLock) {
-                return (TerrainData.Landblocks.Count, _dirtyLandblocks.Count, _baseTerrainCache.Count);
-            }
         }
     }
 }

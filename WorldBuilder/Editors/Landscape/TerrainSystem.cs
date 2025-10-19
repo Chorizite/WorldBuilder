@@ -105,14 +105,6 @@ namespace WorldBuilder.Editors.Landscape {
             return modifiedLandblocks;
         }
 
-        /// <summary>
-        /// Gets terrain statistics.
-        /// </summary>
-        /// <returns>A tuple containing the count of modified, dirty, and base landblocks.</returns>
-        public (int ModifiedLandblocks, int DirtyLandblocks, int BaseLandblocks) GetTerrainStats() {
-            return TerrainDoc.GetStats();
-        }
-
         public IEnumerable<StaticObject> GetAllStaticObjects() {
             return new List<StaticObject>();
             //return Scene.GetAllStaticObjects();
