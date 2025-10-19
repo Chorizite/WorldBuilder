@@ -29,7 +29,7 @@ namespace WorldBuilder.Editors.Landscape.Commands {
             uint startCellY = (uint)_hitResult.CellY;
             ushort startLbID = (ushort)((startLbX << 8) | startLbY);
 
-            var startData = _context.TerrainDocument.GetLandblock(startLbID);
+            var startData = _context.TerrainSystem.GetLandblockTerrain(startLbID);
             if (startData == null) return;
 
             int startIndex = (int)(startCellX * 9 + startCellY);
@@ -53,7 +53,7 @@ namespace WorldBuilder.Editors.Landscape.Commands {
                 var lbID = (ushort)((lbX << 8) | lbY);
 
                 if (!landblockDataCache.TryGetValue(lbID, out var data)) {
-                    data = _context.TerrainDocument.GetLandblock(lbID);
+                    data = _context.TerrainSystem.GetLandblockTerrain(lbID);
                     if (data == null) continue;
                     landblockDataCache[lbID] = data;
                 }

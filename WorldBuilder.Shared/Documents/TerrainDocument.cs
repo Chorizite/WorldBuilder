@@ -61,7 +61,7 @@ namespace WorldBuilder.Shared.Documents {
         public TerrainDocument(ILogger logger) : base(logger) {
         }
 
-        public TerrainEntry[]? GetLandblock(ushort lbKey) {
+        public TerrainEntry[]? GetLandblockInternal(ushort lbKey) {
             if (TerrainData.Landblocks.TryGetValue(lbKey, out var lbTerrain)) {
                 return ConvertToTerrainEntries(lbTerrain);
             }
@@ -82,7 +82,7 @@ namespace WorldBuilder.Shared.Documents {
             return result;
         }
 
-        public void UpdateLandblocksBatch(
+        public void UpdateLandblocksBatchInternal(
             Dictionary<ushort, Dictionary<byte, uint>> allChanges,
             out HashSet<ushort> modifiedLandblocks) {
 
@@ -109,7 +109,7 @@ namespace WorldBuilder.Shared.Documents {
 
             // Calculate edge synchronization for all affected landblocks
             foreach (var (lbKey, changes) in allChanges) {
-                var lbData = GetLandblock(lbKey);
+                var lbData = GetLandblockInternal(lbKey);
                 if (lbData == null) continue;
 
                 // Apply changes to temporary data for edge calculation
@@ -130,13 +130,13 @@ namespace WorldBuilder.Shared.Documents {
             }
         }
 
-        public void UpdateLandblock(ushort lbKey, TerrainEntry[] newEntries, out HashSet<ushort> modifiedLandblocks) {
+        public void UpdateLandblockInternal(ushort lbKey, TerrainEntry[] newEntries, out HashSet<ushort> modifiedLandblocks) {
             if (newEntries.Length != LANDBLOCK_SIZE) {
                 throw new ArgumentException($"newEntries array must be of length {LANDBLOCK_SIZE}.");
             }
 
             modifiedLandblocks = new HashSet<ushort>();
-            var currentEntries = GetLandblock(lbKey);
+            var currentEntries = GetLandblockInternal(lbKey);
             if (currentEntries == null) {
                 _logger.LogError("Cannot update landblock {LbKey:X4} - not found", lbKey);
                 return;
@@ -156,7 +156,7 @@ namespace WorldBuilder.Shared.Documents {
                 [lbKey] = landblockChanges
             };
 
-            UpdateLandblocksBatch(batchChanges, out modifiedLandblocks);
+            UpdateLandblocksBatchInternal(batchChanges, out modifiedLandblocks);
         }
 
         private void CollectEdgeSync(
@@ -169,7 +169,7 @@ namespace WorldBuilder.Shared.Documents {
             var startLbY = baseLbKey & 0xFF;
 
             void AddChange(ushort neighborLbKey, int neighborVertIdx, TerrainEntry sourceEntry) {
-                var neighbor = GetLandblock(neighborLbKey);
+                var neighbor = GetLandblockInternal(neighborLbKey);
                 if (neighbor == null) return;
 
                 // Only sync if the values are different
@@ -246,7 +246,7 @@ namespace WorldBuilder.Shared.Documents {
             return (x * 9) + y;
         }
 
-        public bool Apply(TerrainUpdateEvent evt) {
+        private bool Apply(TerrainUpdateEvent evt) {
             MarkDirty();
             lock (_stateLock) {
                 foreach (var (lbKey, updates) in evt.Changes) {

@@ -43,7 +43,7 @@ namespace WorldBuilder.Editors.Landscape.Commands {
 
             foreach (var (lbId, lbChanges) in changesByLb) {
                 if (!landblockDataCache.TryGetValue(lbId, out var data)) {
-                    data = _context.TerrainDocument.GetLandblock(lbId);
+                    data = _context.TerrainSystem.GetLandblockTerrain(lbId);
                     if (data == null) continue;
                     landblockDataCache[lbId] = data;
                 }

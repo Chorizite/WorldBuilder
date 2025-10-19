@@ -41,7 +41,7 @@ namespace WorldBuilder.Editors.Landscape.Commands {
                 if (list.Any(c => c.VertexIndex == vIndex)) continue;
 
                 if (!landblockDataCache.TryGetValue(lbId, out var data)) {
-                    data = _context.TerrainDocument.GetLandblock(lbId);
+                    data = _context.TerrainSystem.GetLandblockTerrain(lbId);
                     if (data == null) continue;
                     landblockDataCache[lbId] = data;
                 }

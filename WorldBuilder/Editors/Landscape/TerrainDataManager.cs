@@ -16,20 +16,18 @@ namespace WorldBuilder.Editors.Landscape {
         public const uint LandblockEdgeCellCount = 8;
         public const float CellSize = 24.0f;
 
-        private readonly TerrainDocument _terrain;
-        private readonly Region _region;
+        private readonly TerrainSystem _terrainSystem;
         private readonly uint _chunkSizeInLandblocks;
         private readonly ChunkMetrics _metrics;
         private readonly Dictionary<ulong, TerrainChunk> _chunks = new();
 
-        public TerrainDocument Terrain => _terrain;
-        public Region Region => _region;
+        public TerrainDocument Terrain => _terrainSystem.TerrainDoc;
+        private Region _region => _terrainSystem.Region;
         public uint ChunkSize => _chunkSizeInLandblocks;
         public ChunkMetrics Metrics => _metrics;
 
-        public TerrainDataManager(TerrainDocument terrain, Region region, uint chunkSizeInLandblocks = 16) {
-            _terrain = terrain ?? throw new ArgumentNullException(nameof(terrain));
-            _region = region ?? throw new ArgumentNullException(nameof(region));
+        public TerrainDataManager(TerrainSystem terrain, uint chunkSizeInLandblocks = 16) {
+            _terrainSystem = terrain ?? throw new ArgumentNullException(nameof(terrain));
             _chunkSizeInLandblocks = Math.Max(1, chunkSizeInLandblocks);
             _metrics = ChunkMetrics.Calculate(_chunkSizeInLandblocks);
         }
@@ -108,7 +106,7 @@ namespace WorldBuilder.Editors.Landscape {
                     if (landblockX >= MapSize || landblockY >= MapSize) continue;
 
                     var landblockID = landblockX << 8 | landblockY;
-                    var landblockData = _terrain.GetLandblock((ushort)landblockID);
+                    var landblockData = _terrainSystem.GetLandblockTerrain((ushort)landblockID);
 
                     if (landblockData != null) {
                         for (int i = 0; i < landblockData.Length; i++) {
@@ -157,7 +155,7 @@ namespace WorldBuilder.Editors.Landscape {
             if (landblockX >= MapSize || landblockY >= MapSize) return 0f;
 
             var landblockID = landblockX << 8 | landblockY;
-            var landblockData = _terrain.GetLandblock((ushort)landblockID);
+            var landblockData = _terrainSystem.GetLandblockTerrain((ushort)landblockID);
             if (landblockData == null) return 0f;
 
             float localX = worldX - landblockX * LandblockLength;

@@ -25,8 +25,11 @@ namespace WorldBuilder.Editors.Landscape {
         public WorldBuilderSettings Settings { get; }
         public TerrainDocument TerrainDoc { get; private set; }
         public TerrainEditingContext EditingContext { get; private set; }
+        public Region Region { get; private set; }
+        public OpenGLRenderer Renderer { get; }
         public GameScene Scene { get; private set; }
         public IServiceProvider Services { get; private set; }
+        public IDatReaderWriter Dats { get; private set; }
 
         public TerrainSystem(OpenGLRenderer renderer, Project project, IDatReaderWriter dats, WorldBuilderSettings settings, ILogger<TerrainSystem> logger)
             : base(project.DocumentManager, settings, logger) {
@@ -36,6 +39,9 @@ namespace WorldBuilder.Editors.Landscape {
             InitAsync(dats).GetAwaiter().GetResult();
             Settings = settings ?? throw new ArgumentNullException(nameof(settings));
             EditingContext = new TerrainEditingContext(project.DocumentManager, this);
+            Region = region;
+            Renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
+            Dats = dats ?? throw new ArgumentNullException(nameof(dats));
 
             var collection = new ServiceCollection();
             collection.AddSingleton(this);
@@ -59,19 +65,52 @@ namespace WorldBuilder.Editors.Landscape {
             collection.AddTransient<PerspectiveCamera>();
             collection.AddTransient<OrthographicTopDownCamera>();
 
-            var docManager = ProjectManager.Instance.CompositeProvider?.GetRequiredService<DocumentManager>()
-                ?? throw new InvalidOperationException("Document manager not found");
-
             Services = new CompositeServiceProvider(collection.BuildServiceProvider(), ProjectManager.Instance.CompositeProvider);
 
-            Scene = new GameScene(renderer, settings, dats, docManager, TerrainDoc, region);
+            Scene = new GameScene(this);
         }
 
         private async Task InitAsync(IDatReaderWriter dats) {
             TerrainDoc = (TerrainDocument?)await LoadDocumentAsync("terrain", typeof(TerrainDocument))
                 ?? throw new InvalidOperationException("Failed to load terrain document");
+        }
 
-            await TerrainDoc.InitAsync(dats, DocumentManager);
+        /// <summary>
+        /// Gets the terrain entries for a specific landblock.
+        /// </summary>
+        /// <param name="lbKey">The landblock key.</param>
+        /// <returns>An array of TerrainEntry objects or null if not found.</returns>
+        public TerrainEntry[]? GetLandblockTerrain(ushort lbKey) {
+            return TerrainDoc.GetLandblockInternal(lbKey);
+        }
+
+        /// <summary>
+        /// Updates multiple landblocks with the provided changes.
+        /// </summary>
+        /// <param name="allChanges">Dictionary of landblock keys to their changes.</param>
+        /// <returns>A set of modified landblock keys.</returns>
+        public HashSet<ushort> UpdateLandblocksBatch(Dictionary<ushort, Dictionary<byte, uint>> allChanges) {
+            TerrainDoc.UpdateLandblocksBatchInternal(allChanges, out var modifiedLandblocks);
+            return modifiedLandblocks;
+        }
+
+        /// <summary>
+        /// Updates a single landblock with new terrain entries.
+        /// </summary>
+        /// <param name="lbKey">The landblock key.</param>
+        /// <param name="newEntries">Array of new terrain entries.</param>
+        /// <returns>A set of modified landblock keys, including neighbors due to edge synchronization.</returns>
+        public HashSet<ushort> UpdateLandblock(ushort lbKey, TerrainEntry[] newEntries) {
+            TerrainDoc.UpdateLandblockInternal(lbKey, newEntries, out var modifiedLandblocks);
+            return modifiedLandblocks;
+        }
+
+        /// <summary>
+        /// Gets terrain statistics.
+        /// </summary>
+        /// <returns>A tuple containing the count of modified, dirty, and base landblocks.</returns>
+        public (int ModifiedLandblocks, int DirtyLandblocks, int BaseLandblocks) GetTerrainStats() {
+            return TerrainDoc.GetStats();
         }
 
         public IEnumerable<StaticObject> GetAllStaticObjects() {
@@ -122,5 +161,4 @@ namespace WorldBuilder.Editors.Landscape {
             Services.GetRequiredService<DocumentManager>().CloseDocumentAsync(TerrainDoc.Id).GetAwaiter().GetResult();
         }
     }
-
 }

@@ -27,8 +27,7 @@ namespace WorldBuilder.Editors.Landscape {
         /// </summary>
         public static void GenerateChunkGeometry(
             TerrainChunk chunk,
-            TerrainDataManager dataManager,
-            LandSurfaceManager surfaceManager,
+            TerrainSystem terrain,
             Span<VertexLandscape> vertices,
             Span<uint> indices,
             out int actualVertexCount,
@@ -45,13 +44,13 @@ namespace WorldBuilder.Editors.Landscape {
                     if (landblockX >= TerrainDataManager.MapSize || landblockY >= TerrainDataManager.MapSize) continue;
 
                     var landblockID = landblockX << 8 | landblockY;
-                    var landblockData = dataManager.Terrain.GetLandblock((ushort)landblockID);
+                    var landblockData = terrain.GetLandblockTerrain((ushort)landblockID);
 
                     if (landblockData == null) continue;
 
                     GenerateLandblockGeometry(
                         landblockX, landblockY, landblockID,
-                        landblockData, surfaceManager, dataManager.Region,
+                        landblockData, terrain,
                         ref currentVertexIndex, ref currentIndexPosition,
                         vertices, indices
                     );
@@ -70,8 +69,7 @@ namespace WorldBuilder.Editors.Landscape {
             uint landblockY,
             uint landblockID,
             TerrainEntry[] landblockData,
-            LandSurfaceManager surfaceManager,
-            Region region,
+            TerrainSystem terrainSystem,
             ref uint currentVertexIndex,
             ref uint currentIndexPosition,
             Span<VertexLandscape> vertices,
@@ -84,7 +82,7 @@ namespace WorldBuilder.Editors.Landscape {
                 for (uint cellX = 0; cellX < TerrainDataManager.LandblockEdgeCellCount; cellX++) {
                     GenerateCell(
                         baseLandblockX, baseLandblockY, cellX, cellY,
-                        landblockData, landblockID, surfaceManager, region,
+                        landblockData, landblockID, terrainSystem,
                         ref currentVertexIndex, ref currentIndexPosition,
                         vertices, indices
                     );
@@ -95,10 +93,11 @@ namespace WorldBuilder.Editors.Landscape {
         private static void GenerateCell(
             float baseLandblockX, float baseLandblockY, uint cellX, uint cellY,
             TerrainEntry[] landblockData, uint landblockID,
-            LandSurfaceManager surfaceManager, Region region,
+            TerrainSystem terrainSystem,
             ref uint currentVertexIndex, ref uint currentIndexPosition,
             Span<VertexLandscape> vertices, Span<uint> indices) {
 
+            var surfaceManager = terrainSystem.Scene.SurfaceManager;
             uint surfNum = 0;
             var rotation = TextureMergeInfo.Rotation.Rot0;
             GetCellRotation(surfaceManager, landblockID, landblockData, cellX, cellY, ref surfNum, ref rotation);
