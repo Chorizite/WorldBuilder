@@ -89,9 +89,11 @@ namespace Chorizite.OpenGLSDLBackend {
             GLHelpers.CheckErrors();
             GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
             GLHelpers.CheckErrors();
+
             if (!_isCompressed && _needsMipmapRegeneration) {
                 lock (_mipmapLock) {
                     if (_mipmapDirtyCount > 0 && _usedLayers.All(used => used || true /* or check if cleared */)) {
+
                         // Optional: Custom validate
                         if (GLHelpers.ValidateTextureMipmapStatus(GL, GLEnum.Texture2DArray, out string errorMessage)) {
                             GL.GenerateMipmap(GLEnum.Texture2DArray);

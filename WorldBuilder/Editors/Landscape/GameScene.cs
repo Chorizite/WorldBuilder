@@ -220,10 +220,9 @@ namespace WorldBuilder.Editors.Landscape {
         }
 
         public void Update(Vector3 cameraPosition, Matrix4x4 viewProjectionMatrix) {
-            ProximityThreshold = 2500;
             var frustum = new Frustum(viewProjectionMatrix);
             var requiredChunks = DataManager.GetRequiredChunks(cameraPosition);
-
+            //ProximityThreshold = 5000f;
             UpdateDynamicDocumentsAsync(cameraPosition).GetAwaiter().GetResult();
 
             foreach (var chunkId in requiredChunks) {
@@ -363,6 +362,7 @@ namespace WorldBuilder.Editors.Landscape {
         }
 
         private List<StaticObject> GenerateScenery(ushort lbKey, LandblockDocument lbDoc) {
+            return new();
             var scenery = new List<StaticObject>();
             var lbId = (uint)lbKey;
             var lbTerrainEntries = _terrainDoc.GetLandblock(lbKey);
