@@ -13,7 +13,7 @@
 	  <None Remove="Shaders\Text.vert" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="Chorizite.Core" Version="0.0.17-beta.1" />
+		<PackageReference Include="Chorizite.Core" Version="0.0.17" />
 		<PackageReference Include="NAudio" Version="2.2.1" />
 		<PackageReference Include="Silk.NET.OpenGL" Version="2.22.0" />
 		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />

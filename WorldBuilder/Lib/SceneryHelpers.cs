@@ -92,7 +92,7 @@ namespace WorldBuilder.Lib {
         }
 
         /// <summary>
-        /// Returns TRUE if floor slope is within bounds for this object
+        /// Returns true if floor slope is within bounds for this object
         /// </summary>
         public static bool CheckSlope(ObjectDesc obj, float zNormal) {
             return zNormal >= obj.MinSlope && zNormal <= obj.MaxSlope;

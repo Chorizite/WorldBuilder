@@ -14,7 +14,7 @@ namespace WorldBuilder.Editors.Landscape {
     }
 
     /// <summary>
-    /// Stateless geometry generation - now supports landblock-level generation
+    /// Stateless geometry generation
     /// </summary>
     public static class TerrainGeometryGenerator {
         public const int CellsPerLandblock = 64; // 8x8

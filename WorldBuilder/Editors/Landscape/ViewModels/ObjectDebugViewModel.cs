@@ -24,9 +24,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         private StaticObjectManager _objectManager;
         private GL _gl;
 
-        // --------------------------------------------------------------------
-        // UI bound properties
-        // --------------------------------------------------------------------
         [ObservableProperty] private string _objectIdText = "";
         [ObservableProperty] private string _status = "";
         [ObservableProperty] private uint? _selectedSetupId;
@@ -34,14 +31,14 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
 
         partial void OnSelectedSetupIdChanged(uint? value) {
             if (value.HasValue) {
-                SelectedGfxObjId = null; // Deselect other
+                SelectedGfxObjId = null;
                 LoadFromId(value.Value);
             }
         }
 
         partial void OnSelectedGfxObjIdChanged(uint? value) {
             if (value.HasValue) {
-                SelectedSetupId = null; // Deselect other
+                SelectedSetupId = null;
                 LoadFromId(value.Value);
             }
         }
@@ -63,7 +60,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         // Camera controls
         private float _rotationAngleY = 0f;
         private float _rotationAngleX = 0f;
-        private float _zoomDistanceMultiplier = 1f; // Starts at default, increase to zoom out/up
+        private float _zoomDistanceMultiplier = 1f;
 
         public ObjectDebugViewModel() {
         }
@@ -74,7 +71,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             _objectManager = staticObjectManager;
             _gl = renderer.GraphicsDevice.GL;
 
-            // Simple ortho camera that will be re-sized in Render()
             _camera = new PerspectiveCamera(new Vector3(0, 0, 10), new WorldBuilderSettings());
 
             _setupIds = _dats.Dats.Portal.GetAllIdsOfType<Setup>().OrderBy(id => id);
@@ -110,9 +106,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             }
         }
 
-        // --------------------------------------------------------------------
-        // Load command
-        // --------------------------------------------------------------------
         [RelayCommand]
         private void Load() {
             // run on avalonia ui thread
@@ -125,26 +118,21 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
 
                 _currentId = id;
                 _isSetup = isSetup;
-
-                // Grab (or create) render data – exactly what GameScene does
                 _renderData = _objectManager.GetRenderData(id, isSetup);
                 if (_renderData == null) {
                     Status = "Object not found in DATs";
                     return;
                 }
 
-                // Compute a rough AABB so we can auto-frame the camera
                 var (min, max) = EstimateObjectBounds(_renderData);
                 var size = max - min;
                 var center = (min + max) * 0.5f;
 
-                // Simple scale/translate so the object sits at origin and fits ~80% of view
                 var maxDim = MathF.Max(MathF.Max(size.X, size.Y), size.Z);
-                var scale = 1f; // Adjust if needed
+                var scale = 1f;
                 _modelMatrix = Matrix4x4.CreateScale(scale) *
                                Matrix4x4.CreateTranslation(-center);
 
-                // Adjust base camera distance (zoomed out more initially)
                 var baseCamDist = maxDim * 1.5f;
                 _zoomDistanceMultiplier = 1f;
                 _rotationAngleY = -45f;
@@ -178,9 +166,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             Load();
         }
 
-        // --------------------------------------------------------------------
-        // Helper: parse hex / decimal + guess Setup vs GfxObj
-        // --------------------------------------------------------------------
         private bool TryParseId(string input, out uint id, out bool isSetup) {
             id = 0;
             isSetup = (id & 0x02000000) != 0;
@@ -201,10 +186,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             return true;
         }
 
-        // --------------------------------------------------------------------
-        // Very small AABB estimator – walks vertices of a GfxObj render data.
-        // For Setups we recursively inspect each part (simplified here).
-        // --------------------------------------------------------------------
         private (Vector3 Min, Vector3 Max) EstimateObjectBounds(StaticObjectRenderData data) {
             return (new Vector3(-1,-1, 0), new Vector3(1, 1, 1));
             /*
@@ -230,9 +211,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             */
         }
 
-        // --------------------------------------------------------------------
-        // Camera control methods (call these from UI gestures, e.g., mouse drag/scroll)
-        // --------------------------------------------------------------------
         public void RotateAround(float deltaY, float deltaX) {
             _rotationAngleY += deltaY * 0.01f; // Horizontal rotation
             _rotationAngleX += deltaX * 0.01f; // Vertical rotation
@@ -293,7 +271,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
                 RenderGfxObj(_renderData, _modelMatrix);
             }
 
-            // Cleanup shader
             shader.Unbind();
         }
 
@@ -308,7 +285,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
 
             gl.BindVertexArray(data.VAO);
 
-            // CRITICAL: Bind instance VBO before attrib pointers domestically
             gl.BindBuffer(GLEnum.ArrayBuffer, instanceVbo);
             for (int i = 0; i < 4; i++) {
                 var attrLoc = (uint)(3 + i);
@@ -316,7 +292,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
                 gl.VertexAttribPointer(attrLoc, 4, GLEnum.Float, false, 16 * sizeof(float), (void*)(i * 4 * sizeof(float)));
                 gl.VertexAttribDivisor(attrLoc, 1);
             }
-            gl.BindBuffer(GLEnum.ArrayBuffer, 0); // Unbind after setup
+            gl.BindBuffer(GLEnum.ArrayBuffer, 0);
 
             foreach (var batch in data.Batches) {
                 if (batch.TextureArray == null) {
@@ -331,7 +307,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
                 batch.TextureArray.Bind(0);
                 var shader = _objectManager._objectShader;
                 shader.SetUniform("uTextureArray", 0);
-                shader.SetUniform("uTextureIndex", batch.TextureIndex); // Ensure shader casts to int if needed
+                shader.SetUniform("uTextureIndex", batch.TextureIndex);
 
                 gl.BindBuffer(GLEnum.ElementArrayBuffer, batch.IBO);
                 gl.DrawElementsInstanced(GLEnum.Triangles, (uint)batch.IndexCount, GLEnum.UnsignedShort, null, 1);
@@ -347,7 +323,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
                 var (gfxId, localTransform) = setupData.SetupParts[i];
                 var worldModel = localTransform * parentModel;
 
-                // Fetch child render data (cached in manager)
                 var childData = _objectManager.GetRenderData(gfxId, false);
                 if (childData != null) {
                     RenderGfxObj(childData, worldModel);
@@ -355,9 +330,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             }
         }
 
-        // --------------------------------------------------------------------
-        // Helper: upload a single matrix as an instance buffer
-        // --------------------------------------------------------------------
         private unsafe uint CreateInstanceVbo(Matrix4x4[] matrices) {
             uint vbo;
             _gl.GenBuffers(1, out vbo);

@@ -34,26 +34,24 @@ namespace WorldBuilder.Editors.Landscape {
         }
 
         public StaticObjectRenderData? GetRenderData(uint id, bool isSetup) {
-            var key = (id << 1) | (isSetup ? 1u : 0u);
-            if (_renderData.TryGetValue(key, out var data)) {
-                _usageCount.AddOrUpdate(key, 1, (_, count) => count + 1);
+            if (_renderData.TryGetValue(id, out var data)) {
+                _usageCount.AddOrUpdate(id, 1, (_, count) => count + 1);
                 return data;
             }
             data = CreateRenderData(id, isSetup);
             if (data != null) {
-                _renderData[key] = data;
-                _usageCount[key] = 1;
+                _renderData[id] = data;
+                _usageCount[id] = 1;
             }
             return data;
         }
 
         public void ReleaseRenderData(uint id, bool isSetup) {
-            var key = (id << 1) | (isSetup ? 1u : 0u);
-            if (_usageCount.TryGetValue(key, out var count) && count > 0) {
-                var newCount = _usageCount.AddOrUpdate(key, 0, (_, c) => c - 1);
+            if (_usageCount.TryGetValue(id, out var count) && count > 0) {
+                var newCount = _usageCount.AddOrUpdate(id, 0, (_, c) => c - 1);
                 if (newCount == 0) {
-                    UnloadObject(key);
-                    _usageCount.TryRemove(key, out _);
+                    UnloadObject(id);
+                    _usageCount.TryRemove(id, out _);
                 }
             }
         }
@@ -240,7 +238,7 @@ namespace WorldBuilder.Editors.Landscape {
                                 if (!_dats.TryGet<Palette>(renderSurface.DefaultPaletteId, out var paletteData))
                                     throw new Exception($"Unable to load Palette: 0x{renderSurface.DefaultPaletteId:X8}");
                                 textureData = new byte[texWidth * texHeight * 4];
-                                FillIndex16(renderSurface.SourceData, paletteData, textureData.AsSpan(), texWidth, texHeight);
+                                TextureHelpers.FillIndex16(renderSurface.SourceData, paletteData, textureData.AsSpan(), texWidth, texHeight);
                                 uploadPixelFormat = PixelFormat.Rgba;
                                 break;
                             default:
@@ -285,21 +283,6 @@ namespace WorldBuilder.Editors.Landscape {
             var renderData = SetupGpuBuffers(vertices, batchesByFormat, id, localAtlases);
             renderData.LocalAtlases = localAtlases;
             return renderData;
-        }
-
-        private static void FillIndex16(byte[] src, Palette palette, Span<byte> dst, int width, int height) {
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) {
-                    var srcIdx = (y * width + x) * 2;
-                    var palIdx = (ushort)(src[srcIdx] | (src[srcIdx + 1] << 8));
-                    var color = palette.Colors[palIdx];
-                    var dstIdx = (y * width + x) * 4;
-                    dst[dstIdx + 0] = color.Red;
-                    dst[dstIdx + 1] = color.Green;
-                    dst[dstIdx + 2] = color.Blue;
-                    dst[dstIdx + 3] = color.Alpha;
-                }
-            }
         }
 
         private void BuildPolygonIndices(Polygon poly, GfxObj gfxObj, Vector3 scale,

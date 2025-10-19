@@ -101,10 +101,10 @@ namespace WorldBuilder.Lib {
                     position -= right * velocity;
                     break;
                 case CameraMovement.Up:
-                    position -= worldUp * velocity; // Use worldUp instead of local up
+                    position -= worldUp * velocity;
                     break;
                 case CameraMovement.Down:
-                    position += worldUp * velocity; // Use worldUp instead of local up
+                    position += worldUp * velocity;
                     break;
             }
         }
@@ -116,11 +116,9 @@ namespace WorldBuilder.Lib {
                     _previousMousePosition = mouseState.Position;
                 }
                 else {
-                    // Calculate per-frame delta
                     var xOffset = (mouseState.Position.X - _previousMousePosition.X) * mouseSensitivity;
                     var yOffset = (mouseState.Position.Y - _previousMousePosition.Y) * mouseSensitivity;
 
-                    // Update yaw and pitch (inverted for intuitive control)
                     yaw -= xOffset; // Dragging right decreases yaw (rotates left)
                     pitch -= yOffset; // Dragging up decreases pitch (tilts down)
 
@@ -185,7 +183,6 @@ namespace WorldBuilder.Lib {
             float horizontalDistance = MathF.Sqrt(direction.X * direction.X + direction.Y * direction.Y);
             pitch = MathHelper.RadiansToDegrees(MathF.Atan2(direction.Z, horizontalDistance));
 
-            // Update camera vectors with new angles
             UpdateCameraVectors();
         }
     }
@@ -251,7 +248,6 @@ namespace WorldBuilder.Lib {
         }
 
         public void ProcessKeyboard(CameraMovement direction, double deltaTime) {
-            // Scale movement speed based on zoom level for consistent feel
             float scaledSpeed = movementSpeed * (float)deltaTime * (orthographicSize / 50.0f);
 
             switch (direction) {

@@ -25,7 +25,7 @@ namespace WorldBuilder.Editors.Landscape {
         private readonly GL _gl;
         private readonly IShader _terrainShader;
         private readonly IShader _sphereShader;
-        internal readonly StaticObjectManager _objectManager;
+        //internal readonly StaticObjectManager _objectManager;
         private readonly IDatReaderWriter _dats;
         private readonly DocumentManager _documentManager;
         private readonly TerrainDocument _terrainDoc;
@@ -110,7 +110,7 @@ namespace WorldBuilder.Editors.Landscape {
             GPUManager = new TerrainGPUResourceManager(_renderer);
 
             _gl = renderer.GraphicsDevice.GL;
-            _objectManager = new StaticObjectManager(renderer, dats);
+            //_objectManager = new StaticObjectManager(renderer, dats);
 
             // Initialize shaders
             var assembly = typeof(OpenGLRenderer).Assembly;
@@ -223,7 +223,7 @@ namespace WorldBuilder.Editors.Landscape {
             var frustum = new Frustum(viewProjectionMatrix);
             var requiredChunks = DataManager.GetRequiredChunks(cameraPosition);
             //ProximityThreshold = 5000f;
-            UpdateDynamicDocumentsAsync(cameraPosition).GetAwaiter().GetResult();
+            //UpdateDynamicDocumentsAsync(cameraPosition).GetAwaiter().GetResult();
 
             foreach (var chunkId in requiredChunks) {
                 var chunkX = (uint)(chunkId >> 32);
@@ -241,6 +241,8 @@ namespace WorldBuilder.Editors.Landscape {
         }
 
         private async Task UpdateDynamicDocumentsAsync(Vector3 cameraPosition) {
+            return;
+            /*
             var visibleLandblocks = GetProximateLandblocks(cameraPosition);
             var currentLoaded = _documentManager.ActiveDocs.Keys.Where(k => k.StartsWith("landblock_")).ToHashSet();
 
@@ -252,7 +254,7 @@ namespace WorldBuilder.Editors.Landscape {
 
             if (toLoad.Any()) {
                 var loadTasks = toLoad.Select(docId => _documentManager.GetOrCreateDocumentAsync<LandblockDocument>(docId)).ToArray();
-                await Task.WhenAll(loadTasks);  // Parallel loads, each hits cache or DB
+                await Task.WhenAll(loadTasks);
 
                 foreach (var docId in toLoad) {
                     var lbKey = ushort.Parse(docId.Replace("landblock_", ""), System.Globalization.NumberStyles.HexNumber);
@@ -263,8 +265,9 @@ namespace WorldBuilder.Editors.Landscape {
                     }
                 }
             }
-
+            */
             // Unload out-of-range (sequential is fine, unloads are rare/light)
+            /*
             var toUnload = currentLoaded
                 .Where(docId => !visibleLandblocks.Contains(ushort.Parse(docId.Replace("landblock_", ""), System.Globalization.NumberStyles.HexNumber)))
                 .ToList();
@@ -287,6 +290,7 @@ namespace WorldBuilder.Editors.Landscape {
 
                 await _documentManager.CloseDocumentAsync(docId);
             }
+            */
         }
 
         private HashSet<ushort> GetProximateLandblocks(Vector3 cameraPosition) {
@@ -339,6 +343,7 @@ namespace WorldBuilder.Editors.Landscape {
                 landblocksByChunk[chunkId].Add(landblockId);
 
                 // Regenerate scenery for updated landblock if loaded
+                /*
                 var lbKey = (ushort)landblockId;
                 if (_sceneryObjects.ContainsKey(lbKey)) {
                     var doc = _documentManager.GetOrCreateDocumentAsync<LandblockDocument>($"landblock_{lbKey:X4}").GetAwaiter().GetResult();
@@ -351,6 +356,7 @@ namespace WorldBuilder.Editors.Landscape {
                         _sceneryObjects[lbKey] = newScenery;
                     }
                 }
+                */
             }
 
             foreach (var kvp in landblocksByChunk) {
@@ -431,7 +437,6 @@ namespace WorldBuilder.Editors.Landscape {
                     continue;
                 }
 
-                // FIXED: Use cellMat for noise calculation (not cellMat2)
                 var cellXMat = -1109124029 * (int)globalCellX;
                 var cellYMat = 1813693831 * (int)globalCellY;
                 var cellMat2 = 1360117743 * globalCellX * globalCellY + 1888038839;
@@ -439,12 +444,10 @@ namespace WorldBuilder.Editors.Landscape {
                 for (uint j = 0; j < scene.Objects.Count; j++) {
                     var obj = scene.Objects[(int)j];
                     
-                    // FIXED: Check ObjectId and use correct noise calculation
                     if (obj.ObjectId == 0) {
                         continue;
                     }
 
-                    // FIXED: Use cellMat2 in noise calculation and compare with < (not >=)
                     var noise = (uint)(cellXMat + cellYMat - cellMat2 * (23399 + j)) * 2.3283064e-10f;
                     if (noise >= obj.Frequency) continue;  // spawn when noise < frequency
 
@@ -460,7 +463,6 @@ namespace WorldBuilder.Editors.Landscape {
                         continue;
                     }
 
-                    // FIXED: Calculate lbOffset correctly without double-adding cell offset
                     var lbOffset = new Vector3(lx, ly, 0);
 
                     var z = TerrainGeometryGenerator.GetHeight(_region, lbTerrainEntries, lbGlobalX, lbGlobalY, lbOffset);
@@ -481,11 +483,9 @@ namespace WorldBuilder.Editors.Landscape {
                         quat = SceneryHelpers.RotateObj(obj, globalCellX, globalCellY, j, localPos);
                     }
 
-                    // FIXED: Use calculated scale value
                     var scaleVal = SceneryHelpers.ScaleObj(obj, globalCellX, globalCellY, j);
                     var scale = new Vector3(scaleVal);
 
-                    // FIXED: Simplified world origin calculation (lx, ly already include cell offset)
                     var blockX = (lbId >> 8) & 0xFF;
                     var blockY = lbId & 0xFF;
                     var worldOrigin = new Vector3(blockX * 192f + lx, blockY * 192f + ly, z);
@@ -495,7 +495,7 @@ namespace WorldBuilder.Editors.Landscape {
                         Origin = worldOrigin,
                         Orientation = quat,
                         IsSetup = (obj.ObjectId & 0x02000000) != 0,
-                        Scale = scale  // FIXED: Use calculated scale instead of Vector3.One
+                        Scale = scale
                     });
                 }
             }
@@ -517,12 +517,15 @@ namespace WorldBuilder.Editors.Landscape {
         public int GetVisibleChunkCount(Frustum frustum) => GetRenderableChunks(frustum).Count();
 
         public IEnumerable<StaticObject> GetAllStaticObjects() {
+            return new List<StaticObject>();
+            /*
             var statics = new List<StaticObject>();
             foreach (var doc in _documentManager.ActiveDocs.Values.OfType<LandblockDocument>()) {
                 statics.AddRange(doc.GetStaticObjects());
             }
             statics.AddRange(_sceneryObjects.Values.SelectMany(x => x));
             return statics;
+            */
         }
 
         public void Render(
@@ -661,6 +664,7 @@ namespace WorldBuilder.Editors.Landscape {
 
 
         private unsafe void RenderStaticObjects(List<StaticObject> objects, ICamera camera, Matrix4x4 viewProjection) {
+            /*
             _gl.Enable(EnableCap.DepthTest);
             _gl.Enable(EnableCap.Blend);
             _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
@@ -716,9 +720,11 @@ namespace WorldBuilder.Editors.Landscape {
             _gl.BindVertexArray(0);
             _gl.UseProgram(0);
             _gl.Disable(EnableCap.Blend);
+            */
         }
 
         private unsafe void RenderBatchedObject(StaticObjectRenderData renderData, List<Matrix4x4> instanceTransforms) {
+            /*
             if (instanceTransforms.Count == 0 || renderData.Batches.Count == 0) return;
 
             // Create instance buffer - 16 floats per Matrix4x4
@@ -776,6 +782,7 @@ namespace WorldBuilder.Editors.Landscape {
 
             _gl.BindVertexArray(0);
             _gl.DeleteBuffer(instanceVBO);
+            */
         }
 
         public void Dispose() {
@@ -784,7 +791,7 @@ namespace WorldBuilder.Editors.Landscape {
                 _gl.DeleteBuffer(_sphereIBO);
                 _gl.DeleteBuffer(_sphereInstanceVBO);
                 _gl.DeleteVertexArray(_sphereVAO);
-                _objectManager?.Dispose();
+                //_objectManager?.Dispose();
                 GPUManager?.Dispose();
                 _disposed = true;
             }

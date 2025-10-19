@@ -22,9 +22,6 @@ namespace WorldBuilder.Editors.Landscape {
     /// Main terrain system coordinator
     /// </summary>
     public class TerrainSystem : EditorBase {
-        private const float ProximityThreshold = 1500f;  // 2D distance for loading
-        private float _velocityThreshold = 100f;
-
         public WorldBuilderSettings Settings { get; }
         public TerrainDocument TerrainDoc { get; private set; }
         public TerrainEditingContext EditingContext { get; private set; }
@@ -78,7 +75,8 @@ namespace WorldBuilder.Editors.Landscape {
         }
 
         public IEnumerable<StaticObject> GetAllStaticObjects() {
-            return Scene.GetAllStaticObjects();
+            return new List<StaticObject>();
+            //return Scene.GetAllStaticObjects();
         }
 
         public override async Task<BaseDocument?> LoadDocumentAsync(string documentId, Type documentType, bool forceReload = false) {
@@ -97,11 +95,14 @@ namespace WorldBuilder.Editors.Landscape {
         }
 
         public IEnumerable<(Vector3 Pos, Quaternion Rot)> GetAllStaticSpawns() {
+            return new List<(Vector3, Quaternion)>();
+            /*
             foreach (var doc in GetActiveDocuments().OfType<LandblockDocument>()) {
                 foreach (var spawn in doc.GetStaticSpawns()) {
                     yield return spawn;
                 }
             }
+            */
         }
 
         public void RegenerateChunks(IEnumerable<ulong> chunkIds) {

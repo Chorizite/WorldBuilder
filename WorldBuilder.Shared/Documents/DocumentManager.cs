@@ -92,7 +92,7 @@ namespace WorldBuilder.Shared.Documents {
 
             // Try to get from cache first
             if (_activeDocs.TryGetValue(documentId, out var doc)) {
-                if (doc.GetType() != docType) {  // Exact type match, mirroring original 'is not T'
+                if (doc.GetType() != docType) {
                     _logger.LogError("Document {DocumentId}({ActualType}) is not of type {ExpectedType}",
                         documentId, doc.GetType().Name, docTypeName);
                     return null;
@@ -210,7 +210,7 @@ namespace WorldBuilder.Shared.Documents {
                 _logger.LogError(ex, "Error in batch processor");
                 if (!cancellationToken.IsCancellationRequested) {
                     await Task.Delay(1000, cancellationToken);
-                    await ProcessUpdateBatchesAsync(cancellationToken); // Consider a loop instead
+                    await ProcessUpdateBatchesAsync(cancellationToken);
                 }
             }
         }
@@ -267,7 +267,6 @@ namespace WorldBuilder.Shared.Documents {
         }
 
         public async Task FlushPendingUpdatesAsync() {
-            // Collect and process all pending updates asynchronously
             var remainingUpdates = new List<DocumentUpdate>();
             await foreach (var update in _updateReader.ReadAllAsync(_cancellationTokenSource.Token)) {
                 remainingUpdates.Add(update);
@@ -287,7 +286,7 @@ namespace WorldBuilder.Shared.Documents {
                 // Process remaining updates asynchronously
                 Task.Run(async () => {
                     await FlushPendingUpdatesAsync();
-                }).GetAwaiter().GetResult(); // Synchronous wait in Dispose is acceptable as it's cleanup
+                }).GetAwaiter().GetResult();
 
                 // Wait for batch processor to complete with a timeout
                 _batchProcessor.Wait(TimeSpan.FromSeconds(5));
