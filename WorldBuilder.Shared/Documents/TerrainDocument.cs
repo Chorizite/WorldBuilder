@@ -247,6 +247,7 @@ namespace WorldBuilder.Shared.Documents {
         }
 
         public bool Apply(TerrainUpdateEvent evt) {
+            MarkDirty();
             lock (_stateLock) {
                 foreach (var (lbKey, updates) in evt.Changes) {
                     if (!TerrainData.Landblocks.TryGetValue(lbKey, out var lbTerrain)) {
@@ -274,7 +275,7 @@ namespace WorldBuilder.Shared.Documents {
             return true;
         }
 
-        protected override Task<bool> InitInternal(IDatReaderWriter datreader) {
+        protected override Task<bool> InitInternal(IDatReaderWriter datreader, DocumentManager documentManager) {
             if (!string.IsNullOrWhiteSpace(_cacheDirectory) && File.Exists(Path.Combine(_cacheDirectory, "terrain.dat"))) {
                 _logger.LogInformation("Loading terrain data from cache...");
                 _baseTerrainCache = MemoryPackSerializer.Deserialize<ConcurrentDictionary<ushort, uint[]>>(File.ReadAllBytes(Path.Combine(_cacheDirectory, "terrain.dat"))) ?? [];

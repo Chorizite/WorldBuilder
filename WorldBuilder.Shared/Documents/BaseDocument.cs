@@ -45,11 +45,19 @@ namespace WorldBuilder.Shared.Documents {
 
         protected string? _cacheDirectory;
 
+        public bool IsDirty {  get; set; }
+
         public BaseDocument(ILogger logger) {
             _logger = logger;
             Update += (s, e) => {
                 OnPropertyChanged();
             };
+        }
+        public void MarkDirty() {
+            IsDirty = true;
+        }
+        protected void ClearDirty() {
+            IsDirty = false;
         }
 
         public void SetCacheDirectory(string cacheDirectory) => _cacheDirectory = cacheDirectory;
@@ -65,9 +73,9 @@ namespace WorldBuilder.Shared.Documents {
         /// </summary>
         /// <param name="datreader"></param>
         /// <returns></returns>
-        public virtual Task<bool> InitAsync(IDatReaderWriter datreader) {
+        public virtual Task<bool> InitAsync(IDatReaderWriter datreader, DocumentManager documentManager) {
             lock (_stateLock) {
-                return InitInternal(datreader);
+                return InitInternal(datreader, documentManager);
             }
         }
 
@@ -76,7 +84,7 @@ namespace WorldBuilder.Shared.Documents {
         /// </summary>
         /// <param name="datreader"></param>
         /// <returns></returns>
-        protected abstract Task<bool> InitInternal(IDatReaderWriter datreader);
+        protected abstract Task<bool> InitInternal(IDatReaderWriter datreader, DocumentManager documentManager);
 
         /// <summary>
         /// Serialize the document to a byte array

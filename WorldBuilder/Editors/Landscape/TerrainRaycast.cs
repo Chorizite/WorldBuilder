@@ -1,7 +1,4 @@
-﻿
-// ===== Core Data Structures =====
-
-using Chorizite.Core.Lib;
+﻿using Chorizite.Core.Lib;
 using DatReaderWriter.DBObjs;
 using System;
 using System.Collections.Generic;
@@ -125,13 +122,13 @@ namespace WorldBuilder.Editors.Landscape {
                     currentLbY >= 0 && currentLbY < TerrainDataManager.MapSize) {
 
                     uint landblockID = (uint)(currentLbX << 8 | currentLbY);
-                    var landblockData = terrainSystem.DataManager.Terrain.GetLandblock((ushort)landblockID);
+                    var landblockData = terrainSystem.Scene.DataManager.Terrain.GetLandblock((ushort)landblockID);
 
                     if (landblockData != null) {
                         var landblockHit = TestLandblockIntersection(
                             rayOrigin, rayDirection,
                             (uint)currentLbX, (uint)currentLbY, landblockID,
-                            landblockData, terrainSystem.DataManager);
+                            landblockData, terrainSystem.Scene.DataManager);
 
                         if (landblockHit.Hit && landblockHit.Distance < closestDistance) {
                             hit = landblockHit;

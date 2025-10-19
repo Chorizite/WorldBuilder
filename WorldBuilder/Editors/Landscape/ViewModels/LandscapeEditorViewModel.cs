@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -32,15 +33,18 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         public TerrainSystem? TerrainSystem { get; private set; }
         public WorldBuilderSettings Settings { get; }
 
-        public LandscapeEditorViewModel(WorldBuilderSettings settings) {
+        private readonly ILogger<TerrainSystem> _logger;
+
+        public LandscapeEditorViewModel(WorldBuilderSettings settings, ILogger<TerrainSystem> logger) {
             Settings = settings;
+            _logger = logger;
         }
 
         internal void Init(Project project, OpenGLRenderer render, Avalonia.PixelSize canvasSize) {
             _dats = project.DocumentManager.Dats;
             _project = project;
 
-            TerrainSystem = new TerrainSystem(render, project, _dats, Settings);
+            TerrainSystem = new TerrainSystem(render, project, _dats, Settings, _logger);
 
             Tools.Add(TerrainSystem.Services.GetRequiredService<TexturePaintingToolViewModel>());
             Tools.Add(TerrainSystem.Services.GetRequiredService<RoadDrawingToolViewModel>());
@@ -50,7 +54,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             }
 
             var documentStorageService = project.DocumentManager.DocumentStorageService;
-            HistorySnapshotPanel = new HistorySnapshotPanelViewModel(TerrainSystem, documentStorageService, TerrainSystem.CommandHistory);
+            HistorySnapshotPanel = new HistorySnapshotPanelViewModel(TerrainSystem, documentStorageService, TerrainSystem.History);
 
             UpdateTerrain(canvasSize);
         }
@@ -60,10 +64,9 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
 
             UpdateTerrain(canvasSize);
 
-            TerrainSystem.Renderer.Render(
-                TerrainSystem.CameraManager.Current,
+            TerrainSystem.Scene.Render(
+                TerrainSystem.Scene.CameraManager.Current,
                 (float)canvasSize.Width / canvasSize.Height,
-                TerrainSystem,
                 TerrainSystem.EditingContext,
                 canvasSize.Width,
                 canvasSize.Height);
@@ -72,12 +75,12 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         private void UpdateTerrain(Avalonia.PixelSize canvasSize) {
             if (TerrainSystem == null) return;
 
-            TerrainSystem.CameraManager.Current.ScreenSize = new Vector2(canvasSize.Width, canvasSize.Height);
-            var view = TerrainSystem.CameraManager.Current.GetViewMatrix();
-            var projection = TerrainSystem.CameraManager.Current.GetProjectionMatrix();
+            TerrainSystem.Scene.CameraManager.Current.ScreenSize = new Vector2(canvasSize.Width, canvasSize.Height);
+            var view = TerrainSystem.Scene.CameraManager.Current.GetViewMatrix();
+            var projection = TerrainSystem.Scene.CameraManager.Current.GetProjectionMatrix();
             var viewProjection = view * projection;
 
-            TerrainSystem.Update(TerrainSystem.CameraManager.Current.Position, viewProjection);
+            TerrainSystem.Update(TerrainSystem.Scene.CameraManager.Current.Position, viewProjection);
 
             TerrainSystem.EditingContext.ClearModifiedLandblocks();
         }

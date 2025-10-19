@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Threading.Channels;
 using WorldBuilder.Shared.Lib;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace WorldBuilder.Shared.Documents {
     public class DocumentManager : IDisposable {
@@ -25,6 +26,7 @@ namespace WorldBuilder.Shared.Documents {
         private readonly int _maxBatchSize = 50; // Max updates per batch
 
         public Guid ClientId => _clientId;
+        public ConcurrentDictionary<string, BaseDocument> ActiveDocs => _activeDocs;
 
         private record DocumentUpdate(string DocumentId, BaseDocument Document, DateTime Timestamp);
 
@@ -59,61 +61,88 @@ namespace WorldBuilder.Shared.Documents {
             }
         }
 
+        /// <summary>
+        /// Non-generic overload for creating or getting a document by explicit type.
+        /// </summary>
+        public async Task<BaseDocument?> GetOrCreateDocumentAsync(string documentId, Type docType) {
+            if (!typeof(BaseDocument).IsAssignableFrom(docType)) {
+                _logger.LogError("Invalid document type {DocType} for document {DocumentId}; must inherit BaseDocument", docType.Name, documentId);
+                return null;
+            }
+            return await CreateOrLoadDocumentInternalAsync(documentId, docType);
+        }
+
+        /// <summary>
+        /// Generic overload (original, now delegates to internal for reuse).
+        /// </summary>
         public async Task<T?> GetOrCreateDocumentAsync<T>(string documentId) where T : BaseDocument {
+            var doc = await CreateOrLoadDocumentInternalAsync(documentId, typeof(T));
+            if (doc is T typedDoc) {
+                return typedDoc;
+            }
+            if (doc != null) {
+                _logger.LogError("Document {DocumentId}({ActualType}) is not of expected type {ExpectedType}",
+                    documentId, doc.GetType().Name, typeof(T).Name);
+            }
+            return null;
+        }
+
+        private async Task<BaseDocument?> CreateOrLoadDocumentInternalAsync(string documentId, Type docType) {
+            var docTypeName = docType.Name;
+
             // Try to get from cache first
             if (_activeDocs.TryGetValue(documentId, out var doc)) {
-                if (doc is not T existingTDoc) {
-                    _logger.LogError("Document {DocumentId}({Type}) is not of type {ExpectedType}", documentId, doc.GetType().Name, typeof(T));
+                if (doc.GetType() != docType) {
+                    _logger.LogError("Document {DocumentId}({ActualType}) is not of type {ExpectedType}",
+                        documentId, doc.GetType().Name, docTypeName);
                     return null;
                 }
-                _logger.LogInformation("Pulling Document {DocumentId}({Type}) from cache", documentId, doc.GetType().Name);
-                return existingTDoc;
+                return doc;
             }
 
             try {
-                var tType = typeof(T).Name;
                 var dbDoc = await DocumentStorageService.GetDocumentAsync(documentId);
-                var tDoc = Activator.CreateInstance(typeof(T), _logger) as T;
+                var docInstance = (BaseDocument?)Activator.CreateInstance(docType, _logger);
 
-                if (tDoc is null) {
-                    _logger.LogError("Failed to create 1 document {DocumentId} of type {Type}", documentId, tType);
+                if (docInstance == null) {
+                    _logger.LogError("Failed to create document {DocumentId} of type {Type}", documentId, docTypeName);
                     return null;
                 }
-                tDoc.Id = documentId;
-                tDoc.SetCacheDirectory(_cacheDirectory);
+                docInstance.Id = documentId;
+                docInstance.SetCacheDirectory(_cacheDirectory);
 
                 if (dbDoc == null) {
-                    dbDoc = await DocumentStorageService.CreateDocumentAsync(documentId, tType, tDoc.SaveToProjection());
-                    _logger.LogInformation("Creating new Document {DocumentId}({Type})", documentId, typeof(T));
+                    dbDoc = await DocumentStorageService.CreateDocumentAsync(documentId, docTypeName, docInstance.SaveToProjection());
+                    _logger.LogInformation("Creating new Document {DocumentId}({Type})", documentId, docTypeName);
                 }
                 else {
-                    if (!tDoc.LoadFromProjection(dbDoc.Data)) {
+                    if (!docInstance.LoadFromProjection(dbDoc.Data)) {
                         _logger.LogError("Failed to load projection for document {DocumentId}", documentId);
                         return null;
                     }
                 }
 
-                if (!await tDoc.InitAsync(Dats)) {
-                    _logger.LogError("Failed to init document {DocumentId} of type {Type}", documentId, tType);
+                if (!await docInstance.InitAsync(Dats, this)) {
+                    _logger.LogError("Failed to init document {DocumentId} of type {Type}", documentId, docTypeName);
                     return null;
                 }
 
                 // Add to cache, ensuring only one instance per documentId
-                if (!_activeDocs.TryAdd(documentId, tDoc)) {
+                if (!_activeDocs.TryAdd(documentId, docInstance)) {
                     // If another thread added it first, retrieve it
-                    if (_activeDocs.TryGetValue(documentId, out var existingDoc) && existingDoc is T existingT) {
-                        return existingT;
+                    if (_activeDocs.TryGetValue(documentId, out var existingDoc) && existingDoc.GetType() == docType) {
+                        return existingDoc;
                     }
-                    _logger.LogError("Failed to add document {DocumentId} of type {Type}", documentId, tType);
+                    _logger.LogError("Failed to add document {DocumentId} of type {Type}", documentId, docTypeName);
                     return null;
                 }
 
-                tDoc.Update += HandleDocumentUpdate;
-                return tDoc;
+                docInstance.Update += HandleDocumentUpdate;
+                return docInstance;
             }
             catch (Exception ex) {
                 _logger.LogError(ex.ToString());
-                _logger.LogError(ex, "Failed to create 2 document {DocumentId} of type {Type}", documentId, typeof(T).Name);
+                _logger.LogError(ex, "Failed to create document {DocumentId} of type {Type}", documentId, docTypeName);
                 return null;
             }
         }
@@ -181,7 +210,7 @@ namespace WorldBuilder.Shared.Documents {
                 _logger.LogError(ex, "Error in batch processor");
                 if (!cancellationToken.IsCancellationRequested) {
                     await Task.Delay(1000, cancellationToken);
-                    await ProcessUpdateBatchesAsync(cancellationToken); // Consider a loop instead
+                    await ProcessUpdateBatchesAsync(cancellationToken);
                 }
             }
         }
@@ -199,6 +228,7 @@ namespace WorldBuilder.Shared.Documents {
                     _logger.LogInformation("Processing update for document {DocumentId}", update.DocumentId);
                     await semaphore.WaitAsync();
                     try {
+                        if (!update.Document.IsDirty) return;
                         var projection = update.Document.SaveToProjection();
                         await DocumentStorageService.UpdateDocumentAsync(update.DocumentId, projection);
                     }
@@ -222,6 +252,7 @@ namespace WorldBuilder.Shared.Documents {
             if (_activeDocs.TryRemove(documentId, out var doc)) {
                 doc.Update -= HandleDocumentUpdate;
                 try {
+                    if (!doc.IsDirty) return;
                     var projection = doc.SaveToProjection();
                     await DocumentStorageService.UpdateDocumentAsync(documentId, projection);
                 }
@@ -236,7 +267,6 @@ namespace WorldBuilder.Shared.Documents {
         }
 
         public async Task FlushPendingUpdatesAsync() {
-            // Collect and process all pending updates asynchronously
             var remainingUpdates = new List<DocumentUpdate>();
             await foreach (var update in _updateReader.ReadAllAsync(_cancellationTokenSource.Token)) {
                 remainingUpdates.Add(update);
@@ -256,7 +286,7 @@ namespace WorldBuilder.Shared.Documents {
                 // Process remaining updates asynchronously
                 Task.Run(async () => {
                     await FlushPendingUpdatesAsync();
-                }).GetAwaiter().GetResult(); // Synchronous wait in Dispose is acceptable as it's cleanup
+                }).GetAwaiter().GetResult();
 
                 // Wait for batch processor to complete with a timeout
                 _batchProcessor.Wait(TimeSpan.FromSeconds(5));

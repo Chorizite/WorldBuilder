@@ -8,11 +8,12 @@
 	<ItemGroup>
 	  <None Remove="Shaders\Landscape.frag" />
 	  <None Remove="Shaders\Landscape.vert" />
+	  <None Remove="Shaders\StaticObject.vert" />
 	  <None Remove="Shaders\Text.frag" />
 	  <None Remove="Shaders\Text.vert" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="Chorizite.Core" Version="0.0.16" />
+		<PackageReference Include="Chorizite.Core" Version="0.0.17" />
 		<PackageReference Include="NAudio" Version="2.2.1" />
 		<PackageReference Include="Silk.NET.OpenGL" Version="2.22.0" />
 		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
@@ -25,6 +26,8 @@
 	  <EmbeddedResource Include="Shaders\Landscape.vert">
 	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Shaders\StaticObject.frag" />
+	  <EmbeddedResource Include="Shaders\StaticObject.vert" />
 	  <EmbeddedResource Include="Shaders\Text.frag">
 	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 	  </EmbeddedResource>

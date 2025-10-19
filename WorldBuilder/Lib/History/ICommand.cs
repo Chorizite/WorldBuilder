@@ -9,6 +9,8 @@ namespace WorldBuilder.Lib.History {
         string Description { get; }
         bool CanExecute { get; }
         bool CanUndo { get; }
+        List<string> AffectedDocumentIds { get; }
+
         bool Execute();
         bool Undo();
     }

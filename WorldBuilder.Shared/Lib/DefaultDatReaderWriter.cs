@@ -24,7 +24,13 @@ namespace WorldBuilder.Shared.Lib {
             lock (_lock) {
                 return typeof(T) switch {
                     Type _ when typeof(T) == typeof(LandBlock) => Dats.Cell.TryGet(id, out file),
+                    Type _ when typeof(T) == typeof(LandBlockInfo) => Dats.Cell.TryGet(id, out file),
+                    Type _ when typeof(T) == typeof(Setup) => Dats.Portal.TryGet(id, out file),
+                    Type _ when typeof(T) == typeof(GfxObj) => Dats.Portal.TryGet(id, out file),
                     Type _ when typeof(T) == typeof(Region) => Dats.Portal.TryGet(id, out file),
+                    Type _ when typeof(T) == typeof(Scene) => Dats.Portal.TryGet(id, out file),
+                    Type _ when typeof(T) == typeof(Surface) => Dats.Portal.TryGet(id, out file),
+                    Type _ when typeof(T) == typeof(Palette) => Dats.Portal.TryGet(id, out file),
                     Type _ when typeof(T) == typeof(RenderTexture) => Dats.Portal.TryGet(id, out file),
                     Type _ when typeof(T) == typeof(RenderSurface) => Dats.Portal.TryGet(id, out file),
                     Type _ when typeof(T) == typeof(SurfaceTexture) => Dats.Portal.TryGet(id, out file),
@@ -37,8 +43,14 @@ namespace WorldBuilder.Shared.Lib {
             lock (_lock) {
                 return typeof(T) switch {
                     Type _ when typeof(T) == typeof(LandBlock) => Dats.Cell.TryWriteFile(file, iteration),
+                    Type _ when typeof(T) == typeof(LandBlockInfo) => Dats.Cell.TryWriteFile(file, iteration),
+                    Type _ when typeof(T) == typeof(Setup) => Dats.Portal.TryWriteFile(file, iteration),
+                    Type _ when typeof(T) == typeof(GfxObj) => Dats.Portal.TryWriteFile(file, iteration),
                     Type _ when typeof(T) == typeof(Region) => Dats.Portal.TryWriteFile(file, iteration),
+                    Type _ when typeof(T) == typeof(Scene) => Dats.Portal.TryWriteFile(file, iteration),
                     Type _ when typeof(T) == typeof(RenderTexture) => Dats.Portal.TryWriteFile(file, iteration),
+                    Type _ when typeof(T) == typeof(Palette) => Dats.Portal.TryWriteFile(file, iteration),
+                    Type _ when typeof(T) == typeof(Surface) => Dats.Portal.TryWriteFile(file, iteration),
                     Type _ when typeof(T) == typeof(RenderSurface) => Dats.Portal.TryWriteFile(file, iteration),
                     Type _ when typeof(T) == typeof(SurfaceTexture) => Dats.Portal.TryWriteFile(file, iteration),
                     _ => throw new NotImplementedException($"DefaultDatReaderWriter does not currently support {typeof(T)}"),

@@ -31,7 +31,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         private readonly Dictionary<ushort, List<(int VertexIndex, byte OriginalType, byte NewType)>> _pendingChanges;
 
         public BrushSubToolViewModel(TerrainEditingContext context, CommandHistory commandHistory) : base(context) {
-            _availableTerrainTypes = context.TerrainSystem.SurfaceManager.GetAvailableTerrainTextures()
+            _availableTerrainTypes = context.TerrainSystem.Scene.SurfaceManager.GetAvailableTerrainTextures()
                 .Select(t => t.TerrainType).ToList();
             _selectedTerrainType = _availableTerrainTypes.First();
             _commandHistory = commandHistory ?? throw new ArgumentNullException(nameof(commandHistory));

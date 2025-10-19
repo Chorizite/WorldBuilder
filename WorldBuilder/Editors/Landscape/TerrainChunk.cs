@@ -1,13 +1,7 @@
-﻿
-// ===== Core Data Structures =====
-
-using Chorizite.Core.Lib;
+﻿using Chorizite.Core.Lib;
 using System.Collections.Generic;
 
 namespace WorldBuilder.Editors.Landscape {
-    /// <summary>
-    /// Minimal chunk metadata - no rendering state
-    /// </summary>
     public class TerrainChunk {
         public uint ChunkX { get; set; }
         public uint ChunkY { get; set; }

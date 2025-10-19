@@ -2,10 +2,12 @@
 using Chorizite.OpenGLSDLBackend;
 using DatReaderWriter.DBObjs;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Threading.Tasks;
 using WorldBuilder.Editors.Landscape.ViewModels;
 using WorldBuilder.Lib;
 using WorldBuilder.Lib.History;
@@ -19,41 +21,27 @@ namespace WorldBuilder.Editors.Landscape {
     /// <summary>
     /// Main terrain system coordinator
     /// </summary>
-    public class TerrainSystem : IDisposable {
-        public TerrainDataManager DataManager { get; }
-        public LandSurfaceManager SurfaceManager { get; }
-        public TerrainGPUResourceManager GPUManager { get; }
-
-        public PerspectiveCamera PerspectiveCamera { get; private set; }
-        public OrthographicTopDownCamera TopDownCamera { get; private set; }
-        public CameraManager CameraManager { get; private set; }
+    public class TerrainSystem : EditorBase {
         public WorldBuilderSettings Settings { get; }
         public TerrainDocument TerrainDoc { get; private set; }
         public TerrainEditingContext EditingContext { get; private set; }
-        public TerrainRenderer Renderer { get; private set; }
+        public GameScene Scene { get; private set; }
         public IServiceProvider Services { get; private set; }
-        public CommandHistory CommandHistory { get; }
 
-        public TerrainSystem(OpenGLRenderer renderer, Project project, IDatReaderWriter dats, WorldBuilderSettings settings) {
+        public TerrainSystem(OpenGLRenderer renderer, Project project, IDatReaderWriter dats, WorldBuilderSettings settings, ILogger<TerrainSystem> logger)
+            : base(project.DocumentManager, settings, logger) {
             if (!dats.TryGet<Region>(0x13000000, out var region)) {
                 throw new Exception("Failed to load region");
             }
-
+            InitAsync(dats).GetAwaiter().GetResult();
             Settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            TerrainDoc = project.DocumentManager.GetOrCreateDocumentAsync<TerrainDocument>("terrain").Result
-                ?? throw new InvalidOperationException("Terrain document not found");
             EditingContext = new TerrainEditingContext(project.DocumentManager, this);
-
-            var mapCenter = new Vector3(192f * 254f / 2f, 192f * 254f / 2f, 1000);
-            PerspectiveCamera = new PerspectiveCamera(mapCenter, Settings);
-            TopDownCamera = new OrthographicTopDownCamera(new Vector3(0, 0, 200f), Settings);
 
             var collection = new ServiceCollection();
             collection.AddSingleton(this);
-            collection.AddSingleton(new CameraManager(TopDownCamera));
             collection.AddSingleton<TerrainSystem>();
             collection.AddSingleton(EditingContext);
-            collection.AddSingleton<TerrainRenderer>();
+            collection.AddSingleton(project.DocumentManager);
             collection.AddSingleton<WorldBuilderSettings>(Settings);
             collection.AddSingleton<RoadLineSubToolViewModel>();
             collection.AddSingleton<RoadPointSubToolViewModel>();
@@ -62,11 +50,11 @@ namespace WorldBuilder.Editors.Landscape {
             collection.AddSingleton<BrushSubToolViewModel>();
             collection.AddSingleton<BucketFillSubToolViewModel>();
             collection.AddSingleton<TexturePaintingToolViewModel>();
-            collection.AddSingleton(TerrainDoc);
+            collection.AddSingleton(TerrainDoc ?? throw new ArgumentNullException(nameof(TerrainDoc)));
             collection.AddSingleton(dats);
             collection.AddSingleton(project);
             collection.AddSingleton(renderer);
-            collection.AddSingleton(new CommandHistory(Settings.App));
+            collection.AddSingleton(History ?? throw new ArgumentNullException(nameof(History)));
             collection.AddSingleton<HistorySnapshotPanelViewModel>();
             collection.AddTransient<PerspectiveCamera>();
             collection.AddTransient<OrthographicTopDownCamera>();
@@ -76,86 +64,61 @@ namespace WorldBuilder.Editors.Landscape {
 
             Services = new CompositeServiceProvider(collection.BuildServiceProvider(), ProjectManager.Instance.CompositeProvider);
 
-            CommandHistory = Services.GetRequiredService<CommandHistory>();
+            Scene = new GameScene(renderer, settings, dats, docManager, TerrainDoc, region);
+        }
 
-            CameraManager = Services.GetRequiredService<CameraManager>();
-            Renderer = Services.GetRequiredService<TerrainRenderer>();
+        private async Task InitAsync(IDatReaderWriter dats) {
+            TerrainDoc = (TerrainDocument?)await LoadDocumentAsync("terrain", typeof(TerrainDocument))
+                ?? throw new InvalidOperationException("Failed to load terrain document");
 
-            DataManager = new TerrainDataManager(TerrainDoc, region, 16);
-            SurfaceManager = new LandSurfaceManager(renderer, dats, region);
-            GPUManager = new TerrainGPUResourceManager(renderer);
+            await TerrainDoc.InitAsync(dats, DocumentManager);
+        }
+
+        public IEnumerable<StaticObject> GetAllStaticObjects() {
+            return new List<StaticObject>();
+            //return Scene.GetAllStaticObjects();
+        }
+
+        public override async Task<BaseDocument?> LoadDocumentAsync(string documentId, Type documentType, bool forceReload = false) {
+            var doc = await base.LoadDocumentAsync(documentId, documentType, forceReload);
+            return doc;
+        }
+
+        public override async Task UnloadDocumentAsync(string documentId) {
+            if (documentId == "terrain") return;  // Never unload terrain
+
+            await base.UnloadDocumentAsync(documentId);
         }
 
         public void Update(Vector3 cameraPosition, Matrix4x4 viewProjectionMatrix) {
-            var frustum = new Frustum(viewProjectionMatrix);
-            var requiredChunks = DataManager.GetRequiredChunks(cameraPosition);
+            Scene.Update(cameraPosition, viewProjectionMatrix);
+        }
 
-            foreach (var chunkId in requiredChunks) {
-                var chunkX = (uint)(chunkId >> 32);
-                var chunkY = (uint)(chunkId & 0xFFFFFFFF);
-                var chunk = DataManager.GetOrCreateChunk(chunkX, chunkY);
-
-                if (!GPUManager.HasRenderData(chunkId)) {
-                    GPUManager.CreateChunkResources(chunk, DataManager, SurfaceManager);
-                }
-                else if (chunk.IsDirty) {
-                    var dirtyLandblocks = chunk.DirtyLandblocks.ToList();
-                    GPUManager.UpdateLandblocks(chunk, dirtyLandblocks, DataManager, SurfaceManager);
+        public IEnumerable<(Vector3 Pos, Quaternion Rot)> GetAllStaticSpawns() {
+            return new List<(Vector3, Quaternion)>();
+            /*
+            foreach (var doc in GetActiveDocuments().OfType<LandblockDocument>()) {
+                foreach (var spawn in doc.GetStaticSpawns()) {
+                    yield return spawn;
                 }
             }
+            */
         }
 
         public void RegenerateChunks(IEnumerable<ulong> chunkIds) {
-            foreach (var chunkId in chunkIds) {
-                var chunkX = (uint)(chunkId >> 32);
-                var chunkY = (uint)(chunkId & 0xFFFFFFFF);
-                var chunk = DataManager.GetOrCreateChunk(chunkX, chunkY);
-
-                GPUManager.CreateChunkResources(chunk, DataManager, SurfaceManager);
-            }
+            Scene.RegenerateChunks(chunkIds);
         }
 
         public void UpdateLandblocks(IEnumerable<uint> landblockIds) {
-            var landblocksByChunk = new Dictionary<ulong, List<uint>>();
-
-            foreach (var landblockId in landblockIds) {
-                var landblockX = landblockId >> 8;
-                var landblockY = landblockId & 0xFF;
-                var chunk = DataManager.GetChunkForLandblock(landblockX, landblockY);
-
-                if (chunk == null) continue;
-
-                var chunkId = chunk.GetChunkId();
-                if (!landblocksByChunk.ContainsKey(chunkId)) {
-                    landblocksByChunk[chunkId] = new List<uint>();
-                }
-                landblocksByChunk[chunkId].Add(landblockId);
-            }
-
-            foreach (var kvp in landblocksByChunk) {
-                var chunk = DataManager.GetChunk(kvp.Key);
-                if (chunk != null) {
-                    GPUManager.UpdateLandblocks(chunk, kvp.Value, DataManager, SurfaceManager);
-                }
-            }
+            Scene.UpdateLandblocks(landblockIds);
         }
 
-        public IEnumerable<(TerrainChunk chunk, ChunkRenderData renderData)> GetRenderableChunks(Frustum frustum) {
-            foreach (var chunk in DataManager.GetAllChunks()) {
-                if (!frustum.IntersectsBoundingBox(chunk.Bounds)) continue;
+        public int GetLoadedChunkCount() => Scene.GetLoadedChunkCount();
+        public int GetVisibleChunkCount(Frustum frustum) => Scene.GetVisibleChunkCount(frustum);
 
-                var renderData = GPUManager.GetRenderData(chunk.GetChunkId());
-                if (renderData != null) {
-                    yield return (chunk, renderData);
-                }
-            }
-        }
-
-        public int GetLoadedChunkCount() => DataManager.GetAllChunks().Count();
-        public int GetVisibleChunkCount(Frustum frustum) => GetRenderableChunks(frustum).Count();
-
-        public void Dispose() {
-            GPUManager?.Dispose();
+        public override void Dispose() {
+            base.Dispose();
+            Scene?.Dispose();
             Services.GetRequiredService<DocumentManager>().CloseDocumentAsync(TerrainDoc.Id).GetAwaiter().GetResult();
         }
     }
