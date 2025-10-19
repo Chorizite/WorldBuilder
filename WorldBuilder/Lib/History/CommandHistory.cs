@@ -139,6 +139,9 @@ public class CommandHistory {
         if (documentId.StartsWith("landblock_", StringComparison.OrdinalIgnoreCase)) {
             return typeof(LandblockDocument);
         }
+        if (documentId.StartsWith("layer_", StringComparison.OrdinalIgnoreCase)) {
+            return typeof(LayerDocument);
+        }
         throw new ArgumentException($"Unknown document type for ID {documentId}", nameof(documentId));
     }
 

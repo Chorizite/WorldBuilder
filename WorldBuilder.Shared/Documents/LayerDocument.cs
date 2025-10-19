@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using DatReaderWriter.DBObjs;
 using MemoryPack;
 using Microsoft.Extensions.Logging;
 using System;
@@ -9,7 +10,6 @@ using WorldBuilder.Shared.Documents;
 using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Editors.Landscape {
-    [MemoryPackable]
     public partial class LayerDocument : BaseDocument {
         const int LANDBLOCK_SIZE = 81;
 
@@ -23,7 +23,7 @@ namespace WorldBuilder.Editors.Landscape {
         private readonly object _dirtyLock = new();
 
         public LayerDocument(ILogger logger) : base(logger) {
-
+            
         }
 
         public TerrainEntry[]? GetLandblockInternal(ushort lbKey) {
@@ -40,6 +40,31 @@ namespace WorldBuilder.Editors.Landscape {
                 result[i] = new TerrainEntry(terrain[i]);
             }
             return result;
+        }
+
+        public void UpdateLandblockInternal(ushort lbKey, TerrainEntry[] newEntries, out HashSet<ushort> modifiedLandblocks) {
+            if (newEntries.Length != LANDBLOCK_SIZE) {
+                throw new ArgumentException($"newEntries array must be of length {LANDBLOCK_SIZE}.");
+            }
+
+            modifiedLandblocks = new HashSet<ushort>();
+            var currentEntries = GetLandblockInternal(lbKey);
+            if (currentEntries == null) {
+                currentEntries = new TerrainEntry[LANDBLOCK_SIZE];
+                TerrainData.Landblocks[lbKey] = new uint[LANDBLOCK_SIZE];
+            }
+
+            var changes = new Dictionary<byte, uint>();
+            for (byte i = 0; i < newEntries.Length; i++) {
+                if (!currentEntries[i].Equals(newEntries[i])) {
+                    changes[i] = newEntries[i].ToUInt();
+                }
+            }
+
+            if (changes.Count == 0) return;
+
+            var batchChanges = new Dictionary<ushort, Dictionary<byte, uint>> { [lbKey] = changes };
+            UpdateLandblocksBatchInternal(batchChanges, out modifiedLandblocks);
         }
 
         public void UpdateLandblocksBatchInternal(

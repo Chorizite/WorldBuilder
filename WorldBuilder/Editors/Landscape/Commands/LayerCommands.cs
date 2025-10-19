@@ -1,18 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using WorldBuilder.Editors.Landscape.Commands;
 using WorldBuilder.Editors.Landscape.ViewModels;
 using WorldBuilder.Lib.History;
 using WorldBuilder.Shared.Documents;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace WorldBuilder.Editors.Landscape.Commands {
     public class AddLayerItemCommand : ICommand {
         private readonly TerrainDocument _doc;
-        private readonly TerrainLayerItem _item;
+        private readonly TerrainLayerBase _item;
         private readonly int _index;
         private readonly TerrainLayerGroup? _parent;
 
-        public AddLayerItemCommand(TerrainDocument doc, TerrainLayerItem item, int index, TerrainLayerGroup? parent) {
+        public AddLayerItemCommand(TerrainDocument doc, TerrainLayerBase item, int index, TerrainLayerGroup? parent) {
             _doc = doc;
             _item = item;
             _index = index;
@@ -25,29 +27,31 @@ namespace WorldBuilder.Editors.Landscape.Commands {
 
         public bool CanUndo => true;
 
-        public List<string> AffectedDocumentIds => new() { _doc.Id };
+        public List<string> AffectedDocumentIds => _item is TerrainLayer layer && layer.DocumentId != "terrain"
+            ? new() { _doc.Id, layer.DocumentId }
+            : new() { _doc.Id };
 
         public bool Execute() {
             var list = _parent != null ? _parent.Children : _doc.TerrainData.RootItems;
             list.Insert(_index, _item);
-            _doc.MarkDirty();
+            _doc.ForceSave();
             return true;
         }
 
         public bool Undo() {
             var list = _parent != null ? _parent.Children : _doc.TerrainData.RootItems;
             list.Remove(_item);
-            _doc.MarkDirty();
+            _doc.ForceSave();
             return true;
         }
     }
 
     public class DeleteLayerItemCommand : ICommand {
         private readonly LayerTreeItemViewModel _vm;
-        private TerrainLayerItem _item;
-        private TerrainLayerGroup? _parent;
-        private int _index;
-        private List<string> _documentIds = new();
+        private readonly TerrainLayerBase _item;
+        private readonly TerrainLayerGroup? _parent;
+        private readonly int _index;
+        private readonly List<string> _documentIds = new();
 
         public DeleteLayerItemCommand(LayerTreeItemViewModel vm) {
             _vm = vm;
@@ -57,7 +61,7 @@ namespace WorldBuilder.Editors.Landscape.Commands {
             CollectDocuments(_item);
         }
 
-        private void CollectDocuments(TerrainLayerItem item) {
+        private void CollectDocuments(TerrainLayerBase item) {
             if (item is TerrainLayer layer && layer.DocumentId != "terrain") {
                 _documentIds.Add(layer.DocumentId);
             }
@@ -74,21 +78,21 @@ namespace WorldBuilder.Editors.Landscape.Commands {
 
         public bool CanUndo => true;
 
-        public List<string> AffectedDocumentIds => _documentIds.Concat(new[] { _vm.Owner._terrainSystem.Hierarchy.Id }).ToList();
+        public List<string> AffectedDocumentIds => _documentIds.Concat(new[] { _vm.Owner._terrainSystem.TerrainDoc.Id }).ToList();
 
         public bool Execute() {
-            var list = _parent != null ? _parent.Children : _vm.Owner._terrainSystem.Hierarchy.RootItems;
+            var list = _parent != null ? _parent.Children : _vm.Owner._terrainSystem.TerrainDoc.TerrainData.RootItems;
             list.Remove(_item);
             UnloadDocuments();
-            _vm.Owner._terrainSystem.Hierarchy.MarkDirty();
+            _vm.Owner._terrainSystem.TerrainDoc.ForceSave();
             return true;
         }
 
         public bool Undo() {
-            var list = _parent != null ? _parent.Children : _vm.Owner._terrainSystem.Hierarchy.RootItems;
+            var list = _parent != null ? _parent.Children : _vm.Owner._terrainSystem.TerrainDoc.TerrainData.RootItems;
             list.Insert(_index, _item);
             ReloadDocuments();
-            _vm.Owner._terrainSystem.Hierarchy.MarkDirty();
+            _vm.Owner._terrainSystem.TerrainDoc.ForceSave();
             return true;
         }
 
@@ -122,27 +126,27 @@ namespace WorldBuilder.Editors.Landscape.Commands {
 
         public bool CanUndo => true;
 
-        public List<string> AffectedDocumentIds => new() { _vm.Owner._terrainSystem.Hierarchy.Id };
+        public List<string> AffectedDocumentIds => new() { _vm.Owner._terrainSystem.TerrainDoc.Id };
 
         public bool Execute() {
             _vm.Model.Name = _newName;
-            _vm.Owner._terrainSystem.Hierarchy.MarkDirty();
+            _vm.Owner._terrainSystem.TerrainDoc.ForceSave();
             return true;
         }
 
         public bool Undo() {
             _vm.Model.Name = _oldName;
-            _vm.Owner._terrainSystem.Hierarchy.MarkDirty();
+            _vm.Owner._terrainSystem.TerrainDoc.ForceSave();
             return true;
         }
     }
 
     public class MoveLayerItemCommand : ICommand {
         private readonly LayerTreeItemViewModel _vm;
-        private TerrainLayerGroup? _oldParent;
-        private int _oldIndex;
-        private TerrainLayerGroup? _newParent;
-        private int _newIndex;
+        private readonly TerrainLayerGroup? _oldParent;
+        private readonly int _oldIndex;
+        private readonly TerrainLayerGroup? _newParent;
+        private readonly int _newIndex;
 
         public MoveLayerItemCommand(LayerTreeItemViewModel vm, LayerTreeItemViewModel? newParent, int newIndex) {
             _vm = vm;
@@ -154,27 +158,28 @@ namespace WorldBuilder.Editors.Landscape.Commands {
 
         public string Description => $"Move {_vm.Name}";
 
-        public bool CanExecute => true;
+        public bool CanExecute => _newParent == null || _vm.Model.Id != "terrain"; // Prevent moving base layer
 
         public bool CanUndo => true;
 
-        public List<string> AffectedDocumentIds => new() { _vm.Owner._terrainSystem.Hierarchy.Id };
+        public List<string> AffectedDocumentIds => new() { _vm.Owner._terrainSystem.TerrainDoc.Id };
 
         public bool Execute() {
-            var oldList = _oldParent?.Children ?? _vm.Owner._terrainSystem.Hierarchy.RootItems;
+            if (!CanExecute) return false;
+            var oldList = _oldParent?.Children ?? _vm.Owner._terrainSystem.TerrainDoc.TerrainData.RootItems;
             oldList.Remove(_vm.Model);
-            var newList = _newParent?.Children ?? _vm.Owner._terrainSystem.Hierarchy.RootItems;
+            var newList = _newParent?.Children ?? _vm.Owner._terrainSystem.TerrainDoc.TerrainData.RootItems;
             newList.Insert(_newIndex, _vm.Model);
-            _vm.Owner._terrainSystem.Hierarchy.MarkDirty();
+            _vm.Owner._terrainSystem.TerrainDoc.ForceSave();
             return true;
         }
 
         public bool Undo() {
-            var newList = _newParent?.Children ?? _vm.Owner._terrainSystem.Hierarchy.RootItems;
+            var newList = _newParent?.Children ?? _vm.Owner._terrainSystem.TerrainDoc.TerrainData.RootItems;
             newList.Remove(_vm.Model);
-            var oldList = _oldParent?.Children ?? _vm.Owner._terrainSystem.Hierarchy.RootItems;
+            var oldList = _oldParent?.Children ?? _vm.Owner._terrainSystem.TerrainDoc.TerrainData.RootItems;
             oldList.Insert(_oldIndex, _vm.Model);
-            _vm.Owner._terrainSystem.Hierarchy.MarkDirty();
+            _vm.Owner._terrainSystem.TerrainDoc.ForceSave();
             return true;
         }
     }
@@ -192,22 +197,23 @@ namespace WorldBuilder.Editors.Landscape.Commands {
 
         public string Description => $"Toggle Visibility for {_vm.Name}";
 
-        public bool CanExecute => true;
+        public bool CanExecute => _vm.Model.Id != "terrain"; // Prevent toggling base layer
 
         public bool CanUndo => true;
 
-        public List<string> AffectedDocumentIds => new() { _vm.Owner._terrainSystem.Hierarchy.Id };
+        public List<string> AffectedDocumentIds => new() { _vm.Owner._terrainSystem.TerrainDoc.Id };
 
         public bool Execute() {
+            if (!CanExecute) return false;
             _oldValue = _vm.Model.IsVisible;
             _vm.Model.IsVisible = _newValue;
-            _vm.Owner._terrainSystem.Hierarchy.MarkDirty();
+            _vm.Owner._terrainSystem.TerrainDoc.ForceSave();
             return true;
         }
 
         public bool Undo() {
             _vm.Model.IsVisible = _oldValue;
-            _vm.Owner._terrainSystem.Hierarchy.MarkDirty();
+            _vm.Owner._terrainSystem.TerrainDoc.ForceSave();
             return true;
         }
     }
@@ -225,22 +231,23 @@ namespace WorldBuilder.Editors.Landscape.Commands {
 
         public string Description => $"Toggle Export for {_vm.Name}";
 
-        public bool CanExecute => true;
+        public bool CanExecute => _vm.Model.Id != "terrain"; // Prevent toggling base layer
 
         public bool CanUndo => true;
 
-        public List<string> AffectedDocumentIds => new() { _vm.Owner._terrainSystem.Hierarchy.Id };
+        public List<string> AffectedDocumentIds => new() { _vm.Owner._terrainSystem.TerrainDoc.Id };
 
         public bool Execute() {
+            if (!CanExecute) return false;
             _oldValue = _vm.Model.IsExport;
             _vm.Model.IsExport = _newValue;
-            _vm.Owner._terrainSystem.Hierarchy.MarkDirty();
+            _vm.Owner._terrainSystem.TerrainDoc.ForceSave();
             return true;
         }
 
         public bool Undo() {
             _vm.Model.IsExport = _oldValue;
-            _vm.Owner._terrainSystem.Hierarchy.MarkDirty();
+            _vm.Owner._terrainSystem.TerrainDoc.ForceSave();
             return true;
         }
     }

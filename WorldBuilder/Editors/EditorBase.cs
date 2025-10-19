@@ -21,7 +21,15 @@ namespace WorldBuilder.Editors {
             History = new CommandHistory(settings.App, this, logger);
         }
 
+
+        public async Task<T?> LoadDocumentAsync<T>(string documentId, bool forceReload = false) where T : BaseDocument {
+            var result = await LoadDocumentAsync(documentId, typeof(T), forceReload);
+            if (result == null) return default;
+            return result as T;
+        }
+
         public virtual async Task<BaseDocument?> LoadDocumentAsync(string documentId, Type documentType, bool forceReload = false) {
+            Console.WriteLine($"Loading document {documentId}");
             if (!forceReload && ActiveDocuments.TryGetValue(documentId, out var doc)) {
                 return doc;
             }

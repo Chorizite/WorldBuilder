@@ -12,26 +12,27 @@ namespace WorldBuilder.Shared.Documents {
     [MemoryPackable]
     [MemoryPackUnion(0, typeof(TerrainLayer))]
     [MemoryPackUnion(1, typeof(TerrainLayerGroup))]
-    public abstract partial class TerrainLayerItem {
+    public abstract partial class TerrainLayerBase {
+        public string Id { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public bool IsVisible { get; set; } = true;
         public bool IsExport { get; set; } = true;
     }
 
     [MemoryPackable]
-    public partial class TerrainLayer : TerrainLayerItem {
-        public string DocumentId { get; set; } = string.Empty;
+    public partial class TerrainLayer : TerrainLayerBase {
+        public string DocumentId { get; set; } = string.Empty; // Links to LayerDocument.Id
     }
 
     [MemoryPackable]
-    public partial class TerrainLayerGroup : TerrainLayerItem {
-        public List<TerrainLayerItem> Children { get; set; } = new List<TerrainLayerItem>();
+    public partial class TerrainLayerGroup : TerrainLayerBase {
+        public List<TerrainLayerBase> Children { get; set; } = new List<TerrainLayerBase>();
     }
 
     [MemoryPackable]
     public partial record TerrainData {
         public Dictionary<ushort, uint[]> Landblocks = new(0xFF * 0xFF);
-        public List<TerrainLayerItem> RootItems { get; set; } = new List<TerrainLayerItem>();
+        public List<TerrainLayerBase>? RootItems { get; set; }
     }
 
     [MemoryPackable]
@@ -296,6 +297,10 @@ namespace WorldBuilder.Shared.Documents {
         }
 
         protected override Task<bool> InitInternal(IDatReaderWriter datreader, DocumentManager documentManager) {
+            if (TerrainData.RootItems is null) {
+                TerrainData.RootItems = [];
+            }
+
             if (!string.IsNullOrWhiteSpace(_cacheDirectory) && File.Exists(Path.Combine(_cacheDirectory, "terrain.dat"))) {
                 _logger.LogInformation("Loading terrain data from cache...");
                 _baseTerrainCache = MemoryPackSerializer.Deserialize<ConcurrentDictionary<ushort, uint[]>>(File.ReadAllBytes(Path.Combine(_cacheDirectory, "terrain.dat"))) ?? [];

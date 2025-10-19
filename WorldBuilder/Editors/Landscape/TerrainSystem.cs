@@ -16,11 +16,9 @@ using WorldBuilder.Shared.Documents;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.ViewModels;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace WorldBuilder.Editors.Landscape {
-    /// <summary>
-    /// Main terrain system coordinator
-    /// </summary>
     public class TerrainSystem : EditorBase {
         public WorldBuilderSettings Settings { get; }
         public TerrainDocument TerrainDoc { get; private set; }
@@ -75,48 +73,79 @@ namespace WorldBuilder.Editors.Landscape {
                 ?? throw new InvalidOperationException("Failed to load terrain document");
         }
 
-        /// <summary>
-        /// Gets the terrain entries for a specific landblock.
-        /// </summary>
-        /// <param name="lbKey">The landblock key.</param>
-        /// <returns>An array of TerrainEntry objects or null if not found.</returns>
         public TerrainEntry[]? GetLandblockTerrain(ushort lbKey) {
+            var items = (TerrainDoc.TerrainData.RootItems ?? []).ToList();
+            items.Reverse();
+            foreach (var item in items) {
+                if (item is TerrainLayer layer && layer.IsVisible) {
+                    var doc = DocumentManager.GetOrCreateDocumentAsync<LayerDocument>(layer.DocumentId).GetAwaiter().GetResult();
+                    var terrain = doc?.GetLandblockInternal(lbKey);
+                    if (terrain != null) return terrain;
+                }
+                else if (item is TerrainLayerGroup group && group.IsVisible) {
+                    var terrain = GetTerrainFromGroup(group, lbKey);
+                    if (terrain != null) return terrain;
+                }
+            }
+            // Fall back to base layer
             return TerrainDoc.GetLandblockInternal(lbKey);
         }
 
-        /// <summary>
-        /// Updates multiple landblocks with the provided changes.
-        /// </summary>
-        /// <param name="allChanges">Dictionary of landblock keys to their changes.</param>
-        /// <returns>A set of modified landblock keys.</returns>
-        public HashSet<ushort> UpdateLandblocksBatch(Dictionary<ushort, Dictionary<byte, uint>> allChanges) {
-            TerrainDoc.UpdateLandblocksBatchInternal(allChanges, out var modifiedLandblocks);
-            return modifiedLandblocks;
+        private TerrainEntry[]? GetTerrainFromGroup(TerrainLayerGroup group, ushort lbKey) {
+            var items = group.Children.ToList();
+            items.Reverse();
+            foreach (var item in items) {
+                if (item is TerrainLayer layer && layer.IsVisible) {
+                    var doc = LoadDocumentAsync<LayerDocument>(layer.DocumentId).GetAwaiter().GetResult();
+                    var terrain = doc?.GetLandblockInternal(lbKey);
+                    if (terrain != null) return terrain;
+                }
+                else if (item is TerrainLayerGroup subGroup && subGroup.IsVisible) {
+                    var terrain = GetTerrainFromGroup(subGroup, lbKey);
+                    if (terrain != null) return terrain;
+                }
+            }
+            return null;
         }
 
-        /// <summary>
-        /// Updates a single landblock with new terrain entries.
-        /// </summary>
-        /// <param name="lbKey">The landblock key.</param>
-        /// <param name="newEntries">Array of new terrain entries.</param>
-        /// <returns>A set of modified landblock keys, including neighbors due to edge synchronization.</returns>
+        public HashSet<ushort> UpdateLandblocksBatch(Dictionary<ushort, Dictionary<byte, uint>> allChanges) {
+            var currentLayer = EditingContext.CurrentLayerDoc;
+            if (currentLayer == null || currentLayer == TerrainDoc) {
+                TerrainDoc.UpdateLandblocksBatchInternal(allChanges, out var modifiedLandblocks);
+                return modifiedLandblocks;
+            }
+            ((LayerDocument)currentLayer).UpdateLandblocksBatchInternal(allChanges, out var modifiedLandblocks2);
+            return modifiedLandblocks2;
+        }
+
         public HashSet<ushort> UpdateLandblock(ushort lbKey, TerrainEntry[] newEntries) {
-            TerrainDoc.UpdateLandblockInternal(lbKey, newEntries, out var modifiedLandblocks);
-            return modifiedLandblocks;
+            var currentLayer = EditingContext.CurrentLayerDoc;
+            if (currentLayer == null) {
+                TerrainDoc.UpdateLandblockInternal(lbKey, newEntries, out var modifiedLandblocks);
+                return modifiedLandblocks;
+            }
+            ((LayerDocument)currentLayer).UpdateLandblockInternal(lbKey, newEntries, out var modifiedLandblocks2);
+            return modifiedLandblocks2;
         }
 
         public IEnumerable<StaticObject> GetAllStaticObjects() {
             return new List<StaticObject>();
-            //return Scene.GetAllStaticObjects();
         }
 
         public override async Task<BaseDocument?> LoadDocumentAsync(string documentId, Type documentType, bool forceReload = false) {
-            var doc = await base.LoadDocumentAsync(documentId, documentType, forceReload);
-            return doc;
+            if (!forceReload && ActiveDocuments.TryGetValue(documentId, out var doc)) {
+                return doc;
+            }
+
+            var loadedDoc = base.LoadDocumentAsync(documentId, documentType).GetAwaiter().GetResult();
+            if (loadedDoc != null) {
+                ActiveDocuments[documentId] = loadedDoc;
+            }
+            return loadedDoc;
         }
 
         public override async Task UnloadDocumentAsync(string documentId) {
-            if (documentId == "terrain") return;  // Never unload terrain
+            if (documentId == "terrain") return; // Never unload terrain
 
             await base.UnloadDocumentAsync(documentId);
         }
@@ -127,13 +156,6 @@ namespace WorldBuilder.Editors.Landscape {
 
         public IEnumerable<(Vector3 Pos, Quaternion Rot)> GetAllStaticSpawns() {
             return new List<(Vector3, Quaternion)>();
-            /*
-            foreach (var doc in GetActiveDocuments().OfType<LandblockDocument>()) {
-                foreach (var spawn in doc.GetStaticSpawns()) {
-                    yield return spawn;
-                }
-            }
-            */
         }
 
         public void RegenerateChunks(IEnumerable<ulong> chunkIds) {

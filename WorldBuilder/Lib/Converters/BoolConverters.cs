@@ -21,6 +21,19 @@ namespace WorldBuilder.Lib.Converters {
         /// Converts false to Visible, true to Collapsed
         /// </summary>
         public static readonly IValueConverter FalseToVisible = new FuncValueConverter<bool, bool>(value => !value);
+
+        public class BoolToNotConverter : IValueConverter {
+            public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) {
+                if (value is bool boolValue) {
+                    return !boolValue;
+                }
+                return false;
+            }
+
+            public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) {
+                throw new NotImplementedException();
+            }
+        }
     }
 
     /// <summary>
