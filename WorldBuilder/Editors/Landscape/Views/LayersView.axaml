@@ -1,0 +1,58 @@
+<UserControl
+    x:Class="WorldBuilder.Editors.Landscape.Views.LayersView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:i="using:Avalonia.Xaml.Interactivity"
+    xmlns:ia="using:Avalonia.Xaml.Interactions.Core"
+    xmlns:vm="using:WorldBuilder.Editors.Landscape.ViewModels"
+    x:DataType="vm:LayersViewModel">
+    <DockPanel>
+        <StackPanel
+            HorizontalAlignment="Right"
+            DockPanel.Dock="Top"
+            Orientation="Horizontal"
+            Spacing="5">
+            <Button Command="{Binding NewLayerCommand}" Content="➕ Layer" />
+            <Button Command="{Binding NewGroupCommand}" Content="📁 Group" />
+            <Button
+                Command="{Binding DeleteSelectedCommand}"
+                Content="🗑️"
+                IsEnabled="{Binding SelectedItem, Converter={x:Static conv:ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+        <TreeView ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}">
+            <i:Interaction.Behaviors>
+                <!--  Add drag drop behavior for reordering  -->
+            </i:Interaction.Behaviors>
+            <TreeView.ItemTemplate>
+                <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="{Binding IsGroup, Converter={x:Static conv:BoolToStringConverter.FolderOrLayer}}" />
+                        <TextBlock Text="{Binding Name}" />
+                        <ToggleButton
+                            Click="ToggleVisibility"
+                            Content="👁️"
+                            IsChecked="{Binding IsVisible}"
+                            IsEnabled="{Binding !IsBase}" />
+                        <ToggleButton
+                            Click="ToggleExport"
+                            Content="📦"
+                            IsChecked="{Binding IsExport}"
+                            IsEnabled="{Binding !IsBase}" />
+                    </StackPanel>
+                </HierarchicalDataTemplate>
+            </TreeView.ItemTemplate>
+            <TreeView.ContextMenu>
+                <ContextMenu>
+                    <MenuItem
+                        Command="RenameItem"
+                        Header="Rename"
+                        IsEnabled="{Binding !PlacedObject.IsBase}" />
+                    <MenuItem
+                        Command="{Binding DeleteSelectedCommand}"
+                        Header="Delete"
+                        IsEnabled="{Binding !PlacedObject.IsBase}" />
+                </ContextMenu>
+            </TreeView.ContextMenu>
+        </TreeView>
+    </DockPanel>
+</UserControl>
