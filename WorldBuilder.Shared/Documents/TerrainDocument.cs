@@ -359,8 +359,11 @@ namespace WorldBuilder.Shared.Documents {
         }
 
         protected override bool LoadFromProjectionInternal(byte[] projection) {
-            TerrainData = MemoryPackSerializer.Deserialize<TerrainData>(projection);
-            return TerrainData != null;
+            var loaded = MemoryPackSerializer.Deserialize<TerrainData>(projection);
+            if (loaded != null) {
+                TerrainData = loaded;
+            }
+            return loaded != null;
         }
 
         protected override Task<bool> SaveToDatsInternal(IDatReaderWriter datwriter, int iteration = 0) {
