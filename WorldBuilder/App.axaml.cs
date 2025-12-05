@@ -14,7 +14,10 @@ using NetSparkleUpdater.Interfaces;
 using NetSparkleUpdater.SignatureVerifiers;
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using WorldBuilder.Lib;
 using WorldBuilder.Lib.Extensions;
 using WorldBuilder.Shared.Models;
@@ -29,6 +32,7 @@ public partial class App : Application {
     private SparkleUpdater? _sparkle;
 
     public static string Version { get; set; } = "0.0.0";
+    public static string ExecutablePath { get; set; } = "";
 
     public override void Initialize() {
         AvaloniaXamlLoader.Load(this);
@@ -83,7 +87,7 @@ public partial class App : Application {
         _sparkle = new SparkleUpdater(
             "https://chorizite.github.io/WorldBuilder/appcast.xml",
             new Ed25519Checker(SecurityMode.Strict, "CxN3A8g5g9l31yJ+HhUXeb0j5locPqamt9UMdgKQCB0="),
-            "WorldBuilder.Desktop.exe"
+            ExecutablePath
         ) {
             UIFactory = new NetSparkleUpdater.UI.Avalonia.UIFactory(),
             RelaunchAfterUpdate = false,
@@ -93,7 +97,10 @@ public partial class App : Application {
         _sparkle.AppCastHelper.AppCastFilter = filter;
         _sparkle.StartLoop(true, true, TimeSpan.FromHours(1));
         _sparkle.UpdateDetected += (s, e) => {
-            _sparkle.TmpDownloadFileNameWithExtension = $"WorldBuilderInstaller-{e.LatestVersion.SemVerLikeVersion}.exe";
+            // TODO: Figure out how to do installers for Linux. This is Win/macOS only for now
+            // https://github.com/Chorizite/WorldBuilder/issues/20
+            string installerExtension = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "exe" : "pkg";
+            _sparkle.TmpDownloadFileNameWithExtension = $"WorldBuilderInstaller-{e.LatestVersion.SemVerLikeVersion}.{installerExtension}";
         };
     }
 
