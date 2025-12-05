@@ -1,4 +1,4 @@
-#version 300 es
+#version 330 core
 precision highp float;
 //These lines specify the location and type of our attributes,
 //the attributes here are prefixed with a "v" as they are our inputs to the vertex shader
