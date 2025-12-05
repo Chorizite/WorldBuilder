@@ -101,7 +101,7 @@ namespace WorldBuilder.Editors.Landscape {
 
             var mapCenter = new Vector3(192f * 254f / 2f, 192f * 254f / 2f, 1000);
             PerspectiveCamera = new PerspectiveCamera(mapCenter, _settings);
-            TopDownCamera = new OrthographicTopDownCamera(new Vector3(0, 0, 200f), _settings);
+            TopDownCamera = new OrthographicTopDownCamera(mapCenter, _settings);
             CameraManager = new CameraManager(TopDownCamera);
             //CameraManager.AddCamera(PerspectiveCamera);
 
