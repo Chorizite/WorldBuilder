@@ -23,7 +23,8 @@ sealed class Program
     {
         try
         {
-            TaskScheduler.UnobservedTaskException += (sender, e) => {
+            TaskScheduler.UnobservedTaskException += (sender, e) =>
+            {
                 Console.WriteLine(e.Exception);
             };
             AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
