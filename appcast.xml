@@ -5,7 +5,7 @@
     <description>Most recent changes with links to updates</description>
     <language>en</language>
     <item>
-      <title>WorldBuilder 0.1.2+11</title>
+      <title>WorldBuilder 0.1.2+12</title>
       <description>## What's Changed
 * 17 terraintype selection for landscape tools shouldnt show roadtype texture by @trevis in https://github.com/Chorizite/WorldBuilder/pull/21
 * chore: new changelog generation by @trevis in https://github.com/Chorizite/WorldBuilder/pull/22
@@ -18,16 +18,18 @@
 * clean up compilation warnings, add json source generator, more aot / trimming friendly by @trevis in https://github.com/Chorizite/WorldBuilder/pull/32
 * Static obj prep by @trevis in https://github.com/Chorizite/WorldBuilder/pull/35
 * Fix truncation of version string in desktop app by @amoeba in https://github.com/Chorizite/WorldBuilder/pull/38
+* Make WorldBuilder.Desktop run on macOS by @amoeba in https://github.com/Chorizite/WorldBuilder/pull/37
+* Fix rendering errors and bugs on macOS by @amoeba in https://github.com/Chorizite/WorldBuilder/pull/39
 
 ## New Contributors
 * @amoeba made their first contribution in https://github.com/Chorizite/WorldBuilder/pull/38
 
 **Full Changelog**: https://github.com/Chorizite/WorldBuilder/compare/v0.1.1...latest</description>
-      <pubDate>Fri, 05 Dec 2025 20:23:47 +00:00</pubDate>
-      <sparkle:version>0.1.2+11</sparkle:version>
+      <pubDate>Fri, 05 Dec 2025 23:14:22 +00:00</pubDate>
+      <sparkle:version>0.1.2+12</sparkle:version>
       <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
       <sparkle:channel>edge</sparkle:channel>
-      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.2%2B11.exe" sparkle:version="0.1.2+11" sparkle:shortVersionString="0.1.2" length="20097982" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="0f4ruiKQyhHGHuSsFQwETQ3/7zfMHPTqE9aALuXlbToXK4p93+Bva1Pu9VwdNuGa0nbMVqsQA5V+oDlKF8KcAg==" />
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.2%2B12.exe" sparkle:version="0.1.2+12" sparkle:shortVersionString="0.1.2" length="20097807" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="lbv+yEW5BwddwPemiA9IB0h9u3WI1hhS7v/KPAxtY/GtKRCXYe8RnFMyUBP+/cFIAXfJxDfDUdmkLIOQhCGqBA==" />
     </item>
     <item>
       <title>WorldBuilder 0.1.1</title>
