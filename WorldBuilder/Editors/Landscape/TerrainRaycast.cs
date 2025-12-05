@@ -8,6 +8,21 @@ using WorldBuilder.Shared.Documents;
 
 namespace WorldBuilder.Editors.Landscape {
     public static class TerrainRaycast {
+        // Platform-specific NDC Y calculation delegate to avoid branching in hot path
+        private delegate float CalculateNdcYDelegate(float mouseY, int viewportHeight);
+        private static readonly CalculateNdcYDelegate _calculateNdcY = OperatingSystem.IsMacOS()
+            ? CalculateNdcYMacOS
+            : CalculateNdcYDefault;
+
+        private static float CalculateNdcYMacOS(float mouseY, int viewportHeight) {
+            // On macOS, Y needs to be flipped because we blit from Y=0 to fill menu bar area
+            return 1.0f - 2.0f * mouseY / viewportHeight;
+        }
+
+        private static float CalculateNdcYDefault(float mouseY, int viewportHeight) {
+            return 2.0f * mouseY / viewportHeight - 1.0f;
+        }
+
         public struct TerrainRaycastHit {
             public bool Hit;
             public Vector3 HitPosition;
@@ -55,7 +70,7 @@ namespace WorldBuilder.Editors.Landscape {
 
             // Convert to NDC
             float ndcX = 2.0f * mouseX / viewportWidth - 1.0f;
-            float ndcY = 2.0f * mouseY / viewportHeight - 1.0f;
+            float ndcY = _calculateNdcY(mouseY, viewportHeight);
 
             // Create ray in world space
             Matrix4x4 projection = camera.GetProjectionMatrix();
