@@ -1,11 +1,15 @@
 ﻿using Avalonia;
 using Avalonia.OpenGL;
-using Avalonia.Win32;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+#if WINDOWS
+using Avalonia.Win32;
+using System.Collections.Generic;
+#endif
 
 namespace WorldBuilder.Desktop;
 
@@ -51,17 +55,22 @@ sealed class Program
 
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
+    {
+        var builder = AppBuilder.Configure<App>()
             .UsePlatformDetect()
-            .WithInterFont()
-            .With(new Win32PlatformOptions() {
-                RenderingMode = new List<Win32RenderingMode>()  {
-                    Win32RenderingMode.AngleEgl
-                },
+            .WithInterFont();
+
+#if WINDOWS
+        // Apply Windows-specific rendering options
+        builder = builder
+            .With(new Win32PlatformOptions {
+                RenderingMode = new List<Win32RenderingMode> { Win32RenderingMode.AngleEgl }
             })
-            .With(new AngleOptions
-            {
+            .With(new AngleOptions {
                 GlProfiles = new[] { new GlVersion(GlProfileType.OpenGLES, 3, 1) }
-            })
-            .LogToTrace();
+            });
+#endif
+
+        return builder.LogToTrace();
+    }
 }
