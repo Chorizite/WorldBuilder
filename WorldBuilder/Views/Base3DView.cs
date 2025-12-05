@@ -355,23 +355,18 @@ namespace WorldBuilder.Views {
                 _parent = parent;
             }
 
+            // On macOS, flip source Y and blit from 0,0 to fill entire viewport (dst has menu bar offset)
             private static void BlitFramebufferMacOS(Avalonia.OpenGL.IGlContext glContext, int srcWidth, int srcHeight, SKRectI dst) {
-                if (_debugLogOnce) {
-                    Console.WriteLine($"[Blit Debug] Src: {srcWidth}x{srcHeight}, Dst: L={dst.Left} T={dst.Top} R={dst.Right} B={dst.Bottom} W={dst.Width} H={dst.Height}");
-                    _debugLogOnce = false;
-                }
-
-                // On macOS, flip source Y and blit from 0,0 to fill entire viewport (dst has menu bar offset)
                 glContext.GlInterface.BlitFramebuffer(
-                    0, srcHeight, srcWidth, 0,  // Source Y flipped
-                    0, 0, dst.Width, dst.Height,  // Fill from 0,0
-                    GL_COLOR_BUFFER_BIT,
-                    GL_LINEAR
-                );
+                        0, srcHeight, srcWidth, 0,  // Source Y flipped
+                        0, 0, dst.Width, dst.Height,  // Fill from 0,0
+                        GL_COLOR_BUFFER_BIT,
+                        GL_LINEAR
+                    );
             }
 
+            // Windows/Linux: use dst rectangle as-is
             private static void BlitFramebufferDefault(Avalonia.OpenGL.IGlContext glContext, int srcWidth, int srcHeight, SKRectI dst) {
-                // Windows/Linux: use dst rectangle as-is
                 glContext.GlInterface.BlitFramebuffer(
                     0, 0, srcWidth, srcHeight,
                     dst.Left, dst.Top, dst.Right, dst.Bottom,
