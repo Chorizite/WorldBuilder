@@ -29,12 +29,13 @@ sealed class Program
 
             try
             {
-                Assembly currentAssembly = Assembly.GetExecutingAssembly();
-                string currentAssemblyPath = currentAssembly.Location.Replace(".dll", ".exe");
-
-                FileVersionInfo currentFvi = FileVersionInfo.GetVersionInfo(currentAssemblyPath);
-
-                App.Version = currentFvi?.ProductVersion ?? "0.0.0";
+                var assemblyPath = Assembly.GetExecutingAssembly().Location;
+                var versionPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                    ? Path.ChangeExtension(assemblyPath, ".exe")
+                    : assemblyPath;
+                App.ExecutablePath = versionPath;
+                App.Version = FileVersionInfo.GetVersionInfo(versionPath)?.ProductVersion ?? "0.0.0";
+                Console.WriteLine($"Executable: {App.Version}");
                 Console.WriteLine($"Version: {App.Version}");
             }
             catch { }
