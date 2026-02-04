@@ -5,7 +5,7 @@
     <description>Most recent changes with links to updates</description>
     <language>en</language>
     <item>
-      <title>WorldBuilder 0.1.2+14</title>
+      <title>WorldBuilder 0.1.2+15</title>
       <description>## What's Changed
 * 17 terraintype selection for landscape tools shouldnt show roadtype texture by @trevis in https://github.com/Chorizite/WorldBuilder/pull/21
 * chore: new changelog generation by @trevis in https://github.com/Chorizite/WorldBuilder/pull/22
@@ -21,16 +21,17 @@
 * Make WorldBuilder.Desktop run on macOS by @amoeba in https://github.com/Chorizite/WorldBuilder/pull/37
 * Fix rendering errors and bugs on macOS by @amoeba in https://github.com/Chorizite/WorldBuilder/pull/39
 * Platform projects by @trevis in https://github.com/Chorizite/WorldBuilder/pull/40
+* Windows installer / opengl fixes by @trevis in https://github.com/Chorizite/WorldBuilder/pull/41
 
 ## New Contributors
 * @amoeba made their first contribution in https://github.com/Chorizite/WorldBuilder/pull/38
 
 **Full Changelog**: https://github.com/Chorizite/WorldBuilder/compare/v0.1.1...latest</description>
-      <pubDate>Wed, 04 Feb 2026 21:42:00 +00:00</pubDate>
-      <sparkle:version>0.1.2+14</sparkle:version>
+      <pubDate>Wed, 04 Feb 2026 22:00:56 +00:00</pubDate>
+      <sparkle:version>0.1.2+15</sparkle:version>
       <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
       <sparkle:channel>edge</sparkle:channel>
-      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.2%2B14.exe" sparkle:version="0.1.2+14" sparkle:shortVersionString="0.1.2" length="20098079" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="vG9GJ1gpu/x+5gYpDHGRqJMoEZVuf7u32LZH48wsME8vSg2Ys2RMH+Qv36BYWeTIFuUbesdRzhB3HY7QUN26CA==" />
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.2%2B15.exe" sparkle:version="0.1.2+15" sparkle:shortVersionString="0.1.2" length="20098309" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="hkbPmybmFDx/05/bXahu6TE0v/J/E9My1ZGxzGQwtVBbvN60W0sTLGGDcs0VkNClYvR1f3dSGXdFMct4Lfr4Cg==" />
     </item>
     <item>
       <title>WorldBuilder 0.1.1</title>
