@@ -121,11 +121,14 @@
                 <StackPanel Orientation="Horizontal" Spacing="10">
                     <TextBlock FontSize="42" Text="WorldBuilder" />
                     <TextBlock
+                        MaxWidth="100"
                         Margin="0,0,0,8"
                         VerticalAlignment="Bottom"
                         FontSize="14"
                         Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
-                        Text="{Binding AppVersion}" />
+                        Text="{Binding AppVersion}"
+                        TextTrimming="CharacterEllipsis"
+                        ToolTip.Tip="{Binding AppVersion}" />
                 </StackPanel>
             </StackPanel>
 

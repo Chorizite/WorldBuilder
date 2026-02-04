@@ -345,8 +345,34 @@ namespace WorldBuilder.Views {
             public DateTime LastRenderTime { get; private set; } = DateTime.MinValue;
             public GL? SilkGl { get; private set; }
 
+            // Platform-specific blit coordinate calculation to avoid if statement in render loop
+            private delegate void BlitFramebufferDelegate(Avalonia.OpenGL.IGlContext glContext, int srcWidth, int srcHeight, SKRectI dst);
+            private static readonly BlitFramebufferDelegate _blitFramebuffer = OperatingSystem.IsMacOS()
+                ? BlitFramebufferMacOS
+                : BlitFramebufferDefault;
+
             public GlVisual(Base3DView parent) {
                 _parent = parent;
+            }
+
+            // On macOS, flip source Y and blit from 0,0 to fill entire viewport (dst has menu bar offset)
+            private static void BlitFramebufferMacOS(Avalonia.OpenGL.IGlContext glContext, int srcWidth, int srcHeight, SKRectI dst) {
+                glContext.GlInterface.BlitFramebuffer(
+                        0, srcHeight, srcWidth, 0,  // Source Y flipped
+                        0, 0, dst.Width, dst.Height,  // Fill from 0,0
+                        GL_COLOR_BUFFER_BIT,
+                        GL_LINEAR
+                    );
+            }
+
+            // Windows/Linux: use dst rectangle as-is
+            private static void BlitFramebufferDefault(Avalonia.OpenGL.IGlContext glContext, int srcWidth, int srcHeight, SKRectI dst) {
+                glContext.GlInterface.BlitFramebuffer(
+                    0, 0, srcWidth, srcHeight,
+                    dst.Left, dst.Top, dst.Right, dst.Bottom,
+                    GL_COLOR_BUFFER_BIT,
+                    GL_LINEAR
+                );
             }
 
             public override void OnRender(ImmediateDrawingContext drawingContext) {
@@ -414,12 +440,7 @@ namespace WorldBuilder.Views {
                                 var srcWidth = _parent.RenderTarget.Texture.Width;
                                 var srcHeight = _parent.RenderTarget.Texture.Height;
 
-                                glContext.GlInterface.BlitFramebuffer(
-                                    0, 0, srcWidth, srcHeight,
-                                    dst.Left, dst.Top, dst.Right, dst.Bottom,
-                                    GL_COLOR_BUFFER_BIT,
-                                    GL_LINEAR
-                                );
+                                _blitFramebuffer(glContext, srcWidth, srcHeight, dst);
                             }
                         }
 
