@@ -27,20 +27,20 @@ out vec4 vRoad1;
 out float vLightingFactor;
 out vec2 vWorldPos;
 
-vec4 unpackTexCoord(uvec4 packed) {
+vec4 unpackTexCoord(uvec4 packedCoords) {
     // packed.x contains the UV bits in the low byte
     // packed.z contains texIdx
     // packed.w contains alphaIdx
     
-    uint packedByte = packed.x;
+    uint packedByte = packedCoords.x;
     uint packedU = (packedByte >> 4u) & 3u;  // Extract bits 4-5
     uint packedV = (packedByte >> 6u) & 3u;  // Extract bits 6-7
     
     // Convert 0,1,2 back to -1,0,1
     float u = float(packedU) - 1.0;
     float v = float(packedV) - 1.0;
-    float texIdx = float(packed.z);
-    float alphaIdx = float(packed.w);
+    float texIdx = float(packedCoords.z);
+    float alphaIdx = float(packedCoords.w);
     
     // Check if texture is unused (255 = -1 in shader space)
     if (texIdx >= 254.0) {
