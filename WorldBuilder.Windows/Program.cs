@@ -59,9 +59,6 @@ sealed class Program
 
         // Apply Windows-specific rendering options
         builder = builder
-            .With(new Win32PlatformOptions {
-                RenderingMode = new List<Win32RenderingMode> { Win32RenderingMode.AngleEgl }
-            })
             .With(new AngleOptions {
                 GlProfiles = new[] { new GlVersion(GlProfileType.OpenGLES, 3, 1) }
             });
