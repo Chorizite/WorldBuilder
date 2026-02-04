@@ -11,7 +11,7 @@ using Avalonia.Win32;
 using System.Collections.Generic;
 #endif
 
-namespace WorldBuilder.Desktop;
+namespace WorldBuilder.Windows;
 
 sealed class Program
 {
@@ -35,9 +35,7 @@ sealed class Program
             try
             {
                 var assemblyPath = Assembly.GetExecutingAssembly().Location;
-                var versionPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                    ? Path.ChangeExtension(assemblyPath, ".exe")
-                    : assemblyPath;
+                var versionPath = Path.ChangeExtension(assemblyPath, ".exe");
                 App.ExecutablePath = versionPath;
                 App.Version = FileVersionInfo.GetVersionInfo(versionPath)?.ProductVersion ?? "0.0.0";
                 Console.WriteLine($"Executable: {App.Version}");
