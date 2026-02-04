@@ -158,7 +158,7 @@ namespace WorldBuilder.Editors.Landscape.Commands {
 
         public string Description => $"Move {_vm.Name}";
 
-        public bool CanExecute => _newParent == null || _vm.Model.Id != "terrain"; // Prevent moving base layer
+        public bool CanExecute => _vm.Model.Id != "terrain"; // Prevent moving base layer entirely
 
         public bool CanUndo => true;
 

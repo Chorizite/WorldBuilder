@@ -10,13 +10,22 @@ using WorldBuilder.Shared.Documents;
 using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Editors.Landscape {
+
+    [MemoryPackable]
+    public partial record LayerTerrainData {
+        // Store only modified cells instead of full landblock arrays
+        // Key: landblock ID, Value: dictionary mapping cell index to terrain data
+        public Dictionary<ushort, Dictionary<byte, uint>> Landblocks = new(0xFF * 0xFF);
+        public List<TerrainLayerBase>? RootItems { get; set; }
+    }
+
     public partial class LayerDocument : BaseDocument {
         const int LANDBLOCK_SIZE = 81;
 
         public override string Type => nameof(LayerDocument);
 
         [ObservableProperty]
-        private TerrainData _terrainData = new();
+        private LayerTerrainData _terrainData = new();
 
         private readonly ConcurrentDictionary<ushort, uint[]> _baseTerrainCache = new();
         private readonly HashSet<ushort> _dirtyLandblocks = new();
@@ -27,19 +36,20 @@ namespace WorldBuilder.Editors.Landscape {
         }
 
         public TerrainEntry[]? GetLandblockInternal(ushort lbKey) {
-            if (TerrainData.Landblocks.TryGetValue(lbKey, out var lbTerrain)) {
-                return ConvertToTerrainEntries(lbTerrain);
+            if (TerrainData.Landblocks.TryGetValue(lbKey, out var lbCells)) {
+                // Convert sparse cell data to full landblock array
+                var result = new TerrainEntry[LANDBLOCK_SIZE];
+                // Initialize with default values
+                for (int i = 0; i < result.Length; i++) {
+                    result[i] = new TerrainEntry(0);
+                }
+                // Apply only the modified cells
+                foreach (var (cellIndex, cellValue) in lbCells) {
+                    result[cellIndex] = new TerrainEntry(cellValue);
+                }
+                return result;
             }
             return null; // Layers don't use base cache; they are sparse
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static TerrainEntry[] ConvertToTerrainEntries(uint[] terrain) {
-            var result = new TerrainEntry[terrain.Length];
-            for (int i = 0; i < terrain.Length; i++) {
-                result[i] = new TerrainEntry(terrain[i]);
-            }
-            return result;
         }
 
         public void UpdateLandblockInternal(ushort lbKey, TerrainEntry[] newEntries, out HashSet<ushort> modifiedLandblocks) {
@@ -49,9 +59,13 @@ namespace WorldBuilder.Editors.Landscape {
 
             modifiedLandblocks = new HashSet<ushort>();
             var currentEntries = GetLandblockInternal(lbKey);
+
+            // Determine current state - get existing or create default
             if (currentEntries == null) {
                 currentEntries = new TerrainEntry[LANDBLOCK_SIZE];
-                TerrainData.Landblocks[lbKey] = new uint[LANDBLOCK_SIZE];
+                for (int i = 0; i < currentEntries.Length; i++) {
+                    currentEntries[i] = new TerrainEntry(0); // Initialize with default values
+                }
             }
 
             var changes = new Dictionary<byte, uint>();
@@ -78,9 +92,10 @@ namespace WorldBuilder.Editors.Landscape {
             var finalChanges = new Dictionary<ushort, Dictionary<byte, uint>>();
 
             foreach (var (lbKey, changes) in allChanges) {
-                if (!TerrainData.Landblocks.TryGetValue(lbKey, out var lbTerrain)) {
-                    lbTerrain = new uint[LANDBLOCK_SIZE];
-                    TerrainData.Landblocks[lbKey] = lbTerrain;
+                // Get or create the cell dictionary for this landblock
+                if (!TerrainData.Landblocks.TryGetValue(lbKey, out var lbCells)) {
+                    lbCells = new Dictionary<byte, uint>();
+                    TerrainData.Landblocks[lbKey] = lbCells;
                 }
 
                 if (!finalChanges.TryGetValue(lbKey, out var lbChanges)) {
@@ -125,10 +140,27 @@ namespace WorldBuilder.Editors.Landscape {
             var startLbY = baseLbKey & 0xFF;
 
             void AddChange(ushort neighborLbKey, int neighborVertIdx, TerrainEntry sourceEntry) {
+                // For edge synchronization, we need to check against what currently exists in the layer
+                // If the neighbor landblock doesn't exist in this layer yet, we need to get the base terrain value
                 var neighbor = GetLandblockInternal(neighborLbKey);
+                var hasNeighborInLayer = TerrainData.Landblocks.ContainsKey(neighborLbKey);
+
+                // If the neighbor doesn't exist in this layer, we need to compare against base terrain
+                // But for this sparse approach, we should only sync if the neighbor has been modified in this layer
+                if (neighbor == null && !hasNeighborInLayer) {
+                    // Neighbor doesn't exist in this layer, so we don't need to sync to it
+                    // This maintains true sparsity - only sync where data already exists in layer
+                    return;
+                }
+
+                // If we have existing data in the layer for the neighbor, use it
                 if (neighbor == null) {
+                    // This means we have an entry in TerrainData.Landblocks but GetLandblockInternal returned null
+                    // This shouldn't normally happen, but if it does, create default
                     neighbor = new TerrainEntry[LANDBLOCK_SIZE];
-                    TerrainData.Landblocks[neighborLbKey] = new uint[LANDBLOCK_SIZE];
+                    for (int i = 0; i < neighbor.Length; i++) {
+                        neighbor[i] = new TerrainEntry(0);
+                    }
                 }
 
                 if (!allChanges.TryGetValue(neighborLbKey, out var changes)) {
@@ -208,13 +240,26 @@ namespace WorldBuilder.Editors.Landscape {
             MarkDirty();
             lock (_stateLock) {
                 foreach (var (lbKey, updates) in evt.Changes) {
-                    if (!TerrainData.Landblocks.TryGetValue(lbKey, out var lbTerrain)) {
-                        lbTerrain = new uint[LANDBLOCK_SIZE];
-                        TerrainData.Landblocks[lbKey] = lbTerrain;
+                    // Get or create the cell dictionary for this landblock
+                    if (!TerrainData.Landblocks.TryGetValue(lbKey, out var lbCells)) {
+                        lbCells = new Dictionary<byte, uint>();
+                        TerrainData.Landblocks[lbKey] = lbCells;
                     }
 
                     foreach (var (index, value) in updates) {
-                        lbTerrain[index] = value;
+                        // Only store non-default values to maintain sparsity
+                        var defaultValue = new TerrainEntry(0);
+                        var newValue = new TerrainEntry(value);
+                        if (!defaultValue.Equals(newValue)) {
+                            lbCells[index] = value;
+                        } else {
+                            // If setting to default value, remove from sparse storage
+                            lbCells.Remove(index);
+                            // If no cells remain in this landblock, remove the landblock entry entirely
+                            if (lbCells.Count == 0) {
+                                TerrainData.Landblocks.Remove(lbKey);
+                            }
+                        }
                     }
 
                     lock (_dirtyLock) {
@@ -237,7 +282,7 @@ namespace WorldBuilder.Editors.Landscape {
         }
 
         protected override bool LoadFromProjectionInternal(byte[] projection) {
-            TerrainData = MemoryPackSerializer.Deserialize<TerrainData>(projection) ?? new TerrainData();
+            TerrainData = MemoryPackSerializer.Deserialize<LayerTerrainData>(projection) ?? new LayerTerrainData();
             return true;
         }
 

@@ -5,6 +5,7 @@
     xmlns:conv="using:WorldBuilder.Lib.Converters"
     xmlns:i="using:Avalonia.Xaml.Interactivity"
     xmlns:ia="using:Avalonia.Xaml.Interactions.Core"
+    xmlns:behaviors="using:Avalonia.Xaml.Interactions.DragAndDrop"
     xmlns:vm="using:WorldBuilder.Editors.Landscape.ViewModels"
     x:DataType="vm:LayersViewModel">
     <UserControl.Styles>
@@ -61,7 +62,9 @@
                     SelectedItem="{Binding SelectedItem, Mode=TwoWay}">
                     <TreeView.ItemTemplate>
                         <TreeDataTemplate DataType="vm:LayerTreeItemViewModel" ItemsSource="{Binding Children}">
-                            <StackPanel Orientation="Horizontal" Spacing="5">
+                            <StackPanel Orientation="Horizontal" Spacing="5"
+                                        Name="DragHandle"
+                                        PointerPressed="ItemPointerPressed">
                                 <!--  Layer/Group/Base Icon  -->
                                 <TextBlock
                                     Width="16"

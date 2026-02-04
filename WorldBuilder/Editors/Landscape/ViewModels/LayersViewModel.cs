@@ -1,4 +1,7 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DialogHostAvalonia;
 using System;
@@ -40,6 +43,8 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
                 }
             };
         }
+
+        public CommandHistory GetCommandHistory() => _commandHistory;
 
         public void RefreshItems() {
             _isUpdating = true;
@@ -158,12 +163,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             RefreshItems();
         }
 
-        [RelayCommand]
-        private void DragOver(object dragEventArgs) {
-            // Placeholder for drag-over validation
-            // Should check if the drop target is valid (e.g., prevent moving Base layer or placing it in a group)
-            // Requires access to DragEventArgs to set e.DragEffects = DragDropEffects.None for invalid targets
-        }
 
         private (LayerTreeItemViewModel? Parent, int Index) GetInsertPosition(bool forGroup) {
             if (SelectedItem == null) return (null, 0);
