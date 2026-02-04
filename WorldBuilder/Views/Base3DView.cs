@@ -347,9 +347,9 @@ namespace WorldBuilder.Views {
 
             // Platform-specific blit coordinate calculation to avoid if statement in render loop
             private delegate void BlitFramebufferDelegate(Avalonia.OpenGL.IGlContext glContext, int srcWidth, int srcHeight, SKRectI dst);
-            private static readonly BlitFramebufferDelegate _blitFramebuffer = OperatingSystem.IsMacOS()
-                ? BlitFramebufferMacOS
-                : BlitFramebufferDefault;
+            private static readonly BlitFramebufferDelegate _blitFramebuffer = OperatingSystem.IsWindows()
+                ? BlitFramebufferDefault
+                : BlitFramebufferMacOS;
 
             public GlVisual(Base3DView parent) {
                 _parent = parent;

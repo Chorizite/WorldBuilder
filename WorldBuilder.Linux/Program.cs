@@ -6,8 +6,10 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Avalonia.Controls;
+using Avalonia.OpenGL.Egl;
 
-namespace WorldBuilder.Mac;
+namespace WorldBuilder.Linux;
 
 sealed class Program
 {

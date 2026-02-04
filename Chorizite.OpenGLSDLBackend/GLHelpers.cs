@@ -61,7 +61,6 @@ namespace Chorizite.OpenGLSDLBackend {
         /// Gets detailed information about the current texture state for debugging
         /// </summary>
         public static string GetTextureDebugInfo(GL gl, GLEnum target) {
-            return string.Empty;
             var info = new System.Text.StringBuilder();
             info.AppendLine($"Texture Debug Info for {target}:");
 
@@ -103,7 +102,6 @@ namespace Chorizite.OpenGLSDLBackend {
         /// </summary>
         public static bool ValidateTextureMipmapStatus(GL gl, GLEnum target, out string errorMessage) {
             errorMessage = string.Empty;
-            return true;
 
             try {
                 uint boundTexture = (uint)gl.GetInteger(GetPName.TextureBinding2DArray);
