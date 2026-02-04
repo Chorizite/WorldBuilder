@@ -6,10 +6,8 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-#if WINDOWS
 using Avalonia.Win32;
 using System.Collections.Generic;
-#endif
 
 namespace WorldBuilder.Windows;
 
@@ -59,16 +57,11 @@ sealed class Program
             .UsePlatformDetect()
             .WithInterFont();
 
-#if WINDOWS
         // Apply Windows-specific rendering options
         builder = builder
-            .With(new Win32PlatformOptions {
-                RenderingMode = new List<Win32RenderingMode> { Win32RenderingMode.AngleEgl }
-            })
             .With(new AngleOptions {
                 GlProfiles = new[] { new GlVersion(GlProfileType.OpenGLES, 3, 1) }
             });
-#endif
 
         return builder.LogToTrace();
     }

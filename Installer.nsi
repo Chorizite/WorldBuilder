@@ -30,7 +30,7 @@ RequestExecutionLevel admin
 !define MUI_WELCOMEPAGE_TEXT "Welcome to the ${PRODUCT} Setup Wizard. This will install ${PRODUCT} ${VERSION} on your computer. Click Next to continue."
 !define MUI_FINISHPAGE_TITLE "${PRODUCT} Installation Complete"
 !define MUI_FINISHPAGE_TEXT "Thank you for installing ${PRODUCT}! The application has been successfully installed. Click Finish to close this wizard."
-!define MUI_FINISHPAGE_RUN "$INSTDIR\WorldBuilder.Desktop.exe"
+!define MUI_FINISHPAGE_RUN "$INSTDIR\WorldBuilder.Windows.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Run ${PRODUCT} now"
 
 ;-------------------------------- ; Installer Pages
@@ -85,7 +85,7 @@ CreateDirectory "$SMPROGRAMS\${PRODUCT}"
 
 ; Create shortcuts
 CreateShortcut "$SMPROGRAMS\${PRODUCT}\Uninstall.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0
-CreateShortcut "$SMPROGRAMS\${PRODUCT}\${PRODUCT}.lnk" "$INSTDIR\WorldBuilder.Desktop.exe" "" "$INSTDIR\WorldBuilder.Desktop.exe" 0
+CreateShortcut "$SMPROGRAMS\${PRODUCT}\${PRODUCT}.lnk" "$INSTDIR\WorldBuilder.Windows.exe" "" "$INSTDIR\WorldBuilder.Windows.exe" 0
 
 SectionEnd
 
