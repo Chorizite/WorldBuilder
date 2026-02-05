@@ -181,7 +181,7 @@ namespace WorldBuilder.Editors.Landscape {
         public override async Task UnloadDocumentAsync(string documentId) {
             if (documentId == "terrain") return; // Never unload terrain
 
-            await base.UnloadDocumentAsync(documentId);
+            await base.UnloadDocumentAsync(documentId).ConfigureAwait(false);
         }
 
         public void Update(Vector3 cameraPosition, Matrix4x4 viewProjectionMatrix) {

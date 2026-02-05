@@ -28,7 +28,8 @@ namespace WorldBuilder.Editors {
             return result as T;
         }
 
-        public virtual async Task<BaseDocument?> LoadDocumentAsync(string documentId, Type documentType, bool forceReload = false) {
+        public virtual async Task<BaseDocument?> LoadDocumentAsync(string documentId, Type documentType,
+            bool forceReload = false) {
             Console.WriteLine($"Loading document {documentId}");
             if (!forceReload && ActiveDocuments.TryGetValue(documentId, out var doc)) {
                 return doc;
@@ -39,24 +40,27 @@ namespace WorldBuilder.Editors {
                 ActiveDocuments[documentId] = loadedDoc;
                 DocumentLoaded?.Invoke(this, new DocumentEventArgs(documentId, loadedDoc));
             }
+
             return loadedDoc;
         }
 
         public virtual async Task UnloadDocumentAsync(string documentId) {
             if (ActiveDocuments.TryRemove(documentId, out var doc)) {
-                await DocumentManager.CloseDocumentAsync(documentId);
+                await DocumentManager.CloseDocumentAsync(documentId).ConfigureAwait(false);
                 DocumentUnloaded?.Invoke(this, new DocumentEventArgs(documentId, doc));
             }
         }
 
         public IEnumerable<BaseDocument> GetActiveDocuments() => ActiveDocuments.Values;
 
-        public BaseDocument? GetDocument(string documentId) => ActiveDocuments.TryGetValue(documentId, out var doc) ? doc : null;
+        public BaseDocument? GetDocument(string documentId) =>
+            ActiveDocuments.TryGetValue(documentId, out var doc) ? doc : null;
 
         public virtual void Dispose() {
             foreach (var docId in ActiveDocuments.Keys.ToArray()) {
                 UnloadDocumentAsync(docId).GetAwaiter().GetResult();
             }
+
             ActiveDocuments.Clear();
         }
     }
