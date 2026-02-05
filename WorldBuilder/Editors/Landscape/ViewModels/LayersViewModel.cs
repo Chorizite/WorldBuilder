@@ -31,8 +31,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         public LayerTreeItemViewModel? SelectedItem {
             get => _selectedItem;
             set {
-                if (value?.IsGroup == true) return;
-
                 if (SetProperty(ref _selectedItem, value)) {
                     OnSelectedItemChanged(value);
                 }
@@ -50,13 +48,22 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         }
 
         private void OnSelectedItemChanged(LayerTreeItemViewModel? value) {
+            _ = OnSelectedItemChangedAsync(value);
+        }
+
+        private async Task OnSelectedItemChangedAsync(LayerTreeItemViewModel? value) {
             if (_isUpdating) return;
             if (value is null || value.IsBase) {
                 _terrainSystem.EditingContext.CurrentLayerDoc = _terrainSystem.TerrainDoc;
             }
             else if (value.IsLayer) {
-                _terrainSystem.EditingContext.CurrentLayerDoc = _terrainSystem
-                    .LoadDocumentAsync<LayerDocument>(value.Model.Id).GetAwaiter().GetResult();
+                // Ensure we don't block the UI thread waiting for the lock
+                var doc = await _terrainSystem.LoadDocumentAsync<LayerDocument>(value.Model.Id);
+
+                // Verify the selection is still the same (user didn't click something else while loading)
+                if (SelectedItem?.Model?.Id == value?.Model.Id) {
+                    _terrainSystem.EditingContext.CurrentLayerDoc = doc;
+                }
             }
         }
 
@@ -166,7 +173,11 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         private async Task NewLayer() {
             var newId = $"layer_{Guid.NewGuid():N}";
             await _terrainSystem.LoadDocumentAsync<LayerDocument>(newId);
-            var newLayer = new TerrainLayer { Id = newId, Name = "New Layer", DocumentId = newId };
+
+            var existingNames = Items.SelectMany(x => GetFlatList(x)).Select(x => x.Name).ToHashSet();
+            var newName = GetUniqueName("New Layer", existingNames);
+
+            var newLayer = new TerrainLayer { Id = newId, Name = newName, DocumentId = newId };
             var (parent, index) = GetInsertPosition(false);
             var command = new AddLayerItemCommand(_terrainSystem.TerrainDoc, newLayer, index,
                 parent?.Model as TerrainLayerGroup);
@@ -184,7 +195,11 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         [RelayCommand]
         private void NewGroup(LayerTreeItemViewModel? item = null) {
             var newId = $"group_{Guid.NewGuid():N}";
-            var newGroup = new TerrainLayerGroup { Id = newId, Name = "New Group" };
+
+            var existingNames = Items.SelectMany(x => GetFlatList(x)).Select(x => x.Name).ToHashSet();
+            var newName = GetUniqueName("New Group", existingNames);
+
+            var newGroup = new TerrainLayerGroup { Id = newId, Name = newName };
             var (parent, index) = GetInsertPosition(true, item);
             var command = new AddLayerItemCommand(_terrainSystem.TerrainDoc, newGroup, index,
                 parent?.Model as TerrainLayerGroup);
@@ -195,6 +210,31 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             var newItem = FindItemById(Items, newId);
             if (newItem != null) {
                 // Groups can no longer be selected, but we might want to expand to show it or something
+            }
+        }
+
+        private IEnumerable<LayerTreeItemViewModel> GetFlatList(LayerTreeItemViewModel item) {
+            yield return item;
+            foreach (var child in item.Children) {
+                foreach (var sub in GetFlatList(child)) {
+                    yield return sub;
+                }
+            }
+        }
+
+        private string GetUniqueName(string baseName, HashSet<string> existingNames) {
+            if (!existingNames.Contains(baseName)) {
+                return baseName;
+            }
+
+            int i = 1;
+            while (true) {
+                var name = $"{baseName} {i}";
+                if (!existingNames.Contains(name)) {
+                    return name;
+                }
+
+                i++;
             }
         }
 

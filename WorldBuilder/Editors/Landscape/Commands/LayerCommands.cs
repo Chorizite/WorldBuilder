@@ -102,8 +102,13 @@ namespace WorldBuilder.Editors.Landscape.Commands {
             var ids = _documentIds.ToList();
             var terrainSystem = _vm.Owner._terrainSystem;
             Task.Run(async () => {
-                foreach (var id in ids) {
-                    await terrainSystem.UnloadDocumentAsync(id);
+                try {
+                    foreach (var id in ids) {
+                        await terrainSystem.UnloadDocumentAsync(id);
+                    }
+                }
+                catch (Exception ex) {
+                    Console.WriteLine($"Error unloading documents: {ex}");
                 }
             });
         }
@@ -179,9 +184,11 @@ namespace WorldBuilder.Editors.Landscape.Commands {
         private readonly string _newParentId; // "terrain" for root
         private readonly int _newIndex;
         private readonly TerrainDocument _doc;
+        private readonly TerrainSystem _terrainSystem;
 
         public MoveLayerItemCommand(LayerTreeItemViewModel vm, LayerTreeItemViewModel? newParent, int newIndex) {
-            _doc = vm.Owner._terrainSystem.TerrainDoc;
+            _terrainSystem = vm.Owner._terrainSystem;
+            _doc = _terrainSystem.TerrainDoc;
             _layerId = vm.Model.Id;
 
             var oldParent = vm.Parent?.Model as TerrainLayerGroup;
@@ -264,6 +271,7 @@ namespace WorldBuilder.Editors.Landscape.Commands {
             destList.Insert(index, item);
 
             _doc.ForceSave();
+            _terrainSystem.RefreshLayers();
             return true;
         }
 
@@ -283,6 +291,7 @@ namespace WorldBuilder.Editors.Landscape.Commands {
             destList.Insert(index, item);
 
             _doc.ForceSave();
+            _terrainSystem.RefreshLayers();
             return true;
         }
     }

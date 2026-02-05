@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using System.Collections.ObjectModel;
+using System.Linq;
 using WorldBuilder.Editors.Landscape.Commands;
 using WorldBuilder.Editors.Landscape.ViewModels;
 
@@ -51,20 +52,67 @@ public partial class LayersView : UserControl {
     }
 
     private void TreeViewItemDragOver(object sender, DragEventArgs e) {
-        if (DataContext is LayersViewModel layersViewModel) {
+        if (DataContext is LayersViewModel) {
             var sourceItem = GetLayerItemFromData(e.Data);
             var targetItem = FindLayerTreeItemViewModel(sender as Control);
 
             if (sourceItem != null && targetItem != null) {
-                // Prevent moving base layer or moving base into a group
-                if (sourceItem.IsBase || targetItem.IsBase) {
+                // Prevent moving base layer
+                if (sourceItem.IsBase) {
                     e.DragEffects = DragDropEffects.None;
+                    ClearVisualFeedback(sender as Control);
                     return;
                 }
+
                 if (sourceItem == targetItem || IsDescendant(sourceItem, targetItem)) {
                     e.DragEffects = DragDropEffects.None;
+                    ClearVisualFeedback(sender as Control);
                     return;
                 }
+
+                var targetControl = sender as Control;
+                var position = e.GetPosition(targetControl);
+                var height = targetControl?.Bounds.Height ?? 0;
+                var (_, insertionType) = GetDropTarget(targetItem, position, height);
+                UpdateVisualFeedback(targetControl, insertionType);
+            }
+        }
+    }
+
+    private void TreeViewItemDragLeave(object sender, DragEventArgs e) {
+        ClearVisualFeedback(sender as Control);
+    }
+
+    private void ClearVisualFeedback(Control? control) {
+        if (control is Panel panel) {
+            foreach (var child in panel.Children.OfType<Border>()) {
+                if (child.Name == "DropBeforeIndicator" ||
+                    child.Name == "DropAfterIndicator" ||
+                    child.Name == "DropIntoIndicator") {
+                    child.IsVisible = false;
+                }
+            }
+        }
+    }
+
+    private void UpdateVisualFeedback(Control? control, InsertionType insertionType) {
+        ClearVisualFeedback(control);
+        if (control is Panel panel) {
+            Border? indicator = null;
+            switch (insertionType) {
+                case InsertionType.Before:
+                    indicator = panel.Children.OfType<Border>().FirstOrDefault(c => c.Name == "DropBeforeIndicator");
+                    break;
+                case InsertionType.After:
+                    indicator = panel.Children.OfType<Border>().FirstOrDefault(c => c.Name == "DropAfterIndicator");
+                    break;
+                case InsertionType.AsChild:
+                    indicator = panel.Children.OfType<Border>().FirstOrDefault(c => c.Name == "DropIntoIndicator");
+                    break;
+            }
+
+            if (indicator != null) {
+                indicator.IsVisible = true;
             }
         }
     }
@@ -74,22 +122,26 @@ public partial class LayersView : UserControl {
             var sourceItem = GetLayerItemFromData(e.Data);
             var targetItem = FindLayerTreeItemViewModel(sender as Control);
 
-            if (sourceItem != null && targetItem != null && !sourceItem.IsBase && !targetItem.IsBase &&
+            if (sourceItem != null && targetItem != null && !sourceItem.IsBase &&
                 sourceItem != targetItem &&
                 !IsDescendant(sourceItem, targetItem)) {
+                var targetControl = sender as Control;
+                var position = e.GetPosition(targetControl);
+                var height = targetControl?.Bounds.Height ?? 0;
+
                 // Find the target parent and index
-                var (newParent, insertionType) = GetDropTarget(targetItem);
+                var (newParent, insertionType) = GetDropTarget(targetItem, position, height);
 
-                if (newParent != null) {
-                    // Calculate the new index based on the insertion type
-                    int newIndex = CalculateNewIndex(sourceItem, targetItem, newParent, insertionType);
+                ClearVisualFeedback(targetControl);
 
-                    if (newParent != sourceItem.Parent ||
-                        newIndex != GetItemIndexInParent(sourceItem, sourceItem.Owner.Items)) {
-                        var command = new MoveLayerItemCommand(sourceItem, newParent, newIndex);
-                        layersViewModel.GetCommandHistory().ExecuteCommand(command);
-                        layersViewModel.RefreshItems();
-                    }
+                // Calculate the new index based on the insertion type
+                int newIndex = CalculateNewIndex(sourceItem, targetItem, newParent, insertionType);
+
+                if (newParent != sourceItem.Parent ||
+                    newIndex != GetItemIndexInParent(sourceItem, sourceItem.Owner.Items)) {
+                    var command = new MoveLayerItemCommand(sourceItem, newParent, newIndex);
+                    layersViewModel.GetCommandHistory().ExecuteCommand(command);
+                    layersViewModel.RefreshItems();
                 }
             }
         }
@@ -114,13 +166,20 @@ public partial class LayersView : UserControl {
         return false;
     }
 
-    private (LayerTreeItemViewModel? NewParent, InsertionType Type) GetDropTarget(LayerTreeItemViewModel targetItem) {
-        // For now, if dropping on a group, insert as child; otherwise, insert before
+    private (LayerTreeItemViewModel? NewParent, InsertionType Type) GetDropTarget(LayerTreeItemViewModel targetItem,
+        Point position, double height) {
+        if (targetItem.IsBase) {
+            return (targetItem.Parent, InsertionType.Before);
+        }
+
         if (targetItem.IsGroup) {
+            if (position.Y < height * 0.25) return (targetItem.Parent, InsertionType.Before);
+            if (position.Y > height * 0.75) return (targetItem.Parent, InsertionType.After);
             return (targetItem, InsertionType.AsChild);
         }
         else {
-            return (targetItem.Parent, InsertionType.Before);
+            if (position.Y < height * 0.5) return (targetItem.Parent, InsertionType.Before);
+            return (targetItem.Parent, InsertionType.After);
         }
     }
 
