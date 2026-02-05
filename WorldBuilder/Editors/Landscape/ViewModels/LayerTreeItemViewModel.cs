@@ -10,17 +10,13 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         public LayerTreeItemViewModel? Parent { get; }
         public bool IsBase { get; set; }
 
-        [ObservableProperty]
-        private string _name;
+        [ObservableProperty] private string _name;
 
-        [ObservableProperty]
-        private bool _isVisible;
+        [ObservableProperty] private bool _isVisible;
 
-        [ObservableProperty]
-        private bool _isExport;
+        [ObservableProperty] private bool _isExport;
 
-        [ObservableProperty]
-        private bool _isExpanded = true;
+        [ObservableProperty] private bool _isExpanded = true;
 
         public bool IsLayer => Model is TerrainLayer;
         public bool IsGroup => Model is TerrainLayerGroup;
@@ -34,21 +30,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             _name = model.Name;
             _isVisible = model.IsVisible;
             _isExport = model.IsExport;
-        }
-
-        partial void OnNameChanged(string value) {
-            Model.Name = value;
-            Owner.RefreshItems();
-        }
-
-        partial void OnIsVisibleChanged(bool value) {
-            Model.IsVisible = value;
-            Owner.ToggleVisibility(this);
-        }
-
-        partial void OnIsExportChanged(bool value) {
-            Model.IsExport = value;
-            Owner.ToggleExport(this);
         }
     }
 }

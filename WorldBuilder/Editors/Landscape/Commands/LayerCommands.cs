@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using WorldBuilder.Editors.Landscape.Commands;
@@ -74,11 +74,12 @@ namespace WorldBuilder.Editors.Landscape.Commands {
 
         public string Description => $"Delete {_item.Name}";
 
-        public bool CanExecute => true;
+        public bool CanExecute => !_vm.IsBase;
 
         public bool CanUndo => true;
 
-        public List<string> AffectedDocumentIds => _documentIds.Concat(new[] { _vm.Owner._terrainSystem.TerrainDoc.Id }).ToList();
+        public List<string> AffectedDocumentIds =>
+            _documentIds.Concat(new[] { _vm.Owner._terrainSystem.TerrainDoc.Id }).ToList();
 
         public bool Execute() {
             var list = _parent != null ? _parent.Children : _vm.Owner._terrainSystem.TerrainDoc.TerrainData.RootItems;
@@ -110,12 +111,14 @@ namespace WorldBuilder.Editors.Landscape.Commands {
     }
 
     public class RenameLayerItemCommand : ICommand {
-        private readonly LayerTreeItemViewModel _vm;
+        private readonly TerrainDocument _doc;
+        private readonly string _layerId;
         private readonly string _oldName;
         private readonly string _newName;
 
         public RenameLayerItemCommand(LayerTreeItemViewModel vm, string oldName, string newName) {
-            _vm = vm;
+            _doc = vm.Owner._terrainSystem.TerrainDoc;
+            _layerId = vm.Model.Id;
             _oldName = oldName;
             _newName = newName;
         }
@@ -126,60 +129,155 @@ namespace WorldBuilder.Editors.Landscape.Commands {
 
         public bool CanUndo => true;
 
-        public List<string> AffectedDocumentIds => new() { _vm.Owner._terrainSystem.TerrainDoc.Id };
+        public List<string> AffectedDocumentIds => new() { _doc.Id };
+
+        private TerrainLayerBase? FindLayer(string id) {
+            return FindLayerRecursive(_doc.TerrainData.RootItems, id);
+        }
+
+        private TerrainLayerBase? FindLayerRecursive(IEnumerable<TerrainLayerBase> items, string id) {
+            if (items == null) return null;
+            foreach (var item in items) {
+                if (item.Id == id) return item;
+                if (item is TerrainLayerGroup group) {
+                    var found = FindLayerRecursive(group.Children, id);
+                    if (found != null) return found;
+                }
+            }
+
+            return null;
+        }
 
         public bool Execute() {
-            _vm.Model.Name = _newName;
-            _vm.Owner._terrainSystem.TerrainDoc.ForceSave();
+            var item = FindLayer(_layerId);
+            if (item == null) return false;
+
+            item.Name = _newName;
+            _doc.ForceSave();
             return true;
         }
 
         public bool Undo() {
-            _vm.Model.Name = _oldName;
-            _vm.Owner._terrainSystem.TerrainDoc.ForceSave();
+            var item = FindLayer(_layerId);
+            if (item == null) return false;
+
+            item.Name = _oldName;
+            _doc.ForceSave();
             return true;
         }
     }
 
     public class MoveLayerItemCommand : ICommand {
-        private readonly LayerTreeItemViewModel _vm;
-        private readonly TerrainLayerGroup? _oldParent;
+        private readonly string _layerId;
+        private readonly string _oldParentId; // "terrain" for root
         private readonly int _oldIndex;
-        private readonly TerrainLayerGroup? _newParent;
+        private readonly string _newParentId; // "terrain" for root
         private readonly int _newIndex;
+        private readonly TerrainDocument _doc;
 
         public MoveLayerItemCommand(LayerTreeItemViewModel vm, LayerTreeItemViewModel? newParent, int newIndex) {
-            _vm = vm;
-            _oldParent = vm.Parent?.Model as TerrainLayerGroup;
-            _oldIndex = vm.Parent?.Children.IndexOf(vm) ?? vm.Owner.Items.IndexOf(vm);
-            _newParent = newParent?.Model as TerrainLayerGroup;
+            _doc = vm.Owner._terrainSystem.TerrainDoc;
+            _layerId = vm.Model.Id;
+
+            var oldParent = vm.Parent?.Model as TerrainLayerGroup;
+            _oldParentId = oldParent?.Id ?? "terrain";
+            _oldIndex = vm.Parent?.Children.IndexOf(vm) ??
+                        vm.Owner.Items.IndexOf(vm); // Use VM index as accurate proxy for UI state
+
+            var newParentGroup = newParent?.Model as TerrainLayerGroup;
+            _newParentId = newParentGroup?.Id ?? "terrain";
             _newIndex = newIndex;
         }
 
-        public string Description => $"Move {_vm.Name}";
+        public string Description => $"Move Layer";
 
-        public bool CanExecute => _vm.Model.Id != "terrain"; // Prevent moving base layer entirely
+        public bool CanExecute => _layerId != "terrain";
 
         public bool CanUndo => true;
 
-        public List<string> AffectedDocumentIds => new() { _vm.Owner._terrainSystem.TerrainDoc.Id };
+        public List<string> AffectedDocumentIds => new() { _doc.Id };
+
+        private TerrainLayerBase? FindLayer(string id) {
+            return FindLayerRecursive(_doc.TerrainData.RootItems, id);
+        }
+
+        private TerrainLayerBase? FindLayerRecursive(IEnumerable<TerrainLayerBase> items, string id) {
+            if (items == null) return null;
+            foreach (var item in items) {
+                if (item.Id == id) return item;
+                if (item is TerrainLayerGroup group) {
+                    var found = FindLayerRecursive(group.Children, id);
+                    if (found != null) return found;
+                }
+            }
+
+            return null;
+        }
+
+        private List<TerrainLayerBase>
+            GetListAndRemoveItem(string parentId, string itemId, out TerrainLayerBase? item) {
+            List<TerrainLayerBase> list;
+            if (parentId == "terrain") {
+                list = _doc.TerrainData.RootItems;
+            }
+            else {
+                var group = FindLayer(parentId) as TerrainLayerGroup;
+                list = group?.Children ??
+                       _doc.TerrainData.RootItems; // Fallback to root if group not found? Should warn.
+            }
+
+            item = null;
+            return list;
+        }
+
+        private List<TerrainLayerBase>? GetChildrenList(string parentId) {
+            if (parentId == "terrain") return _doc.TerrainData.RootItems;
+            var group = FindLayer(parentId) as TerrainLayerGroup;
+            return group?.Children;
+        }
 
         public bool Execute() {
-            if (!CanExecute) return false;
-            var oldList = _oldParent?.Children ?? _vm.Owner._terrainSystem.TerrainDoc.TerrainData.RootItems;
-            oldList.Remove(_vm.Model);
-            var newList = _newParent?.Children ?? _vm.Owner._terrainSystem.TerrainDoc.TerrainData.RootItems;
-            newList.Insert(_newIndex, _vm.Model);
-            _vm.Owner._terrainSystem.TerrainDoc.ForceSave();
+            var item = FindLayer(_layerId);
+            if (item == null) return false;
+
+            var sourceList = GetChildrenList(_oldParentId);
+            if (sourceList == null || !sourceList.Contains(item)) {
+                if (sourceList != null && !sourceList.Remove(item)) {
+                    // Not found in expected old parent.
+                    return false;
+                }
+            }
+            else {
+                sourceList.Remove(item);
+            }
+
+            var destList = GetChildrenList(_newParentId);
+            if (destList == null) return false;
+
+            // Clamp index
+            var index = Math.Clamp(_newIndex, 0, destList.Count);
+            destList.Insert(index, item);
+
+            _doc.ForceSave();
             return true;
         }
 
         public bool Undo() {
-            var newList = _newParent?.Children ?? _vm.Owner._terrainSystem.TerrainDoc.TerrainData.RootItems;
-            newList.Remove(_vm.Model);
-            var oldList = _oldParent?.Children ?? _vm.Owner._terrainSystem.TerrainDoc.TerrainData.RootItems;
-            oldList.Insert(_oldIndex, _vm.Model);
-            _vm.Owner._terrainSystem.TerrainDoc.ForceSave();
+            var item = FindLayer(_layerId);
+            if (item == null) return false;
+
+            var sourceList = GetChildrenList(_newParentId);
+            if (sourceList != null) {
+                sourceList.Remove(item);
+            }
+
+            var destList = GetChildrenList(_oldParentId);
+            if (destList == null) return false;
+
+            var index = Math.Clamp(_oldIndex, 0, destList.Count);
+            destList.Insert(index, item);
+
+            _doc.ForceSave();
             return true;
         }
     }

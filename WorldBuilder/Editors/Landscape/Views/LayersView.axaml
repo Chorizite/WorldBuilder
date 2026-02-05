@@ -9,8 +9,10 @@
     xmlns:vm="using:WorldBuilder.Editors.Landscape.ViewModels"
     x:DataType="vm:LayersViewModel">
     <UserControl.Styles>
-        <Style Selector="TreeViewItem">
+        <Style Selector="TreeViewItem" x:DataType="vm:LayerTreeItemViewModel">
             <Setter Property="Padding" Value="4" />
+            <Setter Property="Focusable" Value="{Binding IsGroup, Converter={x:Static conv:BoolConverters.Not}}" />
+            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
         </Style>
         <Style Selector="TreeViewItem.base">
             <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundAltMediumBrush}" />
@@ -27,139 +29,135 @@
         </Style>
     </UserControl.Styles>
     <DockPanel Height="200" LastChildFill="True">
-        <StackPanel Orientation="Vertical">
-            <!--  Toolbar  -->
-            <StackPanel
-                Margin="5"
-                HorizontalAlignment="Right"
-                DockPanel.Dock="Top"
-                Orientation="Horizontal"
-                Spacing="5">
-                <Button
-                    Command="{Binding NewLayerCommand}"
-                    Content="➕"
-                    ToolTip.Tip="New Layer" />
-                <Button
-                    Command="{Binding NewGroupCommand}"
-                    Content="📁"
-                    ToolTip.Tip="New Group" />
-                <Button
-                    Command="{Binding DeleteSelectedCommand}"
-                    Content="🗑️"
-                    IsEnabled="{Binding SelectedItem.IsBase, Converter={x:Static conv:BoolConverters.Not}, FallbackValue=False}"
-                    ToolTip.Tip="Delete Selected" />
-            </StackPanel>
-            <!--  Layers Header  -->
-            <TextBlock
-                Margin="8,8,8,4"
-                Classes="section-header"
-                Text="Layers" />
-            <!--  Layers Tree  -->
-            <ScrollViewer>
-                <TreeView
-                    x:Name="LayersTreeView"
-                    ItemsSource="{Binding Items}"
-                    SelectedItem="{Binding SelectedItem, Mode=TwoWay}">
-                    <TreeView.ItemTemplate>
-                        <TreeDataTemplate DataType="vm:LayerTreeItemViewModel" ItemsSource="{Binding Children}">
-                            <StackPanel Orientation="Horizontal" Spacing="5"
-                                        Name="DragHandle"
-                                        PointerPressed="ItemPointerPressed">
-                                <!--  Layer/Group/Base Icon  -->
-                                <TextBlock
-                                    Width="16"
-                                    Height="16"
-                                    IsVisible="{Binding IsLayer}"
-                                    Text="📄"
-                                    ToolTip.Tip="Layer" />
-                                <TextBlock
-                                    Width="16"
-                                    Height="16"
-                                    IsVisible="{Binding IsGroup}"
-                                    Text="📁"
-                                    ToolTip.Tip="Group" />
-                                <TextBlock
-                                    Width="16"
-                                    Height="16"
-                                    IsVisible="{Binding IsBase}"
-                                    Text="🔒"
-                                    ToolTip.Tip="Base Layer" />
-                                <!--  Layer Name  -->
-                                <TextBlock VerticalAlignment="Center" Text="{Binding Name}" />
-                                <!--  Visibility Toggle  -->
-                                <TextBlock
-                                    Width="16"
-                                    Height="16"
-                                    IsEnabled="{Binding !IsBase}"
-                                    IsVisible="{Binding IsVisible}"
-                                    Text="👁️"
-                                    ToolTip.Tip="Toggle Visibility">
-                                    <i:Interaction.Behaviors>
-                                        <ia:EventTriggerBehavior EventName="Tapped">
-                                            <ia:InvokeCommandAction Command="{Binding Owner.ToggleVisibilityCommand}" CommandParameter="{Binding}" />
-                                        </ia:EventTriggerBehavior>
-                                    </i:Interaction.Behaviors>
-                                </TextBlock>
-                                <TextBlock
-                                    Width="16"
-                                    Height="16"
-                                    IsEnabled="{Binding !IsBase}"
-                                    IsVisible="{Binding !IsVisible}"
-                                    Text="🙈"
-                                    ToolTip.Tip="Toggle Visibility">
-                                    <i:Interaction.Behaviors>
-                                        <ia:EventTriggerBehavior EventName="Tapped">
-                                            <ia:InvokeCommandAction Command="{Binding Owner.ToggleVisibilityCommand}" CommandParameter="{Binding}" />
-                                        </ia:EventTriggerBehavior>
-                                    </i:Interaction.Behaviors>
-                                </TextBlock>
-                                <!--  Export Toggle  -->
-                                <TextBlock
-                                    Width="16"
-                                    Height="16"
-                                    IsEnabled="{Binding !IsBase}"
-                                    IsVisible="{Binding IsExport}"
-                                    Text="📤"
-                                    ToolTip.Tip="Toggle Export">
-                                    <i:Interaction.Behaviors>
-                                        <ia:EventTriggerBehavior EventName="Tapped">
-                                            <ia:InvokeCommandAction Command="{Binding Owner.ToggleExportCommand}" CommandParameter="{Binding}" />
-                                        </ia:EventTriggerBehavior>
-                                    </i:Interaction.Behaviors>
-                                </TextBlock>
-                                <TextBlock
-                                    Width="16"
-                                    Height="16"
-                                    IsEnabled="{Binding !IsBase}"
-                                    IsVisible="{Binding !IsExport}"
-                                    Text="🚫"
-                                    ToolTip.Tip="Toggle Export">
-                                    <i:Interaction.Behaviors>
-                                        <ia:EventTriggerBehavior EventName="Tapped">
-                                            <ia:InvokeCommandAction Command="{Binding Owner.ToggleExportCommand}" CommandParameter="{Binding}" />
-                                        </ia:EventTriggerBehavior>
-                                    </i:Interaction.Behaviors>
-                                </TextBlock>
-                            </StackPanel>
-                        </TreeDataTemplate>
-                    </TreeView.ItemTemplate>
-                    <TreeView.ContextMenu>
-                        <ContextMenu>
-                            <MenuItem
-                                Command="{Binding RenameItemCommand}"
-                                CommandParameter="{Binding SelectedItem}"
-                                Header="Rename"
-                                IsEnabled="{Binding SelectedItem.IsBase, Converter={x:Static conv:BoolConverters.Not}, FallbackValue=False}" />
-                            <MenuItem
-                                Command="{Binding DeleteSelectedCommand}"
-                                CommandParameter="{Binding SelectedItem}"
-                                Header="Delete"
-                                IsEnabled="{Binding SelectedItem.IsBase, Converter={x:Static conv:BoolConverters.Not}, FallbackValue=False}" />
-                            <MenuItem Command="{Binding NewGroupCommand}" Header="Create Group" />
-                        </ContextMenu>
-                    </TreeView.ContextMenu>
-                </TreeView>
-            </ScrollViewer>
+        <!--  Toolbar  -->
+        <StackPanel
+            Margin="5"
+            HorizontalAlignment="Right"
+            DockPanel.Dock="Top"
+            Orientation="Horizontal"
+            Spacing="5">
+            <Button
+                Command="{Binding NewLayerCommand}"
+                Content="➕"
+                ToolTip.Tip="New Layer" />
+            <Button
+                Command="{Binding NewGroupCommand}"
+                Content="📁"
+                ToolTip.Tip="New Group" />
+            <Button
+                Command="{Binding DeleteSelectedCommand}"
+                Content="🗑️"
+                IsEnabled="{Binding SelectedItem.IsBase, Converter={x:Static conv:BoolConverters.Not}, FallbackValue=False}"
+                ToolTip.Tip="Delete Selected" />
         </StackPanel>
+        <!--  Layers Header  -->
+        <TextBlock
+            Margin="8,8,8,4"
+            Classes="section-header"
+            DockPanel.Dock="Top"
+            Text="Layers" />
+        <!--  Layers Tree  -->
+        <ScrollViewer>
+            <TreeView
+                x:Name="LayersTreeView"
+                ItemsSource="{Binding Items}"
+                SelectedItem="{Binding SelectedItem, Mode=TwoWay}">
+                <TreeView.ItemTemplate>
+                    <TreeDataTemplate DataType="vm:LayerTreeItemViewModel" ItemsSource="{Binding Children}">
+                        <StackPanel Orientation="Horizontal" Spacing="5"
+                                    Name="DragHandle"
+                                    Background="Transparent"
+                                    DragDrop.AllowDrop="True"
+                                    DragDrop.DragOver="TreeViewItemDragOver"
+                                    DragDrop.Drop="TreeViewItemDrop"
+                                    PointerPressed="ItemPointerPressed">
+                            <StackPanel.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem
+                                        Command="{Binding Owner.RenameItemCommand}"
+                                        CommandParameter="{Binding}"
+                                        Header="Rename"
+                                        IsEnabled="{Binding IsBase, Converter={x:Static conv:BoolConverters.Not}, FallbackValue=False}" />
+                                    <MenuItem
+                                        Command="{Binding Owner.DeleteSelectedCommand}"
+                                        CommandParameter="{Binding}"
+                                        Header="Delete"
+                                        IsEnabled="{Binding IsBase, Converter={x:Static conv:BoolConverters.Not}, FallbackValue=False}" />
+                                    <MenuItem
+                                        Command="{Binding Owner.NewGroupCommand}"
+                                        CommandParameter="{Binding}"
+                                        Header="Create Group" />
+                                </ContextMenu>
+                            </StackPanel.ContextMenu>
+                            <!--  Layer/Group/Base Icon  -->
+                            <TextBlock
+                                Width="16"
+                                Height="16"
+                                IsVisible="{Binding IsLayer}"
+                                Text="📄"
+                                ToolTip.Tip="Layer" />
+                            <TextBlock
+                                Width="16"
+                                Height="16"
+                                IsVisible="{Binding IsGroup}"
+                                Text="📁"
+                                ToolTip.Tip="Group" />
+                            <TextBlock
+                                Width="16"
+                                Height="16"
+                                IsVisible="{Binding IsBase}"
+                                Text="🔒"
+                                ToolTip.Tip="Base Layer" />
+                            <!--  Layer Name  -->
+                            <TextBlock VerticalAlignment="Center" Text="{Binding Name}" />
+                            <!--  Visibility Toggle  -->
+                            <Button
+                                Command="{Binding Owner.ToggleVisibilityCommand}"
+                                CommandParameter="{Binding}"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Padding="2"
+                                IsEnabled="{Binding !IsBase}"
+                                IsVisible="{Binding IsVisible}"
+                                Content="👁️"
+                                ToolTip.Tip="Toggle Visibility" />
+                            <Button
+                                Command="{Binding Owner.ToggleVisibilityCommand}"
+                                CommandParameter="{Binding}"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Padding="2"
+                                IsEnabled="{Binding !IsBase}"
+                                IsVisible="{Binding !IsVisible}"
+                                Content="🙈"
+                                ToolTip.Tip="Toggle Visibility" />
+
+                            <!--  Export Toggle  -->
+                            <Button
+                                Command="{Binding Owner.ToggleExportCommand}"
+                                CommandParameter="{Binding}"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Padding="2"
+                                IsEnabled="{Binding !IsBase}"
+                                IsVisible="{Binding IsExport}"
+                                Content="📤"
+                                ToolTip.Tip="Toggle Export" />
+                            <Button
+                                Command="{Binding Owner.ToggleExportCommand}"
+                                CommandParameter="{Binding}"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Padding="2"
+                                IsEnabled="{Binding !IsBase}"
+                                IsVisible="{Binding !IsExport}"
+                                Content="🚫"
+                                ToolTip.Tip="Toggle Export" />
+                        </StackPanel>
+                    </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+        </ScrollViewer>
+
     </DockPanel>
 </UserControl>

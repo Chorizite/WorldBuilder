@@ -8,75 +8,60 @@ using WorldBuilder.Editors.Landscape.ViewModels;
 
 namespace WorldBuilder.Editors.Landscape.Views;
 
-public partial class LayersView : UserControl
-{
-    public LayersView()
-    {
+public partial class LayersView : UserControl {
+    public LayersView() {
         InitializeComponent();
     }
 
-    private async void ItemPointerPressed(object sender, PointerPressedEventArgs e)
-    {
-        if (DataContext is LayersViewModel layersViewModel)
-        {
+    private async void ItemPointerPressed(object sender, PointerPressedEventArgs e) {
+        var properties = e.GetCurrentPoint(sender as Visual).Properties;
+        if (!properties.IsLeftButtonPressed) return;
+
+        if (DataContext is LayersViewModel layersViewModel) {
             // Find the LayerTreeItemViewModel associated with this item
-            if (sender is Control control)
-            {
+            if (sender is Control control) {
                 var itemViewModel = FindLayerTreeItemViewModel(control);
-                if (itemViewModel != null)
-                {
-                    // Start the drag operation
-#pragma warning disable CS0618 // Type or member is obsolete
-                    var dataObject = new DataObject();
-                    dataObject.Set("LayerTreeItemViewModel", itemViewModel);
-#pragma warning restore CS0618 // Type or member is obsolete
+                if (itemViewModel != null) {
+                    var data = new DataObject();
+                    data.Set("LayerTreeItemViewModel", itemViewModel);
 
                     // Prevent dragging the base layer
-                    if (itemViewModel.IsBase)
-                    {
+                    if (itemViewModel.IsBase) {
                         return;
                     }
-
-                    // Use the synchronous method to avoid data transfer issues
-                    DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Move);
+#pragma warning disable CS0618
+                    await DragDrop.DoDragDrop(e, data, DragDropEffects.Move);
+#pragma warning restore CS0618
                 }
             }
         }
     }
 
-    private LayerTreeItemViewModel? FindLayerTreeItemViewModel(Control control)
-    {
+    private LayerTreeItemViewModel? FindLayerTreeItemViewModel(Control control) {
         var current = control;
-        while (current != null)
-        {
-            if (current.DataContext is LayerTreeItemViewModel vm)
-            {
+        while (current != null) {
+            if (current.DataContext is LayerTreeItemViewModel vm) {
                 return vm;
             }
+
             current = current.Parent as Control;
         }
+
         return null;
     }
 
-    private void TreeViewItemDragOver(object sender, DragEventArgs e)
-    {
-        if (DataContext is LayersViewModel layersViewModel)
-        {
+    private void TreeViewItemDragOver(object sender, DragEventArgs e) {
+        if (DataContext is LayersViewModel layersViewModel) {
             var sourceItem = GetLayerItemFromData(e.Data);
             var targetItem = FindLayerTreeItemViewModel(sender as Control);
 
-            if (sourceItem != null && targetItem != null)
-            {
+            if (sourceItem != null && targetItem != null) {
                 // Prevent moving base layer or moving base into a group
-                if (sourceItem.IsBase || targetItem.IsBase)
-                {
+                if (sourceItem.IsBase || targetItem.IsBase) {
                     e.DragEffects = DragDropEffects.None;
                     return;
                 }
-
-                // Prevent dragging item into its own subtree
-                if (IsDescendant(targetItem, sourceItem))
-                {
+                if (sourceItem == targetItem || IsDescendant(sourceItem, targetItem)) {
                     e.DragEffects = DragDropEffects.None;
                     return;
                 }
@@ -84,25 +69,23 @@ public partial class LayersView : UserControl
         }
     }
 
-    private void TreeViewItemDrop(object sender, DragEventArgs e)
-    {
-        if (DataContext is LayersViewModel layersViewModel)
-        {
+    private void TreeViewItemDrop(object sender, DragEventArgs e) {
+        if (DataContext is LayersViewModel layersViewModel) {
             var sourceItem = GetLayerItemFromData(e.Data);
             var targetItem = FindLayerTreeItemViewModel(sender as Control);
 
-            if (sourceItem != null && targetItem != null && !sourceItem.IsBase && !targetItem.IsBase && !IsDescendant(targetItem, sourceItem))
-            {
+            if (sourceItem != null && targetItem != null && !sourceItem.IsBase && !targetItem.IsBase &&
+                sourceItem != targetItem &&
+                !IsDescendant(sourceItem, targetItem)) {
                 // Find the target parent and index
                 var (newParent, insertionType) = GetDropTarget(targetItem);
 
-                if (newParent != null)
-                {
+                if (newParent != null) {
                     // Calculate the new index based on the insertion type
                     int newIndex = CalculateNewIndex(sourceItem, targetItem, newParent, insertionType);
 
-                    if (newParent != sourceItem.Parent || newIndex != GetItemIndexInParent(sourceItem, sourceItem.Owner.Items))
-                    {
+                    if (newParent != sourceItem.Parent ||
+                        newIndex != GetItemIndexInParent(sourceItem, sourceItem.Owner.Items)) {
                         var command = new MoveLayerItemCommand(sourceItem, newParent, newIndex);
                         layersViewModel.GetCommandHistory().ExecuteCommand(command);
                         layersViewModel.RefreshItems();
@@ -112,49 +95,43 @@ public partial class LayersView : UserControl
         }
     }
 
-    private LayerTreeItemViewModel? GetLayerItemFromData(IDataObject data)
-    {
-#pragma warning disable CS0618 // Type or member is obsolete
-        return data?.Get("LayerTreeItemViewModel") as LayerTreeItemViewModel;
-#pragma warning restore CS0618 // Type or member is obsolete
+    private LayerTreeItemViewModel? GetLayerItemFromData(IDataObject data) {
+#pragma warning disable CS0618
+        return data.Get("LayerTreeItemViewModel") as LayerTreeItemViewModel;
+#pragma warning restore CS0618
     }
 
-    private bool IsDescendant(LayerTreeItemViewModel potentialParent, LayerTreeItemViewModel potentialChild)
-    {
+    private bool IsDescendant(LayerTreeItemViewModel potentialParent, LayerTreeItemViewModel potentialChild) {
         var current = potentialChild.Parent;
-        while (current != null)
-        {
-            if (current == potentialParent)
-            {
+        while (current != null) {
+            if (current == potentialParent) {
                 return true;
             }
+
             current = current.Parent;
         }
+
         return false;
     }
 
-    private (LayerTreeItemViewModel? NewParent, InsertionType Type) GetDropTarget(LayerTreeItemViewModel targetItem)
-    {
+    private (LayerTreeItemViewModel? NewParent, InsertionType Type) GetDropTarget(LayerTreeItemViewModel targetItem) {
         // For now, if dropping on a group, insert as child; otherwise, insert before
-        if (targetItem.IsGroup)
-        {
+        if (targetItem.IsGroup) {
             return (targetItem, InsertionType.AsChild);
         }
-        else
-        {
+        else {
             return (targetItem.Parent, InsertionType.Before);
         }
     }
 
-    private int CalculateNewIndex(LayerTreeItemViewModel sourceItem, LayerTreeItemViewModel targetItem, LayerTreeItemViewModel? newParent, InsertionType insertionType)
-    {
+    private int CalculateNewIndex(LayerTreeItemViewModel sourceItem, LayerTreeItemViewModel targetItem,
+        LayerTreeItemViewModel? newParent, InsertionType insertionType) {
         var siblings = newParent?.Children ?? (DataContext as LayersViewModel)?.Items;
         if (siblings == null) return 0;
 
         int targetIndex = siblings.IndexOf(targetItem);
 
-        switch (insertionType)
-        {
+        switch (insertionType) {
             case InsertionType.AsChild:
                 // Insert as first child of the target group
                 return 0;
@@ -169,15 +146,14 @@ public partial class LayersView : UserControl
         }
     }
 
-    public enum InsertionType
-    {
+    public enum InsertionType {
         AsChild,
         Before,
         After
     }
 
-    private int GetItemIndexInParent(LayerTreeItemViewModel item, ObservableCollection<LayerTreeItemViewModel> rootItems)
-    {
+    private int GetItemIndexInParent(LayerTreeItemViewModel item,
+        ObservableCollection<LayerTreeItemViewModel> rootItems) {
         var parent = item.Parent;
         var siblings = parent?.Children ?? rootItems;
         return siblings.IndexOf(item);
