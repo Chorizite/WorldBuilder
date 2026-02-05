@@ -38,9 +38,7 @@ namespace WorldBuilder.Shared.Documents {
 
             // Initialize update batching
             var options = new BoundedChannelOptions(1000) {
-                FullMode = BoundedChannelFullMode.Wait,
-                SingleReader = true,
-                SingleWriter = false
+                FullMode = BoundedChannelFullMode.Wait, SingleReader = true, SingleWriter = false
             };
             _updateQueue = Channel.CreateBounded<DocumentUpdate>(options);
             _updateWriter = _updateQueue.Writer;
@@ -66,9 +64,11 @@ namespace WorldBuilder.Shared.Documents {
         /// </summary>
         public async Task<BaseDocument?> GetOrCreateDocumentAsync(string documentId, Type docType) {
             if (!typeof(BaseDocument).IsAssignableFrom(docType)) {
-                _logger.LogError("Invalid document type {DocType} for document {DocumentId}; must inherit BaseDocument", docType.Name, documentId);
+                _logger.LogError("Invalid document type {DocType} for document {DocumentId}; must inherit BaseDocument",
+                    docType.Name, documentId);
                 return null;
             }
+
             return await CreateOrLoadDocumentInternalAsync(documentId, docType);
         }
 
@@ -80,10 +80,12 @@ namespace WorldBuilder.Shared.Documents {
             if (doc is T typedDoc) {
                 return typedDoc;
             }
+
             if (doc != null) {
                 _logger.LogError("Document {DocumentId}({ActualType}) is not of expected type {ExpectedType}",
                     documentId, doc.GetType().Name, typeof(T).Name);
             }
+
             return null;
         }
 
@@ -97,6 +99,7 @@ namespace WorldBuilder.Shared.Documents {
                         documentId, doc.GetType().Name, docTypeName);
                     return null;
                 }
+
                 return doc;
             }
 
@@ -108,11 +111,13 @@ namespace WorldBuilder.Shared.Documents {
                     _logger.LogError("Failed to create document {DocumentId} of type {Type}", documentId, docTypeName);
                     return null;
                 }
+
                 docInstance.Id = documentId;
                 docInstance.SetCacheDirectory(_cacheDirectory);
 
                 if (dbDoc == null) {
-                    dbDoc = await DocumentStorageService.CreateDocumentAsync(documentId, docTypeName, docInstance.SaveToProjection());
+                    dbDoc = await DocumentStorageService.CreateDocumentAsync(documentId, docTypeName,
+                        docInstance.SaveToProjection());
                     _logger.LogInformation("Creating new Document {DocumentId}({Type})", documentId, docTypeName);
                 }
                 else {
@@ -133,6 +138,7 @@ namespace WorldBuilder.Shared.Documents {
                     if (_activeDocs.TryGetValue(documentId, out var existingDoc) && existingDoc.GetType() == docType) {
                         return existingDoc;
                     }
+
                     _logger.LogError("Failed to add document {DocumentId} of type {Type}", documentId, docTypeName);
                     return null;
                 }
@@ -165,7 +171,8 @@ namespace WorldBuilder.Shared.Documents {
                             await DocumentStorageService.UpdateDocumentAsync(e.Document.Id, projection);
                         }
                         catch (Exception ex2) {
-                            _logger.LogError(ex2, "Failed to process immediate update for document {DocumentId}", e.Document.Id);
+                            _logger.LogError(ex2, "Failed to process immediate update for document {DocumentId}",
+                                e.Document.Id);
                         }
                     }
                 }, _cancellationTokenSource.Token);
@@ -233,7 +240,8 @@ namespace WorldBuilder.Shared.Documents {
                         await DocumentStorageService.UpdateDocumentAsync(update.DocumentId, projection);
                     }
                     catch (Exception ex) {
-                        _logger.LogError(ex, "Failed to process batched update for document {DocumentId}", update.DocumentId);
+                        _logger.LogError(ex, "Failed to process batched update for document {DocumentId}",
+                            update.DocumentId);
                     }
                     finally {
                         semaphore.Release();
@@ -241,7 +249,8 @@ namespace WorldBuilder.Shared.Documents {
                 });
 
                 await Task.WhenAll(tasks);
-                _logger.LogDebug("Processed batch of {Count} updates (deduplicated from {OriginalCount})", latestUpdates.Count, batch.Count);
+                _logger.LogDebug("Processed batch of {Count} updates (deduplicated from {OriginalCount})",
+                    latestUpdates.Count, batch.Count);
             }
             catch (Exception ex) {
                 _logger.LogError(ex, "Failed to process update batch");
@@ -254,11 +263,12 @@ namespace WorldBuilder.Shared.Documents {
                 try {
                     if (!doc.IsDirty) return;
                     var projection = doc.SaveToProjection();
-                    await DocumentStorageService.UpdateDocumentAsync(documentId, projection);
+                    await DocumentStorageService.UpdateDocumentAsync(documentId, projection).ConfigureAwait(false);
                 }
                 catch (Exception ex) {
                     _logger.LogError(ex, "Failed to save document {DocumentId} on close", documentId);
                 }
+
                 _logger.LogInformation("Closing Document {DocumentId}({Type})", documentId, doc.GetType().Name);
             }
             else {

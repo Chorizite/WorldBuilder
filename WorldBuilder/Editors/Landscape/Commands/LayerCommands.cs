@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using WorldBuilder.Editors.Landscape.Commands;
 using WorldBuilder.Editors.Landscape.ViewModels;
 using WorldBuilder.Lib.History;
@@ -98,9 +99,13 @@ namespace WorldBuilder.Editors.Landscape.Commands {
         }
 
         private void UnloadDocuments() {
-            foreach (var id in _documentIds) {
-                _vm.Owner._terrainSystem.UnloadDocumentAsync(id).GetAwaiter().GetResult();
-            }
+            var ids = _documentIds.ToList();
+            var terrainSystem = _vm.Owner._terrainSystem;
+            Task.Run(async () => {
+                foreach (var id in ids) {
+                    await terrainSystem.UnloadDocumentAsync(id);
+                }
+            });
         }
 
         private void ReloadDocuments() {
