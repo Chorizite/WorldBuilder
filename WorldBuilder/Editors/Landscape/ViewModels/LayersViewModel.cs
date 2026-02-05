@@ -31,8 +31,6 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         public LayerTreeItemViewModel? SelectedItem {
             get => _selectedItem;
             set {
-                if (value?.IsGroup == true) return;
-
                 if (SetProperty(ref _selectedItem, value)) {
                     OnSelectedItemChanged(value);
                 }
@@ -50,13 +48,22 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         }
 
         private void OnSelectedItemChanged(LayerTreeItemViewModel? value) {
+            _ = OnSelectedItemChangedAsync(value);
+        }
+
+        private async Task OnSelectedItemChangedAsync(LayerTreeItemViewModel? value) {
             if (_isUpdating) return;
             if (value is null || value.IsBase) {
                 _terrainSystem.EditingContext.CurrentLayerDoc = _terrainSystem.TerrainDoc;
             }
             else if (value.IsLayer) {
-                _terrainSystem.EditingContext.CurrentLayerDoc = _terrainSystem
-                    .LoadDocumentAsync<LayerDocument>(value.Model.Id).GetAwaiter().GetResult();
+                // Ensure we don't block the UI thread waiting for the lock
+                var doc = await _terrainSystem.LoadDocumentAsync<LayerDocument>(value.Model.Id);
+
+                // Verify the selection is still the same (user didn't click something else while loading)
+                if (SelectedItem?.Model?.Id == value?.Model.Id) {
+                    _terrainSystem.EditingContext.CurrentLayerDoc = doc;
+                }
             }
         }
 

@@ -102,8 +102,13 @@ namespace WorldBuilder.Editors.Landscape.Commands {
             var ids = _documentIds.ToList();
             var terrainSystem = _vm.Owner._terrainSystem;
             Task.Run(async () => {
-                foreach (var id in ids) {
-                    await terrainSystem.UnloadDocumentAsync(id);
+                try {
+                    foreach (var id in ids) {
+                        await terrainSystem.UnloadDocumentAsync(id);
+                    }
+                }
+                catch (Exception ex) {
+                    Console.WriteLine($"Error unloading documents: {ex}");
                 }
             });
         }
