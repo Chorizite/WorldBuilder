@@ -5,7 +5,7 @@
     <description>Most recent changes with links to updates</description>
     <language>en</language>
     <item>
-      <title>WorldBuilder 0.1.2+16</title>
+      <title>WorldBuilder 0.1.2+17</title>
       <description>## What's Changed
 * 17 terraintype selection for landscape tools shouldnt show roadtype texture by @trevis in https://github.com/Chorizite/WorldBuilder/pull/21
 * chore: new changelog generation by @trevis in https://github.com/Chorizite/WorldBuilder/pull/22
@@ -23,16 +23,17 @@
 * Platform projects by @trevis in https://github.com/Chorizite/WorldBuilder/pull/40
 * Windows installer / opengl fixes by @trevis in https://github.com/Chorizite/WorldBuilder/pull/41
 * Fix Linux rendering by @trevis in https://github.com/Chorizite/WorldBuilder/pull/42
+* Add layers support by @trevis in https://github.com/Chorizite/WorldBuilder/pull/43
 
 ## New Contributors
 * @amoeba made their first contribution in https://github.com/Chorizite/WorldBuilder/pull/38
 
 **Full Changelog**: https://github.com/Chorizite/WorldBuilder/compare/v0.1.1...latest</description>
-      <pubDate>Thu, 05 Feb 2026 00:25:39 +00:00</pubDate>
-      <sparkle:version>0.1.2+16</sparkle:version>
+      <pubDate>Thu, 05 Feb 2026 01:49:53 +00:00</pubDate>
+      <sparkle:version>0.1.2+17</sparkle:version>
       <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
       <sparkle:channel>edge</sparkle:channel>
-      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.2%2B16.exe" sparkle:version="0.1.2+16" sparkle:shortVersionString="0.1.2" length="20099468" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="HNwTzNA+Q7y4653loTbCY+tDg8W0XLmK31yoMrVdwWp72bkv4rbFkaG23u2+ajcczkwjjfJCdpPIngSgqXbFDg==" />
+      <enclosure url="https://github.com/Chorizite/WorldBuilder/releases/download/latest/WorldBuilderInstaller-0.1.2%2B17.exe" sparkle:version="0.1.2+17" sparkle:shortVersionString="0.1.2" length="20139253" sparkle:os="windows-x64" type="application/x-msdos-program" sparkle:criticalUpdate="false" sparkle:signature="Ici2qwFFv6FlaN6gXadkCKOKzw+K0EOTv/e0vZqDRk4I4KRlxYyifru+XqjZcFGDIUCFZ3hUdORltW/EjoVbBQ==" />
     </item>
     <item>
       <title>WorldBuilder 0.1.1</title>
