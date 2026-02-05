@@ -37,11 +37,29 @@ namespace Chorizite.OpenGLSDLBackend {
                 var attr = format.Attributes[i];
                 GL.EnableVertexAttribArray((uint)i);
                 GLHelpers.CheckErrors();
-                GL.VertexAttribPointer((uint)i, attr.Size, Convert(attr.Type), attr.Normalized, (uint)format.Stride, attr.Offset);
+
+                // For integer types that aren't normalized, use VertexAttribIPointer
+                // This is required for GLES when shader expects uvec4/ivec4/uint/int
+                if (!attr.Normalized && IsIntegerType(attr.Type)) {
+                    GL.VertexAttribIPointer((uint)i, attr.Size, Convert(attr.Type), (uint)format.Stride, attr.Offset);
+                }
+                else {
+                    GL.VertexAttribPointer((uint)i, attr.Size, Convert(attr.Type), attr.Normalized, (uint)format.Stride,
+                        attr.Offset);
+                }
+
                 GLHelpers.CheckErrors();
             }
+
             GL.BindVertexArray(0);
             GLHelpers.CheckErrors();
+        }
+
+        private bool IsIntegerType(Core.Render.Enums.VertexAttribType type) {
+            return type == Core.Render.Enums.VertexAttribType.Int ||
+                   type == Core.Render.Enums.VertexAttribType.UnsignedInt ||
+                   type == Core.Render.Enums.VertexAttribType.Byte ||
+                   type == Core.Render.Enums.VertexAttribType.UnsignedByte;
         }
 
         private GLEnum Convert(Core.Render.Enums.VertexAttribType type) => type switch {

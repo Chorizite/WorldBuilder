@@ -6,12 +6,10 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-#if WINDOWS
 using Avalonia.Win32;
 using System.Collections.Generic;
-#endif
 
-namespace WorldBuilder.Desktop;
+namespace WorldBuilder.Windows;
 
 sealed class Program
 {
@@ -35,9 +33,7 @@ sealed class Program
             try
             {
                 var assemblyPath = Assembly.GetExecutingAssembly().Location;
-                var versionPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                    ? Path.ChangeExtension(assemblyPath, ".exe")
-                    : assemblyPath;
+                var versionPath = Path.ChangeExtension(assemblyPath, ".exe");
                 App.ExecutablePath = versionPath;
                 App.Version = FileVersionInfo.GetVersionInfo(versionPath)?.ProductVersion ?? "0.0.0";
                 Console.WriteLine($"Executable: {App.Version}");
@@ -59,18 +55,18 @@ sealed class Program
     {
         var builder = AppBuilder.Configure<App>()
             .UsePlatformDetect()
-            .WithInterFont();
-
-#if WINDOWS
-        // Apply Windows-specific rendering options
-        builder = builder
-            .With(new Win32PlatformOptions {
-                RenderingMode = new List<Win32RenderingMode> { Win32RenderingMode.AngleEgl }
+            .WithInterFont()
+            .With(new Win32PlatformOptions()
+            {
+                RenderingMode = new List<Win32RenderingMode>()
+                {
+                    Win32RenderingMode.AngleEgl
+                },
             })
-            .With(new AngleOptions {
+            .With(new AngleOptions
+            {
                 GlProfiles = new[] { new GlVersion(GlProfileType.OpenGLES, 3, 1) }
             });
-#endif
 
         return builder.LogToTrace();
     }

@@ -11,7 +11,9 @@
   </Folder>
   <Project Path="Chorizite.OpenGLSDLBackend/Chorizite.OpenGLSDLBackend.csproj" />
   <Project Path="WorldBuilder.Browser/WorldBuilder.Browser.csproj" />
-  <Project Path="WorldBuilder.Desktop/WorldBuilder.Desktop.csproj" />
+  <Project Path="WorldBuilder.Linux/WorldBuilder.Linux.csproj" />
+  <Project Path="WorldBuilder.Mac/WorldBuilder.Mac.csproj" />
   <Project Path="WorldBuilder.Shared/WorldBuilder.Shared.csproj" />
+  <Project Path="WorldBuilder.Windows/WorldBuilder.Windows.csproj" />
   <Project Path="WorldBuilder/WorldBuilder.csproj" />
 </Solution>
