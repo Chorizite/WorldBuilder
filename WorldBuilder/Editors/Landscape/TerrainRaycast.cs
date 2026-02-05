@@ -122,13 +122,13 @@ namespace WorldBuilder.Editors.Landscape {
                     currentLbY >= 0 && currentLbY < TerrainDataManager.MapSize) {
 
                     uint landblockID = (uint)(currentLbX << 8 | currentLbY);
-                    var landblockData = terrainSystem.Scene.DataManager.Terrain.GetLandblock((ushort)landblockID);
+                    var landblockData = terrainSystem.GetLandblockTerrain((ushort)landblockID);
 
                     if (landblockData != null) {
                         var landblockHit = TestLandblockIntersection(
                             rayOrigin, rayDirection,
                             (uint)currentLbX, (uint)currentLbY, landblockID,
-                            landblockData, terrainSystem.Scene.DataManager);
+                            landblockData, terrainSystem);
 
                         if (landblockHit.Hit && landblockHit.Distance < closestDistance) {
                             hit = landblockHit;
@@ -157,8 +157,7 @@ namespace WorldBuilder.Editors.Landscape {
         private static TerrainRaycastHit TestLandblockIntersection(
             Vector3 rayOrigin, Vector3 rayDirection,
             uint landblockX, uint landblockY, uint landblockID,
-            TerrainEntry[] landblockData,
-            TerrainDataManager dataManager) {
+            TerrainEntry[] landblockData, TerrainSystem terrainSystem) {
 
             TerrainRaycastHit hit = new TerrainRaycastHit { Hit = false };
 
@@ -185,7 +184,7 @@ namespace WorldBuilder.Editors.Landscape {
             foreach (var (cellX, cellY) in cellsToCheck) {
                 Vector3[] vertices = GenerateCellVertices(
                     baseLandblockX, baseLandblockY, cellX, cellY,
-                    landblockData, dataManager.Region);
+                    landblockData, terrainSystem.Region);
 
                 BoundingBox cellBounds = CalculateCellBounds(vertices);
                 if (!RayIntersectsBox(rayOrigin, rayDirection, cellBounds, out float cellTMin, out float cellTMax)) {

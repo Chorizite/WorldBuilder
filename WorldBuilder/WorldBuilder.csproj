@@ -66,6 +66,9 @@
 		<ProjectReference Include="..\WorldBuilder.Shared\WorldBuilder.Shared.csproj" />
 	</ItemGroup>
 	<ItemGroup>
+	  <Compile Update="Editors\Landscape\Views\LayersView.axaml.cs">
+	    <DependentUpon>LayersView.axaml</DependentUpon>
+	  </Compile>
 	  <Compile Update="Views\ProjectSelectionView.axaml.cs">
 	    <DependentUpon>ProjectSelectionView.axaml</DependentUpon>
 	  </Compile>

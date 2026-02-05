@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Xml.Linq;
@@ -15,31 +15,24 @@ namespace WorldBuilder.Shared.Models {
         private static JsonSerializerOptions _opts = new JsonSerializerOptions { WriteIndented = true };
         private string _filePath = string.Empty;
 
-        [ObservableProperty]
-        private string _name = string.Empty;
+        [ObservableProperty] private string _name = string.Empty;
 
-        [ObservableProperty]
-        private Guid _guid;
+        [ObservableProperty] private Guid _guid;
 
-        [ObservableProperty]
-        private bool _isHosting = false;
+        [ObservableProperty] private bool _isHosting = false;
 
-        [ObservableProperty]
-        private string _remoteUrl = string.Empty;
+        [ObservableProperty] private string _remoteUrl = string.Empty;
 
         public string ProjectDirectory => Path.GetDirectoryName(FilePath) ?? string.Empty;
         public string DatDirectory => Path.Combine(ProjectDirectory, "dats");
         public string BaseDatDirectory => Path.Combine(DatDirectory, "base");
         public string DatabasePath => Path.Combine(ProjectDirectory, "project.db");
 
-        [JsonIgnore]
-        public string FilePath { get => _filePath; set => SetProperty(ref _filePath, value); }
+        [JsonIgnore] public string FilePath { get => _filePath; set => SetProperty(ref _filePath, value); }
 
-        [JsonIgnore]
-        public DocumentManager DocumentManager { get; set; }
+        [JsonIgnore] public DocumentManager DocumentManager { get; set; }
 
-        [JsonIgnore]
-        public IDatReaderWriter DatReaderWriter { get; set; }
+        [JsonIgnore] public IDatReaderWriter DatReaderWriter { get; set; }
 
         public static Project? FromDisk(string projectFilePath) {
             if (!File.Exists(projectFilePath)) {
@@ -51,6 +44,7 @@ namespace WorldBuilder.Shared.Models {
                 project.FilePath = projectFilePath;
                 project.InitializeDatReaderWriter();
             }
+
             return project;
         }
 
@@ -69,10 +63,7 @@ namespace WorldBuilder.Shared.Models {
 
             // Copy base dat files
             var datFiles = new[] {
-                "client_cell_1.dat",
-                "client_portal.dat",
-                "client_highres.dat",
-                "client_local_English.dat"
+                "client_cell_1.dat", "client_portal.dat", "client_highres.dat", "client_local_English.dat"
             };
 
 
@@ -87,11 +78,7 @@ namespace WorldBuilder.Shared.Models {
                 }
             }
 
-            var project = new Project() {
-                Name = projectName,
-                FilePath = projectFilePath,
-                Guid = Guid.NewGuid()
-            };
+            var project = new Project() { Name = projectName, FilePath = projectFilePath, Guid = Guid.NewGuid() };
 
             project.InitializeDatReaderWriter();
             project.Save();
@@ -99,7 +86,6 @@ namespace WorldBuilder.Shared.Models {
         }
 
         public Project() {
-
         }
 
         private void InitializeDatReaderWriter() {
@@ -131,10 +117,7 @@ namespace WorldBuilder.Shared.Models {
 
             // Copy base dats from project's base directory
             var datFiles = new[] {
-                "client_cell_1.dat",
-                "client_portal.dat",
-                "client_highres.dat",
-                "client_local_English.dat"
+                "client_cell_1.dat", "client_portal.dat", "client_highres.dat", "client_local_English.dat"
             };
 
             foreach (var datFile in datFiles) {
@@ -152,20 +135,90 @@ namespace WorldBuilder.Shared.Models {
                 portalIteration = 0;
             }
 
-            // TODO: save all documents, not just terrain
-            var doc = DocumentManager.GetOrCreateDocumentAsync<TerrainDocument>("terrain").Result;
-            doc.SaveToDats(writer, portalIteration);
+            var terrainDoc = DocumentManager.GetOrCreateDocumentAsync<TerrainDocument>("terrain").Result;
+
+            // Collect all layers that are marked for export
+            var exportLayers = new List<TerrainLayer>();
+            if (terrainDoc.TerrainData.RootItems != null) {
+                CollectExportLayers(terrainDoc.TerrainData.RootItems, exportLayers);
+            }
+
+            exportLayers.Reverse(); // Apply Bottom-To-Top (painter's algorithm)
+
+            // Identify all landblocks that need to be saved (modified in base OR any export layer)
+            var modifiedLandblocks = new HashSet<ushort>(terrainDoc.TerrainData.Landblocks.Keys);
+            var layerDocs = new Dictionary<string, LayerDocument>();
+
+            foreach (var layer in exportLayers) {
+                var layerDoc = DocumentManager.GetOrCreateDocumentAsync<LayerDocument>(layer.DocumentId).Result;
+                if (layerDoc != null) {
+                    layerDocs[layer.DocumentId] = layerDoc;
+                    foreach (var lbKey in layerDoc.TerrainData.Landblocks.Keys) {
+                        modifiedLandblocks.Add(lbKey);
+                    }
+                }
+            }
+
+            const int LANDBLOCK_SIZE = 81;
+
+            // Process and save each modified landblock
+            foreach (var lbKey in modifiedLandblocks) {
+                var lbId = (uint)(lbKey << 16) | 0xFFFF;
+
+                var currentEntries = terrainDoc.GetLandblockInternal(lbKey);
+                if (currentEntries == null) {
+                    continue;
+                }
+
+                // 2. Apply changes from each export layer in order
+                foreach (var layer in exportLayers) {
+                    if (layerDocs.TryGetValue(layer.DocumentId, out var layerDoc)) {
+                        if (layerDoc.TerrainData.Landblocks.TryGetValue(lbKey, out var sparseCells)) {
+                            foreach (var (cellIdx, cellValue) in sparseCells) {
+                                currentEntries[cellIdx] = new TerrainEntry(cellValue);
+                            }
+                        }
+                    }
+                }
+
+                // 3. Save the composite result to the DAT
+                if (!writer.TryGet<LandBlock>(lbId, out var lb)) {
+                    // If missing from the destination DAT, implies missing from base DAT too usually.
+                    continue;
+                }
+
+                for (var i = 0; i < LANDBLOCK_SIZE; i++) {
+                    var entry = currentEntries[i];
+                    lb.Terrain[i] = new() {
+                        Road = entry.Road,
+                        Scenery = entry.Scenery,
+                        Type = (DatReaderWriter.Enums.TerrainTextureType)entry.Type
+                    };
+                    lb.Height[i] = entry.Height;
+                }
+
+                if (!writer.TrySave(lb, portalIteration)) {
+                    // Log error? Project doesn't store logger directly but could throw or ignore.
+                }
+            }
 
             // TODO: all other dat iterations
             writer.Dats.Portal.Iteration.CurrentIteration = portalIteration;
 
-            /*
-            writer.Dats.Cell.TryWriteFile(writer.Dats.Cell.Iteration);
-            writer.Dats.Portal.TryWriteFile(writer.Dats.Portal.Iteration);
-            writer.Dats.Local.TryWriteFile(writer.Dats.Local.Iteration);
-            writer.Dats.HighRes.TryWriteFile(writer.Dats.HighRes.Iteration);
-            */
             return true;
+        }
+
+        private void CollectExportLayers(IEnumerable<TerrainLayerBase> items, List<TerrainLayer> result) {
+            foreach (var item in items) {
+                if (!item.IsExport) continue;
+
+                if (item is TerrainLayerGroup group) {
+                    CollectExportLayers(group.Children, result);
+                }
+                else if (item is TerrainLayer layer) {
+                    result.Add(layer);
+                }
+            }
         }
 
         public void Dispose() {

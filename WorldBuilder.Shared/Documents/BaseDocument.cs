@@ -68,6 +68,11 @@ namespace WorldBuilder.Shared.Documents {
         /// <param name="event"></param>
         protected void OnUpdate(BaseDocumentEvent @event) => Update?.Invoke(this, new UpdateEventArgs(this, @event));
 
+        public void ForceSave() {
+            IsDirty = true;
+            OnUpdate(new BaseDocumentEvent());
+        }
+
         /// <summary>
         /// Initialize a newly loaded document, this should load any needed data from the dat files
         /// </summary>

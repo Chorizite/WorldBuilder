@@ -9,6 +9,7 @@ namespace WorldBuilder.Editors {
     public interface IEditor {
         DocumentManager DocumentManager { get; }
         CommandHistory History { get; }
+        Task<T?> LoadDocumentAsync<T>(string documentId, bool forceReload = false) where T : BaseDocument;
         Task<BaseDocument?> LoadDocumentAsync(string documentId, Type documentType, bool forceReload = false);
         Task UnloadDocumentAsync(string documentId);
         IEnumerable<BaseDocument> GetActiveDocuments();

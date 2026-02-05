@@ -36,10 +36,7 @@ namespace WorldBuilder.Editors.Landscape {
         /// <summary>
         /// Creates GPU resources for an entire chunk
         /// </summary>
-        public void CreateChunkResources(
-            TerrainChunk chunk,
-            TerrainDataManager dataManager,
-            LandSurfaceManager surfaceManager) {
+        public void CreateChunkResources(TerrainChunk chunk, TerrainSystem terrainSystem) {
 
             var chunkId = chunk.GetChunkId();
 
@@ -64,7 +61,7 @@ namespace WorldBuilder.Editors.Landscape {
 
             // Generate geometry for entire chunk
             TerrainGeometryGenerator.GenerateChunkGeometry(
-                chunk, dataManager, surfaceManager,
+                chunk, terrainSystem,
                 _chunkVertexBuffer.AsSpan(0, maxVertexCount),
                 _chunkIndexBuffer.AsSpan(0, maxIndexCount),
                 out int actualVertexCount, out int actualIndexCount);
@@ -87,7 +84,7 @@ namespace WorldBuilder.Editors.Landscape {
             var renderData = new ChunkRenderData(vb, ib, va, actualVertexCount, actualIndexCount);
 
             // Track landblock offsets
-            BuildLandblockOffsets(chunk, dataManager, renderData);
+            BuildLandblockOffsets(chunk, terrainSystem, renderData);
 
             _renderData[chunkId] = renderData;
             chunk.ClearDirty();
@@ -96,21 +93,17 @@ namespace WorldBuilder.Editors.Landscape {
         /// <summary>
         /// Updates specific landblocks within a chunk
         /// </summary>
-        public void UpdateLandblocks(
-            TerrainChunk chunk,
-            IEnumerable<uint> landblockIds,
-            TerrainDataManager dataManager,
-            LandSurfaceManager surfaceManager) {
+        public void UpdateLandblocks(TerrainChunk chunk, IEnumerable<uint> landblockIds, TerrainSystem terrainSystem) {
 
             var chunkId = chunk.GetChunkId();
             if (!_renderData.TryGetValue(chunkId, out var renderData)) {
                 // Chunk doesn't exist yet, create it
-                CreateChunkResources(chunk, dataManager, surfaceManager);
+                CreateChunkResources(chunk, terrainSystem);
                 return;
             }
 
             foreach (var landblockId in landblockIds) {
-                UpdateSingleLandblock(landblockId, chunk, renderData, dataManager, surfaceManager);
+                UpdateSingleLandblock(landblockId, chunk, renderData, terrainSystem);
             }
 
             chunk.ClearDirty();
@@ -119,12 +112,7 @@ namespace WorldBuilder.Editors.Landscape {
         /// <summary>
         /// Updates a single landblock's geometry in the GPU buffer
         /// </summary>
-        private void UpdateSingleLandblock(
-            uint landblockId,
-            TerrainChunk chunk,
-            ChunkRenderData renderData,
-            TerrainDataManager dataManager,
-            LandSurfaceManager surfaceManager) {
+        private void UpdateSingleLandblock(uint landblockId, TerrainChunk chunk, ChunkRenderData renderData, TerrainSystem terrainSystem) {
 
             var landblockX = landblockId >> 8;
             var landblockY = landblockId & 0xFF;
@@ -135,7 +123,7 @@ namespace WorldBuilder.Editors.Landscape {
                 return;
             }
 
-            var landblockData = dataManager.Terrain.GetLandblock((ushort)landblockId);
+            var landblockData = terrainSystem.GetLandblockTerrain((ushort)landblockId);
             if (landblockData == null) return;
 
             // Generate new geometry for this landblock
@@ -144,7 +132,7 @@ namespace WorldBuilder.Editors.Landscape {
 
             TerrainGeometryGenerator.GenerateLandblockGeometry(
                 landblockX, landblockY, landblockId,
-                landblockData, surfaceManager, dataManager.Region,
+                landblockData, terrainSystem,
                 ref vertexIndex, ref indexIndex,
                 _landblockVertexBuffer,
                 _landblockIndexBuffer
@@ -173,10 +161,7 @@ namespace WorldBuilder.Editors.Landscape {
         /// <summary>
         /// Builds the landblock offset map for a newly created chunk
         /// </summary>
-        private void BuildLandblockOffsets(
-            TerrainChunk chunk,
-            TerrainDataManager dataManager,
-            ChunkRenderData renderData) {
+        private void BuildLandblockOffsets(TerrainChunk chunk, TerrainSystem terrainSystem, ChunkRenderData renderData) {
 
             int currentVertexOffset = 0;
             int currentIndexOffset = 0;
@@ -190,7 +175,7 @@ namespace WorldBuilder.Editors.Landscape {
                         continue;
 
                     var landblockID = landblockX << 8 | landblockY;
-                    var landblockData = dataManager.Terrain.GetLandblock((ushort)landblockID);
+                    var landblockData = terrainSystem.GetLandblockTerrain((ushort)landblockID);
 
                     if (landblockData == null) continue;
 

@@ -91,7 +91,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
 
             if (_pendingChanges.Any(c => c.LandblockId == landblockId && c.VertexIndex == vertexIndex)) return;
 
-            var landblockData = Context.TerrainDocument.GetLandblock(landblockId);
+            var landblockData = Context.TerrainSystem.GetLandblockTerrain(landblockId);
             if (landblockData == null) return;
 
             byte originalRoad = landblockData[vertexIndex].Road;
@@ -101,7 +101,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
 
             _pendingChanges.Add((landblockId, vertexIndex, originalRoad, newRoad));
             landblockData[vertexIndex] = landblockData[vertexIndex] with { Road = newRoad };
-            Context.TerrainDocument.UpdateLandblock(landblockId, landblockData, out var modifiedLandblocks);
+            var modifiedLandblocks = Context.TerrainSystem.UpdateLandblock(landblockId, landblockData);
 
             _modifiedLandblocks.UnionWith(modifiedLandblocks);
             foreach (var lbId in _modifiedLandblocks) {

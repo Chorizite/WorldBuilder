@@ -34,7 +34,7 @@ namespace WorldBuilder.Editors.Landscape.Commands {
 
             foreach (var (lbId, changeList) in _changes) {
                 if (!landblockDataCache.TryGetValue(lbId, out var data)) {
-                    data = _context.TerrainDocument.GetLandblock(lbId);
+                    data = _context.TerrainSystem.GetLandblockTerrain(lbId);
                     if (data == null) continue;
                     landblockDataCache[lbId] = data;
                 }
@@ -56,7 +56,7 @@ namespace WorldBuilder.Editors.Landscape.Commands {
             }
 
             // Single batch update with all changes
-            _context.TerrainDocument.UpdateLandblocksBatch(batchChanges, out var modifiedLandblocks);
+            var modifiedLandblocks = _context.TerrainSystem.UpdateLandblocksBatch(batchChanges);
             _context.MarkLandblocksModified(modifiedLandblocks);
 
             return true;

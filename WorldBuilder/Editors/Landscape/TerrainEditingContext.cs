@@ -11,6 +11,7 @@ namespace WorldBuilder.Editors.Landscape {
     public class TerrainEditingContext {
         private readonly TerrainDocument _terrainDoc;
         private readonly TerrainSystem _terrainSystem;
+        private BaseDocument? _currentLayerDoc;
 
         private readonly HashSet<uint> _modifiedLandblocks = new();
 
@@ -24,10 +25,19 @@ namespace WorldBuilder.Editors.Landscape {
         /// </summary>
         public IEnumerable<uint> ModifiedLandblocks => _modifiedLandblocks;
 
+        /// <summary>
+        /// Gets or sets the current layer document for editing (TerrainDocument or LayerDocument)
+        /// </summary>
+        public BaseDocument? CurrentLayerDoc {
+            get => _currentLayerDoc;
+            set => _currentLayerDoc = value;
+        }
+
         public TerrainEditingContext(DocumentManager docManager, TerrainSystem terrainSystem) {
             var terrainDoc = docManager.GetOrCreateDocumentAsync<TerrainDocument>("terrain").Result;
             _terrainDoc = terrainDoc ?? throw new ArgumentNullException(nameof(terrainDoc));
             _terrainSystem = terrainSystem ?? throw new ArgumentNullException(nameof(terrainSystem));
+            _currentLayerDoc = _terrainDoc; // Default to base layer
         }
 
         /// <summary>
@@ -35,7 +45,17 @@ namespace WorldBuilder.Editors.Landscape {
         /// </summary>
         public void MarkLandblockModified(ushort landblockId) {
             _modifiedLandblocks.Add(landblockId);
-            _terrainSystem.Scene.DataManager.MarkLandblocksDirty(new HashSet<ushort>() { landblockId });
+            _terrainSystem.Scene.DataManager.MarkLandblocksDirty(new HashSet<ushort> { landblockId });
+
+            // Apply changes to the current layer
+            var changes = new Dictionary<ushort, Dictionary<byte, uint>>();
+            var currentLayer = _currentLayerDoc ?? _terrainDoc;
+            if (currentLayer is TerrainDocument terrainDoc) {
+                terrainDoc.UpdateLandblocksBatchInternal(changes, out var modifiedLandblocks);
+            }
+            else if (currentLayer is LayerDocument layerDoc) {
+                layerDoc.UpdateLandblocksBatchInternal(changes, out var modifiedLandblocks);
+            }
         }
 
         /// <summary>
@@ -46,6 +66,16 @@ namespace WorldBuilder.Editors.Landscape {
                 _modifiedLandblocks.Add(id);
             }
             _terrainSystem.Scene.DataManager.MarkLandblocksDirty(landblockIds);
+
+            // Apply changes to the current layer
+            var changes = new Dictionary<ushort, Dictionary<byte, uint>>();
+            var currentLayer = _currentLayerDoc ?? _terrainDoc;
+            if (currentLayer is TerrainDocument terrainDoc) {
+                terrainDoc.UpdateLandblocksBatchInternal(changes, out var modifiedLandblocks);
+            }
+            else if (currentLayer is LayerDocument layerDoc) {
+                layerDoc.UpdateLandblocksBatchInternal(changes, out var modifiedLandblocks);
+            }
         }
 
         /// <summary>
@@ -84,7 +114,7 @@ namespace WorldBuilder.Editors.Landscape {
         }
 
         /// <summary>
-        /// Gets the terrain document
+        /// Gets the terrain document (base layer)
         /// </summary>
         public TerrainDocument TerrainDocument => _terrainDoc;
 

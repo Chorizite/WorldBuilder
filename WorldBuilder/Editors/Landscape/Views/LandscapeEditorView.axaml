@@ -37,7 +37,16 @@
             BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
             BorderThickness="1,0,0,0">
             <DockPanel LastChildFill="True">
-                <!--  History and Snapshot Panel - docked to bottom  -->
+
+                <!--  Layers Panel  -->
+                <Border
+                    Padding="10"
+                    BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                    BorderThickness="0,0,0,1"
+                    DockPanel.Dock="Top">
+                    <ContentControl Content="{Binding LayersPanel}" />
+                </Border>
+                <!--  History and Snapshot Panel  -->
                 <Border
                     Padding="10"
                     BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"

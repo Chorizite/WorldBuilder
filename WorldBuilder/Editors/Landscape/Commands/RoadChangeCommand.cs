@@ -34,7 +34,7 @@ namespace WorldBuilder.Editors.Landscape.Commands {
         private void CollectChanges(TerrainRaycast.TerrainRaycastHit hitResult) {
             var lbId = hitResult.LandblockId;
             var vIndex = hitResult.VerticeIndex;
-            var data = _context.TerrainDocument.GetLandblock(lbId);
+            var data = _context.TerrainSystem.GetLandblockTerrain(lbId);
             if (data == null) return;
 
             byte original = data[vIndex].Road;

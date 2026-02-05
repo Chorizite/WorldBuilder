@@ -112,7 +112,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
 
             foreach (var (lbId, vIndex, _) in affected) {
                 if (!landblockDataCache.TryGetValue(lbId, out var data)) {
-                    data = Context.TerrainDocument.GetLandblock(lbId);
+                    data = Context.TerrainSystem.GetLandblockTerrain(lbId);
                     if (data == null) continue;
                     landblockDataCache[lbId] = data;
                 }
@@ -141,7 +141,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
 
             // Apply all changes in a single batch operation
             if (batchChanges.Count > 0) {
-                Context.TerrainDocument.UpdateLandblocksBatch(batchChanges, out var modifiedLandblocks);
+                var modifiedLandblocks = Context.TerrainSystem.UpdateLandblocksBatch(batchChanges);
                 Context.MarkLandblocksModified(modifiedLandblocks);
             }
         }

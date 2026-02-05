@@ -28,6 +28,9 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         [ObservableProperty]
         private HistorySnapshotPanelViewModel? _historySnapshotPanel;
 
+        [ObservableProperty]
+        private LayersViewModel? _layersPanel;
+
         private Project? _project;
         private IDatReaderWriter? _dats;
         public TerrainSystem? TerrainSystem { get; private set; }
@@ -55,6 +58,7 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
 
             var documentStorageService = project.DocumentManager.DocumentStorageService;
             HistorySnapshotPanel = new HistorySnapshotPanelViewModel(TerrainSystem, documentStorageService, TerrainSystem.History);
+            LayersPanel = new LayersViewModel(TerrainSystem);
 
             UpdateTerrain(canvasSize);
         }

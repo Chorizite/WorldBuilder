@@ -20,18 +20,17 @@ namespace WorldBuilder.Editors.Landscape {
     public class GameScene : IDisposable {
         private float ProximityThreshold = 500f; // 2D distance for loading
 
-        private readonly OpenGLRenderer _renderer;
-        private readonly WorldBuilderSettings _settings;
-        private readonly GL _gl;
-        private readonly IShader _terrainShader;
-
-        private readonly IShader _sphereShader;
+        private OpenGLRenderer _renderer => _terrainSystem.Renderer;
+        private WorldBuilderSettings _settings => _terrainSystem.Settings;
+        private GL _gl => _renderer.GraphicsDevice.GL;
+        private IShader _terrainShader;
+        private IShader _sphereShader;
 
         //internal readonly StaticObjectManager _objectManager;
-        private readonly IDatReaderWriter _dats;
-        private readonly DocumentManager _documentManager;
-        private readonly TerrainDocument _terrainDoc;
-        private readonly Region _region;
+        private IDatReaderWriter _dats => _terrainSystem.Dats;
+        private DocumentManager _documentManager => _terrainSystem.DocumentManager;
+        private TerrainDocument _terrainDoc => _terrainSystem.TerrainDoc;
+        private Region _region => _terrainSystem.Region;
 
         public TerrainDataManager DataManager { get; }
         public LandSurfaceManager SurfaceManager { get; }
@@ -42,6 +41,7 @@ namespace WorldBuilder.Editors.Landscape {
         public CameraManager CameraManager { get; private set; }
 
         private readonly Dictionary<ushort, List<StaticObject>> _sceneryObjects = new();
+        private readonly TerrainSystem _terrainSystem;
 
         // Sphere rendering resources (from TerrainRenderer)
         private uint _sphereVAO;
@@ -101,26 +101,18 @@ namespace WorldBuilder.Editors.Landscape {
         public float SphereGlowIntensity { get; set; } = 1.0f;
         public float SphereGlowPower { get; set; } = 0.5f;
 
-        public GameScene(OpenGLRenderer renderer, WorldBuilderSettings settings, IDatReaderWriter dats,
-            DocumentManager documentManager, TerrainDocument terrainDoc, Region region) {
-            _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
-            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            _dats = dats ?? throw new ArgumentNullException(nameof(dats));
-            _documentManager = documentManager ?? throw new ArgumentNullException(nameof(documentManager));
-            _terrainDoc = terrainDoc ?? throw new ArgumentNullException(nameof(terrainDoc));
-            _region = region ?? throw new ArgumentNullException(nameof(region));
-
+        public GameScene(TerrainSystem terrainSystem) {
+            _terrainSystem = terrainSystem;
             var mapCenter = new Vector3(192f * 254f / 2f, 192f * 254f / 2f, 1000);
             PerspectiveCamera = new PerspectiveCamera(mapCenter, _settings);
             TopDownCamera = new OrthographicTopDownCamera(mapCenter, _settings);
             CameraManager = new CameraManager(TopDownCamera);
             //CameraManager.AddCamera(PerspectiveCamera);
 
-            DataManager = new TerrainDataManager(_terrainDoc, _region, 16);
+            DataManager = new TerrainDataManager(terrainSystem, 16);
             SurfaceManager = new LandSurfaceManager(_renderer, _dats, _region);
             GPUManager = new TerrainGPUResourceManager(_renderer);
 
-            _gl = renderer.GraphicsDevice.GL;
             //_objectManager = new StaticObjectManager(renderer, dats);
 
             // Initialize shaders
@@ -249,11 +241,11 @@ namespace WorldBuilder.Editors.Landscape {
                 var chunk = DataManager.GetOrCreateChunk(chunkX, chunkY);
 
                 if (!GPUManager.HasRenderData(chunkId)) {
-                    GPUManager.CreateChunkResources(chunk, DataManager, SurfaceManager);
+                    GPUManager.CreateChunkResources(chunk, _terrainSystem);
                 }
                 else if (chunk.IsDirty) {
                     var dirtyLandblocks = chunk.DirtyLandblocks.ToList();
-                    GPUManager.UpdateLandblocks(chunk, dirtyLandblocks, DataManager, SurfaceManager);
+                    GPUManager.UpdateLandblocks(chunk, dirtyLandblocks, _terrainSystem);
                 }
             }
         }
@@ -342,7 +334,7 @@ namespace WorldBuilder.Editors.Landscape {
                 var chunkY = (uint)(chunkId & 0xFFFFFFFF);
                 var chunk = DataManager.GetOrCreateChunk(chunkX, chunkY);
 
-                GPUManager.CreateChunkResources(chunk, DataManager, SurfaceManager);
+                GPUManager.CreateChunkResources(chunk, _terrainSystem);
             }
         }
 
@@ -383,7 +375,7 @@ namespace WorldBuilder.Editors.Landscape {
             foreach (var kvp in landblocksByChunk) {
                 var chunk = DataManager.GetChunk(kvp.Key);
                 if (chunk != null) {
-                    GPUManager.UpdateLandblocks(chunk, kvp.Value, DataManager, SurfaceManager);
+                    GPUManager.UpdateLandblocks(chunk, kvp.Value, _terrainSystem);
                 }
             }
         }
@@ -392,8 +384,7 @@ namespace WorldBuilder.Editors.Landscape {
             return new();
             var scenery = new List<StaticObject>();
             var lbId = (uint)lbKey;
-            var lbTerrainEntries = _terrainDoc.GetLandblock(lbKey);
-
+            var lbTerrainEntries = _terrainSystem.GetLandblockTerrain(lbKey);
             if (lbTerrainEntries == null) {
                 return scenery;
             }

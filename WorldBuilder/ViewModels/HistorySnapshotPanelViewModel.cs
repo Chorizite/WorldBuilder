@@ -19,33 +19,27 @@ namespace WorldBuilder.ViewModels {
         private readonly CommandHistory _commandHistory;
         private bool _isUpdatingSelection;
         private List<DBSnapshot> _cachedSnapshots;
-        private byte[]? _originalDocumentProjection;
-        private byte[]? _baseProjection;
 
-        [ObservableProperty]
-        private ObservableCollection<HistoryListItem> _snapshotItems;
 
-        [ObservableProperty]
-        private ObservableCollection<HistoryListItem> _historyItems;
+        [ObservableProperty] private ObservableCollection<HistoryListItem> _snapshotItems;
 
-        [ObservableProperty]
-        private HistoryListItem? _selectedSnapshot;
+        [ObservableProperty] private ObservableCollection<HistoryListItem> _historyItems;
 
-        [ObservableProperty]
-        private HistoryListItem? _selectedHistory;
+        [ObservableProperty] private HistoryListItem? _selectedSnapshot;
 
-        [ObservableProperty]
-        private HistoryListItem? _selectedItem;
+        [ObservableProperty] private HistoryListItem? _selectedHistory;
 
-        [ObservableProperty]
-        private bool _canRevert;
+        [ObservableProperty] private HistoryListItem? _selectedItem;
+
+        [ObservableProperty] private bool _canRevert;
 
         public HistorySnapshotPanelViewModel(
             TerrainSystem terrainSystem,
             IDocumentStorageService documentStorageService,
             CommandHistory commandHistory) {
             _terrainSystem = terrainSystem ?? throw new ArgumentNullException(nameof(terrainSystem));
-            _documentStorageService = documentStorageService ?? throw new ArgumentNullException(nameof(documentStorageService));
+            _documentStorageService =
+                documentStorageService ?? throw new ArgumentNullException(nameof(documentStorageService));
             _commandHistory = commandHistory ?? throw new ArgumentNullException(nameof(commandHistory));
             _snapshotItems = new ObservableCollection<HistoryListItem>();
             _historyItems = new ObservableCollection<HistoryListItem>();
@@ -57,9 +51,6 @@ namespace WorldBuilder.ViewModels {
 
         private async void InitializeAsync() {
             await LoadSnapshotsAsync();
-            // Capture the original document state (never changes)
-            _originalDocumentProjection = _terrainSystem.TerrainDoc.SaveToProjection();
-            _baseProjection = _originalDocumentProjection;
             UpdateHistoryList();
         }
 
@@ -120,7 +111,7 @@ namespace WorldBuilder.ViewModels {
             try {
                 // Auto-select the current history item 
                 var itemToSelect = HistoryItems.FirstOrDefault(i => i.IsCurrent)
-                    ?? HistoryItems.FirstOrDefault(i => i.Index == -1);
+                                   ?? HistoryItems.FirstOrDefault(i => i.Index == -1);
 
                 SelectedHistory = itemToSelect;
                 SelectedItem = itemToSelect;
@@ -134,7 +125,8 @@ namespace WorldBuilder.ViewModels {
             UpdateDimming();
         }
 
-        private void UpdateCollection(ObservableCollection<HistoryListItem> currentItems, List<HistoryListItem> newItems) {
+        private void UpdateCollection(ObservableCollection<HistoryListItem> currentItems,
+            List<HistoryListItem> newItems) {
             // Remove items that no longer exist
             for (int i = currentItems.Count - 1; i >= 0; i--) {
                 var current = currentItems[i];
@@ -218,15 +210,11 @@ namespace WorldBuilder.ViewModels {
             if (item.IsSnapshot) {
                 // Load snapshot directly
                 var snapshot = _cachedSnapshots.FirstOrDefault(s => s.Id == item.SnapshotId!.Value)
-                    ?? await _documentStorageService.GetSnapshotAsync(item.SnapshotId!.Value);
+                               ?? await _documentStorageService.GetSnapshotAsync(item.SnapshotId!.Value);
 
                 if (snapshot != null) {
                     success = _terrainSystem.TerrainDoc.LoadFromProjection(snapshot.Data);
                     if (success) {
-                        // Update the working base projection to the snapshot state
-                        // This ensures new edits build on top of the snapshot
-                        _baseProjection = snapshot.Data;
-
                         // Reset history to base state
                         _commandHistory.HistoryChanged -= OnCommandHistoryChanged;
                         _commandHistory.ResetToBase();
@@ -235,41 +223,8 @@ namespace WorldBuilder.ViewModels {
                 }
             }
             else {
-                // Determine which base to use
-                byte[]? baseToUse;
-                if (item.Index == -1) {
-                    // "Original Document" entry - always use the original
-                    baseToUse = _originalDocumentProjection;
-                    _baseProjection = _originalDocumentProjection; // Reset working base to original
-                }
-                else {
-                    // History entry - use current working base (could be original or snapshot)
-                    baseToUse = _baseProjection;
-                }
-
-                if (baseToUse == null) {
-                    baseToUse = _terrainSystem.TerrainDoc.SaveToProjection();
-                    _originalDocumentProjection ??= baseToUse;
-                    _baseProjection = baseToUse;
-                }
-
-                success = _terrainSystem.TerrainDoc.LoadFromProjection(baseToUse);
-
-                if (success) {
-                    // Replay history to the target index
-                    if (item.Index >= 0) {
-                        _commandHistory.HistoryChanged -= OnCommandHistoryChanged;
-                        _commandHistory.ResetToBase();
-                        success = _commandHistory.JumpToHistory(item.Index);
-                        _commandHistory.HistoryChanged += OnCommandHistoryChanged;
-                    }
-                    else {
-                        // Just stay at base state (index -1)
-                        _commandHistory.HistoryChanged -= OnCommandHistoryChanged;
-                        _commandHistory.ResetToBase();
-                        _commandHistory.HistoryChanged += OnCommandHistoryChanged;
-                    }
-                }
+                // Use Undo/Redo to reach the target state
+                success = await _commandHistory.JumpToHistoryAsync(item.Index);
             }
 
             if (success) {
@@ -408,14 +363,10 @@ namespace WorldBuilder.ViewModels {
                 Spacing = 15,
                 Children = {
                     new Avalonia.Controls.TextBlock {
-                        Text = title,
-                        FontSize = 16,
-                        FontWeight = Avalonia.Media.FontWeight.Bold
+                        Text = title, FontSize = 16, FontWeight = Avalonia.Media.FontWeight.Bold
                     },
                     new Avalonia.Controls.TextBlock {
-                        Text = message,
-                        TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-                        MaxWidth = 400
+                        Text = message, TextWrapping = Avalonia.Media.TextWrapping.Wrap, MaxWidth = 400
                     },
                     new Avalonia.Controls.StackPanel {
                         Orientation = Avalonia.Layout.Orientation.Horizontal,
@@ -423,8 +374,7 @@ namespace WorldBuilder.ViewModels {
                         Spacing = 10,
                         Children = {
                             new Avalonia.Controls.Button {
-                                Content = "Cancel",
-                                Command = new RelayCommand(() => DialogHost.Close("MainDialogHost"))
+                                Content = "Cancel", Command = new RelayCommand(() => DialogHost.Close("MainDialogHost"))
                             },
                             new Avalonia.Controls.Button {
                                 Content = "Delete",
@@ -444,9 +394,7 @@ namespace WorldBuilder.ViewModels {
         private async Task<string?> ShowRenameDialog(string title, string currentName) {
             string? result = null;
             var textBox = new Avalonia.Controls.TextBox {
-                Text = currentName,
-                Width = 300,
-                Watermark = "Enter snapshot name"
+                Text = currentName, Width = 300, Watermark = "Enter snapshot name"
             };
 
             await DialogHost.Show(new Avalonia.Controls.StackPanel {
@@ -454,9 +402,7 @@ namespace WorldBuilder.ViewModels {
                 Spacing = 15,
                 Children = {
                     new Avalonia.Controls.TextBlock {
-                        Text = title,
-                        FontSize = 16,
-                        FontWeight = Avalonia.Media.FontWeight.Bold
+                        Text = title, FontSize = 16, FontWeight = Avalonia.Media.FontWeight.Bold
                     },
                     textBox,
                     new Avalonia.Controls.StackPanel {
@@ -465,8 +411,7 @@ namespace WorldBuilder.ViewModels {
                         Spacing = 10,
                         Children = {
                             new Avalonia.Controls.Button {
-                                Content = "Cancel",
-                                Command = new RelayCommand(() => DialogHost.Close("MainDialogHost"))
+                                Content = "Cancel", Command = new RelayCommand(() => DialogHost.Close("MainDialogHost"))
                             },
                             new Avalonia.Controls.Button {
                                 Content = "Rename",
@@ -487,5 +432,4 @@ namespace WorldBuilder.ViewModels {
             _commandHistory.HistoryChanged -= OnCommandHistoryChanged;
         }
     }
-    
 }
