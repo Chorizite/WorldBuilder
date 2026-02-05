@@ -55,11 +55,16 @@ sealed class Program
     {
         var builder = AppBuilder.Configure<App>()
             .UsePlatformDetect()
-            .WithInterFont();
-
-        // Apply Windows-specific rendering options
-        builder = builder
-            .With(new AngleOptions {
+            .WithInterFont()
+            .With(new Win32PlatformOptions()
+            {
+                RenderingMode = new List<Win32RenderingMode>()
+                {
+                    Win32RenderingMode.AngleEgl
+                },
+            })
+            .With(new AngleOptions
+            {
                 GlProfiles = new[] { new GlVersion(GlProfileType.OpenGLES, 3, 1) }
             });
 

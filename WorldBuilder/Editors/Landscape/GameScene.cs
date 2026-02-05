@@ -18,13 +18,15 @@ using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Editors.Landscape {
     public class GameScene : IDisposable {
-        private  float ProximityThreshold = 500f;  // 2D distance for loading
+        private float ProximityThreshold = 500f; // 2D distance for loading
 
         private readonly OpenGLRenderer _renderer;
         private readonly WorldBuilderSettings _settings;
         private readonly GL _gl;
         private readonly IShader _terrainShader;
+
         private readonly IShader _sphereShader;
+
         //internal readonly StaticObjectManager _objectManager;
         private readonly IDatReaderWriter _dats;
         private readonly DocumentManager _documentManager;
@@ -56,34 +58,42 @@ namespace WorldBuilder.Editors.Landscape {
             get => _settings.Landscape.Rendering.LightIntensity;
             set => _settings.Landscape.Rendering.LightIntensity = value;
         }
+
         public bool ShowGrid {
             get => _settings.Landscape.Grid.ShowGrid;
             set => _settings.Landscape.Grid.ShowGrid = value;
         }
+
         public Vector3 LandblockGridColor {
             get => _settings.Landscape.Grid.LandblockColor;
             set => _settings.Landscape.Grid.LandblockColor = value;
         }
+
         public Vector3 CellGridColor {
             get => _settings.Landscape.Grid.CellColor;
             set => _settings.Landscape.Grid.CellColor = value;
         }
+
         public float GridLineWidth {
             get => _settings.Landscape.Grid.LineWidth;
             set => _settings.Landscape.Grid.LineWidth = value;
         }
+
         public float GridOpacity {
             get => _settings.Landscape.Grid.Opacity;
             set => _settings.Landscape.Grid.Opacity = value;
         }
+
         public Vector3 SphereColor {
             get => _settings.Landscape.Selection.SphereColor;
             set => _settings.Landscape.Selection.SphereColor = value;
         }
+
         public float SphereRadius {
             get => _settings.Landscape.Selection.SphereRadius;
             set => _settings.Landscape.Selection.SphereRadius = value;
         }
+
         public float SphereHeightOffset { get; set; } = 0.0f;
         public Vector3 LightDirection { get; set; } = new Vector3(0.5f, 0.3f, -0.3f);
         public float SpecularPower { get; set; } = 32.0f;
@@ -91,7 +101,8 @@ namespace WorldBuilder.Editors.Landscape {
         public float SphereGlowIntensity { get; set; } = 1.0f;
         public float SphereGlowPower { get; set; } = 0.5f;
 
-        public GameScene(OpenGLRenderer renderer, WorldBuilderSettings settings, IDatReaderWriter dats, DocumentManager documentManager, TerrainDocument terrainDoc, Region region) {
+        public GameScene(OpenGLRenderer renderer, WorldBuilderSettings settings, IDatReaderWriter dats,
+            DocumentManager documentManager, TerrainDocument terrainDoc, Region region) {
             _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _dats = dats ?? throw new ArgumentNullException(nameof(dats));
@@ -123,6 +134,7 @@ namespace WorldBuilder.Editors.Landscape {
 
             InitializeSphereGeometry();
         }
+
         public static string GetEmbeddedResource(string filename, Assembly assembly) {
             using (Stream stream = assembly.GetManifestResourceStream(filename))
             using (StreamReader reader = new StreamReader(stream)) {
@@ -142,7 +154,8 @@ namespace WorldBuilder.Editors.Landscape {
             _gl.GenBuffers(1, out _sphereVBO);
             _gl.BindBuffer(GLEnum.ArrayBuffer, _sphereVBO);
             fixed (VertexPositionNormal* ptr = vertices) {
-                _gl.BufferData(GLEnum.ArrayBuffer, (nuint)(vertices.Length * VertexPositionNormal.Size), ptr, GLEnum.StaticDraw);
+                _gl.BufferData(GLEnum.ArrayBuffer, (nuint)(vertices.Length * VertexPositionNormal.Size), ptr,
+                    GLEnum.StaticDraw);
             }
 
             int stride = VertexPositionNormal.Size;
@@ -161,7 +174,8 @@ namespace WorldBuilder.Editors.Landscape {
             _gl.GenBuffers(1, out _sphereIBO);
             _gl.BindBuffer(GLEnum.ElementArrayBuffer, _sphereIBO);
             fixed (uint* iptr = indices) {
-                _gl.BufferData(GLEnum.ElementArrayBuffer, (nuint)(indices.Length * sizeof(uint)), iptr, GLEnum.StaticDraw);
+                _gl.BufferData(GLEnum.ElementArrayBuffer, (nuint)(indices.Length * sizeof(uint)), iptr,
+                    GLEnum.StaticDraw);
             }
 
             _gl.BindVertexArray(0);
@@ -185,6 +199,7 @@ namespace WorldBuilder.Editors.Landscape {
                     vertices.Add(new VertexPositionNormal(position, normal));
                 }
             }
+
             return vertices.ToArray();
         }
 
@@ -202,18 +217,21 @@ namespace WorldBuilder.Editors.Landscape {
                     indices.Add(next + 1);
                 }
             }
+
             return indices.ToArray();
         }
 
         public void AddStaticObject(string landblockId, StaticObject obj) {
-            var doc = _documentManager.GetOrCreateDocumentAsync(landblockId, typeof(LandblockDocument)).GetAwaiter().GetResult();
+            var doc = _documentManager.GetOrCreateDocumentAsync(landblockId, typeof(LandblockDocument)).GetAwaiter()
+                .GetResult();
             if (doc is LandblockDocument lbDoc) {
                 lbDoc.Apply(new StaticObjectUpdateEvent(obj, true));
             }
         }
 
         public void RemoveStaticObject(string landblockId, StaticObject obj) {
-            var doc = _documentManager.GetOrCreateDocumentAsync(landblockId, typeof(LandblockDocument)).GetAwaiter().GetResult();
+            var doc = _documentManager.GetOrCreateDocumentAsync(landblockId, typeof(LandblockDocument)).GetAwaiter()
+                .GetResult();
             if (doc is LandblockDocument lbDoc) {
                 lbDoc.Apply(new StaticObjectUpdateEvent(obj, false));
             }
@@ -305,14 +323,16 @@ namespace WorldBuilder.Editors.Landscape {
                     var lbX = (ushort)Math.Clamp(camLbX + dx, 0, TerrainDataManager.MapSize - 1);
                     var lbY = (ushort)Math.Clamp(camLbY + dy, 0, TerrainDataManager.MapSize - 1);
                     var lbKey = (ushort)((lbX << 8) | lbY);
-                    var lbCenter = new Vector2(lbX * TerrainDataManager.LandblockLength + TerrainDataManager.LandblockLength / 2,
-                                               lbY * TerrainDataManager.LandblockLength + TerrainDataManager.LandblockLength / 2);
+                    var lbCenter = new Vector2(
+                        lbX * TerrainDataManager.LandblockLength + TerrainDataManager.LandblockLength / 2,
+                        lbY * TerrainDataManager.LandblockLength + TerrainDataManager.LandblockLength / 2);
                     var dist2D = Vector2.Distance(new Vector2(cameraPosition.X, cameraPosition.Y), lbCenter);
                     if (dist2D <= ProximityThreshold) {
                         proximate.Add(lbKey);
                     }
                 }
             }
+
             return proximate;
         }
 
@@ -340,6 +360,7 @@ namespace WorldBuilder.Editors.Landscape {
                 if (!landblocksByChunk.ContainsKey(chunkId)) {
                     landblocksByChunk[chunkId] = new List<uint>();
                 }
+
                 landblocksByChunk[chunkId].Add(landblockId);
 
                 // Regenerate scenery for updated landblock if loaded
@@ -372,7 +393,7 @@ namespace WorldBuilder.Editors.Landscape {
             var scenery = new List<StaticObject>();
             var lbId = (uint)lbKey;
             var lbTerrainEntries = _terrainDoc.GetLandblock(lbKey);
-            
+
             if (lbTerrainEntries == null) {
                 return scenery;
             }
@@ -380,14 +401,14 @@ namespace WorldBuilder.Editors.Landscape {
             var buildings = new HashSet<int>();
             var lbGlobalX = (lbId >> 8) & 0xFF;
             var lbGlobalY = lbId & 0xFF;
-            
+
             // Build set of cells that contain buildings
             foreach (var b in lbDoc.GetStaticObjects()) {
                 var localX = b.Origin.X - lbGlobalX * 192f;
                 var localY = b.Origin.Y - lbGlobalY * 192f;
                 var cellX = (int)MathF.Floor(localX / 24f);
                 var cellY = (int)MathF.Floor(localY / 24f);
-                
+
                 if (cellX >= 0 && cellX < 8 && cellY >= 0 && cellY < 8) {
                     buildings.Add(cellX * 9 + cellY);
                 }
@@ -402,13 +423,13 @@ namespace WorldBuilder.Editors.Landscape {
                 var sceneType = entry.Scenery;
 
                 if (terrainType >= _region.TerrainInfo.TerrainTypes.Count) continue;
-                
+
                 var terrainInfo = _region.TerrainInfo.TerrainTypes[(int)terrainType];
                 if (sceneType >= terrainInfo.SceneTypes.Count) continue;
-                
+
                 var sceneInfoIdx = terrainInfo.SceneTypes[(int)sceneType];
                 var sceneInfo = _region.SceneInfo.SceneTypes[(int)sceneInfoIdx];
-                
+
                 if (sceneInfo.Scenes.Count == 0) {
                     continue;
                 }
@@ -419,7 +440,8 @@ namespace WorldBuilder.Editors.Landscape {
                 var globalCellY = (uint)(blockCellY + cellY);
 
                 // Scene selection
-                var cellMat = globalCellY * (712977289u * globalCellX + 1813693831u) - 1109124029u * globalCellX + 2139937281u;
+                var cellMat = globalCellY * (712977289u * globalCellX + 1813693831u) - 1109124029u * globalCellX +
+                              2139937281u;
                 var offset = cellMat * 2.3283064e-10f;
                 var sceneIdx = (int)(sceneInfo.Scenes.Count * offset);
                 sceneIdx = Math.Clamp(sceneIdx, 0, sceneInfo.Scenes.Count - 1);
@@ -433,6 +455,7 @@ namespace WorldBuilder.Editors.Landscape {
                 if (entry.Road != 0) {
                     continue;
                 }
+
                 if (buildings.Contains(i)) {
                     continue;
                 }
@@ -443,18 +466,18 @@ namespace WorldBuilder.Editors.Landscape {
 
                 for (uint j = 0; j < scene.Objects.Count; j++) {
                     var obj = scene.Objects[(int)j];
-                    
+
                     if (obj.ObjectId == 0) {
                         continue;
                     }
 
                     var noise = (uint)(cellXMat + cellYMat - cellMat2 * (23399 + j)) * 2.3283064e-10f;
-                    if (noise >= obj.Frequency) continue;  // spawn when noise < frequency
+                    if (noise >= obj.Frequency) continue; // spawn when noise < frequency
 
                     var localPos = SceneryHelpers.Displace(obj, globalCellX, globalCellY, j);
                     var lx = cellX * 24f + localPos.X;
                     var ly = cellY * 24f + localPos.Y;
-                    
+
                     if (lx < 0 || ly < 0 || lx >= 192f || ly >= 192f) {
                         continue;
                     }
@@ -465,12 +488,14 @@ namespace WorldBuilder.Editors.Landscape {
 
                     var lbOffset = new Vector3(lx, ly, 0);
 
-                    var z = TerrainGeometryGenerator.GetHeight(_region, lbTerrainEntries, lbGlobalX, lbGlobalY, lbOffset);
+                    var z = TerrainGeometryGenerator.GetHeight(_region, lbTerrainEntries, lbGlobalX, lbGlobalY,
+                        lbOffset);
                     localPos.Z = z;
                     lbOffset.Z = z;
 
-                    var normal = TerrainGeometryGenerator.GetNormal(_region, lbTerrainEntries, lbGlobalX, lbGlobalY, lbOffset);
-                    
+                    var normal =
+                        TerrainGeometryGenerator.GetNormal(_region, lbTerrainEntries, lbGlobalX, lbGlobalY, lbOffset);
+
                     if (!SceneryHelpers.CheckSlope(obj, normal.Z)) {
                         continue;
                     }
@@ -499,6 +524,7 @@ namespace WorldBuilder.Editors.Landscape {
                     });
                 }
             }
+
             return scenery;
         }
 
@@ -540,7 +566,8 @@ namespace WorldBuilder.Editors.Landscape {
             _gl.DepthMask(true);
             _gl.ClearColor(0.2f, 0.3f, 0.8f, 1.0f);
             _gl.ClearDepth(1f);
-            _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
+            _gl.Clear(
+                ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
             _gl.Enable(EnableCap.CullFace);
             _gl.CullFace(TriangleFace.Back);
 
@@ -599,12 +626,13 @@ namespace WorldBuilder.Editors.Landscape {
             SurfaceManager.AlphaAtlas.Bind(1);
             _terrainShader.SetUniform("xAlphas", 1);
 
-            foreach (var (chunk, renderData) in renderableChunks) {
+            foreach (var (_, renderData) in renderableChunks) {
                 renderData.ArrayBuffer.Bind();
                 renderData.VertexBuffer.Bind();
                 renderData.IndexBuffer.Bind();
                 GLHelpers.CheckErrors();
-                _renderer.GraphicsDevice.DrawElements(Chorizite.Core.Render.Enums.PrimitiveType.TriangleList, renderData.TotalIndexCount);
+                _renderer.GraphicsDevice.DrawElements(Chorizite.Core.Render.Enums.PrimitiveType.TriangleList,
+                    renderData.TotalIndexCount);
                 renderData.ArrayBuffer.Unbind();
                 renderData.VertexBuffer.Unbind();
                 renderData.IndexBuffer.Unbind();

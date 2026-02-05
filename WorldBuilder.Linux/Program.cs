@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Avalonia;
 using Avalonia.OpenGL;
 using System.Diagnostics;
@@ -6,8 +6,12 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Avalonia.Controls;
+using Avalonia.OpenGL.Egl;
+using Avalonia.X11;
+using System.Collections.Generic;
 
-namespace WorldBuilder.Mac;
+namespace WorldBuilder.Linux;
 
 sealed class Program
 {
@@ -19,14 +23,8 @@ sealed class Program
     {
         try
         {
-            TaskScheduler.UnobservedTaskException += (sender, e) =>
-            {
-                Console.WriteLine(e.Exception);
-            };
-            AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
-            {
-                Console.WriteLine(e.ExceptionObject);
-            };
+            TaskScheduler.UnobservedTaskException += (sender, e) => { Console.WriteLine(e.Exception); };
+            AppDomain.CurrentDomain.UnhandledException += (sender, e) => { Console.WriteLine(e.ExceptionObject); };
 
             try
             {
@@ -36,7 +34,9 @@ sealed class Program
                 Console.WriteLine($"Executable: {App.Version}");
                 Console.WriteLine($"Version: {App.Version}");
             }
-            catch { }
+            catch
+            {
+            }
 
             BuildAvaloniaApp()
                 .StartWithClassicDesktopLifetime(args);
@@ -52,7 +52,14 @@ sealed class Program
     {
         var builder = AppBuilder.Configure<App>()
             .UsePlatformDetect()
-            .WithInterFont();
+            .WithInterFont()
+            .With(new X11PlatformOptions()
+            {
+                RenderingMode = new List<X11RenderingMode>()
+                {
+                    X11RenderingMode.Egl
+                },
+            });
 
         return builder.LogToTrace();
     }

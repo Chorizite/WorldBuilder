@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Silk.NET.Core.Native;
 using Silk.NET.OpenGL;
 using System;
@@ -16,7 +16,8 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void CheckErrors(bool logErrors = false, [CallerMemberName] string callerName = "", [CallerFilePath] string callerFile = "", [CallerLineNumber] int callerLine = 0) {
+        public static void CheckErrors(bool logErrors = false, [CallerMemberName] string callerName = "",
+            [CallerFilePath] string callerFile = "", [CallerLineNumber] int callerLine = 0) {
             var error = Device?.GL.GetError();
             if (error.HasValue && error.Value != GLEnum.NoError) {
                 string errorDetails = GetErrorDetails(error.Value);
@@ -32,11 +33,13 @@ namespace Chorizite.OpenGLSDLBackend {
             return error switch {
                 GLEnum.InvalidEnum => "Invalid enum - An unacceptable value is specified for an enumerated argument",
                 GLEnum.InvalidValue => "Invalid value - A numeric argument is out of range",
-                GLEnum.InvalidOperation => "Invalid operation - The specified operation is not allowed in the current state",
+                GLEnum.InvalidOperation =>
+                    "Invalid operation - The specified operation is not allowed in the current state",
                 GLEnum.StackOverflow => "Stack overflow - An operation would cause an internal stack to overflow",
                 GLEnum.StackUnderflow => "Stack underflow - An operation would cause an internal stack to underflow",
                 GLEnum.OutOfMemory => "Out of memory - There is not enough memory left to execute the command",
-                GLEnum.InvalidFramebufferOperation => "Invalid framebuffer operation - The framebuffer object is not complete",
+                GLEnum.InvalidFramebufferOperation =>
+                    "Invalid framebuffer operation - The framebuffer object is not complete",
                 GLEnum.ContextLost => "Context lost - The OpenGL context has been lost due to a graphics card reset",
                 _ => "Unknown error"
             };
@@ -45,7 +48,8 @@ namespace Chorizite.OpenGLSDLBackend {
         /// <summary>
         /// Checks for OpenGL errors and provides context-specific information
         /// </summary>
-        public static void CheckErrorsWithContext(string context, [CallerMemberName] string callerName = "", [CallerFilePath] string callerFile = "", [CallerLineNumber] int callerLine = 0) {
+        public static void CheckErrorsWithContext(string context, [CallerMemberName] string callerName = "",
+            [CallerFilePath] string callerFile = "", [CallerLineNumber] int callerLine = 0) {
             var error = Device?.GL.GetError();
             if (error.HasValue && error.Value != GLEnum.NoError) {
                 string errorDetails = GetErrorDetails(error.Value);
@@ -61,15 +65,14 @@ namespace Chorizite.OpenGLSDLBackend {
         /// Gets detailed information about the current texture state for debugging
         /// </summary>
         public static string GetTextureDebugInfo(GL gl, GLEnum target) {
-            return string.Empty;
             var info = new System.Text.StringBuilder();
             info.AppendLine($"Texture Debug Info for {target}:");
 
             try {
-                gl.GetTextureLevelParameter((uint)gl.GetInteger(GetPName.TextureBinding2DArray), 0, GetTextureParameter.TextureWidth, out int width);
-                gl.GetTextureLevelParameter((uint)gl.GetInteger(GetPName.TextureBinding2DArray), 0, GetTextureParameter.TextureHeight, out int height);
-                gl.GetTextureLevelParameter((uint)gl.GetInteger(GetPName.TextureBinding2DArray), 0, GetTextureParameter.TextureDepthExt, out int depth);
-                gl.GetTextureLevelParameter((uint)gl.GetInteger(GetPName.TextureBinding2DArray), 0, GetTextureParameter.TextureInternalFormat, out int format);
+                gl.GetTexLevelParameter(target, 0, GetTextureParameter.TextureWidth, out int width);
+                gl.GetTexLevelParameter(target, 0, GetTextureParameter.TextureHeight, out int height);
+                gl.GetTexLevelParameter(target, 0, GetTextureParameter.TextureDepthExt, out int depth);
+                gl.GetTexLevelParameter(target, 0, GetTextureParameter.TextureInternalFormat, out int format);
 
                 info.AppendLine($"  Dimensions: {width}x{height}x{depth}");
                 info.AppendLine($"  Internal Format: {(InternalFormat)format}");
@@ -103,7 +106,6 @@ namespace Chorizite.OpenGLSDLBackend {
         /// </summary>
         public static bool ValidateTextureMipmapStatus(GL gl, GLEnum target, out string errorMessage) {
             errorMessage = string.Empty;
-            return true;
 
             try {
                 uint boundTexture = (uint)gl.GetInteger(GetPName.TextureBinding2DArray);
@@ -112,9 +114,9 @@ namespace Chorizite.OpenGLSDLBackend {
                     return false;
                 }
 
-                gl.GetTextureLevelParameter(boundTexture, 0, GetTextureParameter.TextureWidth, out int width);
-                gl.GetTextureLevelParameter(boundTexture, 0, GetTextureParameter.TextureHeight, out int height);
-                gl.GetTextureLevelParameter(boundTexture, 0, GetTextureParameter.TextureInternalFormat, out int format);
+                gl.GetTexLevelParameter(target, 0, GetTextureParameter.TextureWidth, out int width);
+                gl.GetTexLevelParameter(target, 0, GetTextureParameter.TextureHeight, out int height);
+                gl.GetTexLevelParameter(target, 0, GetTextureParameter.TextureInternalFormat, out int format);
 
                 if (width == 0 || height == 0) {
                     errorMessage = "Texture has zero dimensions";
@@ -126,7 +128,8 @@ namespace Chorizite.OpenGLSDLBackend {
                 if (IsCompressedFormat(internalFormat)) {
                     // Compressed formats have special requirements
                     if (!IsCompressedFormatMipmappable(internalFormat)) {
-                        errorMessage = $"Compressed format {internalFormat} does not support automatic mipmap generation";
+                        errorMessage =
+                            $"Compressed format {internalFormat} does not support automatic mipmap generation";
                         return false;
                     }
                 }
@@ -134,7 +137,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 //gl.GetTexParameter(target, GetTextureParameter.TextureImmutableFormat, out int immutable);
                 //if (immutable == 0) {
                 //    errorMessage = "Texture is mutable (not using glTexStorage), which can cause issues with mipmap generation";
-                    // Not necessarily fatal, but worth noting
+                // Not necessarily fatal, but worth noting
                 //}
 
                 return true;
@@ -156,8 +159,6 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         private static bool IsCompressedFormatMipmappable(InternalFormat format) {
-            // Most compressed formats support mipmap generation, but it depends on the driver
-            // DXT formats generally do NOT support automatic mipmap generation
             return false;
         }
 
@@ -169,7 +170,8 @@ namespace Chorizite.OpenGLSDLBackend {
             state.AppendLine($"=== OpenGL State ({context}) ===");
 
             try {
-                state.AppendLine($"Active Texture Unit: GL_TEXTURE{gl.GetInteger(GetPName.ActiveTexture) - (int)GLEnum.Texture0}");
+                state.AppendLine(
+                    $"Active Texture Unit: GL_TEXTURE{gl.GetInteger(GetPName.ActiveTexture) - (int)GLEnum.Texture0}");
                 state.AppendLine($"Bound 2D Array Texture: {gl.GetInteger(GetPName.TextureBinding2DArray)}");
                 state.AppendLine($"Current Program: {gl.GetInteger(GetPName.CurrentProgram)}");
 
