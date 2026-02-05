@@ -166,7 +166,11 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         private async Task NewLayer() {
             var newId = $"layer_{Guid.NewGuid():N}";
             await _terrainSystem.LoadDocumentAsync<LayerDocument>(newId);
-            var newLayer = new TerrainLayer { Id = newId, Name = "New Layer", DocumentId = newId };
+
+            var existingNames = Items.SelectMany(x => GetFlatList(x)).Select(x => x.Name).ToHashSet();
+            var newName = GetUniqueName("New Layer", existingNames);
+
+            var newLayer = new TerrainLayer { Id = newId, Name = newName, DocumentId = newId };
             var (parent, index) = GetInsertPosition(false);
             var command = new AddLayerItemCommand(_terrainSystem.TerrainDoc, newLayer, index,
                 parent?.Model as TerrainLayerGroup);
@@ -184,7 +188,11 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
         [RelayCommand]
         private void NewGroup(LayerTreeItemViewModel? item = null) {
             var newId = $"group_{Guid.NewGuid():N}";
-            var newGroup = new TerrainLayerGroup { Id = newId, Name = "New Group" };
+
+            var existingNames = Items.SelectMany(x => GetFlatList(x)).Select(x => x.Name).ToHashSet();
+            var newName = GetUniqueName("New Group", existingNames);
+
+            var newGroup = new TerrainLayerGroup { Id = newId, Name = newName };
             var (parent, index) = GetInsertPosition(true, item);
             var command = new AddLayerItemCommand(_terrainSystem.TerrainDoc, newGroup, index,
                 parent?.Model as TerrainLayerGroup);
@@ -195,6 +203,31 @@ namespace WorldBuilder.Editors.Landscape.ViewModels {
             var newItem = FindItemById(Items, newId);
             if (newItem != null) {
                 // Groups can no longer be selected, but we might want to expand to show it or something
+            }
+        }
+
+        private IEnumerable<LayerTreeItemViewModel> GetFlatList(LayerTreeItemViewModel item) {
+            yield return item;
+            foreach (var child in item.Children) {
+                foreach (var sub in GetFlatList(child)) {
+                    yield return sub;
+                }
+            }
+        }
+
+        private string GetUniqueName(string baseName, HashSet<string> existingNames) {
+            if (!existingNames.Contains(baseName)) {
+                return baseName;
+            }
+
+            int i = 1;
+            while (true) {
+                var name = $"{baseName} {i}";
+                if (!existingNames.Contains(name)) {
+                    return name;
+                }
+
+                i++;
             }
         }
 
