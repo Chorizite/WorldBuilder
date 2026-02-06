@@ -85,7 +85,8 @@
                     Padding="20,10"
                     HorizontalContentAlignment="Center"
                     Click="Cancel_Click"
-                    Content="Cancel" />
+                    Content="Cancel"
+                    IsEnabled="True" />
 
                 <Button
                     Grid.Column="2"

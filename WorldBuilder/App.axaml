@@ -3,23 +3,21 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:dialog="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
-    xmlns:lib="clr-namespace:WorldBuilder.Lib"
+    xmlns:services="clr-namespace:WorldBuilder.Services"
     RequestedThemeVariant="Default">
     <!--  "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options.  -->
-
+    <Application.Resources>
+        <ResourceDictionary>
+            <SolidColorBrush x:Key="ErrorBrush" Color="Red" />
+        </ResourceDictionary>
+    </Application.Resources>
     <Application.Styles>
         <FluentTheme />
         <dialog:DialogHostStyles />
         <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
-        <Style Selector="Button.selected">
-            <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundAccentBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}" />
-        </Style>
-        <Style Selector="Button.selected:pointerover">
-            <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundAccentBrush}" />
-        </Style>
+        <StyleInclude Source="avares://IconPacks.Avalonia/Icons.axaml" />
     </Application.Styles>
     <Application.DataTemplates>
-        <lib:ViewLocator />
+        <services:CombinedViewLocator />
     </Application.DataTemplates>
 </Application>

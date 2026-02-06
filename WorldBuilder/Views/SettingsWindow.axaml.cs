@@ -1,34 +1,44 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Linq;
 using WorldBuilder.Lib.Settings;
+using WorldBuilder.Services;
+using WorldBuilder.ViewModels;
 
-namespace WorldBuilder.Views {
-    public partial class SettingsWindow : Window {
+namespace WorldBuilder.Views
+{
+    public partial class SettingsWindow : Window
+    {
         private WorldBuilderSettings? _originalSettings;
-        private WorldBuilderSettings Settings => (WorldBuilderSettings)DataContext!;
+        private SettingsWindowViewModel? ViewModel => DataContext as SettingsWindowViewModel;
+        private WorldBuilderSettings? Settings => ViewModel?.Settings;
         private SettingsUIGenerator? _uiGenerator;
         private ListBox? _navigationList;
 
-        public SettingsWindow() {
+        public SettingsWindow()
+        {
             InitializeComponent();
         }
 
-        protected override void OnDataContextChanged(EventArgs e) {
+        protected override void OnDataContextChanged(EventArgs e)
+        {
             base.OnDataContextChanged(e);
 
-            if (DataContext is WorldBuilderSettings settings) {
+            if (DataContext is SettingsWindowViewModel viewModel && viewModel.Settings != null)
+            {
                 // Store a copy of original settings for cancel/reset
-                _originalSettings = SettingsCloner.Clone(settings);
+                _originalSettings = SettingsCloner.Clone(viewModel.Settings);
 
                 // Generate UI dynamically
-                GenerateUI(settings);
+                GenerateUI(viewModel.Settings);
             }
         }
 
-        private void GenerateUI(WorldBuilderSettings settings) {
+        private void GenerateUI(WorldBuilderSettings settings)
+        {
             _uiGenerator = new SettingsUIGenerator(settings, this);
 
             // Generate and add navigation
@@ -41,21 +51,28 @@ namespace WorldBuilder.Views {
             ContentContainer.Children.Add(contentPanels);
 
             // Select first item by default
-            if (_navigationList.Items.Count > 0) {
+            if (_navigationList.Items.Count > 0)
+            {
                 _navigationList.SelectedIndex = 0;
             }
         }
 
-        private void Navigation_SelectionChanged(object? sender, SelectionChangedEventArgs e) {
-            if (_navigationList?.SelectedItem is not ListBoxItem item || item.Tag is not string tag) {
+        private void Navigation_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            if (_navigationList?.SelectedItem is not ListBoxItem item || item.Tag is not string tag)
+            {
                 return;
             }
 
             // Hide all panels
-            foreach (var child in ContentContainer.Children) {
-                if (child is Panel panel) {
-                    foreach (var innerChild in panel.Children) {
-                        if (innerChild is ScrollViewer sv) {
+            foreach (var child in ContentContainer.Children)
+            {
+                if (child is Panel panel)
+                {
+                    foreach (var innerChild in panel.Children)
+                    {
+                        if (innerChild is ScrollViewer sv)
+                        {
                             sv.IsVisible = false;
                         }
                     }
@@ -64,10 +81,14 @@ namespace WorldBuilder.Views {
 
             // Show selected panel
             var panelName = tag.Replace("-", "") + "Panel";
-            foreach (var child in ContentContainer.Children) {
-                if (child is Panel panel) {
-                    foreach (var innerChild in panel.Children) {
-                        if (innerChild is ScrollViewer sv && sv.Name == panelName) {
+            foreach (var child in ContentContainer.Children)
+            {
+                if (child is Panel panel)
+                {
+                    foreach (var innerChild in panel.Children)
+                    {
+                        if (innerChild is ScrollViewer sv && sv.Name == panelName)
+                        {
                             sv.IsVisible = true;
                             return;
                         }
@@ -76,38 +97,66 @@ namespace WorldBuilder.Views {
             }
         }
 
-        private async void BrowseProjectsDirectory_Click(object? sender, RoutedEventArgs e) {
+        private async void BrowseProjectsDirectory_Click(object? sender, RoutedEventArgs e)
+        {
             var topLevel = TopLevel.GetTopLevel(this);
             if (topLevel == null) return;
 
-            var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions {
+            var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
                 Title = "Select Projects Directory",
                 AllowMultiple = false
             });
 
-            if (folders.Count > 0) {
-                Settings.App.ProjectsDirectory = folders[0].Path.LocalPath;
+            if (folders.Count > 0)
+            {
+                if (Settings != null)
+                {
+                    Settings.App.ProjectsDirectory = folders[0].Path.LocalPath;
+                }
             }
         }
 
-        private void Save_Click(object? sender, RoutedEventArgs e) {
-            Settings.Save();
+        private void Save_Click(object? sender, RoutedEventArgs e)
+        {
+            if (Settings != null)
+            {
+                Settings.Save();
+            }
+            
+            // Set dialog result to true for success
+            if (ViewModel != null)
+            {
+                ViewModel.DialogResult = true;
+            }
             Close();
         }
 
-        private void Cancel_Click(object? sender, RoutedEventArgs e) {
+        private void Cancel_Click(object? sender, RoutedEventArgs e)
+        {
             // Restore original settings
-            if (_originalSettings != null) {
+            if (_originalSettings != null && Settings != null)
+            {
                 SettingsCloner.Restore(_originalSettings, Settings);
             }
+            
+            // Set dialog result to false for cancellation
+            if (ViewModel != null)
+            {
+                ViewModel.DialogResult = false;
+            }
             Close();
         }
 
-        private void ResetToDefaults_Click(object? sender, RoutedEventArgs e) {
+        private void ResetToDefaults_Click(object? sender, RoutedEventArgs e)
+        {
             // Reset to default values
-            SettingsCloner.ResetToDefaults(Settings, () => new WorldBuilderSettings(
-                Microsoft.Extensions.Logging.Abstractions.NullLogger<WorldBuilderSettings>.Instance
-            ));
+            if (Settings != null)
+            {
+                SettingsCloner.ResetToDefaults(Settings, () => new WorldBuilderSettings(
+                    Microsoft.Extensions.Logging.Abstractions.NullLogger<WorldBuilderSettings>.Instance
+                ));
+            }
         }
     }
 }

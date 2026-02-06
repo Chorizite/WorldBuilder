@@ -60,7 +60,7 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         /// <inheritdoc/>
-        public ManagedGLTexture(OpenGLGraphicsDevice device, string file){
+        public ManagedGLTexture(OpenGLGraphicsDevice device, string file) {
             throw new NotImplementedException();
         }
 

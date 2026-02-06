@@ -12,21 +12,20 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 
 namespace Chorizite.OpenGLSDLBackend {
+
     public unsafe class GLSLShader : BaseShader {
         private OpenGLGraphicsDevice _device;
         private Dictionary<string, int> _uniformLocations = [];
         private GL GL => _device.GL;
         public uint Program { get; protected set; }
 
-        public GLSLShader(OpenGLGraphicsDevice device, string name, string vertSource, string fragSource, ILogger log) :
-            base(name, vertSource, fragSource, log) {
+        public GLSLShader(OpenGLGraphicsDevice device, string name, string vertSource, string fragSource, ILogger log) : base(name, vertSource, fragSource, log) {
             _device = device;
 
             Load(vertSource, fragSource);
         }
 
-        public GLSLShader(OpenGLGraphicsDevice device, string name, string shaderDirectory, ILogger log) : base(name,
-            shaderDirectory, log) {
+        public GLSLShader(OpenGLGraphicsDevice device, string name, string shaderDirectory, ILogger log) : base(name, shaderDirectory, log) {
             _device = device;
 
             Load();
@@ -36,16 +35,17 @@ namespace Chorizite.OpenGLSDLBackend {
             if (!_uniformLocations.ContainsKey(name)) {
                 _uniformLocations.Add(name, GL.GetUniformLocation(program, name));
             }
-
             GLHelpers.CheckErrors();
             return _uniformLocations[name];
         }
 
         public override void SetUniform(string location, Matrix4x4 m) {
             var m2 = new float[] {
-                m.M11, m.M12, m.M13, m.M14, m.M21, m.M22, m.M23, m.M24, m.M31, m.M32, m.M33, m.M34, m.M41, m.M42, m.M43,
-                m.M44
-            };
+                    m.M11, m.M12, m.M13, m.M14,
+                    m.M21, m.M22, m.M23, m.M24,
+                    m.M31, m.M32, m.M33, m.M34,
+                    m.M41, m.M42, m.M43, m.M44
+                };
             fixed (float* transform = (float[])m2) {
                 GL.UniformMatrix4(GetUniformLocation(Program, location), 1, false, transform);
                 GLHelpers.CheckErrors();
@@ -93,6 +93,7 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public override void Load(string vertShaderSource, string fragShaderSource) {
+
             if (string.IsNullOrWhiteSpace(vertShaderSource) || string.IsNullOrWhiteSpace(fragShaderSource)) {
                 _log.LogError($"Shader {Name} has no source code!");
                 return;
@@ -100,11 +101,6 @@ namespace Chorizite.OpenGLSDLBackend {
 
             uint vertexShader = CompileShader(ShaderType.VertexShader, Name, vertShaderSource);
             uint fragmentShader = CompileShader(ShaderType.FragmentShader, Name, fragShaderSource);
-
-            if (vertexShader == 0 || fragmentShader == 0) {
-                _log.LogError($"Shader {Name}: Failed to compile vertex or fragment shader");
-                return;
-            }
 
             var prog = GL.CreateProgram();
             GLHelpers.CheckErrors(true);
@@ -118,11 +114,12 @@ namespace Chorizite.OpenGLSDLBackend {
             GL.GetProgram(prog, GLEnum.LinkStatus, out int success);
             GLHelpers.CheckErrors();
             if (success != 1) {
-                var infoLog = GL.GetProgramInfoLog(prog);
-                _log.LogError($"Error: shader program {Name} linking failed: {infoLog}");
-                GL.DeleteShader(vertexShader);
-                GL.DeleteShader(fragmentShader);
+                var infoLog = GL.GetProgramInfoLog(Program);
+                _log.LogError($"Error: shader program compilation failed: {infoLog}");
                 return;
+            }
+            else {
+                _log.LogInformation($"{(Program != 0 ? "Reloaded" : "Loaded")} shader: {Name}");
             }
 
             GL.DeleteShader(vertexShader);
@@ -133,7 +130,6 @@ namespace Chorizite.OpenGLSDLBackend {
             if (Program != 0) {
                 Unload();
             }
-
             _uniformLocations.Clear();
 
             Program = prog;
@@ -154,8 +150,6 @@ namespace Chorizite.OpenGLSDLBackend {
             if (success != 1) {
                 var infoLog = GL.GetShaderInfoLog(shader);
                 _log.LogError($"Error: {name}:{shaderType} compilation failed: {infoLog}");
-                GL.DeleteShader(shader);
-                return 0;
             }
 
             return shader;
@@ -163,16 +157,8 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public override void Bind() {
             SetActive();
-            if (Program == 0) {
-                _log.LogError($"Bind called on shader {Name} but Program is 0!");
-                return;
-            }
-
-            GL.UseProgram(Program);
-            var err = GL.GetError();
-            if (err != GLEnum.NoError) {
-                _log.LogError($"UseProgram({Program}) for shader {Name} failed with error: {err}");
-            }
+            GL.UseProgram((uint)Program);
+            GLHelpers.CheckErrors();
         }
 
         public override void Unbind() {

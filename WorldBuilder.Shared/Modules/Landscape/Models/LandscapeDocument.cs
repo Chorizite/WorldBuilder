@@ -1,0 +1,348 @@
+﻿using DatReaderWriter;
+using DatReaderWriter.DBObjs;
+using MemoryPack;
+using System.Buffers;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Data.Common;
+using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Services;
+using static WorldBuilder.Shared.Services.DocumentManager;
+
+namespace WorldBuilder.Shared.Models;
+
+[MemoryPackable]
+public partial class LandscapeDocument : BaseDocument {
+    private bool _didLoadLayers;
+    private bool _didLoadCacheFromDats;
+    private bool _didLoadRegionData;
+    private readonly HashSet<string> _layerIds = [];
+
+    /// <summary>
+    /// A cached version of the terrain data, for faster access. This contains all merged layers and the base dat layer.
+    /// </summary>
+    [MemoryPackIgnore]
+    public TerrainEntry[] TerrainCache { get; private set; } = [];
+
+    /// <summary>
+    /// The terrain layer tree
+    /// </summary>
+    [MemoryPackInclude]
+    [MemoryPackOrder(10)]
+    protected List<LandscapeLayerBase> LayerTree { get; init; } = []; // Changed to protected
+
+    /// <summary>
+    /// Region info + helpers
+    /// </summary>
+    [MemoryPackIgnore]
+    public RegionInfo? Region { get; private set; }
+
+    /// <summary>
+    /// The region id this document belongs to
+    /// </summary>
+    [MemoryPackIgnore]
+    public uint RegionId => uint.Parse(Id.Split('_')[1]);
+
+    /// <summary>
+    /// The cell database for this region
+    /// </summary>
+    [MemoryPackIgnore]
+    public IDatDatabase? CellDatabase { get; private set; }
+
+    /// <summary>
+    /// The layer documents
+    /// </summary>
+    [MemoryPackIgnore]
+    public ConcurrentDictionary<string, DocumentRental<LandscapeLayerDocument>> LayerDocuments { get; } = [];
+
+    [MemoryPackConstructor]
+    public LandscapeDocument() : base() {
+    }
+
+    public LandscapeDocument(string id) : base(id) {
+        if (!id.StartsWith($"{nameof(LandscapeDocument)}_"))
+            throw new ArgumentException($"TerrainDocument Id must start with '{nameof(LandscapeDocument)}_'",
+                nameof(id));
+        if (!uint.TryParse(id.Split('_')[1], out _))
+            throw new ArgumentException($"Invalid terrain document region id: {id}");
+    }
+
+    public LandscapeDocument(uint regionId) : base($"{nameof(LandscapeDocument)}_{regionId}") {
+    }
+
+    public static string GetIdFromRegion(uint regionId) => $"{nameof(LandscapeDocument)}_{regionId}";
+
+    public override async Task InitializeForUpdatingAsync(IDatReaderWriter dats, IDocumentManager documentManager,
+        CancellationToken ct) {
+        await LoadLayersAsync(documentManager, ct);
+    }
+
+    public override async Task InitializeForEditingAsync(IDatReaderWriter dats, IDocumentManager documentManager,
+        CancellationToken ct) {
+        await InitializeForUpdatingAsync(dats, documentManager, ct);
+        await LoadRegionDataAsync(dats);
+        await LoadCacheFromDatsAsync(ct);
+    }
+
+    /// <summary>
+    /// Adds a new layer or group to the tree.
+    /// </summary>
+    internal void AddLayer(IReadOnlyList<string> groupPath, string name, bool isBase, string layerId) {
+        if (_layerIds.Contains(layerId)) {
+            throw new InvalidOperationException($"Layer ID already exists: {layerId}");
+        }
+
+        if (isBase && GetAllLayers().Any(l => l.IsBase)) {
+            throw new InvalidOperationException("Cannot add another base layer; only one allowed.");
+        }
+
+        var parent = FindParentGroup(groupPath);
+        var layer = new LandscapeLayer(layerId, isBase) { Name = name };
+
+        var targetList = parent?.Children ?? LayerTree;
+        targetList.Add(layer);
+
+        _layerIds.Add(layerId);
+    }
+
+    /// <summary>
+    /// Adds a new group to the tree
+    /// </summary>
+    internal void AddGroup(IReadOnlyList<string> groupPath, string name, string groupId) {
+        if (_layerIds.Contains(groupId)) {
+            throw new InvalidOperationException($"Group ID already exists: {groupId}");
+        }
+
+        var parent = FindParentGroup(groupPath);
+        var group = new LandscapeLayerGroup(name) { Id = groupId };
+
+        var targetList = parent?.Children ?? LayerTree;
+        targetList.Add(group);
+
+        _layerIds.Add(groupId);
+    }
+
+    /// <summary>
+    /// Removes a layer from the tree
+    /// </summary>
+    internal void RemoveLayer(IReadOnlyList<string> groupPath, string layerId) {
+        var parent = FindParentGroup(groupPath);
+        var targetList = parent?.Children ?? LayerTree;
+
+        var layer = targetList.OfType<LandscapeLayer>().FirstOrDefault(l => l.Id == layerId)
+                    ?? throw new InvalidOperationException($"Layer not found: {layerId}");
+
+        if (layer.IsBase) {
+            throw new InvalidOperationException("Cannot remove the base layer.");
+        }
+
+        targetList.Remove(layer);
+        _layerIds.Remove(layerId);
+    }
+
+    /// <summary>
+    /// Reorders a layer
+    /// </summary>
+    internal void ReorderLayer(IReadOnlyList<string> groupPath, string layerId, int newIndex) {
+        var parent = FindParentGroup(groupPath);
+        var targetList = parent?.Children ?? LayerTree;
+
+        var oldIndex = targetList.FindIndex(l => l.Id == layerId);
+        if (oldIndex == -1) {
+            throw new InvalidOperationException($"Layer not found: {layerId}");
+        }
+
+        if (newIndex < 0 || newIndex >= targetList.Count) {
+            throw new InvalidOperationException($"Invalid new index: {newIndex} (list size: {targetList.Count})");
+        }
+
+        if (oldIndex == newIndex) return;
+
+        var layer = targetList[oldIndex];
+        if (layer is LandscapeLayer tl && tl.IsBase && (newIndex != 0 || oldIndex != 0)) {
+            throw new InvalidOperationException("Cannot reorder the base layer from position 0.");
+        }
+
+        targetList.RemoveAt(oldIndex);
+        targetList.Insert(newIndex, layer);
+    }
+
+    internal IEnumerable<LandscapeLayerBase> GetAllLayersAndGroups() {
+        return GetLayersRecursive(LayerTree);
+    }
+
+    private IEnumerable<LandscapeLayerBase> GetLayersRecursive(IEnumerable<LandscapeLayerBase> items) {
+        foreach (var item in items) {
+            yield return item;
+            if (item is LandscapeLayerGroup group) {
+                foreach (var child in GetLayersRecursive(group.Children)) {
+                    yield return child;
+                }
+            }
+        }
+    }
+
+    internal IEnumerable<LandscapeLayer> GetAllLayers() {
+        return GetAllLayersAndGroups().OfType<LandscapeLayer>();
+    }
+
+    private async Task LoadLayersAsync(IDocumentManager documentManager, CancellationToken ct) {
+        if (_didLoadLayers) return;
+
+        await LoadLayersAsync(LayerTree, documentManager, ct);
+
+        // Invariant: Ensure exactly one base layer
+        var baseLayers = GetAllLayers().Count(l => l.IsBase);
+        if (baseLayers != 1) {
+            //throw new InvalidOperationException($"Invalid base layer count during init: {baseLayers} (must be 1)");
+        }
+
+        _layerIds.Clear();
+        foreach (var item in GetAllLayersAndGroups()) {
+            if (!_layerIds.Add(item.Id)) {
+                throw new InvalidOperationException($"Duplicate layer ID found during init: {item.Id}");
+            }
+        }
+
+        _didLoadLayers = true;
+    }
+
+    private async Task LoadLayersAsync(List<LandscapeLayerBase> layerTree, IDocumentManager documentManager,
+        CancellationToken ct) {
+        foreach (var item in layerTree) {
+            if (item is LandscapeLayer layer) {
+                var layerDocResult = await documentManager.RentDocumentAsync<LandscapeLayerDocument>(layer.Id, ct);
+                if (layerDocResult.IsFailure) {
+                    throw new InvalidOperationException(
+                        $"Failed to rent TerrainLayerDocument: {layer.Id}. Error: {layerDocResult.Error.Message}");
+                }
+
+                var layerDoc = layerDocResult.Value;
+                if (layerDoc == null) {
+                    throw new InvalidOperationException($"Failed to rent TerrainLayerDocument: {layer.Id}");
+                }
+
+                await layerDoc.Document.InitializeForUpdatingAsync(null!, documentManager, ct);
+
+                LayerDocuments[layer.Id] = layerDoc;
+
+                // apply the layer to the cache
+                foreach (var (vertexIndex, terrain) in layerDoc.Document.Terrain) {
+                    if (terrain.Height.HasValue) TerrainCache[vertexIndex].Height = terrain.Height;
+                    if (terrain.Type.HasValue) TerrainCache[vertexIndex].Type = terrain.Type;
+                    if (terrain.Scenery.HasValue) TerrainCache[vertexIndex].Scenery = terrain.Scenery;
+                    if (terrain.Encounters.HasValue) TerrainCache[vertexIndex].Encounters = terrain.Encounters;
+                    if (terrain.Road.HasValue) TerrainCache[vertexIndex].Road = terrain.Road;
+                }
+            }
+            else if (item is LandscapeLayerGroup group) {
+                await LoadLayersAsync(group.Children, documentManager, ct);
+            }
+        }
+    }
+
+    private async Task LoadCacheFromDatsAsync(CancellationToken ct) {
+        if (_didLoadCacheFromDats) return;
+        if (Region is null) throw new InvalidOperationException("Region not loaded yet.");
+        if (CellDatabase is null) throw new InvalidOperationException("CellDatabase not loaded yet.");
+
+        int totalLandblocks = Region.MapHeightInLandblocks * Region.MapWidthInLandblocks;
+
+
+        int widthInLandblocks = Region.MapWidthInLandblocks;
+        int vertexStride = Region.LandblockVerticeLength;
+        int mapWidth = Region.MapWidthInVertices;
+        int chunkSize = 1024 * 8;
+        int numChunks = (totalLandblocks + chunkSize - 1) / chunkSize;
+        TerrainCache = new TerrainEntry[Region.MapWidthInVertices * Region.MapHeightInVertices];
+
+        await Task.Run(() => {
+            var opts = new ParallelOptions() { CancellationToken = ct };
+
+            Parallel.For(0, numChunks, opts, chunkIndex => {
+                var lb = new LandBlock();
+                var buffer = new byte[256];
+                int start = chunkIndex * chunkSize;
+                int end = Math.Min(start + chunkSize, totalLandblocks);
+                int localSize = vertexStride * vertexStride;
+                int strideMinusOne = vertexStride - 1;
+
+                for (int i = start; i < end; i++) {
+                    int lbX = i % widthInLandblocks;
+                    int lbY = i / widthInLandblocks;
+                    var lbId = Region.GetLandblockId(lbX, lbY);
+                    var lbFileId = (uint)((lbId << 16) | 0xFFFF);
+
+                    if (!CellDatabase.TryGetFileBytes(lbFileId, ref buffer, out _)) {
+                        continue;
+                    }
+
+                    lb.Unpack(new DatReaderWriter.Lib.IO.DatBinReader(buffer));
+
+                    int baseVx = lbX * strideMinusOne;
+                    int baseVy = lbY * strideMinusOne;
+
+                    for (int localIdx = 0; localIdx < localSize; localIdx++) {
+                        int localY = localIdx % vertexStride;
+                        int localX = localIdx / vertexStride;
+                        int globalVertexIndex = (baseVy + localY) * mapWidth + (baseVx + localX);
+                        var terrainInfo = lb.Terrain[localIdx];
+
+                        TerrainCache[globalVertexIndex] = new TerrainEntry {
+                            Height = lb.Height[localIdx],
+                            Type = (byte)terrainInfo.Type,
+                            Scenery = terrainInfo.Scenery,
+                            Road = terrainInfo.Road
+                        };
+                    }
+                }
+            });
+        }, ct);
+
+        _didLoadCacheFromDats = true;
+    }
+
+    private Task LoadRegionDataAsync(IDatReaderWriter dats) {
+        if (_didLoadRegionData) return Task.CompletedTask;
+
+        // look up region file id
+        if (!dats.RegionFileMap.TryGetValue(RegionId, out var regionFileId)) {
+            throw new ArgumentException($"Invalid region id, could not find region file entry id in dats: {RegionId}");
+        }
+
+        // load region cell db
+        if (!dats.CellRegions.TryGetValue(RegionId, out var cellDatabase)) {
+            throw new ArgumentException($"Invalid region id: {RegionId}");
+        }
+
+        // load region entry
+        if (!dats.Portal.TryGet<Region>(regionFileId, out var region)) {
+            throw new ArgumentException(
+                $"Invalid region id, unable to find region in dat: {RegionId} (0x{regionFileId:X8})");
+        }
+
+        CellDatabase = cellDatabase;
+        Region = new RegionInfo(region);
+
+        _didLoadRegionData = true;
+        return Task.CompletedTask;
+    }
+
+    public LandscapeLayerGroup? FindParentGroup(IReadOnlyList<string> groupPath) {
+        LandscapeLayerGroup? current = null;
+        foreach (var id in groupPath) {
+            current = (LayerTree.Concat(current?.Children ?? Enumerable.Empty<LandscapeLayerBase>()))
+                      .OfType<LandscapeLayerGroup>()
+                      .FirstOrDefault(g => g.Id == id)
+                      ?? throw new InvalidOperationException($"Group not found: {id}");
+        }
+
+        return current;
+    }
+
+    public override void Dispose() {
+        foreach (var layer in LayerDocuments.Values) {
+            layer.Dispose();
+        }
+    }
+}

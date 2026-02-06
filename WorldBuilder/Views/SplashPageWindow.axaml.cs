@@ -9,7 +9,6 @@ public partial class SplashPageWindow : Window {
         InitializeComponent();
     }
 
-    private void Binding(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
+    private void Binding(object? sender, Avalonia.Interactivity.RoutedEventArgs e) {
     }
 }

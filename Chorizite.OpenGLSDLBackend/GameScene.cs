@@ -1,0 +1,269 @@
+using Chorizite.Core.Render;
+using Chorizite.OpenGLSDLBackend.Lib;
+using Microsoft.Extensions.Logging;
+using Silk.NET.OpenGL;
+using System.Numerics;
+using System.Runtime.InteropServices;
+using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Services;
+using DatReaderWriter;
+
+namespace Chorizite.OpenGLSDLBackend;
+
+/// <summary>
+/// Vertex structure for simple 3D rendering with position and color.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct SimpleVertex {
+    public Vector3 Position;
+    public Vector4 Color;
+
+    public SimpleVertex(Vector3 position, Vector4 color) {
+        Position = position;
+        Color = color;
+    }
+
+    public SimpleVertex(float x, float y, float z, float r, float g, float b, float a = 1.0f) {
+        Position = new Vector3(x, y, z);
+        Color = new Vector4(r, g, b, a);
+    }
+}
+
+/// <summary>
+/// Manages the 3D scene including camera, objects, and rendering.
+/// </summary>
+public class GameScene : IDisposable {
+    private readonly GL _gl;
+    private readonly OpenGLGraphicsDevice _graphicsDevice;
+    private readonly ILogger _log;
+
+    // Camera system
+    private Camera2D _camera2D;
+    private Camera3D _camera3D;
+    private ICamera _currentCamera;
+    private bool _is3DMode;
+
+    // Cube rendering
+    private IShader? _shader;
+    private IShader? _terrainShader;
+    private bool _initialized;
+    private bool _wireframeMode;
+    private int _width;
+    private int _height;
+
+    // Terrain
+    private TerrainRenderManager? _terrainManager;
+
+    /// <summary>
+    /// Gets the number of pending terrain uploads.
+    /// </summary>
+    public int PendingTerrainUploads => _terrainManager?.QueuedUploads ?? 0;
+
+    /// <summary>
+    /// Gets the current active camera.
+    /// </summary>
+    public ICamera CurrentCamera => _currentCamera;
+
+    /// <summary>
+    /// Gets whether the scene is in 3D camera mode.
+    /// </summary>
+    public bool Is3DMode => _is3DMode;
+
+    /// <summary>
+    /// Creates a new GameScene.
+    /// </summary>
+    public GameScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILogger log) {
+        _gl = gl;
+        _graphicsDevice = graphicsDevice;
+        _log = log;
+
+        // Initialize cameras
+        _camera2D = new Camera2D(new Vector3(0, 0, 0));
+        _camera3D = new Camera3D(new Vector3(0, -5, 2), 0, -22);
+        _currentCamera = _camera3D;
+        _is3DMode = true;
+    }
+
+    /// <summary>
+    /// Initializes the scene (must be called on GL thread after context is ready).
+    /// </summary>
+    public void Initialize() {
+        if (_initialized) return;
+
+        // Create shader
+        var vertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Simple3D.vert");
+        var fragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Simple3D.frag");
+        _shader = _graphicsDevice.CreateShader("Simple3D", vertSource, fragSource);
+
+        // Create terrain shader
+        var tVertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Landscape.vert");
+        var tFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Landscape.frag");
+        _terrainShader = _graphicsDevice.CreateShader("Landscape", tVertSource, tFragSource);
+
+        _initialized = true;
+
+        if (_terrainManager != null && _terrainShader != null) {
+            _terrainManager.Initialize(_terrainShader);
+        }
+
+        _log.LogInformation("GameScene initialized");
+    }
+
+    public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats) {
+        _log.LogInformation($"SetLandscape: {landscapeDoc.RegionId}");
+        if (_terrainManager != null) {
+            _terrainManager.Dispose();
+        }
+
+        _terrainManager = new TerrainRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice);
+        if (_initialized && _terrainShader != null) {
+            _terrainManager.Initialize(_terrainShader);
+        }
+    }
+
+
+    /// <summary>
+    /// Toggles between 2D and 3D camera modes.
+    /// </summary>
+    public void ToggleCamera() {
+        _is3DMode = !_is3DMode;
+        _currentCamera = _is3DMode ? _camera3D : _camera2D;
+        _log.LogInformation("Camera toggled to {Mode} mode", _is3DMode ? "3D" : "2D");
+    }
+
+    /// <summary>
+    /// Sets the draw distance for the 3D camera.
+    /// </summary>
+    /// <param name="distance">The far clipping plane distance.</param>
+    public void SetDrawDistance(float distance) {
+        _camera3D.FarPlane = distance;
+    }
+
+    /// <summary>
+    /// Updates the scene.
+    /// </summary>
+    public void Update(float deltaTime) {
+        _currentCamera.Update(deltaTime);
+        _terrainManager?.Update(deltaTime, _currentCamera.Position);
+        _terrainManager?.ProcessUploads(25.0f);
+    }
+
+    /// <summary>
+    /// Resizes the viewport.
+    /// </summary>
+    public void Resize(int width, int height) {
+        _width = width;
+        _height = height;
+        _camera2D.Resize(width, height);
+        _camera3D.Resize(width, height);
+    }
+
+    /// <summary>
+    /// Renders the scene.
+    /// </summary>
+    public void Render() {
+        if (_width == 0 || _height == 0) return;
+
+        // Preserve the current viewport state and restore it after rendering
+        // This ensures that the viewport state set by the calling code is maintained
+        Span<int> currentViewport = stackalloc int[4];
+        _gl.GetInteger(GetPName.Viewport, currentViewport);
+        
+        // Log the current viewport dimensions for debugging
+        _log.LogDebug("GameScene.Render: Current viewport: {X}, {Y}, {Width}, {Height}", 
+                      currentViewport[0], currentViewport[1], currentViewport[2], currentViewport[3]);
+        _log.LogDebug("GameScene.Render: Expected dimensions: {Width}x{Height}", _width, _height);
+
+        // Always clear with a dark gray background
+        _gl.ClearColor(0.2f, 0.2f, 0.3f, 1.0f);
+        _gl.DepthMask(true); // Ensure we can write to depth buffer to clear it!
+        _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
+        if (!_initialized) {
+            _log.LogWarning("GameScene not fully initialized");
+            // Restore the original viewport before returning
+            _gl.Viewport(currentViewport[0], currentViewport[1], 
+                         (uint)currentViewport[2], (uint)currentViewport[3]);
+            return;
+        }
+
+        // Clean State for 3D rendering
+        _gl.Enable(EnableCap.DepthTest);
+        _gl.DepthFunc(DepthFunction.Less);
+        _gl.DepthMask(true);
+        _gl.ClearDepth(1.0f);
+        _gl.Disable(EnableCap.CullFace);
+        _gl.Disable(EnableCap.ScissorTest);
+        _gl.Disable(EnableCap.Blend);
+
+        // Render Terrain
+        if (_terrainManager != null) {
+            if (_wireframeMode) {
+                _gl.PolygonMode(GLEnum.FrontAndBack, Silk.NET.OpenGL.PolygonMode.Line);
+            }
+            else {
+                _gl.PolygonMode(GLEnum.FrontAndBack, Silk.NET.OpenGL.PolygonMode.Fill);
+            }
+
+            _terrainManager.Render(_currentCamera);
+            _gl.PolygonMode(GLEnum.FrontAndBack, Silk.NET.OpenGL.PolygonMode.Fill);
+        }
+
+        // Restore for Avalonia
+        _gl.Enable(EnableCap.ScissorTest);
+        _gl.Enable(EnableCap.DepthTest);
+        _gl.Enable(EnableCap.Blend);
+        
+        // Restore the original viewport state to maintain independence between windows
+        _gl.Viewport(currentViewport[0], currentViewport[1], 
+                     (uint)currentViewport[2], (uint)currentViewport[3]);
+        
+        // Log after restoration for debugging
+        _log.LogDebug("GameScene.Render: Restored viewport: {X}, {Y}, {Width}, {Height}", 
+                      currentViewport[0], currentViewport[1], currentViewport[2], currentViewport[3]);
+    }
+
+    #region Input Handlers
+
+    public void HandlePointerPressed(int button, Vector2 position) {
+        _currentCamera.HandlePointerPressed(button, position);
+    }
+
+    public void HandlePointerReleased(int button, Vector2 position) {
+        _currentCamera.HandlePointerReleased(button, position);
+    }
+
+    public void HandlePointerMoved(Vector2 position, Vector2 delta) {
+        _currentCamera.HandlePointerMoved(position, delta);
+    }
+
+    public void HandlePointerWheelChanged(float delta) {
+        _currentCamera.HandlePointerWheelChanged(delta);
+    }
+
+    public void HandleKeyDown(string key) {
+        // Check for camera toggle
+        if (key.Equals("Tab", StringComparison.OrdinalIgnoreCase)) {
+            ToggleCamera();
+            return;
+        }
+
+        if (key.Equals("X", StringComparison.OrdinalIgnoreCase)) {
+            _wireframeMode = !_wireframeMode;
+            _log.LogInformation("Wireframe mode: {Mode}", _wireframeMode ? "On" : "Off");
+            return;
+        }
+
+        _currentCamera.HandleKeyDown(key);
+    }
+
+    public void HandleKeyUp(string key) {
+        _currentCamera.HandleKeyUp(key);
+    }
+
+    #endregion
+
+    public void Dispose() {
+        _terrainManager?.Dispose();
+    }
+}

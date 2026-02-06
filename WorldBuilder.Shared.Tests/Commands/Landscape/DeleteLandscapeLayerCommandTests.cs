@@ -1,0 +1,243 @@
+using Moq;
+using WorldBuilder.Shared.Lib;
+using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Modules.Landscape.Commands;
+using WorldBuilder.Shared.Services;
+using static WorldBuilder.Shared.Services.DocumentManager;
+
+namespace WorldBuilder.Shared.Tests.Commands.Landscape {
+    public class DeleteLandscapeLayerCommandTests {
+        private readonly Mock<IDocumentManager> _mockDocManager;
+        private readonly Mock<IDatReaderWriter> _mockDats;
+        private readonly Mock<ITransaction> _mockTx;
+        private readonly string _terrainDocId = "LandscapeDocument_1";
+
+        public DeleteLandscapeLayerCommandTests() {
+            _mockDocManager = new Mock<IDocumentManager>();
+            _mockDats = new Mock<IDatReaderWriter>();
+            _mockTx = new Mock<ITransaction>();
+        }
+
+        private (LandscapeDocument, DocumentRental<LandscapeDocument>) CreateMockTerrainRental() {
+            var terrainDoc = new LandscapeDocument(_terrainDocId);
+            var rental = new DocumentRental<LandscapeDocument>(terrainDoc, () => { });
+            return (terrainDoc, rental);
+        }
+
+        private (LandscapeLayerDocument, DocumentRental<LandscapeLayerDocument>) CreateMockLayerRental(string id) {
+            var layerDoc = new LandscapeLayerDocument(id);
+            var rental = new DocumentRental<LandscapeLayerDocument>(layerDoc, () => { });
+            return (layerDoc, rental);
+        }
+
+        [Fact]
+        public async Task DeleteLayer_FromRootGroup_RemovesLayerSuccessfully() {
+            // Arrange
+            var layerId = LandscapeLayerDocument.CreateId();
+            var (terrainDoc, terrainRental) = CreateMockTerrainRental();
+            terrainDoc.AddLayer([], "Test Layer", false, layerId);
+            var (_, layerRental) = CreateMockLayerRental(layerId);
+
+            var command = new DeleteLandscapeLayerCommand {
+                TerrainDocumentId = _terrainDocId, TerrainLayerDocumentId = layerId, GroupPath = []
+            };
+
+            _mockDocManager.Setup(m =>
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
+            _mockDocManager.Setup(m =>
+                    m.RentDocumentAsync<LandscapeLayerDocument>(layerId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<DocumentRental<LandscapeLayerDocument>>.Success(layerRental));
+            _mockDocManager.Setup(m => m.PersistDocumentAsync(It.IsAny<DocumentRental<LandscapeDocument>>(),
+                    _mockTx.Object, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<Unit>.Success(Unit.Value));
+
+            // Act
+            var result =
+                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+
+            // Assert
+            Assert.True(result.IsSuccess);
+            Assert.Empty(terrainDoc.GetAllLayers());
+        }
+
+        [Fact]
+        public async Task DeleteLayer_FromNestedGroup_RemovesLayerSuccessfully() {
+            // Arrange
+            var groupId = "nested_group";
+            var layerId = LandscapeLayerDocument.CreateId();
+            var (terrainDoc, terrainRental) = CreateMockTerrainRental();
+            terrainDoc.AddGroup([], "Nested Group", groupId);
+            terrainDoc.AddLayer([groupId], "Test Layer", false, layerId);
+            var (_, layerRental) = CreateMockLayerRental(layerId);
+
+            var command = new DeleteLandscapeLayerCommand {
+                TerrainDocumentId = _terrainDocId, TerrainLayerDocumentId = layerId, GroupPath = [groupId]
+            };
+
+            _mockDocManager.Setup(m =>
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
+            _mockDocManager.Setup(m =>
+                    m.RentDocumentAsync<LandscapeLayerDocument>(layerId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<DocumentRental<LandscapeLayerDocument>>.Success(layerRental));
+            _mockDocManager.Setup(m => m.PersistDocumentAsync(It.IsAny<DocumentRental<LandscapeDocument>>(),
+                    _mockTx.Object, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<Unit>.Success(Unit.Value));
+
+            // Act
+            var result =
+                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+
+            // Assert
+            Assert.True(result.IsSuccess);
+            var parentGroup = terrainDoc.FindParentGroup([groupId]);
+            Assert.Empty(parentGroup!.Children.OfType<LandscapeLayer>());
+        }
+
+        [Fact]
+        public async Task DeleteLayer_UpdatesParentDocumentVersion() {
+            // Arrange
+            var layerId = LandscapeLayerDocument.CreateId();
+            var (terrainDoc, terrainRental) = CreateMockTerrainRental();
+            terrainDoc.AddLayer([], "Test Layer", false, layerId);
+            var (_, layerRental) = CreateMockLayerRental(layerId);
+            var initialVersion = terrainDoc.Version;
+
+            var command = new DeleteLandscapeLayerCommand {
+                TerrainDocumentId = _terrainDocId, TerrainLayerDocumentId = layerId, GroupPath = []
+            };
+
+            _mockDocManager.Setup(m =>
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
+            _mockDocManager.Setup(m =>
+                    m.RentDocumentAsync<LandscapeLayerDocument>(layerId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<DocumentRental<LandscapeLayerDocument>>.Success(layerRental));
+            _mockDocManager.Setup(m => m.PersistDocumentAsync(It.IsAny<DocumentRental<LandscapeDocument>>(),
+                    _mockTx.Object, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<Unit>.Success(Unit.Value));
+
+            // Act
+            await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+
+            // Assert
+            Assert.Equal(initialVersion + 1, terrainDoc.Version);
+        }
+
+        [Fact]
+        public async Task DeleteLayer_WhenIsBaseLayer_ThrowsException() {
+            // Arrange
+            var layerId = LandscapeLayerDocument.CreateId();
+            var (terrainDoc, terrainRental) = CreateMockTerrainRental();
+            terrainDoc.AddLayer([], "Base Layer", true, layerId);
+            var (_, layerRental) = CreateMockLayerRental(layerId);
+
+            var command = new DeleteLandscapeLayerCommand {
+                TerrainDocumentId = _terrainDocId, TerrainLayerDocumentId = layerId, GroupPath = []
+            };
+
+            _mockDocManager.Setup(m =>
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
+            _mockDocManager.Setup(m =>
+                    m.RentDocumentAsync<LandscapeLayerDocument>(layerId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<DocumentRental<LandscapeLayerDocument>>.Success(layerRental));
+
+            // Act
+            var result =
+                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+
+            // Assert
+            Assert.True(result.IsFailure);
+            Assert.Contains("Cannot remove the base layer", result.Error.Message);
+        }
+
+        [Fact]
+        public async Task DeleteLayer_WhenTerrainDocumentNotFound_ReturnsFailure() {
+            // Arrange
+            var layerId = LandscapeLayerDocument.CreateId();
+            var command = new DeleteLandscapeLayerCommand {
+                TerrainDocumentId = _terrainDocId, TerrainLayerDocumentId = layerId, GroupPath = []
+            };
+
+            _mockDocManager.Setup(m =>
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Failure("Not Found"));
+
+            // Act
+            var result =
+                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+
+            // Assert
+            Assert.True(result.IsFailure);
+            Assert.Equal("Not Found", result.Error.Message);
+        }
+
+        [Fact]
+        public async Task DeleteLayer_WhenLayerNotFound_ThrowsException() {
+            // Arrange
+            var layerId = LandscapeLayerDocument.CreateId();
+            var (terrainDoc, terrainRental) = CreateMockTerrainRental();
+
+            var command = new DeleteLandscapeLayerCommand {
+                TerrainDocumentId = _terrainDocId,
+                TerrainLayerDocumentId = layerId, // This ID is not in the document
+                GroupPath = []
+            };
+
+            _mockDocManager.Setup(m =>
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
+
+            // Act
+            var result =
+                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+
+            // Assert
+            Assert.True(result.IsFailure);
+            Assert.Contains("Layer not found", result.Error.Message);
+        }
+
+        [Fact]
+        public async Task DeleteLayer_WhenGroupPathInvalid_ThrowsException() {
+            // Arrange
+            var layerId = LandscapeLayerDocument.CreateId();
+            var (terrainDoc, terrainRental) = CreateMockTerrainRental();
+
+            var command = new DeleteLandscapeLayerCommand {
+                TerrainDocumentId = _terrainDocId, TerrainLayerDocumentId = layerId, GroupPath = ["invalid_group"]
+            };
+
+            _mockDocManager.Setup(m =>
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
+
+            // Act
+            var result =
+                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+
+            // Assert
+            Assert.True(result.IsFailure);
+            Assert.Contains("Group not found", result.Error.Message);
+        }
+
+        [Fact]
+        public void CreateInverse_ReturnsCreateCommand_WithCorrectParameters() {
+            // Arrange
+            var layerId = LandscapeLayerDocument.CreateId();
+            var command = new DeleteLandscapeLayerCommand {
+                TerrainDocumentId = _terrainDocId, TerrainLayerDocumentId = layerId, GroupPath = ["group"]
+            };
+
+            // Act
+            var inverse = command.CreateInverse();
+
+            // Assert
+            var createCommand = Assert.IsType<CreateLandscapeLayerCommand>(inverse);
+            Assert.Equal(command.TerrainLayerDocumentId, createCommand.TerrainLayerDocumentId);
+            Assert.Equal(command.TerrainDocumentId, createCommand.TerrainDocumentId);
+            Assert.Equal(command.GroupPath, createCommand.GroupPath);
+        }
+    }
+}

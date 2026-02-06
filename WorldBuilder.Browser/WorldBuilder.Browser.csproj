@@ -4,15 +4,15 @@
 		<OutputType>Exe</OutputType>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<Nullable>enable</Nullable>
-		<RunAOTCompilation>false</RunAOTCompilation>
+		<PublishTrimmed>true</PublishTrimmed>
 		<BlazorEnableTimeZoneSupport>false</BlazorEnableTimeZoneSupport>
 		<BlazorWebAssemblyPreserveCollationData>false</BlazorWebAssemblyPreserveCollationData>
 		<InvariantGlobalization>true</InvariantGlobalization>
-		<PublishTrimmed>false</PublishTrimmed>
-		<TrimMode>none</TrimMode>
+		<TrimeMode>Full</TrimeMode>
 	</PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="Avalonia.Browser" Version="11.3.6" />
+		<PackageReference Include="Avalonia.Browser" />
+		<PackageReference Include="Chorizite.DatReaderWriter" />
 	</ItemGroup>
 
 	<ItemGroup>

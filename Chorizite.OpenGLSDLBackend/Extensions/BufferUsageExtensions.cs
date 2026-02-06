@@ -1,10 +1,10 @@
-﻿using System;
+﻿using Chorizite.Core.Render.Enums;
+using Silk.NET.OpenGL;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Chorizite.Core.Render.Enums;
-using Silk.NET.OpenGL;
 
 namespace Chorizite.OpenGLSDLBackend.Extensions {
     internal static class BufferUsageExtensions {

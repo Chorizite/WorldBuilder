@@ -2,6 +2,7 @@
 using Chorizite.Core.Render.Enums;
 using Chorizite.OpenGLSDLBackend.Extensions;
 using Chorizite.OpenGLSDLBackend.Lib;
+using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
 using System.Runtime.InteropServices;
 
@@ -9,10 +10,11 @@ namespace Chorizite.OpenGLSDLBackend {
     public class ManagedGLTextureArray : ITextureArray {
         private readonly bool[] _usedLayers;
         private readonly GL GL;
-        private static int _nextId;
-        private bool _needsMipmapRegeneration;
+        private readonly ILogger _logger;
+        private static int _nextId = 0;
+        private bool _needsMipmapRegeneration = false;
         private readonly bool _isCompressed;
-        private int _mipmapDirtyCount;
+        private int _mipmapDirtyCount = 0;
         private readonly object _mipmapLock = new object();
 
         public int Slot { get; } = _nextId++;
@@ -23,7 +25,7 @@ namespace Chorizite.OpenGLSDLBackend {
         public nint NativePtr { get; private set; }
 
         public ManagedGLTextureArray(OpenGLGraphicsDevice graphicsDevice, TextureFormat format, int width, int height,
-            int size) {
+            int size, ILogger logger) {
             if (width <= 0 || height <= 0 || size <= 0) {
                 throw new ArgumentException($"Invalid texture array dimensions: {width}x{height}x{size}");
             }
@@ -34,6 +36,7 @@ namespace Chorizite.OpenGLSDLBackend {
             Size = size;
             _usedLayers = new bool[size];
             GL = graphicsDevice.GL;
+            _logger = logger;
             _isCompressed = IsCompressedFormat(format);
             GLHelpers.CheckErrors();
 
@@ -48,7 +51,7 @@ namespace Chorizite.OpenGLSDLBackend {
             GLHelpers.CheckErrors();
 
             int maxDimension = Math.Max(width, height);
-            int mipLevels = _isCompressed ? 1 : (int)Math.Floor(Math.Log2(maxDimension)) + 1;
+            int mipLevels = (int)Math.Floor(Math.Log2(maxDimension)) + 1;
 
             GL.TexStorage3D(GLEnum.Texture2DArray, (uint)mipLevels, format.ToGL(), (uint)width, (uint)height,
                 (uint)size);
@@ -64,7 +67,7 @@ namespace Chorizite.OpenGLSDLBackend {
             else {
                 GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureMinFilter,
                     (int)TextureMinFilter.LinearMipmapLinear);
-                GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureMaxLevel, mipLevels - 1);
+                GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureMaxLevel, (int)mipLevels - 1);
             }
 
             GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
@@ -98,7 +101,6 @@ namespace Chorizite.OpenGLSDLBackend {
             GL.BindSampler((uint)slot, 0);
             GL.ActiveTexture(GLEnum.Texture0 + slot);
             GLHelpers.CheckErrors();
-
             GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
             GLHelpers.CheckErrors();
 
@@ -112,7 +114,7 @@ namespace Chorizite.OpenGLSDLBackend {
                             _mipmapDirtyCount = 0;
                         }
                         else {
-                            Console.WriteLine($"Mipmap gen skipped: {errorMessage}");
+                            _logger.LogWarning("Mipmap gen skipped: {ErrorMessage}", errorMessage);
                         }
                     }
                 }
@@ -121,11 +123,11 @@ namespace Chorizite.OpenGLSDLBackend {
             }
         }
 
-        public int AddLayer(byte[] data) {
+        public unsafe int AddLayer(byte[] data) {
             return AddLayer(data, null, null);
         }
 
-        public int AddLayer(byte[] data, PixelFormat? uploadPixelFormat, PixelType? uploadPixelType) {
+        public unsafe int AddLayer(byte[] data, PixelFormat? uploadPixelFormat, PixelType? uploadPixelType) {
             // Removed Bind() here to avoid issues with current OpenGL state during atlas creation
             for (int i = 0; i < _usedLayers.Length; i++) {
                 if (!_usedLayers[i]) {
@@ -139,7 +141,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 $"No free layers available in texture array (Slot={Slot}, Size={Width}x{Height}x{Size}).");
         }
 
-        public int AddLayer(Span<byte> data) {
+        public unsafe int AddLayer(Span<byte> data) {
             return AddLayer(data.ToArray());
         }
 
@@ -193,8 +195,9 @@ namespace Chorizite.OpenGLSDLBackend {
                 }
             }
             catch (Exception ex) {
-                Console.WriteLine(
-                    $"Error uploading texture layer {layer} for {Width}x{Height} texture array (Slot={Slot}): {ex.Message}");
+                _logger.LogError(ex,
+                    "Error uploading texture layer {Layer} for {Width}x{Height} texture array (Slot={Slot})", layer,
+                    Width, Height, Slot);
                 throw;
             }
             finally {

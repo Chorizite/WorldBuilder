@@ -12,48 +12,86 @@ using System.Linq;
 using System.Runtime;
 using System.Threading.Tasks;
 using WorldBuilder.Lib;
-using WorldBuilder.Lib.Messages;
-using WorldBuilder.Lib.Settings;
+using WorldBuilder.Messages;
+using WorldBuilder.Services;
 using static WorldBuilder.ViewModels.SplashPageViewModel;
 
 namespace WorldBuilder.ViewModels;
 
+/// <summary>
+/// View model for the create project screen, handling project creation parameters and validation.
+/// </summary>
 public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDataErrorInfo {
     private readonly Dictionary<string, List<string>> _errors = new();
     private readonly ILogger<CreateProjectViewModel> _log;
     private readonly WorldBuilderSettings _settings;
 
+    /// <summary>
+    /// Gets or sets the base DAT directory path.
+    /// </summary>
     [ObservableProperty]
     private string _baseDatDirectory = string.Empty;
 
+    /// <summary>
+    /// Gets or sets the project name.
+    /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ProjectLocation))]
     private string _projectName = "New Project";
 
+    /// <summary>
+    /// Gets or sets the project location directory.
+    /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ProjectLocation))]
     private string _location = string.Empty;
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the user can proceed with the next step.
+    /// </summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(GoNextCommand))]
     private bool _canProceed;
 
+    /// <summary>
+    /// Gets or sets the errors related to the base DAT directory field.
+    /// </summary>
     [ObservableProperty]
     private List<string> _baseDatDirectoryErrors = new();
 
+    /// <summary>
+    /// Gets or sets the errors related to the project name field.
+    /// </summary>
     [ObservableProperty]
     private List<string> _projectNameErrors = new();
 
+    /// <summary>
+    /// Gets or sets the errors related to the location field.
+    /// </summary>
     [ObservableProperty]
     private List<string> _locationErrors = new();
 
+    /// <summary>
+    /// Gets the full project location path.
+    /// </summary>
     public string ProjectLocation => Path.Combine(Location, ProjectName);
 
+    /// <summary>
+    /// Occurs when the validation errors have changed for a property.
+    /// </summary>
     public new event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
-    
+
+    /// <summary>
+    /// Gets a value indicating whether the view model has validation errors.
+    /// </summary>
     // Add the HasErrors property (required by INotifyDataErrorInfo)
     public new bool HasErrors => _errors.Any();
 
+    /// <summary>
+    /// Gets the validation errors for a specified property or for the entire object.
+    /// </summary>
+    /// <param name="propertyName">The name of the property to retrieve errors for, or null to retrieve all errors</param>
+    /// <returns>An enumerable collection of error strings</returns>
     // Add the GetErrors method (required by INotifyDataErrorInfo)
     public new IEnumerable GetErrors(string? propertyName) {
         if (string.IsNullOrEmpty(propertyName))
@@ -62,6 +100,11 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
         return _errors.TryGetValue(propertyName, out var errors) ? errors : Enumerable.Empty<string>();
     }
 
+    /// <summary>
+    /// Initializes a new instance of the CreateProjectViewModel class.
+    /// </summary>
+    /// <param name="settings">The application settings</param>
+    /// <param name="log">The logger instance</param>
     public CreateProjectViewModel(WorldBuilderSettings settings, ILogger<CreateProjectViewModel> log) {
         _log = log;
         _settings = settings;
@@ -90,6 +133,10 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
         };
     }
 
+    /// <summary>
+    /// Opens a folder picker to select the base DAT directory.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation</returns>
     [RelayCommand]
     private async Task BrowseBaseDatDirectory() {
         var files = await TopLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions() {
@@ -106,6 +153,10 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
         }
     }
 
+    /// <summary>
+    /// Opens a folder picker to select the project location.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation</returns>
     [RelayCommand]
     private async Task BrowseLocation() {
         var files = await TopLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions() {
@@ -122,11 +173,17 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
         }
     }
 
+    /// <summary>
+    /// Navigates back to the project selection screen.
+    /// </summary>
     [RelayCommand]
     private void GoBack() {
         WeakReferenceMessenger.Default.Send(new SplashPageChangedMessage(SplashPage.ProjectSelection));
     }
 
+    /// <summary>
+    /// Proceeds to create the project with the specified parameters.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanProceed))]
     private void GoNext() {
         WeakReferenceMessenger.Default.Send(new CreateProjectMessage(this));

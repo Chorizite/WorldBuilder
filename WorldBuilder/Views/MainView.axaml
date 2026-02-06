@@ -3,35 +3,34 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:editors="clr-namespace:WorldBuilder.Editors.Landscape.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="clr-namespace:WorldBuilder.Views"
     xmlns:vm="clr-namespace:WorldBuilder.ViewModels"
+    xmlns:landscape="clr-namespace:WorldBuilder.Modules.Landscape"
     d:DesignHeight="450"
     d:DesignWidth="800"
     x:CompileBindings="True"
     x:DataType="vm:MainViewModel"
     mc:Ignorable="d">
     <Design.DataContext>
-        <!--
-            This only sets the DataContext for the previewer in an IDE,
-            to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs)
-        -->
         <vm:MainViewModel />
     </Design.DataContext>
-
     <DockPanel>
         <!--  Menu Bar at the top  -->
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="File">
                 <MenuItem Command="{Binding OpenExportDatsWindowCommand}" Header="Export Dats" />
             </MenuItem>
+            <MenuItem Header="Debug">
+                <MenuItem Command="{Binding OpenDebugWindowCommand}" Header="Open Debug Window" />
+            </MenuItem>
             <MenuItem Command="{Binding OpenSettingsWindowCommand}" Header="Settings" />
         </Menu>
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-            <editors:LandscapeEditorView Grid.Row="0" />
+        <Grid ColumnDefinitions="*,100">
+            <landscape:LandscapeView
+                DataContext="{Binding Landscape}"
+                Background="Red" />
+            <Panel Grid.Column="1" Background="Orange" />
         </Grid>
     </DockPanel>
 </UserControl>

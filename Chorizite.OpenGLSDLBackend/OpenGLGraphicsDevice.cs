@@ -34,12 +34,14 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         /// <inheritdoc />
-        public override IIndexBuffer CreateIndexBuffer(int size, Core.Render.Enums.BufferUsage usage = Core.Render.Enums.BufferUsage.Static) {
+        public override IIndexBuffer CreateIndexBuffer(int size,
+            Core.Render.Enums.BufferUsage usage = Core.Render.Enums.BufferUsage.Static) {
             return new ManagedGLIndexBuffer(this, usage, size);
         }
 
         /// <inheritdoc />
-        public override IVertexBuffer CreateVertexBuffer(int size, Core.Render.Enums.BufferUsage usage = Core.Render.Enums.BufferUsage.Static) {
+        public override IVertexBuffer CreateVertexBuffer(int size,
+            Core.Render.Enums.BufferUsage usage = Core.Render.Enums.BufferUsage.Static) {
             return new ManagedGLVertexBuffer(this, usage, size);
         }
 
@@ -65,10 +67,12 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         /// <inheritdoc />
-        public override ITexture CreateTextureInternal(TextureFormat format, int width, int height, byte[]? data = null) {
+        public override ITexture
+            CreateTextureInternal(TextureFormat format, int width, int height, byte[]? data = null) {
             if (format != TextureFormat.RGBA8) {
                 throw new NotImplementedException($"Texture format {format} is not supported.");
             }
+
             return new ManagedGLTexture(this, data, width, height);
         }
 
@@ -77,12 +81,14 @@ namespace Chorizite.OpenGLSDLBackend {
             if (format != TextureFormat.RGBA8) {
                 throw new NotImplementedException($"Texture format {format} is not supported.");
             }
+
             return new ManagedGLTexture(this, filename);
         }
 
         /// <inheritdoc />
-        public override ITextureArray CreateTextureArrayInternal(TextureFormat format, int width, int height, int size) {
-            return new ManagedGLTextureArray(this, format, width, height, size);
+        public override ITextureArray
+            CreateTextureArrayInternal(TextureFormat format, int width, int height, int size) {
+            return new ManagedGLTextureArray(this, format, width, height, size, _log);
         }
 
         /// <inheritdoc />
@@ -95,7 +101,6 @@ namespace Chorizite.OpenGLSDLBackend {
 
         /// <inheritdoc />
         public override void EndFrame() {
-            
         }
 
         /// <inheritdoc />
@@ -212,7 +217,7 @@ namespace Chorizite.OpenGLSDLBackend {
                     return PrimitiveType.Points;
                 case Core.Render.Enums.PrimitiveType.LineList:
                     return PrimitiveType.Lines;
-                    case Core.Render.Enums.PrimitiveType.LineStrip:
+                case Core.Render.Enums.PrimitiveType.LineStrip:
                     return PrimitiveType.LineStrip;
                 case Core.Render.Enums.PrimitiveType.TriangleList:
                     return PrimitiveType.Triangles;
@@ -224,13 +229,16 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         /// <inheritdoc />
-        public override IFramebuffer CreateFramebuffer(ITexture texture, int width, int height, bool hasDepthStencil = true) {
+        public override IFramebuffer CreateFramebuffer(ITexture texture, int width, int height,
+            bool hasDepthStencil = true) {
             if (texture == null) {
                 throw new ArgumentNullException(nameof(texture));
             }
+
             if (width <= 0 || height <= 0) {
                 throw new ArgumentException("Width and height must be positive.");
             }
+
             // Validate texture dimensions and format if needed (assumes texture is compatible)
             return new ManagedGLFramebuffer(GL, texture, width, height, hasDepthStencil);
         }
@@ -243,7 +251,6 @@ namespace Chorizite.OpenGLSDLBackend {
 
         /// <inheritdoc />
         public override void Dispose() {
-            
         }
 
         public override IUniformBuffer CreateUniformBuffer(BufferUsage usage, int size) {

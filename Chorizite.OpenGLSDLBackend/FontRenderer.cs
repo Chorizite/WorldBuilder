@@ -15,7 +15,7 @@ using VertexPositionColorTexture = FontStashSharp.Interfaces.VertexPositionColor
 
 namespace Chorizite.OpenGLSDLBackend {
     public class Texture2DManager : ITexture2DManager {
-        private OpenGLRenderer _renderer;
+        private readonly OpenGLRenderer _renderer;
 
         public Texture2DManager(OpenGLRenderer renderer) {
             _renderer = renderer;
@@ -34,7 +34,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public void SetTextureData(object texture, Rectangle bounds, byte[] data) {
             var t = (Core.Render.ITexture)texture;
-            
+
             t.SetData(new Core.Render.Rectangle(bounds.X, bounds.Y, bounds.Width, bounds.Height), data);
         }
     }
@@ -48,7 +48,7 @@ namespace Chorizite.OpenGLSDLBackend {
         private readonly IIndexBuffer _indexBuffer;
         private readonly IVertexArray _vao;
         private readonly VertexPositionColorTexture[] _vertexData = new VertexPositionColorTexture[MAX_VERTICES];
-        private object _lastTexture;
+        private object? _lastTexture;
         private int _vertexIndex = 0;
         private readonly OpenGLRenderer _renderer;
         private readonly Texture2DManager _textureManager;

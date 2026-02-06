@@ -1,68 +1,74 @@
-﻿using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CommunityToolkit.Mvvm.Messaging;
+using HanumanInstitute.MvvmDialogs;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
-using WorldBuilder.Lib;
-using WorldBuilder.Lib.Settings;
-using WorldBuilder.Views;
+using WorldBuilder.Lib.Extensions;
+using WorldBuilder.Lib.Factories;
+using WorldBuilder.Services;
+using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Services;
+using static WorldBuilder.Shared.Services.DocumentManager;
 
 namespace WorldBuilder.ViewModels;
 
+/// <summary>
+/// The main view model for the application, containing the primary UI logic and data.
+/// </summary>
 public partial class MainViewModel : ViewModelBase {
     private readonly WorldBuilderSettings _settings;
-
+    private readonly IDialogService _dialogService;
+    private readonly Project _project;
     private bool _settingsOpen;
 
-    public MainViewModel() {
+    /// <summary>
+    /// Gets or sets the greeting message displayed in the main view.
+    /// </summary>
+    [ObservableProperty] private string _greeting = "Welcome to Avalonia!";
+
+    [ObservableProperty] private WorldBuilder.Modules.Landscape.LandscapeViewModel? _landscape;
+
+    // for designer use only
+    [Obsolete("Designer use only")]
+    internal MainViewModel() {
         _settings = new WorldBuilderSettings();
+        _dialogService = null!;
+        _project = null!;
+        _landscape = null!;
     }
 
-    public MainViewModel(WorldBuilderSettings settings) {
+    [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
+    public MainViewModel(WorldBuilderSettings settings, IDialogService dialogService, Project project,
+        WorldBuilder.Modules.Landscape.LandscapeViewModel landscape) {
         _settings = settings;
-    }
-
-    [RelayCommand]
-    private void OpenSettingsWindow() {
-        if (_settingsOpen) return;
-
-        var settingsWindow = new SettingsWindow {
-            DataContext = _settings
-        };
-
-        settingsWindow.Closed += (s, e) => {
-            _settingsOpen = false;
-        };
-
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) {
-            settingsWindow.Show();
-            _settingsOpen = true;
-        }
-        else {
-            throw new Exception("Unable to open settings window");
-        }
+        _dialogService = dialogService;
+        _project = project;
+        _landscape = landscape;
     }
 
     [RelayCommand]
     private async Task OpenExportDatsWindow() {
+        await _dialogService.ShowExportDatsWindowAsync(this);
+    }
 
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) {
-            if (desktop.MainWindow == null) throw new Exception("Unable to open export DATs window, main window is null.");
+    [RelayCommand]
+    private async Task OpenSettingsWindow() {
+        if (_settingsOpen) return;
+        _settingsOpen = true;
 
-            var project = ProjectManager.Instance.CurrentProject
-                ?? throw new Exception("No project open, cannot export DATs.");
-            var viewModel = new ExportDatsWindowViewModel(_settings, project, desktop.MainWindow);
+        await _dialogService.ShowSettingsWindowAsync(this);
 
-            var exportWindow = new ExportDatsWindow();
-            exportWindow.DataContext = new ExportDatsWindowViewModel(_settings, project, exportWindow);
+        _settingsOpen = false;
+    }
 
-            await exportWindow.ShowDialog(desktop.MainWindow);
-        }
-        else {
-            throw new Exception("Unable to open settings window");
+    [RelayCommand]
+    private void OpenDebugWindow() {
+        // We'll implement the actual window opening in the code-behind
+        // For now, just raise an event or call a service
+        var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+        if (desktop?.MainWindow is Views.MainWindow mainWindow) {
+            mainWindow.OpenDebugWindow();
         }
     }
 }

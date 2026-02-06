@@ -1,228 +1,145 @@
-using System.Collections.ObjectModel;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Xml.Linq;
-using CommunityToolkit.Mvvm.ComponentModel;
-using DatReaderWriter;
-using DatReaderWriter.DBObjs;
-using DatReaderWriter.Options;
-using Microsoft.Data.Sqlite;
-using WorldBuilder.Shared.Documents;
+﻿using MemoryPack;
+using Microsoft.Extensions.DependencyInjection;
 using WorldBuilder.Shared.Lib;
+using WorldBuilder.Shared.Lib.Extensions;
+using WorldBuilder.Shared.Modules.Landscape;
+using WorldBuilder.Shared.Modules.Landscape.Commands;
+using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Repositories;
+using WorldBuilder.Shared.Services;
+using static WorldBuilder.Shared.Services.DocumentManager;
 
-namespace WorldBuilder.Shared.Models {
-    public partial class Project : ObservableObject, IDisposable {
-        private static JsonSerializerOptions _opts = new JsonSerializerOptions { WriteIndented = true };
-        private string _filePath = string.Empty;
+namespace WorldBuilder.Shared.Models;
 
-        [ObservableProperty] private string _name = string.Empty;
+/// <summary>
+/// Represents a WorldBuilder project, which contains all the data and services needed for a world-building session.
+/// </summary>
+public class Project : IProject {
+    private readonly IDatReaderWriter _dats;
+    private readonly IDocumentManager _documentManager;
 
-        [ObservableProperty] private Guid _guid;
+    /// <summary>
+    /// Gets the name of the project (determined by the project file name)
+    /// </summary>
+    public string Name => Path.GetFileNameWithoutExtension(ProjectFile);
 
-        [ObservableProperty] private bool _isHosting = false;
+    /// <summary>
+    /// Gets the path to the project file
+    /// </summary>
+    public string ProjectFile { get; }
 
-        [ObservableProperty] private string _remoteUrl = string.Empty;
+    /// <summary>
+    /// Gets the path to the project directory
+    /// </summary>
+    public string ProjectDirectory => Path.GetDirectoryName(ProjectFile) ?? string.Empty;
 
-        public string ProjectDirectory => Path.GetDirectoryName(FilePath) ?? string.Empty;
-        public string DatDirectory => Path.Combine(ProjectDirectory, "dats");
-        public string BaseDatDirectory => Path.Combine(DatDirectory, "base");
-        public string DatabasePath => Path.Combine(ProjectDirectory, "project.db");
+    /// <summary>
+    /// Gets the path to the base dat directory
+    /// </summary>
+    public string BaseDatDirectory => Path.Combine(ProjectDirectory, "dats", "base");
 
-        [JsonIgnore] public string FilePath { get => _filePath; set => SetProperty(ref _filePath, value); }
+    /// <summary>
+    /// Gets the service provider for this project
+    /// </summary>
+    public ServiceProvider Services { get; }
 
-        [JsonIgnore] public DocumentManager DocumentManager { get; set; }
+    /// <summary>
+    /// Gets the terrain module for this project
+    /// </summary>
+    public LandscapeModule Landscape { get; }
 
-        [JsonIgnore] public IDatReaderWriter DatReaderWriter { get; set; }
+    private Project(string projectFile) {
+        ProjectFile = projectFile;
 
-        public static Project? FromDisk(string projectFilePath) {
-            if (!File.Exists(projectFilePath)) {
-                return null;
-            }
+        var services = new ServiceCollection();
+        services.AddWorldBuilderSharedServices($"Data Source={ProjectFile}", BaseDatDirectory);
 
-            var project = JsonSerializer.Deserialize<Project>(File.ReadAllText(projectFilePath), _opts);
-            if (project != null) {
-                project.FilePath = projectFilePath;
-                project.InitializeDatReaderWriter();
-            }
+        services.AddSingleton<LandscapeModule>();
 
-            return project;
+        Services = services.BuildServiceProvider();
+
+        _dats = Services.GetRequiredService<IDatReaderWriter>();
+        _documentManager = Services.GetRequiredService<IDocumentManager>();
+        Landscape = Services.GetRequiredService<LandscapeModule>();
+    }
+
+    private async Task Initialize(CancellationToken ct) {
+        await _documentManager.InitializeAsync(ct);
+    }
+
+    /// <summary>
+    /// Opens an existing project from the specified project file path.
+    /// </summary>
+    /// <param name="projectFile">The path to the project file to open</param>
+    /// <param name="ct">A cancellation token to cancel the operation</param>
+    /// <returns>A Result containing a Project instance if successful, or an error</returns>
+    public static async Task<Result<Project>> Open(string projectFile, CancellationToken ct) {
+        var projectDirectory = Path.GetDirectoryName(projectFile);
+        if (!Directory.Exists(projectDirectory)) {
+            return Result<Project>.Failure($"Invalid project directory, does not exist: {projectDirectory}", "PROJECT_DIRECTORY_NOT_FOUND");
         }
 
-        public static Project? Create(string projectName, string projectFilePath, string baseDatDirectory) {
-            var projectDir = Path.GetDirectoryName(projectFilePath);
-            if (!Directory.Exists(projectDir)) {
-                Directory.CreateDirectory(projectDir);
-            }
+        var project = new Project(projectFile);
+        await project.Initialize(ct);
 
-            var datDir = Path.Combine(projectDir, "dats");
-            var baseDatDir = Path.Combine(datDir, "base");
+        return Result<Project>.Success(project);
+    }
 
-            if (!Directory.Exists(baseDatDir)) {
-                Directory.CreateDirectory(baseDatDir);
-            }
-
-            // Copy base dat files
-            var datFiles = new[] {
-                "client_cell_1.dat", "client_portal.dat", "client_highres.dat", "client_local_English.dat"
-            };
-
-
-            if (Directory.Exists(baseDatDirectory)) {
-                foreach (var datFile in datFiles) {
-                    var sourcePath = Path.Combine(baseDatDirectory, datFile);
-                    var destPath = Path.Combine(baseDatDir, datFile);
-
-                    if (File.Exists(sourcePath)) {
-                        File.Copy(sourcePath, destPath, true);
-                    }
-                }
-            }
-
-            var project = new Project() { Name = projectName, FilePath = projectFilePath, Guid = Guid.NewGuid() };
-
-            project.InitializeDatReaderWriter();
-            project.Save();
-            return project;
+    /// <summary>
+    /// Creates a new project with the specified parameters.
+    /// </summary>
+    /// <param name="projectName">The name for the new project</param>
+    /// <param name="projectDirectory">The directory where the project should be created</param>
+    /// <param name="baseDatDirectory">The directory containing the base dat files</param>
+    /// <param name="ct">A cancellation token to cancel the operation</param>
+    /// <returns>A Result containing a Project instance if successful, or an error</returns>
+    public static async Task<Result<Project>> Create(string projectName, string projectDirectory, string baseDatDirectory, CancellationToken ct) {
+        if (!Directory.Exists(baseDatDirectory)) {
+            return Result<Project>.Failure($"Base dat directory does not exist: {baseDatDirectory}", "BASE_DAT_DIRECTORY_NOT_FOUND");
+        }
+        if (Directory.Exists(projectDirectory) && Directory.EnumerateFileSystemEntries(projectDirectory).Any()) {
+            return Result<Project>.Failure($"Project directory is not empty: {projectDirectory}", "PROJECT_DIRECTORY_NOT_EMPTY");
         }
 
-        public Project() {
+        var requiredDatFiles = new[] {
+            "client_cell_1.dat",
+            "client_portal.dat",
+            "client_highres.dat",
+            "client_local_English.dat"
+        };
+
+        var foundDatFiles = new List<string>();
+
+        // check for required dats
+        foreach (var datFile in requiredDatFiles) {
+            var datFilePath = Path.Combine(baseDatDirectory, datFile);
+            if (!File.Exists(datFilePath)) {
+                return Result<Project>.Failure($"Base dat file does not exist: {datFilePath}", "BASE_DAT_FILE_NOT_FOUND");
+            }
+            foundDatFiles.Add(datFilePath);
         }
 
-        private void InitializeDatReaderWriter() {
-            if (Directory.Exists(BaseDatDirectory)) {
-                DatReaderWriter = new DefaultDatReaderWriter(BaseDatDirectory, DatAccessType.Read);
+        // check for additional cell region dats
+        for (var i = 2; i < 1000; i++) {
+            var datFilePath = Path.Combine(baseDatDirectory, $"client_cell_{i}.dat");
+            if (File.Exists(datFilePath)) {
+                foundDatFiles.Add(datFilePath);
             }
             else {
-                throw new DirectoryNotFoundException($"Base dat directory not found: {BaseDatDirectory}");
+                break;
             }
         }
 
-        public void Save() {
-            var tmp = Path.GetTempFileName();
-            try {
-                File.WriteAllText(tmp, JsonSerializer.Serialize(this, _opts));
-                File.Move(tmp, FilePath);
-            }
-            finally {
-                if (File.Exists(tmp)) {
-                    File.Delete(tmp);
-                }
-            }
+        // copy dats
+        var baseDatDirectoryCopy = Path.Combine(projectDirectory, "dats", "base");
+        if (!Directory.Exists(baseDatDirectoryCopy)) {
+            Directory.CreateDirectory(baseDatDirectoryCopy);
+        }
+        foreach (var datFile in foundDatFiles) {
+            File.Copy(datFile, Path.Combine(baseDatDirectoryCopy, Path.GetFileName(datFile)), true);
         }
 
-        public bool ExportDats(string exportDirectory, int portalIteration) {
-            if (!Directory.Exists(exportDirectory)) {
-                Directory.CreateDirectory(exportDirectory);
-            }
-
-            // Copy base dats from project's base directory
-            var datFiles = new[] {
-                "client_cell_1.dat", "client_portal.dat", "client_highres.dat", "client_local_English.dat"
-            };
-
-            foreach (var datFile in datFiles) {
-                var sourcePath = Path.Combine(BaseDatDirectory, datFile);
-                var destPath = Path.Combine(exportDirectory, datFile);
-
-                if (File.Exists(sourcePath)) {
-                    File.Copy(sourcePath, destPath, true);
-                }
-            }
-
-            using var writer = new DefaultDatReaderWriter(exportDirectory, DatAccessType.ReadWrite);
-
-            if (portalIteration == DatReaderWriter.Dats.Portal.Iteration.CurrentIteration) {
-                portalIteration = 0;
-            }
-
-            var terrainDoc = DocumentManager.GetOrCreateDocumentAsync<TerrainDocument>("terrain").Result;
-
-            // Collect all layers that are marked for export
-            var exportLayers = new List<TerrainLayer>();
-            if (terrainDoc.TerrainData.RootItems != null) {
-                CollectExportLayers(terrainDoc.TerrainData.RootItems, exportLayers);
-            }
-
-            exportLayers.Reverse(); // Apply Bottom-To-Top (painter's algorithm)
-
-            // Identify all landblocks that need to be saved (modified in base OR any export layer)
-            var modifiedLandblocks = new HashSet<ushort>(terrainDoc.TerrainData.Landblocks.Keys);
-            var layerDocs = new Dictionary<string, LayerDocument>();
-
-            foreach (var layer in exportLayers) {
-                var layerDoc = DocumentManager.GetOrCreateDocumentAsync<LayerDocument>(layer.DocumentId).Result;
-                if (layerDoc != null) {
-                    layerDocs[layer.DocumentId] = layerDoc;
-                    foreach (var lbKey in layerDoc.TerrainData.Landblocks.Keys) {
-                        modifiedLandblocks.Add(lbKey);
-                    }
-                }
-            }
-
-            const int LANDBLOCK_SIZE = 81;
-
-            // Process and save each modified landblock
-            foreach (var lbKey in modifiedLandblocks) {
-                var lbId = (uint)(lbKey << 16) | 0xFFFF;
-
-                var currentEntries = terrainDoc.GetLandblockInternal(lbKey);
-                if (currentEntries == null) {
-                    continue;
-                }
-
-                // 2. Apply changes from each export layer in order
-                foreach (var layer in exportLayers) {
-                    if (layerDocs.TryGetValue(layer.DocumentId, out var layerDoc)) {
-                        if (layerDoc.TerrainData.Landblocks.TryGetValue(lbKey, out var sparseCells)) {
-                            foreach (var (cellIdx, cellValue) in sparseCells) {
-                                currentEntries[cellIdx] = new TerrainEntry(cellValue);
-                            }
-                        }
-                    }
-                }
-
-                // 3. Save the composite result to the DAT
-                if (!writer.TryGet<LandBlock>(lbId, out var lb)) {
-                    // If missing from the destination DAT, implies missing from base DAT too usually.
-                    continue;
-                }
-
-                for (var i = 0; i < LANDBLOCK_SIZE; i++) {
-                    var entry = currentEntries[i];
-                    lb.Terrain[i] = new() {
-                        Road = entry.Road,
-                        Scenery = entry.Scenery,
-                        Type = (DatReaderWriter.Enums.TerrainTextureType)entry.Type
-                    };
-                    lb.Height[i] = entry.Height;
-                }
-
-                if (!writer.TrySave(lb, portalIteration)) {
-                    // Log error? Project doesn't store logger directly but could throw or ignore.
-                }
-            }
-
-            // TODO: all other dat iterations
-            writer.Dats.Portal.Iteration.CurrentIteration = portalIteration;
-
-            return true;
-        }
-
-        private void CollectExportLayers(IEnumerable<TerrainLayerBase> items, List<TerrainLayer> result) {
-            foreach (var item in items) {
-                if (!item.IsExport) continue;
-
-                if (item is TerrainLayerGroup group) {
-                    CollectExportLayers(group.Children, result);
-                }
-                else if (item is TerrainLayer layer) {
-                    result.Add(layer);
-                }
-            }
-        }
-
-        public void Dispose() {
-            DatReaderWriter?.Dispose();
-        }
+        var projectPath = Path.Combine(projectDirectory, $"{projectName}.wbproj");
+        return await Open(projectPath, ct);
     }
 }

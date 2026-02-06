@@ -13,11 +13,15 @@
 	  <None Remove="Shaders\Text.vert" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="Chorizite.Core" Version="0.0.17" />
-		<PackageReference Include="NAudio" Version="2.2.1" />
-		<PackageReference Include="Silk.NET.OpenGL" Version="2.22.0" />
-		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
-		<PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.9" />
+		<PackageReference Include="Chorizite.Core" />
+		<PackageReference Include="Chorizite.DatReaderWriter" />
+		<PackageReference Include="NAudio" />
+		<PackageReference Include="Silk.NET.OpenGL" />
+		<PackageReference Include="SixLabors.ImageSharp" />
+		<PackageReference Include="Microsoft.Extensions.Logging" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\WorldBuilder.Shared\WorldBuilder.Shared.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 	  <EmbeddedResource Include="Shaders\Landscape.frag">
@@ -46,6 +50,16 @@
 	  <EmbeddedResource Include="Shaders\UI.vert">
 	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Shaders\Simple3D.vert">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Shaders\Simple3D.frag">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <None Remove="Shaders\Terrain.frag" />
+	  <EmbeddedResource Include="Shaders\Terrain.frag" />
+	  <None Remove="Shaders\Terrain.vert" />
+	  <EmbeddedResource Include="Shaders\Terrain.vert" />
 	</ItemGroup>
 	<ItemGroup>
 	  <None Update="Fonts\Apache License.txt">

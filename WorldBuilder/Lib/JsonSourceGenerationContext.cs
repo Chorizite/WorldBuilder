@@ -7,6 +7,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using WorldBuilder.Lib.Settings;
+using WorldBuilder.Services;
+using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Lib {
     [JsonSourceGenerationOptions(WriteIndented = true, Converters = new[] { typeof(Vector3Converter) })]
