@@ -84,14 +84,14 @@ namespace WorldBuilder.Views {
             }
 
             if (RenderTarget == null) return;
-            
+
             // Bind to our own render target for rendering
             Renderer.BindRenderTarget(RenderTarget);
 
             // Set the viewport for the current render target size before rendering
             // This ensures the scene is rendered at the correct resolution for this viewport
             Renderer?.GraphicsDevice.GL.Viewport(0, 0, (uint)_renderSize.Width, (uint)_renderSize.Height);
-            
+
             OnGlRender(frameTime);
             Renderer.BindRenderTarget(null);
         }
@@ -222,7 +222,7 @@ namespace WorldBuilder.Views {
                     Math.Abs(viewportSize.Height - _lastViewportSize.Height) > 0.5) {
                     _lastViewportSize = viewportSize;
                     UpdateSize(viewportSize);
-                    
+
                     // Update render size when layout changes to ensure proper scaling
                     if (_renderSize.Width != (int)viewportSize.Width || _renderSize.Height != (int)viewportSize.Height) {
                         _renderSize = new PixelSize((int)viewportSize.Width, (int)viewportSize.Height);
@@ -277,15 +277,15 @@ namespace WorldBuilder.Views {
                     // Declare controlSize outside the using block to ensure proper scope
                     PixelSize controlSize = default;
                     bool shouldUpdate = false;
-                    
+
                     if (drawingContext.TryGetFeature<ISkiaSharpApiLeaseFeature>(out var skiaFeature)) {
                         using var skiaLease = skiaFeature.Lease();
                         _ = skiaLease.GrContext ?? throw new Exception("Unable to get GrContext");
                         PixelSize canvasSize = default;
-                        
+
                         // Calculate control size before the using block to ensure it's accessible later
                         controlSize = new PixelSize((int)_parent._viewport!.Bounds.Width, (int)_parent._viewport!.Bounds.Height);
-                        
+
                         using (var platformApiLease = skiaLease.TryLeasePlatformGraphicsApi()) {
                             if (platformApiLease?.Context is not IGlContext glContext)
                                 throw new Exception("Unable to get IGlContext");
@@ -296,7 +296,7 @@ namespace WorldBuilder.Views {
 
                                 var gl = GL.GetApi(glContext.GlInterface.GetProcAddress);
                                 SilkGl = gl;
-                                
+
                                 // If this is a RenderView, register the context as master if not already set
                                 if (_parent is RenderView renderView) {
                                     var sharedContextManager = RenderView.SharedContextManager;
@@ -304,7 +304,7 @@ namespace WorldBuilder.Views {
                                         sharedContextManager.SetMasterContext(glContext, gl);
                                     }
                                 }
-                                
+
                                 // Log when a new context is assigned to this viewport for debugging
                                 _parent._logger.LogDebug("New OpenGL context assigned to viewport: {ContextHashCode}", glContext.GetHashCode());
                             }
@@ -338,22 +338,22 @@ namespace WorldBuilder.Views {
 
                             // Use the actual control size instead of the GL viewport size for resize detection
                             // This ensures each window resizes independently
-                            
+
                             if (_lastSize.Width != controlSize.Width || _lastSize.Height != controlSize.Height) {
                                 _parent.OnGlResizeInternal(controlSize);
                                 shouldUpdate = true;
-                                
+
                                 // Update the viewport dimensions in the context manager for this specific context
                                 // This ensures each RenderView maintains independent viewport state and only resizes
                                 // with its own dimensions, preventing shared viewport state between windows
                                 if (_gl != null) {
                                     RenderView.SharedContextManager.SetViewportDimensions(_gl, controlSize.Width, controlSize.Height);
-                                    
+
                                     // Log the viewport dimensions being set for debugging
-                                    _parent._logger.LogInformation("Setting viewport dimensions for context: {Width}x{Height}", 
+                                    _parent._logger.LogInformation("Setting viewport dimensions for context: {Width}x{Height}",
                                         controlSize.Width, controlSize.Height);
                                 }
-                                
+
                                 // Also update our own instance-specific viewport size
                                 _ownViewportSize = controlSize;
                             }
@@ -387,12 +387,12 @@ namespace WorldBuilder.Views {
 
                             // Restore the original OpenGL state to ensure isolation between render views
                             SilkGl.Viewport(originalViewport[0], originalViewport[1], (uint)originalViewport[2], (uint)originalViewport[3]);
-                            
+
                             if (originalDepthTest) SilkGl.Enable(EnableCap.DepthTest); else SilkGl.Disable(EnableCap.DepthTest);
                             if (originalCullFace) SilkGl.Enable(EnableCap.CullFace); else SilkGl.Disable(EnableCap.CullFace);
                             SilkGl.CullFace((TriangleFace)originalCullFaceMode);
                             SilkGl.FrontFace((FrontFaceDirection)originalFrontFace);
-                            
+
                             if (originalBlend) SilkGl.Enable(EnableCap.Blend); else SilkGl.Disable(EnableCap.Blend);
                             SilkGl.BlendFunc((BlendingFactor)originalBlendSrc, (BlendingFactor)originalBlendDst);
                             SilkGl.BlendEquation((BlendEquationModeEXT)originalBlendEquation);
@@ -416,13 +416,14 @@ namespace WorldBuilder.Views {
                                 int destW, destH;
 
                                 // Prioritize our own instance-specific viewport size over the shared context manager
-                                // This ensures that each RenderView renders to its own size regardless of context sharing
                                 destW = _ownViewportSize.Width;
                                 destH = _ownViewportSize.Height;
 
-                                // Log the blitting operation for debugging
-                                _parent._logger.LogDebug("Blitting from {SrcW}x{SrcH} to {DestW}x{DestH}", 
-                                    srcWidth, srcHeight, destW, destH);
+                                // Disable scissor test for blit to ensure we draw the full viewport
+                                // This is necessary because the scissor state might be leaked/persisted from the Main Window
+                                // in the shared context, causing clipping of the Debug Window's content.
+                                var scissorEnabled = SilkGl.IsEnabled(EnableCap.ScissorTest);
+                                if (scissorEnabled) SilkGl.Disable(EnableCap.ScissorTest);
 
                                 // Use the context-specific viewport dimensions for blitting
                                 SilkGl.BlitFramebuffer(
@@ -430,6 +431,8 @@ namespace WorldBuilder.Views {
                                     destX, destY, destW, destH,
                                     ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear
                                 );
+
+                                if (scissorEnabled) SilkGl.Enable(EnableCap.ScissorTest);
                             }
 
                             // restore old framebuffer

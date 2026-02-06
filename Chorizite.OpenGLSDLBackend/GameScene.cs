@@ -168,11 +168,6 @@ public class GameScene : IDisposable {
         // This ensures that the viewport state set by the calling code is maintained
         Span<int> currentViewport = stackalloc int[4];
         _gl.GetInteger(GetPName.Viewport, currentViewport);
-        
-        // Log the current viewport dimensions for debugging
-        _log.LogDebug("GameScene.Render: Current viewport: {X}, {Y}, {Width}, {Height}", 
-                      currentViewport[0], currentViewport[1], currentViewport[2], currentViewport[3]);
-        _log.LogDebug("GameScene.Render: Expected dimensions: {Width}x{Height}", _width, _height);
 
         // Always clear with a dark gray background
         _gl.ClearColor(0.2f, 0.2f, 0.3f, 1.0f);
@@ -182,7 +177,7 @@ public class GameScene : IDisposable {
         if (!_initialized) {
             _log.LogWarning("GameScene not fully initialized");
             // Restore the original viewport before returning
-            _gl.Viewport(currentViewport[0], currentViewport[1], 
+            _gl.Viewport(currentViewport[0], currentViewport[1],
                          (uint)currentViewport[2], (uint)currentViewport[3]);
             return;
         }
@@ -213,14 +208,10 @@ public class GameScene : IDisposable {
         _gl.Enable(EnableCap.ScissorTest);
         _gl.Enable(EnableCap.DepthTest);
         _gl.Enable(EnableCap.Blend);
-        
+
         // Restore the original viewport state to maintain independence between windows
-        _gl.Viewport(currentViewport[0], currentViewport[1], 
+        _gl.Viewport(currentViewport[0], currentViewport[1],
                      (uint)currentViewport[2], (uint)currentViewport[3]);
-        
-        // Log after restoration for debugging
-        _log.LogDebug("GameScene.Render: Restored viewport: {X}, {Y}, {Width}, {Height}", 
-                      currentViewport[0], currentViewport[1], currentViewport[2], currentViewport[3]);
     }
 
     #region Input Handlers

@@ -189,11 +189,9 @@ public class Camera3D : CameraBase {
             case "D":
                 _moveRight = true;
                 break;
-            case "SPACE":
             case "E":
                 _moveUp = true;
                 break;
-            case "LEFTSHIFT":
             case "Q":
                 _moveDown = true;
                 break;
@@ -215,11 +213,9 @@ public class Camera3D : CameraBase {
             case "D":
                 _moveRight = false;
                 break;
-            case "SPACE":
             case "E":
                 _moveUp = false;
                 break;
-            case "LEFTSHIFT":
             case "Q":
                 _moveDown = false;
                 break;
