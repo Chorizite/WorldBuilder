@@ -4,11 +4,14 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Models;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools
 {
     public class BrushTool : ObservableObject, ILandscapeTool
     {
+        private const int TextureId = 5;
+
         public string Name => "Brush";
         public string IconGlyph => "🖌️";
         public bool IsActive { get; private set; }
@@ -47,7 +50,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
         {
         }
 
-        public bool OnPointerPressed(LandscapeInputEvent e)
+        public bool OnPointerPressed(ViewportInputEvent e)
         {
             _context?.Logger.LogInformation("BrushTool.OnPointerPressed. IsLeft: {Left}, Pos: {Pos}", e.IsLeftDown, e.Position);
             if (_context == null || !e.IsLeftDown)
@@ -73,7 +76,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
             return false;
         }
 
-        public bool OnPointerMoved(LandscapeInputEvent e)
+        public bool OnPointerMoved(ViewportInputEvent e)
         {
             if (!_isPainting || _context == null) return false;
 
@@ -91,7 +94,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
             return false;
         }
 
-        public bool OnPointerReleased(LandscapeInputEvent e)
+        public bool OnPointerReleased(ViewportInputEvent e)
         {
             if (_isPainting)
             {
@@ -113,9 +116,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
         private void ApplyPaint(TerrainRaycast.TerrainRaycastHit hit)
         {
             if (_context == null) return;
-            //_context.Logger.LogInformation("Applying Paint at {Pos} with Radius {Radius}", hit.HitPosition, BrushRadius);
-            // Use Texture ID 5 (Grass?) for testing
-            var command = new PaintCommand(_context, hit.HitPosition, BrushRadius, 5);
+            var command = new PaintCommand(_context, hit.HitPosition, BrushRadius, TextureId);
             _context.CommandHistory.Execute(command);
         }
     }

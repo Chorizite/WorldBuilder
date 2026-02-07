@@ -5,17 +5,19 @@ using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Services;
 using static WorldBuilder.Shared.Services.DocumentManager;
 
+using WorldBuilder.Shared.Tests.Mocks;
+
 namespace WorldBuilder.Shared.Tests.Commands.Landscape {
     public class CreateLandscapeLayerCommandTests {
         private readonly Mock<IDocumentManager> _mockDocManager;
-        private readonly Mock<IDatReaderWriter> _mockDats;
+        private readonly MockDatReaderWriter _dats;
         private readonly Mock<ITransaction> _mockTx;
         private readonly string _terrainDocId = "LandscapeDocument_1";
         private readonly string _layerName = "Test Layer";
 
         public CreateLandscapeLayerCommandTests() {
             _mockDocManager = new Mock<IDocumentManager>();
-            _mockDats = new Mock<IDatReaderWriter>();
+            _dats = new MockDatReaderWriter();
             _mockTx = new Mock<ITransaction>();
         }
 
@@ -51,7 +53,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsSuccess);
@@ -84,7 +86,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsSuccess);
@@ -113,7 +115,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act
-            await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+            await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             var layer = terrainDoc.GetAllLayers().First();
@@ -141,7 +143,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act
-            await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+            await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.Equal(initialVersion + 1, terrainDoc.Version);
@@ -167,7 +169,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act
-            await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+            await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             // No error thrown during execution means it was called if implemented.
@@ -193,7 +195,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsSuccess);
@@ -228,7 +230,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsFailure);
@@ -251,7 +253,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsFailure);
@@ -270,7 +272,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsFailure);
@@ -294,7 +296,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsFailure);
@@ -335,7 +337,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act - Create
-            await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+            await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
             Assert.Single(terrainDoc.GetAllLayers());
 
             // Act - Delete (Inverse)

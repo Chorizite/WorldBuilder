@@ -24,7 +24,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly ConcurrentQueue<TerrainChunk> _generationQueue = new();
         private readonly ConcurrentQueue<TerrainChunk> _uploadQueue = new();
         private readonly ConcurrentQueue<TerrainChunk> _partialUpdateQueue = new();
+        private readonly ConcurrentDictionary<TerrainChunk, byte> _queuedForPartialUpdate = new();
         private int _activeGenerations = 0;
+
+        // Constants
+        private const int MaxVertices = 16384;
+        private const int MaxIndices = 24576;
 
         // Render state
         private IShader? _shader;
@@ -136,6 +141,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             while (processedCount < initialCount && sw.Elapsed.TotalMilliseconds < timeBudgetMs) {
                 if (_partialUpdateQueue.TryDequeue(out var chunk)) {
+                    _queuedForPartialUpdate.TryRemove(chunk, out _);
+
                     if (chunk.HasDirtyBlocks()) {
                         UpdateChunk(chunk);
                     }
@@ -198,8 +205,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 // Total vertices = 8 * 8 * 64 * 4 = 16384 vertices max
                 // Indices = 8 * 8 * 64 * 6 = 24576 indices max
 
-                var vertices = new VertexLandscape[16384];
-                var indices = new uint[24576];
+                var vertices = new VertexLandscape[MaxVertices];
+                var indices = new uint[MaxIndices];
                 int vCount = 0;
                 int iCount = 0;
 
@@ -262,35 +269,35 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Set up attributes based on VertexLandscape.Format
             // 0: Pos (3 float)
             _gl.EnableVertexAttribArray(0);
-            _gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, (uint)VertexLandscape.Size, (void*)0);
+            _gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetPosition);
 
             // 1: Normal (3 float)
             _gl.EnableVertexAttribArray(1);
-            _gl.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, (uint)VertexLandscape.Size, (void*)12);
+            _gl.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetNormal);
 
             // 2: TexCoord0 (4 byte)
             _gl.EnableVertexAttribArray(2);
-            _gl.VertexAttribIPointer(2, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)24);
+            _gl.VertexAttribIPointer(2, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord0);
 
             // 3: PackedOverlay0 (4 byte)
             _gl.EnableVertexAttribArray(3);
-            _gl.VertexAttribIPointer(3, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)28);
+            _gl.VertexAttribIPointer(3, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord1);
 
             // 4: PackedOverlay1 (4 byte)
             _gl.EnableVertexAttribArray(4);
-            _gl.VertexAttribIPointer(4, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)32);
+            _gl.VertexAttribIPointer(4, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord2);
 
             // 5: PackedOverlay2 (4 byte)
             _gl.EnableVertexAttribArray(5);
-            _gl.VertexAttribIPointer(5, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)36);
+            _gl.VertexAttribIPointer(5, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord3);
 
             // 6: PackedRoad0 (4 byte)
             _gl.EnableVertexAttribArray(6);
-            _gl.VertexAttribIPointer(6, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)40);
+            _gl.VertexAttribIPointer(6, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord4);
 
             // 7: PackedRoad1 (4 byte)
             _gl.EnableVertexAttribArray(7);
-            _gl.VertexAttribIPointer(7, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)44);
+            _gl.VertexAttribIPointer(7, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord5);
 
             chunk.IndexCount = indices.Length;
             chunk.IsGenerated = true;
@@ -343,7 +350,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (_chunks.TryGetValue(chunkId, out var chunk)) {
                 if (chunk.IsGenerated) {
                     chunk.MarkDirty(lbX % 8, lbY % 8);
-                    if (!_partialUpdateQueue.Contains(chunk)) { // Note: basic Contains might be O(N). Queue is likely small.
+                    if (_queuedForPartialUpdate.TryAdd(chunk, 1)) {
                         _partialUpdateQueue.Enqueue(chunk);
                     }
                 }

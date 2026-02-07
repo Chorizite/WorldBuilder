@@ -4,17 +4,18 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Services;
 using static WorldBuilder.Shared.Services.DocumentManager;
+using WorldBuilder.Shared.Tests.Mocks;
 
 namespace WorldBuilder.Shared.Tests.Commands.Landscape {
     public class CreateLandscapeDocumentCommandTests {
         private readonly Mock<IDocumentManager> _mockDocManager;
-        private readonly Mock<IDatReaderWriter> _mockDats;
+        private readonly MockDatReaderWriter _dats;
         private readonly Mock<ITransaction> _mockTx;
         private readonly uint _regionId = 1;
 
         public CreateLandscapeDocumentCommandTests() {
             _mockDocManager = new Mock<IDocumentManager>();
-            _mockDats = new Mock<IDatReaderWriter>();
+            _dats = new MockDatReaderWriter();
             _mockTx = new Mock<ITransaction>();
         }
 
@@ -40,7 +41,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsSuccess);
@@ -72,7 +73,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsFailure);
@@ -96,7 +97,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsFailure);
@@ -124,7 +125,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsFailure);

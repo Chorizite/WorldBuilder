@@ -87,8 +87,21 @@ public partial class RenderView : Base3DViewport {
                 // _pendingDats is already set from the cached value
             }
 
-            _logger.LogInformation("RenderView initialized, invoking SceneInitialized");
-            SceneInitialized?.Invoke();
+            Dispatcher.UIThread.Post(() => {
+                _logger.LogInformation("RenderView initialized, invoking SceneInitialized");
+                SceneInitialized?.Invoke();
+
+                if (DataContext is LandscapeViewModel vm) {
+                    vm.SetGameScene(_gameScene);
+                }
+            });
+        }
+    }
+
+    protected override void OnDataContextChanged(EventArgs e) {
+        base.OnDataContextChanged(e);
+        if (DataContext is LandscapeViewModel vm && _gameScene != null) {
+            vm.SetGameScene(_gameScene);
         }
     }
 
@@ -113,95 +126,65 @@ public partial class RenderView : Base3DViewport {
         _gameScene?.HandleKeyUp(e.Key.ToString());
     }
 
+    private ViewportInputEvent CreateInputEvent(PointerEventArgs e) {
+        var point = e.GetCurrentPoint(this);
+        var size = new Vector2((float)Bounds.Width, (float)Bounds.Height) * InputScale;
+        var pos = e.GetPosition(this);
+        var posVec = new Vector2((float)pos.X, (float)pos.Y) * InputScale;
+        var delta = posVec - _lastPointerPosition;
+
+        return new ViewportInputEvent {
+            Position = posVec,
+            Delta = delta,
+            ViewportSize = size,
+            IsLeftDown = point.Properties.IsLeftButtonPressed,
+            IsRightDown = point.Properties.IsRightButtonPressed,
+            ShiftDown = (e.KeyModifiers & KeyModifiers.Shift) != 0,
+            CtrlDown = (e.KeyModifiers & KeyModifiers.Control) != 0,
+            AltDown = (e.KeyModifiers & KeyModifiers.Alt) != 0
+        };
+    }
+
     protected override void OnGlPointerMoved(PointerEventArgs e, Vector2 mousePositionScaled) {
-        var delta = mousePositionScaled - _lastPointerPosition;
-
-        // Forward to GameScene for Camera control (Right click mostly)
-        // If ViewModel handles it (Left click tool), maybe we shouldn't send to GameScene?
-        // Or GameScene handles navigation, VM handles Tools.
-        // If Tool is active (Left Button), we might suppress camera look?
-        // For now, let's just forward to both, but Tool logic checks button state.
-
-        _gameScene?.HandlePointerMoved(mousePositionScaled, delta);
+        var inputEvent = CreateInputEvent(e);
+        _gameScene?.HandlePointerMoved(inputEvent);
         _lastPointerPosition = mousePositionScaled;
-
-        if (DataContext is LandscapeViewModel vm) {
-            var size = new Vector2((float)Bounds.Width, (float)Bounds.Height) * InputScale;
-            var point = e.GetCurrentPoint(this);
-            var inputEvent = new LandscapeInputEvent {
-                Position = new Vector2((float)point.Position.X, (float)point.Position.Y) * InputScale,
-                ViewportSize = size,
-                IsLeftDown = point.Properties.IsLeftButtonPressed,
-                IsRightDown = point.Properties.IsRightButtonPressed,
-                ShiftDown = (e.KeyModifiers & KeyModifiers.Shift) != 0,
-                CtrlDown = (e.KeyModifiers & KeyModifiers.Control) != 0,
-                AltDown = (e.KeyModifiers & KeyModifiers.Alt) != 0
-            };
-            vm.OnPointerMoved(inputEvent);
-        }
     }
 
     protected override void OnGlPointerPressed(PointerPressedEventArgs e) {
-        _logger.LogInformation("RenderView.OnGlPointerPressed. DataContext is {Type}", DataContext?.GetType().Name ?? "null");
         // Focus this control to receive keyboard input
         this.Focus();
 
-        var props = e.GetCurrentPoint(this).Properties;
-        int button = props.IsLeftButtonPressed ? 0 : props.IsRightButtonPressed ? 1 : 2;
-        var pos = e.GetPosition(this);
-        _lastPointerPosition = new Vector2((float)pos.X, (float)pos.Y) * InputScale;
-        _gameScene?.HandlePointerPressed(button, _lastPointerPosition);
+        var inputEvent = CreateInputEvent(e);
+        _lastPointerPosition = inputEvent.Position;
 
-        // Capture pointer for drag operations
-        if (props.IsRightButtonPressed) {
+        _gameScene?.HandlePointerPressed(inputEvent);
+
+        if (inputEvent.IsRightDown) {
             e.Pointer.Capture(this);
-        }
-
-        if (DataContext is LandscapeViewModel vm) {
-            var size = new Vector2((float)Bounds.Width, (float)Bounds.Height) * InputScale;
-            var point = e.GetCurrentPoint(this);
-            var inputEvent = new LandscapeInputEvent {
-                Position = new Vector2((float)point.Position.X, (float)point.Position.Y) * InputScale,
-                ViewportSize = size,
-                IsLeftDown = point.Properties.IsLeftButtonPressed,
-                IsRightDown = point.Properties.IsRightButtonPressed,
-                ShiftDown = (e.KeyModifiers & KeyModifiers.Shift) != 0,
-                CtrlDown = (e.KeyModifiers & KeyModifiers.Control) != 0,
-                AltDown = (e.KeyModifiers & KeyModifiers.Alt) != 0
-            };
-            vm.OnPointerPressed(inputEvent);
-        }
-        else {
-            _logger.LogWarning("RenderView DataContext is NOT LandscapeViewModel");
         }
     }
 
     protected override void OnGlPointerReleased(PointerReleasedEventArgs e) {
-        int button = e.InitialPressMouseButton == MouseButton.Left ? 0 :
-            e.InitialPressMouseButton == MouseButton.Right ? 1 : 2;
-        var pos = e.GetPosition(this);
-        _gameScene?.HandlePointerReleased(button, new Vector2((float)pos.X, (float)pos.Y) * InputScale);
+        var inputEvent = CreateInputEvent(e);
 
-        // Release pointer capture
+        // Map Avalonia MouseButton to internal ID
+        // Avalonia: Left=0, Middle=1, Right=2
+        // Internal: Left=0, Right=1, Middle=2
+        inputEvent.ReleasedButton = e.InitialPressMouseButton switch {
+            MouseButton.Left => 0,
+            MouseButton.Right => 1,
+            MouseButton.Middle => 2,
+            _ => (int)e.InitialPressMouseButton
+        };
+
+        _gameScene?.HandlePointerReleased(inputEvent);
+
         if (e.InitialPressMouseButton == MouseButton.Right) {
             e.Pointer.Capture(null);
         }
-
-        if (DataContext is LandscapeViewModel vm) {
-            var size = new Vector2((float)Bounds.Width, (float)Bounds.Height) * InputScale;
-            var point = e.GetCurrentPoint(this);
-            var inputEvent = new WorldBuilder.Shared.Modules.Landscape.Tools.LandscapeInputEvent {
-                Position = new Vector2((float)pos.X, (float)pos.Y) * InputScale,
-                ViewportSize = size,
-                IsLeftDown = point.Properties.IsLeftButtonPressed,
-                IsRightDown = point.Properties.IsRightButtonPressed,
-                ShiftDown = (e.KeyModifiers & KeyModifiers.Shift) != 0,
-                CtrlDown = (e.KeyModifiers & KeyModifiers.Control) != 0,
-                AltDown = (e.KeyModifiers & KeyModifiers.Alt) != 0
-            };
-            vm.OnPointerReleased(inputEvent);
-        }
     }
+
 
     protected override void OnGlPointerWheelChanged(PointerWheelEventArgs e) {
         _gameScene?.HandlePointerWheelChanged((float)e.Delta.Y);

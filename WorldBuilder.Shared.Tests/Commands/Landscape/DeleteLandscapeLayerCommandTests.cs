@@ -4,17 +4,18 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Services;
 using static WorldBuilder.Shared.Services.DocumentManager;
+using WorldBuilder.Shared.Tests.Mocks;
 
 namespace WorldBuilder.Shared.Tests.Commands.Landscape {
     public class DeleteLandscapeLayerCommandTests {
         private readonly Mock<IDocumentManager> _mockDocManager;
-        private readonly Mock<IDatReaderWriter> _mockDats;
+        private readonly MockDatReaderWriter _dats;
         private readonly Mock<ITransaction> _mockTx;
         private readonly string _terrainDocId = "LandscapeDocument_1";
 
         public DeleteLandscapeLayerCommandTests() {
             _mockDocManager = new Mock<IDocumentManager>();
-            _mockDats = new Mock<IDatReaderWriter>();
+            _dats = new MockDatReaderWriter();
             _mockTx = new Mock<ITransaction>();
         }
 
@@ -39,7 +40,9 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             var (_, layerRental) = CreateMockLayerRental(layerId);
 
             var command = new DeleteLandscapeLayerCommand {
-                TerrainDocumentId = _terrainDocId, TerrainLayerDocumentId = layerId, GroupPath = []
+                TerrainDocumentId = _terrainDocId,
+                TerrainLayerDocumentId = layerId,
+                GroupPath = []
             };
 
             _mockDocManager.Setup(m =>
@@ -54,7 +57,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsSuccess);
@@ -72,7 +75,9 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             var (_, layerRental) = CreateMockLayerRental(layerId);
 
             var command = new DeleteLandscapeLayerCommand {
-                TerrainDocumentId = _terrainDocId, TerrainLayerDocumentId = layerId, GroupPath = [groupId]
+                TerrainDocumentId = _terrainDocId,
+                TerrainLayerDocumentId = layerId,
+                GroupPath = [groupId]
             };
 
             _mockDocManager.Setup(m =>
@@ -87,7 +92,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsSuccess);
@@ -105,7 +110,9 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             var initialVersion = terrainDoc.Version;
 
             var command = new DeleteLandscapeLayerCommand {
-                TerrainDocumentId = _terrainDocId, TerrainLayerDocumentId = layerId, GroupPath = []
+                TerrainDocumentId = _terrainDocId,
+                TerrainLayerDocumentId = layerId,
+                GroupPath = []
             };
 
             _mockDocManager.Setup(m =>
@@ -119,7 +126,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act
-            await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+            await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.Equal(initialVersion + 1, terrainDoc.Version);
@@ -134,7 +141,9 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             var (_, layerRental) = CreateMockLayerRental(layerId);
 
             var command = new DeleteLandscapeLayerCommand {
-                TerrainDocumentId = _terrainDocId, TerrainLayerDocumentId = layerId, GroupPath = []
+                TerrainDocumentId = _terrainDocId,
+                TerrainLayerDocumentId = layerId,
+                GroupPath = []
             };
 
             _mockDocManager.Setup(m =>
@@ -146,7 +155,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsFailure);
@@ -158,7 +167,9 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             // Arrange
             var layerId = LandscapeLayerDocument.CreateId();
             var command = new DeleteLandscapeLayerCommand {
-                TerrainDocumentId = _terrainDocId, TerrainLayerDocumentId = layerId, GroupPath = []
+                TerrainDocumentId = _terrainDocId,
+                TerrainLayerDocumentId = layerId,
+                GroupPath = []
             };
 
             _mockDocManager.Setup(m =>
@@ -167,7 +178,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsFailure);
@@ -192,7 +203,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsFailure);
@@ -206,7 +217,9 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             var (terrainDoc, terrainRental) = CreateMockTerrainRental();
 
             var command = new DeleteLandscapeLayerCommand {
-                TerrainDocumentId = _terrainDocId, TerrainLayerDocumentId = layerId, GroupPath = ["invalid_group"]
+                TerrainDocumentId = _terrainDocId,
+                TerrainLayerDocumentId = layerId,
+                GroupPath = ["invalid_group"]
             };
 
             _mockDocManager.Setup(m =>
@@ -215,7 +228,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsFailure);
@@ -227,7 +240,9 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             // Arrange
             var layerId = LandscapeLayerDocument.CreateId();
             var command = new DeleteLandscapeLayerCommand {
-                TerrainDocumentId = _terrainDocId, TerrainLayerDocumentId = layerId, GroupPath = ["group"]
+                TerrainDocumentId = _terrainDocId,
+                TerrainLayerDocumentId = layerId,
+                GroupPath = ["group"]
             };
 
             // Act

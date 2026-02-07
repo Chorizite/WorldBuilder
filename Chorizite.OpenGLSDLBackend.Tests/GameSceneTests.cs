@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Silk.NET.OpenGL;
 using Xunit;
+using WorldBuilder.Shared.Models;
 
 namespace Chorizite.OpenGLSDLBackend.Tests;
 
@@ -59,8 +60,16 @@ public class GameSceneTests {
         var initialPos = camera2D.Position;
 
         // Right click (button 1) to start panning
-        _gameScene.HandlePointerPressed(1, new Vector2(100, 100));
-        _gameScene.HandlePointerMoved(new Vector2(110, 110), new Vector2(10, 10));
+        _gameScene.HandlePointerPressed(new ViewportInputEvent {
+            IsRightDown = true,
+            Position = new Vector2(100, 100)
+        });
+
+        _gameScene.HandlePointerMoved(new ViewportInputEvent {
+            IsRightDown = true,
+            Position = new Vector2(110, 110),
+            Delta = new Vector2(10, 10)
+        });
 
         Assert.NotEqual(initialPos, camera2D.Position);
     }
@@ -73,8 +82,16 @@ public class GameSceneTests {
         var initialView = camera3D.ViewMatrix;
 
         // Right click (button 1) to start looking
-        _gameScene.HandlePointerPressed(1, new Vector2(400, 300));
-        _gameScene.HandlePointerMoved(new Vector2(410, 310), new Vector2(10, 10));
+        _gameScene.HandlePointerPressed(new ViewportInputEvent {
+            IsRightDown = true,
+            Position = new Vector2(400, 300)
+        });
+
+        _gameScene.HandlePointerMoved(new ViewportInputEvent {
+            IsRightDown = true,
+            Position = new Vector2(410, 310),
+            Delta = new Vector2(10, 10)
+        });
 
         Assert.NotEqual(initialView, camera3D.ViewMatrix);
     }

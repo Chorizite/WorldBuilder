@@ -15,118 +15,122 @@ namespace WorldBuilder.Shared.Tests.Mocks {
         ]);
 
         public ReadOnlyDictionary<uint, IDatDatabase> CellRegions { get; } = new(new Dictionary<uint, IDatDatabase>() {
-            { 1, new MockDatDatabase([typeof(LandBlock)]) }
-});
+            { 1, new MockDatDatabase([typeof(LandBlock)]) },
+            { 65537, new MockDatDatabase([typeof(LandBlock)]) }
+        });
 
-public IDatDatabase HighRes { get; } = new MockDatDatabase([]);
+        public IDatDatabase HighRes { get; } = new MockDatDatabase([]);
 
-public IDatDatabase Language { get; } = new MockDatDatabase([]);
+        public IDatDatabase Language { get; } = new MockDatDatabase([]);
 
-public ReadOnlyDictionary<uint, uint> RegionFileMap { get; } = new(new Dictionary<uint, uint>() {
+        public ReadOnlyDictionary<uint, uint> RegionFileMap { get; } = new(new Dictionary<uint, uint>() {
+            { 1, 0x13000001 },
+            { 65537, 0x13000001 }
+        });
 
-});
+        public void Dispose() {
 
-public void Dispose() {
-
-}
+        }
     }
 
     internal class MockDatDatabase : IDatDatabase {
-    private readonly IEnumerable<Type> _validObjTypes;
-    private readonly ConcurrentDictionary<uint, IDBObj?> _cache = new();
+        private readonly IEnumerable<Type> _validObjTypes;
+        private readonly ConcurrentDictionary<uint, IDBObj?> _cache = new();
 
-    public MockDatDatabase(IEnumerable<Type> validTypes) {
-        _validObjTypes = validTypes;
-    }
-
-    public IEnumerable<uint> GetAllIdsOfType<T>() where T : IDBObj {
-        if (!_validObjTypes.Contains(typeof(T))) throw new Exception($"Invalid type: {typeof(T)}");
-
-        switch (typeof(T)) {
-            case Type _ when typeof(T) == typeof(Region): return [0x13000001];
-            case Type _ when typeof(T) == typeof(LandBlock):
-                var ids = new List<uint>(254 * 254);
-                for (var x = 0; x < 254; x++) {
-                    for (var y = 0; y < 254; y++) {
-                        ids.Add((uint)(((x << 8) + y) << 16) + 0xFFFF);
-                    }
-                }
-                return ids;
+        public MockDatDatabase(IEnumerable<Type> validTypes) {
+            _validObjTypes = validTypes;
         }
 
-        return [];
-    }
+        public IEnumerable<uint> GetAllIdsOfType<T>() where T : IDBObj {
+            if (!_validObjTypes.Contains(typeof(T))) throw new Exception($"Invalid type: {typeof(T)}");
 
-    public bool TryGet<T>(uint fileId, [MaybeNullWhen(false)] out T value) where T : IDBObj {
-        if (!_validObjTypes.Contains(typeof(T))) throw new Exception($"Invalid type: {typeof(T)}");
+            switch (typeof(T)) {
+                case Type _ when typeof(T) == typeof(Region): return [0x13000001];
+                case Type _ when typeof(T) == typeof(LandBlock):
+                    var ids = new List<uint>(254 * 254);
+                    for (var x = 0; x < 254; x++) {
+                        for (var y = 0; y < 254; y++) {
+                            ids.Add((uint)(((x << 8) + y) << 16) + 0xFFFF);
+                        }
+                    }
+                    return ids;
+            }
 
-        if (_cache.TryGetValue(fileId, out var obj)) {
-            if (obj is null) {
+            return [];
+        }
+
+        public bool TryGet<T>(uint fileId, [MaybeNullWhen(false)] out T value) where T : IDBObj {
+            if (!_validObjTypes.Contains(typeof(T))) throw new Exception($"Invalid type: {typeof(T)}");
+
+            if (_cache.TryGetValue(fileId, out var obj)) {
+                if (obj is null) {
+                    value = default;
+                    return false;
+                }
+
+                value = (T)obj;
+                return true;
+            }
+
+            if (!GetAllIdsOfType<T>().Contains(fileId)) {
                 value = default;
+                _cache[fileId] = null;
                 return false;
             }
 
-            value = (T)obj;
-            return true;
+            switch (typeof(T)) {
+                case Type _ when typeof(T) == typeof(Region): value = (T)(IDBObj)MakeRegion(fileId); return true;
+                case Type _ when typeof(T) == typeof(LandBlock): value = (T)(IDBObj)MakeLandBlock(fileId); return true;
+            }
+
+            throw new Exception($"Failed to get object of type {typeof(T)} with id 0x{fileId:X8}");
         }
 
-        if (!GetAllIdsOfType<T>().Contains(fileId)) {
-            value = default;
-            _cache[fileId] = null;
-            return false;
-        }
+        private static LandBlock MakeLandBlock(uint id) {
+            var rand = new Random((int)id);
 
-        switch (typeof(T)) {
-            case Type _ when typeof(T) == typeof(Region): value = (T)(IDBObj)MakeRegion(fileId); return true;
-            case Type _ when typeof(T) == typeof(LandBlock): value = (T)(IDBObj)MakeLandBlock(fileId); return true;
-        }
-
-        throw new Exception($"Failed to get object of type {typeof(T)} with id 0x{fileId:X8}");
-    }
-
-    private static LandBlock MakeLandBlock(uint id) {
-        var rand = new Random((int)id);
-
-        return new LandBlock() {
-            Id = id,
-            Height = [..Enumerable.Range(0, 81).Select(x => (byte)rand.Next(0, 255))],
-            HasObjects = false,
-            Terrain = [..Enumerable.Range(0, 81).Select(x => new TerrainInfo() {
+            return new LandBlock() {
+                Id = id,
+                Height = [.. Enumerable.Range(0, 81).Select(x => (byte)rand.Next(0, 255))],
+                HasObjects = false,
+                Terrain = [..Enumerable.Range(0, 81).Select(x => new TerrainInfo() {
                 Type = (TerrainTextureType)rand.Next(0, 31),
                 Road = (byte)(rand.Next(0, 1000) < 2 ? 1 : 0),
                 Scenery = (byte)rand.Next(0, 31),
             })]
-        };
-    }
+            };
+        }
 
-    private static Region MakeRegion(uint id) {
-        return new Region() {
-            Id = id,
-            Version = 1,
-            LandDefs = new LandDefs() {
-                NumBlockLength = 255,
-                NumBlockWidth = 255,
-                SquareLength = 24,
-                LBlockLength = 8,
-                VertexPerCell = 1,
-                MaxObjHeight = 200,
-                SkyHeight = 1000,
-                RoadWidth = 5,
-                LandHeightTable = [..Enumerable.Range(0, 255).Select(x => x * 2f)]
-            }
-        };
-    }
+        private static Region MakeRegion(uint id) {
+            return new Region() {
+                Id = id,
+                Version = 1,
+                LandDefs = new LandDefs() {
+                    NumBlockLength = 255,
+                    NumBlockWidth = 255,
+                    SquareLength = 24,
+                    LBlockLength = 8,
+                    VertexPerCell = 1,
+                    MaxObjHeight = 200,
+                    SkyHeight = 1000,
+                    RoadWidth = 5,
+                    LandHeightTable = [.. Enumerable.Range(0, 255).Select(x => x * 2f)]
+                }
+            };
+        }
 
-    public void Dispose() {
+        public void Dispose() {
 
-    }
+        }
 
-    public bool TryGetFileBytes(uint fileId, [MaybeNullWhen(false)] out byte[] value) {
-        throw new NotImplementedException();
-    }
+        public bool TryGetFileBytes(uint fileId, [MaybeNullWhen(false)] out byte[] value) {
+            value = [];
+            return true;
+        }
 
-    public bool TryGetFileBytes(uint fileId, ref byte[] bytes, out int bytesRead) {
-        throw new NotImplementedException();
+        public bool TryGetFileBytes(uint fileId, ref byte[] bytes, out int bytesRead) {
+            bytesRead = 0;
+            return true;
+        }
     }
-}
 }

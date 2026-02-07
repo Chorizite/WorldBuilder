@@ -8,6 +8,7 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Services;
 using DatReaderWriter;
 
+
 namespace Chorizite.OpenGLSDLBackend;
 
 /// <summary>
@@ -174,13 +175,11 @@ public class GameScene : IDisposable {
         if (_width == 0 || _height == 0) return;
 
         // Preserve the current viewport state and restore it after rendering
-        // This ensures that the viewport state set by the calling code is maintained
         Span<int> currentViewport = stackalloc int[4];
         _gl.GetInteger(GetPName.Viewport, currentViewport);
 
-        // Always clear with a dark gray background
         _gl.ClearColor(0.2f, 0.2f, 0.3f, 1.0f);
-        _gl.DepthMask(true); // Ensure we can write to depth buffer to clear it!
+        _gl.DepthMask(true);
         _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
         if (!_initialized) {
@@ -217,24 +216,32 @@ public class GameScene : IDisposable {
         _gl.Enable(EnableCap.ScissorTest);
         _gl.Enable(EnableCap.DepthTest);
         _gl.Enable(EnableCap.Blend);
-
-        // Restore the original viewport state to maintain independence between windows
         _gl.Viewport(currentViewport[0], currentViewport[1],
                      (uint)currentViewport[2], (uint)currentViewport[3]);
     }
 
     #region Input Handlers
 
-    public void HandlePointerPressed(int button, Vector2 position) {
-        _currentCamera.HandlePointerPressed(button, position);
+    public event Action<ViewportInputEvent>? OnPointerPressed;
+    public event Action<ViewportInputEvent>? OnPointerMoved;
+    public event Action<ViewportInputEvent>? OnPointerReleased;
+
+    public void HandlePointerPressed(ViewportInputEvent e) {
+        OnPointerPressed?.Invoke(e);
+        int button = e.IsLeftDown ? 0 : e.IsRightDown ? 1 : 2;
+        _currentCamera.HandlePointerPressed(button, e.Position);
     }
 
-    public void HandlePointerReleased(int button, Vector2 position) {
-        _currentCamera.HandlePointerReleased(button, position);
+    public void HandlePointerReleased(ViewportInputEvent e) {
+        OnPointerReleased?.Invoke(e);
+        int button = e.ReleasedButton ?? (e.IsLeftDown ? 0 : e.IsRightDown ? 1 : 2);
+
+        _currentCamera.HandlePointerReleased(button, e.Position);
     }
 
-    public void HandlePointerMoved(Vector2 position, Vector2 delta) {
-        _currentCamera.HandlePointerMoved(position, delta);
+    public void HandlePointerMoved(ViewportInputEvent e) {
+        OnPointerMoved?.Invoke(e);
+        _currentCamera.HandlePointerMoved(e.Position, e.Delta);
     }
 
     public void HandlePointerWheelChanged(float delta) {
@@ -260,7 +267,6 @@ public class GameScene : IDisposable {
     public void HandleKeyUp(string key) {
         _currentCamera.HandleKeyUp(key);
     }
-
     #endregion
 
     public void Dispose() {

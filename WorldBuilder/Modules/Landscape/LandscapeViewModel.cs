@@ -15,6 +15,9 @@ using Microsoft.Extensions.Logging;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using System.Collections.Concurrent;
 
+using Chorizite.OpenGLSDLBackend;
+using ICamera = WorldBuilder.Shared.Models.ICamera;
+
 namespace WorldBuilder.Modules.Landscape;
 
 public partial class LandscapeViewModel : ViewModelBase, IDisposable {
@@ -142,25 +145,44 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         UpdateToolContext();
     }
 
-    public bool OnPointerPressed(LandscapeInputEvent e) {
+    private GameScene? _gameScene;
+
+    public void SetGameScene(GameScene scene) {
+        if (_gameScene != null) {
+            _gameScene.OnPointerPressed -= OnPointerPressed;
+            _gameScene.OnPointerMoved -= OnPointerMoved;
+            _gameScene.OnPointerReleased -= OnPointerReleased;
+        }
+
+        _gameScene = scene;
+
+        if (_gameScene != null) {
+            _gameScene.OnPointerPressed += OnPointerPressed;
+            _gameScene.OnPointerMoved += OnPointerMoved;
+            _gameScene.OnPointerReleased += OnPointerReleased;
+        }
+    }
+
+    public void OnPointerPressed(ViewportInputEvent e) {
         _log.LogInformation("LandscapeViewModel.OnPointerPressed. ActiveTool: {Tool}, Context: {Context}",
             ActiveTool?.GetType().Name ?? "null",
             _toolContext == null ? "null" : "valid");
 
         if (ActiveTool != null && _toolContext != null) {
-            return ActiveTool.OnPointerPressed(e);
+            if (ActiveTool.OnPointerPressed(e)) {
+                // Handled
+            }
         }
-        return false;
     }
 
-    public void OnPointerMoved(LandscapeInputEvent e) {
+    public void OnPointerMoved(ViewportInputEvent e) {
         if (_toolContext != null) {
             _toolContext.ViewportSize = e.ViewportSize;
         }
         ActiveTool?.OnPointerMoved(e);
     }
 
-    public void OnPointerReleased(LandscapeInputEvent e) {
+    public void OnPointerReleased(ViewportInputEvent e) {
         if (_toolContext != null) {
             _toolContext.ViewportSize = e.ViewportSize;
         }

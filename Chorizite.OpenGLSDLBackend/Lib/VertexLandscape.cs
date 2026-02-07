@@ -10,16 +10,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     public struct VertexLandscape : IVertex {
+        public static readonly int OffsetPosition = (int)Marshal.OffsetOf<VertexLandscape>(nameof(Position));
+        public static readonly int OffsetNormal = (int)Marshal.OffsetOf<VertexLandscape>(nameof(Normal));
+        public static readonly int OffsetTexCoord0 = (int)Marshal.OffsetOf<VertexLandscape>(nameof(PackedBase));
+        public static readonly int OffsetTexCoord1 = (int)Marshal.OffsetOf<VertexLandscape>(nameof(PackedOverlay0));
+        public static readonly int OffsetTexCoord2 = (int)Marshal.OffsetOf<VertexLandscape>(nameof(PackedOverlay1));
+        public static readonly int OffsetTexCoord3 = (int)Marshal.OffsetOf<VertexLandscape>(nameof(PackedOverlay2));
+        public static readonly int OffsetTexCoord4 = (int)Marshal.OffsetOf<VertexLandscape>(nameof(PackedRoad0));
+        public static readonly int OffsetTexCoord5 = (int)Marshal.OffsetOf<VertexLandscape>(nameof(PackedRoad1));
+
         private static readonly VertexFormat _format = new VertexFormat(
-            new VertexAttribute(VertexAttributeName.Position, 3, VertexAttribType.Float, false, 0),
-            new VertexAttribute(VertexAttributeName.Normal, 3, VertexAttribType.Float, false, 12),
-            new VertexAttribute(VertexAttributeName.TexCoord0, 4, VertexAttribType.UnsignedByte, false, 24),
+            new VertexAttribute(VertexAttributeName.Position, 3, VertexAttribType.Float, false, OffsetPosition),
+            new VertexAttribute(VertexAttributeName.Normal, 3, VertexAttribType.Float, false, OffsetNormal),
+            new VertexAttribute(VertexAttributeName.TexCoord0, 4, VertexAttribType.UnsignedByte, false, OffsetTexCoord0),
             // Packed overlay data as integers
-            new VertexAttribute(VertexAttributeName.TexCoord1, 4, VertexAttribType.UnsignedByte, false, 28),
-            new VertexAttribute(VertexAttributeName.TexCoord2, 4, VertexAttribType.UnsignedByte, false, 32),
-            new VertexAttribute(VertexAttributeName.TexCoord3, 4, VertexAttribType.UnsignedByte, false, 36),
-            new VertexAttribute(VertexAttributeName.TexCoord4, 4, VertexAttribType.UnsignedByte, false, 40),
-            new VertexAttribute(VertexAttributeName.TexCoord5, 4, VertexAttribType.UnsignedByte, false, 44)
+            new VertexAttribute(VertexAttributeName.TexCoord1, 4, VertexAttribType.UnsignedByte, false, OffsetTexCoord1),
+            new VertexAttribute(VertexAttributeName.TexCoord2, 4, VertexAttribType.UnsignedByte, false, OffsetTexCoord2),
+            new VertexAttribute(VertexAttributeName.TexCoord3, 4, VertexAttribType.UnsignedByte, false, OffsetTexCoord3),
+            new VertexAttribute(VertexAttributeName.TexCoord4, 4, VertexAttribType.UnsignedByte, false, OffsetTexCoord4),
+            new VertexAttribute(VertexAttributeName.TexCoord5, 4, VertexAttribType.UnsignedByte, false, OffsetTexCoord5)
         );
 
         /// <summary>

@@ -307,12 +307,14 @@ public partial class LandscapeDocument : BaseDocument {
 
         // look up region file id
         if (!dats.RegionFileMap.TryGetValue(RegionId, out var regionFileId)) {
-            throw new ArgumentException($"Invalid region id, could not find region file entry id in dats: {RegionId}");
+            var keys = string.Join(", ", dats.RegionFileMap.Keys);
+            throw new ArgumentException($"Invalid region id, could not find region file entry id in dats: {RegionId}. Available: {keys}");
         }
 
         // load region cell db
         if (!dats.CellRegions.TryGetValue(RegionId, out var cellDatabase)) {
-            throw new ArgumentException($"Invalid region id: {RegionId}");
+            var keys = string.Join(", ", dats.CellRegions.Keys);
+            throw new ArgumentException($"Invalid region id: {RegionId}. CellRegions Available: {keys}");
         }
 
         // load region entry

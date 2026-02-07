@@ -5,10 +5,12 @@ using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Services;
 using static WorldBuilder.Shared.Services.DocumentManager;
 
+using WorldBuilder.Shared.Tests.Mocks;
+
 namespace WorldBuilder.Shared.Tests.Commands.Landscape {
     public class ReorderLandscapeLayerCommandTests {
         private readonly Mock<IDocumentManager> _mockDocManager;
-        private readonly Mock<IDatReaderWriter> _mockDats;
+        private readonly MockDatReaderWriter _dats;
         private readonly Mock<ITransaction> _mockTx;
         private readonly string _terrainDocId = "LandscapeDocument_1";
         private const string L1 = "LandscapeLayerDocument_1";
@@ -17,7 +19,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
         public ReorderLandscapeLayerCommandTests() {
             _mockDocManager = new Mock<IDocumentManager>();
-            _mockDats = new Mock<IDatReaderWriter>();
+            _dats = new MockDatReaderWriter();
             _mockTx = new Mock<ITransaction>();
         }
 
@@ -71,7 +73,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsSuccess);
@@ -109,7 +111,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act
-            await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+            await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             var layers = terrainDoc.GetAllLayers().ToList();
@@ -144,7 +146,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act
-            await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+            await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             var layers = terrainDoc.GetAllLayers().ToList(); // [L1, L3, L2]
@@ -179,7 +181,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act
-            await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+            await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.Equal(initialVersion + 1, terrainDoc.Version);
@@ -207,7 +209,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act & Assert
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
             Assert.True(result.IsFailure);
             Assert.Contains("Cannot reorder the base layer from position 0", result.Error.Message);
         }
@@ -237,7 +239,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsSuccess);
@@ -265,7 +267,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act & Assert
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
             Assert.True(result.IsFailure);
         }
 
@@ -291,7 +293,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act & Assert
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
             Assert.True(result.IsFailure);
         }
 
@@ -320,7 +322,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsSuccess);
@@ -343,7 +345,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsFailure);
@@ -371,7 +373,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Act
             var result =
-                await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+                await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             Assert.True(result.IsFailure);
@@ -425,11 +427,11 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act - Forward -> [L1, L3, L2]
-            await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+            await command.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Act - Backward -> [L1, L2, L3]
             var inverse = (ReorderLandscapeLayerCommand)command.CreateInverse();
-            await inverse.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
+            await inverse.ApplyResultAsync(_mockDocManager.Object, _dats, _mockTx.Object, default);
 
             // Assert
             var layers = terrainDoc.GetAllLayers().ToList(); // [L1, L2, L3]

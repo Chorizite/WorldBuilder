@@ -86,11 +86,11 @@ namespace WorldBuilder.Views {
             if (RenderTarget == null) return;
 
             // Bind to our own render target for rendering
-            Renderer.BindRenderTarget(RenderTarget);
+            Renderer!.BindRenderTarget(RenderTarget);
 
             // Set the viewport for the current render target size before rendering
             // This ensures the scene is rendered at the correct resolution for this viewport
-            Renderer?.GraphicsDevice.GL.Viewport(0, 0, (uint)_renderSize.Width, (uint)_renderSize.Height);
+            Renderer.GraphicsDevice.GL.Viewport(0, 0, (uint)_renderSize.Width, (uint)_renderSize.Height);
 
             OnGlRender(frameTime);
             Renderer.BindRenderTarget(null);

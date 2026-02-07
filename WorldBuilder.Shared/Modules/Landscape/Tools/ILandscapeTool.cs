@@ -1,5 +1,6 @@
 using System.Numerics;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Shared.Models;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools
 {
@@ -14,8 +15,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
         void Update(double deltaTime);
 
         // Input handling - returning true means the event was handled
-        bool OnPointerPressed(LandscapeInputEvent e);
-        bool OnPointerMoved(LandscapeInputEvent e);
-        bool OnPointerReleased(LandscapeInputEvent e);
+        bool OnPointerPressed(ViewportInputEvent e);
+        bool OnPointerMoved(ViewportInputEvent e);
+        bool OnPointerReleased(ViewportInputEvent e);
     }
 }
