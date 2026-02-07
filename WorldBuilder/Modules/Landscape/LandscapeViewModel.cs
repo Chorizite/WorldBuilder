@@ -6,17 +6,22 @@ using System.Threading.Tasks;
 using System.Collections.ObjectModel;
 using Avalonia.Input;
 using System.Numerics;
-using WorldBuilder.Shared.Models;
-using WorldBuilder.Shared.Modules.Landscape.Tools;
-using WorldBuilder.Shared.Services;
-using static WorldBuilder.Shared.Services.DocumentManager;
-using WorldBuilder.ViewModels;
 using Microsoft.Extensions.Logging;
-using WorldBuilder.Shared.Modules.Landscape.Models;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+
+using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Services;
+using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Modules.Landscape.ViewModels;
+using WorldBuilder.Modules.Landscape;
+using WorldBuilder.ViewModels;
 
 using Chorizite.OpenGLSDLBackend;
 using ICamera = WorldBuilder.Shared.Models.ICamera;
+using ViewportInputEvent = WorldBuilder.Shared.Models.ViewportInputEvent;
+using static WorldBuilder.Shared.Services.DocumentManager;
 
 namespace WorldBuilder.Modules.Landscape;
 
@@ -39,6 +44,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
 
     public CommandHistory CommandHistory { get; } = new();
     public HistoryPanelViewModel HistoryPanel { get; }
+    public LayersPanelViewModel LayersPanel { get; }
 
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _saveDebounceTokens = new();
     private readonly IDocumentManager _documentManager;
@@ -53,6 +59,21 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         _log = log;
 
         HistoryPanel = new HistoryPanelViewModel(CommandHistory);
+        LayersPanel = new LayersPanelViewModel(log, async (item, isVisibleChange) => {
+            if (ActiveDocument != null) {
+                await ActiveDocument.RecalculateTerrainCacheAsync();
+
+                if (isVisibleChange && item != null) {
+                    var affectedBlocks = ActiveDocument.GetAffectedLandblocks(item.Model.Id);
+                    foreach (var (lbX, lbY) in affectedBlocks) {
+                        _invalidateCallback?.Invoke(lbX, lbY);
+                    }
+                }
+                else {
+                    _invalidateCallback?.Invoke(-1, -1); // Force full redraw
+                }
+            }
+        });
 
         _ = LoadLandscapeAsync();
 
@@ -76,6 +97,8 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
 
             // Set first base layer as active by default
             ActiveLayer = newValue.GetAllLayers().FirstOrDefault(l => l.IsBase);
+
+            LayersPanel.SyncWithDocument(newValue);
 
             UpdateToolContext();
         }

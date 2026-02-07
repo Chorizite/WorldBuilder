@@ -25,11 +25,17 @@ public partial class LandscapeDocument : BaseDocument {
     public TerrainEntry[] TerrainCache { get; private set; } = [];
 
     /// <summary>
+    /// The base terrain data from dats, used for recalculating the merged cache.
+    /// </summary>
+    [MemoryPackIgnore]
+    public TerrainEntry[] BaseTerrainCache { get; private set; } = [];
+
+    /// <summary>
     /// The terrain layer tree
     /// </summary>
     [MemoryPackInclude]
     [MemoryPackOrder(10)]
-    protected List<LandscapeLayerBase> LayerTree { get; init; } = []; // Changed to protected
+    public List<LandscapeLayerBase> LayerTree { get; init; } = [];
 
     /// <summary>
     /// Region info + helpers
@@ -87,7 +93,7 @@ public partial class LandscapeDocument : BaseDocument {
     /// <summary>
     /// Adds a new layer or group to the tree.
     /// </summary>
-    internal void AddLayer(IReadOnlyList<string> groupPath, string name, bool isBase, string layerId) {
+    public void AddLayer(IReadOnlyList<string> groupPath, string name, bool isBase, string layerId, int index = -1) {
         if (_layerIds.Contains(layerId)) {
             throw new InvalidOperationException($"Layer ID already exists: {layerId}");
         }
@@ -100,7 +106,12 @@ public partial class LandscapeDocument : BaseDocument {
         var layer = new LandscapeLayer(layerId, isBase) { Name = name };
 
         var targetList = parent?.Children ?? LayerTree;
-        targetList.Add(layer);
+        if (index >= 0 && index <= targetList.Count) {
+            targetList.Insert(index, layer);
+        }
+        else {
+            targetList.Add(layer);
+        }
 
         _layerIds.Add(layerId);
     }
@@ -108,7 +119,7 @@ public partial class LandscapeDocument : BaseDocument {
     /// <summary>
     /// Adds a new group to the tree
     /// </summary>
-    internal void AddGroup(IReadOnlyList<string> groupPath, string name, string groupId) {
+    public void AddGroup(IReadOnlyList<string> groupPath, string name, string groupId, int index = -1) {
         if (_layerIds.Contains(groupId)) {
             throw new InvalidOperationException($"Group ID already exists: {groupId}");
         }
@@ -117,7 +128,12 @@ public partial class LandscapeDocument : BaseDocument {
         var group = new LandscapeLayerGroup(name) { Id = groupId };
 
         var targetList = parent?.Children ?? LayerTree;
-        targetList.Add(group);
+        if (index >= 0 && index <= targetList.Count) {
+            targetList.Insert(index, group);
+        }
+        else {
+            targetList.Add(group);
+        }
 
         _layerIds.Add(groupId);
     }
@@ -125,7 +141,7 @@ public partial class LandscapeDocument : BaseDocument {
     /// <summary>
     /// Removes a layer from the tree
     /// </summary>
-    internal void RemoveLayer(IReadOnlyList<string> groupPath, string layerId) {
+    public void RemoveLayer(IReadOnlyList<string> groupPath, string layerId) {
         var parent = FindParentGroup(groupPath);
         var targetList = parent?.Children ?? LayerTree;
 
@@ -143,7 +159,7 @@ public partial class LandscapeDocument : BaseDocument {
     /// <summary>
     /// Reorders a layer
     /// </summary>
-    internal void ReorderLayer(IReadOnlyList<string> groupPath, string layerId, int newIndex) {
+    public void ReorderLayer(IReadOnlyList<string> groupPath, string layerId, int newIndex) {
         var parent = FindParentGroup(groupPath);
         var targetList = parent?.Children ?? LayerTree;
 
@@ -205,6 +221,7 @@ public partial class LandscapeDocument : BaseDocument {
         }
 
         _didLoadLayers = true;
+        await RecalculateTerrainCacheAsync();
     }
 
     private async Task LoadLayersAsync(List<LandscapeLayerBase> layerTree, IDocumentManager documentManager,
@@ -241,6 +258,53 @@ public partial class LandscapeDocument : BaseDocument {
         }
     }
 
+    public async Task RecalculateTerrainCacheAsync() {
+        if (!_didLoadCacheFromDats) return;
+
+        await Task.Run(() => {
+            // Reset to base data
+            Array.Copy(BaseTerrainCache, TerrainCache, BaseTerrainCache.Length);
+
+            // Merge layers in order
+            foreach (var layer in GetAllLayers()) {
+                if (!layer.IsVisible) continue;
+                if (!LayerDocuments.TryGetValue(layer.Id, out var rental)) continue;
+
+                var layerDoc = rental.Document;
+                foreach (var kvp in layerDoc.Terrain) {
+                    var vertexIndex = kvp.Key;
+                    var terrain = kvp.Value;
+                    if (vertexIndex >= TerrainCache.Length) continue;
+                    TerrainCache[vertexIndex].Merge(terrain);
+                }
+            }
+        });
+    }
+
+    /// <summary>
+    /// Gets the landblock coordinates affected by a specific layer.
+    /// </summary>
+    public IEnumerable<(int x, int y)> GetAffectedLandblocks(string layerId) {
+        if (!LayerDocuments.TryGetValue(layerId, out var rental) || Region == null) {
+            return Enumerable.Empty<(int x, int y)>();
+        }
+
+        var affectedBlocks = new HashSet<(int x, int y)>();
+        var stride = Region.LandblockVerticeLength - 1;
+
+        foreach (var vertexIndex in rental.Document.Terrain.Keys) {
+            int globalY = (int)(vertexIndex / (uint)Region.MapWidthInVertices);
+            int globalX = (int)(vertexIndex % (uint)Region.MapWidthInVertices);
+
+            int lbX = globalX / stride;
+            int lbY = globalY / stride;
+
+            affectedBlocks.Add((lbX, lbY));
+        }
+
+        return affectedBlocks;
+    }
+
     private async Task LoadCacheFromDatsAsync(CancellationToken ct) {
         if (_didLoadCacheFromDats) return;
         if (Region is null) throw new InvalidOperationException("Region not loaded yet.");
@@ -254,7 +318,8 @@ public partial class LandscapeDocument : BaseDocument {
         int mapWidth = Region.MapWidthInVertices;
         int chunkSize = 1024 * 8;
         int numChunks = (totalLandblocks + chunkSize - 1) / chunkSize;
-        TerrainCache = new TerrainEntry[Region.MapWidthInVertices * Region.MapHeightInVertices];
+        BaseTerrainCache = new TerrainEntry[Region.MapWidthInVertices * Region.MapHeightInVertices];
+        TerrainCache = new TerrainEntry[BaseTerrainCache.Length];
 
         await Task.Run(() => {
             var opts = new ParallelOptions() { CancellationToken = ct };
@@ -288,7 +353,7 @@ public partial class LandscapeDocument : BaseDocument {
                         int globalVertexIndex = (baseVy + localY) * mapWidth + (baseVx + localX);
                         var terrainInfo = lb.Terrain[localIdx];
 
-                        TerrainCache[globalVertexIndex] = new TerrainEntry {
+                        BaseTerrainCache[globalVertexIndex] = new TerrainEntry {
                             Height = lb.Height[localIdx],
                             Type = (byte)terrainInfo.Type,
                             Scenery = terrainInfo.Scenery,
@@ -299,6 +364,7 @@ public partial class LandscapeDocument : BaseDocument {
             });
         }, ct);
 
+        Array.Copy(BaseTerrainCache, TerrainCache, BaseTerrainCache.Length);
         _didLoadCacheFromDats = true;
     }
 

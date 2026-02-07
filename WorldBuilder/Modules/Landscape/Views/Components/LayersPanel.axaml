@@ -1,16 +1,72 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="WorldBuilder.Modules.Landscape.Views.Components.LayersPanel">
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:WorldBuilder.Modules.Landscape.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="450"
+             x:Class="WorldBuilder.Modules.Landscape.Views.Components.LayersPanel"
+             x:DataType="vm:LayersPanelViewModel">
     <Border Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
             BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"
             BorderThickness="1"
-            CornerRadius="4" Padding="12">
-        <DockPanel>
-            <TextBlock DockPanel.Dock="Top" Text="Layers" FontWeight="SemiBold" Margin="0,0,0,8" />
-            <ListBox Background="Transparent" BorderThickness="0">
-                <ListBoxItem Content="Layer 1" />
-                <ListBoxItem Content="Base Layer" FontWeight="Bold" IsHitTestVisible="False" />
-            </ListBox>
-        </DockPanel>
+            CornerRadius="4" Padding="4">
+        <Grid RowDefinitions="Auto, Auto, *">
+            <TextBlock Grid.Row="0" Text="Layers" FontWeight="SemiBold" Margin="4,4,4,8" />
+            
+            <!-- Toolbar -->
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="4" Margin="4">
+                <Button Command="{Binding AddLayerCommand}" ToolTip.Tip="Add New Layer">
+                    <TextBlock Text="+" />
+                </Button>
+                <Button Command="{Binding AddGroupCommand}" ToolTip.Tip="Add New Group">
+                    <TextBlock Text="📁" />
+                </Button>
+                <Button Command="{Binding SelectedItem.DeleteCommand}" ToolTip.Tip="Delete Selected"
+                        IsEnabled="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}, FallbackValue=False}">
+                    <TextBlock Text="🗑️" />
+                </Button>
+            </StackPanel>
+
+            <!-- Layer Tree -->
+            <TreeView Grid.Row="2" ItemsSource="{Binding Items}" 
+                      SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                      Background="Transparent">
+                <TreeView.ItemTemplate>
+                    <TreeDataTemplate ItemsSource="{Binding Children}">
+                        <Grid ColumnDefinitions="Auto, *, Auto, Auto" Margin="2"
+                              DoubleTapped="OnItemDoubleTapped">
+                            <!-- Icon -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                <TextBlock Text="📁" IsVisible="{Binding IsGroup}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBlock Text="📄" IsVisible="{Binding IsNotGroup}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            </StackPanel>
+
+                            <!-- Name -->
+                            <Panel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Name}" IsVisible="{Binding !IsEditing}" VerticalAlignment="Center" Padding="2"/>
+                                <TextBox Text="{Binding Name}" IsVisible="{Binding IsEditing}" 
+                                         BorderThickness="1" Padding="2" MinHeight="0"
+                                         KeyDown="OnRenameKeyDown"
+                                         Loaded="OnRenameTextBoxLoaded"/>
+                            </Panel>
+                            
+                            <!-- Visibility Toggle -->
+                            <ToggleButton Grid.Column="2" IsChecked="{Binding IsVisible}" 
+                                          IsVisible="{Binding CanToggleVisibility}"
+                                          Margin="4,0" Padding="4,2" Background="Transparent" BorderThickness="0">
+                                <TextBlock Text="👁️" />
+                            </ToggleButton>
+                            
+                            <!-- Export Toggle -->
+                            <ToggleButton Grid.Column="3" IsChecked="{Binding IsExported}" 
+                                          IsVisible="{Binding CanToggleExport}"
+                                          Command="{Binding ToggleExportCommand}" Padding="4,2" Background="Transparent" BorderThickness="0">
+                                <TextBlock Text="📦" />
+                            </ToggleButton>
+                        </Grid>
+                    </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+        </Grid>
     </Border>
 </UserControl>
