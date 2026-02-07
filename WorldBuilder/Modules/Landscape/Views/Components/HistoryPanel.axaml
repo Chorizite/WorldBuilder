@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:landscape="clr-namespace:WorldBuilder.Modules.Landscape"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="450"
+             x:Class="WorldBuilder.Modules.Landscape.Views.Components.HistoryPanel"
+             x:DataType="landscape:HistoryPanelViewModel">
+  <UserControl.Resources>
+    <SolidColorBrush x:Key="AccentPurple" Color="#A855F7" />
+  </UserControl.Resources>
+
+  <Grid RowDefinitions="Auto,*">
+    <Border Grid.Row="0" Background="{StaticResource AccentPurple}" Padding="8">
+      <TextBlock Text="History" FontWeight="Bold" Foreground="White"/>
+    </Border>
+    
+    <ScrollViewer Grid.Row="1" x:Name="HistoryScrollViewer">
+      <ItemsControl ItemsSource="{Binding Items}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="landscape:HistoryItemViewModel">
+            <Button Command="{Binding ((landscape:HistoryPanelViewModel)DataContext).JumpToCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    CommandParameter="{Binding}"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Left"
+                    Padding="8,4"
+                    BorderThickness="0"
+                    Background="Transparent">
+              <TextBlock Text="{Binding Name}"
+                         Classes.active="{Binding IsActive}"
+                         Classes.future="{Binding IsFuture}">
+                <TextBlock.Styles>
+                  <Style Selector="TextBlock">
+                    <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
+                  </Style>
+                  <Style Selector="TextBlock.active">
+                    <Setter Property="FontWeight" Value="Bold"/>
+                    <Setter Property="Foreground" Value="{StaticResource AccentPurple}"/>
+                  </Style>
+                  <Style Selector="TextBlock.future">
+                    <Setter Property="Opacity" Value="0.5"/>
+                  </Style>
+                </TextBlock.Styles>
+              </TextBlock>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

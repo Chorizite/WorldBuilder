@@ -19,6 +19,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
         private LandscapeToolContext? _context;
         private bool _isPainting;
         private TerrainRaycast.TerrainRaycastHit _lastHit;
+        private CompoundCommand? _currentStroke;
 
         private float _brushRadius = 5f;
         public float BrushRadius
@@ -65,6 +66,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
                 _context.Logger.LogInformation("BrushTool Raycast Hit! Position: {Pos}", hit.HitPosition);
                 _isPainting = true;
                 _lastHit = hit;
+                _currentStroke = new CompoundCommand("Brush Stroke");
                 ApplyPaint(hit);
                 return true;
             }
@@ -99,7 +101,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
             if (_isPainting)
             {
                 _isPainting = false;
-                // Finalize if needed
+                if (_currentStroke != null)
+                {
+                    _context?.CommandHistory.Execute(_currentStroke);
+                    _currentStroke = null;
+                }
                 return true;
             }
             return false;
@@ -115,9 +121,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
 
         private void ApplyPaint(TerrainRaycast.TerrainRaycastHit hit)
         {
-            if (_context == null) return;
+            if (_context == null || _currentStroke == null) return;
             var command = new PaintCommand(_context, hit.HitPosition, BrushRadius, TextureId);
-            _context.CommandHistory.Execute(command);
+            _currentStroke.Add(command);
+            command.Execute();
         }
     }
 }

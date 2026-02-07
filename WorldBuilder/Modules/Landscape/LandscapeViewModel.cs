@@ -38,6 +38,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
     private LandscapeLayer? _activeLayer;
 
     public CommandHistory CommandHistory { get; } = new();
+    public HistoryPanelViewModel HistoryPanel { get; }
 
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _saveDebounceTokens = new();
     private readonly IDocumentManager _documentManager;
@@ -50,6 +51,8 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         _dats = dats;
         _documentManager = documentManager;
         _log = log;
+
+        HistoryPanel = new HistoryPanelViewModel(CommandHistory);
 
         _ = LoadLandscapeAsync();
 
@@ -109,10 +112,11 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         var cts = new CancellationTokenSource();
         _saveDebounceTokens[docId] = cts;
 
+        var token = cts.Token;
         _ = Task.Run(async () => {
             try {
-                await Task.Delay(500, cts.Token);
-                await PersistDocumentAsync(docId, cts.Token);
+                await Task.Delay(500, token);
+                await PersistDocumentAsync(docId, token);
             }
             catch (OperationCanceledException) {
                 // Ignore

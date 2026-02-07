@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools
 {
@@ -12,46 +13,76 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
 
     public class CommandHistory
     {
-        private readonly Stack<ICommand> _undoStack = new Stack<ICommand>();
-        private readonly Stack<ICommand> _redoStack = new Stack<ICommand>();
+        private const int MaxHistoryDepth = 50;
+        private readonly List<ICommand> _history = new List<ICommand>();
+        private int _currentIndex = -1;
 
         public event EventHandler? OnChange;
 
-        public bool CanUndo => _undoStack.Count > 0;
-        public bool CanRedo => _redoStack.Count > 0;
+        public bool CanUndo => _currentIndex >= 0;
+        public bool CanRedo => _currentIndex < _history.Count - 1;
+
+        public IEnumerable<ICommand> History => _history;
+        public int CurrentIndex => _currentIndex;
 
         public void Execute(ICommand command)
         {
+            // If we are in the middle of the history, remove forward entries
+            if (_currentIndex < _history.Count - 1)
+            {
+                _history.RemoveRange(_currentIndex + 1, _history.Count - (_currentIndex + 1));
+            }
+
             command.Execute();
-            _undoStack.Push(command);
-            _redoStack.Clear();
+            _history.Add(command);
+            _currentIndex++;
+
+            // Enforce limit
+            if (_history.Count > MaxHistoryDepth)
+            {
+                _history.RemoveAt(0);
+                _currentIndex--;
+            }
+
             OnChange?.Invoke(this, EventArgs.Empty);
         }
 
         public void Undo()
         {
-            if (_undoStack.Count == 0) return;
+            if (!CanUndo) return;
 
-            var command = _undoStack.Pop();
-            command.Undo();
-            _redoStack.Push(command);
+            _history[_currentIndex].Undo();
+            _currentIndex--;
             OnChange?.Invoke(this, EventArgs.Empty);
         }
 
         public void Redo()
         {
-            if (_redoStack.Count == 0) return;
+            if (!CanRedo) return;
 
-            var command = _redoStack.Pop();
-            command.Execute();
-            _undoStack.Push(command);
+            _currentIndex++;
+            _history[_currentIndex].Execute();
             OnChange?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void JumpTo(int index)
+        {
+            if (index < -1 || index >= _history.Count) return;
+
+            while (_currentIndex > index)
+            {
+                Undo();
+            }
+            while (_currentIndex < index)
+            {
+                Redo();
+            }
         }
 
         public void Clear()
         {
-            _undoStack.Clear();
-            _redoStack.Clear();
+            _history.Clear();
+            _currentIndex = -1;
             OnChange?.Invoke(this, EventArgs.Empty);
         }
     }
