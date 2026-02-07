@@ -174,6 +174,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var landblockX = chunk.LandblockStartX + (uint)lx;
                 var landblockY = chunk.LandblockStartY + (uint)ly;
 
+                if (_landscapeDoc.Region is null) continue;
+
                 var landblockID = _landscapeDoc.Region.GetLandblockId((int)landblockX, (int)landblockY);
 
                 // Generate geometry for this single landblock
@@ -310,7 +312,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public unsafe void Render(ICamera camera) {
-            if (!_initialized) return;
+            if (!_initialized || _shader is null) return;
 
             _shader.Bind();
 

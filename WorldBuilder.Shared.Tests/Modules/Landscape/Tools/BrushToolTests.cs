@@ -77,7 +77,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
             cmd.Execute();
 
             // Assert
-            Assert.True(layerDoc.Terrain.ContainsKey(10));
+            Assert.True(layerDoc!.Terrain.ContainsKey(10));
             Assert.Equal((byte)5, layerDoc.Terrain[10].Type);
         }
 
@@ -113,7 +113,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
 
             // Assert
             // In our simple test, the previous state was an uninitialized entry (Type = null)
-            Assert.Null(layerDoc.Terrain[10].Type);
+            Assert.Null(layerDoc!.Terrain[10].Type);
         }
 
         private LandscapeToolContext CreateContext()
@@ -133,12 +133,12 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
 
             // Inject Region via reflection
             var regionProp = typeof(LandscapeDocument).GetProperty("Region");
-            regionProp.SetValue(doc, regionMock.Object);
+            regionProp?.SetValue(doc, regionMock.Object);
 
             // Inject TerrainCache via reflection
             var cache = new TerrainEntry[9 * 9];
             var cacheProp = typeof(LandscapeDocument).GetProperty("TerrainCache");
-            cacheProp.SetValue(doc, cache);
+            cacheProp?.SetValue(doc, cache);
 
             var layerId = LandscapeLayerDocument.CreateId();
             var activeLayer = new LandscapeLayer(layerId, true);

@@ -11,12 +11,12 @@ public interface ICamera : WorldBuilder.Shared.Models.ICamera {
     /// <summary>
     /// Gets the view matrix for transforming world coordinates to camera space.
     /// </summary>
-    Matrix4x4 ViewMatrix { get; }
+    new Matrix4x4 ViewMatrix { get; }
 
     /// <summary>
     /// Gets the projection matrix for transforming camera space to clip space.
     /// </summary>
-    Matrix4x4 ProjectionMatrix { get; }
+    new Matrix4x4 ProjectionMatrix { get; }
 
     /// <summary>
     /// Gets the combined view-projection matrix.
@@ -26,7 +26,7 @@ public interface ICamera : WorldBuilder.Shared.Models.ICamera {
     /// <summary>
     /// Gets or sets the camera position in world space.
     /// </summary>
-    Vector3 Position { get; set; }
+    new Vector3 Position { get; set; }
 
     /// <summary>
     /// Updates the camera state based on elapsed time.

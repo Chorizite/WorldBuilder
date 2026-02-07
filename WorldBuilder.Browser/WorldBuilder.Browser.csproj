@@ -9,6 +9,7 @@
 		<BlazorWebAssemblyPreserveCollationData>false</BlazorWebAssemblyPreserveCollationData>
 		<InvariantGlobalization>true</InvariantGlobalization>
 		<TrimeMode>Full</TrimeMode>
+        <WasmBuildNative>true</WasmBuildNative>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="Avalonia.Browser" />

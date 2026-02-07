@@ -70,11 +70,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             actualVertexCount = (int)currentVertexIndex;
             actualIndexCount = (int)currentIndexPosition;
 
+            var localRegion = region;
             Parallel.ForEach(validBlocks, block => {
-                var landblockID = region.GetLandblockId((int)block.lx, (int)block.ly);
+                var landblockID = localRegion!.GetLandblockId((int)block.lx, (int)block.ly);
                 GenerateLandblockGeometry(
                     block.lx, block.ly, landblockID,
-                    region, surfaceManager, terrainCache.Span,
+                    localRegion!, surfaceManager, terrainCache.Span,
                     block.vOffset, block.iOffset,
                     vertices.Span, indices.Span
                 );
