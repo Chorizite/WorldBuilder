@@ -62,7 +62,7 @@ namespace WorldBuilder.Shared.Modules.Landscape
 
             // Convert to NDC
             float ndcX = 2.0f * mouseX / viewportWidth - 1.0f;
-            float ndcY = 2.0f * mouseY / viewportHeight - 1.0f;
+            float ndcY = 1.0f - 2.0f * mouseY / viewportHeight;
 
             // Create ray in world space
             Matrix4x4 projection = camera.ProjectionMatrix;
