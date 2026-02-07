@@ -13,15 +13,20 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
         public ILogger Logger { get; }
         public Vector2 ViewportSize { get; set; }
 
+        public LandscapeLayer? ActiveLayer { get; }
+        public LandscapeLayerDocument? ActiveLayerDocument { get; }
+        public Action<string>? RequestSave { get; set; }
 
         public Action<int, int>? InvalidateLandblock { get; set; }
 
-        public LandscapeToolContext(LandscapeDocument document, CommandHistory commandHistory, ICamera camera, ILogger logger)
+        public LandscapeToolContext(LandscapeDocument document, CommandHistory commandHistory, ICamera camera, ILogger logger, LandscapeLayer? activeLayer = null, LandscapeLayerDocument? activeLayerDocument = null)
         {
             Document = document;
             CommandHistory = commandHistory;
             Camera = camera;
             Logger = logger;
+            ActiveLayer = activeLayer;
+            ActiveLayerDocument = activeLayerDocument;
         }
     }
 }

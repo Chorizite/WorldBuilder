@@ -55,19 +55,23 @@ namespace WorldBuilder.Shared.Repositories {
             return new DatabaseTransactionAdapter(dbTransaction);
         }
 
-        private static Result<SqliteTransaction> GetDbTransaction(ITransaction transaction) {
+        private static Result<SqliteTransaction?> GetDbTransaction(ITransaction? transaction) {
+            if (transaction == null) {
+                return Result<SqliteTransaction?>.Success(null);
+            }
+
             if (transaction is DatabaseTransactionAdapter adapter) {
                 var sqliteTransaction = adapter.UnderlyingTransaction as SqliteTransaction;
                 if (sqliteTransaction == null) {
-                    return Result<SqliteTransaction>.Failure(
+                    return Result<SqliteTransaction?>.Failure(
                         $"Transaction does not contain a valid SqliteTransaction. Type: {adapter.UnderlyingTransaction?.GetType()}",
                         "TRANSACTION_ERROR");
                 }
 
-                return Result<SqliteTransaction>.Success(sqliteTransaction);
+                return Result<SqliteTransaction?>.Success(sqliteTransaction);
             }
 
-            return Result<SqliteTransaction>.Failure($"Transaction type {transaction.GetType().Name} is not supported",
+            return Result<SqliteTransaction?>.Failure($"Transaction type {transaction.GetType().Name} is not supported",
                 "TRANSACTION_ERROR");
         }
 
@@ -94,7 +98,7 @@ namespace WorldBuilder.Shared.Repositories {
             }
         }
 
-        public async Task<Result<Unit>> UpsertUserValueAsync(string key, string value, ITransaction tx,
+        public async Task<Result<Unit>> UpsertUserValueAsync(string key, string value, ITransaction? tx,
             CancellationToken ct) {
             try {
                 _logger?.LogDebug("Upserting user value for key: {Key}", key);
@@ -124,7 +128,7 @@ namespace WorldBuilder.Shared.Repositories {
             }
         }
 
-        public async Task<Result<Unit>> InsertEventAsync(BaseCommand evt, ITransaction tx, CancellationToken ct) {
+        public async Task<Result<Unit>> InsertEventAsync(BaseCommand evt, ITransaction? tx, CancellationToken ct) {
             try {
                 _logger?.LogDebug("Inserting event {EventId} of type {EventType} for user {UserId}", evt.Id,
                     evt.GetType().Name, evt.UserId);
@@ -166,7 +170,7 @@ namespace WorldBuilder.Shared.Repositories {
         }
 
         public async Task<Result<Unit>> InsertDocumentAsync(string id, string type, byte[] data, ulong version,
-            ITransaction tx, CancellationToken ct) {
+            ITransaction? tx, CancellationToken ct) {
             try {
                 _logger?.LogDebug("Inserting document with ID: {DocumentId}, Type: {DocumentType}, Version: {Version}",
                     id, type, version);
@@ -197,7 +201,7 @@ namespace WorldBuilder.Shared.Repositories {
             }
         }
 
-        public async Task<Result<Unit>> UpdateDocumentAsync(string id, byte[] data, ulong version, ITransaction tx,
+        public async Task<Result<Unit>> UpdateDocumentAsync(string id, byte[] data, ulong version, ITransaction? tx,
             CancellationToken ct) {
             try {
                 _logger?.LogDebug("Updating document with ID: {DocumentId}, Version: {Version}", id, version);
@@ -254,7 +258,7 @@ namespace WorldBuilder.Shared.Repositories {
             }
         }
 
-        public async Task<Result<Unit>> DeleteDocumentAsync(string id, ITransaction tx, CancellationToken ct) {
+        public async Task<Result<Unit>> DeleteDocumentAsync(string id, ITransaction? tx, CancellationToken ct) {
             try {
                 _logger?.LogDebug("Deleting document with ID: {DocumentId}", id);
                 var dbTxResult = GetDbTransaction(tx);
@@ -305,7 +309,7 @@ namespace WorldBuilder.Shared.Repositories {
         }
 
         public async Task<Result<Unit>> UpdateEventServerTimestampAsync(string eventId, ulong serverTimestamp,
-            ITransaction tx, CancellationToken ct) {
+            ITransaction? tx, CancellationToken ct) {
             try {
                 _logger?.LogDebug("Updating ServerTimestamp for event {EventId} to {Timestamp}", eventId,
                     serverTimestamp);

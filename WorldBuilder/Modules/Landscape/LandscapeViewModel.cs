@@ -12,6 +12,8 @@ using WorldBuilder.Shared.Services;
 using static WorldBuilder.Shared.Services.DocumentManager;
 using WorldBuilder.ViewModels;
 using Microsoft.Extensions.Logging;
+using WorldBuilder.Shared.Modules.Landscape.Models;
+using System.Collections.Concurrent;
 
 namespace WorldBuilder.Modules.Landscape;
 
@@ -29,14 +31,21 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
     [ObservableProperty]
     private ILandscapeTool? _activeTool;
 
+    [ObservableProperty]
+    private LandscapeLayer? _activeLayer;
+
     public CommandHistory CommandHistory { get; } = new();
+
+    private readonly ConcurrentDictionary<string, CancellationTokenSource> _saveDebounceTokens = new();
+    private readonly IDocumentManager _documentManager;
 
     private LandscapeToolContext? _toolContext;
     public ICamera? Camera { get; set; } // Set by View
 
-    public LandscapeViewModel(Project project, IDatReaderWriter dats, ILogger<LandscapeViewModel> log) {
+    public LandscapeViewModel(Project project, IDatReaderWriter dats, IDocumentManager documentManager, ILogger<LandscapeViewModel> log) {
         _project = project;
         _dats = dats;
+        _documentManager = documentManager;
         _log = log;
 
         _ = LoadLandscapeAsync();
@@ -58,8 +67,29 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
     partial void OnActiveDocumentChanged(LandscapeDocument? oldValue, LandscapeDocument? newValue) {
         if (newValue != null && Camera != null) {
             _log.LogInformation("LandscapeViewModel.OnActiveDocumentChanged: Re-initializing context");
-            // Re-initialize context if camera + doc are available
-            _toolContext = new LandscapeToolContext(newValue, CommandHistory, Camera, _log);
+
+            // Set first base layer as active by default
+            ActiveLayer = newValue.GetAllLayers().FirstOrDefault(l => l.IsBase);
+
+            UpdateToolContext();
+        }
+    }
+
+    partial void OnActiveLayerChanged(LandscapeLayer? oldValue, LandscapeLayer? newValue) {
+        UpdateToolContext();
+    }
+
+    private void UpdateToolContext() {
+        if (ActiveDocument != null && Camera != null) {
+            LandscapeLayerDocument? activeLayerDoc = null;
+            if (ActiveLayer != null) {
+                if (ActiveDocument.LayerDocuments.TryGetValue(ActiveLayer.Id, out var rental)) {
+                    activeLayerDoc = rental.Document;
+                }
+            }
+
+            _toolContext = new LandscapeToolContext(ActiveDocument, CommandHistory, Camera, _log, ActiveLayer, activeLayerDoc);
+            _toolContext.RequestSave = RequestSave;
             if (_invalidateCallback != null) {
                 _toolContext.InvalidateLandblock = _invalidateCallback;
             }
@@ -67,19 +97,49 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         }
     }
 
+    public void RequestSave(string docId) {
+        if (_saveDebounceTokens.TryGetValue(docId, out var existingCts)) {
+            existingCts.Cancel();
+            existingCts.Dispose();
+        }
+
+        var cts = new CancellationTokenSource();
+        _saveDebounceTokens[docId] = cts;
+
+        _ = Task.Run(async () => {
+            try {
+                await Task.Delay(500, cts.Token);
+                await PersistDocumentAsync(docId, cts.Token);
+            }
+            catch (OperationCanceledException) {
+                // Ignore
+            }
+            catch (Exception ex) {
+                _log.LogError(ex, "Error during debounced save for {DocId}", docId);
+            }
+        });
+    }
+
+    private async Task PersistDocumentAsync(string docId, CancellationToken ct) {
+        if (ActiveDocument == null) return;
+
+        // Find the rental
+        DocumentRental<LandscapeLayerDocument>? rental = null;
+        if (ActiveDocument.LayerDocuments.TryGetValue(docId, out var r)) {
+            rental = r;
+        }
+
+        if (rental != null) {
+            _log.LogInformation("Persisting terrain layer {DocId} to database", docId);
+            await _documentManager.PersistDocumentAsync(rental, null!, ct);
+        }
+    }
+
     public void InitializeToolContext(ICamera camera, Action<int, int> invalidateCallback) {
         _log.LogInformation("LandscapeViewModel.InitializeToolContext called");
         Camera = camera;
         _invalidateCallback = invalidateCallback;
-        if (ActiveDocument != null) {
-            _toolContext = new LandscapeToolContext(ActiveDocument, CommandHistory, Camera, _log);
-            _toolContext.InvalidateLandblock = invalidateCallback;
-            ActiveTool?.Activate(_toolContext);
-            _log.LogInformation("LandscapeViewModel.InitializeToolContext initialized context");
-        }
-        else {
-            _log.LogWarning("LandscapeViewModel.InitializeToolContext: ActiveDocument is null");
-        }
+        UpdateToolContext();
     }
 
     public bool OnPointerPressed(LandscapeInputEvent e) {

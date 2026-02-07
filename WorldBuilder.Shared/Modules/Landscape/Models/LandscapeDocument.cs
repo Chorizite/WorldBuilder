@@ -74,14 +74,14 @@ public partial class LandscapeDocument : BaseDocument {
 
     public override async Task InitializeForUpdatingAsync(IDatReaderWriter dats, IDocumentManager documentManager,
         CancellationToken ct) {
+        await LoadRegionDataAsync(dats);
+        await LoadCacheFromDatsAsync(ct);
         await LoadLayersAsync(documentManager, ct);
     }
 
     public override async Task InitializeForEditingAsync(IDatReaderWriter dats, IDocumentManager documentManager,
         CancellationToken ct) {
         await InitializeForUpdatingAsync(dats, documentManager, ct);
-        await LoadRegionDataAsync(dats);
-        await LoadCacheFromDatsAsync(ct);
     }
 
     /// <summary>
@@ -182,7 +182,7 @@ public partial class LandscapeDocument : BaseDocument {
         }
     }
 
-    internal IEnumerable<LandscapeLayer> GetAllLayers() {
+    public IEnumerable<LandscapeLayer> GetAllLayers() {
         return GetAllLayersAndGroups().OfType<LandscapeLayer>();
     }
 

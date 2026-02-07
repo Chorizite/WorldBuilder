@@ -10,6 +10,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
     {
         private readonly LandscapeToolContext _context;
         private readonly LandscapeDocument _document;
+        private readonly LandscapeLayerDocument? _layerDoc;
         private readonly Vector3 _center;
         private readonly float _radius;
         private readonly int _textureId; // 0-31
@@ -24,6 +25,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
         {
             _context = context;
             _document = context.Document;
+            _layerDoc = context.ActiveLayerDocument;
             _center = center;
             _radius = radius;
             _textureId = textureId;
@@ -57,6 +59,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
                 int index = kvp.Key;
                 cache[index] = kvp.Value;
 
+                if (_layerDoc != null)
+                {
+                    _layerDoc.Terrain[(uint)index] = kvp.Value;
+                }
+
                 var (vx, vy) = region.GetVertexCoordinates((uint)index);
                 int lbX = vx / region.LandblockVerticeLength;
                 int lbY = vy / region.LandblockVerticeLength; // Approximation, check edge cases?
@@ -76,6 +83,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
                 lbY = vy / stride;
 
                 modifiedLandblocks.Add((lbX, lbY));
+            }
+
+            if (_layerDoc != null)
+            {
+                _context.RequestSave?.Invoke(_layerDoc.Id);
             }
 
             foreach (var lb in modifiedLandblocks)
@@ -133,6 +145,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
                         entry.Type = (byte)_textureId;
                         cache[index] = entry;
 
+                        if (_layerDoc != null)
+                        {
+                            _layerDoc.Terrain[(uint)index] = entry;
+                        }
+
                         // Track modified landblocks
                         int lbX = x / stride;
                         int lbY = y / stride;
@@ -143,6 +160,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
                         if (y % stride == 0 && y > 0) modifiedLandblocks.Add((lbX, (y / stride) - 1));
                     }
                 }
+            }
+
+            if (_layerDoc != null)
+            {
+                _context.RequestSave?.Invoke(_layerDoc.Id);
             }
 
             foreach (var lb in modifiedLandblocks)

@@ -113,7 +113,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
         private void ApplyPaint(TerrainRaycast.TerrainRaycastHit hit)
         {
             if (_context == null) return;
-            _context.Logger.LogInformation("Applying Paint at {Pos} with Radius {Radius}", hit.HitPosition, BrushRadius);
+            //_context.Logger.LogInformation("Applying Paint at {Pos} with Radius {Radius}", hit.HitPosition, BrushRadius);
             // Use Texture ID 5 (Grass?) for testing
             var command = new PaintCommand(_context, hit.HitPosition, BrushRadius, 5);
             _context.CommandHistory.Execute(command);
