@@ -399,6 +399,9 @@ namespace WorldBuilder.Views {
                             SilkGl.GetInteger(GetPName.BlendSrcRgb, out int originalBlendSrc);
                             SilkGl.GetInteger(GetPName.BlendDstRgb, out int originalBlendDst);
                             SilkGl.GetInteger(GetPName.BlendEquationRgb, out int originalBlendEquation);
+                            var originalScissor = SilkGl.IsEnabled(EnableCap.ScissorTest);
+                            var originalScissorBox = new int[4];
+                            SilkGl.GetInteger(GetPName.ScissorBox, originalScissorBox);
 
                             SilkGl.Enable(EnableCap.DepthTest);
                             SilkGl.DepthFunc(DepthFunction.Less);
@@ -413,10 +416,18 @@ namespace WorldBuilder.Views {
                             // Use the control size for the viewport, not the canvas size from GL context
                             // This ensures that rendering happens with the correct dimensions for this specific control
                             SilkGl.Viewport(0, 0, (uint)controlSize.Width, (uint)controlSize.Height);
+
+                            // Disable scissor test for FBO rendering to ensure we draw the full viewport
+                            // This prevents Avalonia's UI clipping from affecting our internal render target
+                            SilkGl.Disable(EnableCap.ScissorTest);
+
                             _parent.OnGlRenderInternal(frameTime);
 
                             // Restore the original OpenGL state to ensure isolation between render views
                             SilkGl.Viewport(originalViewport[0], originalViewport[1], (uint)originalViewport[2], (uint)originalViewport[3]);
+
+                            if (originalScissor) SilkGl.Enable(EnableCap.ScissorTest); else SilkGl.Disable(EnableCap.ScissorTest);
+                            SilkGl.Scissor(originalScissorBox[0], originalScissorBox[1], (uint)originalScissorBox[2], (uint)originalScissorBox[3]);
 
                             if (originalDepthTest) SilkGl.Enable(EnableCap.DepthTest); else SilkGl.Disable(EnableCap.DepthTest);
                             if (originalCullFace) SilkGl.Enable(EnableCap.CullFace); else SilkGl.Disable(EnableCap.CullFace);
