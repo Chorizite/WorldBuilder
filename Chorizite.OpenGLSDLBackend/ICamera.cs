@@ -1,11 +1,13 @@
 using System.Numerics;
 
+using WorldBuilder.Shared.Models;
+
 namespace Chorizite.OpenGLSDLBackend;
 
 /// <summary>
 /// Interface for camera implementations providing view and projection matrices.
 /// </summary>
-public interface ICamera {
+public interface ICamera : WorldBuilder.Shared.Models.ICamera {
     /// <summary>
     /// Gets the view matrix for transforming world coordinates to camera space.
     /// </summary>

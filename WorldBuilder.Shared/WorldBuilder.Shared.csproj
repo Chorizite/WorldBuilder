@@ -24,5 +24,12 @@
 		<PackageReference Include="Microsoft.Data.Sqlite.Core" />
 		<PackageReference Include="SQLitePCLRaw.bundle_green" />
 		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
+        <PackageReference Include="CommunityToolkit.Mvvm" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Reference Include="CommunityToolkit.Mvvm">
+	    <HintPath>..\..\..\home\trevis\.nuget\packages\communitytoolkit.mvvm\8.4.0\lib\net8.0\CommunityToolkit.Mvvm.dll</HintPath>
+	  </Reference>
 	</ItemGroup>
 </Project>

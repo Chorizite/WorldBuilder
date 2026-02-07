@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using DatReaderWriter;
 using WorldBuilder.Shared.Services;
 using System.Threading.Tasks;
+using WorldBuilder.Shared.Modules.Landscape.Models;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
     public class TerrainRenderManager : IDisposable {
@@ -22,16 +23,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Job queues
         private readonly ConcurrentQueue<TerrainChunk> _generationQueue = new();
         private readonly ConcurrentQueue<TerrainChunk> _uploadQueue = new();
+        private readonly ConcurrentQueue<TerrainChunk> _partialUpdateQueue = new();
         private int _activeGenerations = 0;
 
         // Render state
-        private IShader _shader;
+        private IShader? _shader;
         private bool _initialized;
 
         // Statistics
         public int RenderDistance { get; set; } = 8;
         public int QueuedUploads => _uploadQueue.Count;
         public int QueuedGenerations => _generationQueue.Count;
+        public int QueuedPartialUpdates => _partialUpdateQueue.Count;
         public int ActiveChunks => _chunks.Count;
 
         private readonly IDatReaderWriter _dats;
@@ -53,8 +56,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _initialized = true;
 
             // Initialize Surface Manager
-            if (_landscapeDoc.Region != null) {
-                _surfaceManager = new LandSurfaceManager(_graphicsDevice, _dats, _landscapeDoc.Region._region, _log);
+            if (_landscapeDoc.Region is RegionInfo regionInfo) {
+                _surfaceManager = new LandSurfaceManager(_graphicsDevice, _dats, regionInfo._region, _log);
             }
 
             // Bind textures
@@ -74,10 +77,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             for (int x = chunkX - RenderDistance; x <= chunkX + RenderDistance; x++) {
                 for (int y = chunkY - RenderDistance; y <= chunkY + RenderDistance; y++) {
                     if (x < 0 || y < 0) continue;
-                    
+
                     var uX = (uint)x;
                     var uY = (uint)y;
-                    
+
                     var chunkId = (ulong)uX << 32 | uY;
                     if (!_chunks.ContainsKey(chunkId)) {
                         var chunk = new TerrainChunk(uX, uY);
@@ -112,6 +115,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             var sw = Stopwatch.StartNew();
 
+            // Prioritize partial updates for responsiveness
+            ProcessPartialUpdates(sw, timeBudgetMs);
+
             while (_uploadQueue.TryPeek(out var chunk)) {
                 if (sw.Elapsed.TotalMilliseconds > timeBudgetMs) {
                     break;
@@ -121,6 +127,69 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     UploadChunk(chunk);
                 }
             }
+        }
+
+        private unsafe void ProcessPartialUpdates(Stopwatch sw, float timeBudgetMs) {
+            // Re-queue chunks that we don't finish
+            int processedCount = 0;
+            int initialCount = _partialUpdateQueue.Count;
+
+            while (processedCount < initialCount && sw.Elapsed.TotalMilliseconds < timeBudgetMs) {
+                if (_partialUpdateQueue.TryDequeue(out var chunk)) {
+                    if (chunk.HasDirtyBlocks()) {
+                        UpdateChunk(chunk);
+                    }
+                    processedCount++;
+                }
+                else {
+                    break;
+                }
+            }
+        }
+
+        private unsafe void UpdateChunk(TerrainChunk chunk) {
+            if (!chunk.IsGenerated || chunk.VAO == 0) return;
+
+            // _log.LogInformation("Updating chunk {CX},{CY}", chunk.ChunkX, chunk.ChunkY);
+
+            // Temporary buffers for single landblock
+            Span<VertexLandscape> tempVertices = stackalloc VertexLandscape[TerrainGeometryGenerator.VerticesPerLandblock];
+            Span<uint> tempIndices = stackalloc uint[TerrainGeometryGenerator.IndicesPerLandblock]; // Unused but required by signature
+
+            _gl.BindVertexArray(chunk.VAO);
+            _gl.BindBuffer(BufferTargetARB.ArrayBuffer, chunk.VBO);
+
+            int updates = 0;
+            while (chunk.TryGetNextDirty(out int lx, out int ly)) {
+                int vertexOffset = chunk.LandblockVertexOffsets[ly * 8 + lx];
+                if (vertexOffset == -1) continue; // No geometry for this block
+
+                var landblockX = chunk.LandblockStartX + (uint)lx;
+                var landblockY = chunk.LandblockStartY + (uint)ly;
+
+                var landblockID = _landscapeDoc.Region.GetLandblockId((int)landblockX, (int)landblockY);
+
+                // Generate geometry for this single landblock
+                // We pass 0 as currentVertexIndex/currentIndexPosition because we only care about the vertex data relative to itself
+                // The indices generated will be wrong (relative to 0), but we don't upload them.
+                TerrainGeometryGenerator.GenerateLandblockGeometry(
+                    landblockX, landblockY, landblockID,
+                    _landscapeDoc.Region, _surfaceManager!,
+                    _landscapeDoc.TerrainCache.AsSpan(),
+                    0, 0,
+                    tempVertices, tempIndices
+                );
+
+                // Upload vertices
+                fixed (VertexLandscape* vPtr = tempVertices) {
+                    _gl.BufferSubData(BufferTargetARB.ArrayBuffer, (nint)(vertexOffset * VertexLandscape.Size), (nuint)(tempVertices.Length * VertexLandscape.Size), vPtr);
+                }
+                updates++;
+            }
+
+            _gl.BindVertexArray(0);
+
+            // if (updates > 0) _log.LogInformation("Updated {Count} landblocks in chunk {CX},{CY}", updates, chunk.ChunkX, chunk.ChunkY);
         }
 
         private void GenerateChunk(TerrainChunk chunk) {
@@ -264,6 +333,27 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             _gl.BindVertexArray(0);
+        }
+
+        public void InvalidateLandblock(int lbX, int lbY) {
+            var chunkX = (uint)(lbX / 8);
+            var chunkY = (uint)(lbY / 8);
+            var chunkId = (ulong)chunkX << 32 | chunkY;
+
+            if (_chunks.TryGetValue(chunkId, out var chunk)) {
+                if (chunk.IsGenerated) {
+                    chunk.MarkDirty(lbX % 8, lbY % 8);
+                    if (!_partialUpdateQueue.Contains(chunk)) { // Note: basic Contains might be O(N). Queue is likely small.
+                        _partialUpdateQueue.Enqueue(chunk);
+                    }
+                }
+                else {
+                    // Fallback to full regen if not ready
+                    if (_chunks.TryRemove(chunkId, out var _)) {
+                        chunk.Dispose();
+                    }
+                }
+            }
         }
 
         public void Dispose() {

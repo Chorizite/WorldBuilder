@@ -35,7 +35,7 @@ public partial class LandscapeDocument : BaseDocument {
     /// Region info + helpers
     /// </summary>
     [MemoryPackIgnore]
-    public RegionInfo? Region { get; private set; }
+    public ITerrainInfo? Region { get; private set; }
 
     /// <summary>
     /// The region id this document belongs to

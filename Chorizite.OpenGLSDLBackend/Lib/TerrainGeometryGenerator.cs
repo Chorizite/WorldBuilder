@@ -35,7 +35,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             Memory<uint> indices,
             out int actualVertexCount,
             out int actualIndexCount) {
-            
+
             actualVertexCount = 0;
             actualIndexCount = 0;
 
@@ -44,6 +44,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var validBlocks = new System.Collections.Generic.List<(uint lx, uint ly, uint vOffset, uint iOffset)>();
             uint currentVertexIndex = 0;
             uint currentIndexPosition = 0;
+
+            // Reset offsets
+            Array.Fill(chunk.LandblockVertexOffsets, -1);
 
             for (uint ly = 0; ly < chunk.ActualLandblockCountY; ly++) {
                 for (uint lx = 0; lx < chunk.ActualLandblockCountX; lx++) {
@@ -54,8 +57,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (landblockX >= region.MapWidthInLandblocks ||
                         landblockY >= region.MapHeightInLandblocks) continue;
 
+                    // Store the offset for this landblock (relative to the chunk's VBO)
+                    chunk.LandblockVertexOffsets[ly * 8 + lx] = (int)currentVertexIndex;
+
                     validBlocks.Add((landblockX, landblockY, currentVertexIndex, currentIndexPosition));
-                    
+
                     currentVertexIndex += VerticesPerLandblock;
                     currentIndexPosition += IndicesPerLandblock;
                 }
@@ -63,7 +69,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             actualVertexCount = (int)currentVertexIndex;
             actualIndexCount = (int)currentIndexPosition;
-            
+
             Parallel.ForEach(validBlocks, block => {
                 var landblockID = region.GetLandblockId((int)block.lx, (int)block.ly);
                 GenerateLandblockGeometry(
@@ -101,7 +107,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         currentVertexIndex, currentIndexPosition,
                         vertices, indices
                     );
-                    
+
                     currentVertexIndex += 4;
                     currentIndexPosition += 6;
                 }
@@ -285,7 +291,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private static void InitVertexTextureDefaults(ref VertexLandscape v) {
             // Base texture: UV(0,0), TexIndex=0, AlphaIndex=255 (Opaque/Unused)
             v.PackedBase = VertexLandscape.PackTexCoord(0, 0, 0, 255);
-            
+
             // Overlays: TexIndex=255 (-1) to disable
             v.PackedOverlay0 = VertexLandscape.PackTexCoord(0, 0, 255, 255);
             v.PackedOverlay1 = VertexLandscape.PackTexCoord(0, 0, 255, 255);

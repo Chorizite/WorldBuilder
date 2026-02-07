@@ -62,6 +62,11 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Gets the current active camera.
     /// </summary>
+    public ICamera Camera => _currentCamera;
+
+    /// <summary>
+    /// Gets the current active camera.
+    /// </summary>
     public ICamera CurrentCamera => _currentCamera;
 
     /// <summary>
@@ -156,6 +161,10 @@ public class GameScene : IDisposable {
         _height = height;
         _camera2D.Resize(width, height);
         _camera3D.Resize(width, height);
+    }
+
+    public void InvalidateLandblock(int lbX, int lbY) {
+        _terrainManager?.InvalidateLandblock(lbX, lbY);
     }
 
     /// <summary>

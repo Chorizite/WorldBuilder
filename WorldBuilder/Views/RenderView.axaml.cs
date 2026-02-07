@@ -1,3 +1,4 @@
+using System;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Threading;
@@ -15,6 +16,9 @@ using WorldBuilder.Lib.Settings;
 using DatReaderWriter;
 using WorldBuilder.Lib;
 
+using WorldBuilder.Modules.Landscape;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
+
 namespace WorldBuilder.Views;
 
 public partial class RenderView : Base3DViewport {
@@ -24,7 +28,11 @@ public partial class RenderView : Base3DViewport {
     private Vector2 _lastPointerPosition;
     private LandscapeDocument? _cachedLandscapeDocument;
     private CameraSettings? _cameraSettings;
-    
+
+    public WorldBuilder.Shared.Models.ICamera? Camera => _gameScene?.Camera;
+
+    public event Action? SceneInitialized;
+
     // Pending landscape update to be processed on the render thread
     private LandscapeDocument? _pendingLandscapeDocument;
     private WorldBuilder.Shared.Services.IDatReaderWriter? _pendingDats;
@@ -37,12 +45,9 @@ public partial class RenderView : Base3DViewport {
         InitializeBase3DView();
     }
 
-    public static SharedOpenGLContextManager SharedContextManager
-    {
-        get
-        {
-            if (_sharedContextManager == null)
-            {
+    public static SharedOpenGLContextManager SharedContextManager {
+        get {
+            if (_sharedContextManager == null) {
                 _sharedContextManager = new SharedOpenGLContextManager();
             }
             return _sharedContextManager;
@@ -81,6 +86,9 @@ public partial class RenderView : Base3DViewport {
                 _pendingLandscapeDocument = _cachedLandscapeDocument;
                 // _pendingDats is already set from the cached value
             }
+
+            _logger.LogInformation("RenderView initialized, invoking SceneInitialized");
+            SceneInitialized?.Invoke();
         }
     }
 
@@ -107,11 +115,34 @@ public partial class RenderView : Base3DViewport {
 
     protected override void OnGlPointerMoved(PointerEventArgs e, Vector2 mousePositionScaled) {
         var delta = mousePositionScaled - _lastPointerPosition;
+
+        // Forward to GameScene for Camera control (Right click mostly)
+        // If ViewModel handles it (Left click tool), maybe we shouldn't send to GameScene?
+        // Or GameScene handles navigation, VM handles Tools.
+        // If Tool is active (Left Button), we might suppress camera look?
+        // For now, let's just forward to both, but Tool logic checks button state.
+
         _gameScene?.HandlePointerMoved(mousePositionScaled, delta);
         _lastPointerPosition = mousePositionScaled;
+
+        if (DataContext is LandscapeViewModel vm) {
+            var size = new Vector2((float)Bounds.Width, (float)Bounds.Height) * InputScale;
+            var point = e.GetCurrentPoint(this);
+            var inputEvent = new LandscapeInputEvent {
+                Position = new Vector2((float)point.Position.X, (float)point.Position.Y) * InputScale,
+                ViewportSize = size,
+                IsLeftDown = point.Properties.IsLeftButtonPressed,
+                IsRightDown = point.Properties.IsRightButtonPressed,
+                ShiftDown = (e.KeyModifiers & KeyModifiers.Shift) != 0,
+                CtrlDown = (e.KeyModifiers & KeyModifiers.Control) != 0,
+                AltDown = (e.KeyModifiers & KeyModifiers.Alt) != 0
+            };
+            vm.OnPointerMoved(inputEvent);
+        }
     }
 
     protected override void OnGlPointerPressed(PointerPressedEventArgs e) {
+        _logger.LogInformation("RenderView.OnGlPointerPressed. DataContext is {Type}", DataContext?.GetType().Name ?? "null");
         // Focus this control to receive keyboard input
         this.Focus();
 
@@ -125,6 +156,24 @@ public partial class RenderView : Base3DViewport {
         if (props.IsRightButtonPressed) {
             e.Pointer.Capture(this);
         }
+
+        if (DataContext is LandscapeViewModel vm) {
+            var size = new Vector2((float)Bounds.Width, (float)Bounds.Height) * InputScale;
+            var point = e.GetCurrentPoint(this);
+            var inputEvent = new LandscapeInputEvent {
+                Position = new Vector2((float)point.Position.X, (float)point.Position.Y) * InputScale,
+                ViewportSize = size,
+                IsLeftDown = point.Properties.IsLeftButtonPressed,
+                IsRightDown = point.Properties.IsRightButtonPressed,
+                ShiftDown = (e.KeyModifiers & KeyModifiers.Shift) != 0,
+                CtrlDown = (e.KeyModifiers & KeyModifiers.Control) != 0,
+                AltDown = (e.KeyModifiers & KeyModifiers.Alt) != 0
+            };
+            vm.OnPointerPressed(inputEvent);
+        }
+        else {
+            _logger.LogWarning("RenderView DataContext is NOT LandscapeViewModel");
+        }
     }
 
     protected override void OnGlPointerReleased(PointerReleasedEventArgs e) {
@@ -136,6 +185,21 @@ public partial class RenderView : Base3DViewport {
         // Release pointer capture
         if (e.InitialPressMouseButton == MouseButton.Right) {
             e.Pointer.Capture(null);
+        }
+
+        if (DataContext is LandscapeViewModel vm) {
+            var size = new Vector2((float)Bounds.Width, (float)Bounds.Height) * InputScale;
+            var point = e.GetCurrentPoint(this);
+            var inputEvent = new WorldBuilder.Shared.Modules.Landscape.Tools.LandscapeInputEvent {
+                Position = new Vector2((float)pos.X, (float)pos.Y) * InputScale,
+                ViewportSize = size,
+                IsLeftDown = point.Properties.IsLeftButtonPressed,
+                IsRightDown = point.Properties.IsRightButtonPressed,
+                ShiftDown = (e.KeyModifiers & KeyModifiers.Shift) != 0,
+                CtrlDown = (e.KeyModifiers & KeyModifiers.Control) != 0,
+                AltDown = (e.KeyModifiers & KeyModifiers.Alt) != 0
+            };
+            vm.OnPointerReleased(inputEvent);
         }
     }
 
@@ -153,8 +217,8 @@ public partial class RenderView : Base3DViewport {
             _pendingDats = null;
         }
 
-        // Always clear with red first as a baseline test
-        GL.ClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+        // Always clear with black first as a baseline
+        GL.ClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
         if (_gameScene is null) {
@@ -204,5 +268,9 @@ public partial class RenderView : Base3DViewport {
         // viewport dimensions with other windows that use the same shared OpenGL context
         _logger.LogInformation("RenderView.OnGlResize: Resizing to {Width}x{Height}", canvasSize.Width, canvasSize.Height);
         _gameScene?.Resize(canvasSize.Width, canvasSize.Height);
+    }
+
+    public void InvalidateLandblock(int x, int y) {
+        _gameScene?.InvalidateLandblock(x, y);
     }
 }

@@ -19,6 +19,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public uint ActualLandblockCountX { get; set; } = 8;
         public uint ActualLandblockCountY { get; set; } = 8;
 
+        /// <summary>
+        /// Stores the starting vertex index in the VBO for each of the 64 landblocks (8x8).
+        /// Value is -1 if the landblock has no geometry (e.g. out of bounds).
+        /// </summary>
+        public int[] LandblockVertexOffsets { get; } = new int[64];
+
+        /// <summary>
+        /// Tracks which landblocks are dirty and need partial updates.
+        /// Index is (ly * 8 + lx).
+        /// </summary>
+        private readonly bool[] _dirtyLandblocks = new bool[64];
+        private readonly object _dirtyLock = new();
+
         public BoundingBox Bounds { get; set; }
         public bool IsGenerated { get; set; }
 
@@ -35,9 +48,43 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public TerrainChunk(uint x, uint y) {
             ChunkX = x;
             ChunkY = y;
+            // Initialize offsets to -1
+            Array.Fill(LandblockVertexOffsets, -1);
         }
 
         public ulong GetChunkId() => (ulong)ChunkX << 32 | ChunkY;
+
+        public void MarkDirty(int localLx, int localLy) {
+            if (localLx < 0 || localLx >= 8 || localLy < 0 || localLy >= 8) return;
+            lock (_dirtyLock) {
+                _dirtyLandblocks[localLy * 8 + localLx] = true;
+            }
+        }
+
+        public bool TryGetNextDirty(out int localLx, out int localLy) {
+            lock (_dirtyLock) {
+                for (int i = 0; i < 64; i++) {
+                    if (_dirtyLandblocks[i]) {
+                        _dirtyLandblocks[i] = false;
+                        localLx = i % 8;
+                        localLy = i / 8;
+                        return true;
+                    }
+                }
+            }
+            localLx = -1;
+            localLy = -1;
+            return false;
+        }
+
+        public bool HasDirtyBlocks() {
+            lock (_dirtyLock) {
+                for (int i = 0; i < 64; i++) {
+                    if (_dirtyLandblocks[i]) return true;
+                }
+            }
+            return false;
+        }
 
         public void Dispose() {
             if (_disposed) return;
