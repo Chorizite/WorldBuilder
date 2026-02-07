@@ -1,0 +1,13 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="WorldBuilder.Views.Components.StatusBar">
+    <Border Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+            BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"
+            BorderThickness="0,1,0,0"
+            Padding="8,2">
+        <Grid ColumnDefinitions="*, Auto">
+            <TextBlock Text="Ready" VerticalAlignment="Center" FontSize="12" />
+            <TextBlock Grid.Column="1" Text="v1.0.0-alpha" VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
+        </Grid>
+    </Border>
+</UserControl>

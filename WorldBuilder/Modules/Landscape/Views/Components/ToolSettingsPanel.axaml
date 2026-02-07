@@ -1,0 +1,36 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:WorldBuilder.Modules.Landscape"
+             xmlns:tools="clr-namespace:WorldBuilder.Shared.Modules.Landscape.Tools;assembly=WorldBuilder.Shared"
+             x:Class="WorldBuilder.Modules.Landscape.Views.Components.ToolSettingsPanel"
+             x:DataType="vm:LandscapeViewModel">
+    <Border Background="{DynamicResource SolidBackgroundFillColorBase}" 
+            BorderBrush="{DynamicResource SurfaceStrokeColorDefault}"
+            BorderThickness="1"
+            CornerRadius="4" Padding="12"
+            IsVisible="{Binding ActiveTool, Converter={x:Static ObjectConverters.IsNotNull}}">
+      <StackPanel Spacing="10">
+        <TextBlock Text="Tool Settings" FontWeight="SemiBold" FontSize="14" />
+
+        <ContentControl Content="{Binding ActiveTool}">
+          <ContentControl.DataTemplates>
+            <DataTemplate DataType="{x:Type tools:BrushTool}">
+              <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="Radius" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="1" Text="{Binding BrushRadius, StringFormat='{}{0:F1}'}" VerticalAlignment="Center"/>
+                </Grid>
+                <Slider Value="{Binding BrushRadius}" Minimum="1" Maximum="50" IsSnapToTickEnabled="False" />
+
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="Strength" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="1" Text="{Binding BrushStrength, StringFormat='{}{0:F2}'}" VerticalAlignment="Center"/>
+                </Grid>
+                <Slider Value="{Binding BrushStrength}" Minimum="0" Maximum="1" TickFrequency="0.01" IsSnapToTickEnabled="True" />
+              </StackPanel>
+            </DataTemplate>
+          </ContentControl.DataTemplates>
+        </ContentControl>
+      </StackPanel>
+    </Border>
+</UserControl>

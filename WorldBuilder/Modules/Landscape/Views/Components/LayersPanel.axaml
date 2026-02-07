@@ -1,0 +1,16 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="WorldBuilder.Modules.Landscape.Views.Components.LayersPanel">
+    <Border Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+            BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="4" Padding="12">
+        <DockPanel>
+            <TextBlock DockPanel.Dock="Top" Text="Layers" FontWeight="SemiBold" Margin="0,0,0,8" />
+            <ListBox Background="Transparent" BorderThickness="0">
+                <ListBoxItem Content="Layer 1" />
+                <ListBoxItem Content="Base Layer" FontWeight="Bold" IsHitTestVisible="False" />
+            </ListBox>
+        </DockPanel>
+    </Border>
+</UserControl>

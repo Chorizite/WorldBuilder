@@ -1,0 +1,19 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="WorldBuilder.Modules.Landscape.Views.Components.ToolPanel">
+    <Border Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+            BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="4" Padding="8">
+        <StackPanel Spacing="4">
+            <TextBlock Text="Tools" FontWeight="SemiBold" Margin="0,0,0,4" />
+            <UniformGrid Columns="2">
+                <ToggleButton Content="Paint" IsChecked="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                <ToggleButton Content="Fill" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                <ToggleButton Content="Road" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                <ToggleButton Content="Height" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                <ToggleButton Content="Object" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+            </UniformGrid>
+        </StackPanel>
+    </Border>
+</UserControl>

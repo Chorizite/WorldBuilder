@@ -3,7 +3,9 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:views="clr-namespace:WorldBuilder.Views"
+             xmlns:mainComponents="clr-namespace:WorldBuilder.Views.Components"
              xmlns:vm="clr-namespace:WorldBuilder.Modules.Landscape"
+             xmlns:components="clr-namespace:WorldBuilder.Modules.Landscape.Views.Components"
              xmlns:tools="clr-namespace:WorldBuilder.Shared.Modules.Landscape.Tools;assembly=WorldBuilder.Shared"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="WorldBuilder.Modules.Landscape.LandscapeView"
@@ -13,41 +15,24 @@
          to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
   </Design.DataContext>
 
-  <Grid>
-    <views:RenderView x:Name="RenderView" LandscapeDocument="{Binding ActiveDocument}" Dats="{Binding Dats}" />
-    
-    <!-- Tool Settings Overlay -->
-    <Border HorizontalAlignment="Right" VerticalAlignment="Top"
-            Background="{DynamicResource SolidBackgroundFillColorBase}" 
-            BorderBrush="{DynamicResource SurfaceStrokeColorDefault}"
-            BorderThickness="1"
-            CornerRadius="4" Margin="16" Padding="12"
-            Width="250"
-            IsVisible="{Binding ActiveTool, Converter={x:Static ObjectConverters.IsNotNull}}">
-      <StackPanel Spacing="10">
-        <TextBlock Text="Tool Settings" FontWeight="SemiBold" FontSize="14" />
+  <Grid ColumnDefinitions="300, *, 300">
+    <!-- Left Sidebar: Tools & Properties -->
+    <Grid Grid.Column="0" RowDefinitions="Auto, Auto, *">
+      <components:ToolPanel Grid.Row="0" Margin="4" />
+      <components:ToolSettingsPanel Grid.Row="1" Margin="4" />
+      <components:PropertiesPanel Grid.Row="2" Margin="4" />
+    </Grid>
 
-        <ContentControl Content="{Binding ActiveTool}">
-          <ContentControl.DataTemplates>
-            <DataTemplate DataType="{x:Type tools:BrushTool}">
-              <StackPanel Spacing="8">
-                <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock Text="Radius" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="1" Text="{Binding BrushRadius, StringFormat='{}{0:F1}'}" VerticalAlignment="Center"/>
-                </Grid>
-                <Slider Value="{Binding BrushRadius}" Minimum="1" Maximum="50" IsSnapToTickEnabled="False" />
+    <!-- Center Viewport -->
+    <views:RenderView Grid.Column="1" x:Name="RenderView" 
+                      LandscapeDocument="{Binding ActiveDocument}" 
+                      Dats="{Binding Dats}" />
 
-                <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock Text="Strength" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="1" Text="{Binding BrushStrength, StringFormat='{}{0:F2}'}" VerticalAlignment="Center"/>
-                </Grid>
-                <Slider Value="{Binding BrushStrength}" Minimum="0" Maximum="1" TickFrequency="0.01" IsSnapToTickEnabled="True" />
-              </StackPanel>
-            </DataTemplate>
-          </ContentControl.DataTemplates>
-        </ContentControl>
-      </StackPanel>
-    </Border>
+    <!-- Right Sidebar: Layers & History -->
+    <Grid Grid.Column="2" RowDefinitions="*, *">
+      <components:LayersPanel Grid.Row="0" Margin="4" />
+      <mainComponents:HistoryPanel Grid.Row="1" Margin="4" />
+    </Grid>
   </Grid>
 </UserControl>
 

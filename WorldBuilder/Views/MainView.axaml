@@ -5,6 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:views="clr-namespace:WorldBuilder.Views"
+    xmlns:components="clr-namespace:WorldBuilder.Views.Components"
     xmlns:vm="clr-namespace:WorldBuilder.ViewModels"
     xmlns:landscape="clr-namespace:WorldBuilder.Modules.Landscape"
     d:DesignHeight="450"
@@ -26,11 +27,11 @@
             </MenuItem>
             <MenuItem Command="{Binding OpenSettingsWindowCommand}" Header="Settings" />
         </Menu>
-        <Grid ColumnDefinitions="*,100">
-            <landscape:LandscapeView
-                DataContext="{Binding Landscape}"
-                Background="Red" />
-            <Panel Grid.Column="1" Background="Orange" />
-        </Grid>
+
+        <!-- Status Bar at the bottom -->
+        <components:StatusBar DockPanel.Dock="Bottom" />
+
+        <!-- Main Content -->
+        <landscape:LandscapeView DataContext="{Binding Landscape}" />
     </DockPanel>
 </UserControl>

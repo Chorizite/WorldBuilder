@@ -47,6 +47,26 @@ namespace WorldBuilder.Views {
                         throw new InvalidOperationException("Viewport control not found");
             _viewport.AttachedToVisualTree += ViewportAttachedToVisualTree;
             _viewport.DetachedFromVisualTree += ViewportDetachedFromVisualTree;
+            LayoutUpdated += OnLayoutUpdated;
+        }
+
+        private void OnLayoutUpdated(object? sender, EventArgs e) {
+            UpdateScreenPosition();
+        }
+
+        private void UpdateScreenPosition() {
+            if (_viewport != null && _visual != null) {
+                var topLevel = TopLevel.GetTopLevel(this);
+                if (topLevel != null) {
+                    var point = _viewport.TranslatePoint(new Point(0, 0), topLevel);
+                    if (point.HasValue) {
+                        var scaling = topLevel.RenderScaling;
+                        _visual.SendHandlerMessage(new PositionMessage {
+                            Position = new PixelPoint((int)(point.Value.X * scaling), (int)(point.Value.Y * scaling))
+                        });
+                    }
+                }
+            }
         }
 
         protected virtual void OnGlInitInternal(GL gl, PixelSize size) {
@@ -224,10 +244,17 @@ namespace WorldBuilder.Views {
                     UpdateSize(viewportSize);
 
                     // Update render size when layout changes to ensure proper scaling
-                    if (_renderSize.Width != (int)viewportSize.Width || _renderSize.Height != (int)viewportSize.Height) {
-                        _renderSize = new PixelSize((int)viewportSize.Width, (int)viewportSize.Height);
-                        Renderer?.Resize((int)viewportSize.Width, (int)viewportSize.Height);
+                    var topLevel = TopLevel.GetTopLevel(this);
+                    var scaling = topLevel?.RenderScaling ?? 1.0;
+                    var pixelWidth = (int)(viewportSize.Width * scaling);
+                    var pixelHeight = (int)(viewportSize.Height * scaling);
+
+                    if (_renderSize.Width != pixelWidth || _renderSize.Height != pixelHeight) {
+                        _renderSize = new PixelSize(pixelWidth, pixelHeight);
+                        Renderer?.Resize(pixelWidth, pixelHeight);
                     }
+
+                    UpdateScreenPosition();
                 }
             }
 
@@ -249,6 +276,7 @@ namespace WorldBuilder.Views {
             internal IGlContext? _gl;
             private PixelSize _lastSize;
             private PixelSize _ownViewportSize; // Store the viewport size specific to this instance
+            private PixelPoint _screenPosition = new PixelPoint(-1, -1); // Viewport position relative to top-level window
 
             private readonly Base3DViewport _parent;
             private readonly string _instanceId; // Unique identifier for this GlVisual instance
@@ -283,8 +311,10 @@ namespace WorldBuilder.Views {
                         _ = skiaLease.GrContext ?? throw new Exception("Unable to get GrContext");
                         PixelSize canvasSize = default;
 
-                        // Calculate control size before the using block to ensure it's accessible later
-                        controlSize = new PixelSize((int)_parent._viewport!.Bounds.Width, (int)_parent._viewport!.Bounds.Height);
+                        // Calculate control size in physical pixels using the top-level scaling
+                        var topLevel = TopLevel.GetTopLevel(_parent);
+                        var scaling = topLevel?.RenderScaling ?? 1.0;
+                        controlSize = new PixelSize((int)(_parent._viewport!.Bounds.Width * scaling), (int)(_parent._viewport!.Bounds.Height * scaling));
 
                         using (var platformApiLease = skiaLease.TryLeasePlatformGraphicsApi()) {
                             if (platformApiLease?.Context is not IGlContext glContext)
@@ -412,27 +442,31 @@ namespace WorldBuilder.Views {
 
                                 // Determine the destination viewport for blitting based on the current context
                                 // This ensures each window uses its own viewport dimensions rather than the shared state
-                                int destX = 0, destY = 0;
-                                int destW, destH;
+                                int destW = controlSize.Width;
+                                int destH = controlSize.Height;
 
-                                // Prioritize our own instance-specific viewport size over the shared context manager
-                                destW = _ownViewportSize.Width;
-                                destH = _ownViewportSize.Height;
+                                if (_screenPosition.X >= 0) {
+                                    // The destination Y is flipped because OpenGL's origin is bottom-left
+                                    // and Avalonia's origin is top-left.
+                                    // We take the full window height (originalViewport[3]) and subtract the top-left Y + height.
+                                    int destX = _screenPosition.X;
+                                    int destY = originalViewport[3] - (_screenPosition.Y + destH);
 
-                                // Disable scissor test for blit to ensure we draw the full viewport
-                                // This is necessary because the scissor state might be leaked/persisted from the Main Window
-                                // in the shared context, causing clipping of the Debug Window's content.
-                                var scissorEnabled = SilkGl.IsEnabled(EnableCap.ScissorTest);
-                                if (scissorEnabled) SilkGl.Disable(EnableCap.ScissorTest);
+                                    // Disable scissor test for blit to ensure we draw the full viewport
+                                    // This is necessary because the scissor state might be leaked/persisted from the Main Window
+                                    // in the shared context, causing clipping of the Debug Window's content.
+                                    var scissorEnabled = SilkGl.IsEnabled(EnableCap.ScissorTest);
+                                    if (scissorEnabled) SilkGl.Disable(EnableCap.ScissorTest);
 
-                                // Use the context-specific viewport dimensions for blitting
-                                SilkGl.BlitFramebuffer(
-                                    0, 0, srcWidth, srcHeight,
-                                    destX, destY, destW, destH,
-                                    ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear
-                                );
+                                    // Use the context-specific viewport dimensions for blitting
+                                    SilkGl.BlitFramebuffer(
+                                        0, 0, srcWidth, srcHeight,
+                                        destX, destY, destX + destW, destY + destH,
+                                        ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear
+                                    );
 
-                                if (scissorEnabled) SilkGl.Enable(EnableCap.ScissorTest);
+                                    if (scissorEnabled) SilkGl.Enable(EnableCap.ScissorTest);
+                                }
                             }
 
                             // restore old framebuffer
@@ -468,6 +502,9 @@ namespace WorldBuilder.Views {
                 if (message is DisposeMessage) {
                     DisposeResources();
                 }
+                else if (message is PositionMessage posMsg) {
+                    _screenPosition = posMsg.Position;
+                }
 
                 base.OnMessage(message);
             }
@@ -496,6 +533,10 @@ namespace WorldBuilder.Views {
         #endregion
 
         public class DisposeMessage {
+        }
+
+        public class PositionMessage {
+            public PixelPoint Position { get; set; }
         }
     }
 }
