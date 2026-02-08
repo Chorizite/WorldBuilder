@@ -66,24 +66,24 @@ vec4 combineOverlays(vec3 pTexUV, vec4 pOverlay0, vec4 pOverlay1, vec4 pOverlay2
     vec2 uvb = pTexUV.xy;
     vec4 result = vec4(0.0);
     if (h0 > 0.0) {
-        overlay0 = texture(xOverlays, vec3(uvb, pOverlay0.z));
+        overlay0 = texture(xOverlays, vec3(uvb, round(pOverlay0.z)));
         // Only sample alpha if alphaIdx is valid
         if (pOverlay0.w >= 0.0) {
-            overlayAlpha0 = texture(xAlphas, pOverlay0.xyw);
+            overlayAlpha0 = texture(xAlphas, vec3(pOverlay0.xy, round(pOverlay0.w)));
             overlay0.a = overlayAlpha0.a;
         }
     }
     if (h1 > 0.0) {
-        overlay1 = texture(xOverlays, vec3(uvb, pOverlay1.z));
+        overlay1 = texture(xOverlays, vec3(uvb, round(pOverlay1.z)));
         if (pOverlay1.w >= 0.0) {
-            overlayAlpha1 = texture(xAlphas, pOverlay1.xyw);
+            overlayAlpha1 = texture(xAlphas, vec3(pOverlay1.xy, round(pOverlay1.w)));
             overlay1.a = overlayAlpha1.a;
         }
     }
     if (h2 > 0.0) {
-        overlay2 = texture(xOverlays, vec3(uvb, pOverlay2.z));
+        overlay2 = texture(xOverlays, vec3(uvb, round(pOverlay2.z)));
         if (pOverlay2.w >= 0.0) {
-            overlayAlpha2 = texture(xAlphas, pOverlay2.xyw);
+            overlayAlpha2 = texture(xAlphas, vec3(pOverlay2.xy, round(pOverlay2.w)));
             overlay2.a = overlayAlpha2.a;
         }
     }
@@ -97,12 +97,12 @@ vec4 combineRoad(vec3 pTexUV, vec4 pRoad0, vec4 pRoad1) {
     vec2 uvb = pTexUV.xy;
     vec4 result = vec4(0.0);
     if (h0 > 0.0) {
-        result = texture(xOverlays, vec3(uvb, pRoad0.z));
+        result = texture(xOverlays, vec3(uvb, round(pRoad0.z)));
         if (pRoad0.w >= 0.0) {
-            vec4 roadAlpha0 = texture(xAlphas, pRoad0.xyw);
+            vec4 roadAlpha0 = texture(xAlphas, vec3(pRoad0.xy, round(pRoad0.w)));
             result.a = 1.0 - roadAlpha0.a;
             if (h1 > 0.0 && pRoad1.w >= 0.0) {
-                vec4 roadAlpha1 = texture(xAlphas, pRoad1.xyw);
+                vec4 roadAlpha1 = texture(xAlphas, vec3(pRoad1.xy, round(pRoad1.w)));
                 result.a = 1.0 - (roadAlpha0.a * roadAlpha1.a);
             }
         }
