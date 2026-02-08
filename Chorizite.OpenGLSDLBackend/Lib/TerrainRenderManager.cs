@@ -51,6 +51,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public bool ShowBrush { get; set; }
         public int BrushShape { get; set; } // 0 = Circle, 1 = Square
 
+        // Grid settings
+        public bool ShowLandblockGrid { get; set; }
+        public bool ShowCellGrid { get; set; }
+        public Vector3 LandblockGridColor { get; set; }
+        public Vector3 CellGridColor { get; set; }
+        public float GridLineWidth { get; set; } = 1.0f;
+        public float GridOpacity { get; set; } = 1.0f;
+        public float ScreenHeight { get; set; } = 1080.0f;
+
+
         private readonly IDatReaderWriter _dats;
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private LandSurfaceManager? _surfaceManager;
@@ -332,13 +342,34 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("xAmbient", 0.5f); // 0.5 ambient
 
             // Brush uniforms
+            // Brush uniforms
             _shader.SetUniform("uBrushPos", BrushPosition);
             _shader.SetUniform("uBrushRadius", BrushRadius);
             _shader.SetUniform("uBrushColor", BrushColor);
             _shader.SetUniform("uShowBrush", ShowBrush ? 1 : 0);
-            _shader.SetUniform("uBrushColor", BrushColor);
-            _shader.SetUniform("uShowBrush", ShowBrush ? 1 : 0);
             _shader.SetUniform("uBrushShape", BrushShape);
+
+            // Grid uniforms
+            _shader.SetUniform("uShowLandblockGrid", ShowLandblockGrid ? 1 : 0);
+            _shader.SetUniform("uShowCellGrid", ShowCellGrid ? 1 : 0);
+            _shader.SetUniform("uLandblockGridColor", LandblockGridColor);
+            _shader.SetUniform("uCellGridColor", CellGridColor);
+            _shader.SetUniform("uGridLineWidth", GridLineWidth);
+            _shader.SetUniform("uGridOpacity", GridOpacity);
+            _shader.SetUniform("uScreenHeight", ScreenHeight);
+
+            // Calculate camera distance to ground/target for line width scaling
+            // For now, use the camera's Z height abot 0 plane as a rough approximation if looking down
+            // Or just distance to origin? The shader uses it for pixel size approx at center.
+            // Let's use distance from camera to the point (Camera.X, Camera.Y, 0)
+            float camDist = Math.Abs(camera.Position.Z);
+            // If camera is pitched, this might differ. 
+            // Better: use the distance to the "look at" point or just length of position if looking at origin?
+            // "uCameraDistance" in shader calculates "worldUnitsPerPixel". 
+            // If we are looking at the terrain, the distance to the terrain surface is what matters.
+            // Let's try using the Z height for top-down, or distance for perspective.
+            _shader.SetUniform("uCameraDistance", camDist < 1f ? 1f : camDist);
+
 
             if (ShowBrush) {
                 // _log.LogTrace("Render Brush: Pos={Pos} Rad={Rad} Show={Show}", BrushPosition, BrushRadius, ShowBrush);

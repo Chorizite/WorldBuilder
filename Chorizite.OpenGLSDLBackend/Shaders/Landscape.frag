@@ -118,10 +118,10 @@ vec3 saturate(vec3 value) {
     return clamp(value, 0.0, 1.0);
 }
 
-vec3 calculateGrid(vec2 worldPos, vec3 terrainColor) {
+vec4 calculateGrid(vec2 worldPos, vec3 terrainColor) {
     // Early out if both grids are disabled
     if (!uShowLandblockGrid && !uShowCellGrid) {
-        return vec3(0.0);
+        return vec4(0.0);
     }
     
     float lw = 192.0; // Landblock width
@@ -133,8 +133,8 @@ vec3 calculateGrid(vec2 worldPos, vec3 terrainColor) {
     // Calculate pixel size in world units
     float worldUnitsPerPixel = uCameraDistance * tan(0.785398) * 2.0 / uScreenHeight; // Assuming 45-degree FOV
     float scaledLineWidth = uGridLineWidth * worldUnitsPerPixel;
-    float scaledGlowWidth = scaledLineWidth * glowWidthFactor;
-    float scaledLandblockGlowWidth = scaledGlowWidth * landblockLineWidthFactor; // Thicker glow for landblock lines
+    // float scaledGlowWidth = scaledLineWidth * glowWidthFactor;
+    // float scaledLandblockGlowWidth = scaledGlowWidth * landblockLineWidthFactor; // Thicker glow for landblock lines
 
     // Determine if cell grid is visible
     bool showCellGrid = (cw / 2.0 > worldUnitsPerPixel);
@@ -144,25 +144,19 @@ vec3 calculateGrid(vec2 worldPos, vec3 terrainColor) {
     float scaledLandblockLineWidth = showCellGrid ? scaledLineWidth * landblockLineWidthFactor : scaledLineWidth;
 
     if (!showLandblockGrid && !showCellGrid) {
-        return vec3(0.0);
-    }
-
-    // Boost contrast for grid by adjusting inversion
-    vec3 invertedColor = vec3(1.0) - terrainColor;
-    float brightness = dot(invertedColor, vec3(0.299, 0.587, 0.114)); // Luminance
-    if (brightness > 0.4 && brightness < 0.6) { // If color is near gray
-        invertedColor = normalize(invertedColor) * 0.8; // Boost saturation
+        return vec4(0.0);
     }
     
-    // Calculate distances to nearest grid boundaries
-    vec2 landblockGrid = mod(worldPos, lw);
-    vec2 cellGrid = mod(worldPos, cw);
+    // Calculate distances to nearest grid boundaries using round() for better stability at boundaries
+    // The previous mod() collection had issues at 0 and multiples of the size due to precision.
+    vec2 nearbyLandblockLine = round(worldPos / lw) * lw;
+    vec2 landblockDist = abs(worldPos - nearbyLandblockLine);
     
-    // Find distance to nearest boundary
-    vec2 landblockDist = min(landblockGrid, lw - landblockGrid);
-    vec2 cellDist = min(cellGrid, cw - cellGrid);
+    vec2 nearbyCellLine = round(worldPos / cw) * cw;
+    vec2 cellDist = abs(worldPos - nearbyCellLine);
     
     // Create lines at boundaries using smoothstep for anti-aliasing
+    // We only care about the closest line in either X or Y
     float landblockLineX = uShowLandblockGrid ? 1.0 - smoothstep(0.0, scaledLandblockLineWidth, landblockDist.x) : 0.0;
     float landblockLineY = uShowLandblockGrid ? 1.0 - smoothstep(0.0, scaledLandblockLineWidth, landblockDist.y) : 0.0;
     float landblockLine = max(landblockLineX, landblockLineY);
@@ -172,37 +166,20 @@ vec3 calculateGrid(vec2 worldPos, vec3 terrainColor) {
     float cellLineY = uShowCellGrid ? 1.0 - smoothstep(0.0, scaledLineWidth, cellDist.y) : 0.0;
     float cellLine = max(cellLineX, cellLineY);
     
-    // Glow effect for landblock lines
-    float landblockGlowX = uShowLandblockGrid ? 1.0 - smoothstep(0.0, scaledLandblockGlowWidth, landblockDist.x) : 0.0;
-    float landblockGlowY = uShowLandblockGrid ? 1.0 - smoothstep(0.0, scaledLandblockGlowWidth, landblockDist.y) : 0.0;
-    float landblockGlow = max(landblockGlowX, landblockGlowY);
-    
-    // Glow effect for cell lines
-    float cellGlowX = uShowCellGrid ? 1.0 - smoothstep(0.0, scaledGlowWidth, cellDist.x) : 0.0;
-    float cellGlowY = uShowCellGrid ? 1.0 - smoothstep(0.0, scaledGlowWidth, cellDist.y) : 0.0;
-    float cellGlow = max(cellGlowX, cellGlowY);
     
     // Combine grid colors - landblock grid has priority
     vec3 gridColor = vec3(0.0);
-    vec3 glowColor = vec3(1.0); // White glow
+    float gridAlpha = 0.0;
     
     if (showLandblockGrid && landblockLine > 0.0) {
-        gridColor = uLandblockGridColor * landblockLine;
-        gridColor += invertedColor * landblockGlow * (1.0 - landblockLine) * glowIntensity;
+        gridColor = uLandblockGridColor;
+        gridAlpha = landblockLine;
     } else if (showCellGrid && cellLine > 0.0) {
-        gridColor = uCellGridColor * cellLine;
-        gridColor += invertedColor * cellGlow * (1.0 - cellLine) * glowIntensity;
-    } else {
-        // Faint glow for areas outside main lines
-        if (showLandblockGrid) {
-            gridColor += uLandblockGridColor * landblockGlow * glowIntensity * 0.5;
-        }
-        if (showCellGrid) {
-            gridColor += uCellGridColor * cellGlow * glowIntensity * 0.5;
-        }
+        gridColor = uCellGridColor;
+        gridAlpha = cellLine;
     }
     
-    return gridColor * uGridOpacity;
+    return vec4(gridColor, gridAlpha * uGridOpacity);
 }
 
 // SDF Functions
@@ -283,10 +260,10 @@ void main() {
     vec2 worldPos = vWorldPos;
     
     // Calculate grid contribution, passing terrainColor
-    vec3 gridColor = calculateGrid(worldPos, terrainColor);
+    vec4 gridColor = calculateGrid(worldPos, terrainColor);
     
     // Blend grid with terrain
-    vec3 finalColor = mix(terrainColor, gridColor, length(gridColor));
+    vec3 finalColor = mix(terrainColor, gridColor.rgb, gridColor.a);
     
     // Apply Brush Overlay
     vec4 brushColor = calculateBrush(worldPos);

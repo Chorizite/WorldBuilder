@@ -59,6 +59,10 @@ public partial class RenderView : Base3DViewport {
             _cameraSettings.PropertyChanged -= OnCameraSettingsChanged;
             _cameraSettings = null;
         }
+        if (_gridSettings != null) {
+            _gridSettings.PropertyChanged -= OnGridSettingsChanged;
+            _gridSettings = null;
+        }
         _gameScene?.Dispose();
         _gameScene = null;
     }
@@ -76,10 +80,17 @@ public partial class RenderView : Base3DViewport {
                 _cameraSettings = settings.Landscape.Camera;
                 _gameScene.SetDrawDistance(_cameraSettings.MaxDrawDistance);
                 _cameraSettings.PropertyChanged += OnCameraSettingsChanged;
+
+                _gridSettings = settings.Landscape.Grid;
+                _gridSettings.PropertyChanged += OnGridSettingsChanged;
+                UpdateGridSettings();
             }
 
             _gameScene.Initialize();
             _gameScene.Resize(canvasSize.Width, canvasSize.Height);
+
+            // Initial grid update
+            UpdateGridSettings();
 
             // Use the cached values directly since they were stored when the properties changed
             if (_cachedLandscapeDocument != null && _pendingDatReader != null) {
@@ -109,6 +120,30 @@ public partial class RenderView : Base3DViewport {
     private void OnCameraSettingsChanged(object? sender, PropertyChangedEventArgs e) {
         if (e.PropertyName == nameof(CameraSettings.MaxDrawDistance) && _gameScene != null && _cameraSettings != null) {
             _gameScene.SetDrawDistance(_cameraSettings.MaxDrawDistance);
+        }
+    }
+
+    private GridSettings? _gridSettings;
+
+    private void OnGridSettingsChanged(object? sender, PropertyChangedEventArgs e) {
+        UpdateGridSettings();
+    }
+
+    private void UpdateGridSettings() {
+        if (_gameScene != null && _gridSettings != null) {
+            _gameScene.SetGridSettings(
+                _gridSettings.ShowGrid,
+                _gridSettings.ShowGrid,
+                _gridSettings.LandblockColor,
+                _gridSettings.CellColor,
+                _gridSettings.LineWidth,
+                _gridSettings.Opacity,
+                (float)Bounds.Height
+            );
+        }
+        else if (_gameScene != null) {
+            // Default if settings missing
+            _gameScene.SetGridSettings(true, true, new Vector3(1, 0, 1), new Vector3(0, 1, 1), 1f, 0.4f, (float)Bounds.Height);
         }
     }
 
@@ -277,6 +312,7 @@ public partial class RenderView : Base3DViewport {
 
     protected override void OnGlResize(PixelSize canvasSize) {
         _gameScene?.Resize(canvasSize.Width, canvasSize.Height);
+        UpdateGridSettings();
     }
 
     public void InvalidateLandblock(int x, int y) {

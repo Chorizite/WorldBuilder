@@ -154,6 +154,18 @@ public class GameScene : IDisposable {
         }
     }
 
+    public void SetGridSettings(bool showLandblockGrid, bool showCellGrid, Vector3 landblockGridColor, Vector3 cellGridColor, float gridLineWidth, float gridOpacity, float screenHeight) {
+        if (_terrainManager != null) {
+            _terrainManager.ShowLandblockGrid = showLandblockGrid;
+            _terrainManager.ShowCellGrid = showCellGrid;
+            _terrainManager.LandblockGridColor = landblockGridColor;
+            _terrainManager.CellGridColor = cellGridColor;
+            _terrainManager.GridLineWidth = gridLineWidth;
+            _terrainManager.GridOpacity = gridOpacity;
+            _terrainManager.ScreenHeight = screenHeight;
+        }
+    }
+
     /// <summary>
     /// Updates the scene.
     /// </summary>
