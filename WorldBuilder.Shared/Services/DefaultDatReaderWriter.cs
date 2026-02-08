@@ -7,14 +7,22 @@ using System.Diagnostics.CodeAnalysis;
 
 
 namespace WorldBuilder.Shared.Services {
+    /// <summary>
+    /// Default implementation of <see cref="IDatReaderWriter"/>, managing access to multiple dat files.
+    /// </summary>
     public class DefaultDatReaderWriter : IDatReaderWriter {
         private readonly Dictionary<uint, IDatDatabase> _cellRegions = [];
         private readonly Dictionary<uint, uint> _regionFileMap = [];
 
+        /// <inheritdoc/>
         public IDatDatabase Portal { get; }
+        /// <inheritdoc/>
         public IDatDatabase Language { get; }
+        /// <inheritdoc/>
         public IDatDatabase HighRes { get; }
+        /// <inheritdoc/>
         public ReadOnlyDictionary<uint, IDatDatabase> CellRegions => _cellRegions.AsReadOnly();
+        /// <inheritdoc/>
         public ReadOnlyDictionary<uint, uint> RegionFileMap => _regionFileMap.AsReadOnly();
 
         public DefaultDatReaderWriter(string datDirectory, DatAccessType accessType = DatAccessType.Read) {
@@ -65,6 +73,7 @@ namespace WorldBuilder.Shared.Services {
             }
         }
 
+        /// <inheritdoc/>
         public void Dispose() {
             Portal.Dispose();
             Language.Dispose();
@@ -77,6 +86,9 @@ namespace WorldBuilder.Shared.Services {
         }
     }
 
+    /// <summary>
+    /// Default implementation of <see cref="IDatDatabase"/>, wrapping a <see cref="DatDatabase"/>.
+    /// </summary>
     public class DefaultDatDatabase : IDatDatabase {
         private DatDatabase _db;
 
@@ -100,6 +112,7 @@ namespace WorldBuilder.Shared.Services {
             return _db.TryGetFileBytes(fileId, ref bytes, out bytesRead);
         }
 
+        /// <inheritdoc/>
         public void Dispose() {
         }
     }

@@ -12,14 +12,21 @@ using WorldBuilder.Shared.Services;
 using static WorldBuilder.Shared.Services.DocumentManager;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Commands {
+    /// <summary>
+    /// Command to create a new landscape document for a specific region.
+    /// </summary>
     [MemoryPackable]
     public partial class CreateLandscapeDocumentCommand : BaseCommand<DocumentRental<LandscapeDocument>?> {
+        /// <summary>The region ID for the landscape document.</summary>
         [MemoryPackOrder(10)]
         public uint RegionId { get; set; }
 
+        /// <summary>Initializes a new instance of the <see cref="CreateLandscapeDocumentCommand"/> class.</summary>
         [MemoryPackConstructor]
         public CreateLandscapeDocumentCommand() { }
 
+        /// <summary>Initializes a new instance of the <see cref="CreateLandscapeDocumentCommand"/> class with a region ID.</summary>
+        /// <param name="regionId">The region ID.</param>
         public CreateLandscapeDocumentCommand(uint regionId) {
             RegionId = regionId;
         }

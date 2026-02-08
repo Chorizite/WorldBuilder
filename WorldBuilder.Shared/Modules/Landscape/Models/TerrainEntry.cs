@@ -44,12 +44,14 @@ namespace WorldBuilder.Shared.Models {
         [MemoryPackOrder(0)]
         private uint _data;
 
+        /// <summary>Gets the flags for this terrain entry, indicating which fields are set.</summary>
         [MemoryPackIgnore]
         public TerrainEntryFlags Flags {
             get => (TerrainEntryFlags)((_data & FLAGS_MASK) >> FLAGS_SHIFT);
             private set => _data = (_data & ~FLAGS_MASK) | ((uint)value << FLAGS_SHIFT);
         }
 
+        /// <summary>Gets or sets the height of the terrain.</summary>
         [MemoryPackIgnore]
         public byte? Height {
             get => Flags.HasFlag(TerrainEntryFlags.Height)
@@ -67,6 +69,7 @@ namespace WorldBuilder.Shared.Models {
             }
         }
 
+        /// <summary>Gets or sets the texture type of the terrain.</summary>
         [MemoryPackIgnore]
         public byte? Type {
             get => Flags.HasFlag(TerrainEntryFlags.Texture)
@@ -86,6 +89,7 @@ namespace WorldBuilder.Shared.Models {
             }
         }
 
+        /// <summary>Gets or sets the scenery index of the terrain.</summary>
         [MemoryPackIgnore]
         public byte? Scenery {
             get => Flags.HasFlag(TerrainEntryFlags.Scenery)
@@ -105,6 +109,7 @@ namespace WorldBuilder.Shared.Models {
             }
         }
 
+        /// <summary>Gets or sets the road index of the terrain.</summary>
         [MemoryPackIgnore]
         public byte? Road {
             get => Flags.HasFlag(TerrainEntryFlags.Road)
@@ -124,6 +129,7 @@ namespace WorldBuilder.Shared.Models {
             }
         }
 
+        /// <summary>Gets or sets the encounters index of the terrain.</summary>
         [MemoryPackIgnore]
         public byte? Encounters {
             get => Flags.HasFlag(TerrainEntryFlags.Encounters)
@@ -143,10 +149,19 @@ namespace WorldBuilder.Shared.Models {
             }
         }
 
+        /// <summary>Initializes a new instance of the <see cref="TerrainEntry"/> struct.</summary>
         public TerrainEntry() {
             _data = 0;
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TerrainEntry"/> struct with specified components.
+        /// </summary>
+        /// <param name="height">The terrain height.</param>
+        /// <param name="texture">The texture type.</param>
+        /// <param name="scenery">The scenery index.</param>
+        /// <param name="road">The road index.</param>
+        /// <param name="encounters">The encounters index.</param>
         public TerrainEntry(byte? height, byte? texture, byte? scenery, byte? road, byte? encounters) {
             _data = 0;
 
@@ -166,16 +181,35 @@ namespace WorldBuilder.Shared.Models {
             Encounters = encounters;
         }
 
+        /// <summary>Creates a <see cref="TerrainEntry"/> with only height data.</summary>
+        /// <param name="height">The height.</param>
+        /// <returns>A new <see cref="TerrainEntry"/>.</returns>
         public static TerrainEntry FromHeight(byte height) => new(height, null, null, null, null);
 
+        /// <summary>Creates a <see cref="TerrainEntry"/> with only texture data.</summary>
+        /// <param name="texture">The texture type.</param>
+        /// <returns>A new <see cref="TerrainEntry"/>.</returns>
         public static TerrainEntry FromTexture(byte texture) => new(null, texture, null, null, null);
 
+        /// <summary>Creates a <see cref="TerrainEntry"/> with only scenery data.</summary>
+        /// <param name="scenery">The scenery index.</param>
+        /// <returns>A new <see cref="TerrainEntry"/>.</returns>
         public static TerrainEntry FromScenery(byte scenery) => new(null, null, scenery, null, null);
 
+        /// <summary>Creates a <see cref="TerrainEntry"/> with only road data.</summary>
+        /// <param name="road">The road index.</param>
+        /// <returns>A new <see cref="TerrainEntry"/>.</returns>
         public static TerrainEntry FromRoad(byte road) => new(null, null, null, road, null);
 
+        /// <summary>Creates a <see cref="TerrainEntry"/> with only encounters data.</summary>
+        /// <param name="encounters">The encounters index.</param>
+        /// <returns>A new <see cref="TerrainEntry"/>.</returns>
         public static TerrainEntry FromEncounters(byte encounters) => new(null, null, null, null, encounters);
 
+        /// <summary>Creates a <see cref="TerrainEntry"/> with texture and scenery data.</summary>
+        /// <param name="texture">The texture type.</param>
+        /// <param name="scenery">The scenery index.</param>
+        /// <returns>A new <see cref="TerrainEntry"/>.</returns>
         public static TerrainEntry FromTextureScenery(byte texture, byte scenery) => new(null, texture, scenery, null, null);
 
         /// <summary>
@@ -201,6 +235,7 @@ namespace WorldBuilder.Shared.Models {
             if (value.Encounters.HasValue) Encounters = value.Encounters;
         }
 
+        /// <inheritdoc/>
         public override string ToString() {
             string height = Height?.ToString() ?? "null";
             string texture = Type?.ToString() ?? "null";

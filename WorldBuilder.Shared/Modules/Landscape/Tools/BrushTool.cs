@@ -8,12 +8,18 @@ using WorldBuilder.Shared.Models;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools
 {
+    /// <summary>
+    /// A tool for painting textures on the terrain using a circular brush.
+    /// </summary>
     public class BrushTool : ObservableObject, ILandscapeTool
     {
         private const int TextureId = 5;
 
+        /// <inheritdoc/>
         public string Name => "Brush";
+        /// <inheritdoc/>
         public string IconGlyph => "🖌️";
+        /// <inheritdoc/>
         public bool IsActive { get; private set; }
 
         private LandscapeToolContext? _context;
@@ -22,6 +28,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
         private CompoundCommand? _currentStroke;
 
         private float _brushRadius = 5f;
+        /// <summary>Gets or sets the radius of the brush.</summary>
         public float BrushRadius
         {
             get => _brushRadius;
@@ -29,6 +36,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
         }
 
         private float _brushStrength = 1f;
+        /// <summary>Gets or sets the strength/intensity of the brush.</summary>
         public float BrushStrength
         {
             get => _brushStrength;

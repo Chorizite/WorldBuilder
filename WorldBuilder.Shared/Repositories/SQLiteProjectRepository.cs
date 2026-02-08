@@ -17,16 +17,26 @@ using WorldBuilder.Shared.Models;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace WorldBuilder.Shared.Repositories {
+    /// <summary>
+    /// A SQLite-based implementation of <see cref="IProjectRepository"/>.
+    /// </summary>
     public class SQLiteProjectRepository : IProjectRepository {
+        /// <summary>The underlying SQLite connection.</summary>
         public readonly SqliteConnection Connection;
         private readonly ILogger<SQLiteProjectRepository>? _logger;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SQLiteProjectRepository"/> class.
+        /// </summary>
+        /// <param name="connectionString">The SQLite connection string.</param>
+        /// <param name="logger">The logger (optional).</param>
         public SQLiteProjectRepository(string connectionString, ILogger<SQLiteProjectRepository>? logger = null) {
             Connection = new SqliteConnection(connectionString);
             Connection.Open();
             _logger = logger ?? NullLogger<SQLiteProjectRepository>.Instance;
         }
 
+        /// <inheritdoc/>
         public Task InitializeDatabaseAsync(CancellationToken ct) {
             _logger?.LogInformation("Initializing database");
             SQLitePCL.Batteries_V2.Init();
@@ -50,6 +60,7 @@ namespace WorldBuilder.Shared.Repositories {
                 .BuildServiceProvider(false);
         }
 
+        /// <inheritdoc/>
         public async Task<ITransaction> CreateTransactionAsync(CancellationToken ct) {
             var dbTransaction = await Connection.BeginTransactionAsync(ct);
             return new DatabaseTransactionAdapter(dbTransaction);
@@ -75,6 +86,7 @@ namespace WorldBuilder.Shared.Repositories {
                 "TRANSACTION_ERROR");
         }
 
+        /// <inheritdoc/>
         public async Task<Result<string>> GetUserValueAsync(string key, CancellationToken ct) {
             try {
                 _logger?.LogDebug("Retrieving user value for key: {Key}", key);
@@ -98,6 +110,7 @@ namespace WorldBuilder.Shared.Repositories {
             }
         }
 
+        /// <inheritdoc/>
         public async Task<Result<Unit>> UpsertUserValueAsync(string key, string value, ITransaction? tx,
             CancellationToken ct) {
             try {
@@ -128,6 +141,7 @@ namespace WorldBuilder.Shared.Repositories {
             }
         }
 
+        /// <inheritdoc/>
         public async Task<Result<Unit>> InsertEventAsync(BaseCommand evt, ITransaction? tx, CancellationToken ct) {
             try {
                 _logger?.LogDebug("Inserting event {EventId} of type {EventType} for user {UserId}", evt.Id,
@@ -169,6 +183,7 @@ namespace WorldBuilder.Shared.Repositories {
             }
         }
 
+        /// <inheritdoc/>
         public async Task<Result<Unit>> InsertDocumentAsync(string id, string type, byte[] data, ulong version,
             ITransaction? tx, CancellationToken ct) {
             try {
@@ -201,6 +216,7 @@ namespace WorldBuilder.Shared.Repositories {
             }
         }
 
+        /// <inheritdoc/>
         public async Task<Result<Unit>> UpdateDocumentAsync(string id, byte[] data, ulong version, ITransaction? tx,
             CancellationToken ct) {
             try {
@@ -234,6 +250,7 @@ namespace WorldBuilder.Shared.Repositories {
             }
         }
 
+        /// <inheritdoc/>
         public async Task<Result<byte[]>> GetDocumentBlobAsync<T>(string id, CancellationToken ct)
             where T : BaseDocument {
             try {
@@ -283,6 +300,7 @@ namespace WorldBuilder.Shared.Repositories {
             }
         }
 
+        /// <inheritdoc/>
         public async Task<IReadOnlyList<BaseCommand>> GetUnsyncedEventsAsync(CancellationToken ct) {
             var events = new List<BaseCommand>();
             try {
@@ -308,6 +326,7 @@ namespace WorldBuilder.Shared.Repositories {
             return events;
         }
 
+        /// <inheritdoc/>
         public async Task<Result<Unit>> UpdateEventServerTimestampAsync(string eventId, ulong serverTimestamp,
             ITransaction? tx, CancellationToken ct) {
             try {
@@ -336,6 +355,7 @@ namespace WorldBuilder.Shared.Repositories {
             }
         }
 
+        /// <inheritdoc/>
         public void Dispose() {
             _logger?.LogInformation("Disposing SQLiteProjectRepository");
             Connection?.Close();

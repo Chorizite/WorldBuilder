@@ -11,6 +11,9 @@ using static WorldBuilder.Shared.Services.DocumentManager;
 
 namespace WorldBuilder.Shared.Models;
 
+/// <summary>
+/// Represents a landscape document, which manages a collection of terrain layers and handles data merging.
+/// </summary>
 [MemoryPackable]
 public partial class LandscapeDocument : BaseDocument {
     private bool _didLoadLayers;
@@ -61,10 +64,13 @@ public partial class LandscapeDocument : BaseDocument {
     [MemoryPackIgnore]
     public ConcurrentDictionary<string, DocumentRental<LandscapeLayerDocument>> LayerDocuments { get; } = [];
 
+    /// <summary>Initializes a new instance of the <see cref="LandscapeDocument"/> class.</summary>
     [MemoryPackConstructor]
     public LandscapeDocument() : base() {
     }
 
+    /// <summary>Initializes a new instance of the <see cref="LandscapeDocument"/> class with a specific ID.</summary>
+    /// <param name="id">The document ID.</param>
     public LandscapeDocument(string id) : base(id) {
         if (!id.StartsWith($"{nameof(LandscapeDocument)}_"))
             throw new ArgumentException($"TerrainDocument Id must start with '{nameof(LandscapeDocument)}_'",
@@ -73,11 +79,17 @@ public partial class LandscapeDocument : BaseDocument {
             throw new ArgumentException($"Invalid terrain document region id: {id}");
     }
 
+    /// <summary>Initializes a new instance of the <see cref="LandscapeDocument"/> class for a specific region.</summary>
+    /// <param name="regionId">The region ID.</param>
     public LandscapeDocument(uint regionId) : base($"{nameof(LandscapeDocument)}_{regionId}") {
     }
 
+    /// <summary>Constructs a document ID from a region ID.</summary>
+    /// <param name="regionId">The region ID.</param>
+    /// <returns>The formatted document ID.</returns>
     public static string GetIdFromRegion(uint regionId) => $"{nameof(LandscapeDocument)}_{regionId}";
 
+    /// <inheritdoc/>
     public override async Task InitializeForUpdatingAsync(IDatReaderWriter dats, IDocumentManager documentManager,
         CancellationToken ct) {
         await LoadRegionDataAsync(dats);
@@ -85,6 +97,7 @@ public partial class LandscapeDocument : BaseDocument {
         await LoadLayersAsync(documentManager, ct);
     }
 
+    /// <inheritdoc/>
     public override async Task InitializeForEditingAsync(IDatReaderWriter dats, IDocumentManager documentManager,
         CancellationToken ct) {
         await InitializeForUpdatingAsync(dats, documentManager, ct);
@@ -198,6 +211,10 @@ public partial class LandscapeDocument : BaseDocument {
         }
     }
 
+    /// <summary>
+    /// Gets all layers currently defined in the document.
+    /// </summary>
+    /// <returns>An enumeration of all landscape layers.</returns>
     public IEnumerable<LandscapeLayer> GetAllLayers() {
         return GetAllLayersAndGroups().OfType<LandscapeLayer>();
     }
@@ -258,6 +275,10 @@ public partial class LandscapeDocument : BaseDocument {
         }
     }
 
+    /// <summary>
+    /// Recalculates the merged terrain cache by applying visible layers on top of base terrain data.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public async Task RecalculateTerrainCacheAsync() {
         if (!_didLoadCacheFromDats) return;
 
@@ -408,6 +429,9 @@ public partial class LandscapeDocument : BaseDocument {
         return current;
     }
 
+    /// <summary>
+    /// Disposes the document and its associated layer document rentals.
+    /// </summary>
     public override void Dispose() {
         foreach (var layer in LayerDocuments.Values) {
             layer.Dispose();

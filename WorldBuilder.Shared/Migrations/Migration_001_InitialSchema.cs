@@ -6,6 +6,9 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace WorldBuilder.Shared.Migrations {
+    /// <summary>
+    /// Initial database schema migration.
+    /// </summary>
     [Migration(1, "Initial schema with all tables and indexes")]
     public class Migration_001_InitialSchema : Migration {
         public override void Up() {

@@ -5,15 +5,31 @@ using WorldBuilder.Shared.Services;
 using static WorldBuilder.Shared.Services.DocumentManager;
 
 namespace WorldBuilder.Shared.Modules.Landscape {
+    /// <summary>
+    /// The module responsible for landscape-related operations.
+    /// </summary>
     public class LandscapeModule {
         private readonly IDatReaderWriter _dats;
         private readonly IDocumentManager _documentManager;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="LandscapeModule"/> class.
+        /// </summary>
+        /// <param name="dats">The DAT reader/writer.</param>
+        /// <param name="documentManager">The document manager.</param>
         public LandscapeModule(IDatReaderWriter dats, IDocumentManager documentManager) {
             _dats = dats;
             _documentManager = documentManager;
         }
 
+        /// <summary>
+        /// Gets or creates a landscape document for the specified region ID asynchronously.
+        /// </summary>
+        /// <param name="regionId">The region ID.</param>
+        /// <param name="ct">The cancellation token.</param>
+        /// <returns>A task containing a rental for the landscape document.</returns>
+        /// <exception cref="ArgumentException">Thrown if the region ID is invalid.</exception>
+        /// <exception cref="InvalidOperationException">Thrown if document creation or rental fails.</exception>
         public async Task<DocumentRental<LandscapeDocument>> GetOrCreateTerrainDocumentAsync(uint regionId,
             CancellationToken ct) {
             if (!_dats.RegionFileMap.ContainsKey(regionId)) {

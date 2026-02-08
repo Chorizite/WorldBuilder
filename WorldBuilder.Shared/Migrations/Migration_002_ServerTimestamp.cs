@@ -1,6 +1,9 @@
 using FluentMigrator;
 
 namespace WorldBuilder.Shared.Migrations {
+    /// <summary>
+    /// Migration to add ServerTimestamp to the Events table.
+    /// </summary>
     [Migration(2, "Add ServerTimestamp to Events table for sync tracking")]
     public class Migration_002_ServerTimestamp : Migration {
         public override void Up() {

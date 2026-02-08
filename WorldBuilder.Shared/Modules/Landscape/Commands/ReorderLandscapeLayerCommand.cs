@@ -5,25 +5,34 @@ using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Commands;
 
+/// <summary>
+/// Command to reorder a landscape layer within its group.
+/// </summary>
 [MemoryPackable]
 public partial class ReorderLandscapeLayerCommand : BaseCommand<bool> {
+    /// <summary>The path to the group containing the layer.</summary>
     [MemoryPackOrder(10)] public IReadOnlyList<string> GroupPath { get; set; } = [];
 
+    /// <summary>The ID of the parent landscape document.</summary>
     [MemoryPackOrder(11)] public string TerrainDocumentId { get; set; } = string.Empty;
 
+    /// <summary>The ID of the landscape layer document to reorder.</summary>
     [MemoryPackOrder(12)] public string TerrainLayerDocumentId { get; set; } = string.Empty;
 
+    /// <summary>The new index for the layer.</summary>
     [MemoryPackOrder(13)] public int NewIndex { get; set; }
 
+    /// <summary>The old index of the layer, for undo purposes.</summary>
     [MemoryPackOrder(14)] public int OldIndex { get; set; }
 
+    /// <summary>Initializes a new instance of the <see cref="ReorderLandscapeLayerCommand"/> class.</summary>
     [MemoryPackConstructor]
     public ReorderLandscapeLayerCommand() { }
 
     public ReorderLandscapeLayerCommand(string terrainDocumentId, IEnumerable<string> groupPath, string layerId,
         int newIndex, int oldIndex) {
         TerrainDocumentId = terrainDocumentId;
-        GroupPath = [..groupPath];
+        GroupPath = [.. groupPath];
         TerrainLayerDocumentId = layerId;
         NewIndex = newIndex;
         OldIndex = oldIndex;

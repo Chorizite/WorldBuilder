@@ -34,10 +34,33 @@ namespace WorldBuilder.Shared.Services {
         ReadOnlyDictionary<uint, uint> RegionFileMap { get; }
     }
 
+    /// <summary>
+    /// Interface for a dat database, providing methods to retrieve files and objects.
+    /// </summary>
     public interface IDatDatabase : IDisposable {
+        /// <summary>Retrieves all file IDs of a specific type.</summary>
+        /// <typeparam name="T">The type of database object.</typeparam>
+        /// <returns>An enumeration of file IDs.</returns>
         public IEnumerable<uint> GetAllIdsOfType<T>() where T : IDBObj;
+
+        /// <summary>Attempts to retrieve a database object by its file ID.</summary>
+        /// <typeparam name="T">The type of database object.</typeparam>
+        /// <param name="fileId">The file ID.</param>
+        /// <param name="value">The retrieved object, or null if not found.</param>
+        /// <returns>True if the object was found; otherwise, false.</returns>
         public bool TryGet<T>(uint fileId, [MaybeNullWhen(false)] out T value) where T : IDBObj;
+
+        /// <summary>Attempts to retrieve the raw bytes of a file by its ID.</summary>
+        /// <param name="fileId">The file ID.</param>
+        /// <param name="value">The retrieved byte array, or null if not found.</param>
+        /// <returns>True if the file was found; otherwise, false.</returns>
         bool TryGetFileBytes(uint fileId, [MaybeNullWhen(false)] out byte[] value);
+
+        /// <summary>Attempts to retrieve the raw bytes of a file by its ID into a provided buffer.</summary>
+        /// <param name="fileId">The file ID.</param>
+        /// <param name="bytes">The buffer to read into.</param>
+        /// <param name="bytesRead">The number of bytes read.</param>
+        /// <returns>True if the file was found; otherwise, false.</returns>
         bool TryGetFileBytes(uint fileId, ref byte[] bytes, out int bytesRead);
     }
 }

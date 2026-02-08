@@ -6,22 +6,38 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 
 namespace WorldBuilder.Shared.Modules.Landscape
 {
+    /// <summary>
+    /// Provides utility methods for raycasting against terrain.
+    /// </summary>
     public static class TerrainRaycast
     {
+        /// <summary>
+        /// Represents the result of a terrain raycast.
+        /// </summary>
         public struct TerrainRaycastHit
         {
+            /// <summary>Whether the ray hit the terrain.</summary>
             public bool Hit;
+            /// <summary>The world position of the hit.</summary>
             public Vector3 HitPosition;
+            /// <summary>The distance from the ray origin to the hit point.</summary>
             public float Distance;
+            /// <summary>The ID of the hit landcell.</summary>
             public uint LandcellId;
 
+            /// <summary>The ID of the landblock containing the hit.</summary>
             public ushort LandblockId => (ushort)(LandcellId >> 16);
+            /// <summary>The X coordinate of the landblock containing the hit.</summary>
             public uint LandblockX => (uint)(LandblockId >> 8);
+            /// <summary>The Y coordinate of the landblock containing the hit.</summary>
             public uint LandblockY => (uint)(LandblockId & 0xFF);
 
+            /// <summary>The X coordinate of the cell within the landblock containing the hit.</summary>
             public uint CellX => (uint)Math.Round(HitPosition.X % 192f / 24f);
+            /// <summary>The Y coordinate of the cell within the landblock containing the hit.</summary>
             public uint CellY => (uint)Math.Round(HitPosition.Y % 192f / 24f);
 
+            /// <summary>Gets the world position of the nearest vertex to the hit point.</summary>
             public Vector3 NearestVertice
             {
                 get
@@ -34,7 +50,9 @@ namespace WorldBuilder.Shared.Modules.Landscape
                 }
             }
 
+            /// <summary>The X index of the nearest vertex to the hit point.</summary>
             public int VerticeX => (int)Math.Round(HitPosition.X % 192f / 24f);
+            /// <summary>The Y index of the nearest vertex to the hit point.</summary>
             public int VerticeY => (int)Math.Round(HitPosition.Y % 192f / 24f);
         }
 
@@ -49,6 +67,17 @@ namespace WorldBuilder.Shared.Modules.Landscape
             }
         }
 
+        /// <summary>
+        /// Performs a raycast against the terrain from a screen position.
+        /// </summary>
+        /// <param name="mouseX">The mouse X position.</param>
+        /// <param name="mouseY">The mouse Y position.</param>
+        /// <param name="viewportWidth">The width of the viewport.</param>
+        /// <param name="viewportHeight">The height of the viewport.</param>
+        /// <param name="camera">The camera used for rendering.</param>
+        /// <param name="region">The terrain region info.</param>
+        /// <param name="terrainCache">The cache of terrain entries.</param>
+        /// <returns>A <see cref="TerrainRaycastHit"/> containing the results of the raycast.</returns>
         public static TerrainRaycastHit Raycast(
             float mouseX, float mouseY,
             int viewportWidth, int viewportHeight,

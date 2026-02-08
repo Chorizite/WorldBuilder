@@ -5,16 +5,24 @@ using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Commands;
 
+/// <summary>
+/// Command to delete a landscape layer.
+/// </summary>
 [MemoryPackable]
 public partial class DeleteLandscapeLayerCommand : BaseCommand<bool> {
+    /// <summary>The path to the group containing the layer.</summary>
     [MemoryPackOrder(10)] public IReadOnlyList<string> GroupPath { get; set; } = [];
 
+    /// <summary>The ID of the parent landscape document.</summary>
     [MemoryPackOrder(11)] public string TerrainDocumentId { get; set; } = string.Empty;
 
+    /// <summary>The ID of the landscape layer document to delete.</summary>
     [MemoryPackOrder(12)] public string TerrainLayerDocumentId { get; set; } = LandscapeLayerDocument.CreateId();
 
+    /// <summary>The name of the layer (stored for undo purposes).</summary>
     [MemoryPackOrder(13)] public string Name { get; set; } = string.Empty;
 
+    /// <summary>Whether the layer was the base layer (stored for undo purposes).</summary>
     [MemoryPackOrder(14)] public bool IsBase { get; set; }
 
     public override BaseCommand CreateInverse() {

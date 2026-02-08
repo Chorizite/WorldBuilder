@@ -4,12 +4,16 @@ using WorldBuilder.Shared.Modules.Landscape.Tools;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Commands
 {
+    /// <summary>
+    /// Command to toggle whether a landscape layer is exported.
+    /// </summary>
     public class ToggleLayerExportCommand : ICommand
     {
         private readonly LandscapeLayerBase _layer;
         private readonly Action<bool>? _onUpdateCallback;
         private bool _oldState;
 
+        /// <summary>The display name of the command.</summary>
         public string Name => "Toggle Layer Export";
 
         public ToggleLayerExportCommand(LandscapeLayerBase layer, Action<bool>? onUpdateCallback = null)

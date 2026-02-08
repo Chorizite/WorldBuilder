@@ -4,6 +4,9 @@ using WorldBuilder.Shared.Modules.Landscape.Tools;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Commands
 {
+    /// <summary>
+    /// Command to rename a landscape layer.
+    /// </summary>
     public class RenameLandscapeLayerCommand : ICommand
     {
         private readonly LandscapeLayerBase _layer;
@@ -11,6 +14,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands
         private readonly string _oldName;
         private readonly Action<string>? _onUpdateCallback;
 
+        /// <summary>The display name of the command.</summary>
         public string Name => $"Rename Layer to '{_newName}'";
 
         public RenameLandscapeLayerCommand(LandscapeLayerBase layer, string newName, Action<string>? onUpdateCallback = null)

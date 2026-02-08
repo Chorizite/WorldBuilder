@@ -6,6 +6,9 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools
 {
+    /// <summary>
+    /// A command that applies paint (texture) to the terrain within a specific radius.
+    /// </summary>
     public class PaintCommand : ICommand
     {
         private readonly LandscapeToolContext _context;
@@ -19,8 +22,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
         private readonly Dictionary<int, TerrainEntry> _previousState = new Dictionary<int, TerrainEntry>();
         private bool _executed = false;
 
+        /// <inheritdoc/>
         public string Name => "Paint Terrain";
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PaintCommand"/> class.
+        /// </summary>
+        /// <param name="context">The tool context.</param>
+        /// <param name="center">The center position of the paint operation.</param>
+        /// <param name="radius">The radius of the paint operation.</param>
+        /// <param name="textureId">The texture ID to apply.</param>
         public PaintCommand(LandscapeToolContext context, Vector3 center, float radius, int textureId)
         {
             _context = context;

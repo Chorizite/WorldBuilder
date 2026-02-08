@@ -4,22 +4,34 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Commands {
+    /// <summary>
+    /// Command to create a new layer group within a landscape document.
+    /// </summary>
     [MemoryPackable]
     public partial class CreateLandscapeLayerGroupCommand : BaseCommand<bool> {
+        /// <summary>The ID of the parent landscape document.</summary>
         [MemoryPackOrder(10)] public string TerrainDocumentId { get; set; } = string.Empty;
 
+        /// <summary>The path to the parent group.</summary>
         [MemoryPackOrder(11)] public IReadOnlyList<string> GroupPath { get; set; } = [];
 
+        /// <summary>The name of the new group.</summary>
         [MemoryPackOrder(12)] public string Name { get; set; } = "New Group";
 
+        /// <summary>The unique identifier for the new group.</summary>
         [MemoryPackOrder(13)] public string GroupId { get; set; } = Guid.NewGuid().ToString();
 
+        /// <summary>Initializes a new instance of the <see cref="CreateLandscapeLayerGroupCommand"/> class.</summary>
         [MemoryPackConstructor]
         public CreateLandscapeLayerGroupCommand() { }
 
+        /// <summary>Initializes a new instance of the <see cref="CreateLandscapeLayerGroupCommand"/> class with parameters.</summary>
+        /// <param name="terrainDocumentId">The terrain document ID.</param>
+        /// <param name="groupPath">The group path.</param>
+        /// <param name="name">The group name.</param>
         public CreateLandscapeLayerGroupCommand(string terrainDocumentId, IEnumerable<string> groupPath, string name) {
             TerrainDocumentId = terrainDocumentId;
-            GroupPath = [..groupPath];
+            GroupPath = [.. groupPath];
             Name = name;
         }
 

@@ -4,6 +4,9 @@ using WorldBuilder.Shared.Repositories;
 
 namespace WorldBuilder.Shared.Services;
 
+/// <summary>
+/// Service responsible for synchronizing local document changes with a remote server.
+/// </summary>
 public class SyncService {
     private readonly IDocumentManager _docManager;
     private readonly ISyncClient _client;
@@ -14,6 +17,15 @@ public class SyncService {
     private ulong _lastServerTimestamp = 0;
     private bool _isOnline = false;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SyncService"/> class.
+    /// </summary>
+    /// <param name="docManager">The document manager.</param>
+    /// <param name="client">The synchronization client.</param>
+    /// <param name="repo">The project repository.</param>
+    /// <param name="dats">The dat reader/writer.</param>
+    /// <param name="userId">The current user ID.</param>
+    /// <param name="logger">The logger (optional).</param>
     public SyncService(
         IDocumentManager docManager,
         ISyncClient client,
@@ -29,6 +41,8 @@ public class SyncService {
         _logger = logger;
     }
 
+    /// <summary>Starts the synchronization service.</summary>
+    /// <param name="ct">The cancellation token.</param>
     public async Task StartAsync(CancellationToken ct) {
         _logger?.LogInformation("Starting sync service");
         await _client.ConnectAsync(ct);
@@ -47,6 +61,11 @@ public class SyncService {
         _logger?.LogInformation("Sync service started");
     }
 
+    /// <summary>Applies a local command event and sends it to the server.</summary>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="evt">The command event.</param>
+    /// <param name="ct">The cancellation token.</param>
+    /// <returns>A task containing the result of the operation.</returns>
     public async Task<TResult> ApplyLocalEventAsync<TResult>(BaseCommand<TResult> evt, CancellationToken ct) {
         if (string.IsNullOrEmpty(evt.Id))
             throw new InvalidOperationException("Event Id cannot be null or empty");
@@ -181,6 +200,7 @@ public class SyncService {
         }
     }
 
+    /// <summary>Stops the synchronization service.</summary>
     public async Task StopAsync() {
         _logger?.LogInformation("Stopping sync service");
         _isOnline = false;

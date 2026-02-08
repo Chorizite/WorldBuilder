@@ -10,22 +10,33 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
     /// </summary>
     [MemoryPackable]
     public partial class CreateLandscapeLayerCommand : BaseCommand<DocumentRental<LandscapeLayerDocument>?> {
+        /// <summary>The path to the group containing the layer.</summary>
         [MemoryPackOrder(10)] public IReadOnlyList<string> GroupPath { get; set; } = [];
 
+        /// <summary>The name of the new layer.</summary>
         [MemoryPackOrder(11)] public string Name { get; set; } = "New Layer";
 
+        /// <summary>Whether this is the base layer.</summary>
         [MemoryPackOrder(12)] public bool IsBase { get; set; }
 
+        /// <summary>The ID of the parent landscape document.</summary>
         [MemoryPackOrder(13)] public string TerrainDocumentId { get; set; } = string.Empty;
 
+        /// <summary>The ID of the new landscape layer document.</summary>
         [MemoryPackOrder(14)] public string TerrainLayerDocumentId { get; set; } = LandscapeLayerDocument.CreateId();
 
+        /// <summary>Initializes a new instance of the <see cref="CreateLandscapeLayerCommand"/> class.</summary>
         [MemoryPackConstructor]
         public CreateLandscapeLayerCommand() { }
 
+        /// <summary>Initializes a new instance of the <see cref="CreateLandscapeLayerCommand"/> class with parameters.</summary>
+        /// <param name="terrainDocumentId">The terrain document ID.</param>
+        /// <param name="groupPath">The group path.</param>
+        /// <param name="name">The layer name.</param>
+        /// <param name="isBase">Whether it is the base layer.</param>
         public CreateLandscapeLayerCommand(string terrainDocumentId, IEnumerable<string> groupPath, string name,
             bool isBase) {
-            GroupPath = [..groupPath];
+            GroupPath = [.. groupPath];
             Name = name;
             TerrainDocumentId = terrainDocumentId;
             IsBase = isBase;
