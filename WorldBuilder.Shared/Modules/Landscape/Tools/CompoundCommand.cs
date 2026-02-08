@@ -8,6 +8,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
     {
         private readonly List<ICommand> _commands = new List<ICommand>();
         public string Name { get; }
+        public int Count => _commands.Count;
 
         public CompoundCommand(string name)
         {

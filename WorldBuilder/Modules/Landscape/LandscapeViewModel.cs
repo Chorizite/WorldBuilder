@@ -16,7 +16,6 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Modules.Landscape;
 using WorldBuilder.Modules.Landscape.ViewModels;
-using WorldBuilder.Modules.Landscape;
 using WorldBuilder.ViewModels;
 
 using Chorizite.OpenGLSDLBackend;
@@ -219,7 +218,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
             if (hit.Hit) {
                 BrushPosition = hit.HitPosition;
                 // Only show brush if tool is appropriate (e.g. BrushTool)
-                ShowBrush = ActiveTool is BrushTool || ActiveTool is BucketFillTool;
+                ShowBrush = ActiveTool is BrushTool || ActiveTool is RoadVertexTool || ActiveTool is RoadLineTool;
 
                 if (ActiveTool is BrushTool brushTool) {
                     BrushPosition = hit.NearestVertice;
@@ -227,6 +226,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
                 }
                 else if (ActiveTool is RoadVertexTool || ActiveTool is RoadLineTool) {
                     BrushPosition = hit.NearestVertice;
+                    BrushRadius = BrushTool.GetWorldRadius(1);
                 }
                 else {
                     BrushPosition = hit.HitPosition;

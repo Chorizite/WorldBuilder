@@ -10,6 +10,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
     public class RoadVertexTool : ILandscapeTool
     {
         private LandscapeToolContext? _context;
+        private bool _isPainting;
+        private CompoundCommand? _currentStroke;
+        private Vector3? _lastSnappedPos;
 
         public string Name => "Road Vertex";
         public string Description => "Sets road bits on individual vertices (Snaps to Grid)";
@@ -33,18 +36,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
         {
             if (_context == null || !e.IsLeftDown) return false;
 
-            var hit = TerrainRaycast.Raycast(
-                e.Position.X, e.Position.Y,
-                (int)_context.ViewportSize.X, (int)_context.ViewportSize.Y,
-                _context.Camera,
-                _context.Document.Region!,
-                _context.Document.TerrainCache);
-
+            var hit = Raycast(e.Position.X, e.Position.Y);
             if (hit.Hit)
             {
-                var snappedPos = hit.NearestVertice;
-                var command = new SetRoadBitCommand(_context, snappedPos, RoadBits);
-                _context.CommandHistory.Execute(command);
+                _isPainting = true;
+                _currentStroke = new CompoundCommand("Road Stroke");
+                _lastSnappedPos = null;
+                ApplyPaint(hit);
                 return true;
             }
 
@@ -53,12 +51,52 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
 
         public bool OnPointerMoved(ViewportInputEvent e)
         {
+            if (!_isPainting || _context == null) return false;
+
+            var hit = Raycast(e.Position.X, e.Position.Y);
+            if (hit.Hit)
+            {
+                ApplyPaint(hit);
+                return true;
+            }
+
             return false;
         }
 
         public bool OnPointerReleased(ViewportInputEvent e)
         {
+            if (_isPainting)
+            {
+                _isPainting = false;
+                if (_currentStroke != null && _currentStroke.Count > 0)
+                {
+                    _context?.CommandHistory.Execute(_currentStroke);
+                }
+                _currentStroke = null;
+                _lastSnappedPos = null;
+                return true;
+            }
             return false;
+        }
+
+        private TerrainRaycast.TerrainRaycastHit Raycast(double x, double y)
+        {
+            if (_context == null || _context.Document.Region == null) return new TerrainRaycast.TerrainRaycastHit();
+
+            return TerrainRaycast.Raycast((float)x, (float)y, (int)_context.ViewportSize.X, (int)_context.ViewportSize.Y, _context.Camera, _context.Document.Region, _context.Document.TerrainCache);
+        }
+
+        private void ApplyPaint(TerrainRaycast.TerrainRaycastHit hit)
+        {
+            if (_context == null || _currentStroke == null) return;
+
+            var snappedPos = hit.NearestVertice;
+            if (_lastSnappedPos == snappedPos) return;
+
+            _lastSnappedPos = snappedPos;
+            var command = new SetRoadBitCommand(_context, snappedPos, RoadBits);
+            _currentStroke.Add(command);
+            command.Execute();
         }
 
         public void Update(double deltaTime)
