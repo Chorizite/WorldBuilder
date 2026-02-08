@@ -271,16 +271,11 @@ public partial class RenderView : Base3DViewport {
         else if (change.Property == BrushPositionProperty ||
                  change.Property == BrushRadiusProperty ||
                  change.Property == ShowBrushProperty) {
-            _logger?.LogInformation("RenderView Property Changed: {Prop}, NewVal={Val}", change.Property.Name, change.NewValue);
             _gameScene?.SetBrush(BrushPosition, BrushRadius, new Vector4(0, 1, 0, 0.4f), ShowBrush);
         }
     }
 
     protected override void OnGlResize(PixelSize canvasSize) {
-        // Ensure this RenderView's GameScene is only resized with its own dimensions
-        // Each RenderView should maintain independent viewport state to avoid sharing
-        // viewport dimensions with other windows that use the same shared OpenGL context
-        _logger.LogInformation("RenderView.OnGlResize: Resizing to {Width}x{Height}", canvasSize.Width, canvasSize.Height);
         _gameScene?.Resize(canvasSize.Width, canvasSize.Height);
     }
 

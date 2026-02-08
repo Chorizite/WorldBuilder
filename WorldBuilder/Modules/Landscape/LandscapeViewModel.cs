@@ -198,10 +198,6 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
     }
 
     public void OnPointerPressed(ViewportInputEvent e) {
-        // _log.LogTrace("LandscapeViewModel.OnPointerPressed. ActiveTool: {Tool}, Context: {Context}",
-        //     ActiveTool?.GetType().Name ?? "null",
-        //     _toolContext == null ? "null" : "valid");
-
         if (ActiveTool != null && _toolContext != null) {
             if (ActiveTool.OnPointerPressed(e)) {
                 // Handled
@@ -235,16 +231,10 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
                 else {
                     BrushPosition = hit.HitPosition;
                 }
-                _log.LogInformation("Brush Preview Hit: Pos={Pos} Rad={Rad} Show={Show}", BrushPosition, BrushRadius, ShowBrush);
             }
             else {
                 ShowBrush = false;
-                _log.LogInformation("Brush Preview Miss: Pos={Pos}", e.Position);
             }
-        }
-        else {
-            _log.LogInformation("Brush Preview Skip: Tool={Tool}, Doc={Doc}, Cam={Cam}",
-               ActiveTool != null, ActiveDocument != null, Camera != null);
         }
 
         ActiveTool?.OnPointerMoved(e);
@@ -259,18 +249,13 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
 
     private async Task LoadLandscapeAsync() {
         try {
-            _log.LogInformation("CellRegions count: {Count}", _dats.CellRegions.Count);
+            _log.LogDebug("CellRegions count: {Count}", _dats.CellRegions.Count);
             // Find the first region ID
             var regionId = _dats.CellRegions.Keys.OrderBy(k => k).FirstOrDefault();
 
             _landscapeRental =
                 await _project.Landscape.GetOrCreateTerrainDocumentAsync(regionId, CancellationToken.None);
             ActiveDocument = _landscapeRental.Document;
-
-            if (Camera != null && ActiveDocument != null && _toolContext == null) {
-                // Late initialization if Camera was set before Doc loaded
-                // But InitializeToolContext might update it.
-            }
         }
         catch (Exception ex) {
             _log.LogError(ex, "Error loading landscape");

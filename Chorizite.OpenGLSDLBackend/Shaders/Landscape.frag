@@ -205,54 +205,61 @@ vec3 calculateGrid(vec2 worldPos, vec3 terrainColor) {
     return gridColor * uGridOpacity;
 }
 
-// Function to calculate if a snapped position is within the brush radius
-bool isInsideBrush(vec2 snappedPos, vec2 brushPos, float radius) {
-    float dx = snappedPos.x - brushPos.x;
-    float dy = snappedPos.y - brushPos.y;
-    return (dx * dx + dy * dy) <= (radius * radius);
+// SDF Functions
+float sdCircle(vec2 p, float r) {
+    return length(p) - r;
 }
 
-vec4 calculateBrush(vec2 worldPos) {
-    // DEBUG FORCE ENABLE
-    bool showDebug = false; 
-    vec3 debugPos = uBrushPos; // Use uniform pos to see if it moves
-    float debugRadius = uBrushRadius;
-    
-    // Fallback if uniforms seem broken (e.g. radius is 0)
-    if (debugRadius < 1.0) debugRadius = 50.0;
-    
-    if (!uShowBrush && !showDebug) return vec4(0.0);
+float sdRoundedBox(in vec2 p, in vec2 b, in float r) {
+    vec2 q = abs(p) - b + r;
+    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
+}
 
-    float cellSize = 24.0;
+vec4 calculateBrush(vec2 worldPos) { 
+    if (!uShowBrush) return vec4(0.0);
+
+    vec2 p = worldPos - uBrushPos.xy;
+    float dist = 0.0;
     
-    vec2 nearestVertex = floor((worldPos + cellSize * 0.5) / cellSize) * cellSize;
+    // Adjust radius to stroke center (so the stroke is centered on the boundary)
+    // We strictly want the visual boundary to match effect boundary?
+    // Usually outline flows outward or center. 
+    // Let's stick to mathematical distance.
     
-    bool inside = isInsideBrush(nearestVertex, debugPos.xy, debugRadius);
+    if (uBrushShape == 1) {
+        // Rounded Box (Square)
+        // Use a corner radius relative to the brush size, but capped
+        float cornerRadius = min(uBrushRadius * 0.25, 10.0);
+        
+        // uBrushRadius is treated as half-extent (like circle radius)
+        dist = sdRoundedBox(p, vec2(uBrushRadius), cornerRadius);
+    } else {
+        // Circle
+        dist = sdCircle(p, uBrushRadius);
+    }
     
-    if (!inside) return vec4(0.0);
+    // Calculate outline
+    // Scale line width based on camera distance to keep constant pixel width
+    float pixelSize = (uCameraDistance * tan(0.785398) * 2.0 / uScreenHeight);
+    float lineWidth = 2.0 * pixelSize;
+    float feather = 1.0 * pixelSize; // Anti-aliasing
     
-    // ... outline logic ...
-    bool topInside = isInsideBrush(nearestVertex + vec2(0.0, cellSize), debugPos.xy, debugRadius);
-    bool bottomInside = isInsideBrush(nearestVertex - vec2(0.0, cellSize), debugPos.xy, debugRadius);
-    bool rightInside = isInsideBrush(nearestVertex + vec2(cellSize, 0.0), debugPos.xy, debugRadius);
-    bool leftInside = isInsideBrush(nearestVertex - vec2(cellSize, 0.0), debugPos.xy, debugRadius);
+    // Create outline: 1.0 near 0, decreasing outwards and inwards
+    // abs(dist) represents distance from the shape boundary
+    float outline = 1.0 - smoothstep(lineWidth - feather, lineWidth, abs(dist));
     
-    vec2 cellRel = worldPos - nearestVertex;
+    // Optional: Very faint fill
+    float fill = (1.0 - smoothstep(0.0, feather, dist)) * 0.1;
     
-    float lineWidth = 2.0 * (uCameraDistance * tan(0.785398) * 2.0 / uScreenHeight); 
+    float alpha = max(outline, fill);
     
-    float outline = 0.0;
-    if (!leftInside) outline = max(outline, 1.0 - smoothstep(0.0, lineWidth, abs(cellRel.x + cellSize * 0.5)));
-    if (!rightInside) outline = max(outline, 1.0 - smoothstep(0.0, lineWidth, abs(cellRel.x - cellSize * 0.5)));
-    if (!bottomInside) outline = max(outline, 1.0 - smoothstep(0.0, lineWidth, abs(cellRel.y + cellSize * 0.5)));
-    if (!topInside) outline = max(outline, 1.0 - smoothstep(0.0, lineWidth, abs(cellRel.y - cellSize * 0.5)));
+    if (alpha <= 0.0) return vec4(0.0);
     
-    // Force a color if uBrushColor is transparent/black for some reason
+    // Use brush color
     vec4 brushColor = uBrushColor;
-    if (brushColor.a == 0.0) brushColor = vec4(1.0, 0.0, 0.0, 0.2);
+    if (brushColor.a == 0.0) brushColor = vec4(0.0, 1.0, 0.0, 1.0); // Fallback to green
     
-    float alpha = max(brushColor.a, outline);
-    return vec4(brushColor.rgb, alpha);
+    return vec4(brushColor.rgb, alpha * brushColor.a);
 }
 
 void main() {
