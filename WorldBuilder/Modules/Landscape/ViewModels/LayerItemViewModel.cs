@@ -38,6 +38,7 @@ public partial class LayerItemViewModel : ViewModelBase
 
     public bool CanToggleVisibility => !IsBase;
     public bool CanToggleExport => !IsBase;
+    public bool CanDelete => !IsBase;
 
     public ObservableCollection<LayerItemViewModel> Children { get; } = new();
 

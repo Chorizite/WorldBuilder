@@ -88,5 +88,19 @@ namespace WorldBuilder.Tests.Modules.Landscape.ViewModels
             Assert.True(vm.IsExported);
             Assert.True(model.IsExported);
         }
+        [Fact]
+        public void BaseLayer_ShouldNotBeTogglableOrDeletable()
+        {
+            // Arrange
+            var model = new LandscapeLayer("layer_1", isBase: true);
+            var history = new CommandHistory();
+            var vm = new LayerItemViewModel(model, history, null, null);
+
+            // Assert
+            Assert.True(vm.IsBase);
+            Assert.False(vm.CanToggleVisibility);
+            Assert.False(vm.CanToggleExport);
+            Assert.False(vm.CanDelete);
+        }
     }
 }

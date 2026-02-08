@@ -22,6 +22,7 @@
                     <TextBlock Text="📁" />
                 </Button>
                 <Button Command="{Binding SelectedItem.DeleteCommand}" ToolTip.Tip="Delete Selected"
+                        IsVisible="{Binding SelectedItem.CanDelete, FallbackValue=False}"
                         IsEnabled="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}, FallbackValue=False}">
                     <TextBlock Text="🗑️" />
                 </Button>
