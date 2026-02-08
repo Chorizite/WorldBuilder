@@ -5,12 +5,12 @@ using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Shared.Tests.Commands.Landscape {
-    public class TerrainUpdateCommandTests {
+    public class LandscapeLayerUpdateCommandTests {
         private readonly Mock<IDocumentManager> _mockDocManager;
         private readonly Mock<IDatReaderWriter> _mockDats;
         private readonly Mock<ITransaction> _mockTx;
 
-        public TerrainUpdateCommandTests() {
+        public LandscapeLayerUpdateCommandTests() {
             _mockDocManager = new Mock<IDocumentManager>();
             _mockDats = new Mock<IDatReaderWriter>();
             _mockTx = new Mock<ITransaction>();
@@ -20,7 +20,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
         public async Task TerrainUpdate_WithValidChanges_AppliesSuccessfully() {
             // Arrange
             var changes = new Dictionary<int, TerrainEntry?> { { 100, new TerrainEntry { Height = 10 } } };
-            var command = new TerrainUpdateCommand { Changes = changes };
+            var command = new LandscapeLayerUpdateCommand { Changes = changes };
 
             // Act
             var result =
@@ -28,7 +28,6 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Assert
             Assert.True(result.IsSuccess);
-            // Note: Full implementation is pending in TerrainUpdateEvent.cs
         }
 
         [Fact]
@@ -36,7 +35,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             // Arrange
             var changes = new Dictionary<int, TerrainEntry?> { { 100, new TerrainEntry { Height = 10 } } };
             var previous = new Dictionary<int, TerrainEntry?> { { 100, new TerrainEntry { Height = 5 } } };
-            var command = new TerrainUpdateCommand { Changes = changes, PreviousState = previous };
+            var command = new LandscapeLayerUpdateCommand { Changes = changes, PreviousState = previous };
 
             // Act
             var result =
@@ -52,10 +51,10 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             // Arrange
             var changes = new Dictionary<int, TerrainEntry?> { { 100, new TerrainEntry { Height = 10 } } };
             var previous = new Dictionary<int, TerrainEntry?> { { 100, new TerrainEntry { Height = 5 } } };
-            var command = new TerrainUpdateCommand { Changes = changes, PreviousState = previous };
+            var command = new LandscapeLayerUpdateCommand { Changes = changes, PreviousState = previous };
 
             // Act
-            var inverse = (TerrainUpdateCommand)command.CreateInverse();
+            var inverse = (LandscapeLayerUpdateCommand)command.CreateInverse();
 
             // Assert
             Assert.Equal(command.PreviousState, inverse.Changes);
@@ -67,12 +66,12 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             // Arrange
             var changes = new Dictionary<int, TerrainEntry?> { { 100, new TerrainEntry { Height = 10 } } };
             var previous = new Dictionary<int, TerrainEntry?> { { 100, new TerrainEntry { Height = 5 } } };
-            var command = new TerrainUpdateCommand { Changes = changes, PreviousState = previous };
+            var command = new LandscapeLayerUpdateCommand { Changes = changes, PreviousState = previous };
 
             // Act
             var forwardResult =
                 await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
-            var inverse = (TerrainUpdateCommand)command.CreateInverse();
+            var inverse = (LandscapeLayerUpdateCommand)command.CreateInverse();
             var backwardResult =
                 await inverse.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
 
@@ -84,7 +83,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
         [Fact]
         public async Task TerrainUpdate_WithEmptyChanges_SucceedsNoOp() {
             // Arrange
-            var command = new TerrainUpdateCommand { Changes = new Dictionary<int, TerrainEntry?>() };
+            var command = new LandscapeLayerUpdateCommand { Changes = new Dictionary<int, TerrainEntry?>() };
 
             // Act
             var result =
@@ -98,7 +97,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
         public async Task TerrainUpdate_WithNullValues_RemovesTerrainData() {
             // Arrange
             var changes = new Dictionary<int, TerrainEntry?> { { 100, null } };
-            var command = new TerrainUpdateCommand { Changes = changes };
+            var command = new LandscapeLayerUpdateCommand { Changes = changes };
 
             // Act
             var result =

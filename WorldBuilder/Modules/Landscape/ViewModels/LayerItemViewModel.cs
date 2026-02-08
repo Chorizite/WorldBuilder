@@ -5,6 +5,9 @@ using System.Collections.ObjectModel;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.ViewModels;
 
+using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Shared.Modules.Landscape.Commands;
+
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 
 public partial class LayerItemViewModel : ViewModelBase
@@ -38,9 +41,12 @@ public partial class LayerItemViewModel : ViewModelBase
 
     public ObservableCollection<LayerItemViewModel> Children { get; } = new();
 
-    public LayerItemViewModel(LandscapeLayerBase model, Action<LayerItemViewModel> onDelete, Action<LayerItemViewModel, bool> onChanged)
+    private readonly CommandHistory _history;
+
+    public LayerItemViewModel(LandscapeLayerBase model, CommandHistory history, Action<LayerItemViewModel> onDelete, Action<LayerItemViewModel, bool> onChanged)
     {
         _model = model;
+        _history = history;
         _onDelete = onDelete;
         _onChanged = onChanged;
         _name = _model.Name;
@@ -50,7 +56,8 @@ public partial class LayerItemViewModel : ViewModelBase
 
     partial void OnNameChanged(string value)
     {
-        _model.Name = value;
+        // Don't update model immediately to avoid loops/partially typed names
+        // _model.Name = value; 
     }
 
     [RelayCommand]
@@ -68,7 +75,16 @@ public partial class LayerItemViewModel : ViewModelBase
         if (IsEditing)
         {
             IsEditing = false;
-            _onChanged?.Invoke(this, false);
+
+            if (Name != _model.Name)
+            {
+                var command = new RenameLandscapeLayerCommand(_model, Name, (newName) =>
+                {
+                    Name = newName;
+                    _onChanged?.Invoke(this, false);
+                });
+                _history.Execute(command);
+            }
         }
     }
 
@@ -86,9 +102,12 @@ public partial class LayerItemViewModel : ViewModelBase
     {
         if (CanToggleExport)
         {
-            IsExported = !IsExported;
-            _model.IsExported = IsExported;
-            _onChanged?.Invoke(this, false);
+            var cmd = new ToggleLayerExportCommand(_model, (newState) =>
+            {
+                IsExported = newState;
+                _onChanged?.Invoke(this, false);
+            });
+            _history.Execute(cmd);
         }
     }
 

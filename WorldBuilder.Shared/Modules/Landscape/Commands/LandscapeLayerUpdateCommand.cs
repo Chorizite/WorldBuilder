@@ -6,7 +6,7 @@ using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Commands {
     [MemoryPackable]
-    public partial class TerrainUpdateCommand : BaseCommand<bool> {
+    public partial class LandscapeLayerUpdateCommand : BaseCommand<bool> {
         [MemoryPackInclude]
         [MemoryPackOrder(10)]
         public Dictionary<int, TerrainEntry?> Changes { get; set; } = [];
@@ -16,7 +16,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
         public Dictionary<int, TerrainEntry?> PreviousState { get; set; } = [];
 
         public override BaseCommand CreateInverse() {
-            return new TerrainUpdateCommand {
+            return new LandscapeLayerUpdateCommand {
                 UserId = UserId,
                 Changes = PreviousState,
                 PreviousState = Changes,
@@ -32,7 +32,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
             try {
                 await Task.Delay(0, ct);
                 // TODO: Implement terrain update logic with proper error handling
-                // For now, returning success as a placeholder
                 return Result<bool>.Success(true);
             }
             catch (Exception ex) {

@@ -13,7 +13,7 @@ namespace WorldBuilder.Shared.Tests.Events {
         [Fact]
         public void MemoryPack_SerializesAndDeserializes_UnionTypes() {
             // Arrange
-            var original = new TerrainUpdateCommand {
+            var original = new LandscapeLayerUpdateCommand {
                 UserId = Guid.NewGuid().ToString(),
                 Changes = new() {
                     { 0x1234, new TerrainEntry(100, 1, 2, 3, 0) }
@@ -22,11 +22,11 @@ namespace WorldBuilder.Shared.Tests.Events {
 
             // Act
             var data = original.Serialize();
-            var deserialized = BaseCommand.Deserialize<TerrainUpdateCommand>(data);
+            var deserialized = BaseCommand.Deserialize<LandscapeLayerUpdateCommand>(data);
 
             // Assert
-            Assert.IsType<TerrainUpdateCommand>(deserialized);
-            var tue = (TerrainUpdateCommand)deserialized;
+            Assert.IsType<LandscapeLayerUpdateCommand>(deserialized);
+            var tue = (LandscapeLayerUpdateCommand)deserialized;
 
             Assert.NotNull(tue.Changes[0x1234]);
 

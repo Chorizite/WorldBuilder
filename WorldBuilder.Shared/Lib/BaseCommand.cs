@@ -9,7 +9,7 @@ namespace WorldBuilder.Shared.Lib {
     [MemoryPackUnion(2, typeof(CreateLandscapeLayerCommand))]
     [MemoryPackUnion(3, typeof(DeleteLandscapeLayerCommand))]
     [MemoryPackUnion(4, typeof(ReorderLandscapeLayerCommand))]
-    [MemoryPackUnion(5, typeof(TerrainUpdateCommand))]
+    [MemoryPackUnion(5, typeof(LandscapeLayerUpdateCommand))]
     [MemoryPackUnion(6, typeof(CreateLandscapeLayerGroupCommand))]
     public abstract partial class BaseCommand {
         [MemoryPackOrder(0)] public string Id { get; set; } = Guid.NewGuid().ToString();

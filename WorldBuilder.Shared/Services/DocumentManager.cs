@@ -142,9 +142,6 @@ public class DocumentManager : IDocumentManager, IDisposable {
             _cache[id] = newEntry;
             _logger.LogDebug("Document with ID {DocumentId} loaded from database and added to cache", id);
 
-            // Removed to prevent deadlock - initialization must be done by caller
-            // await newDoc.InitializeForUpdatingAsync(_dats, this, ct);
-
             return Result<DocumentRental<T>>.Success(new DocumentRental<T>(newDoc, () => ReturnDocument(id)));
         }
         finally {
@@ -200,7 +197,6 @@ public class DocumentManager : IDocumentManager, IDisposable {
         _logger.LogDebug("Applying event {EventId} of type {EventType} for user {UserId}", evt.Id, evt.GetType().Name,
             UserId);
 
-        // Set the user ID for the event
         evt.UserId = UserId;
 
         try {
@@ -237,7 +233,6 @@ public class DocumentManager : IDocumentManager, IDisposable {
         _logger.LogDebug("Applying event {EventId} of type {EventType} for user {UserId}", evt.Id, evt.GetType().Name,
             UserId);
 
-        // Set the user ID for the event
         evt.UserId = UserId;
 
         try {

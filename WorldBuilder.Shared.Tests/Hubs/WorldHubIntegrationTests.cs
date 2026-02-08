@@ -32,7 +32,7 @@ namespace WorldBuilder.Shared.Tests.Hubs {
         public async Task BroadcastEvent_IsReceivedByOtherClients() {
             if (_client1 == null || _client2 == null) throw new InvalidOperationException();
 
-            var evt = new TerrainUpdateCommand {
+            var evt = new LandscapeLayerUpdateCommand {
                 UserId = Guid.NewGuid().ToString()
             };
 

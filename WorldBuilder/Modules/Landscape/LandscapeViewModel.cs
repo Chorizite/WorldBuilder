@@ -59,7 +59,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         _log = log;
 
         HistoryPanel = new HistoryPanelViewModel(CommandHistory);
-        LayersPanel = new LayersPanelViewModel(log, async (item, isVisibleChange) => {
+        LayersPanel = new LayersPanelViewModel(log, CommandHistory, async (item, isVisibleChange) => {
             if (ActiveDocument != null) {
                 await ActiveDocument.RecalculateTerrainCacheAsync();
 

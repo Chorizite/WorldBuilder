@@ -53,7 +53,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
 
         public bool OnPointerPressed(ViewportInputEvent e)
         {
-            _context?.Logger.LogInformation("BrushTool.OnPointerPressed. IsLeft: {Left}, Pos: {Pos}", e.IsLeftDown, e.Position);
             if (_context == null || !e.IsLeftDown)
             {
                 _context?.Logger.LogWarning("BrushTool.OnPointerPressed ignored. Context: {Context}, IsLeft: {Left}", _context == null ? "null" : "valid", e.IsLeftDown);
@@ -63,7 +62,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
             var hit = Raycast(e.Position.X, e.Position.Y);
             if (hit.Hit)
             {
-                _context.Logger.LogInformation("BrushTool Raycast Hit! Position: {Pos}", hit.HitPosition);
                 _isPainting = true;
                 _lastHit = hit;
                 _currentStroke = new CompoundCommand("Brush Stroke");
@@ -81,9 +79,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
         public bool OnPointerMoved(ViewportInputEvent e)
         {
             if (!_isPainting || _context == null) return false;
-
-            // Update internal state or preview?
-            // If dragging, we might want to continue painting
 
             var hit = Raycast(e.Position.X, e.Position.Y);
             if (hit.Hit)

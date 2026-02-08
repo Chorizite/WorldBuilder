@@ -22,7 +22,6 @@ namespace WorldBuilder.Shared.Services {
                 })
                 .Build();
 
-            // Clean, type-safe subscription
             _connection.OnDocumentEvent(evt => _incoming.Writer.TryWrite(evt));
 
             await _connection.StartAsync(ct);

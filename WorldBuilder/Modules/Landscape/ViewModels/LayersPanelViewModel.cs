@@ -8,20 +8,24 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.ViewModels;
 using Microsoft.Extensions.Logging;
 
+using WorldBuilder.Shared.Modules.Landscape.Tools;
+
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 
 public partial class LayersPanelViewModel : ViewModelBase
 {
     private LandscapeDocument? _document;
     private readonly ILogger _log;
+    private readonly CommandHistory _history;
     private readonly Action<LayerItemViewModel?, bool> _onLayersChanged; // (affectedItem, isVisibleChange)
 
     [ObservableProperty] private ObservableCollection<LayerItemViewModel> _items = new();
     [ObservableProperty] private LayerItemViewModel? _selectedItem;
 
-    public LayersPanelViewModel(ILogger log, Action<LayerItemViewModel?, bool> onLayersChanged)
+    public LayersPanelViewModel(ILogger log, CommandHistory history, Action<LayerItemViewModel?, bool> onLayersChanged)
     {
         _log = log;
+        _history = history;
         _onLayersChanged = onLayersChanged;
     }
 
@@ -39,7 +43,7 @@ public partial class LayersPanelViewModel : ViewModelBase
 
     private LayerItemViewModel CreateVM(LandscapeLayerBase model, LayerItemViewModel? parent)
     {
-        var vm = new LayerItemViewModel(model, OnDeleteItem, (i, v) => OnItemChanged(i, v))
+        var vm = new LayerItemViewModel(model, _history, OnDeleteItem, (i, v) => OnItemChanged(i, v))
         {
             Parent = parent
         };

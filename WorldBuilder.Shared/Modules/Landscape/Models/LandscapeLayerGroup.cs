@@ -6,7 +6,7 @@ namespace WorldBuilder.Shared.Models;
 public partial class LandscapeLayerGroup : LandscapeLayerBase {
     [MemoryPackInclude]
     [MemoryPackOrder(10)]
-    public List<LandscapeLayerBase> Children { get; set; } = []; // List of TerrainLayer or TerrainLayerGroup
+    public List<LandscapeLayerBase> Children { get; set; } = []; // List of LandscapeLayer or LandscapeLayerGroup
 
     [MemoryPackConstructor]
     public LandscapeLayerGroup() { }

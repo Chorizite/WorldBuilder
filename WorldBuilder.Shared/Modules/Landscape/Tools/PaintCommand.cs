@@ -66,17 +66,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
 
                 var (vx, vy) = region.GetVertexCoordinates((uint)index);
                 int lbX = vx / region.LandblockVerticeLength;
-                int lbY = vy / region.LandblockVerticeLength; // Approximation, check edge cases?
-                                                              // Actually GetVertexCoordinates returns global vertex X/Y.
-                                                              // LandblockVerticeLength is 9.
-                                                              // lbX = vx / 8 (since they share edges)? 
-                                                              // region.LandblockVerticeLength is 9.
-                                                              // Width is 8 cells. Vertices 0..8. 
-                                                              // lb 0 has 0..8. lb 1 has 8..16.
-                                                              // So lbX = vx / 8.
-
-                // Wait, region.LandblockVerticeLength = 9.
-                // strideMinusOne = 8.
+                int lbY = vy / region.LandblockVerticeLength;
 
                 int stride = region.LandblockVerticeLength - 1;
                 lbX = vx / stride;
