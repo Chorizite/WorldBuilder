@@ -30,6 +30,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Constants
         private const int MaxVertices = 16384;
         private const int MaxIndices = 24576;
+        private const int LandblocksPerChunk = 8;
+        private float _chunkSizeInUnits;
 
         // Render state
         private IShader? _shader;
@@ -63,6 +65,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Initialize Surface Manager
             if (_landscapeDoc.Region is RegionInfo regionInfo) {
                 _surfaceManager = new LandSurfaceManager(_graphicsDevice, _dats, regionInfo._region, _log);
+                _chunkSizeInUnits = regionInfo.LandblockSizeInUnits * LandblocksPerChunk;
             }
 
             // Bind textures
@@ -75,8 +78,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (!_initialized) return;
 
             // Calculate current chunk
-            var chunkX = (int)Math.Floor(cameraPosition.X / (192f * 8f));
-            var chunkY = (int)Math.Floor(cameraPosition.Y / (192f * 8f));
+            var chunkX = (int)Math.Floor(cameraPosition.X / _chunkSizeInUnits);
+            var chunkY = (int)Math.Floor(cameraPosition.Y / _chunkSizeInUnits);
 
             // Queue new chunks
             for (int x = chunkX - RenderDistance; x <= chunkX + RenderDistance; x++) {
@@ -156,8 +159,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private unsafe void UpdateChunk(TerrainChunk chunk) {
             if (!chunk.IsGenerated || chunk.VAO == 0) return;
-
-            // _log.LogInformation("Updating chunk {CX},{CY}", chunk.ChunkX, chunk.ChunkY);
 
             // Temporary buffers for single landblock
             Span<VertexLandscape> tempVertices = stackalloc VertexLandscape[TerrainGeometryGenerator.VerticesPerLandblock];

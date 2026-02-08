@@ -35,7 +35,7 @@ public partial class RenderView : Base3DViewport {
 
     // Pending landscape update to be processed on the render thread
     private LandscapeDocument? _pendingLandscapeDocument;
-    private WorldBuilder.Shared.Services.IDatReaderWriter? _pendingDats;
+    private WorldBuilder.Shared.Services.IDatReaderWriter? _pendingDatReader;
 
     // Static shared context manager for all RenderViews
     private static SharedOpenGLContextManager? _sharedContextManager;
@@ -67,7 +67,8 @@ public partial class RenderView : Base3DViewport {
         GL = gl;
 
         if (Renderer != null) {
-            var log = new ColorConsoleLogger("GameScene", () => new ColorConsoleLoggerConfiguration());
+            var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>();
+            var log = loggerFactory?.CreateLogger("GameScene") ?? new ColorConsoleLogger("GameScene", () => new ColorConsoleLoggerConfiguration());
             _gameScene = new GameScene(gl, Renderer.GraphicsDevice, log);
 
             var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
@@ -81,10 +82,10 @@ public partial class RenderView : Base3DViewport {
             _gameScene.Resize(canvasSize.Width, canvasSize.Height);
 
             // Use the cached values directly since they were stored when the properties changed
-            if (_cachedLandscapeDocument != null && _pendingDats != null) {
+            if (_cachedLandscapeDocument != null && _pendingDatReader != null) {
                 // If we already have data when initializing GL, queue it up
                 _pendingLandscapeDocument = _cachedLandscapeDocument;
-                // _pendingDats is already set from the cached value
+                // _pendingDatReader is already set from the cached value
             }
 
             Dispatcher.UIThread.Post(() => {
@@ -194,10 +195,10 @@ public partial class RenderView : Base3DViewport {
         if (GL is null) return;
 
         // Process pending landscape updates
-        if (_pendingLandscapeDocument != null && _pendingDats != null && _gameScene != null) {
-            _gameScene.SetLandscape(_pendingLandscapeDocument, _pendingDats);
+        if (_pendingLandscapeDocument != null && _pendingDatReader != null && _gameScene != null) {
+            _gameScene.SetLandscape(_pendingLandscapeDocument, _pendingDatReader);
             _pendingLandscapeDocument = null;
-            _pendingDats = null;
+            _pendingDatReader = null;
         }
 
         // Always clear with black first as a baseline
@@ -240,7 +241,7 @@ public partial class RenderView : Base3DViewport {
             if (_cachedLandscapeDocument != null && dats != null) {
                 // Queue update for render thread
                 _pendingLandscapeDocument = _cachedLandscapeDocument;
-                _pendingDats = dats;
+                _pendingDatReader = dats;
             }
         }
     }

@@ -61,6 +61,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         public int LandblockVerticeLength => LandblockCellLength + 1;
 
         /// <summary>
+        /// Width of a landblock in game units.
+        /// </summary>
+        public float LandblockSizeInUnits => CellSizeInUnits * LandblockCellLength;
+
+        /// <summary>
         /// Number of vertices in a landblock.
         /// </summary>
         public int TotalVertsPerLandblock => LandblockVerticeLength * LandblockVerticeLength;
