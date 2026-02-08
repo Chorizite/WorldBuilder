@@ -79,6 +79,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
 
         // Register Tools
         Tools.Add(new BrushTool());
+        Tools.Add(new BucketFillTool());
         ActiveTool = Tools.FirstOrDefault();
     }
 

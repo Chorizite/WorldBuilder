@@ -29,6 +29,23 @@
                 <Slider Value="{Binding BrushStrength}" Minimum="0" Maximum="1" TickFrequency="0.01" IsSnapToTickEnabled="True" />
               </StackPanel>
             </DataTemplate>
+
+            <DataTemplate DataType="{x:Type tools:BucketFillTool}">
+              <StackPanel Spacing="8">
+                <CheckBox Content="Contiguous Fill" IsChecked="{Binding IsContiguous}" />
+                
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="Texture ID" VerticalAlignment="Center"/>
+                  <NumericUpDown Grid.Column="1" Value="{Binding TextureId}" Minimum="0" Maximum="31" Width="100" />
+                </Grid>
+                <TextBlock Text="Fills connected areas of the same texture." 
+                           IsVisible="{Binding IsContiguous}"
+                           FontStyle="Italic" FontSize="11" TextWrapping="Wrap" />
+                <TextBlock Text="replaces all instances of the clicked texture globally." 
+                           IsVisible="{Binding !IsContiguous}"
+                           FontStyle="Italic" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
+            </DataTemplate>
           </ContentControl.DataTemplates>
         </ContentControl>
       </StackPanel>
