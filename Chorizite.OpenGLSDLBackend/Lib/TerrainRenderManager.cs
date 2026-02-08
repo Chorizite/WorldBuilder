@@ -44,6 +44,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public int QueuedPartialUpdates => _partialUpdateQueue.Count;
         public int ActiveChunks => _chunks.Count;
 
+        // Brush settings
+        public Vector3 BrushPosition { get; set; }
+        public float BrushRadius { get; set; } = 30f;
+        public Vector4 BrushColor { get; set; } = new Vector4(0.0f, 1.0f, 0.0f, 0.4f);
+        public bool ShowBrush { get; set; }
+        public int BrushShape { get; set; } // 0 = Circle, 1 = Square
+
         private readonly IDatReaderWriter _dats;
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private LandSurfaceManager? _surfaceManager;
@@ -323,6 +330,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("xWorld", Matrix4x4.Identity); // Chunks are already in world space coordinates
             _shader.SetUniform("uAlpha", 1.0f);
             _shader.SetUniform("xAmbient", 0.5f); // 0.5 ambient
+
+            // Brush uniforms
+            _shader.SetUniform("uBrushPos", BrushPosition);
+            _shader.SetUniform("uBrushRadius", BrushRadius);
+            _shader.SetUniform("uBrushColor", BrushColor);
+            _shader.SetUniform("uShowBrush", ShowBrush ? 1 : 0);
+            _shader.SetUniform("uBrushColor", BrushColor);
+            _shader.SetUniform("uShowBrush", ShowBrush ? 1 : 0);
+            _shader.SetUniform("uBrushShape", BrushShape);
+
+            if (ShowBrush) {
+                // _log.LogTrace("Render Brush: Pos={Pos} Rad={Rad} Show={Show}", BrushPosition, BrushRadius, ShowBrush);
+            }
 
             if (_surfaceManager != null) {
                 _surfaceManager.TerrainAtlas.Bind(0);

@@ -14,13 +14,13 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Services;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Shared.Modules.Landscape;
 using WorldBuilder.Modules.Landscape.ViewModels;
 using WorldBuilder.Modules.Landscape;
 using WorldBuilder.ViewModels;
 
 using Chorizite.OpenGLSDLBackend;
 using ICamera = WorldBuilder.Shared.Models.ICamera;
-using ViewportInputEvent = WorldBuilder.Shared.Models.ViewportInputEvent;
 using static WorldBuilder.Shared.Services.DocumentManager;
 
 namespace WorldBuilder.Modules.Landscape;
@@ -41,6 +41,10 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
 
     [ObservableProperty]
     private LandscapeLayer? _activeLayer;
+
+    [ObservableProperty] private Vector3 _brushPosition;
+    [ObservableProperty] private float _brushRadius = 30f;
+    [ObservableProperty] private bool _showBrush;
 
     public CommandHistory CommandHistory { get; } = new();
     public HistoryPanelViewModel HistoryPanel { get; }
@@ -194,9 +198,9 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
     }
 
     public void OnPointerPressed(ViewportInputEvent e) {
-        _log.LogInformation("LandscapeViewModel.OnPointerPressed. ActiveTool: {Tool}, Context: {Context}",
-            ActiveTool?.GetType().Name ?? "null",
-            _toolContext == null ? "null" : "valid");
+        // _log.LogTrace("LandscapeViewModel.OnPointerPressed. ActiveTool: {Tool}, Context: {Context}",
+        //     ActiveTool?.GetType().Name ?? "null",
+        //     _toolContext == null ? "null" : "valid");
 
         if (ActiveTool != null && _toolContext != null) {
             if (ActiveTool.OnPointerPressed(e)) {
@@ -209,6 +213,40 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         if (_toolContext != null) {
             _toolContext.ViewportSize = e.ViewportSize;
         }
+
+        // Update brush preview
+        if (ActiveTool != null && ActiveDocument?.Region != null && Camera != null) {
+            var hit = TerrainRaycast.Raycast(e.Position.X, e.Position.Y,
+                (int)e.ViewportSize.X, (int)e.ViewportSize.Y,
+                Camera, ActiveDocument.Region, ActiveDocument.TerrainCache);
+
+            if (hit.Hit) {
+                BrushPosition = hit.HitPosition;
+                // Only show brush if tool is appropriate (e.g. BrushTool)
+                ShowBrush = ActiveTool is BrushTool || ActiveTool is BucketFillTool;
+
+                if (ActiveTool is BrushTool brushTool) {
+                    BrushPosition = hit.NearestVertice;
+                    BrushRadius = brushTool.BrushRadius;
+                }
+                else if (ActiveTool is RoadVertexTool || ActiveTool is RoadLineTool) {
+                    BrushPosition = hit.NearestVertice;
+                }
+                else {
+                    BrushPosition = hit.HitPosition;
+                }
+                _log.LogInformation("Brush Preview Hit: Pos={Pos} Rad={Rad} Show={Show}", BrushPosition, BrushRadius, ShowBrush);
+            }
+            else {
+                ShowBrush = false;
+                _log.LogInformation("Brush Preview Miss: Pos={Pos}", e.Position);
+            }
+        }
+        else {
+            _log.LogInformation("Brush Preview Skip: Tool={Tool}, Doc={Doc}, Cam={Cam}",
+               ActiveTool != null, ActiveDocument != null, Camera != null);
+        }
+
         ActiveTool?.OnPointerMoved(e);
     }
 

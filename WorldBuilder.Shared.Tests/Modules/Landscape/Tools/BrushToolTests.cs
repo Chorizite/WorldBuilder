@@ -23,16 +23,33 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         }
 
         [Fact]
+        public void BrushSize_ShouldUpdateBrushRadius()
+        {
+            var tool = new BrushTool();
+            tool.BrushSize = 1;
+            // Radius ~13.2
+            Assert.True(tool.BrushRadius < 24f);
+            Assert.True(tool.BrushRadius > 0f);
+
+            tool.BrushSize = 2;
+            // Radius ~25.2
+            Assert.True(tool.BrushRadius > 24f);
+        }
+
+        [Fact]
         public void PaintCommand_Execute_ShouldModifyTerrainCache()
         {
             // Arrange
+            var tool = new BrushTool(); // Use tool to get radius logic
+            tool.BrushSize = 1;
+
             var context = CreateContext();
             var cache = context.Document.TerrainCache;
             // Initialize cache
             for (int i = 0; i < cache.Length; i++) cache[i] = new TerrainEntry();
 
             var center = new Vector3(24, 24, 0); // Vertex (1,1) -> Index 10
-            var cmd = new PaintCommand(context, center, 10f, 5); // Radius 10 covers small area
+            var cmd = new PaintCommand(context, center, tool.BrushRadius, 5); // Radius from tool logic
 
             // Act
             cmd.Execute();
@@ -47,12 +64,15 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         public void PaintCommand_Undo_ShouldRevertChanges()
         {
             // Arrange
+            var tool = new BrushTool();
+            tool.BrushSize = 1;
+
             var context = CreateContext();
             var cache = context.Document.TerrainCache;
             for (int i = 0; i < cache.Length; i++) cache[i] = new TerrainEntry() { Type = 1 };
 
             var center = new Vector3(24, 24, 0);
-            var cmd = new PaintCommand(context, center, 10f, 5);
+            var cmd = new PaintCommand(context, center, tool.BrushRadius, 5);
 
             // Act
             cmd.Execute();
@@ -68,10 +88,13 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         public void PaintCommand_Execute_ShouldModifyLayerDocument()
         {
             // Arrange
+            var tool = new BrushTool();
+            tool.BrushSize = 1;
+
             var context = CreateContext();
             var layerDoc = context.ActiveLayerDocument;
             var center = new Vector3(24, 24, 0); // Vertex (1,1) -> Index 10
-            var cmd = new PaintCommand(context, center, 10f, 5);
+            var cmd = new PaintCommand(context, center, tool.BrushRadius, 5);
 
             // Act
             cmd.Execute();
@@ -85,11 +108,14 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         public void PaintCommand_Execute_ShouldRequestSave()
         {
             // Arrange
+            var tool = new BrushTool();
+            tool.BrushSize = 1;
+
             bool saveRequested = false;
             var context = CreateContext();
             context.RequestSave = (id) => saveRequested = true;
             var center = new Vector3(24, 24, 0);
-            var cmd = new PaintCommand(context, center, 10f, 5);
+            var cmd = new PaintCommand(context, center, tool.BrushRadius, 5);
 
             // Act
             cmd.Execute();
@@ -102,10 +128,13 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         public void PaintCommand_Undo_ShouldRevertLayerDocument()
         {
             // Arrange
+            var tool = new BrushTool();
+            tool.BrushSize = 1;
+
             var context = CreateContext();
             var layerDoc = context.ActiveLayerDocument;
             var center = new Vector3(24, 24, 0);
-            var cmd = new PaintCommand(context, center, 10f, 5);
+            var cmd = new PaintCommand(context, center, tool.BrushRadius, 5);
 
             // Act
             cmd.Execute();

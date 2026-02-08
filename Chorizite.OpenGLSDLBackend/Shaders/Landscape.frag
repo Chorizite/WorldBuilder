@@ -20,6 +20,13 @@ uniform float uGridOpacity;       // Opacity of grid lines (0.0 - 1.0)
 uniform float uCameraDistance;    // Distance from camera to terrain
 uniform float uScreenHeight;      // Screen height in pixels for scaling
 
+// Brush uniforms
+uniform vec3 uBrushPos;       // World position of the brush center
+uniform float uBrushRadius;   // Radius of the brush in world units
+uniform vec4 uBrushColor;     // Color of the brush overlay (RGBA)
+uniform bool uShowBrush;      // Toggle brush visibility
+uniform int uBrushShape;      // 0 = Circle, 1 = Square (for future use)
+
 in vec3 vTexUV;
 in vec4 vOverlay0;
 in vec4 vOverlay1;
@@ -198,6 +205,56 @@ vec3 calculateGrid(vec2 worldPos, vec3 terrainColor) {
     return gridColor * uGridOpacity;
 }
 
+// Function to calculate if a snapped position is within the brush radius
+bool isInsideBrush(vec2 snappedPos, vec2 brushPos, float radius) {
+    float dx = snappedPos.x - brushPos.x;
+    float dy = snappedPos.y - brushPos.y;
+    return (dx * dx + dy * dy) <= (radius * radius);
+}
+
+vec4 calculateBrush(vec2 worldPos) {
+    // DEBUG FORCE ENABLE
+    bool showDebug = false; 
+    vec3 debugPos = uBrushPos; // Use uniform pos to see if it moves
+    float debugRadius = uBrushRadius;
+    
+    // Fallback if uniforms seem broken (e.g. radius is 0)
+    if (debugRadius < 1.0) debugRadius = 50.0;
+    
+    if (!uShowBrush && !showDebug) return vec4(0.0);
+
+    float cellSize = 24.0;
+    
+    vec2 nearestVertex = floor((worldPos + cellSize * 0.5) / cellSize) * cellSize;
+    
+    bool inside = isInsideBrush(nearestVertex, debugPos.xy, debugRadius);
+    
+    if (!inside) return vec4(0.0);
+    
+    // ... outline logic ...
+    bool topInside = isInsideBrush(nearestVertex + vec2(0.0, cellSize), debugPos.xy, debugRadius);
+    bool bottomInside = isInsideBrush(nearestVertex - vec2(0.0, cellSize), debugPos.xy, debugRadius);
+    bool rightInside = isInsideBrush(nearestVertex + vec2(cellSize, 0.0), debugPos.xy, debugRadius);
+    bool leftInside = isInsideBrush(nearestVertex - vec2(cellSize, 0.0), debugPos.xy, debugRadius);
+    
+    vec2 cellRel = worldPos - nearestVertex;
+    
+    float lineWidth = 2.0 * (uCameraDistance * tan(0.785398) * 2.0 / uScreenHeight); 
+    
+    float outline = 0.0;
+    if (!leftInside) outline = max(outline, 1.0 - smoothstep(0.0, lineWidth, abs(cellRel.x + cellSize * 0.5)));
+    if (!rightInside) outline = max(outline, 1.0 - smoothstep(0.0, lineWidth, abs(cellRel.x - cellSize * 0.5)));
+    if (!bottomInside) outline = max(outline, 1.0 - smoothstep(0.0, lineWidth, abs(cellRel.y + cellSize * 0.5)));
+    if (!topInside) outline = max(outline, 1.0 - smoothstep(0.0, lineWidth, abs(cellRel.y - cellSize * 0.5)));
+    
+    // Force a color if uBrushColor is transparent/black for some reason
+    vec4 brushColor = uBrushColor;
+    if (brushColor.a == 0.0) brushColor = vec4(1.0, 0.0, 0.0, 0.2);
+    
+    float alpha = max(brushColor.a, outline);
+    return vec4(brushColor.rgb, alpha);
+}
+
 void main() {
     vec4 baseColor = texture(xOverlays, vTexUV);
     vec4 combinedOverlays = vec4(0.0);
@@ -223,6 +280,10 @@ void main() {
     
     // Blend grid with terrain
     vec3 finalColor = mix(terrainColor, gridColor, length(gridColor));
+    
+    // Apply Brush Overlay
+    vec4 brushColor = calculateBrush(worldPos);
+    finalColor = mix(finalColor, brushColor.rgb, brushColor.a);
     
     vec3 litColor = finalColor * (saturate(vLightingFactor) + xAmbient);
     FragColor = vec4(litColor, uAlpha);

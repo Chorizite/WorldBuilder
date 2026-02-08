@@ -230,6 +230,30 @@ public partial class RenderView : Base3DViewport {
         set => SetValue(DatsProperty, value);
     }
 
+    public static readonly StyledProperty<Vector3> BrushPositionProperty =
+        AvaloniaProperty.Register<RenderView, Vector3>(nameof(BrushPosition));
+
+    public Vector3 BrushPosition {
+        get => GetValue(BrushPositionProperty);
+        set => SetValue(BrushPositionProperty, value);
+    }
+
+    public static readonly StyledProperty<float> BrushRadiusProperty =
+        AvaloniaProperty.Register<RenderView, float>(nameof(BrushRadius), defaultValue: 30f);
+
+    public float BrushRadius {
+        get => GetValue(BrushRadiusProperty);
+        set => SetValue(BrushRadiusProperty, value);
+    }
+
+    public static readonly StyledProperty<bool> ShowBrushProperty =
+        AvaloniaProperty.Register<RenderView, bool>(nameof(ShowBrush));
+
+    public bool ShowBrush {
+        get => GetValue(ShowBrushProperty);
+        set => SetValue(ShowBrushProperty, value);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
         base.OnPropertyChanged(change);
 
@@ -243,6 +267,12 @@ public partial class RenderView : Base3DViewport {
                 _pendingLandscapeDocument = _cachedLandscapeDocument;
                 _pendingDatReader = dats;
             }
+        }
+        else if (change.Property == BrushPositionProperty ||
+                 change.Property == BrushRadiusProperty ||
+                 change.Property == ShowBrushProperty) {
+            _logger?.LogInformation("RenderView Property Changed: {Prop}, NewVal={Val}", change.Property.Name, change.NewValue);
+            _gameScene?.SetBrush(BrushPosition, BrushRadius, new Vector4(0, 1, 0, 0.4f), ShowBrush);
         }
     }
 

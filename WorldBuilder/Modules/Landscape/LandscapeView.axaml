@@ -26,7 +26,10 @@
     <!-- Center Viewport -->
     <views:RenderView Grid.Column="1" x:Name="RenderView" 
                       LandscapeDocument="{Binding ActiveDocument}" 
-                      Dats="{Binding Dats}" />
+                      Dats="{Binding Dats}"
+                      BrushPosition="{Binding BrushPosition}"
+                      BrushRadius="{Binding BrushRadius}"
+                      ShowBrush="{Binding ShowBrush}" />
 
     <!-- Right Sidebar: Layers & History -->
     <Grid Grid.Column="2" RowDefinitions="*, *">

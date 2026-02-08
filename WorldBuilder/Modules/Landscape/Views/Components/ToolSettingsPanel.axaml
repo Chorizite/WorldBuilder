@@ -17,10 +17,10 @@
             <DataTemplate DataType="{x:Type tools:BrushTool}">
               <StackPanel Spacing="8">
                 <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock Text="Radius" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="1" Text="{Binding BrushRadius, StringFormat='{}{0:F1}'}" VerticalAlignment="Center"/>
+                  <TextBlock Text="Size" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="1" Text="{Binding BrushSize}" VerticalAlignment="Center"/>
                 </Grid>
-                <Slider Value="{Binding BrushRadius}" Minimum="1" Maximum="50" IsSnapToTickEnabled="False" />
+                <Slider Value="{Binding BrushSize}" Minimum="1" Maximum="10" IsSnapToTickEnabled="True" TickFrequency="1" />
 
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="Strength" VerticalAlignment="Center"/>

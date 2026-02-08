@@ -145,6 +145,15 @@ public class GameScene : IDisposable {
         _camera3D.FarPlane = distance;
     }
 
+    public void SetBrush(Vector3 position, float radius, Vector4 color, bool show) {
+        if (_terrainManager != null) {
+            _terrainManager.BrushPosition = position;
+            _terrainManager.BrushRadius = radius;
+            _terrainManager.BrushColor = color;
+            _terrainManager.ShowBrush = show;
+        }
+    }
+
     /// <summary>
     /// Updates the scene.
     /// </summary>
