@@ -8,13 +8,10 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 using Microsoft.Extensions.Logging;
 using System;
 
-namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
-{
-    public class BucketFillCommandTests
-    {
+namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
+    public class BucketFillCommandTests {
         [Fact]
-        public void Execute_Contiguous_ShouldFloodFillOnlyConnectedAreas()
-        {
+        public void Execute_Contiguous_ShouldFloodFillOnlyConnectedAreas() {
             // Arrange
             var context = CreateContext(9, 9);
             var cache = context.Document.TerrainCache;
@@ -37,8 +34,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         }
 
         [Fact]
-        public void Execute_Global_ShouldReplaceAllInstances()
-        {
+        public void Execute_Global_ShouldReplaceAllInstances() {
             // Arrange
             var context = CreateContext(9, 9);
             var cache = context.Document.TerrainCache;
@@ -58,8 +54,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         }
 
         [Fact]
-        public void Undo_ShouldRevertChanges()
-        {
+        public void Undo_ShouldRevertChanges() {
             // Arrange
             var context = CreateContext(9, 9);
             var cache = context.Document.TerrainCache;
@@ -80,8 +75,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         }
 
         [Fact]
-        public void Execute_FloodFill_LargeArea_ShouldWork()
-        {
+        public void Execute_FloodFill_LargeArea_ShouldWork() {
             // Arrange
             // Create a larger map to trigger StackOverflow if stackalloc is inside loop
             // 256x256 vertices = 65536 iterations
@@ -102,8 +96,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
             Assert.Equal((byte?)5, cache[0].Type);
         }
 
-        private LandscapeToolContext CreateContext(int width, int height)
-        {
+        private LandscapeToolContext CreateContext(int width, int height) {
             var doc = new LandscapeDocument((uint)0xABCD);
 
             // Mock ITerrainInfo
@@ -117,11 +110,9 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
             regionMock.Setup(r => r.GetVertexCoordinates(It.IsAny<uint>()))
                 .Returns<uint>((delegate (uint idx) { return ((int)(idx % width), (int)(idx / width)); }));
 
-            // Inject Region via reflection
             var regionProp = typeof(LandscapeDocument).GetProperty("Region");
             regionProp?.SetValue(doc, regionMock.Object);
 
-            // Inject TerrainCache via reflection
             var cache = new TerrainEntry[width * height];
             var cacheProp = typeof(LandscapeDocument).GetProperty("TerrainCache");
             cacheProp?.SetValue(doc, cache);
@@ -129,11 +120,6 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
             var layerId = LandscapeLayerDocument.CreateId();
             var activeLayer = new LandscapeLayer(layerId, true);
             var activeLayerDoc = new LandscapeLayerDocument(layerId);
-            // Mock LayerDoc to avoid null reference if needed, though constructor handles it.
-            // Using reflection to set Terrain dictionary if needed, but for now assuming it's okay.
-            var terrainProp = typeof(LandscapeLayerDocument).GetProperty("Terrain");
-            // It's a readonly property initialized in constructor, so we can't easily set it if it was null, 
-            // but `new LandscapeLayerDocument(layerId)` initializes it.
 
             return new LandscapeToolContext(doc, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer, activeLayerDoc);
         }

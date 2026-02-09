@@ -8,13 +8,10 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 using Microsoft.Extensions.Logging;
 using System;
 
-namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
-{
-    public class BucketFillToolTests
-    {
+namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
+    public class BucketFillToolTests {
         [Fact]
-        public void Activate_ShouldSetIsActive()
-        {
+        public void Activate_ShouldSetIsActive() {
             var tool = new BucketFillTool();
             var context = CreateContext();
 
@@ -24,23 +21,17 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         }
 
         [Fact]
-        public void OnPointerPressed_ShouldExecuteBucketFillCommand()
-        {
+        public void OnPointerPressed_ShouldExecuteBucketFillCommand() {
             // Arrange
             var tool = new BucketFillTool();
             var context = CreateContext();
             context.ViewportSize = new Vector2(800, 600);
             tool.Activate(context);
 
-            // We don't really care about the raycast result here since we can't easily mock TerrainRaycast
-            // In a real project we might wrap TerrainRaycast in a service.
-            // For now, we'll just test that it doesn't crash and returns expected 'handled' status if it hits.
-            // Since our mock setup is minimal, it will probably miss.
-            // Let's just verify handled is false if it misses.
-            var e = new ViewportInputEvent
-            {
+            // Verify that the tool handles input correctly even when the raycast misses or invalid input is provided.
+            var e = new ViewportInputEvent {
                 IsLeftDown = true,
-                Position = new Vector2(-1000, -1000) // Definitely a miss
+                Position = new Vector2(-1000, -1000)
             };
 
             // Act
@@ -50,8 +41,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
             Assert.False(handled);
         }
 
-        private LandscapeToolContext CreateContext()
-        {
+        private LandscapeToolContext CreateContext() {
             var doc = new LandscapeDocument((uint)0xABCD);
 
             // Mock ITerrainInfo

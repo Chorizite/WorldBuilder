@@ -63,7 +63,9 @@ namespace WorldBuilder.Lib.Settings {
                 : $"{parentTag}-{category.Name.ToLower().Replace(" ", "-")}";
 
             var item = new ListBoxItem {
-                Content = category.Name, Tag = tag, Classes = { isRoot ? "NavSection" : "NavSubSection" }
+                Content = category.Name,
+                Tag = tag,
+                Classes = { isRoot ? "NavSection" : "NavSubSection" }
             };
 
             listBox.Items.Add(item);
@@ -98,7 +100,10 @@ namespace WorldBuilder.Lib.Settings {
 
             // Add title
             stackPanel.Children.Add(new TextBlock {
-                Text = category.Name, FontSize = 16, FontWeight = FontWeight.Bold, Margin = new Thickness(0, 0, 0, 12)
+                Text = category.Name,
+                FontSize = 16,
+                FontWeight = FontWeight.Bold,
+                Margin = new Thickness(0, 0, 0, 12)
             });
 
             // Add property controls
@@ -159,7 +164,8 @@ namespace WorldBuilder.Lib.Settings {
 
                 if (!string.IsNullOrEmpty(metadata.Format)) {
                     var valueDisplay = new TextBlock {
-                        Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center
+                        Margin = new Thickness(8, 0, 0, 0),
+                        VerticalAlignment = VerticalAlignment.Center
                     };
                     valueDisplay.Bind(TextBlock.TextProperty,
                         new Binding { Source = instance, Path = bindingPath, StringFormat = metadata.Format });
@@ -178,7 +184,8 @@ namespace WorldBuilder.Lib.Settings {
             // Description
             if (!string.IsNullOrEmpty(metadata.Description)) {
                 stackPanel.Children.Add(new TextBlock {
-                    Classes = { "SettingDescription" }, Text = metadata.Description
+                    Classes = { "SettingDescription" },
+                    Text = metadata.Description
                 });
             }
 
@@ -236,7 +243,6 @@ namespace WorldBuilder.Lib.Settings {
                 var dockPanel = new DockPanel();
 
                 var button = new Button { Width = 80, Content = "Browse...", Margin = new Thickness(8, 0, 0, 0) };
-                // Note: Button click handler would need to be wired up separately
                 DockPanel.SetDock(button, Dock.Right);
                 dockPanel.Children.Add(button);
 
@@ -270,7 +276,10 @@ namespace WorldBuilder.Lib.Settings {
             var converter = new Vector3ToColorConverter();
             colorPicker.Bind(Avalonia.Controls.ColorPicker.ColorProperty,
                 new Binding {
-                    Source = instance, Path = bindingPath, Mode = BindingMode.TwoWay, Converter = converter
+                    Source = instance,
+                    Path = bindingPath,
+                    Mode = BindingMode.TwoWay,
+                    Converter = converter
                 });
             return colorPicker;
         }

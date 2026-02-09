@@ -10,8 +10,7 @@ using WorldBuilder.Shared.Modules.Landscape.Commands;
 
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 
-public partial class LayerItemViewModel : ViewModelBase
-{
+public partial class LayerItemViewModel : ViewModelBase {
     private readonly LandscapeLayerBase _model;
     private readonly Action<LayerItemViewModel> _onDelete;
     private readonly Action<LayerItemViewModel, bool> _onChanged; // bool isVisibleChange
@@ -20,8 +19,7 @@ public partial class LayerItemViewModel : ViewModelBase
     [ObservableProperty] private string _name;
     [ObservableProperty] private bool _isVisible = true;
 
-    partial void OnIsVisibleChanged(bool value)
-    {
+    partial void OnIsVisibleChanged(bool value) {
         _model.IsVisible = value;
         _onChanged?.Invoke(this, true);
     }
@@ -44,8 +42,7 @@ public partial class LayerItemViewModel : ViewModelBase
 
     private readonly CommandHistory _history;
 
-    public LayerItemViewModel(LandscapeLayerBase model, CommandHistory history, Action<LayerItemViewModel> onDelete, Action<LayerItemViewModel, bool> onChanged)
-    {
+    public LayerItemViewModel(LandscapeLayerBase model, CommandHistory history, Action<LayerItemViewModel> onDelete, Action<LayerItemViewModel, bool> onChanged) {
         _model = model;
         _history = history;
         _onDelete = onDelete;
@@ -55,32 +52,20 @@ public partial class LayerItemViewModel : ViewModelBase
         _isVisible = _model.IsVisible;
     }
 
-    partial void OnNameChanged(string value)
-    {
-        // Don't update model immediately to avoid loops/partially typed names
-        // _model.Name = value; 
-    }
-
     [RelayCommand]
-    private void StartEdit()
-    {
-        if (!IsEditing)
-        {
+    private void StartEdit() {
+        if (!IsEditing) {
             IsEditing = true;
         }
     }
 
     [RelayCommand]
-    private void EndEdit()
-    {
-        if (IsEditing)
-        {
+    private void EndEdit() {
+        if (IsEditing) {
             IsEditing = false;
 
-            if (Name != _model.Name)
-            {
-                var command = new RenameLandscapeLayerCommand(_model, Name, (newName) =>
-                {
+            if (Name != _model.Name) {
+                var command = new RenameLandscapeLayerCommand(_model, Name, (newName) => {
                     Name = newName;
                     _onChanged?.Invoke(this, false);
                 });
@@ -90,21 +75,16 @@ public partial class LayerItemViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void ToggleVisibility()
-    {
-        if (CanToggleVisibility)
-        {
+    private void ToggleVisibility() {
+        if (CanToggleVisibility) {
             IsVisible = !IsVisible;
         }
     }
 
     [RelayCommand]
-    private void ToggleExport()
-    {
-        if (CanToggleExport)
-        {
-            var cmd = new ToggleLayerExportCommand(_model, (newState) =>
-            {
+    private void ToggleExport() {
+        if (CanToggleExport) {
+            var cmd = new ToggleLayerExportCommand(_model, (newState) => {
                 IsExported = newState;
                 _onChanged?.Invoke(this, false);
             });
@@ -113,10 +93,8 @@ public partial class LayerItemViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Delete()
-    {
-        if (!IsBase)
-        {
+    private void Delete() {
+        if (!IsBase) {
             _onDelete?.Invoke(this);
         }
     }

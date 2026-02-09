@@ -64,8 +64,6 @@ public partial class MainViewModel : ViewModelBase {
 
     [RelayCommand]
     private void OpenDebugWindow() {
-        // We'll implement the actual window opening in the code-behind
-        // For now, just raise an event or call a service
         var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
         if (desktop?.MainWindow is Views.MainWindow mainWindow) {
             mainWindow.OpenDebugWindow();
