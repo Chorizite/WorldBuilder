@@ -99,9 +99,7 @@ namespace WorldBuilder.Shared.Modules.Landscape {
             }
 
             public static bool Invert(Matrix4x4d matrix, out Matrix4x4d result) {
-                // Implementing Matrix Inversion using Gaussian elimination or similar is complex.
-                // However, System.Numerics.Matrix4x4.Invert uses a known formula involving determinants.
-                // We'll reimplement the determinant based inversion in double.
+                // Matrix Inversion using Cramer's rule / Minors and Cofactors in double precision.
 
                 double a = matrix.M11, b = matrix.M12, c = matrix.M13, d = matrix.M14;
                 double e = matrix.M21, f = matrix.M22, g = matrix.M23, h = matrix.M24;
@@ -245,16 +243,7 @@ namespace WorldBuilder.Shared.Modules.Landscape {
             Matrix4x4d projection = new Matrix4x4d(camera.ProjectionMatrix);
             Matrix4x4d view = new Matrix4x4d(camera.ViewMatrix);
 
-            // To ensure we don't lose precision from the ViewMatrix translation if it's already float,
-            // we can try to patch it from Camera.Position if available.
-            // However, existing ViewMatrix IS float.
-            // If the camera position is large, ViewMatrix.M41/M42/M43 are large.
-            // Converting them to double now preserves the large value, but doesn't recover lost precision.
-            // BUT, calculating the Inverse in Double is better than Float.
-
-            // If we access Camera.Position (float), we are still limited.
-            // But if we upgrade the Matrix math, we avoid *compounding* errors.
-
+            // Perform unprojection using double precision to maintain accuracy at large distances from origin.
             Matrix4x4d viewProjection = view * projection;
 
             if (!Matrix4x4d.Invert(viewProjection, out Matrix4x4d viewProjectionInverse)) {

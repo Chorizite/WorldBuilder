@@ -6,13 +6,10 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using Microsoft.Extensions.Logging;
 
-namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
-{
-    public class RoadVertexToolTests
-    {
+namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
+    public class RoadVertexToolTests {
         [Fact]
-        public void OnPointerPressed_ShouldSetRoadBitAtSnappedVertex()
-        {
+        public void OnPointerPressed_ShouldSetRoadBitAtSnappedVertex() {
             // Arrange
             var tool = new RoadVertexTool { RoadBits = 4 };
             var context = CreateContext();
@@ -23,15 +20,16 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
 
             // Act
             bool handled = tool.OnPointerPressed(e);
+            bool released = tool.OnPointerReleased(e);
 
             // Assert
             Assert.True(handled);
+            Assert.True(released);
             Assert.Equal((byte)4, context.Document.TerrainCache[10].Road);
             Assert.Single(context.CommandHistory.History);
         }
 
-        private LandscapeToolContext CreateContext()
-        {
+        private LandscapeToolContext CreateContext() {
             var doc = new LandscapeDocument("LandscapeDocument_1");
             var cache = new TerrainEntry[81];
             for (int i = 0; i < cache.Length; i++) cache[i] = new TerrainEntry();
@@ -45,6 +43,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
             regionMock.Setup(r => r.CellSizeInUnits).Returns(24f);
             regionMock.Setup(r => r.MapWidthInLandblocks).Returns(1);
             regionMock.Setup(r => r.MapHeightInLandblocks).Returns(1);
+            regionMock.Setup(r => r.LandblockCellLength).Returns(8);
             regionMock.Setup(r => r.MapWidthInVertices).Returns(9);
             regionMock.Setup(r => r.MapHeightInVertices).Returns(9);
             regionMock.Setup(r => r.LandblockVerticeLength).Returns(9);
@@ -66,8 +65,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
             cameraMock.Setup(c => c.ProjectionMatrix).Returns(projection);
             cameraMock.Setup(c => c.ViewMatrix).Returns(view);
 
-            return new LandscapeToolContext(doc, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object, activeLayer, activeLayerDoc)
-            {
+            return new LandscapeToolContext(doc, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object, activeLayer, activeLayerDoc) {
                 ViewportSize = new Vector2(500, 500)
             };
         }
