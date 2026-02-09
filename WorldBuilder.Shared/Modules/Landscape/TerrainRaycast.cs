@@ -261,12 +261,6 @@ namespace WorldBuilder.Shared.Modules.Landscape {
             Vector3d rayOrigin = new Vector3d(nearWorld.X, nearWorld.Y, nearWorld.Z);
             Vector3d rayDirection = Vector3d.Normalize(farWorld - rayOrigin);
 
-            if (logger != null) {
-                logger.LogInformation("Raycast Debug: Mouse=({MX},{MY}) VP={W}x{H}", mouseX, mouseY, viewportWidth, viewportHeight);
-                logger.LogInformation("Raycast Debug: CamPos={Pos}", camera.Position);
-                logger.LogInformation("Raycast Debug: RayOrigin={Org} RayDir={Dir}", rayOrigin, rayDirection);
-            }
-
             return TraverseLandblocks(rayOrigin, rayDirection, region, terrainCache, logger);
         }
 
@@ -279,7 +273,6 @@ namespace WorldBuilder.Shared.Modules.Landscape {
             TerrainRaycastHit hit = new TerrainRaycastHit { Hit = false };
 
             double landblockSize = region.CellSizeInUnits * region.LandblockCellLength;
-            if (logger != null) logger.LogInformation("Raycast Debug: LandblockSize={LBSize}", landblockSize);
             const double maxDistance = 80000.0;
 
             Vector3d rayEnd = rayOrigin + rayDirection * maxDistance;
@@ -423,9 +416,6 @@ namespace WorldBuilder.Shared.Modules.Landscape {
                 hit.HitPosition = hitPosition.ToVector3();
                 hit.Distance = (float)closestDistance;
                 hit.LandcellId = (landblockID << 16) + hitCellX * 8 + hitCellY;
-                if (logger != null) {
-                    logger.LogInformation("Raycast HIT: Pos={Pos} Cell={CX},{CY} Dist={Dist}", hit.HitPosition, hitCellX, hitCellY, hit.Distance);
-                }
             }
 
             return hit;
