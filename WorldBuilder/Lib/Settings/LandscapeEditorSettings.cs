@@ -60,6 +60,11 @@ namespace WorldBuilder.Lib.Settings {
         [SettingOrder(1)]
         private float _lightIntensity = 0.45f;
         public float LightIntensity { get => _lightIntensity; set => SetProperty(ref _lightIntensity, value); }
+
+        [SettingDescription("Render the landscape in wireframe mode")]
+        [SettingOrder(2)]
+        private bool _showWireframe = false;
+        public bool ShowWireframe { get => _showWireframe; set => SetProperty(ref _showWireframe, value); }
     }
 
     [SettingCategory("Grid", ParentCategory = "Landscape Editor", Order = 2)]

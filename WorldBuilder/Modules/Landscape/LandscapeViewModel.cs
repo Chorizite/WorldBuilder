@@ -17,6 +17,9 @@ using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Modules.Landscape;
 using WorldBuilder.Modules.Landscape.ViewModels;
 using WorldBuilder.ViewModels;
+using WorldBuilder.Lib.Settings;
+using WorldBuilder.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 using Chorizite.OpenGLSDLBackend;
 using ICamera = WorldBuilder.Shared.Models.ICamera;
@@ -45,6 +48,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
     [ObservableProperty] private float _brushRadius = 30f;
     [ObservableProperty] private bool _showBrush;
 
+    [ObservableProperty] private bool _isWireframeEnabled;
+    [ObservableProperty] private bool _isGridEnabled;
+    [ObservableProperty] private bool _is3DCameraEnabled = true;
+
+    private readonly WorldBuilderSettings? _settings;
+
     public CommandHistory CommandHistory { get; } = new();
     public HistoryPanelViewModel HistoryPanel { get; }
     public LayersPanelViewModel LayersPanel { get; }
@@ -60,6 +69,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         _dats = dats;
         _documentManager = documentManager;
         _log = log;
+        _settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
+
+        if (_settings != null) {
+            IsWireframeEnabled = _settings.Landscape.Rendering.ShowWireframe;
+            IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
+        }
 
         HistoryPanel = new HistoryPanelViewModel(CommandHistory);
         LayersPanel = new LayersPanelViewModel(log, CommandHistory, async (item, isVisibleChange) => {
@@ -259,6 +274,24 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         }
         catch (Exception ex) {
             _log.LogError(ex, "Error loading landscape");
+        }
+    }
+
+    public void ToggleCamera() {
+        Is3DCameraEnabled = !Is3DCameraEnabled;
+    }
+
+    public void ToggleWireframe() {
+        IsWireframeEnabled = !IsWireframeEnabled;
+        if (_settings != null) {
+            _settings.Landscape.Rendering.ShowWireframe = IsWireframeEnabled;
+        }
+    }
+
+    public void ToggleGrid() {
+        IsGridEnabled = !IsGridEnabled;
+        if (_settings != null) {
+            _settings.Landscape.Grid.ShowGrid = IsGridEnabled;
         }
     }
 

@@ -24,12 +24,39 @@
     </Grid>
 
     <!-- Center Viewport -->
-    <views:RenderView Grid.Column="1" x:Name="RenderView" 
-                      LandscapeDocument="{Binding ActiveDocument}" 
-                      Dats="{Binding Dats}"
-                      BrushPosition="{Binding BrushPosition}"
-                      BrushRadius="{Binding BrushRadius}"
-                      ShowBrush="{Binding ShowBrush}" />
+    <Panel Grid.Column="1">
+      <views:RenderView x:Name="RenderView" 
+                        LandscapeDocument="{Binding ActiveDocument}" 
+                        Dats="{Binding Dats}"
+                        BrushPosition="{Binding BrushPosition}"
+                        BrushRadius="{Binding BrushRadius}"
+                        ShowBrush="{Binding ShowBrush}"
+                        ShowWireframe="{Binding IsWireframeEnabled}"
+                        Is3DCamera="{Binding Is3DCameraEnabled}" />
+
+      <!-- Overlay Buttons -->
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" Spacing="4">
+        <StackPanel.Styles>
+          <Style Selector="Button">
+            <Setter Property="Padding" Value="4" />
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Background" Value="#80000000" />
+          </Style>
+        </StackPanel.Styles>
+        <Button Command="{Binding ToggleCamera}" ToolTip.Tip="Toggle Camera">
+          <TextBlock Text="📷" />
+        </Button>
+        <Button Command="{Binding ToggleWireframe}" ToolTip.Tip="Toggle Wireframe">
+          <TextBlock Text="🕸️" />
+        </Button>
+        <Button Command="{Binding ToggleGrid}" ToolTip.Tip="Toggle Grid">
+          <TextBlock Text="📏" />
+        </Button>
+      </StackPanel>
+    </Panel>
 
     <!-- Right Sidebar: Layers & History -->
     <Grid Grid.Column="2" RowDefinitions="*, *">

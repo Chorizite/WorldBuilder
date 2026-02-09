@@ -290,6 +290,22 @@ public partial class RenderView : Base3DViewport {
         set => SetValue(ShowBrushProperty, value);
     }
 
+    public static readonly StyledProperty<bool> ShowWireframeProperty =
+        AvaloniaProperty.Register<RenderView, bool>(nameof(ShowWireframe));
+
+    public bool ShowWireframe {
+        get => GetValue(ShowWireframeProperty);
+        set => SetValue(ShowWireframeProperty, value);
+    }
+
+    public static readonly StyledProperty<bool> Is3DCameraProperty =
+        AvaloniaProperty.Register<RenderView, bool>(nameof(Is3DCamera), defaultValue: true);
+
+    public bool Is3DCamera {
+        get => GetValue(Is3DCameraProperty);
+        set => SetValue(Is3DCameraProperty, value);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
         base.OnPropertyChanged(change);
 
@@ -308,6 +324,14 @@ public partial class RenderView : Base3DViewport {
                  change.Property == BrushRadiusProperty ||
                  change.Property == ShowBrushProperty) {
             _gameScene?.SetBrush(BrushPosition, BrushRadius, new Vector4(0, 1, 0, 0.4f), ShowBrush);
+        }
+        else if (change.Property == ShowWireframeProperty) {
+            if (_gameScene != null) {
+                _gameScene.ShowWireframe = ShowWireframe;
+            }
+        }
+        else if (change.Property == Is3DCameraProperty) {
+            _gameScene?.SetCameraMode(Is3DCamera);
         }
     }
 

@@ -48,7 +48,7 @@ public class GameScene : IDisposable {
     private IShader? _shader;
     private IShader? _terrainShader;
     private bool _initialized;
-    private bool _wireframeMode;
+    public bool ShowWireframe { get; set; }
     private int _width;
     private int _height;
 
@@ -138,6 +138,16 @@ public class GameScene : IDisposable {
     }
 
     /// <summary>
+    /// Sets the camera mode.
+    /// </summary>
+    /// <param name="is3d">Whether to use 3D mode.</param>
+    public void SetCameraMode(bool is3d) {
+        _is3DMode = is3d;
+        _currentCamera = _is3DMode ? _camera3D : _camera2D;
+        _log.LogInformation("Camera set to {Mode} mode", _is3DMode ? "3D" : "2D");
+    }
+
+    /// <summary>
     /// Sets the draw distance for the 3D camera.
     /// </summary>
     /// <param name="distance">The far clipping plane distance.</param>
@@ -222,7 +232,7 @@ public class GameScene : IDisposable {
 
         // Render Terrain
         if (_terrainManager != null) {
-            if (_wireframeMode) {
+            if (ShowWireframe) {
                 _gl.PolygonMode(GLEnum.FrontAndBack, Silk.NET.OpenGL.PolygonMode.Line);
             }
             else {
@@ -277,8 +287,8 @@ public class GameScene : IDisposable {
         }
 
         if (key.Equals("X", StringComparison.OrdinalIgnoreCase)) {
-            _wireframeMode = !_wireframeMode;
-            _log.LogInformation("Wireframe mode: {Mode}", _wireframeMode ? "On" : "Off");
+            ShowWireframe = !ShowWireframe;
+            _log.LogInformation("Wireframe mode: {Mode}", ShowWireframe ? "On" : "Off");
             return;
         }
 
