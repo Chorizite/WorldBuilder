@@ -24,7 +24,6 @@ jobs:
         sudo sed -i 's/yes/no/g' /etc/initramfs-tools/update-initramfs.conf # Disable initramfs update
         sudo rm -f /var/lib/man-db/auto-update # Disable man-db update
         sudo apt update && sudo apt install -y nsis nsis-pluginapi
-        dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator
     
     - name: Install GitVersion
       uses: gittools/actions/gitversion/setup@v0.10.2
@@ -43,7 +42,7 @@ jobs:
         echo "APP_VERSION=${{ steps.gitversion.outputs.majorMinorPatch }}+${{ steps.gitversion.outputs.commitsSinceVersionSource }}" >> $GITHUB_ENV
 
     - name: Build
-      run: dotnet publish WorldBuilder.Desktop/WorldBuilder.Desktop.csproj -r win-x64 -p:InformationalVersion=${{ env.APP_VERSION }} -p:Version=${{ env.APP_VERSION }} -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
+      run: dotnet publish WorldBuilder.Windows/WorldBuilder.Windows.csproj -r win-x64 -p:InformationalVersion=${{ env.APP_VERSION }} -p:Version=${{ env.APP_VERSION }} -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
     
     - name: Get Latest Release Tag
       id: get_latest_release
@@ -94,28 +93,8 @@ jobs:
 
     - name: Build installer
       run: |
-          makensis -DVERSION="${{ env.APP_VERSION }}" -DBUILDPATH="${{ github.workspace }}/WorldBuilder.Desktop/bin/Release/net8.0/win-x64/publish/" "${{ github.workspace }}/Installer.nsi"
+          makensis -DVERSION="${{ env.APP_VERSION }}" -DBUILDPATH="${{ github.workspace }}/WorldBuilder.Windows/bin/Release/net8.0-windows/win-x64/publish/" "${{ github.workspace }}/Installer.nsi"
     
-    - name: Generate updated appcast
-      run: |
-        mkdir -p appcast
-        cp ./WorldBuilderInstaller-${{ env.APP_VERSION }}.exe appcast/
-        cd appcast
-        curl -f -o appcast.xml https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/appcast.xml || true
-        
-        # Remove all edge channel releases from existing appcast
-        if [ -f appcast.xml ]; then
-          python3 ${{ github.workspace }}/.github/scripts/clean_appcast.py appcast.xml edge
-        fi
-        
-        netsparkle-generate-appcast -b . -f true --os windows-x64 -n WorldBuilder --file-version "${{ env.APP_VERSION }}" --overwrite-old-items --reparse-existing true --human-readable true --channel edge --change-log-path ../ --base-url "https://github.com/${{ github.repository_owner }}/${{ github.event.repository.name }}/releases/download/latest/"
-        echo "Updated appcast.xml:"
-        cat appcast.xml
-        rm WorldBuilderInstaller-${{ env.APP_VERSION }}.exe
-      shell: bash
-      env:
-        SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-        SPARKLE_PUBLIC_KEY: ${{ secrets.SPARKLE_PUBLIC_KEY }}
     
     - name: Create/Update Pre-release
       if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
@@ -138,13 +117,3 @@ jobs:
         draft: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Deploy appcast to GitHub Pages
-      if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./appcast
-        keep_files: true
-        user_name: 'github-actions[bot]'
-        user_email: 'github-actions[bot]@users.noreply.github.com'
