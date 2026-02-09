@@ -6,13 +6,11 @@ using System.Numerics;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Models;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Tools
-{
+namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     /// <summary>
     /// A tool for painting textures on the terrain using a circular brush.
     /// </summary>
-    public class BrushTool : ObservableObject, ILandscapeTool
-    {
+    public class BrushTool : ObservableObject, ILandscapeTool {
         private const int TextureId = 5;
         private const float CELL_SIZE = 24f; // TOD: pull from region info?
 
@@ -30,13 +28,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
 
         private int _brushSize = 1;
         /// <summary>Gets or sets the size of the brush (diameter in vertices).</summary>
-        public int BrushSize
-        {
+        public int BrushSize {
             get => _brushSize;
-            set
-            {
-                if (SetProperty(ref _brushSize, value))
-                {
+            set {
+                if (SetProperty(ref _brushSize, value)) {
                     OnPropertyChanged(nameof(BrushRadius));
                 }
             }
@@ -44,8 +39,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
 
         private float _brushStrength = 1f;
         /// <summary>Gets or sets the strength/intensity of the brush.</summary>
-        public float BrushStrength
-        {
+        public float BrushStrength {
             get => _brushStrength;
             set => SetProperty(ref _brushStrength, value);
         }
@@ -60,8 +54,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
         /// </summary>
         /// <param name="size">The brush size (diameter in vertices).</param>
         /// <returns>The world radius.</returns>
-        public static float GetWorldRadius(int size)
-        {
+        public static float GetWorldRadius(int size) {
             // Size 1 = 1 vertex -> Radius ~0 (but we need enough to capture the center vertex)
             // A radius of 0.5 * CellSize would capture the center vertex.
             // But usually we want:
@@ -132,53 +125,44 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
             return ((Math.Max(1, size) - 1) / 2.0f) * CELL_SIZE + (CELL_SIZE * 0.55f);
         }
 
-        public void Activate(LandscapeToolContext context)
-        {
+        public void Activate(LandscapeToolContext context) {
             _context = context;
             IsActive = true;
         }
 
-        public void Deactivate()
-        {
+        public void Deactivate() {
             IsActive = false;
             _context = null;
         }
 
-        public void Update(double deltaTime)
-        {
+        public void Update(double deltaTime) {
         }
 
-        public bool OnPointerPressed(ViewportInputEvent e)
-        {
-            if (_context == null || !e.IsLeftDown)
-            {
+        public bool OnPointerPressed(ViewportInputEvent e) {
+            if (_context == null || !e.IsLeftDown) {
                 return false;
             }
 
             var hit = Raycast(e.Position.X, e.Position.Y);
-            if (hit.Hit)
-            {
+            if (hit.Hit) {
                 _isPainting = true;
                 _lastHit = hit;
                 _currentStroke = new CompoundCommand("Brush Stroke");
                 ApplyPaint(hit);
                 return true;
             }
-            else
-            {
+            else {
                 _context.Logger.LogWarning("BrushTool Raycast Missed. Pos: {Pos}", e.Position);
             }
 
             return false;
         }
 
-        public bool OnPointerMoved(ViewportInputEvent e)
-        {
+        public bool OnPointerMoved(ViewportInputEvent e) {
             if (!_isPainting || _context == null) return false;
 
             var hit = Raycast(e.Position.X, e.Position.Y);
-            if (hit.Hit)
-            {
+            if (hit.Hit) {
                 ApplyPaint(hit);
                 _lastHit = hit;
                 return true;
@@ -187,13 +171,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
             return false;
         }
 
-        public bool OnPointerReleased(ViewportInputEvent e)
-        {
-            if (_isPainting)
-            {
+        public bool OnPointerReleased(ViewportInputEvent e) {
+            if (_isPainting) {
                 _isPainting = false;
-                if (_currentStroke != null)
-                {
+                if (_currentStroke != null) {
                     _context?.CommandHistory.Execute(_currentStroke);
                     _currentStroke = null;
                 }
@@ -202,16 +183,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
             return false;
         }
 
-        private TerrainRaycast.TerrainRaycastHit Raycast(double x, double y)
-        {
+        private TerrainRaycast.TerrainRaycastHit Raycast(double x, double y) {
             if (_context == null || _context.Document.Region == null) return new TerrainRaycast.TerrainRaycastHit();
 
             // Use ViewportSize from context
-            return TerrainRaycast.Raycast((float)x, (float)y, (int)_context.ViewportSize.X, (int)_context.ViewportSize.Y, _context.Camera, _context.Document.Region, _context.Document.TerrainCache);
+            return TerrainRaycast.Raycast((float)x, (float)y, (int)_context.ViewportSize.X, (int)_context.ViewportSize.Y, _context.Camera, _context.Document.Region, _context.Document.TerrainCache, _context.Logger);
         }
 
-        private void ApplyPaint(TerrainRaycast.TerrainRaycastHit hit)
-        {
+        private void ApplyPaint(TerrainRaycast.TerrainRaycastHit hit) {
             if (_context == null || _currentStroke == null) return;
             // Snap to nearest vertex
             var center = hit.NearestVertice;

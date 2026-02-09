@@ -163,9 +163,10 @@ public partial class RenderView : Base3DViewport {
     }
 
     private ViewportInputEvent CreateInputEvent(PointerEventArgs e) {
-        var point = e.GetCurrentPoint(this);
-        var size = new Vector2((float)Bounds.Width, (float)Bounds.Height) * InputScale;
-        var pos = e.GetPosition(this);
+        var relativeTo = _viewport ?? this;
+        var point = e.GetCurrentPoint(relativeTo);
+        var size = new Vector2((float)relativeTo.Bounds.Width, (float)relativeTo.Bounds.Height) * InputScale;
+        var pos = e.GetPosition(relativeTo);
         var posVec = new Vector2((float)pos.X, (float)pos.Y) * InputScale;
         var delta = posVec - _lastPointerPosition;
 

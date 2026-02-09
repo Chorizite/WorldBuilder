@@ -18,7 +18,7 @@ using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Views {
     public abstract partial class Base3DViewport : UserControl {
-        private Control? _viewport;
+        protected Control? _viewport;
         private GlVisual? _glVisual;
         private CompositionCustomVisual? _visual;
         private Size _lastViewportSize;
