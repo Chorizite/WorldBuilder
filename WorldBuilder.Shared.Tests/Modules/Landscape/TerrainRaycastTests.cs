@@ -1,3 +1,4 @@
+using DatReaderWriter.Enums;
 using System.Numerics;
 using Moq;
 using WorldBuilder.Shared.Models;
@@ -25,6 +26,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             mock.Setup(r => r.MapHeightInVertices).Returns(lbHeight * 8 + 1);
             mock.Setup(r => r.GetLandblockId(It.IsAny<int>(), It.IsAny<int>())).Returns(0);
             mock.Setup(r => r.LandHeights).Returns(new float[256]);
+            
             return mock;
         }
 

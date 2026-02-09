@@ -1,17 +1,18 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using DatReaderWriter.Enums;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     /// <summary>
     /// A tool for filling connected areas of the same texture with a new texture.
     /// </summary>
-    public class BucketFillTool : ObservableObject, ILandscapeTool {
-        private const int DefaultTextureId = 5;
-
+    public class BucketFillTool : ObservableObject, ITexturePaintingTool {
         /// <inheritdoc/>
         public string Name => "Paint Bucket";
         /// <inheritdoc/>
@@ -21,12 +22,18 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         private LandscapeToolContext? _context;
 
-        private int _textureId = DefaultTextureId;
-        /// <summary>Gets or sets the texture ID to fill with.</summary>
-        public int TextureId {
-            get => _textureId;
-            set => SetProperty(ref _textureId, value);
+        private TerrainTextureType _texture = (TerrainTextureType)5;
+        /// <summary>Gets or sets the texture to fill with.</summary>
+        public TerrainTextureType Texture {
+            get => _texture;
+            set => SetProperty(ref _texture, value);
         }
+
+        /// <summary>Gets all available terrain textures.</summary>
+        public IEnumerable<TerrainTextureType> AllTextures => _allTextures;
+        private static readonly IEnumerable<TerrainTextureType> _allTextures = Enum.GetValues<TerrainTextureType>()
+            .Where(t => !t.ToString().Contains("RoadType") && !t.ToString().Contains("Invalid"))
+            .OrderBy(t => t.ToString());
 
         private bool _isContiguous = true;
         /// <summary>Gets or sets whether to fill only connected areas (flood fill) or globally replace.</summary>
@@ -53,7 +60,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
             var hit = Raycast(e.Position.X, e.Position.Y);
             if (hit.Hit) {
-                var command = new BucketFillCommand(_context, hit.HitPosition, TextureId, IsContiguous);
+                var command = new BucketFillCommand(_context, hit.HitPosition, (int)Texture, IsContiguous);
                 _context.CommandHistory.Execute(command);
                 return true;
             }

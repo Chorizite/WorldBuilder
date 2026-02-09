@@ -89,6 +89,7 @@ namespace WorldBuilder.Lib.Extensions {
             var datDirectory = project.BaseDatDirectory;
             var connectionString = $"Data Source={project.ProjectFile}";
 
+            collection.AddSingleton<TextureService>();
             collection.AddWorldBuilderSharedServices(connectionString, datDirectory);
         }
     }

@@ -2,8 +2,70 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:WorldBuilder.Modules.Landscape"
              xmlns:tools="clr-namespace:WorldBuilder.Shared.Modules.Landscape.Tools;assembly=WorldBuilder.Shared"
+             xmlns:converters="clr-namespace:WorldBuilder.Converters"
              x:Class="WorldBuilder.Modules.Landscape.Views.Components.ToolSettingsPanel"
+             x:Name="SettingsRoot"
              x:DataType="vm:LandscapeViewModel">
+    <UserControl.Resources>
+      <converters:TextureToViewModelConverter x:Key="TextureConverter" />
+      <DataTemplate x:Key="TextureGridTemplate" x:DataType="tools:ITexturePaintingTool">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Texture" FontWeight="SemiBold" FontSize="12" Margin="0,4,0,0"/>
+          <ListBox ItemsSource="{Binding AllTextures}" 
+                   SelectedItem="{Binding Texture}"
+                   Background="Transparent" BorderThickness="0" Padding="0">
+            <ListBox.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel Orientation="Horizontal" />
+              </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <Border Width="36" Height="36" 
+                        Background="{DynamicResource ControlFillColorDefaultBrush}"
+                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        ToolTip.Tip="{Binding}">
+                  <Panel>
+                    <Panel.DataContext>
+                        <MultiBinding Converter="{StaticResource TextureConverter}">
+                            <Binding Path="DataContext" RelativeSource="{RelativeSource AncestorType=Border}" />
+                            <Binding ElementName="SettingsRoot" Path="DataContext" />
+                            <Binding ElementName="SettingsRoot" Path="DataContext.ActiveDocument" />
+                        </MultiBinding>
+                    </Panel.DataContext>
+                    <Image Width="32" Height="32" Stretch="UniformToFill" Source="{Binding Image, DataType=converters:TextureLoader}"/>
+                    <TextBlock Text="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Border}}" 
+                               FontSize="8" 
+                               TextWrapping="Wrap" 
+                               HorizontalAlignment="Center" 
+                               VerticalAlignment="Center" 
+                               TextAlignment="Center"
+                               Opacity="0.7"
+                               IsVisible="{Binding Image, Converter={x:Static ObjectConverters.IsNull}, DataType=converters:TextureLoader}"/>
+                  </Panel>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+            <ListBox.Styles>
+              <Style Selector="ListBoxItem">
+                <Setter Property="Padding" Value="2"/>
+                <Setter Property="MinWidth" Value="0"/>
+              </Style>
+              <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                <Setter Property="Background" Value="Transparent"/>
+              </Style>
+              <Style Selector="ListBoxItem:selected Border">
+                <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}"/>
+                <Setter Property="BorderThickness" Value="2"/>
+              </Style>
+            </ListBox.Styles>
+          </ListBox>
+        </StackPanel>
+      </DataTemplate>
+    </UserControl.Resources>
+
     <Border Background="{DynamicResource SolidBackgroundFillColorBase}" 
             BorderBrush="{DynamicResource SurfaceStrokeColorDefault}"
             BorderThickness="1"
@@ -22,11 +84,7 @@
                 </Grid>
                 <Slider Value="{Binding BrushSize}" Minimum="1" Maximum="10" IsSnapToTickEnabled="True" TickFrequency="1" />
 
-                <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock Text="Strength" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="1" Text="{Binding BrushStrength, StringFormat='{}{0:F2}'}" VerticalAlignment="Center"/>
-                </Grid>
-                <Slider Value="{Binding BrushStrength}" Minimum="0" Maximum="1" TickFrequency="0.01" IsSnapToTickEnabled="True" />
+                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource TextureGridTemplate}"/>
               </StackPanel>
             </DataTemplate>
 
@@ -34,10 +92,8 @@
               <StackPanel Spacing="8">
                 <CheckBox Content="Contiguous Fill" IsChecked="{Binding IsContiguous}" />
                 
-                <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock Text="Texture ID" VerticalAlignment="Center"/>
-                  <NumericUpDown Grid.Column="1" Value="{Binding TextureId}" Minimum="0" Maximum="31" Width="100" />
-                </Grid>
+                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource TextureGridTemplate}"/>
+
                 <TextBlock Text="Fills connected areas of the same texture." 
                            IsVisible="{Binding IsContiguous}"
                            FontStyle="Italic" FontSize="11" TextWrapping="Wrap" />
