@@ -54,7 +54,7 @@ namespace WorldBuilder.Shared.Models {
         /// <summary>Gets or sets the height of the terrain.</summary>
         [MemoryPackIgnore]
         public byte? Height {
-            get => Flags.HasFlag(TerrainEntryFlags.Height)
+            get => (_data & (uint)TerrainEntryFlags.Height) != 0
                 ? (byte)((_data & HEIGHT_MASK) >> HEIGHT_SHIFT)
                 : null;
             set {
@@ -72,7 +72,7 @@ namespace WorldBuilder.Shared.Models {
         /// <summary>Gets or sets the texture type of the terrain.</summary>
         [MemoryPackIgnore]
         public byte? Type {
-            get => Flags.HasFlag(TerrainEntryFlags.Texture)
+            get => (_data & (uint)TerrainEntryFlags.Texture) != 0
                 ? (byte)((_data & TEXTURE_MASK) >> TEXTURE_SHIFT)
                 : null;
             set {
@@ -92,7 +92,7 @@ namespace WorldBuilder.Shared.Models {
         /// <summary>Gets or sets the scenery index of the terrain.</summary>
         [MemoryPackIgnore]
         public byte? Scenery {
-            get => Flags.HasFlag(TerrainEntryFlags.Scenery)
+            get => (_data & (uint)TerrainEntryFlags.Scenery) != 0
                 ? (byte)((_data & SCENERY_MASK) >> SCENERY_SHIFT)
                 : null;
             set {
@@ -112,7 +112,7 @@ namespace WorldBuilder.Shared.Models {
         /// <summary>Gets or sets the road index of the terrain.</summary>
         [MemoryPackIgnore]
         public byte? Road {
-            get => Flags.HasFlag(TerrainEntryFlags.Road)
+            get => (_data & (uint)TerrainEntryFlags.Road) != 0
                 ? (byte)((_data & ROAD_MASK) >> ROAD_SHIFT)
                 : null;
             set {
@@ -132,7 +132,7 @@ namespace WorldBuilder.Shared.Models {
         /// <summary>Gets or sets the encounters index of the terrain.</summary>
         [MemoryPackIgnore]
         public byte? Encounters {
-            get => Flags.HasFlag(TerrainEntryFlags.Encounters)
+            get => (_data & (uint)TerrainEntryFlags.Encounters) != 0
                 ? (byte)((_data & ENCOUNTERS_MASK) >> ENCOUNTERS_SHIFT)
                 : null;
             set {

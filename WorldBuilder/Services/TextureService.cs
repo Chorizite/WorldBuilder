@@ -112,13 +112,16 @@ namespace WorldBuilder.Services {
                     if (surface.Format == DatPixelFormat.PFID_A8R8G8B8) {
                         fixed (byte* pSrc = pixelData) {
                             for (int y = 0; y < height; y++) {
-                                byte* rowDst = pDst + (y * dstStride);
-                                byte* rowSrc = pSrc + (y * width * 4);
+                                uint* rowDst = (uint*)(pDst + (y * dstStride));
+                                uint* rowSrc = (uint*)(pSrc + (y * width * 4));
                                 for (int x = 0; x < width; x++) {
-                                    rowDst[x * 4 + 0] = rowSrc[x * 4 + 0]; // B
-                                    rowDst[x * 4 + 1] = rowSrc[x * 4 + 1]; // G
-                                    rowDst[x * 4 + 2] = rowSrc[x * 4 + 2]; // R
-                                    rowDst[x * 4 + 3] = rowSrc[x * 4 + 3] == 0 ? (byte)255 : rowSrc[x * 4 + 3];
+                                    uint pixel = rowSrc[x];
+                                    // If alpha is 0, set it to 255. 
+                                    // A8R8G8B8 in memory is BGRA (little endian), so Alpha is the MSB of the uint.
+                                    if ((pixel & 0xFF000000) == 0) {
+                                        pixel |= 0xFF000000;
+                                    }
+                                    rowDst[x] = pixel;
                                 }
                             }
                         }
