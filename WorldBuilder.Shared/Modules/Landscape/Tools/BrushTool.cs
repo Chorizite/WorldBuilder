@@ -23,7 +23,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         private LandscapeToolContext? _context;
         private bool _isPainting;
-        private TerrainRaycast.TerrainRaycastHit _lastHit;
+        private TerrainRaycastHit _lastHit;
         private CompoundCommand? _currentStroke;
 
         private int _brushSize = 1;
@@ -183,14 +183,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             return false;
         }
 
-        private TerrainRaycast.TerrainRaycastHit Raycast(double x, double y) {
-            if (_context == null || _context.Document.Region == null) return new TerrainRaycast.TerrainRaycastHit();
+        private TerrainRaycastHit Raycast(double x, double y) {
+            if (_context == null || _context.Document.Region == null) return new TerrainRaycastHit();
 
             // Use ViewportSize from context
             return TerrainRaycast.Raycast((float)x, (float)y, (int)_context.ViewportSize.X, (int)_context.ViewportSize.Y, _context.Camera, _context.Document.Region, _context.Document.TerrainCache, _context.Logger);
         }
 
-        private void ApplyPaint(TerrainRaycast.TerrainRaycastHit hit) {
+        private void ApplyPaint(TerrainRaycastHit hit) {
             if (_context == null || _currentStroke == null) return;
             // Snap to nearest vertex
             var center = hit.NearestVertice;

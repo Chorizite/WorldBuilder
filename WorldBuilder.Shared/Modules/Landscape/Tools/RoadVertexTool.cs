@@ -79,14 +79,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
             return false;
         }
 
-        private TerrainRaycast.TerrainRaycastHit Raycast(double x, double y)
+        private TerrainRaycastHit Raycast(double x, double y)
         {
-            if (_context == null || _context.Document.Region == null) return new TerrainRaycast.TerrainRaycastHit();
+            if (_context == null || _context.Document.Region == null) return new TerrainRaycastHit();
 
             return TerrainRaycast.Raycast((float)x, (float)y, (int)_context.ViewportSize.X, (int)_context.ViewportSize.Y, _context.Camera, _context.Document.Region, _context.Document.TerrainCache);
         }
 
-        private void ApplyPaint(TerrainRaycast.TerrainRaycastHit hit)
+        private void ApplyPaint(TerrainRaycastHit hit)
         {
             if (_context == null || _currentStroke == null) return;
 
