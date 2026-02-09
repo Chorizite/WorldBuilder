@@ -9,42 +9,37 @@ using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Modules.Landscape;
 
-public partial class HistoryPanelViewModel : ViewModelBase
-{
+public partial class HistoryPanelViewModel : ViewModelBase {
     private readonly CommandHistory _history;
 
     public ObservableCollection<HistoryItemViewModel> Items { get; } = new();
 
-    public HistoryPanelViewModel(CommandHistory history)
-    {
+    public HistoryPanelViewModel(CommandHistory history) {
         _history = history;
         _history.OnChange += (s, e) => UpdateItems();
         UpdateItems();
     }
 
-    private void UpdateItems()
-    {
+    private void UpdateItems() {
         Items.Clear();
         var historicalCommands = _history.History.ToList();
 
-        // Add "Original Document" entry
-        Items.Add(new HistoryItemViewModel(-1, "Original Document (Opened)", _history.CurrentIndex == -1));
+        // Add "Original Document" or "History Truncated" entry
+        string baseName = _history.IsTruncated ? "Oldest Undo State (Truncated)" : "Original Document (Opened)";
+        Items.Add(new HistoryItemViewModel(-1, baseName, _history.CurrentIndex == -1));
 
-        for (int i = 0; i < historicalCommands.Count; i++)
-        {
+        for (int i = 0; i < historicalCommands.Count; i++) {
             Items.Add(new HistoryItemViewModel(i, historicalCommands[i].Name, _history.CurrentIndex == i, i > _history.CurrentIndex));
         }
     }
 
     [RelayCommand]
-    private void JumpTo(HistoryItemViewModel item)
-    {
+    private void JumpTo(HistoryItemViewModel item) {
         _history.JumpTo(item.Index);
     }
 }
 
-public partial class HistoryItemViewModel : ObservableObject
-{
+public partial class HistoryItemViewModel : ObservableObject {
     public int Index { get; }
     public string Name { get; }
 
@@ -54,8 +49,7 @@ public partial class HistoryItemViewModel : ObservableObject
     [ObservableProperty]
     private bool _isFuture;
 
-    public HistoryItemViewModel(int index, string name, bool isActive, bool isFuture = false)
-    {
+    public HistoryItemViewModel(int index, string name, bool isActive, bool isFuture = false) {
         Index = index;
         Name = name;
         IsActive = isActive;
