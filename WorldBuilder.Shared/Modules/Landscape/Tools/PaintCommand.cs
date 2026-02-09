@@ -4,13 +4,11 @@ using System.Numerics;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Tools
-{
+namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     /// <summary>
     /// A command that applies paint (texture) to the terrain within a specific radius.
     /// </summary>
-    public class PaintCommand : ICommand
-    {
+    public class PaintCommand : ICommand {
         private readonly LandscapeToolContext _context;
         private readonly LandscapeDocument _document;
         private readonly LandscapeLayerDocument? _layerDoc;
@@ -32,8 +30,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
         /// <param name="center">The center position of the paint operation.</param>
         /// <param name="radius">The radius of the paint operation.</param>
         /// <param name="textureId">The texture ID to apply.</param>
-        public PaintCommand(LandscapeToolContext context, Vector3 center, float radius, int textureId)
-        {
+        public PaintCommand(LandscapeToolContext context, Vector3 center, float radius, int textureId) {
             _context = context;
             _document = context.Document;
             _layerDoc = context.ActiveLayerDocument;
@@ -42,10 +39,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
             _textureId = textureId;
         }
 
-        public void Execute()
-        {
-            if (_executed)
-            {
+        public void Execute() {
+            if (_executed) {
                 // Redo
                 ApplyChanges();
                 return;
@@ -57,48 +52,35 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
             _executed = true;
         }
 
-        public void Undo()
-        {
+        public void Undo() {
             if (_document.Region == null) return;
             var region = _document.Region;
             var cache = _document.TerrainCache;
 
             HashSet<(int x, int y)> modifiedLandblocks = new HashSet<(int x, int y)>();
 
-            foreach (var kvp in _previousState)
-            {
+            foreach (var kvp in _previousState) {
                 int index = kvp.Key;
                 cache[index] = kvp.Value;
 
-                if (_layerDoc != null)
-                {
+                if (_layerDoc != null) {
                     _layerDoc.Terrain[(uint)index] = kvp.Value;
                 }
 
                 var (vx, vy) = region.GetVertexCoordinates((uint)index);
-                int lbX = vx / region.LandblockVerticeLength;
-                int lbY = vy / region.LandblockVerticeLength;
-
-                int stride = region.LandblockVerticeLength - 1;
-                lbX = vx / stride;
-                lbY = vy / stride;
-
-                modifiedLandblocks.Add((lbX, lbY));
+                _context.AddAffectedLandblocks(vx, vy, modifiedLandblocks);
             }
 
-            if (_layerDoc != null)
-            {
+            if (_layerDoc != null) {
                 _context.RequestSave?.Invoke(_layerDoc.Id);
             }
 
-            foreach (var lb in modifiedLandblocks)
-            {
+            foreach (var lb in modifiedLandblocks) {
                 _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
             }
         }
 
-        private void ApplyChanges(bool record = false)
-        {
+        private void ApplyChanges(bool record = false) {
             if (_document.Region == null) return;
             var region = _document.Region;
             var cache = _document.TerrainCache;
@@ -120,10 +102,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
             HashSet<(int x, int y)> modifiedLandblocks = new HashSet<(int x, int y)>();
             int stride = region.LandblockVerticeLength - 1;
 
-            for (int y = minY; y <= maxY; y++)
-            {
-                for (int x = minX; x <= maxX; x++)
-                {
+            for (int y = minY; y <= maxY; y++) {
+                for (int x = minX; x <= maxX; x++) {
                     int index = region.GetVertexIndex(x, y);
 
                     float vx = x * cellSize;
@@ -133,10 +113,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
                     float dy = vy - _center.Y;
                     float distSq = dx * dx + dy * dy;
 
-                    if (distSq <= _radius * _radius)
-                    {
-                        if (record && !_previousState.ContainsKey(index))
-                        {
+                    if (distSq <= _radius * _radius) {
+                        if (record && !_previousState.ContainsKey(index)) {
                             _previousState[index] = cache[index];
                         }
 
@@ -146,30 +124,21 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
                         entry.Type = (byte)_textureId;
                         cache[index] = entry;
 
-                        if (_layerDoc != null)
-                        {
+                        if (_layerDoc != null) {
                             _layerDoc.Terrain[(uint)index] = entry;
                         }
 
                         // Track modified landblocks
-                        int lbX = x / stride;
-                        int lbY = y / stride;
-                        modifiedLandblocks.Add((lbX, lbY));
-
-                        // Edge sharing: if on boundary, invalidate neighbor too
-                        if (x % stride == 0 && x > 0) modifiedLandblocks.Add(((x / stride) - 1, lbY));
-                        if (y % stride == 0 && y > 0) modifiedLandblocks.Add((lbX, (y / stride) - 1));
+                        _context.AddAffectedLandblocks(x, y, modifiedLandblocks);
                     }
                 }
             }
 
-            if (_layerDoc != null)
-            {
+            if (_layerDoc != null) {
                 _context.RequestSave?.Invoke(_layerDoc.Id);
             }
 
-            foreach (var lb in modifiedLandblocks)
-            {
+            foreach (var lb in modifiedLandblocks) {
                 _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
             }
         }
