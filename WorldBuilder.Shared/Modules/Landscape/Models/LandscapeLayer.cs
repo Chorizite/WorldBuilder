@@ -17,4 +17,9 @@ public partial class LandscapeLayer : LandscapeLayerBase {
         Id = id;
         IsBase = isBase;
     }
+
+    /// <summary>The terrain data stored in this layer, mapping vertex index to terrain entry.</summary>
+    [MemoryPackInclude]
+    [MemoryPackOrder(12)]
+    public Dictionary<uint, TerrainEntry> Terrain { get; init; } = [];
 }

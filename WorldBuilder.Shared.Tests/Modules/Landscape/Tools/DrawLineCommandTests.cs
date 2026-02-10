@@ -8,13 +8,10 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 using Microsoft.Extensions.Logging;
 using System;
 
-namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
-{
-    public class DrawLineCommandTests
-    {
+namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
+    public class DrawLineCommandTests {
         [Fact]
-        public void Execute_ShouldModifyRoadBitsAlongLine()
-        {
+        public void Execute_ShouldModifyRoadBitsAlongLine() {
             // Arrange
             var doc = CreateDocument();
             var context = CreateContext(doc);
@@ -32,8 +29,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         }
 
         [Fact]
-        public void Undo_ShouldRevertRoadBits()
-        {
+        public void Undo_ShouldRevertRoadBits() {
             // Arrange
             var doc = CreateDocument();
             var context = CreateContext(doc);
@@ -54,8 +50,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         }
 
         [Fact]
-        public void SinglePoint_ShouldModifyOneVertex()
-        {
+        public void SinglePoint_ShouldModifyOneVertex() {
             // Arrange
             var doc = CreateDocument();
             var context = CreateContext(doc);
@@ -69,8 +64,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
             Assert.Equal((byte)5, doc.TerrainCache[10].Road);
         }
 
-        private LandscapeDocument CreateDocument()
-        {
+        private LandscapeDocument CreateDocument() {
             var doc = new LandscapeDocument("LandscapeDocument_1");
             var cache = new TerrainEntry[81]; // 9x9
             for (int i = 0; i < cache.Length; i++) cache[i] = new TerrainEntry();
@@ -95,11 +89,10 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
             return doc;
         }
 
-        private LandscapeToolContext CreateContext(LandscapeDocument doc)
-        {
-            var activeLayer = new LandscapeLayer("LandscapeLayerDocument_1", true);
-            var activeLayerDoc = new LandscapeLayerDocument("LandscapeLayerDocument_1");
-            return new LandscapeToolContext(doc, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer, activeLayerDoc);
+        private LandscapeToolContext CreateContext(LandscapeDocument doc) {
+            var layerId = Guid.NewGuid().ToString();
+            var activeLayer = new LandscapeLayer(layerId, true);
+            return new LandscapeToolContext(doc, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer);
         }
     }
 }

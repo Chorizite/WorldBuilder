@@ -25,32 +25,22 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             return (terrainDoc, rental);
         }
 
-        private (LandscapeLayerDocument, DocumentRental<LandscapeLayerDocument>) CreateMockLayerRental(string id) {
-            var layerDoc = new LandscapeLayerDocument(id);
-            var rental = new DocumentRental<LandscapeLayerDocument>(layerDoc, () => { });
-            return (layerDoc, rental);
-        }
-
         [Fact]
         public async Task DeleteLayer_FromRootGroup_RemovesLayerSuccessfully() {
             // Arrange
-            var layerId = LandscapeLayerDocument.CreateId();
+            var layerId = Guid.NewGuid().ToString();
             var (terrainDoc, terrainRental) = CreateMockTerrainRental();
             terrainDoc.AddLayer([], "Test Layer", false, layerId);
-            var (_, layerRental) = CreateMockLayerRental(layerId);
 
             var command = new DeleteLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = layerId,
+                LayerId = layerId,
                 GroupPath = []
             };
 
             _mockDocManager.Setup(m =>
                     m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
-            _mockDocManager.Setup(m =>
-                    m.RentDocumentAsync<LandscapeLayerDocument>(layerId, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Result<DocumentRental<LandscapeLayerDocument>>.Success(layerRental));
             _mockDocManager.Setup(m => m.PersistDocumentAsync(It.IsAny<DocumentRental<LandscapeDocument>>(),
                     _mockTx.Object, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
@@ -68,24 +58,20 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
         public async Task DeleteLayer_FromNestedGroup_RemovesLayerSuccessfully() {
             // Arrange
             var groupId = "nested_group";
-            var layerId = LandscapeLayerDocument.CreateId();
+            var layerId = Guid.NewGuid().ToString();
             var (terrainDoc, terrainRental) = CreateMockTerrainRental();
             terrainDoc.AddGroup([], "Nested Group", groupId);
             terrainDoc.AddLayer([groupId], "Test Layer", false, layerId);
-            var (_, layerRental) = CreateMockLayerRental(layerId);
 
             var command = new DeleteLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = layerId,
+                LayerId = layerId,
                 GroupPath = [groupId]
             };
 
             _mockDocManager.Setup(m =>
                     m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
-            _mockDocManager.Setup(m =>
-                    m.RentDocumentAsync<LandscapeLayerDocument>(layerId, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Result<DocumentRental<LandscapeLayerDocument>>.Success(layerRental));
             _mockDocManager.Setup(m => m.PersistDocumentAsync(It.IsAny<DocumentRental<LandscapeDocument>>(),
                     _mockTx.Object, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
@@ -103,24 +89,20 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
         [Fact]
         public async Task DeleteLayer_UpdatesParentDocumentVersion() {
             // Arrange
-            var layerId = LandscapeLayerDocument.CreateId();
+            var layerId = Guid.NewGuid().ToString();
             var (terrainDoc, terrainRental) = CreateMockTerrainRental();
             terrainDoc.AddLayer([], "Test Layer", false, layerId);
-            var (_, layerRental) = CreateMockLayerRental(layerId);
             var initialVersion = terrainDoc.Version;
 
             var command = new DeleteLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = layerId,
+                LayerId = layerId,
                 GroupPath = []
             };
 
             _mockDocManager.Setup(m =>
                     m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
-            _mockDocManager.Setup(m =>
-                    m.RentDocumentAsync<LandscapeLayerDocument>(layerId, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Result<DocumentRental<LandscapeLayerDocument>>.Success(layerRental));
             _mockDocManager.Setup(m => m.PersistDocumentAsync(It.IsAny<DocumentRental<LandscapeDocument>>(),
                     _mockTx.Object, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
@@ -135,23 +117,19 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
         [Fact]
         public async Task DeleteLayer_WhenIsBaseLayer_ThrowsException() {
             // Arrange
-            var layerId = LandscapeLayerDocument.CreateId();
+            var layerId = Guid.NewGuid().ToString();
             var (terrainDoc, terrainRental) = CreateMockTerrainRental();
             terrainDoc.AddLayer([], "Base Layer", true, layerId);
-            var (_, layerRental) = CreateMockLayerRental(layerId);
 
             var command = new DeleteLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = layerId,
+                LayerId = layerId,
                 GroupPath = []
             };
 
             _mockDocManager.Setup(m =>
                     m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
-            _mockDocManager.Setup(m =>
-                    m.RentDocumentAsync<LandscapeLayerDocument>(layerId, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Result<DocumentRental<LandscapeLayerDocument>>.Success(layerRental));
 
             // Act
             var result =
@@ -165,10 +143,10 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
         [Fact]
         public async Task DeleteLayer_WhenTerrainDocumentNotFound_ReturnsFailure() {
             // Arrange
-            var layerId = LandscapeLayerDocument.CreateId();
+            var layerId = Guid.NewGuid().ToString();
             var command = new DeleteLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = layerId,
+                LayerId = layerId,
                 GroupPath = []
             };
 
@@ -188,12 +166,12 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
         [Fact]
         public async Task DeleteLayer_WhenLayerNotFound_ThrowsException() {
             // Arrange
-            var layerId = LandscapeLayerDocument.CreateId();
+            var layerId = Guid.NewGuid().ToString();
             var (terrainDoc, terrainRental) = CreateMockTerrainRental();
 
             var command = new DeleteLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = layerId, // This ID is not in the document
+                LayerId = layerId, // This ID is not in the document
                 GroupPath = []
             };
 
@@ -213,12 +191,12 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
         [Fact]
         public async Task DeleteLayer_WhenGroupPathInvalid_ThrowsException() {
             // Arrange
-            var layerId = LandscapeLayerDocument.CreateId();
+            var layerId = Guid.NewGuid().ToString();
             var (terrainDoc, terrainRental) = CreateMockTerrainRental();
 
             var command = new DeleteLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = layerId,
+                LayerId = layerId,
                 GroupPath = ["invalid_group"]
             };
 
@@ -238,10 +216,10 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
         [Fact]
         public void CreateInverse_ReturnsCreateCommand_WithCorrectParameters() {
             // Arrange
-            var layerId = LandscapeLayerDocument.CreateId();
+            var layerId = Guid.NewGuid().ToString();
             var command = new DeleteLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = layerId,
+                LayerId = layerId,
                 GroupPath = ["group"]
             };
 
@@ -250,7 +228,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Assert
             var createCommand = Assert.IsType<CreateLandscapeLayerCommand>(inverse);
-            Assert.Equal(command.TerrainLayerDocumentId, createCommand.TerrainLayerDocumentId);
+            Assert.Equal(command.LayerId, createCommand.LayerId);
             Assert.Equal(command.TerrainDocumentId, createCommand.TerrainDocumentId);
             Assert.Equal(command.GroupPath, createCommand.GroupPath);
         }

@@ -7,13 +7,10 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using Microsoft.Extensions.Logging;
 
-namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
-{
-    public class BrushToolTests
-    {
+namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
+    public class BrushToolTests {
         [Fact]
-        public void Activate_ShouldSetIsActive()
-        {
+        public void Activate_ShouldSetIsActive() {
             var tool = new BrushTool();
             var context = CreateContext();
 
@@ -23,8 +20,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         }
 
         [Fact]
-        public void BrushSize_ShouldUpdateBrushRadius()
-        {
+        public void BrushSize_ShouldUpdateBrushRadius() {
             var tool = new BrushTool();
             tool.BrushSize = 1;
             // Radius ~13.2
@@ -37,8 +33,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         }
 
         [Fact]
-        public void PaintCommand_Execute_ShouldModifyTerrainCache()
-        {
+        public void PaintCommand_Execute_ShouldModifyTerrainCache() {
             // Arrange
             var tool = new BrushTool(); // Use tool to get radius logic
             tool.BrushSize = 1;
@@ -61,8 +56,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         }
 
         [Fact]
-        public void PaintCommand_Undo_ShouldRevertChanges()
-        {
+        public void PaintCommand_Undo_ShouldRevertChanges() {
             // Arrange
             var tool = new BrushTool();
             tool.BrushSize = 1;
@@ -85,14 +79,13 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         }
 
         [Fact]
-        public void PaintCommand_Execute_ShouldModifyLayerDocument()
-        {
+        public void PaintCommand_Execute_ShouldModifyLayerDocument() {
             // Arrange
             var tool = new BrushTool();
             tool.BrushSize = 1;
 
             var context = CreateContext();
-            var layerDoc = context.ActiveLayerDocument;
+            var layer = context.ActiveLayer;
             var center = new Vector3(24, 24, 0); // Vertex (1,1) -> Index 10
             var cmd = new PaintCommand(context, center, tool.BrushRadius, 5);
 
@@ -100,13 +93,12 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
             cmd.Execute();
 
             // Assert
-            Assert.True(layerDoc!.Terrain.ContainsKey(10));
-            Assert.Equal((byte)5, layerDoc.Terrain[10].Type);
+            Assert.True(layer!.Terrain.ContainsKey(10));
+            Assert.Equal((byte)5, layer.Terrain[10].Type);
         }
 
         [Fact]
-        public void PaintCommand_Execute_ShouldRequestSave()
-        {
+        public void PaintCommand_Execute_ShouldRequestSave() {
             // Arrange
             var tool = new BrushTool();
             tool.BrushSize = 1;
@@ -125,14 +117,13 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         }
 
         [Fact]
-        public void PaintCommand_Undo_ShouldRevertLayerDocument()
-        {
+        public void PaintCommand_Undo_ShouldRevertLayerDocument() {
             // Arrange
             var tool = new BrushTool();
             tool.BrushSize = 1;
 
             var context = CreateContext();
-            var layerDoc = context.ActiveLayerDocument;
+            var layer = context.ActiveLayer;
             var center = new Vector3(24, 24, 0);
             var cmd = new PaintCommand(context, center, tool.BrushRadius, 5);
 
@@ -142,12 +133,15 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
 
             // Assert
             // In our simple test, the previous state was an uninitialized entry (Type = null)
-            Assert.Null(layerDoc!.Terrain[10].Type);
+            Assert.False(layer.Terrain.ContainsKey(10));
         }
 
-        private LandscapeToolContext CreateContext()
-        {
+        private LandscapeToolContext CreateContext() {
             var doc = new LandscapeDocument((uint)0xABCD);
+
+            // Bypass dats loading
+            typeof(LandscapeDocument).GetField("_didLoadRegionData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
+            typeof(LandscapeDocument).GetField("_didLoadLayers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
 
             // Mock ITerrainInfo
             var regionMock = new Mock<ITerrainInfo>();
@@ -166,14 +160,14 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
 
             // Inject TerrainCache via reflection
             var cache = new TerrainEntry[9 * 9];
-            var cacheProp = typeof(LandscapeDocument).GetProperty("TerrainCache");
-            cacheProp?.SetValue(doc, cache);
+            var prop = typeof(LandscapeDocument).GetProperty("TerrainCache");
+            if (prop == null) throw new Exception("TerrainCache property not found on LandscapeDocument");
+            prop.SetValue(doc, cache);
 
-            var layerId = LandscapeLayerDocument.CreateId();
+            var layerId = Guid.NewGuid().ToString();
             var activeLayer = new LandscapeLayer(layerId, true);
-            var activeLayerDoc = new LandscapeLayerDocument(layerId);
 
-            return new LandscapeToolContext(doc, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer, activeLayerDoc);
+            return new LandscapeToolContext(doc, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer);
         }
     }
 }

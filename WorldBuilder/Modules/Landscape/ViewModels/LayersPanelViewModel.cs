@@ -118,7 +118,7 @@ public partial class LayersPanelViewModel : ViewModelBase {
         var cmd = new DeleteLandscapeLayerCommand {
             TerrainDocumentId = _document.Id,
             GroupPath = path,
-            TerrainLayerDocumentId = item.Model.Id,
+            LayerId = item.Model.Id,
             Name = item.Model.Name,
             IsBase = item.IsBase
         };
@@ -198,7 +198,7 @@ public partial class LayersPanelViewModel : ViewModelBase {
                 await Refresh();
                 // After refresh, select the new layer
                 await Dispatcher.UIThread.InvokeAsync(() => {
-                    SelectedItem = FindVM(cmd.TerrainLayerDocumentId);
+                    SelectedItem = FindVM(cmd.LayerId);
                 });
             }
         );

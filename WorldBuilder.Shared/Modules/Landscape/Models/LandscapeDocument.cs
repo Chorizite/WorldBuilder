@@ -58,12 +58,6 @@ public partial class LandscapeDocument : BaseDocument {
     [MemoryPackIgnore]
     public IDatDatabase? CellDatabase { get; private set; }
 
-    /// <summary>
-    /// The layer documents
-    /// </summary>
-    [MemoryPackIgnore]
-    public ConcurrentDictionary<string, DocumentRental<LandscapeLayerDocument>> LayerDocuments { get; } = [];
-
     /// <summary>Initializes a new instance of the <see cref="LandscapeDocument"/> class.</summary>
     [MemoryPackConstructor]
     public LandscapeDocument() : base() {
@@ -180,11 +174,6 @@ public partial class LandscapeDocument : BaseDocument {
 
         targetList.Remove(layer);
         RemoveIdsRecursive(layer);
-
-        // Remove from LayerDocuments if it exists
-        if (layer is LandscapeLayer l2 && LayerDocuments.TryRemove(l2.Id, out var rental)) {
-            rental.Dispose();
-        }
     }
 
     private void RemoveIdsRecursive(LandscapeLayerBase item) {
@@ -291,8 +280,6 @@ public partial class LandscapeDocument : BaseDocument {
     private async Task LoadLayersAsync(IDocumentManager documentManager, CancellationToken ct) {
         if (_didLoadLayers) return;
 
-        await LoadLayersAsync(LayerTree, documentManager, ct);
-
         // Invariant: Ensure exactly one base layer
         var baseLayers = GetAllLayers().Count(l => l.IsBase);
         if (baseLayers != 1) {
@@ -314,58 +301,7 @@ public partial class LandscapeDocument : BaseDocument {
     /// Rents any missing layer documents present in the layer tree.
     /// </summary>
     public async Task LoadMissingLayersAsync(IDocumentManager documentManager, CancellationToken ct) {
-        await LoadMissingLayersRecursiveAsync(LayerTree, documentManager, ct);
-    }
-
-    private async Task LoadMissingLayersRecursiveAsync(IEnumerable<LandscapeLayerBase> items, IDocumentManager documentManager, CancellationToken ct) {
-        foreach (var item in items) {
-            if (item is LandscapeLayer layer) {
-                if (!LayerDocuments.ContainsKey(layer.Id)) {
-                    var layerDocResult = await documentManager.RentDocumentAsync<LandscapeLayerDocument>(layer.Id, ct);
-                    if (layerDocResult.IsSuccess) {
-                        var rental = layerDocResult.Value;
-                        await rental.Document.InitializeForUpdatingAsync(null!, documentManager, ct);
-                        LayerDocuments[layer.Id] = rental;
-                    }
-                }
-            }
-            else if (item is LandscapeLayerGroup group) {
-                await LoadMissingLayersRecursiveAsync(group.Children, documentManager, ct);
-            }
-        }
-    }
-
-    private async Task LoadLayersAsync(List<LandscapeLayerBase> layerTree, IDocumentManager documentManager,
-        CancellationToken ct) {
-        foreach (var item in layerTree) {
-            if (item is LandscapeLayer layer) {
-                var layerDocResult = await documentManager.RentDocumentAsync<LandscapeLayerDocument>(layer.Id, ct);
-                if (layerDocResult.IsFailure) {
-                    throw new InvalidOperationException(
-                        $"Failed to rent TerrainLayerDocument: {layer.Id}. Error: {layerDocResult.Error.Message}");
-                }
-
-                var layerDoc = layerDocResult.Value;
-                if (layerDoc == null) {
-                    throw new InvalidOperationException($"Failed to rent TerrainLayerDocument: {layer.Id}");
-                }
-
-                await layerDoc.Document.InitializeForUpdatingAsync(null!, documentManager, ct);
-
-                LayerDocuments[layer.Id] = layerDoc;
-
-                // apply the layer to the cache only if it's already loaded
-                if (_didLoadCacheFromDats) {
-                    foreach (var (vertexIndex, terrain) in layerDoc.Document.Terrain) {
-                        if (vertexIndex >= TerrainCache.Length) continue;
-                        TerrainCache[vertexIndex].Merge(terrain);
-                    }
-                }
-            }
-            else if (item is LandscapeLayerGroup group) {
-                await LoadLayersAsync(group.Children, documentManager, ct);
-            }
-        }
+        await Task.CompletedTask;
     }
 
     /// <summary>
@@ -382,10 +318,8 @@ public partial class LandscapeDocument : BaseDocument {
             // Merge layers in order
             foreach (var layer in GetAllLayers()) {
                 if (!layer.IsVisible) continue;
-                if (!LayerDocuments.TryGetValue(layer.Id, out var rental)) continue;
 
-                var layerDoc = rental.Document;
-                foreach (var kvp in layerDoc.Terrain) {
+                foreach (var kvp in layer.Terrain) {
                     var vertexIndex = kvp.Key;
                     var terrain = kvp.Value;
                     if (vertexIndex >= TerrainCache.Length) continue;
@@ -399,14 +333,15 @@ public partial class LandscapeDocument : BaseDocument {
     /// Gets the landblock coordinates affected by a specific layer.
     /// </summary>
     public IEnumerable<(int x, int y)> GetAffectedLandblocks(string layerId) {
-        if (!LayerDocuments.TryGetValue(layerId, out var rental) || Region == null) {
+        var layer = FindItem(layerId) as LandscapeLayer;
+        if (layer == null || Region == null) {
             return Enumerable.Empty<(int x, int y)>();
         }
 
         var affectedBlocks = new HashSet<(int x, int y)>();
         var stride = Region.LandblockVerticeLength - 1;
 
-        foreach (var vertexIndex in rental.Document.Terrain.Keys) {
+        foreach (var vertexIndex in layer.Terrain.Keys) {
             int globalY = (int)(vertexIndex / (uint)Region.MapWidthInVertices);
             int globalX = (int)(vertexIndex % (uint)Region.MapWidthInVertices);
 
@@ -425,7 +360,6 @@ public partial class LandscapeDocument : BaseDocument {
         if (CellDatabase is null) throw new InvalidOperationException("CellDatabase not loaded yet.");
 
         int totalLandblocks = Region.MapHeightInLandblocks * Region.MapWidthInLandblocks;
-
 
         int widthInLandblocks = Region.MapWidthInLandblocks;
         int vertexStride = Region.LandblockVerticeLength;
@@ -523,11 +457,9 @@ public partial class LandscapeDocument : BaseDocument {
     }
 
     /// <summary>
-    /// Disposes the document and its associated layer document rentals.
+    /// Disposes the document.
     /// </summary>
     public override void Dispose() {
-        foreach (var layer in LayerDocuments.Values) {
-            layer.Dispose();
-        }
+
     }
 }

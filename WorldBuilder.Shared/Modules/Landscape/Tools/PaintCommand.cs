@@ -11,13 +11,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     public class PaintCommand : ICommand {
         private readonly LandscapeToolContext _context;
         private readonly LandscapeDocument _document;
-        private readonly LandscapeLayerDocument? _layerDoc;
+        private readonly LandscapeLayer? _activeLayer;
         private readonly Vector3 _center;
         private readonly float _radius;
         private readonly int _textureId; // 0-31
 
         // Store previous state for Undo: Index -> TerrainEntry (copy)
         private readonly Dictionary<int, TerrainEntry> _previousState = new Dictionary<int, TerrainEntry>();
+        private readonly HashSet<int> _wasInLayer = new HashSet<int>();
         private bool _executed = false;
 
         /// <inheritdoc/>
@@ -33,7 +34,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public PaintCommand(LandscapeToolContext context, Vector3 center, float radius, int textureId) {
             _context = context;
             _document = context.Document;
-            _layerDoc = context.ActiveLayerDocument;
+            _activeLayer = context.ActiveLayer;
             _center = center;
             _radius = radius;
             _textureId = textureId;
@@ -63,16 +64,21 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 int index = kvp.Key;
                 cache[index] = kvp.Value;
 
-                if (_layerDoc != null) {
-                    _layerDoc.Terrain[(uint)index] = kvp.Value;
+                if (_activeLayer != null) {
+                    if (_wasInLayer.Contains(index)) {
+                        _activeLayer.Terrain[(uint)index] = kvp.Value;
+                    }
+                    else {
+                        _activeLayer.Terrain.Remove((uint)index);
+                    }
                 }
 
                 var (vx, vy) = region.GetVertexCoordinates((uint)index);
                 _context.AddAffectedLandblocks(vx, vy, modifiedLandblocks);
             }
 
-            if (_layerDoc != null) {
-                _context.RequestSave?.Invoke(_layerDoc.Id);
+            if (_activeLayer != null) {
+                _context.RequestSave?.Invoke(_document.Id);
             }
 
             foreach (var lb in modifiedLandblocks) {
@@ -116,6 +122,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                     if (distSq <= _radius * _radius) {
                         if (record && !_previousState.ContainsKey(index)) {
                             _previousState[index] = cache[index];
+                            if (_activeLayer != null && _activeLayer.Terrain.ContainsKey((uint)index)) {
+                                _wasInLayer.Add(index);
+                            }
                         }
 
                         // Apply Texture
@@ -124,8 +133,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                         entry.Type = (byte)_textureId;
                         cache[index] = entry;
 
-                        if (_layerDoc != null) {
-                            _layerDoc.Terrain[(uint)index] = entry;
+                        if (_activeLayer != null) {
+                            _activeLayer.Terrain[(uint)index] = entry;
                         }
 
                         // Track modified landblocks
@@ -134,8 +143,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 }
             }
 
-            if (_layerDoc != null) {
-                _context.RequestSave?.Invoke(_layerDoc.Id);
+            if (_activeLayer != null) {
+                _context.RequestSave?.Invoke(_document.Id);
             }
 
             foreach (var lb in modifiedLandblocks) {

@@ -11,7 +11,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     public class BucketFillCommand : ICommand {
         private readonly LandscapeToolContext _context;
         private readonly LandscapeDocument _document;
-        private readonly LandscapeLayerDocument? _layerDoc;
+        private readonly LandscapeLayer? _activeLayer;
         private readonly Vector3 _startPos;
         private readonly int _fillTextureId;
         private readonly bool _contiguous;
@@ -25,7 +25,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public BucketFillCommand(LandscapeToolContext context, Vector3 startPos, int fillTextureId, bool contiguous) {
             _context = context;
             _document = context.Document;
-            _layerDoc = context.ActiveLayerDocument;
+            _activeLayer = context.ActiveLayer;
             _startPos = startPos;
             _fillTextureId = fillTextureId;
             _contiguous = contiguous;
@@ -53,16 +53,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 int index = kvp.Key;
                 cache[index] = kvp.Value;
 
-                if (_layerDoc != null) {
-                    _layerDoc.Terrain[(uint)index] = kvp.Value;
+                if (_activeLayer != null) {
+                    _activeLayer.Terrain[(uint)index] = kvp.Value;
                 }
 
                 var (vx, vy) = region.GetVertexCoordinates((uint)index);
                 _context.AddAffectedLandblocks(vx, vy, modifiedLandblocks);
             }
 
-            if (_layerDoc != null) {
-                _context.RequestSave?.Invoke(_layerDoc.Id);
+            if (_activeLayer != null) {
+                _context.RequestSave?.Invoke(_activeLayer.Id);
             }
 
             foreach (var lb in modifiedLandblocks) {
@@ -97,8 +97,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 PerformGlobalReplace(targetTextureId, record, modifiedLandblocks);
             }
 
-            if (_layerDoc != null) {
-                _context.RequestSave?.Invoke(_layerDoc.Id);
+            if (_activeLayer != null) {
+                _context.RequestSave?.Invoke(_activeLayer.Id);
             }
 
             foreach (var lb in modifiedLandblocks) {
@@ -132,8 +132,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 entry.Type = (byte)_fillTextureId;
                 cache[index] = entry;
 
-                if (_layerDoc != null) {
-                    _layerDoc.Terrain[(uint)index] = entry;
+                if (_activeLayer != null) {
+                    _activeLayer.Terrain[(uint)index] = entry;
                 }
 
                 _context.AddAffectedLandblocks(x, y, modifiedLandblocks);
@@ -170,8 +170,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                         entry.Type = (byte)_fillTextureId;
                         cache[index] = entry;
 
-                        if (_layerDoc != null) {
-                            _layerDoc.Terrain[(uint)index] = entry;
+                        if (_activeLayer != null) {
+                            _activeLayer.Terrain[(uint)index] = entry;
                         }
 
                         _context.AddAffectedLandblocks(x, y, modifiedLandblocks);

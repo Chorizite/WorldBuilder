@@ -11,7 +11,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     public class DrawLineCommand : ICommand {
         private readonly LandscapeToolContext _context;
         private readonly LandscapeDocument _document;
-        private readonly LandscapeLayerDocument? _layerDoc;
+        private readonly LandscapeLayer? _activeLayer;
         private readonly Vector3 _start;
         private readonly Vector3 _end;
         private readonly int _roadBits;
@@ -25,7 +25,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public DrawLineCommand(LandscapeToolContext context, Vector3 start, Vector3 end, int roadBits) {
             _context = context;
             _document = context.Document;
-            _layerDoc = context.ActiveLayerDocument;
+            _activeLayer = context.ActiveLayer;
             _start = start;
             _end = end;
             _roadBits = roadBits;
@@ -54,16 +54,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 int index = kvp.Key;
                 cache[index] = kvp.Value;
 
-                if (_layerDoc != null) {
-                    _layerDoc.Terrain[(uint)index] = kvp.Value;
+                if (_activeLayer != null) {
+                    _activeLayer.Terrain[(uint)index] = kvp.Value;
                 }
 
                 var (vx, vy) = region.GetVertexCoordinates((uint)index);
                 _context.AddAffectedLandblocks(vx, vy, modifiedLandblocks);
             }
 
-            if (_layerDoc != null) {
-                _context.RequestSave?.Invoke(_layerDoc.Id);
+            if (_activeLayer != null) {
+                _context.RequestSave?.Invoke(_document.Id);
             }
 
             foreach (var lb in modifiedLandblocks) {
@@ -107,8 +107,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                         entry.Road = (byte)_roadBits;
                         cache[index] = entry;
 
-                        if (_layerDoc != null) {
-                            _layerDoc.Terrain[(uint)index] = entry;
+                        if (_activeLayer != null) {
+                            _activeLayer.Terrain[(uint)index] = entry;
                         }
 
                         _context.AddAffectedLandblocks(x1, y1, modifiedLandblocks);
@@ -128,8 +128,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 }
             }
 
-            if (_layerDoc != null && (record || modifiedLandblocks.Count > 0)) {
-                _context.RequestSave?.Invoke(_layerDoc.Id);
+            if (_activeLayer != null && (record || modifiedLandblocks.Count > 0)) {
+                _context.RequestSave?.Invoke(_document.Id);
             }
 
             foreach (var lb in modifiedLandblocks) {

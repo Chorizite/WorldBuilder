@@ -21,8 +21,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         /// <summary>The currently active landscape layer.</summary>
         public LandscapeLayer? ActiveLayer { get; }
-        /// <summary>The document for the currently active landscape layer.</summary>
-        public LandscapeLayerDocument? ActiveLayerDocument { get; }
         /// <summary>Action to request a save operation.</summary>
         public Action<string>? RequestSave { get; set; }
 
@@ -35,14 +33,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <param name="camera">The camera.</param>
         /// <param name="logger">The logger.</param>
         /// <param name="activeLayer">The active layer (optional).</param>
-        /// <param name="activeLayerDocument">The active layer document (optional).</param>
-        public LandscapeToolContext(LandscapeDocument document, CommandHistory commandHistory, ICamera camera, ILogger logger, LandscapeLayer? activeLayer = null, LandscapeLayerDocument? activeLayerDocument = null) {
+        public LandscapeToolContext(LandscapeDocument document, CommandHistory commandHistory, ICamera camera, ILogger logger, LandscapeLayer? activeLayer = null) {
             Document = document;
             CommandHistory = commandHistory;
             Camera = camera;
             Logger = logger;
             ActiveLayer = activeLayer;
-            ActiveLayerDocument = activeLayerDocument;
         }
 
         /// <summary>

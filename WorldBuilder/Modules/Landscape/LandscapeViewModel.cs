@@ -155,16 +155,9 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
 
     private void UpdateToolContext() {
         if (ActiveDocument != null && Camera != null) {
-            LandscapeLayerDocument? activeLayerDoc = null;
-            if (ActiveLayer != null) {
-                if (ActiveDocument.LayerDocuments.TryGetValue(ActiveLayer.Id, out var rental)) {
-                    activeLayerDoc = rental.Document;
-                }
-            }
+            _log.LogInformation("Updating tool context. ActiveLayer: {LayerId}", ActiveLayer?.Id);
 
-            _log.LogInformation("Updating tool context. ActiveLayer: {LayerId}, HasDoc: {HasDoc}", ActiveLayer?.Id, activeLayerDoc != null);
-
-            _toolContext = new LandscapeToolContext(ActiveDocument, CommandHistory, Camera, _log, ActiveLayer, activeLayerDoc);
+            _toolContext = new LandscapeToolContext(ActiveDocument, CommandHistory, Camera, _log, ActiveLayer);
             _toolContext.RequestSave = RequestSave;
             if (_invalidateCallback != null) {
                 _toolContext.InvalidateLandblock = _invalidateCallback;
@@ -209,16 +202,17 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
             return;
         }
 
-        // Find the rental
-        DocumentRental<LandscapeLayerDocument>? rental = null;
-        if (ActiveDocument.LayerDocuments.TryGetValue(docId, out var r)) {
-            rental = r;
-        }
+        // We only have one document now, so if docId matches, we save.
+        // If it was a layer ID, we might need to map it to the document ID or just ignore/warn?
+        // But wait, RequestSave is called with docId.
+        // In the tools I updated RequestSave to pass _document.Id.
+        // So docId should be the landscape document ID.
+        // However, if there are legacy calls passing layer ID, we should handle it.
+        // But since I updated the tools, it should be fine.
+        // Actually, let's just save the main document if called.
 
-        if (rental != null) {
-            _log.LogInformation("Persisting terrain layer {DocId} to database", docId);
-            await _documentManager.PersistDocumentAsync(rental, null!, ct);
-        }
+        _log.LogWarning("PersistDocumentAsync called with unknown ID {DocId}, saving main document instead", docId);
+        await _documentManager.PersistDocumentAsync(_landscapeRental!, null!, ct);
     }
 
     public void InitializeToolContext(ICamera camera, Action<int, int> invalidateCallback) {

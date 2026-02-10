@@ -11,7 +11,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     public class SetRoadBitCommand : ICommand {
         private readonly LandscapeToolContext _context;
         private readonly LandscapeDocument _document;
-        private readonly LandscapeLayerDocument? _layerDoc;
+        private readonly LandscapeLayer? _activeLayer;
         private readonly Vector3 _position;
         private readonly int _roadBits;
 
@@ -23,7 +23,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public SetRoadBitCommand(LandscapeToolContext context, Vector3 position, int roadBits) {
             _context = context;
             _document = context.Document;
-            _layerDoc = context.ActiveLayerDocument;
+            _activeLayer = context.ActiveLayer;
             _position = position;
             _roadBits = roadBits;
         }
@@ -50,16 +50,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 int index = kvp.Key;
                 cache[index] = kvp.Value;
 
-                if (_layerDoc != null) {
-                    _layerDoc.Terrain[(uint)index] = kvp.Value;
+                if (_activeLayer != null) {
+                    _activeLayer.Terrain[(uint)index] = kvp.Value;
                 }
 
                 var (vx, vy) = region.GetVertexCoordinates((uint)index);
                 _context.InvalidateLandblocksForVertex(vx, vy);
             }
 
-            if (_layerDoc != null) {
-                _context.RequestSave?.Invoke(_layerDoc.Id);
+            if (_activeLayer != null) {
+                _context.RequestSave?.Invoke(_document.Id);
             }
         }
 
@@ -86,14 +86,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 entry.Road = (byte)_roadBits;
                 cache[index] = entry;
 
-                if (_layerDoc != null) {
-                    _layerDoc.Terrain[(uint)index] = entry;
+                if (_activeLayer != null) {
+                    _activeLayer.Terrain[(uint)index] = entry;
                 }
 
                 _context.InvalidateLandblocksForVertex(vx, vy);
 
-                if (_layerDoc != null) {
-                    _context.RequestSave?.Invoke(_layerDoc.Id);
+                if (_activeLayer != null) {
+                    _context.RequestSave?.Invoke(_document.Id);
                 }
             }
         }

@@ -72,7 +72,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
                 var res = await _docManager.ApplyLocalEventAsync(cmd, tx, default);
                 await tx.CommitAsync(default);
                 Assert.True(res.IsSuccess);
-                layerId = res.Value!.Document.Id;
+                layerId = res.Value!;
             }
 
             // 3. Edit Terrain (Simulation)
@@ -86,7 +86,9 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
             {
                 await using var tx = await _docManager.CreateTransactionAsync(default);
                 var cmd = new DeleteLandscapeLayerCommand {
-                    TerrainDocumentId = docId, GroupPath = [], TerrainLayerDocumentId = layerId
+                    TerrainDocumentId = docId,
+                    GroupPath = [],
+                    LayerId = layerId
                 };
                 var res = await _docManager.ApplyLocalEventAsync(cmd, tx, default);
                 await tx.CommitAsync(default);
@@ -114,9 +116,9 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
             {
                 await using var tx = await _docManager.CreateTransactionAsync(default);
                 layer1Id = (await _docManager.ApplyLocalEventAsync(
-                    new CreateLandscapeLayerCommand(docId, [], "L1", false), tx, default)).Value!.Document.Id;
+                    new CreateLandscapeLayerCommand(docId, [], "L1", false), tx, default)).Value!;
                 layer2Id = (await _docManager.ApplyLocalEventAsync(
-                    new CreateLandscapeLayerCommand(docId, [], "L2", false), tx, default)).Value!.Document.Id;
+                    new CreateLandscapeLayerCommand(docId, [], "L2", false), tx, default)).Value!;
                 await tx.CommitAsync(default);
             }
 
@@ -126,7 +128,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
                 var cmd = new ReorderLandscapeLayerCommand {
                     TerrainDocumentId = docId,
                     GroupPath = [],
-                    TerrainLayerDocumentId = layer2Id,
+                    LayerId = layer2Id,
                     NewIndex = 1,
                     OldIndex = 2
                 };
@@ -180,7 +182,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
                 var cmd = new CreateLandscapeLayerCommand(docId, [groupAId, groupBId], "Nested Layer", false);
                 var res = await _docManager.ApplyLocalEventAsync(cmd, tx, default);
                 await tx.CommitAsync(default);
-                layerId = res.Value!.Document.Id;
+                layerId = res.Value!;
             }
 
             // Verify Navigation
@@ -213,7 +215,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
                 var cmd = new CreateLandscapeLayerCommand(docId, [], "Undoable Layer", false);
                 var res = await _docManager.ApplyLocalEventAsync(cmd, tx, default);
                 await tx.CommitAsync(default);
-                layerId = res.Value!.Document.Id;
+                layerId = res.Value!;
                 undoStack.Push([cmd]);
             }
 
@@ -262,7 +264,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
                 var cmd = new CreateLandscapeLayerCommand(docId, [], "L1", false);
                 var res = await _docManager.ApplyLocalEventAsync(cmd, tx, default);
                 await tx.CommitAsync(default);
-                l1Id = res.Value!.Document.Id;
+                l1Id = res.Value!;
             }
 
             string l2Id;
@@ -271,7 +273,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
                 var cmd = new CreateLandscapeLayerCommand(docId, [], "L2", false);
                 var res = await _docManager.ApplyLocalEventAsync(cmd, tx, default);
                 await tx.CommitAsync(default);
-                l2Id = res.Value!.Document.Id;
+                l2Id = res.Value!;
             }
 
             // Reorder L2 to index 1
@@ -280,7 +282,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
                 var cmd = new ReorderLandscapeLayerCommand {
                     TerrainDocumentId = docId,
                     GroupPath = [],
-                    TerrainLayerDocumentId = l2Id,
+                    LayerId = l2Id,
                     NewIndex = 1,
                     OldIndex = 2
                 };
@@ -327,14 +329,16 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
                 var cmd = new CreateLandscapeLayerCommand(docId, [], "To be deleted", false);
                 var res = await _docManager.ApplyLocalEventAsync(cmd, tx, default);
                 await tx.CommitAsync(default);
-                layerId = res.Value!.Document.Id;
+                layerId = res.Value!;
             }
 
             // Delete
             {
                 await using var tx = await _docManager.CreateTransactionAsync(default);
                 var cmd = new DeleteLandscapeLayerCommand {
-                    TerrainDocumentId = docId, GroupPath = [], TerrainLayerDocumentId = layerId
+                    TerrainDocumentId = docId,
+                    GroupPath = [],
+                    LayerId = layerId
                 };
                 await _docManager.ApplyLocalEventAsync(cmd, tx, default);
                 await tx.CommitAsync(default);

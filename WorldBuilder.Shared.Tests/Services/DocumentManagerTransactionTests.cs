@@ -152,7 +152,7 @@ namespace WorldBuilder.Shared.Tests.Services {
             // Arrange
             var command = new ReorderLandscapeLayerCommand {
                 TerrainDocumentId = "testId",
-                TerrainLayerDocumentId = "layerId",
+                LayerId = "layerId",
                 NewIndex = 1,
                 OldIndex = 0
             }; // Use a real command that returns bool

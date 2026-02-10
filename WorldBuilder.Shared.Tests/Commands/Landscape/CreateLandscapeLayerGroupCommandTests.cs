@@ -301,7 +301,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             // Assert
             var deleteCmd = Assert.IsType<DeleteLandscapeLayerCommand>(inverse);
             Assert.Equal(_terrainDocId, deleteCmd.TerrainDocumentId);
-            Assert.Equal(command.GroupId, deleteCmd.TerrainLayerDocumentId);
+            Assert.Equal(command.GroupId, deleteCmd.LayerId);
             Assert.Equal(_groupName, deleteCmd.Name);
             Assert.False(deleteCmd.IsBase);
         }

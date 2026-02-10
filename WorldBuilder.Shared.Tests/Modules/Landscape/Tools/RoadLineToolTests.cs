@@ -86,8 +86,8 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var prop = typeof(LandscapeDocument).GetProperty("TerrainCache");
             prop?.SetValue(doc, cache);
 
-            var activeLayer = new LandscapeLayer("LandscapeLayerDocument_1", true);
-            var activeLayerDoc = new LandscapeLayerDocument("LandscapeLayerDocument_1");
+            var layerId = Guid.NewGuid().ToString();
+            var activeLayer = new LandscapeLayer(layerId, true);
 
             var regionMock = new Mock<ITerrainInfo>();
             regionMock.Setup(r => r.CellSizeInUnits).Returns(24f);
@@ -115,7 +115,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             cameraMock.Setup(c => c.ProjectionMatrix).Returns(projection);
             cameraMock.Setup(c => c.ViewMatrix).Returns(view);
 
-            return new LandscapeToolContext(doc, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object, activeLayer, activeLayerDoc) {
+            return new LandscapeToolContext(doc, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object, activeLayer) {
                 ViewportSize = new Vector2(500, 500)
             };
         }

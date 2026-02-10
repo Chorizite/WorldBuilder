@@ -75,7 +75,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
                 UserId = UserId,
                 GroupPath = GroupPath,
                 TerrainDocumentId = TerrainDocumentId,
-                TerrainLayerDocumentId = GroupId,
+                LayerId = GroupId,
                 Name = Name,
                 IsBase = false
             };

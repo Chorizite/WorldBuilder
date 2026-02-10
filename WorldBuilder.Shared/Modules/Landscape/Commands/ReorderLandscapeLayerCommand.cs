@@ -16,8 +16,8 @@ public partial class ReorderLandscapeLayerCommand : BaseCommand<bool> {
     /// <summary>The ID of the parent landscape document.</summary>
     [MemoryPackOrder(11)] public string TerrainDocumentId { get; set; } = string.Empty;
 
-    /// <summary>The ID of the landscape layer document to reorder.</summary>
-    [MemoryPackOrder(12)] public string TerrainLayerDocumentId { get; set; } = string.Empty;
+    /// <summary>The ID of the landscape layer to reorder.</summary>
+    [MemoryPackOrder(12)] public string LayerId { get; set; } = string.Empty;
 
     /// <summary>The new index for the layer.</summary>
     [MemoryPackOrder(13)] public int NewIndex { get; set; }
@@ -33,7 +33,7 @@ public partial class ReorderLandscapeLayerCommand : BaseCommand<bool> {
         int newIndex, int oldIndex) {
         TerrainDocumentId = terrainDocumentId;
         GroupPath = [.. groupPath];
-        TerrainLayerDocumentId = layerId;
+        LayerId = layerId;
         NewIndex = newIndex;
         OldIndex = oldIndex;
     }
@@ -43,7 +43,7 @@ public partial class ReorderLandscapeLayerCommand : BaseCommand<bool> {
             UserId = UserId,
             GroupPath = GroupPath,
             TerrainDocumentId = TerrainDocumentId,
-            TerrainLayerDocumentId = TerrainLayerDocumentId,
+            LayerId = LayerId,
             NewIndex = OldIndex,
             OldIndex = NewIndex
         };
@@ -70,7 +70,7 @@ public partial class ReorderLandscapeLayerCommand : BaseCommand<bool> {
 
             await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
-            terrainRental.Document.ReorderLayer(GroupPath, TerrainLayerDocumentId, NewIndex);
+            terrainRental.Document.ReorderLayer(GroupPath, LayerId, NewIndex);
 
             terrainRental.Document.Version++;
             var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);

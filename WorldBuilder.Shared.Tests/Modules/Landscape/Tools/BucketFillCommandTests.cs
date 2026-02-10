@@ -117,11 +117,10 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var cacheProp = typeof(LandscapeDocument).GetProperty("TerrainCache");
             cacheProp?.SetValue(doc, cache);
 
-            var layerId = LandscapeLayerDocument.CreateId();
+            var layerId = Guid.NewGuid().ToString();
             var activeLayer = new LandscapeLayer(layerId, true);
-            var activeLayerDoc = new LandscapeLayerDocument(layerId);
 
-            return new LandscapeToolContext(doc, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer, activeLayerDoc);
+            return new LandscapeToolContext(doc, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer);
         }
     }
 }

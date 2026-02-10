@@ -16,8 +16,7 @@ public partial class DeleteLandscapeLayerCommand : BaseCommand<bool> {
     /// <summary>The ID of the parent landscape document.</summary>
     [MemoryPackOrder(11)] public string TerrainDocumentId { get; set; } = string.Empty;
 
-    /// <summary>The ID of the landscape layer document to delete.</summary>
-    [MemoryPackOrder(12)] public string TerrainLayerDocumentId { get; set; } = LandscapeLayerDocument.CreateId();
+    [MemoryPackOrder(12)] public string LayerId { get; set; } = Guid.NewGuid().ToString();
 
     /// <summary>The name of the layer (stored for undo purposes).</summary>
     [MemoryPackOrder(13)] public string Name { get; set; } = string.Empty;
@@ -46,7 +45,7 @@ public partial class DeleteLandscapeLayerCommand : BaseCommand<bool> {
         return new CreateLandscapeLayerCommand {
             UserId = UserId,
             GroupPath = GroupPath,
-            TerrainLayerDocumentId = TerrainLayerDocumentId,
+            LayerId = LayerId,
             TerrainDocumentId = TerrainDocumentId,
             Name = Name,
             IsBase = IsBase
@@ -76,7 +75,7 @@ public partial class DeleteLandscapeLayerCommand : BaseCommand<bool> {
 
             // If properties are not set (first run), find and snapshot the item
             if (string.IsNullOrEmpty(Name) || DeletedItem == null) {
-                var item = terrainRental.Document.FindItem(TerrainLayerDocumentId);
+                var item = terrainRental.Document.FindItem(LayerId);
                 if (item != null) {
                     Name = item.Name;
                     DeletedItem = item; // Snapshot the item
@@ -91,7 +90,7 @@ public partial class DeleteLandscapeLayerCommand : BaseCommand<bool> {
                 }
             }
 
-            terrainRental.Document.RemoveLayer(GroupPath, TerrainLayerDocumentId);
+            terrainRental.Document.RemoveLayer(GroupPath, LayerId);
 
             terrainRental.Document.Version++;
             var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);

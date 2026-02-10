@@ -5,6 +5,8 @@ using Moq;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using Microsoft.Extensions.Logging;
+using WorldBuilder.Shared.Services;
+using static WorldBuilder.Shared.Services.DocumentManager;
 
 namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
     public class RoadVertexToolTests {
@@ -29,15 +31,14 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             Assert.Single(context.CommandHistory.History);
         }
 
+
+
         private LandscapeToolContext CreateContext() {
             var doc = new LandscapeDocument("LandscapeDocument_1");
             var cache = new TerrainEntry[81];
             for (int i = 0; i < cache.Length; i++) cache[i] = new TerrainEntry();
             var prop = typeof(LandscapeDocument).GetProperty("TerrainCache");
             prop?.SetValue(doc, cache);
-
-            var activeLayer = new LandscapeLayer("LandscapeLayerDocument_1", true);
-            var activeLayerDoc = new LandscapeLayerDocument("LandscapeLayerDocument_1");
 
             var regionMock = new Mock<ITerrainInfo>();
             regionMock.Setup(r => r.CellSizeInUnits).Returns(24f);
@@ -58,6 +59,8 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var regionProp = typeof(LandscapeDocument).GetProperty("Region");
             regionProp?.SetValue(doc, regionMock.Object);
 
+            var activeLayer = new LandscapeLayer("LandscapeLayerDocument_1", true);
+
             var cameraMock = new Mock<ICamera>();
             var projection = Matrix4x4.CreateOrthographicOffCenter(0, 500, 500, 0, 0.1f, 1000f);
             var view = Matrix4x4.CreateLookAt(new Vector3(0, 0, 500), new Vector3(0, 0, 0), Vector3.UnitY);
@@ -65,7 +68,11 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             cameraMock.Setup(c => c.ProjectionMatrix).Returns(projection);
             cameraMock.Setup(c => c.ViewMatrix).Returns(view);
 
-            return new LandscapeToolContext(doc, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object, activeLayer, activeLayerDoc) {
+            // Bypass dats loading
+            typeof(LandscapeDocument).GetField("_didLoadRegionData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
+            typeof(LandscapeDocument).GetField("_didLoadLayers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
+
+            return new LandscapeToolContext(doc, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object, activeLayer) {
                 ViewportSize = new Vector2(500, 500)
             };
         }

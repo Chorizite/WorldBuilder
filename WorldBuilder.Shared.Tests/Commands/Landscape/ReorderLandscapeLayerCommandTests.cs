@@ -29,20 +29,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             return (terrainDoc, rental);
         }
 
-        private (LandscapeLayerDocument, DocumentRental<LandscapeLayerDocument>) CreateMockLayerRental(string id) {
-            var layerDoc = new LandscapeLayerDocument(id);
-            var rental = new DocumentRental<LandscapeLayerDocument>(layerDoc, () => { });
-            return (layerDoc, rental);
-        }
 
-        private void SetupLayerMocks(params string[] layerIds) {
-            foreach (var id in layerIds) {
-                var (_, rental) = CreateMockLayerRental(id);
-                _mockDocManager.Setup(m =>
-                        m.RentDocumentAsync<LandscapeLayerDocument>(id, It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(Result<DocumentRental<LandscapeLayerDocument>>.Success(rental));
-            }
-        }
 
         [Fact]
         public async Task ReorderLayer_WithValidIndices_ReordersSuccessfully() {
@@ -57,13 +44,13 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             // Move L3 (index 2) to 1 -> [L1, L3, L2]
             var command = new ReorderLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = L3,
+                LayerId = L3,
                 GroupPath = [],
                 OldIndex = 2,
                 NewIndex = 1
             };
 
-            SetupLayerMocks(L1, L2, L3);
+
             _mockDocManager.Setup(m =>
                     m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
@@ -96,13 +83,13 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             // Move L3 (index 2) to 1 -> [L1, L3, L2]
             var command = new ReorderLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = L3,
+                LayerId = L3,
                 GroupPath = [],
                 OldIndex = 2,
                 NewIndex = 1
             };
 
-            SetupLayerMocks(L1, L2, L3);
+
             _mockDocManager.Setup(m =>
                     m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
@@ -131,13 +118,13 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             // Move L2 (index 1) to 2 -> [L1, L3, L2]
             var command = new ReorderLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = L2,
+                LayerId = L2,
                 GroupPath = [],
                 OldIndex = 1,
                 NewIndex = 2
             };
 
-            SetupLayerMocks(L1, L2, L3);
+
             _mockDocManager.Setup(m =>
                     m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
@@ -166,13 +153,13 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             var command = new ReorderLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = L2,
+                LayerId = L2,
                 GroupPath = [],
                 OldIndex = 1,
                 NewIndex = 1
             };
 
-            SetupLayerMocks(L1, L2);
+
             _mockDocManager.Setup(m =>
                     m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
@@ -196,13 +183,13 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             var command = new ReorderLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = L1,
+                LayerId = L1,
                 GroupPath = [],
                 OldIndex = 0,
                 NewIndex = 1
             };
 
-            SetupLayerMocks(L1, L2);
+
             _mockDocManager.Setup(m =>
                     m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
@@ -223,13 +210,13 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             var command = new ReorderLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = L2,
+                LayerId = L2,
                 GroupPath = [],
                 OldIndex = 1,
                 NewIndex = 1
             };
 
-            SetupLayerMocks(L1, L2);
+
             _mockDocManager.Setup(m =>
                     m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
@@ -254,13 +241,13 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             var command = new ReorderLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = L2,
+                LayerId = L2,
                 GroupPath = [],
                 OldIndex = 1,
                 NewIndex = -1
             };
 
-            SetupLayerMocks(L1, L2);
+
             _mockDocManager.Setup(m =>
                     m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
@@ -280,13 +267,13 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             var command = new ReorderLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = L2,
+                LayerId = L2,
                 GroupPath = [],
                 OldIndex = 1,
                 NewIndex = 10
             };
 
-            SetupLayerMocks(L1, L2);
+
             _mockDocManager.Setup(m =>
                     m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
@@ -306,13 +293,13 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             var command = new ReorderLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = L2,
+                LayerId = L2,
                 GroupPath = [],
                 OldIndex = 1,
                 NewIndex = 1
             };
 
-            SetupLayerMocks(L1, L2);
+
             _mockDocManager.Setup(m =>
                     m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
@@ -333,7 +320,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             // Arrange
             var command = new ReorderLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = "someid",
+                LayerId = "someid",
                 GroupPath = [],
                 OldIndex = 1,
                 NewIndex = 0
@@ -360,13 +347,13 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             var command = new ReorderLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = "nonexistent",
+                LayerId = "nonexistent",
                 GroupPath = [],
                 OldIndex = 1,
                 NewIndex = 0
             };
 
-            SetupLayerMocks(L1);
+
             _mockDocManager.Setup(m =>
                     m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
@@ -384,7 +371,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             // Arrange
             var command = new ReorderLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = "layerId",
+                LayerId = "layerId",
                 GroupPath = ["group"],
                 OldIndex = 1,
                 NewIndex = 2
@@ -396,7 +383,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             // Assert
             Assert.Equal(command.OldIndex, inverse.NewIndex);
             Assert.Equal(command.NewIndex, inverse.OldIndex);
-            Assert.Equal(command.TerrainLayerDocumentId, inverse.TerrainLayerDocumentId);
+            Assert.Equal(command.LayerId, inverse.LayerId);
             Assert.Equal(command.GroupPath, inverse.GroupPath);
         }
 
@@ -412,13 +399,13 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             var command = new ReorderLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,
-                TerrainLayerDocumentId = L3,
+                LayerId = L3,
                 GroupPath = [],
                 OldIndex = 2,
                 NewIndex = 1
             };
 
-            SetupLayerMocks(L1, L2, L3);
+
             _mockDocManager.Setup(m =>
                     m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
