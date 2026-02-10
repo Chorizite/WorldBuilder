@@ -23,7 +23,7 @@
             <!--  Form Content  -->
             <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
                 <StackPanel MaxWidth="600" Spacing="16">
-                    <StackPanel>
+                    <StackPanel IsEnabled="{Binding !IsExporting}">
                         <TextBlock
                             Margin="0,0,0,5"
                             FontWeight="SemiBold"
@@ -47,7 +47,7 @@
                             Text="{Binding DirectoryErrorMessage}" />
                     </StackPanel>
 
-                    <StackPanel>
+                    <StackPanel IsEnabled="{Binding !IsExporting}">
                         <TextBlock
                             Margin="0,0,0,5"
                             FontWeight="SemiBold"
@@ -62,11 +62,21 @@
                             Text="{Binding IterationErrorMessage}" />
                     </StackPanel>
 
-                    <StackPanel>
+                    <StackPanel IsEnabled="{Binding !IsExporting}">
                         <CheckBox
                             Margin="0,10,0,0"
                             Content="Overwrite existing DAT files"
                             IsChecked="{Binding OverwriteFiles}" />
+                    </StackPanel>
+
+                    <StackPanel IsVisible="{Binding IsExporting}" Spacing="8">
+                        <TextBlock FontWeight="SemiBold" Text="{Binding ExportStatus}" />
+                        <ProgressBar
+                            Height="20"
+                            Maximum="100"
+                            Minimum="0"
+                            Value="{Binding Progress}" />
+                        <TextBlock HorizontalAlignment="Right" Text="{Binding Progress, StringFormat=\{0:0\}%}" />
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>

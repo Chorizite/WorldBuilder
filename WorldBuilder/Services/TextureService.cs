@@ -46,9 +46,7 @@ namespace WorldBuilder.Services {
         }
 
         public async Task<Bitmap?> GetTextureAsync(uint textureId) {
-            _logger.LogInformation("GetTextureAsync called for {TextureId}", textureId);
             if (_textureCache.TryGetValue(textureId, out var cachedBitmap)) {
-                _logger.LogInformation("Texture {TextureId} found in cache (null: {IsNull})", textureId, cachedBitmap == null);
                 return cachedBitmap;
             }
 
@@ -81,7 +79,6 @@ namespace WorldBuilder.Services {
                         return null;
                     }
 
-                    _logger.LogInformation("Loading texture {TextureId} (Surface {SurfaceId}): {Width}x{Height}, DataLength: {DataLength}", textureId, bestTexId, renderSurface.Width, renderSurface.Height, renderSurface.SourceData.Length);
                     var bitmap = CreateBitmapFromSurface(renderSurface);
                     _textureCache.TryAdd(textureId, bitmap);
                     return bitmap;
@@ -96,7 +93,6 @@ namespace WorldBuilder.Services {
         private Bitmap? CreateBitmapFromSurface(RenderSurface surface) {
             int width = surface.Width;
             int height = surface.Height;
-            _logger.LogInformation("Creating bitmap from surface {Width}x{Height} {Format}", width, height, surface.Format);
             if (width <= 0 || height <= 0) return null;
 
             byte[] pixelData = surface.SourceData;

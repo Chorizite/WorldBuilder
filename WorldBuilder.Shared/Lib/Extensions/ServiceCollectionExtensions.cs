@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using WorldBuilder.Shared.Repositories;
 using WorldBuilder.Shared.Services;
+using WorldBuilder.Shared.Modules.Landscape;
 
 namespace WorldBuilder.Shared.Lib.Extensions {
     /// <summary>
@@ -35,10 +36,12 @@ namespace WorldBuilder.Shared.Lib.Extensions {
             // DAT reader/writer services
             services.AddSingleton<IDatReaderWriter>(provider =>
                 new DefaultDatReaderWriter(datDirectory));
+            services.AddSingleton<IDatExportService, DatExportService>();
 
             // Core services
             services.AddSingleton<IDocumentManager, DocumentManager>();
             services.AddSingleton<IUndoStack, UndoStack>();
+            services.AddSingleton<ILandscapeModule, WorldBuilder.Shared.Modules.Landscape.LandscapeModule>();
 
             // Sync services
             services.AddSingleton<ISyncClient, SignalRSyncClient>();

@@ -22,7 +22,10 @@ namespace WorldBuilder.Lib.Extensions {
         /// <param name="collection">The service collection to add services to</param>
         /// <returns>The service collection for chaining</returns>
         public static IServiceCollection AddWorldBuilderCoreServices(this IServiceCollection collection) {
-            collection.AddLogging((c) => c.AddProvider(new ColorConsoleLoggerProvider()));
+            collection.AddLogging((c) => {
+                c.AddProvider(new ColorConsoleLoggerProvider());
+                c.SetMinimumLevel(LogLevel.Debug);
+            });
 
             collection.AddSingleton<WorldBuilderSettings>();
             collection.AddSingleton<RecentProjectsManager>();
@@ -52,7 +55,6 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddTransient<ProjectSelectionViewModel>();
 
             // ViewModels - main app
-            collection.AddTransient<ExportDatsWindowViewModel>();
             collection.AddTransient<SettingsWindowViewModel>();
             collection.AddTransient<ErrorDetailsWindowViewModel>();
 
@@ -73,7 +75,10 @@ namespace WorldBuilder.Lib.Extensions {
         /// <param name="rootProvider">The root service provider</param>
         public static void AddWorldBuilderProjectServices(this IServiceCollection collection, Project project,
             IServiceProvider rootProvider) {
-            collection.AddLogging((c) => c.AddProvider(new ColorConsoleLoggerProvider()));
+            collection.AddLogging((c) => {
+                c.AddProvider(new ColorConsoleLoggerProvider());
+                c.SetMinimumLevel(LogLevel.Debug);
+            });
 
             collection.AddSingleton(rootProvider.GetRequiredService<WorldBuilderSettings>());
             collection.AddSingleton(rootProvider.GetRequiredService<RecentProjectsManager>());
@@ -84,6 +89,7 @@ namespace WorldBuilder.Lib.Extensions {
 
             // ViewModels
             collection.AddTransient<MainViewModel>();
+            collection.AddTransient<ExportDatsWindowViewModel>();
             collection.AddTransient<WorldBuilder.Modules.Landscape.LandscapeViewModel>();
 
             // Add project-specific shared services using the project's properties

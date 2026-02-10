@@ -57,6 +57,26 @@ public abstract partial class BaseDocument : IDisposable {
     /// <returns>A task representing the asynchronous operation.</returns>
     public abstract Task InitializeForEditingAsync(IDatReaderWriter dats, IDocumentManager documentManager, CancellationToken ct);
 
+    /// <summary>
+    /// Saves the document to the specified DAT writer asynchronously.
+    /// </summary>
+    /// <param name="datwriter">The DAT writer to save to.</param>
+    /// <param name="iteration">The iteration to use when saving.</param>
+    /// <param name="progress">The progress reporter (0.0 to 1.0 within this document's scope).</param>
+    /// <returns>A task representing the asynchronous operation, returning true if successful.</returns>
+    public async Task<bool> SaveToDatsAsync(IDatReaderWriter datwriter, int iteration = 0, IProgress<float>? progress = null) {
+        return await SaveToDatsInternal(datwriter, iteration, progress);
+    }
+
+    /// <summary>
+    /// Internal implementation for saving the document to DAT files.
+    /// </summary>
+    /// <param name="datwriter">The DAT writer.</param>
+    /// <param name="iteration">The iteration.</param>
+    /// <param name="progress">The progress reporter.</param>
+    /// <returns>True if successful.</returns>
+    protected abstract Task<bool> SaveToDatsInternal(IDatReaderWriter datwriter, int iteration = 0, IProgress<float>? progress = null);
+
     /// <summary>Disposes of the document resources.</summary>
     public abstract void Dispose();
 }

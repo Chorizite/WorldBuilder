@@ -8,7 +8,7 @@ namespace WorldBuilder.Shared.Modules.Landscape {
     /// <summary>
     /// The module responsible for landscape-related operations.
     /// </summary>
-    public class LandscapeModule {
+    public class LandscapeModule : ILandscapeModule {
         private readonly IDatReaderWriter _dats;
         private readonly IDocumentManager _documentManager;
 

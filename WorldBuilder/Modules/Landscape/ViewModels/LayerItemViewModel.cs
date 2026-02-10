@@ -13,18 +13,43 @@ namespace WorldBuilder.Modules.Landscape.ViewModels;
 public partial class LayerItemViewModel : ViewModelBase {
     private readonly LandscapeLayerBase _model;
     private readonly Action<LayerItemViewModel> _onDelete;
-    private readonly Action<LayerItemViewModel, bool> _onChanged; // bool isVisibleChange
+    private readonly Action<LayerItemViewModel, LayerChangeType> _onChanged; // bool isVisibleChange
 
     [ObservableProperty] private LayerItemViewModel? _parent;
     [ObservableProperty] private string _name;
     [ObservableProperty] private bool _isVisible = true;
 
+    partial void OnNameChanged(string value) {
+        Model.Name = value;
+        _onChanged?.Invoke(this, LayerChangeType.PropertyChange);
+    }
     partial void OnIsVisibleChanged(bool value) {
         _model.IsVisible = value;
-        _onChanged?.Invoke(this, true);
+        _onChanged?.Invoke(this, LayerChangeType.PropertyChange); // Changed to use LayerChangeType
+    }
+    partial void OnIsEditingChanged(bool value) {
+        // IsEditing doesn't need to trigger a save or invalidate
+    }
+
+    partial void OnIsSelectedChanged(bool value) {
+        // IsSelected doesn't need to trigger a save or invalidate
+    }
+    partial void OnIsExportedChanged(bool value) {
+        Model.IsExported = value;
+        _onChanged?.Invoke(this, LayerChangeType.PropertyChange);
     }
     [ObservableProperty] private bool _isExported;
-    [ObservableProperty] private bool _isExpanded = true;
+    private bool _isExpanded = true;
+    public bool IsExpanded {
+        get => _isExpanded;
+        set {
+            if (_isExpanded != value) {
+                System.Diagnostics.Debug.WriteLine($"[DEBUG] LayerItemViewModel {Model.Id} ({Model.Name}) IsExpanded changed to {value}");
+                if (SetProperty(ref _isExpanded, value)) {
+                }
+            }
+        }
+    }
     [ObservableProperty] private bool _isSelected;
     [ObservableProperty] private bool _isEditing;
 
@@ -42,7 +67,7 @@ public partial class LayerItemViewModel : ViewModelBase {
 
     private readonly CommandHistory _history;
 
-    public LayerItemViewModel(LandscapeLayerBase model, CommandHistory history, Action<LayerItemViewModel> onDelete, Action<LayerItemViewModel, bool> onChanged) {
+    public LayerItemViewModel(LandscapeLayerBase model, CommandHistory history, Action<LayerItemViewModel> onDelete, Action<LayerItemViewModel, LayerChangeType> onChanged) {
         _model = model;
         _history = history;
         _onDelete = onDelete;
@@ -67,7 +92,7 @@ public partial class LayerItemViewModel : ViewModelBase {
             if (Name != _model.Name) {
                 var command = new RenameLandscapeLayerCommand(_model, Name, (newName) => {
                     Name = newName;
-                    _onChanged?.Invoke(this, false);
+                    _onChanged?.Invoke(this, LayerChangeType.PropertyChange);
                 });
                 _history.Execute(command);
             }
@@ -86,7 +111,7 @@ public partial class LayerItemViewModel : ViewModelBase {
         if (CanToggleExport) {
             var cmd = new ToggleLayerExportCommand(_model, (newState) => {
                 IsExported = newState;
-                _onChanged?.Invoke(this, false);
+                _onChanged?.Invoke(this, LayerChangeType.PropertyChange);
             });
             _history.Execute(cmd);
         }

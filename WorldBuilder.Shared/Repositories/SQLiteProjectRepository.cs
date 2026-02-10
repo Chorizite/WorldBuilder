@@ -240,7 +240,11 @@ namespace WorldBuilder.Shared.Repositories {
                 cmd.Parameters.AddWithValue("@id", id);
                 cmd.Parameters.AddWithValue("@data", data);
                 cmd.Parameters.AddWithValue("@ver", (long)version);
-                await cmd.ExecuteNonQueryAsync(ct);
+                int rows = await cmd.ExecuteNonQueryAsync(ct);
+                if (rows == 0) {
+                    _logger?.LogWarning("UpdateDocumentAsync: Document with ID {DocumentId} not found to update", id);
+                    return Result<Unit>.Failure($"Document with ID {id} not found to update", "DOCUMENT_NOT_FOUND");
+                }
                 _logger?.LogDebug("Document with ID {DocumentId} updated successfully", id);
                 return Result<Unit>.Success(Unit.Value);
             }

@@ -8,11 +8,13 @@ using System.IO;
 using System.Threading.Tasks;
 using WorldBuilder.Services;
 
-namespace WorldBuilder.ViewModels 
-{
-    public partial class ExportDatsWindowViewModel : ViewModelBase, IModalDialogViewModel
-    {
+using WorldBuilder.Shared.Services;
+
+namespace WorldBuilder.ViewModels {
+    public partial class ExportDatsWindowViewModel : ViewModelBase, IModalDialogViewModel {
         private readonly WorldBuilderSettings _settings;
+        private readonly IDatReaderWriter _dats;
+        private readonly IDatExportService _datExportService;
         private bool _isValidating; // Reentrancy guard
 
         [ObservableProperty]
@@ -39,6 +41,15 @@ namespace WorldBuilder.ViewModels
         [ObservableProperty]
         private bool _canExport = false;
 
+        [ObservableProperty]
+        private bool _isExporting = false;
+
+        [ObservableProperty]
+        private double _progress = 0;
+
+        [ObservableProperty]
+        private string _exportStatus = string.Empty;
+
         // Property for the dialog result
         public bool? DialogResult { get; set; }
 
@@ -54,30 +65,65 @@ namespace WorldBuilder.ViewModels
             Validate();
         }
 
-        public ExportDatsWindowViewModel(WorldBuilderSettings settings) {
+        public ExportDatsWindowViewModel(WorldBuilderSettings settings, IDatReaderWriter dats, IDatExportService datExportService) {
             _settings = settings;
+            _dats = dats;
+            _datExportService = datExportService;
 
             ExportDirectory = _settings.App.ProjectsDirectory;
+            PortalIteration = _dats.PortalIteration;
 
             Validate();
         }
 
         [RelayCommand]
         public async Task BrowseExportDirectory() {
-            // This will now be handled by the code-behind
+            var folders = await TopLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions {
+                Title = "Choose DAT export directory",
+                AllowMultiple = false,
+                SuggestedStartLocation = await TopLevel.StorageProvider.TryGetFolderFromPathAsync(ExportDirectory)
+            });
+
+            if (folders.Count > 0) {
+                var localPath = folders[0].TryGetLocalPath();
+                if (!string.IsNullOrWhiteSpace(localPath)) {
+                    ExportDirectory = localPath;
+                }
+            }
         }
 
         public async Task<bool> Export() {
             if (!Validate()) return false;
+            if (IsExporting) return false;
+
+            IsExporting = true;
+            CanExport = false;
+            ExportStatus = "Starting export...";
+            Progress = 0;
 
             try {
-                // TODO: Implement actual export functionality
-                DialogResult = true; // Set dialog result to true for success
-                return true;
+                var progressHandler = new Progress<DatExportProgress>(p => {
+                    ExportStatus = p.Message;
+                    Progress = p.Percent * 100;
+                });
+
+                var success = await _datExportService.ExportDatsAsync(ExportDirectory, PortalIteration, OverwriteFiles, progressHandler);
+                if (success) {
+                    DialogResult = true; // Set dialog result to true for success
+                    return true;
+                }
+                else {
+                    DirectoryErrorMessage = "Export failed. Check logs for details.";
+                    HasDirectoryError = true;
+                }
             }
             catch (Exception ex) {
                 DirectoryErrorMessage = $"Export failed: {ex.Message}";
                 HasDirectoryError = true;
+            }
+            finally {
+                IsExporting = false;
+                Validate();
             }
 
             return false;

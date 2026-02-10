@@ -68,17 +68,11 @@ public partial class App : Application {
                 log?.LogInformation("Current project changed: {ProjectName}", project?.Name);
 
                 if (project == null) return;
-                log?.LogInformation("Resolving MainViewModel for project {ProjectName}", project.Name);
-
                 try {
                     var mainVM = _projectManager.GetProjectService<MainViewModel>();
                     if (mainVM == null) {
                         log?.LogError("Failed to resolve MainViewModel!");
                         return;
-                    }
-                    else {
-                        log?.LogInformation("MainViewModel resolved. Landscape property is {Status}",
-                            mainVM.Landscape != null ? "Set" : "NULL");
                     }
 
                     var mainView = new MainView();

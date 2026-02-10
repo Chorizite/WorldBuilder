@@ -9,89 +9,134 @@ using WorldBuilder.ViewModels;
 using Microsoft.Extensions.Logging;
 
 using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Shared.Services;
+using WorldBuilder.Shared.Modules.Landscape.Commands;
+using Avalonia.Threading;
+using System.Threading.Tasks;
 
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 
-public partial class LayersPanelViewModel : ViewModelBase
-{
+public enum LayerChangeType {
+    PropertyChange,
+    StructureChange
+}
+
+public partial class LayersPanelViewModel : ViewModelBase {
     private LandscapeDocument? _document;
     private readonly ILogger _log;
     private readonly CommandHistory _history;
-    private readonly Action<LayerItemViewModel?, bool> _onLayersChanged; // (affectedItem, isVisibleChange)
+    private readonly IDocumentManager _documentManager;
+    private readonly Action<LayerItemViewModel?, LayerChangeType> _onLayersChanged; // (affectedItem, type)
 
     [ObservableProperty] private ObservableCollection<LayerItemViewModel> _items = new();
     [ObservableProperty] private LayerItemViewModel? _selectedItem;
 
-    public LayersPanelViewModel(ILogger log, CommandHistory history, Action<LayerItemViewModel?, bool> onLayersChanged)
-    {
+    public LayersPanelViewModel(ILogger log, CommandHistory history, IDocumentManager documentManager, Action<LayerItemViewModel?, LayerChangeType> onLayersChanged) {
         _log = log;
         _history = history;
+        _documentManager = documentManager;
         _onLayersChanged = onLayersChanged;
     }
 
-    public void SyncWithDocument(LandscapeDocument? doc)
-    {
+    public void SyncWithDocument(LandscapeDocument? doc) {
         _document = doc;
+
+        // Capture expansion state
+        var expansionState = new Dictionary<string, bool>();
+        try {
+            CaptureExpansionState(Items, expansionState);
+        }
+        catch (Exception ex) {
+            _log.LogError(ex, "LayersPanelViewModel.SyncWithDocument: Failed to capture expansion state");
+        }
+
         Items.Clear();
         if (_document == null) return;
 
-        foreach (var layerBase in _document.LayerTree.AsEnumerable().Reverse())
-        {
-            Items.Add(CreateVM(layerBase, null));
+        var layers = _document.LayerTree.AsEnumerable().Reverse().ToList();
+
+        foreach (var layerBase in layers) {
+            Items.Add(CreateVM(layerBase, null, expansionState));
         }
     }
 
-    private LayerItemViewModel CreateVM(LandscapeLayerBase model, LayerItemViewModel? parent)
-    {
-        var vm = new LayerItemViewModel(model, _history, OnDeleteItem, (i, v) => OnItemChanged(i, v))
-        {
+    private void CaptureExpansionState(IEnumerable<LayerItemViewModel> items, Dictionary<string, bool> state) {
+        foreach (var item in items) {
+            if (state.ContainsKey(item.Model.Id)) {
+                _log.LogWarning("LayersPanelViewModel.CaptureExpansionState: Duplicate ID detected {Id}", item.Model.Id);
+            }
+            state[item.Model.Id] = item.IsExpanded;
+            CaptureExpansionState(item.Children, state);
+        }
+    }
+
+    private LayerItemViewModel CreateVM(LandscapeLayerBase model, LayerItemViewModel? parent, Dictionary<string, bool> expansionState) {
+        var vm = new LayerItemViewModel(model, _history, OnDeleteItem, (i, v) => OnItemChanged(i, v)) {
             Parent = parent
         };
-        if (model is LandscapeLayerGroup group)
-        {
-            foreach (var child in group.Children.AsEnumerable().Reverse())
-            {
-                vm.Children.Add(CreateVM(child, vm));
+
+        if (expansionState.TryGetValue(model.Id, out var isExpanded)) {
+            vm.IsExpanded = isExpanded;
+        }
+
+        if (model is LandscapeLayerGroup group) {
+            foreach (var child in group.Children.AsEnumerable().Reverse()) {
+                vm.Children.Add(CreateVM(child, vm, expansionState));
             }
         }
         return vm;
     }
 
-    private void OnItemChanged(LayerItemViewModel item, bool isVisibleChange)
-    {
-        _onLayersChanged?.Invoke(item, isVisibleChange);
+    private void OnItemChanged(LayerItemViewModel item, LayerChangeType type) {
+        _onLayersChanged?.Invoke(item, type);
     }
 
-    private void OnDeleteItem(LayerItemViewModel item)
-    {
+    private void OnDeleteItem(LayerItemViewModel item) {
         if (_document == null || item.IsBase) return;
 
         var path = GetPath(item);
-        try
-        {
-            _document.RemoveLayer(path, item.Model.Id);
-            if (item.Parent != null)
-            {
-                item.Parent.Children.Remove(item);
+
+        // Fire and forget
+        Dispatcher.UIThread.InvokeAsync(async () => {
+            try {
+                await using var tx = await _documentManager.CreateTransactionAsync(default);
+                var cmd = new DeleteLandscapeLayerCommand {
+                    TerrainDocumentId = _document.Id,
+                    GroupPath = path,
+                    TerrainLayerDocumentId = item.Model.Id,
+                    Name = item.Model.Name,
+                    IsBase = item.IsBase
+                };
+
+                var result = await _documentManager.ApplyLocalEventAsync(cmd, tx, default);
+                if (result.IsSuccess) {
+                    await tx.CommitAsync(default);
+
+                    // Re-rent the document to ensure we have the latest instance from the cache
+                    var rentResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(_document.Id, default);
+                    if (rentResult.IsSuccess) {
+                        using var terrainRental = rentResult.Value;
+                        // Use InvokeAsync to ensure we hold the rental while syncing
+                        await Dispatcher.UIThread.InvokeAsync(() => {
+                            SyncWithDocument(terrainRental.Document);
+                            _onLayersChanged?.Invoke(null, LayerChangeType.StructureChange);
+                        });
+                    }
+                }
+                else {
+                    _log.LogError("Failed to delete layer: {Error}", result.Error);
+                }
             }
-            else
-            {
-                Items.Remove(item);
+            catch (Exception ex) {
+                _log.LogError(ex, "Failed to delete layer {LayerId}", item.Model.Id);
             }
-            _onLayersChanged?.Invoke(null, false);
-        }
-        catch (Exception ex)
-        {
-            _log.LogError(ex, "Failed to delete layer {LayerId}", item.Model.Id);
-        }
+        });
     }
 
-    private List<string> GetPath(LayerItemViewModel? item)
-    {
+    private List<string> GetPath(LayerItemViewModel? item) {
         var path = new List<string>();
         var current = item?.Parent;
-        while (current != null)
-        {
+        while (current != null) {
             path.Insert(0, current.Model.Id);
             current = current.Parent;
         }
@@ -99,8 +144,7 @@ public partial class LayersPanelViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    public void AddLayer()
-    {
+    public async Task AddLayer() {
         if (_document == null) return;
 
         var selected = SelectedItem;
@@ -113,34 +157,54 @@ public partial class LayersPanelViewModel : ViewModelBase
         var targetListVM = parentVM?.Children ?? Items;
         int index = -1;
 
-        if (selected != null)
-        {
-            if (selected.IsGroup)
-            {
+        if (selected != null) {
+            if (selected.IsGroup) {
                 // Add at top of group
                 index = 0;
                 groupPath.Add(selected.Model.Id);
             }
-            else
-            {
+            else {
                 // Add above selected layer
                 index = targetListVM.IndexOf(selected);
                 if (selected.IsBase) index = 1; // Always above base
             }
         }
 
-        var guid = Guid.NewGuid().ToString();
-        var layerId = $"{nameof(LandscapeLayerDocument)}_{guid}";
-        _document.AddLayer(groupPath, "New Layer", false, layerId, index);
+        try {
+            await using var tx = await _documentManager.CreateTransactionAsync(default);
+            var cmd = new CreateLandscapeLayerCommand(_document.Id, groupPath, "New Layer", false) {
+                Index = index
+            };
 
-        SyncWithDocument(_document);
-        SelectedItem = FindVM(layerId);
-        _onLayersChanged?.Invoke(null, false);
+            var result = await _documentManager.ApplyLocalEventAsync(cmd, tx, default);
+            if (result.IsSuccess) {
+                await tx.CommitAsync(default);
+                using var rental = result.Value;
+                var layerId = rental!.Document.Id;
+
+                // Re-rent the document to ensure we have the latest instance from the cache
+                var rentResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(_document.Id, default);
+                if (rentResult.IsSuccess) {
+                    using var terrainRental = rentResult.Value;
+                    // Use InvokeAsync to ensure we hold the rental while syncing
+                    await Dispatcher.UIThread.InvokeAsync(() => {
+                        SyncWithDocument(terrainRental.Document);
+                        SelectedItem = FindVM(layerId);
+                        _onLayersChanged?.Invoke(null, LayerChangeType.StructureChange);
+                    });
+                }
+            }
+            else {
+                _log.LogError("Failed to create layer: {Error}", result.Error);
+            }
+        }
+        catch (Exception ex) {
+            _log.LogError(ex, "Failed to create layer");
+        }
     }
 
     [RelayCommand]
-    public void AddGroup()
-    {
+    public async Task AddGroup() {
         if (_document == null) return;
 
         var selected = SelectedItem;
@@ -150,37 +214,54 @@ public partial class LayersPanelViewModel : ViewModelBase
         var targetListVM = parentVM?.Children ?? Items;
         int index = -1;
 
-        if (selected != null)
-        {
-            if (selected.IsGroup)
-            {
+        if (selected != null) {
+            if (selected.IsGroup) {
                 index = 0;
                 groupPath.Add(selected.Model.Id);
             }
-            else
-            {
+            else {
                 index = targetListVM.IndexOf(selected);
             }
         }
 
-        var groupId = $"Group_{Guid.NewGuid()}";
-        _document.AddGroup(groupPath, "New Group", groupId, index);
+        try {
+            await using var tx = await _documentManager.CreateTransactionAsync(default);
+            var cmd = new CreateLandscapeLayerGroupCommand(_document.Id, groupPath, "New Group") {
+                Index = index
+            };
 
-        SyncWithDocument(_document);
-        SelectedItem = FindVM(groupId);
-        _onLayersChanged?.Invoke(null, false);
+            var result = await _documentManager.ApplyLocalEventAsync(cmd, tx, default);
+            if (result.IsSuccess) {
+                await tx.CommitAsync(default);
+
+                // Re-rent the document to ensure we have the latest instance from the cache
+                var rentResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(_document.Id, default);
+                if (rentResult.IsSuccess) {
+                    using var terrainRental = rentResult.Value;
+                    // Use InvokeAsync to ensure we hold the rental while syncing
+                    await Dispatcher.UIThread.InvokeAsync(() => {
+                        SyncWithDocument(terrainRental.Document);
+                        SelectedItem = FindVM(cmd.GroupId);
+                        _onLayersChanged?.Invoke(null, LayerChangeType.StructureChange);
+                    });
+                }
+            }
+            else {
+                _log.LogError("Failed to create group: {Error}", result.Error);
+            }
+        }
+        catch (Exception ex) {
+            _log.LogError(ex, "Failed to create group");
+        }
     }
 
-    private LayerItemViewModel? FindVM(string id)
-    {
+    private LayerItemViewModel? FindVM(string id) {
         return Items.SelectMany(GetRangeRecursive).FirstOrDefault(vm => vm.Model.Id == id);
     }
 
-    private IEnumerable<LayerItemViewModel> GetRangeRecursive(LayerItemViewModel vm)
-    {
+    private IEnumerable<LayerItemViewModel> GetRangeRecursive(LayerItemViewModel vm) {
         yield return vm;
-        foreach (var child in vm.Children)
-        {
+        foreach (var child in vm.Children) {
             foreach (var r in GetRangeRecursive(child)) yield return r;
         }
     }

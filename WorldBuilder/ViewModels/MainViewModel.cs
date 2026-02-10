@@ -19,6 +19,7 @@ namespace WorldBuilder.ViewModels;
 public partial class MainViewModel : ViewModelBase {
     private readonly WorldBuilderSettings _settings;
     private readonly IDialogService _dialogService;
+    private readonly IServiceProvider _serviceProvider;
     private readonly Project _project;
     private bool _settingsOpen;
 
@@ -34,22 +35,25 @@ public partial class MainViewModel : ViewModelBase {
     internal MainViewModel() {
         _settings = new WorldBuilderSettings();
         _dialogService = null!;
+        _serviceProvider = null!;
         _project = null!;
         _landscape = null!;
     }
 
     [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
-    public MainViewModel(WorldBuilderSettings settings, IDialogService dialogService, Project project,
+    public MainViewModel(WorldBuilderSettings settings, IDialogService dialogService, IServiceProvider serviceProvider, Project project,
         WorldBuilder.Modules.Landscape.LandscapeViewModel landscape) {
         _settings = settings;
         _dialogService = dialogService;
+        _serviceProvider = serviceProvider;
         _project = project;
         _landscape = landscape;
     }
 
     [RelayCommand]
     private async Task OpenExportDatsWindow() {
-        await _dialogService.ShowExportDatsWindowAsync(this);
+        var viewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<ExportDatsWindowViewModel>(_serviceProvider);
+        await _dialogService.ShowDialogAsync(this, viewModel);
     }
 
     [RelayCommand]

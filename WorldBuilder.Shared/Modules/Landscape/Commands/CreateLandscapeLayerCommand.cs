@@ -25,6 +25,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
         /// <summary>The ID of the new landscape layer document.</summary>
         [MemoryPackOrder(14)] public string TerrainLayerDocumentId { get; set; } = LandscapeLayerDocument.CreateId();
 
+        /// <summary>The index to insert the layer at. -1 means append.</summary>
+        [MemoryPackOrder(15)] public int Index { get; set; } = -1;
+
         /// <summary>Initializes a new instance of the <see cref="CreateLandscapeLayerCommand"/> class.</summary>
         [MemoryPackConstructor]
         public CreateLandscapeLayerCommand() { }
@@ -98,7 +101,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
 
                 await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
-                terrainRental.Document.AddLayer(GroupPath, Name, IsBase, TerrainLayerDocumentId);
+                // Console.WriteLine($"[DEBUG] CreateLandscapeLayerCommand: Adding layer to {TerrainDocumentId} (Instance: {terrainRental.Document.GetHashCode()})");
+                terrainRental.Document.AddLayer(GroupPath, Name, IsBase, TerrainLayerDocumentId, Index);
 
                 terrainRental.Document.Version++;
                 var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);

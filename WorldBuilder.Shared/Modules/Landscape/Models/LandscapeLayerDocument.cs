@@ -36,6 +36,13 @@ public partial class LandscapeLayerDocument : BaseDocument {
         await InitializeForUpdatingAsync(dats, documentManager, ct);
     }
 
+    /// <inheritdoc/>
+    protected override Task<bool> SaveToDatsInternal(IDatReaderWriter datwriter, int iteration = 0, IProgress<float>? progress = null) {
+        // Individual layers are merged into the LandscapeDocument for export.
+        progress?.Report(1.0f);
+        return Task.FromResult(true);
+    }
+
     public override void Dispose() {
 
     }

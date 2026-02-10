@@ -32,6 +32,11 @@
             <TreeView Grid.Row="2" ItemsSource="{Binding Items}" 
                       SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                       Background="Transparent">
+                <TreeView.Styles>
+                    <Style Selector="TreeViewItem" x:DataType="vm:LayerItemViewModel">
+                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                    </Style>
+                </TreeView.Styles>
                 <TreeView.ItemTemplate>
                     <TreeDataTemplate ItemsSource="{Binding Children}">
                         <Grid ColumnDefinitions="Auto, *, Auto, Auto" Margin="2"

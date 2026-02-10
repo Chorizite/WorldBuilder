@@ -21,6 +21,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
         /// <summary>The unique identifier for the new group.</summary>
         [MemoryPackOrder(13)] public string GroupId { get; set; } = Guid.NewGuid().ToString();
 
+        /// <summary>The index to insert the group at. -1 means append.</summary>
+        [MemoryPackOrder(14)] public int Index { get; set; } = -1;
+
         /// <summary>Initializes a new instance of the <see cref="CreateLandscapeLayerGroupCommand"/> class.</summary>
         [MemoryPackConstructor]
         public CreateLandscapeLayerGroupCommand() { }
@@ -51,7 +54,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
                 using var terrainRental = rentResult.Value;
                 await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
-                terrainRental.Document.AddGroup(GroupPath, Name, GroupId);
+                terrainRental.Document.AddGroup(GroupPath, Name, GroupId, Index);
 
                 terrainRental.Document.Version++;
                 var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);

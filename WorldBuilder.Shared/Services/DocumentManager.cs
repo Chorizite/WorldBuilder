@@ -123,10 +123,16 @@ public class DocumentManager : IDocumentManager, IDisposable {
         await _cacheLock.WaitAsync(ct);
         try {
             if (_cache.TryGetValue(id, out var entry)) {
-                var doc = (T)entry.Document;
-                entry.IncrementRentCount();
-                _logger.LogDebug("Document with ID {DocumentId} found in cache", id);
-                return Result<DocumentRental<T>>.Success(new DocumentRental<T>(doc, () => ReturnDocument(id)));
+                try {
+                    var doc = (T)entry.Document;
+                    entry.IncrementRentCount();
+                    _logger.LogDebug("Document with ID {DocumentId} found in cache (Instance: {Hash})", id, doc.GetHashCode());
+                    return Result<DocumentRental<T>>.Success(new DocumentRental<T>(doc, () => ReturnDocument(id)));
+                }
+                catch (ObjectDisposedException) {
+                    _logger.LogDebug("Document with ID {DocumentId} was garbage collected, removing from cache", id);
+                    _cache.TryRemove(id, out _);
+                }
             }
 
             _logger.LogDebug("Document with ID {DocumentId} not found in cache, loading from database", id);
@@ -140,7 +146,7 @@ public class DocumentManager : IDocumentManager, IDisposable {
             var newEntry = new DocumentCacheEntry(newDoc);
             newEntry.IncrementRentCount();
             _cache[id] = newEntry;
-            _logger.LogDebug("Document with ID {DocumentId} loaded from database and added to cache", id);
+            _logger.LogDebug("Document with ID {DocumentId} loaded from database and added to cache (Instance: {Hash})", id, newDoc.GetHashCode());
 
             return Result<DocumentRental<T>>.Success(new DocumentRental<T>(newDoc, () => ReturnDocument(id)));
         }
@@ -174,7 +180,7 @@ public class DocumentManager : IDocumentManager, IDisposable {
         }
 
         var doc = rental.Document;
-        _logger.LogDebug("Persisting document with ID: {DocumentId}, Version: {Version}", doc.Id, doc.Version);
+        _logger.LogDebug("Persisting document with ID: {DocumentId}, Version: {Version} (Instance: {Hash})", doc.Id, doc.Version, doc.GetHashCode());
         var blob = doc.Serialize();
         var updateResult = await _repo.UpdateDocumentAsync(doc.Id, blob, doc.Version, tx, ct);
         if (updateResult.IsFailure) {
@@ -357,17 +363,29 @@ public class DocumentManager : IDocumentManager, IDisposable {
             LastAccessTime = DateTime.UtcNow;
         }
 
-        public void DecrementRentCount() {
+        public BaseDocument? DecrementRentCount() {
             var newCount = Interlocked.Decrement(ref _rentCount);
             LastAccessTime = DateTime.UtcNow;
 
             // Release strong reference when no longer rented
             if (newCount == 0) {
-                _strongRef?.Dispose();
+                var doc = _strongRef;
                 _strongRef = null;
+                return doc;
             }
+            return null;
         }
 
+        public BaseDocument? PrepareForEviction() {
+            var doc = _strongRef;
+            _strongRef = null;
+            return doc;
+        }
+
+        public void Dispose() {
+            _strongRef?.Dispose();
+            _strongRef = null;
+        }
         public void MarkStale() {
             _isStale = true;
         }

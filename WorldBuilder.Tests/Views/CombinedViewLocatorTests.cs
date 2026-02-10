@@ -15,19 +15,16 @@ internal class MockWindowViewModelViewModel { }
 internal class MockWindowView { }
 
 // Test wrapper to expose the protected GetViewName method
-public class TestableCombinedViewLocator : CombinedViewLocator
-{
+public class TestableCombinedViewLocator : CombinedViewLocator {
     public string GetViewNamePublic(object viewModel) => base.GetViewName(viewModel);
 }
 
-public class CombinedViewLocatorTests
-{
+public class CombinedViewLocatorTests {
     private readonly TestableCombinedViewLocator _locator = new TestableCombinedViewLocator();
 
 
     [Fact]
-    public void GetViewName_StandardViewModel_ReturnsViewName()
-    {
+    public void GetViewName_StandardViewModel_ReturnsViewName() {
         // Arrange
         var mockStandardViewModel = new MockStandardViewModel();
 
@@ -39,8 +36,7 @@ public class CombinedViewLocatorTests
     }
 
     [Fact]
-    public void GetViewName_ViewModelEndingWithModel_ReturnsCorrectViewName()
-    {
+    public void GetViewName_ViewModelEndingWithModel_ReturnsCorrectViewName() {
         // Arrange
         var mockViewModelEndingWithModel = new MockModel(); // Ends with "Model" not "ViewModel"
 
@@ -52,8 +48,7 @@ public class CombinedViewLocatorTests
     }
 
     [Fact]
-    public void GetViewName_ViewModelWithMultipleViewModelOccurrences_ReplacesAllOccurrences()
-    {
+    public void GetViewName_ViewModelWithMultipleViewModelOccurrences_ReplacesAllOccurrences() {
         // Arrange
         var mockMultiViewModel = new MockViewModelViewModel(); // Has "ViewModel" twice
 
@@ -65,8 +60,7 @@ public class CombinedViewLocatorTests
     }
 
     [Fact]
-    public void GetViewName_WindowViewModelWithMultipleOccurrences_ReplacesAllOccurrences()
-    {
+    public void GetViewName_WindowViewModelWithMultipleOccurrences_ReplacesAllOccurrences() {
         // Arrange
         var mockWindowViewModelWithMultiple = new MockWindowViewModelViewModel(); // Has "WindowViewModel" pattern multiple times
 
@@ -78,8 +72,7 @@ public class CombinedViewLocatorTests
     }
 
     [Fact]
-    public void GetViewName_ViewModelWithSimilarButDifferentEnding_DoesNotChange()
-    {
+    public void GetViewName_ViewModelWithSimilarButDifferentEnding_DoesNotChange() {
         // Arrange
         var mockSimilarViewModel = new MockWindowView(); // Ends with "View" not "ViewModel"
 
@@ -89,15 +82,19 @@ public class CombinedViewLocatorTests
         // Assert
         Assert.Equal("WorldBuilder.Tests.Views.MockWindowView", result); // Should remain unchanged
     }
-    
+
     [Fact]
-    public void GetViewName_WindowViewModel_InViewModelsNamespace_ReturnsViewInViewsNamespace()
-    {
+    public void GetViewName_WindowViewModel_InViewModelsNamespace_ReturnsViewInViewsNamespace() {
         // Arrange
+        var mockDats = new Moq.Mock<WorldBuilder.Shared.Services.IDatReaderWriter>();
+        mockDats.Setup(d => d.PortalIteration).Returns(1);
+
         var mockWindowViewModel = new WorldBuilder.ViewModels.ExportDatsWindowViewModel(
             new WorldBuilder.Services.WorldBuilderSettings(
                 Microsoft.Extensions.Logging.Abstractions.NullLogger<WorldBuilder.Services.WorldBuilderSettings>.Instance
-            )
+            ),
+            mockDats.Object,
+            null!
         );
 
         // Act

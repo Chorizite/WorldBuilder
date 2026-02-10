@@ -93,7 +93,7 @@ public partial class LandscapeDocument : BaseDocument {
     public override async Task InitializeForUpdatingAsync(IDatReaderWriter dats, IDocumentManager documentManager,
         CancellationToken ct) {
         await LoadRegionDataAsync(dats);
-        await LoadCacheFromDatsAsync(ct);
+        // LoadCacheFromDatsAsync is deferred until needed (e.g., during export or editing)
         await LoadLayersAsync(documentManager, ct);
     }
 
@@ -101,6 +101,17 @@ public partial class LandscapeDocument : BaseDocument {
     public override async Task InitializeForEditingAsync(IDatReaderWriter dats, IDocumentManager documentManager,
         CancellationToken ct) {
         await InitializeForUpdatingAsync(dats, documentManager, ct);
+        // For editing, we usually want the cache immediately
+        await EnsureCacheLoadedAsync(dats, ct);
+    }
+
+    /// <summary>
+    /// Ensures that the terrain cache is loaded from the DAT files.
+    /// </summary>
+    public async Task EnsureCacheLoadedAsync(IDatReaderWriter dats, CancellationToken ct) {
+        if (_didLoadCacheFromDats) return;
+        await LoadCacheFromDatsAsync(ct);
+        await RecalculateTerrainCacheAsync();
     }
 
     /// <summary>
@@ -260,13 +271,12 @@ public partial class LandscapeDocument : BaseDocument {
 
                 LayerDocuments[layer.Id] = layerDoc;
 
-                // apply the layer to the cache
-                foreach (var (vertexIndex, terrain) in layerDoc.Document.Terrain) {
-                    if (terrain.Height.HasValue) TerrainCache[vertexIndex].Height = terrain.Height;
-                    if (terrain.Type.HasValue) TerrainCache[vertexIndex].Type = terrain.Type;
-                    if (terrain.Scenery.HasValue) TerrainCache[vertexIndex].Scenery = terrain.Scenery;
-                    if (terrain.Encounters.HasValue) TerrainCache[vertexIndex].Encounters = terrain.Encounters;
-                    if (terrain.Road.HasValue) TerrainCache[vertexIndex].Road = terrain.Road;
+                // apply the layer to the cache only if it's already loaded
+                if (_didLoadCacheFromDats) {
+                    foreach (var (vertexIndex, terrain) in layerDoc.Document.Terrain) {
+                        if (vertexIndex >= TerrainCache.Length) continue;
+                        TerrainCache[vertexIndex].Merge(terrain);
+                    }
                 }
             }
             else if (item is LandscapeLayerGroup group) {

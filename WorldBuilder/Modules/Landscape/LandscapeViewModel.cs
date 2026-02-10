@@ -12,6 +12,7 @@ using System.Collections.Generic;
 
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Services;
+using Avalonia.Threading;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Modules.Landscape;
@@ -77,18 +78,23 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         }
 
         HistoryPanel = new HistoryPanelViewModel(CommandHistory);
-        LayersPanel = new LayersPanelViewModel(log, CommandHistory, async (item, isVisibleChange) => {
+        LayersPanel = new LayersPanelViewModel(log, CommandHistory, _documentManager, async (item, changeType) => {
             if (ActiveDocument != null) {
+                // Only request save for property changes. Structure changes (Add/Delete) are handled by commands.
+                if (changeType == LayerChangeType.PropertyChange) {
+                    RequestSave(ActiveDocument.Id);
+                }
+
                 await ActiveDocument.RecalculateTerrainCacheAsync();
 
-                if (isVisibleChange && item != null) {
+                if (changeType == LayerChangeType.PropertyChange && item != null) {
                     var affectedBlocks = ActiveDocument.GetAffectedLandblocks(item.Model.Id);
                     foreach (var (lbX, lbY) in affectedBlocks) {
                         _invalidateCallback?.Invoke(lbX, lbY);
                     }
                 }
                 else {
-                    _invalidateCallback?.Invoke(-1, -1); // Force full redraw
+                    _invalidateCallback?.Invoke(-1, -1); // Force full redraw for structure changes
                 }
             }
         });
@@ -113,19 +119,25 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
     private Action<int, int>? _invalidateCallback;
 
     partial void OnActiveDocumentChanged(LandscapeDocument? oldValue, LandscapeDocument? newValue) {
-        if (newValue != null && Camera != null) {
-            _log.LogInformation("LandscapeViewModel.OnActiveDocumentChanged: Re-initializing context");
-
+        if (newValue != null) {
+            _log.LogInformation("LandscapeViewModel.OnActiveDocumentChanged: Syncing layers for doc {DocId}", newValue.Id);
             // Set first base layer as active by default
-            ActiveLayer = newValue.GetAllLayers().FirstOrDefault(l => l.IsBase);
+            if (ActiveLayer == null) {
+                ActiveLayer = newValue.GetAllLayers().FirstOrDefault(l => l.IsBase);
+            }
 
             LayersPanel.SyncWithDocument(newValue);
+        }
+
+        if (newValue != null && Camera != null) {
+            _log.LogInformation("LandscapeViewModel.OnActiveDocumentChanged: Re-initializing context");
 
             UpdateToolContext();
         }
     }
 
     partial void OnActiveLayerChanged(LandscapeLayer? oldValue, LandscapeLayer? newValue) {
+        _log.LogInformation("LandscapeViewModel.OnActiveLayerChanged: New layer {LayerId}", newValue?.Id);
         UpdateToolContext();
     }
 
@@ -138,12 +150,17 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
                 }
             }
 
+            _log.LogInformation("Updating tool context. ActiveLayer: {LayerId}, HasDoc: {HasDoc}", ActiveLayer?.Id, activeLayerDoc != null);
+
             _toolContext = new LandscapeToolContext(ActiveDocument, CommandHistory, Camera, _log, ActiveLayer, activeLayerDoc);
             _toolContext.RequestSave = RequestSave;
             if (_invalidateCallback != null) {
                 _toolContext.InvalidateLandblock = _invalidateCallback;
             }
             ActiveTool?.Activate(_toolContext);
+        }
+        else {
+            _log.LogInformation("Skipping UpdateToolContext. ActiveDocument: {HasDoc}, Camera: {HasCamera}", ActiveDocument != null, Camera != null);
         }
     }
 
@@ -173,6 +190,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
 
     private async Task PersistDocumentAsync(string docId, CancellationToken ct) {
         if (ActiveDocument == null) return;
+
+        if (docId == ActiveDocument.Id) {
+            _log.LogInformation("Persisting landscape document {DocId} to database", docId);
+            await _documentManager.PersistDocumentAsync(_landscapeRental!, null!, ct);
+            return;
+        }
 
         // Find the rental
         DocumentRental<LandscapeLayerDocument>? rental = null;
@@ -268,9 +291,13 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
             // Find the first region ID
             var regionId = _dats.CellRegions.Keys.OrderBy(k => k).FirstOrDefault();
 
-            _landscapeRental =
+            var rental =
                 await _project.Landscape.GetOrCreateTerrainDocumentAsync(regionId, CancellationToken.None);
-            ActiveDocument = _landscapeRental.Document;
+
+            await Dispatcher.UIThread.InvokeAsync(() => {
+                _landscapeRental = rental;
+                ActiveDocument = _landscapeRental.Document;
+            });
         }
         catch (Exception ex) {
             _log.LogError(ex, "Error loading landscape");

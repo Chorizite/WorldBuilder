@@ -28,6 +28,22 @@ namespace WorldBuilder.Shared.Tests.Mocks {
             { 65537, 0x13000001 }
         });
 
+        public string SourceDirectory => "";
+        public int PortalIteration => 0;
+
+        public bool TryGetFileBytes(uint regionId, uint fileId, ref byte[] bytes, out int bytesRead) {
+            bytesRead = 0;
+            return true;
+        }
+
+        public bool TrySave<T>(T obj, int iteration = 0) where T : IDBObj {
+            return true;
+        }
+
+        public bool TrySave<T>(uint regionId, T obj, int iteration = 0) where T : IDBObj {
+            return true;
+        }
+
         public void Dispose() {
 
         }
@@ -39,6 +55,12 @@ namespace WorldBuilder.Shared.Tests.Mocks {
 
         public MockDatDatabase(IEnumerable<Type> validTypes) {
             _validObjTypes = validTypes;
+        }
+
+        public int Iteration => 0;
+
+        public bool TrySave<T>(T obj, int iteration = 0) where T : IDBObj {
+            return true;
         }
 
         public IEnumerable<uint> GetAllIdsOfType<T>() where T : IDBObj {
