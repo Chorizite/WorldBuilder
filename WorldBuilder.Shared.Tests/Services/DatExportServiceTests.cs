@@ -69,8 +69,8 @@ namespace WorldBuilder.Shared.Tests.Services {
 
             await doc.InitializeForUpdatingAsync(_datReaderWriterMock.Object, _documentManagerMock.Object, default);
 
-            _landscapeModuleMock.Setup(l => l.GetOrCreateTerrainDocumentAsync(regionId, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(rental);
+            _documentManagerMock.Setup(m => m.RentDocumentAsync<LandscapeDocument>(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(WorldBuilder.Shared.Lib.Result<DocumentManager.DocumentRental<LandscapeDocument>>.Success(rental));
 
             // Act
             var result = await _service.ExportDatsAsync(_testExportDir, 1);
@@ -80,7 +80,7 @@ namespace WorldBuilder.Shared.Tests.Services {
             Assert.True(File.Exists(Path.Combine(_testExportDir, "client_portal.dat")));
             Assert.True(File.Exists(Path.Combine(_testExportDir, "client_cell_1.dat")));
 
-            _landscapeModuleMock.Verify(l => l.GetOrCreateTerrainDocumentAsync(regionId, It.IsAny<CancellationToken>()), Times.Once);
+            _documentManagerMock.Verify(m => m.RentDocumentAsync<LandscapeDocument>(LandscapeDocument.GetIdFromRegion(regionId), It.IsAny<CancellationToken>()), Times.Once);
         }
 
         public void Dispose() {

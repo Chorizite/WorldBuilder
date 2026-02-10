@@ -80,21 +80,35 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         HistoryPanel = new HistoryPanelViewModel(CommandHistory);
         LayersPanel = new LayersPanelViewModel(log, CommandHistory, _documentManager, async (item, changeType) => {
             if (ActiveDocument != null) {
-                // Only request save for property changes. Structure changes (Add/Delete) are handled by commands.
+                // Only request save for actual property changes (e.g. Renaming). 
+                // Visibility changes are client-side only. 
+                // Structure changes (Add/Delete) are handled by their respective commands.
                 if (changeType == LayerChangeType.PropertyChange) {
                     RequestSave(ActiveDocument.Id);
                 }
 
+                await ActiveDocument.LoadMissingLayersAsync(_documentManager, default);
                 await ActiveDocument.RecalculateTerrainCacheAsync();
 
-                if (changeType == LayerChangeType.PropertyChange && item != null) {
-                    var affectedBlocks = ActiveDocument.GetAffectedLandblocks(item.Model.Id);
-                    foreach (var (lbX, lbY) in affectedBlocks) {
-                        _invalidateCallback?.Invoke(lbX, lbY);
+                void InvalidateRecursive(LandscapeLayerBase itemBase) {
+                    if (itemBase is LandscapeLayer layer) {
+                        var affectedBlocks = ActiveDocument.GetAffectedLandblocks(layer.Id);
+                        foreach (var (lbX, lbY) in affectedBlocks) {
+                            _invalidateCallback?.Invoke(lbX, lbY);
+                        }
+                    }
+                    else if (itemBase is LandscapeLayerGroup group) {
+                        foreach (var child in group.Children) {
+                            InvalidateRecursive(child);
+                        }
                     }
                 }
+
+                if (item != null) {
+                    InvalidateRecursive(item.Model);
+                }
                 else {
-                    _invalidateCallback?.Invoke(-1, -1); // Force full redraw for structure changes
+                    _invalidateCallback?.Invoke(-1, -1); // Force full redraw for unknown structure changes
                 }
             }
         });
@@ -119,15 +133,13 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
     private Action<int, int>? _invalidateCallback;
 
     partial void OnActiveDocumentChanged(LandscapeDocument? oldValue, LandscapeDocument? newValue) {
-        if (newValue != null) {
-            _log.LogInformation("LandscapeViewModel.OnActiveDocumentChanged: Syncing layers for doc {DocId}", newValue.Id);
-            // Set first base layer as active by default
-            if (ActiveLayer == null) {
-                ActiveLayer = newValue.GetAllLayers().FirstOrDefault(l => l.IsBase);
-            }
-
-            LayersPanel.SyncWithDocument(newValue);
+        _log.LogInformation("LandscapeViewModel.OnActiveDocumentChanged: Syncing layers for doc {DocId}", newValue?.Id);
+        // Set first base layer as active by default
+        if (newValue != null && ActiveLayer == null) {
+            ActiveLayer = newValue.GetAllLayers().FirstOrDefault(l => l.IsBase);
         }
+
+        LayersPanel.SyncWithDocument(newValue);
 
         if (newValue != null && Camera != null) {
             _log.LogInformation("LandscapeViewModel.OnActiveDocumentChanged: Re-initializing context");

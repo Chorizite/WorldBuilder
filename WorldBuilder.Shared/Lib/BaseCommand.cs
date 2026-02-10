@@ -11,6 +11,7 @@ namespace WorldBuilder.Shared.Lib {
     [MemoryPackUnion(4, typeof(ReorderLandscapeLayerCommand))]
     [MemoryPackUnion(5, typeof(LandscapeLayerUpdateCommand))]
     [MemoryPackUnion(6, typeof(CreateLandscapeLayerGroupCommand))]
+    [MemoryPackUnion(7, typeof(RestoreLandscapeItemCommand))]
     /// <summary>
     /// Base class for all commands in the system.
     /// Commands are serializable entities that represent an action to be performed or that has been performed.

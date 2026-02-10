@@ -13,11 +13,13 @@ using WorldBuilder.Shared.Services;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using Avalonia.Threading;
 using System.Threading.Tasks;
+using WorldBuilder.Modules.Landscape.Commands;
 
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 
 public enum LayerChangeType {
     PropertyChange,
+    VisibilityChange,
     StructureChange
 }
 
@@ -29,7 +31,11 @@ public partial class LayersPanelViewModel : ViewModelBase {
     private readonly Action<LayerItemViewModel?, LayerChangeType> _onLayersChanged; // (affectedItem, type)
 
     [ObservableProperty] private ObservableCollection<LayerItemViewModel> _items = new();
-    [ObservableProperty] private LayerItemViewModel? _selectedItem;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(MoveLayerUpCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveLayerDownCommand))]
+    private LayerItemViewModel? _selectedItem;
 
     public LayersPanelViewModel(ILogger log, CommandHistory history, IDocumentManager documentManager, Action<LayerItemViewModel?, LayerChangeType> onLayersChanged) {
         _log = log;
@@ -50,13 +56,26 @@ public partial class LayersPanelViewModel : ViewModelBase {
             _log.LogError(ex, "LayersPanelViewModel.SyncWithDocument: Failed to capture expansion state");
         }
 
+        if (_document == null) {
+            _log.LogWarning("SyncWithDocument: Document is null");
+            Items.Clear();
+            return;
+        }
+
+        _log.LogInformation("SyncWithDocument: Syncing with doc {DocId} (Instance: {Hash}). Tree Count: {TreeCount}", _document.Id, _document.GetHashCode(), _document.LayerTree.Count);
+
         Items.Clear();
-        if (_document == null) return;
 
         var layers = _document.LayerTree.AsEnumerable().Reverse().ToList();
+        _log.LogInformation("SyncWithDocument: Found {Count} root layers for doc {DocId}", layers.Count, _document.Id);
 
         foreach (var layerBase in layers) {
+            _log.LogInformation(" - Adding VM for Layer: {Name} ({Id}, Visible: {Visible}, Type: {Type})", layerBase.Name, layerBase.Id, layerBase.IsVisible, layerBase.GetType().Name);
             Items.Add(CreateVM(layerBase, null, expansionState));
+        }
+
+        if (layers.Count == 0) {
+            _log.LogWarning("SyncWithDocument: LayerTree is empty for doc {DocId}. Tree Instance Hash: {TreeHash}", _document.Id, _document.LayerTree.GetHashCode());
         }
     }
 
@@ -96,41 +115,41 @@ public partial class LayersPanelViewModel : ViewModelBase {
 
         var path = GetPath(item);
 
-        // Fire and forget
-        Dispatcher.UIThread.InvokeAsync(async () => {
-            try {
-                await using var tx = await _documentManager.CreateTransactionAsync(default);
-                var cmd = new DeleteLandscapeLayerCommand {
-                    TerrainDocumentId = _document.Id,
-                    GroupPath = path,
-                    TerrainLayerDocumentId = item.Model.Id,
-                    Name = item.Model.Name,
-                    IsBase = item.IsBase
-                };
+        var cmd = new DeleteLandscapeLayerCommand {
+            TerrainDocumentId = _document.Id,
+            GroupPath = path,
+            TerrainLayerDocumentId = item.Model.Id,
+            Name = item.Model.Name,
+            IsBase = item.IsBase
+        };
 
-                var result = await _documentManager.ApplyLocalEventAsync(cmd, tx, default);
-                if (result.IsSuccess) {
-                    await tx.CommitAsync(default);
+        var undoableCmd = new UndoableDocumentCommand(
+            $"Delete Layer '{item.Model.Name}'",
+            cmd,
+            _documentManager,
+            () => Refresh()
+        );
 
-                    // Re-rent the document to ensure we have the latest instance from the cache
-                    var rentResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(_document.Id, default);
-                    if (rentResult.IsSuccess) {
-                        using var terrainRental = rentResult.Value;
-                        // Use InvokeAsync to ensure we hold the rental while syncing
-                        await Dispatcher.UIThread.InvokeAsync(() => {
-                            SyncWithDocument(terrainRental.Document);
-                            _onLayersChanged?.Invoke(null, LayerChangeType.StructureChange);
-                        });
-                    }
-                }
-                else {
-                    _log.LogError("Failed to delete layer: {Error}", result.Error);
-                }
-            }
-            catch (Exception ex) {
-                _log.LogError(ex, "Failed to delete layer {LayerId}", item.Model.Id);
-            }
-        });
+        _history.Execute(undoableCmd);
+    }
+
+    private async Task Refresh() {
+        if (_document == null) return;
+
+        // Re-rent the document to ensure we have the latest instance from the cache
+        // This addresses potential instance staleness between different ViewModels/Modules.
+        var rentResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(_document.Id, default);
+        if (rentResult.IsSuccess) {
+            using var terrainRental = rentResult.Value;
+            await Dispatcher.UIThread.InvokeAsync(() => {
+                _log.LogInformation("Refresh: Syncing with rented doc {DocId} (Instance: {Hash})", terrainRental.Document.Id, terrainRental.Document.GetHashCode());
+                SyncWithDocument(terrainRental.Document);
+                _onLayersChanged?.Invoke(null, LayerChangeType.StructureChange);
+            });
+        }
+        else {
+            _log.LogWarning("Refresh: Failed to re-rent document {DocId}: {Error}", _document.Id, rentResult.Error);
+        }
     }
 
     private List<string> GetPath(LayerItemViewModel? item) {
@@ -144,15 +163,12 @@ public partial class LayersPanelViewModel : ViewModelBase {
     }
 
     [RelayCommand]
-    public async Task AddLayer() {
+    public void AddLayer() {
         if (_document == null) return;
 
         var selected = SelectedItem;
         var parentVM = selected?.IsGroup == true ? selected : selected?.Parent;
         var groupPath = GetPath(selected?.IsGroup == true ? selected : selected); // Path to the parent group
-
-        // If selected is a group, we add inside it.
-        // If selected is a layer, we add in the same parent as the layer, above it.
 
         var targetListVM = parentVM?.Children ?? Items;
         int index = -1;
@@ -170,41 +186,28 @@ public partial class LayersPanelViewModel : ViewModelBase {
             }
         }
 
-        try {
-            await using var tx = await _documentManager.CreateTransactionAsync(default);
-            var cmd = new CreateLandscapeLayerCommand(_document.Id, groupPath, "New Layer", false) {
-                Index = index
-            };
+        var cmd = new CreateLandscapeLayerCommand(_document.Id, groupPath, "New Layer", false) {
+            Index = index
+        };
 
-            var result = await _documentManager.ApplyLocalEventAsync(cmd, tx, default);
-            if (result.IsSuccess) {
-                await tx.CommitAsync(default);
-                using var rental = result.Value;
-                var layerId = rental!.Document.Id;
+        var undoableCmd = new UndoableDocumentCommand(
+            "Add New Layer",
+            cmd,
+            _documentManager,
+            async () => {
+                await Refresh();
+                // After refresh, select the new layer
+                await Dispatcher.UIThread.InvokeAsync(() => {
+                    SelectedItem = FindVM(cmd.TerrainLayerDocumentId);
+                });
+            }
+        );
 
-                // Re-rent the document to ensure we have the latest instance from the cache
-                var rentResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(_document.Id, default);
-                if (rentResult.IsSuccess) {
-                    using var terrainRental = rentResult.Value;
-                    // Use InvokeAsync to ensure we hold the rental while syncing
-                    await Dispatcher.UIThread.InvokeAsync(() => {
-                        SyncWithDocument(terrainRental.Document);
-                        SelectedItem = FindVM(layerId);
-                        _onLayersChanged?.Invoke(null, LayerChangeType.StructureChange);
-                    });
-                }
-            }
-            else {
-                _log.LogError("Failed to create layer: {Error}", result.Error);
-            }
-        }
-        catch (Exception ex) {
-            _log.LogError(ex, "Failed to create layer");
-        }
+        _history.Execute(undoableCmd);
     }
 
     [RelayCommand]
-    public async Task AddGroup() {
+    public void AddGroup() {
         if (_document == null) return;
 
         var selected = SelectedItem;
@@ -224,35 +227,99 @@ public partial class LayersPanelViewModel : ViewModelBase {
             }
         }
 
-        try {
-            await using var tx = await _documentManager.CreateTransactionAsync(default);
-            var cmd = new CreateLandscapeLayerGroupCommand(_document.Id, groupPath, "New Group") {
-                Index = index
-            };
+        var cmd = new CreateLandscapeLayerGroupCommand(_document.Id, groupPath, "New Group") {
+            Index = index
+        };
 
-            var result = await _documentManager.ApplyLocalEventAsync(cmd, tx, default);
-            if (result.IsSuccess) {
-                await tx.CommitAsync(default);
+        var undoableCmd = new UndoableDocumentCommand(
+            "Add New Group",
+            cmd,
+            _documentManager,
+            async () => {
+                await Refresh();
+                // After refresh, select the new group
+                await Dispatcher.UIThread.InvokeAsync(() => {
+                    SelectedItem = FindVM(cmd.GroupId);
+                });
+            }
+        );
 
-                // Re-rent the document to ensure we have the latest instance from the cache
-                var rentResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(_document.Id, default);
-                if (rentResult.IsSuccess) {
-                    using var terrainRental = rentResult.Value;
-                    // Use InvokeAsync to ensure we hold the rental while syncing
-                    await Dispatcher.UIThread.InvokeAsync(() => {
-                        SyncWithDocument(terrainRental.Document);
-                        SelectedItem = FindVM(cmd.GroupId);
-                        _onLayersChanged?.Invoke(null, LayerChangeType.StructureChange);
-                    });
-                }
-            }
-            else {
-                _log.LogError("Failed to create group: {Error}", result.Error);
-            }
+        _history.Execute(undoableCmd);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanMoveLayerUp))]
+    public void MoveLayerUp() {
+        MoveLayer(-1);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanMoveLayerDown))]
+    public void MoveLayerDown() {
+        MoveLayer(1);
+    }
+
+    private bool CanMoveLayerUp() {
+        if (SelectedItem == null || SelectedItem.IsBase) return false;
+        var parent = SelectedItem.Parent;
+        var list = parent?.Children ?? Items;
+        int index = list.IndexOf(SelectedItem);
+        if (index == -1) return false;
+
+        // In root, index 0 is always Base layer, so we can't move above index 1.
+        // In groups, we can move to index 0.
+        int minIndex = (parent == null) ? 1 : 0;
+        return index > minIndex;
+    }
+
+    private bool CanMoveLayerDown() {
+        if (SelectedItem == null || SelectedItem.IsBase) return false;
+        var list = SelectedItem.Parent?.Children ?? Items;
+        var index = list.IndexOf(SelectedItem);
+        return index != -1 && index < list.Count - 1;
+    }
+
+    private void MoveLayer(int offset) {
+        if (_document == null || SelectedItem == null || SelectedItem.IsBase) return;
+
+        var selected = SelectedItem;
+        var parentVM = selected.Parent;
+        var targetList = parentVM?.Children ?? Items;
+
+        int oldIndex = targetList.IndexOf(selected);
+        int newIndex = oldIndex + offset;
+
+        // Validation
+        if (newIndex < 0 || newIndex >= targetList.Count) return;
+
+        // Prevent moving above base layer if in root
+        if (parentVM == null) {
+            var targetItem = targetList[newIndex];
+            if (targetItem.IsBase) return;
         }
-        catch (Exception ex) {
-            _log.LogError(ex, "Failed to create group");
-        }
+
+        var groupPath = GetPath(selected); // Path to the parent group
+
+        var cmd = new ReorderLandscapeLayerCommand(
+            _document.Id,
+            groupPath,
+            selected.Model.Id,
+            newIndex,
+            oldIndex
+        );
+
+        var undoableCmd = new UndoableDocumentCommand(
+            $"Move '{selected.Model.Name}' {(offset < 0 ? "Up" : "Down")}",
+            cmd,
+            _documentManager,
+            async () => {
+                await Refresh();
+                // Reselect the item after refresh (wrapper's refresh callback)
+                await Dispatcher.UIThread.InvokeAsync(() => {
+                    SelectedItem = FindVM(selected.Model.Id);
+                });
+            }
+        );
+
+        _history.Execute(undoableCmd);
     }
 
     private LayerItemViewModel? FindVM(string id) {

@@ -25,7 +25,24 @@ public partial class DeleteLandscapeLayerCommand : BaseCommand<bool> {
     /// <summary>Whether the layer was the base layer (stored for undo purposes).</summary>
     [MemoryPackOrder(14)] public bool IsBase { get; set; }
 
+    /// <summary>The deleted item snapshot (stored for undo purposes).</summary>
+    [MemoryPackOrder(15)] public LandscapeLayerBase? DeletedItem { get; set; }
+
+    /// <summary>The index of the deleted item (stored for undo purposes).</summary>
+    [MemoryPackOrder(16)] public int Index { get; set; } = -1;
+
     public override BaseCommand CreateInverse() {
+        if (DeletedItem != null) {
+            return new RestoreLandscapeItemCommand {
+                UserId = UserId,
+                GroupPath = GroupPath,
+                TerrainDocumentId = TerrainDocumentId,
+                Item = DeletedItem,
+                Index = Index
+            };
+        }
+
+        // Fallback for old history or missing data
         return new CreateLandscapeLayerCommand {
             UserId = UserId,
             GroupPath = GroupPath,
@@ -57,12 +74,20 @@ public partial class DeleteLandscapeLayerCommand : BaseCommand<bool> {
 
             await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
-            // If name is not set, try to find it before removing
-            if (string.IsNullOrEmpty(Name)) {
-                var layer = terrainRental.Document.GetAllLayers().FirstOrDefault(l => l.Id == TerrainLayerDocumentId);
-                if (layer != null) {
-                    Name = layer.Name;
-                    IsBase = layer.IsBase;
+            // If properties are not set (first run), find and snapshot the item
+            if (string.IsNullOrEmpty(Name) || DeletedItem == null) {
+                var item = terrainRental.Document.FindItem(TerrainLayerDocumentId);
+                if (item != null) {
+                    Name = item.Name;
+                    DeletedItem = item; // Snapshot the item
+                    if (item is LandscapeLayer layer) {
+                        IsBase = layer.IsBase;
+                    }
+
+                    // Find index
+                    var parentGroup = terrainRental.Document.FindParentGroup(GroupPath);
+                    var list = parentGroup?.Children ?? terrainRental.Document.LayerTree;
+                    Index = list.IndexOf(item);
                 }
             }
 

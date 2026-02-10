@@ -61,6 +61,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
+        public void MarkAllDirty() {
+            lock (_dirtyLock) {
+                for (int i = 0; i < 64; i++) {
+                    _dirtyLandblocks[i] = true;
+                }
+            }
+        }
+
         public bool TryGetNextDirty(out int localLx, out int localLy) {
             lock (_dirtyLock) {
                 for (int i = 0; i < 64; i++) {

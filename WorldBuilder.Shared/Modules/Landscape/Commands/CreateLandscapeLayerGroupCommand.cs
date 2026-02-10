@@ -71,8 +71,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
         }
 
         public override BaseCommand CreateInverse() {
-            // TODO: Implement DeleteLandscapeLayerGroupCommand and return it here
-            throw new NotImplementedException("DeleteLandscapeLayerGroupCommand is not implemented yet.");
+            return new DeleteLandscapeLayerCommand {
+                UserId = UserId,
+                GroupPath = GroupPath,
+                TerrainDocumentId = TerrainDocumentId,
+                TerrainLayerDocumentId = GroupId,
+                Name = Name,
+                IsBase = false
+            };
         }
     }
 }

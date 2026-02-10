@@ -19,13 +19,9 @@ public partial class LayerItemViewModel : ViewModelBase {
     [ObservableProperty] private string _name;
     [ObservableProperty] private bool _isVisible = true;
 
-    partial void OnNameChanged(string value) {
-        Model.Name = value;
-        _onChanged?.Invoke(this, LayerChangeType.PropertyChange);
-    }
     partial void OnIsVisibleChanged(bool value) {
         _model.IsVisible = value;
-        _onChanged?.Invoke(this, LayerChangeType.PropertyChange); // Changed to use LayerChangeType
+        _onChanged?.Invoke(this, LayerChangeType.VisibilityChange); // Changed to use VisibilityChange
     }
     partial void OnIsEditingChanged(bool value) {
         // IsEditing doesn't need to trigger a save or invalidate

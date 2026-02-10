@@ -26,6 +26,13 @@
                         IsEnabled="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}, FallbackValue=False}">
                     <TextBlock Text="🗑️" />
                 </Button>
+                <Separator Width="10" IsVisible="False" />
+                <Button Command="{Binding MoveLayerUpCommand}" ToolTip.Tip="Move Up">
+                    <TextBlock Text="⬆️" />
+                </Button>
+                <Button Command="{Binding MoveLayerDownCommand}" ToolTip.Tip="Move Down">
+                    <TextBlock Text="⬇️" />
+                </Button>
             </StackPanel>
 
             <!-- Layer Tree -->

@@ -397,6 +397,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void InvalidateLandblock(int lbX, int lbY) {
+            if (lbX == -1 && lbY == -1) {
+                foreach (var c in _chunks.Values) {
+                    if (c.IsGenerated) {
+                        c.MarkAllDirty();
+                        if (_queuedForPartialUpdate.TryAdd(c, 1)) {
+                            _partialUpdateQueue.Enqueue(c);
+                        }
+                    }
+                }
+                return;
+            }
+
             var chunkX = (uint)(lbX / 8);
             var chunkY = (uint)(lbY / 8);
             var chunkId = (ulong)chunkX << 32 | chunkY;

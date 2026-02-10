@@ -100,7 +100,9 @@ public partial class LandscapeDocument : BaseDocument {
     /// <inheritdoc/>
     public override async Task InitializeForEditingAsync(IDatReaderWriter dats, IDocumentManager documentManager,
         CancellationToken ct) {
+        Console.WriteLine($"[DEBUG] Initializing LandscapeDocument {Id} (Instance: {GetHashCode()}) for editing. Current LayerTree Count: {LayerTree.Count}");
         await InitializeForUpdatingAsync(dats, documentManager, ct);
+        Console.WriteLine($"[DEBUG] After updating, LandscapeDocument {Id} LayerTree Count: {LayerTree.Count}");
         // For editing, we usually want the cache immediately
         await EnsureCacheLoadedAsync(dats, ct);
     }
@@ -169,15 +171,29 @@ public partial class LandscapeDocument : BaseDocument {
         var parent = FindParentGroup(groupPath);
         var targetList = parent?.Children ?? LayerTree;
 
-        var layer = targetList.OfType<LandscapeLayer>().FirstOrDefault(l => l.Id == layerId)
+        var layer = targetList.FirstOrDefault(l => l.Id == layerId)
                     ?? throw new InvalidOperationException($"Layer not found: {layerId}");
 
-        if (layer.IsBase) {
+        if (layer is LandscapeLayer l && l.IsBase) {
             throw new InvalidOperationException("Cannot remove the base layer.");
         }
 
         targetList.Remove(layer);
-        _layerIds.Remove(layerId);
+        RemoveIdsRecursive(layer);
+
+        // Remove from LayerDocuments if it exists
+        if (layer is LandscapeLayer l2 && LayerDocuments.TryRemove(l2.Id, out var rental)) {
+            rental.Dispose();
+        }
+    }
+
+    private void RemoveIdsRecursive(LandscapeLayerBase item) {
+        _layerIds.Remove(item.Id);
+        if (item is LandscapeLayerGroup group) {
+            foreach (var child in group.Children) {
+                RemoveIdsRecursive(child);
+            }
+        }
     }
 
     /// <summary>
@@ -205,6 +221,48 @@ public partial class LandscapeDocument : BaseDocument {
 
         targetList.RemoveAt(oldIndex);
         targetList.Insert(newIndex, layer);
+    }
+
+    /// <summary>
+    /// Inserts an existing item (layer or group) into the tree. Used for Undo/Restore.
+    /// </summary>
+    public void InsertItem(IReadOnlyList<string> groupPath, int index, LandscapeLayerBase item) {
+        var parent = FindParentGroup(groupPath);
+        var targetList = parent?.Children ?? LayerTree;
+
+        if (_layerIds.Contains(item.Id)) {
+            // If it already exists (e.g. somehow), throw or ignore?
+            // For undo, it shouldn't exist.
+            throw new InvalidOperationException($"Item ID already exists: {item.Id}");
+        }
+
+        // Validate base layer
+        if (item is LandscapeLayer l && l.IsBase && GetAllLayers().Any(x => x.IsBase)) {
+            throw new InvalidOperationException("Cannot add another base layer; only one allowed.");
+        }
+
+        if (index < 0 || index > targetList.Count) {
+            targetList.Add(item);
+        }
+        else {
+            targetList.Insert(index, item);
+        }
+
+        // Re-register IDs recursively
+        RegisterIdsRecursive(item);
+    }
+
+    private void RegisterIdsRecursive(LandscapeLayerBase item) {
+        _layerIds.Add(item.Id);
+        if (item is LandscapeLayerGroup group) {
+            foreach (var child in group.Children) {
+                RegisterIdsRecursive(child);
+            }
+        }
+    }
+
+    public LandscapeLayerBase? FindItem(string id) {
+        return GetAllLayersAndGroups().FirstOrDefault(l => l.Id == id);
     }
 
     internal IEnumerable<LandscapeLayerBase> GetAllLayersAndGroups() {
@@ -250,6 +308,31 @@ public partial class LandscapeDocument : BaseDocument {
 
         _didLoadLayers = true;
         await RecalculateTerrainCacheAsync();
+    }
+
+    /// <summary>
+    /// Rents any missing layer documents present in the layer tree.
+    /// </summary>
+    public async Task LoadMissingLayersAsync(IDocumentManager documentManager, CancellationToken ct) {
+        await LoadMissingLayersRecursiveAsync(LayerTree, documentManager, ct);
+    }
+
+    private async Task LoadMissingLayersRecursiveAsync(IEnumerable<LandscapeLayerBase> items, IDocumentManager documentManager, CancellationToken ct) {
+        foreach (var item in items) {
+            if (item is LandscapeLayer layer) {
+                if (!LayerDocuments.ContainsKey(layer.Id)) {
+                    var layerDocResult = await documentManager.RentDocumentAsync<LandscapeLayerDocument>(layer.Id, ct);
+                    if (layerDocResult.IsSuccess) {
+                        var rental = layerDocResult.Value;
+                        await rental.Document.InitializeForUpdatingAsync(null!, documentManager, ct);
+                        LayerDocuments[layer.Id] = rental;
+                    }
+                }
+            }
+            else if (item is LandscapeLayerGroup group) {
+                await LoadMissingLayersRecursiveAsync(group.Children, documentManager, ct);
+            }
+        }
     }
 
     private async Task LoadLayersAsync(List<LandscapeLayerBase> layerTree, IDocumentManager documentManager,

@@ -291,12 +291,19 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
         #region CreateInverse Tests
 
         [Fact]
-        public void CreateInverse_ThrowsNotImplementedException() {
+        public void CreateInverse_ReturnsDeleteCommand() {
             // Arrange
             var command = new CreateLandscapeLayerGroupCommand(_terrainDocId, [], _groupName);
 
-            // Act & Assert
-            Assert.Throws<NotImplementedException>(() => command.CreateInverse());
+            // Act
+            var inverse = command.CreateInverse();
+
+            // Assert
+            var deleteCmd = Assert.IsType<DeleteLandscapeLayerCommand>(inverse);
+            Assert.Equal(_terrainDocId, deleteCmd.TerrainDocumentId);
+            Assert.Equal(command.GroupId, deleteCmd.TerrainLayerDocumentId);
+            Assert.Equal(_groupName, deleteCmd.Name);
+            Assert.False(deleteCmd.IsBase);
         }
 
         #endregion
