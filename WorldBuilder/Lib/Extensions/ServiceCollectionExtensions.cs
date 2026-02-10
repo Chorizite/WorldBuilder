@@ -28,6 +28,7 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton<RecentProjectsManager>();
             collection.AddSingleton<ProjectManager>();
             collection.AddSingleton<SplashPageFactory>();
+            collection.AddSingleton<IUpdateService, VelopackUpdateService>();
 
             // Register dialog service
             collection.AddSingleton<IDialogService>(provider => new DialogService(

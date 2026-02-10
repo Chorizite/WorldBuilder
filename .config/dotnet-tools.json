@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "gitversion.tool": {
+      "version": "6.5.1",
+      "commands": [
+        "dotnet-gitversion"
+      ],
+      "rollForward": false
+    },
+    "vpk": {
+      "version": "0.0.1298",
+      "commands": [
+        "vpk"
+      ],
+      "rollForward": false
+    }
+  }
+}

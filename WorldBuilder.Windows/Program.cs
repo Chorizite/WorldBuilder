@@ -1,9 +1,9 @@
 using Avalonia;
-using Avalonia.ReactiveUI;
 using System;
 using System.Diagnostics;
 using System.Reflection;
 using System.Threading.Tasks;
+using Velopack;
 
 namespace WorldBuilder.Windows;
 
@@ -12,6 +12,8 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        VelopackApp.Build().Run();
+
         try
         {
             TaskScheduler.UnobservedTaskException += (sender, e) =>

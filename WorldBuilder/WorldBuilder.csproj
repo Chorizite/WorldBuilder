@@ -6,6 +6,7 @@
 		<AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
 		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
 		<PublishAot>true</PublishAot>
+		<SatelliteResourceLanguages>en</SatelliteResourceLanguages>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -17,19 +18,14 @@
 		<PackageReference Include="Avalonia.Skia" />
 		<PackageReference Include="Avalonia.Themes.Fluent" />
 		<PackageReference Include="Avalonia.Fonts.Inter" />
-		<!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-		<PackageReference Include="Avalonia.Diagnostics">
-			<IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
-			<PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
-		</PackageReference>
 		<PackageReference Include="Chorizite.DatReaderWriter" />
 		<PackageReference Include="CommunityToolkit.Mvvm" />
 		<PackageReference Include="Avalonia.Controls.ColorPicker" />
 		<PackageReference Include="DialogHost.Avalonia" />
-		<PackageReference Include="IconPacks.Avalonia" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
 		<PackageReference Include="HanumanInstitute.MvvmDialogs.Avalonia" />
+		<PackageReference Include="Velopack" />
 </ItemGroup>
 
 	<ItemGroup>

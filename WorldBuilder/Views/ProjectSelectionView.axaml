@@ -90,14 +90,14 @@
                                         </Button.Styles>
                                         <StackPanel Margin="0,0,22,0">
                                             <StackPanel Orientation="Horizontal">
-                                                <iconPacks:PackIconMaterial
+                                                <TextBlock
                                                     Width="18"
                                                     Height="18"
                                                     Margin="0,0,4,0"
                                                     VerticalAlignment="Center"
+                                                    Text="!"
                                                     Foreground="{DynamicResource ErrorBrush}"
-                                                    IsVisible="{Binding HasError}"
-                                                    Kind="AlertCircleOutline" />
+                                                    IsVisible="{Binding HasError}" />
                                                 <TextBlock
                                                     Width="250"
                                                     FontSize="16"

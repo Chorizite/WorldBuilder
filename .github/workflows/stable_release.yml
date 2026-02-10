@@ -1,0 +1,155 @@
+name: Stable Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    outputs:
+      semVer: ${{ steps.gitversion.outputs.semVer }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v0.10.2
+        with:
+          versionSpec: '6.0.x'
+
+      - name: Determine Version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v0.10.2
+        with:
+          useConfigFile: true
+      
+      - name: Get Latest Release Tag
+        id: get_latest_release
+        run: |
+          latest_tag=$(gh release list --exclude-pre-releases --limit 1 --json tagName --jq '.[0].tagName')
+          echo "LATEST_TAG=$latest_tag" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
+      - name: Generate Changelog
+        id: changelog
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/releases/generate-notes \
+            -f tag_name='v${{ steps.gitversion.outputs.semVer }}' \
+            -f target_commitish='${{ github.sha }}' \
+            -f previous_tag_name='${{ steps.get_latest_release.outputs.LATEST_TAG }}' \
+            > changelog.json
+          
+          # Extract the body from the response
+          CHANGELOG_BODY=$(jq -r '.body' changelog.json)
+          
+          # Save to file and output
+          echo "$CHANGELOG_BODY" > "${{ steps.gitversion.outputs.semVer }}.md"
+          # Set output using multiline syntax
+          {
+            echo 'changelog<<EOF'
+            echo "$CHANGELOG_BODY"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Draft Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.gitversion.outputs.semVer }}
+          name: v${{ steps.gitversion.outputs.semVer }}
+          body: |
+            ### 📋 Changelog
+            ${{ steps.changelog.outputs.changelog }}
+          draft: true
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-windows:
+    needs: prepare-release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+      
+      - name: Install dependencies
+        run: dotnet tool restore
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v0.10.2
+        with:
+          versionSpec: '6.0.x'
+
+      - name: Determine Version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v0.10.2
+        with:
+          useConfigFile: true
+
+      - name: Publish
+        run: dotnet publish WorldBuilder.Windows/WorldBuilder.Windows.csproj -c Release -r win-x64 -o publish -p:SelfContained=true -p:DebugType=None -p:DebugSymbols=false -p:GenerateDocumentationFile=false -p:InformationalVersion=${{ steps.gitversion.outputs.informationalVersion }} -p:Version=${{ steps.gitversion.outputs.semVer }} -p:AssemblyVersion=${{ steps.gitversion.outputs.assemblySemVer }}
+
+      - name: Pack
+        run: |
+          dotnet vpk download github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }} --channel windows
+          dotnet vpk pack -u WorldBuilder -v ${{ steps.gitversion.outputs.semVer }} -p publish -e WorldBuilder.Windows.exe --framework net8.0-x64-desktop --channel windows
+
+      - name: Upload to Release
+        run: dotnet vpk upload github --repoUrl https://github.com/${{ github.repository }} --tag v${{ steps.gitversion.outputs.semVer }} --token ${{ secrets.GITHUB_TOKEN }} --channel windows
+
+  build-linux:
+    needs: prepare-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+      
+      - name: Install dependencies
+        run: dotnet tool restore
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v0.10.2
+        with:
+          versionSpec: '6.0.x'
+
+      - name: Determine Version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v0.10.2
+        with:
+          useConfigFile: true
+
+      - name: Publish
+        run: dotnet publish WorldBuilder.Linux/WorldBuilder.Linux.csproj -c Release -r linux-x64 -o publish -p:SelfContained=true -p:DebugType=None -p:DebugSymbols=false -p:GenerateDocumentationFile=false -p:InformationalVersion=${{ steps.gitversion.outputs.informationalVersion }} -p:Version=${{ steps.gitversion.outputs.semVer }} -p:AssemblyVersion=${{ steps.gitversion.outputs.assemblySemVer }}
+
+      - name: Pack
+        run: |
+          dotnet vpk download github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }} --channel linux
+          dotnet vpk pack -u WorldBuilder -v ${{ steps.gitversion.outputs.semVer }} -p publish -e WorldBuilder.Linux --channel linux
+
+      - name: Upload to Release
+        run: dotnet vpk upload github --repoUrl https://github.com/${{ github.repository }} --tag v${{ steps.gitversion.outputs.semVer }} --token ${{ secrets.GITHUB_TOKEN }} --channel linux

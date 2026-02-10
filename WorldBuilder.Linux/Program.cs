@@ -3,6 +3,7 @@ using System;
 using System.Diagnostics;
 using System.Reflection;
 using System.Threading.Tasks;
+using Velopack;
 
 namespace WorldBuilder.Linux;
 
@@ -11,6 +12,8 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        VelopackApp.Build().Run();
+
         try
         {
             TaskScheduler.UnobservedTaskException += (sender, e) =>

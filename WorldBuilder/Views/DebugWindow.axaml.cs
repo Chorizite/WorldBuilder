@@ -13,9 +13,6 @@ namespace WorldBuilder.Views
         public DebugWindow()
         {
             InitializeComponent();
-#if DEBUG
-            this.AttachDevTools();
-#endif
         }
 
         private void InitializeComponent()

@@ -4,6 +4,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+		<SatelliteResourceLanguages>en</SatelliteResourceLanguages>
 	</PropertyGroup>
 	<ItemGroup>
 	  <None Remove="Shaders\Landscape.frag" />
@@ -57,9 +58,7 @@
 	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <None Remove="Shaders\Terrain.frag" />
-	  <EmbeddedResource Include="Shaders\Terrain.frag" />
 	  <None Remove="Shaders\Terrain.vert" />
-	  <EmbeddedResource Include="Shaders\Terrain.vert" />
 	</ItemGroup>
 	<ItemGroup>
 	  <None Update="Fonts\Apache License.txt">

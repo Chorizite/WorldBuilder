@@ -15,7 +15,6 @@
         <FluentTheme />
         <dialog:DialogHostStyles />
         <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
-        <StyleInclude Source="avares://IconPacks.Avalonia/Icons.axaml" />
     </Application.Styles>
     <Application.DataTemplates>
         <services:CombinedViewLocator />
