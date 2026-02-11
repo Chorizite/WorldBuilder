@@ -63,11 +63,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Delete existing 'latest' release
+        run: |
+          gh release delete latest --yes || true
+          git push origin :refs/tags/latest || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create Pre-Release
         run: |
-          gh release create "v$SEMVER" \
-            --title "Edge $SEMVER" \
+          gh release create "latest" \
+            --title "Edge Build" \
             --notes-file "$SEMVER.md" \
+            --target ${{ github.sha }} \
             --prerelease
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -114,12 +122,13 @@ jobs:
 
       - name: Upload to Release
         run: |
-          gh release upload "v$SEMVER" \
+          gh release upload "latest" \
             Releases/releases.windows-edge.json \
             Releases/WorldBuilder-${SEMVER}-windows-edge-full.nupkg \
             Releases/WorldBuilder-windows-edge-Portable.zip \
             Releases/WorldBuilder-windows-edge-Setup.exe \
             --clobber
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SEMVER: ${{ steps.gitversion.outputs.semVer }}
@@ -165,7 +174,7 @@ jobs:
 
       - name: Upload to Release
         run: |
-          gh release upload "v$SEMVER" \
+          gh release upload "latest" \
             Releases/releases.linux-edge.json \
             Releases/WorldBuilder-${SEMVER}-linux-edge-full.nupkg \
             Releases/WorldBuilder-linux-edge.AppImage \
