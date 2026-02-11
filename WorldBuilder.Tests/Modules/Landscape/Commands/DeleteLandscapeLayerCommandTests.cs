@@ -35,7 +35,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands {
             };
 
             var terrainDocMock = new Mock<LandscapeDocument>(terrainId);
-            terrainDocMock.CallBase = true; // Use real implementation for non-virtual methods like AddLayer
+            terrainDocMock.CallBase = true;
             terrainDocMock.Setup(m => m.InitializeForUpdatingAsync(It.IsAny<IDatReaderWriter>(), It.IsAny<IDocumentManager>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 

@@ -107,7 +107,6 @@ namespace WorldBuilder.Tests.Modules.Landscape.ViewModels {
             vm.IsVisible = false;
 
             // Assert
-            // Model is not updated directly anymore, LandscapeDocument handles it via the callback
             Assert.True(model.IsVisible);
             Assert.Equal(LayerChangeType.VisibilityChange, notifiedType);
         }

@@ -27,7 +27,6 @@ public class ErrorDetailsWindowTests {
 
         // Assert
         Assert.NotNull(window);
-        // We can't easily test the DataContext from here, but the constructor should work
     }
 
     [AvaloniaFact]
