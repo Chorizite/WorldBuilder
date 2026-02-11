@@ -47,8 +47,8 @@ public partial class LayerItemViewModel : ViewModelBase {
         get => _isExpanded;
         set {
             if (_isExpanded != value) {
-                System.Diagnostics.Debug.WriteLine($"[DEBUG] LayerItemViewModel {Model.Id} ({Model.Name}) IsExpanded changed to {value}");
                 if (SetProperty(ref _isExpanded, value)) {
+                    _onChanged?.Invoke(this, LayerChangeType.ExpansionChange);
                 }
             }
         }

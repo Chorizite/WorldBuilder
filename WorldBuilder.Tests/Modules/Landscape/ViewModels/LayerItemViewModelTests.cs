@@ -102,5 +102,39 @@ namespace WorldBuilder.Tests.Modules.Landscape.ViewModels
             Assert.False(vm.CanToggleExport);
             Assert.False(vm.CanDelete);
         }
+
+        [Fact]
+        public void Visibility_ShouldNotifyChange()
+        {
+            // Arrange
+            var model = new TestLayer { IsVisible = true };
+            var history = new CommandHistory();
+            LayerChangeType? notifiedType = null;
+            var vm = new LayerItemViewModel(model, history, null, (i, t) => notifiedType = t);
+
+            // Act
+            vm.IsVisible = false;
+
+            // Assert
+            // Model is not updated directly anymore, LandscapeDocument handles it via the callback
+            Assert.True(model.IsVisible); 
+            Assert.Equal(LayerChangeType.VisibilityChange, notifiedType);
+        }
+
+        [Fact]
+        public void Expansion_ShouldNotifyChange()
+        {
+            // Arrange
+            var model = new TestLayer();
+            var history = new CommandHistory();
+            LayerChangeType? notifiedType = null;
+            var vm = new LayerItemViewModel(model, history, null, (i, t) => notifiedType = t);
+
+            // Act
+            vm.IsExpanded = !vm.IsExpanded;
+
+            // Assert
+            Assert.Equal(LayerChangeType.ExpansionChange, notifiedType);
+        }
     }
 }

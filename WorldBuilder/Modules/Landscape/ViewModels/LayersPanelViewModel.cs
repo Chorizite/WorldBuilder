@@ -15,13 +15,15 @@ using WorldBuilder.Shared.Lib;
 using Avalonia.Threading;
 using System.Threading.Tasks;
 using WorldBuilder.Modules.Landscape.Commands;
+using WorldBuilder.Services;
 
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 
 public enum LayerChangeType {
     PropertyChange,
     VisibilityChange,
-    StructureChange
+    StructureChange,
+    ExpansionChange
 }
 
 public partial class LayersPanelViewModel : ViewModelBase {
@@ -29,6 +31,7 @@ public partial class LayersPanelViewModel : ViewModelBase {
     private readonly ILogger _log;
     private readonly CommandHistory _history;
     private readonly IDocumentManager _documentManager;
+    private readonly WorldBuilderSettings? _settings;
     private readonly Action<LayerItemViewModel?, LayerChangeType> _onLayersChanged; // (affectedItem, type)
 
     [ObservableProperty] private ObservableCollection<LayerItemViewModel> _items = new();
@@ -38,10 +41,11 @@ public partial class LayersPanelViewModel : ViewModelBase {
     [NotifyCanExecuteChangedFor(nameof(MoveLayerDownCommand))]
     private LayerItemViewModel? _selectedItem;
 
-    public LayersPanelViewModel(ILogger log, CommandHistory history, IDocumentManager documentManager, Action<LayerItemViewModel?, LayerChangeType> onLayersChanged) {
+    public LayersPanelViewModel(ILogger log, CommandHistory history, IDocumentManager documentManager, WorldBuilderSettings? settings, Action<LayerItemViewModel?, LayerChangeType> onLayersChanged) {
         _log = log;
         _history = history;
         _documentManager = documentManager;
+        _settings = settings;
         _onLayersChanged = onLayersChanged;
     }
 
@@ -52,6 +56,7 @@ public partial class LayersPanelViewModel : ViewModelBase {
         var expansionState = new Dictionary<string, bool>();
         try {
             CaptureExpansionState(Items, expansionState);
+            SaveExpansionState();
         }
         catch (Exception ex) {
             _log.LogError(ex, "LayersPanelViewModel.SyncWithDocument: Failed to capture expansion state");
@@ -90,13 +95,38 @@ public partial class LayersPanelViewModel : ViewModelBase {
         }
     }
 
+    private void SaveExpansionState() {
+        if (_settings?.Project == null) return;
+
+        foreach (var item in Items.SelectMany(GetRangeRecursive)) {
+            _settings.Project.LayerExpanded[item.Model.Id] = item.IsExpanded;
+        }
+        _settings.Project.Save();
+    }
+
     private LayerItemViewModel CreateVM(LandscapeLayerBase model, LayerItemViewModel? parent, Dictionary<string, bool> expansionState) {
         var vm = new LayerItemViewModel(model, _history, OnDeleteItem, (i, v) => OnItemChanged(i, v)) {
             Parent = parent
         };
 
-        if (expansionState.TryGetValue(model.Id, out var isExpanded)) {
+        // Load visibility
+        if (_settings?.Project != null && _settings.Project.LayerVisibility.TryGetValue(model.Id, out var isVisible)) {
+            model.IsVisible = isVisible;
+        }
+        else {
+            model.IsVisible = true;
+        }
+
+        // Load expansion state
+        if (_settings?.Project != null && _settings.Project.LayerExpanded.TryGetValue(model.Id, out var isExpanded)) {
             vm.IsExpanded = isExpanded;
+        }
+        else if (expansionState.TryGetValue(model.Id, out isExpanded)) {
+            vm.IsExpanded = isExpanded;
+        }
+        else {
+            // Default groups to open
+            vm.IsExpanded = model is LandscapeLayerGroup;
         }
 
         if (model is LandscapeLayerGroup group) {
@@ -108,6 +138,14 @@ public partial class LayersPanelViewModel : ViewModelBase {
     }
 
     private void OnItemChanged(LayerItemViewModel item, LayerChangeType type) {
+        if (type == LayerChangeType.VisibilityChange && _settings?.Project != null) {
+            _settings.Project.LayerVisibility[item.Model.Id] = item.IsVisible;
+            _settings.Project.Save();
+        }
+        if (type == LayerChangeType.ExpansionChange && _settings?.Project != null) {
+            _settings.Project.LayerExpanded[item.Model.Id] = item.IsExpanded;
+            _settings.Project.Save();
+        }
         _onLayersChanged?.Invoke(item, type);
     }
 

@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace WorldBuilder.Lib.Settings {
@@ -11,6 +12,12 @@ namespace WorldBuilder.Lib.Settings {
         [SettingHidden]
         private double _windowHeight = 720;
         public double WindowHeight { get => _windowHeight; set => SetProperty(ref _windowHeight, value); }
+
+        private Dictionary<string, bool> _layerVisibility = new();
+        public Dictionary<string, bool> LayerVisibility { get => _layerVisibility; set => SetProperty(ref _layerVisibility, value); }
+
+        private Dictionary<string, bool> _layerExpanded = new();
+        public Dictionary<string, bool> LayerExpanded { get => _layerExpanded; set => SetProperty(ref _layerExpanded, value); }
 
         [JsonIgnore]
         public string? FilePath { get; set; }

@@ -77,7 +77,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         }
 
         HistoryPanel = new HistoryPanelViewModel(CommandHistory);
-        LayersPanel = new LayersPanelViewModel(log, CommandHistory, _documentManager, async (item, changeType) => {
+        LayersPanel = new LayersPanelViewModel(log, CommandHistory, _documentManager, _settings, async (item, changeType) => {
             if (ActiveDocument != null) {
                 if (changeType == LayerChangeType.VisibilityChange && item != null) {
                     await ActiveDocument.SetLayerVisibilityAsync(item.Model.Id, item.IsVisible);
