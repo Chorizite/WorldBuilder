@@ -24,22 +24,16 @@ namespace WorldBuilder.Shared.Models {
                 return true;
             }
 
-            // Lazy load the base terrain cache if needed
-            var cacheProgress = new Progress<float>(p => {
-                progress?.Report(p * 0.5f);
-            });
-            await EnsureCacheLoadedAsync(datwriter, CancellationToken.None, cacheProgress);
-
-            // Create a temporary export cache by merging exported layers on top of base terrain
-            var exportCache = new TerrainEntry[BaseTerrainCache.Length];
-            Array.Copy(BaseTerrainCache, exportCache, BaseTerrainCache.Length);
-
+            // Merge changes from all exported layers into a single sparse map
+            var mergedChanges = new Dictionary<uint, TerrainEntry>();
             foreach (var layer in exportedLayers) {
                 foreach (var kvp in layer.Terrain) {
-                    var vertexIndex = kvp.Key;
-                    var terrain = kvp.Value;
-                    if (vertexIndex < exportCache.Length) {
-                        exportCache[vertexIndex].Merge(terrain);
+                    if (mergedChanges.TryGetValue(kvp.Key, out var existing)) {
+                        existing.Merge(kvp.Value);
+                        mergedChanges[kvp.Key] = existing;
+                    }
+                    else {
+                        mergedChanges[kvp.Key] = kvp.Value;
                     }
                 }
             }
@@ -73,29 +67,27 @@ namespace WorldBuilder.Shared.Models {
                 for (int localIdx = 0; localIdx < localSize; localIdx++) {
                     int localY = localIdx % vertexStride;
                     int localX = localIdx / vertexStride;
-                    int globalVertexIndex = (baseVy + localY) * mapWidth + (baseVx + localX);
+                    uint globalVertexIndex = (uint)((baseVy + localY) * mapWidth + (baseVx + localX));
 
-                    if (globalVertexIndex >= exportCache.Length) continue;
+                    if (!mergedChanges.TryGetValue(globalVertexIndex, out var entry)) continue;
 
-                    var entry = exportCache[globalVertexIndex];
-
-                    if (lb.Height[localIdx] != (entry.Height ?? 0)) {
-                        lb.Height[localIdx] = entry.Height ?? 0;
+                    if (entry.Height.HasValue && lb.Height[localIdx] != entry.Height.Value) {
+                        lb.Height[localIdx] = entry.Height.Value;
                         modified = true;
                     }
 
-                    if (lb.Terrain[localIdx].Type != (DatReaderWriter.Enums.TerrainTextureType)(entry.Type ?? 0)) {
-                        lb.Terrain[localIdx].Type = (DatReaderWriter.Enums.TerrainTextureType)(entry.Type ?? 0);
+                    if (entry.Type.HasValue && lb.Terrain[localIdx].Type != (DatReaderWriter.Enums.TerrainTextureType)entry.Type.Value) {
+                        lb.Terrain[localIdx].Type = (DatReaderWriter.Enums.TerrainTextureType)entry.Type.Value;
                         modified = true;
                     }
 
-                    if (lb.Terrain[localIdx].Scenery != (entry.Scenery ?? 0)) {
-                        lb.Terrain[localIdx].Scenery = entry.Scenery ?? 0;
+                    if (entry.Scenery.HasValue && lb.Terrain[localIdx].Scenery != entry.Scenery.Value) {
+                        lb.Terrain[localIdx].Scenery = entry.Scenery.Value;
                         modified = true;
                     }
 
-                    if (lb.Terrain[localIdx].Road != (entry.Road ?? 0)) {
-                        lb.Terrain[localIdx].Road = entry.Road ?? 0;
+                    if (entry.Road.HasValue && lb.Terrain[localIdx].Road != entry.Road.Value) {
+                        lb.Terrain[localIdx].Road = entry.Road.Value;
                         modified = true;
                     }
                 }
@@ -107,7 +99,7 @@ namespace WorldBuilder.Shared.Models {
                 }
 
                 processed++;
-                progress?.Report(0.5f + (0.5f * processed / totalAffected));
+                progress?.Report((float)processed / totalAffected);
             }
 
             return true;
