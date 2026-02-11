@@ -108,6 +108,7 @@ jobs:
 
       - name: List Releases
         run: ls -la Releases/
+        shell: bash
 
       - name: Upload to Release
         run: |
@@ -158,13 +159,14 @@ jobs:
 
       - name: List Releases
         run: ls -la Releases/
+        shell: bash
 
       - name: Upload to Release
         run: |
           gh release upload "v$SEMVER" \
             Releases/releases.linux.json \
             Releases/WorldBuilder-${SEMVER}-linux-full.nupkg \
-            Releases/WorldBuilder.AppImage \
+            Releases/WorldBuilder-linux.AppImage \
             --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
