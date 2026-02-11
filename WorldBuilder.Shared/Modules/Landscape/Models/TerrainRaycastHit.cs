@@ -1,13 +1,11 @@
 using System;
 using System.Numerics;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Models
-{
+namespace WorldBuilder.Shared.Modules.Landscape.Models {
     /// <summary>
     /// Represents the result of a terrain raycast.
     /// </summary>
-    public struct TerrainRaycastHit
-    {
+    public struct TerrainRaycastHit {
         /// <summary>Whether the ray hit the terrain.</summary>
         public bool Hit;
         /// <summary>The world position of the hit.</summary>
@@ -30,10 +28,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models
         public uint CellY => (uint)Math.Round((HitPosition.Y - (LandblockY * 192f)) / 24f, MidpointRounding.AwayFromZero);
 
         /// <summary>Gets the world position of the nearest vertex to the hit point.</summary>
-        public Vector3 NearestVertice
-        {
-            get
-            {
+        public Vector3 NearestVertice {
+            get {
                 var vx = VerticeX;
                 var vy = VerticeY;
                 var x = (LandblockId >> 8) * 192 + vx * 24f;

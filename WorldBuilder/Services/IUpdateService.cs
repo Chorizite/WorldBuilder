@@ -3,8 +3,7 @@ using Velopack;
 
 namespace WorldBuilder.Services;
 
-public interface IUpdateService
-{
+public interface IUpdateService {
     Task<UpdateInfo?> CheckForUpdatesAsync();
     Task DownloadAndInstallUpdateAsync(UpdateInfo updateInfo);
 }

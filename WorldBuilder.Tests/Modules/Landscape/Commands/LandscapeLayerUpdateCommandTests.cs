@@ -1,38 +1,33 @@
+using DatReaderWriter.Lib;
+using Moq;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Xunit;
-using Moq;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Services;
-using WorldBuilder.Shared.Lib;
-using DatReaderWriter.Lib;
+using Xunit;
 
-namespace WorldBuilder.Tests.Modules.Landscape.Commands
-{
-    public class LandscapeLayerUpdateCommandTests
-    {
+namespace WorldBuilder.Tests.Modules.Landscape.Commands {
+    public class LandscapeLayerUpdateCommandTests {
         private readonly Mock<IDocumentManager> _mockDocManager;
         private readonly Mock<IDatReaderWriter> _mockDats;
         private readonly Mock<ITransaction> _mockTx;
 
-        public LandscapeLayerUpdateCommandTests()
-        {
+        public LandscapeLayerUpdateCommandTests() {
             _mockDocManager = new Mock<IDocumentManager>();
             _mockDats = new Mock<IDatReaderWriter>();
             _mockTx = new Mock<ITransaction>();
         }
 
         [Fact]
-        public async Task ApplyAsync_ShouldReturnSuccess()
-        {
+        public async Task ApplyAsync_ShouldReturnSuccess() {
             // Arrange
             var terrainId = "LandscapeDocument_1";
             var layerId = "Layer_1";
-            var command = new LandscapeLayerUpdateCommand
-            {
+            var command = new LandscapeLayerUpdateCommand {
                 TerrainDocumentId = terrainId,
                 LayerId = layerId,
                 Changes = new Dictionary<uint, TerrainEntry?>()
@@ -62,13 +57,11 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands
         }
 
         [Fact]
-        public void CreateInverse_ShouldSwapChangesAndPreviousState()
-        {
+        public void CreateInverse_ShouldSwapChangesAndPreviousState() {
             // Arrange
             var changes = new Dictionary<uint, TerrainEntry?> { { 1u, new TerrainEntry { Height = 10 } } };
             var previous = new Dictionary<uint, TerrainEntry?> { { 1u, new TerrainEntry { Height = 5 } } };
-            var command = new LandscapeLayerUpdateCommand
-            {
+            var command = new LandscapeLayerUpdateCommand {
                 Changes = changes,
                 PreviousState = previous,
                 UserId = "user1"

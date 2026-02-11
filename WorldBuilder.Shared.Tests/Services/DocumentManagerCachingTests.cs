@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using WorldBuilder.Shared.Models;
-using WorldBuilder.Shared.Services;
 using WorldBuilder.Shared.Repositories;
+using WorldBuilder.Shared.Services;
 using WorldBuilder.Shared.Tests.Mocks;
 using Xunit;
 

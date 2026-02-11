@@ -1,25 +1,22 @@
-using System.Threading.Tasks;
-using Xunit;
-using Moq;
-using WorldBuilder.Services;
+using Avalonia;
+using Avalonia.Headless;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using DatReaderWriter;
-using Microsoft.Extensions.Logging;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
+using Microsoft.Extensions.Logging;
+using Moq;
 using System.Collections.Generic;
-using Avalonia.Media.Imaging;
-using Avalonia.Headless;
-using Avalonia;
-using Avalonia.Platform;
+using System.Threading.Tasks;
+using WorldBuilder.Services;
 using WorldBuilder.Shared.Services;
+using Xunit;
 
-namespace WorldBuilder.Tests.Services
-{
-    public class TextureServiceTests
-    {
+namespace WorldBuilder.Tests.Services {
+    public class TextureServiceTests {
         [Fact]
-        public async Task GetTextureAsync_ReturnsNull_WhenTextureMissing()
-        {
+        public async Task GetTextureAsync_ReturnsNull_WhenTextureMissing() {
             // Arrange
             var mockDats = new Mock<IDatReaderWriter>();
             var mockLogger = new Mock<ILogger<TextureService>>();

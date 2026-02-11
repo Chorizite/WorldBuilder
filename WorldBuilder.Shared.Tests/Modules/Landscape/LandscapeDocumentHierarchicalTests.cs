@@ -11,7 +11,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             var doc = new LandscapeDocument(1);
             var group = new LandscapeLayerGroup("Group") { Id = "group1", IsVisible = false };
             var layer = new LandscapeLayer("layer1") { IsVisible = true };
-            
+
             group.Children.Add(layer);
             doc.LayerTree.Add(group);
 
@@ -31,7 +31,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             var doc = new LandscapeDocument(1);
             var group = new LandscapeLayerGroup("Group") { Id = "group1", IsExported = false };
             var layer = new LandscapeLayer("layer1") { IsExported = true };
-            
+
             group.Children.Add(layer);
             doc.LayerTree.Add(group);
 

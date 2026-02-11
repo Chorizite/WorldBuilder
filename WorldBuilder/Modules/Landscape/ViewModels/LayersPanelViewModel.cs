@@ -1,21 +1,20 @@
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using WorldBuilder.Shared.Models;
-using WorldBuilder.ViewModels;
-using Microsoft.Extensions.Logging;
-
-using WorldBuilder.Shared.Modules.Landscape.Tools;
-using WorldBuilder.Shared.Services;
-using WorldBuilder.Shared.Modules.Landscape.Commands;
-using WorldBuilder.Shared.Lib;
-using Avalonia.Threading;
 using System.Threading.Tasks;
 using WorldBuilder.Modules.Landscape.Commands;
 using WorldBuilder.Services;
+using WorldBuilder.Shared.Lib;
+using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Modules.Landscape.Commands;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Shared.Services;
+using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 
@@ -238,7 +237,7 @@ public partial class LayersPanelViewModel : ViewModelBase {
             }
 
             var destList = newParent?.Children ?? Items;
-            
+
             // For move between groups, modelNewIndex = modelDestList.Count - newUIIndex
             // because item is not yet in destList.
             int modelNewIndex = destList.Count - newUIIndex;
@@ -269,7 +268,8 @@ public partial class LayersPanelViewModel : ViewModelBase {
                     await Dispatcher.UIThread.InvokeAsync(() => {
                         SelectedItem = FindVM(reorder.LayerId);
                     });
-                } else if (cmd is MoveLandscapeLayerCommand move) {
+                }
+                else if (cmd is MoveLandscapeLayerCommand move) {
                     await Dispatcher.UIThread.InvokeAsync(() => {
                         SelectedItem = FindVM(move.LayerId);
                     });

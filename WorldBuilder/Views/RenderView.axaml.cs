@@ -1,23 +1,22 @@
-using System;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Chorizite.OpenGLSDLBackend;
-using Silk.NET.OpenGL;
-using Microsoft.Extensions.Logging;
+using DatReaderWriter;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Silk.NET.OpenGL;
+using System;
 using System.ComponentModel;
 using System.Numerics;
+using WorldBuilder.Lib;
+using WorldBuilder.Lib.Settings;
+using WorldBuilder.Modules.Landscape;
+using WorldBuilder.Services;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
-using WorldBuilder.Shared.Services;
-using WorldBuilder.Services;
-using WorldBuilder.Lib.Settings;
-using DatReaderWriter;
-using WorldBuilder.Lib;
-
-using WorldBuilder.Modules.Landscape;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Views;
 
@@ -85,7 +84,7 @@ public partial class RenderView : Base3DViewport {
             if (_settings != null) {
                 _settings.PropertyChanged += OnSettingsPropertyChanged;
                 _settings.Landscape.PropertyChanged += OnLandscapeSettingsPropertyChanged;
-                
+
                 UpdateSettingsRefs();
             }
 

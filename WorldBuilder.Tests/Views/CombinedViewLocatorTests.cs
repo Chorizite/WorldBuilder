@@ -1,6 +1,6 @@
-using System;
 using HanumanInstitute.MvvmDialogs.Avalonia;
 using Microsoft.Extensions.Logging.Abstractions;
+using System;
 using WorldBuilder.Services;
 using Xunit;
 

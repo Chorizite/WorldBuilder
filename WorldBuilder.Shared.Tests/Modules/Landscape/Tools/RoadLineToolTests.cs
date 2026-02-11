@@ -1,13 +1,13 @@
-using System.Collections.Generic;
-using System.Numerics;
-using WorldBuilder.Shared.Modules.Landscape.Tools;
-using Xunit;
+using Microsoft.Extensions.Logging;
 using Moq;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Numerics;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
-using Microsoft.Extensions.Logging;
-using System.Linq;
-using System;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
+using Xunit;
 
 namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
     public class RoadLineToolTests {
@@ -81,7 +81,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
         private LandscapeToolContext CreateContext() {
             var doc = new LandscapeDocument("LandscapeDocument_1");
-            
+
             // Bypass dats loading
             typeof(LandscapeDocument).GetField("_didLoadRegionData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
             typeof(LandscapeDocument).GetField("_didLoadLayers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
@@ -93,10 +93,10 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
                 cache[i] = new TerrainEntry();
                 baseCache[i] = new TerrainEntry();
             }
-            
+
             var cacheProp = typeof(LandscapeDocument).GetProperty("TerrainCache");
             cacheProp?.SetValue(doc, cache);
-            
+
             var baseCacheProp = typeof(LandscapeDocument).GetProperty("BaseTerrainCache");
             baseCacheProp?.SetValue(doc, baseCache);
 

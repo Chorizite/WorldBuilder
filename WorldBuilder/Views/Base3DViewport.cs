@@ -4,12 +4,12 @@ using Avalonia.Input;
 using Avalonia.Rendering.Composition;
 using Chorizite.Core.Render;
 using Chorizite.OpenGLSDLBackend;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Silk.NET.OpenGL;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Views {

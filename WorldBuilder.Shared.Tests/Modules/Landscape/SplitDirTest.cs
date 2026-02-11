@@ -1,18 +1,14 @@
 using System;
 using Xunit;
 
-namespace WorldBuilder.Shared.Tests.Modules.Landscape
-{
-    public class SplitDirTest
-    {
-        private enum CellSplitDirection
-        {
+namespace WorldBuilder.Shared.Tests.Modules.Landscape {
+    public class SplitDirTest {
+        private enum CellSplitDirection {
             SWtoNE,
             SEtoNW
         }
 
-        private static CellSplitDirection CalculateSplitDirection(uint landblockX, uint cellX, uint landblockY, uint cellY)
-        {
+        private static CellSplitDirection CalculateSplitDirection(uint landblockX, uint cellX, uint landblockY, uint cellY) {
             uint seedA = (landblockX * 8 + cellX) * 214614067u;
             uint seedB = (landblockY * 8 + cellY) * 1109124029u;
             uint magicA = seedA + 1813693831u;
@@ -23,15 +19,11 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape
         }
 
         [Fact]
-        public void FindSWtoNECell()
-        {
-            for (uint y = 0; y < 8; y++)
-            {
-                for (uint x = 0; x < 8; x++)
-                {
+        public void FindSWtoNECell() {
+            for (uint y = 0; y < 8; y++) {
+                for (uint x = 0; x < 8; x++) {
                     var dir = CalculateSplitDirection(0, x, 0, y);
-                    if (dir == CellSplitDirection.SWtoNE)
-                    {
+                    if (dir == CellSplitDirection.SWtoNE) {
                         // Found one. Let's print it (via exception or ensure it matches logic)
                         // Assert.True(true, $"Found SWtoNE at {x},{y}");
                         return;

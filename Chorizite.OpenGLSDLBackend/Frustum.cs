@@ -1,6 +1,6 @@
+using Chorizite.Core.Lib;
 using System;
 using System.Numerics;
-using Chorizite.Core.Lib;
 
 namespace Chorizite.OpenGLSDLBackend {
     public struct Plane {

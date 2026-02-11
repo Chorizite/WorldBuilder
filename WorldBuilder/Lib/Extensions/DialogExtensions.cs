@@ -1,6 +1,6 @@
+using HanumanInstitute.MvvmDialogs;
 using System.ComponentModel;
 using System.Threading.Tasks;
-using HanumanInstitute.MvvmDialogs;
 using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Lib.Extensions;

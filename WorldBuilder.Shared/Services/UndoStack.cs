@@ -17,7 +17,7 @@ public class UndoStack : IUndoStack {
             throw new ArgumentException("Events list cannot be null or empty", nameof(events));
 
         lock (_lock) {
-            _undoStack.Push([..events]);
+            _undoStack.Push([.. events]);
             _redoStack.Clear();
         }
     }

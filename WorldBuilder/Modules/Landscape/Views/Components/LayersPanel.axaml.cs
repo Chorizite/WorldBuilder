@@ -1,55 +1,47 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using WorldBuilder.Modules.Landscape.ViewModels;
-using System.Linq;
-using Avalonia;
 using Avalonia.VisualTree;
-using System.Collections.Generic;
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using WorldBuilder.Modules.Landscape.ViewModels;
 
 namespace WorldBuilder.Modules.Landscape.Views.Components;
 
-public partial class LayersPanel : UserControl
-{
+public partial class LayersPanel : UserControl {
     private Point _dragStartPoint;
     private bool _isDragging;
     private LayerItemViewModel? _ghostItem;
 
-    public LayersPanel()
-    {
+    public LayersPanel() {
         InitializeComponent();
     }
 
-    private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
+    private void OnPointerPressed(object? sender, PointerPressedEventArgs e) {
         if (e.GetCurrentPoint(this).Properties.PointerUpdateKind != PointerUpdateKind.LeftButtonPressed) return;
 
-        if (sender is Control control && control.DataContext is LayerItemViewModel vm)
-        {
+        if (sender is Control control && control.DataContext is LayerItemViewModel vm) {
             if (vm.IsBase) return; // Cannot drag base layer
-            
+
             _dragStartPoint = e.GetPosition(this);
             _ghostItem = vm;
             _isDragging = false;
         }
     }
 
-    private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        if (e.GetCurrentPoint(this).Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased)
-        {
+    private void OnPointerReleased(object? sender, PointerReleasedEventArgs e) {
+        if (e.GetCurrentPoint(this).Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased) {
             _ghostItem = null;
         }
     }
 
-    private async void OnPointerMoved(object? sender, PointerEventArgs e)
-    {
+    private async void OnPointerMoved(object? sender, PointerEventArgs e) {
         if (_ghostItem == null || _isDragging) return;
 
         var properties = e.GetCurrentPoint(this).Properties;
-        if (!properties.IsLeftButtonPressed)
-        {
+        if (!properties.IsLeftButtonPressed) {
             _ghostItem = null;
             return;
         }
@@ -57,24 +49,21 @@ public partial class LayersPanel : UserControl
         var currentPoint = e.GetPosition(this);
         var delta = currentPoint - _dragStartPoint;
 
-        if (Math.Abs(delta.X) > 5 || Math.Abs(delta.Y) > 5)
-        {
+        if (Math.Abs(delta.X) > 5 || Math.Abs(delta.Y) > 5) {
             _isDragging = true;
             var dragData = new DataObject();
             dragData.Set("LayerItem", _ghostItem);
 
             var result = await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Move);
-            
+
             _isDragging = false;
             _ghostItem = null;
             ClearDropIndicators();
         }
     }
 
-    private void OnDragOver(object? sender, DragEventArgs e)
-    {
-        if (e.Data.Get("LayerItem") is not LayerItemViewModel draggingItem)
-        {
+    private void OnDragOver(object? sender, DragEventArgs e) {
+        if (e.Data.Get("LayerItem") is not LayerItemViewModel draggingItem) {
             e.DragEffects = DragDropEffects.None;
             return;
         }
@@ -87,11 +76,9 @@ public partial class LayersPanel : UserControl
 
         ClearDropIndicators();
 
-        if (treeViewItem != null && treeViewItem.DataContext is LayerItemViewModel targetItem)
-        {
+        if (treeViewItem != null && treeViewItem.DataContext is LayerItemViewModel targetItem) {
             // Cannot drop into yourself or your children
-            if (IsChildOf(targetItem, draggingItem) || targetItem == draggingItem)
-            {
+            if (IsChildOf(targetItem, draggingItem) || targetItem == draggingItem) {
                 e.DragEffects = DragDropEffects.None;
                 return;
             }
@@ -99,44 +86,33 @@ public partial class LayersPanel : UserControl
             var position = e.GetPosition(treeViewItem);
             var height = treeViewItem.Bounds.Height;
 
-            if (targetItem.IsGroup)
-            {
-                if (position.Y < height * 0.25)
-                {
+            if (targetItem.IsGroup) {
+                if (position.Y < height * 0.25) {
                     targetItem.DropPosition = DropPosition.Above;
                 }
-                else if (position.Y > height * 0.75)
-                {
+                else if (position.Y > height * 0.75) {
                     // Special case: if target is Base layer, we can't drop BELOW it
-                    if (targetItem.IsBase)
-                    {
-                         targetItem.DropPosition = DropPosition.Above;
+                    if (targetItem.IsBase) {
+                        targetItem.DropPosition = DropPosition.Above;
                     }
-                    else
-                    {
+                    else {
                         targetItem.DropPosition = DropPosition.Below;
                     }
                 }
-                else
-                {
+                else {
                     targetItem.DropPosition = DropPosition.Inside;
                 }
             }
-            else
-            {
-                if (position.Y < height * 0.5)
-                {
+            else {
+                if (position.Y < height * 0.5) {
                     targetItem.DropPosition = DropPosition.Above;
                 }
-                else
-                {
+                else {
                     // Special case: if target is Base layer, we can't drop BELOW it
-                    if (targetItem.IsBase)
-                    {
+                    if (targetItem.IsBase) {
                         targetItem.DropPosition = DropPosition.Above;
                     }
-                    else
-                    {
+                    else {
                         targetItem.DropPosition = DropPosition.Below;
                     }
                 }
@@ -144,17 +120,14 @@ public partial class LayersPanel : UserControl
         }
     }
 
-    private void OnDrop(object? sender, DragEventArgs e)
-    {
+    private void OnDrop(object? sender, DragEventArgs e) {
         if (e.Data.Get("LayerItem") is not LayerItemViewModel draggingItem) return;
 
         var visual = e.Source as Visual;
         var treeViewItem = visual?.FindAncestorOfType<TreeViewItem>();
 
-        if (treeViewItem != null && treeViewItem.DataContext is LayerItemViewModel targetItem)
-        {
-            if (DataContext is LayersPanelViewModel vm)
-            {
+        if (treeViewItem != null && treeViewItem.DataContext is LayerItemViewModel targetItem) {
+            if (DataContext is LayersPanelViewModel vm) {
                 var dropPos = targetItem.DropPosition;
                 vm.HandleDrop(draggingItem, targetItem, dropPos);
             }
@@ -163,59 +136,46 @@ public partial class LayersPanel : UserControl
         ClearDropIndicators();
     }
 
-    private void ClearDropIndicators()
-    {
-        if (DataContext is LayersPanelViewModel vm)
-        {
+    private void ClearDropIndicators() {
+        if (DataContext is LayersPanelViewModel vm) {
             ClearDropIndicatorsRecursive(vm.Items);
         }
     }
 
-    private void ClearDropIndicatorsRecursive(IEnumerable<LayerItemViewModel> items)
-    {
-        foreach (var item in items)
-        {
+    private void ClearDropIndicatorsRecursive(IEnumerable<LayerItemViewModel> items) {
+        foreach (var item in items) {
             item.DropPosition = DropPosition.None;
             ClearDropIndicatorsRecursive(item.Children);
         }
     }
 
-    private bool IsChildOf(LayerItemViewModel potentialChild, LayerItemViewModel potentialParent)
-    {
+    private bool IsChildOf(LayerItemViewModel potentialChild, LayerItemViewModel potentialParent) {
         var current = potentialChild.Parent;
-        while (current != null)
-        {
+        while (current != null) {
             if (current == potentialParent) return true;
             current = current.Parent;
         }
         return false;
     }
 
-    private void OnRenameKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Enter)
-        {
-            if (sender is Control control && control.DataContext is LayerItemViewModel vm)
-            {
+    private void OnRenameKeyDown(object? sender, KeyEventArgs e) {
+        if (e.Key == Key.Enter) {
+            if (sender is Control control && control.DataContext is LayerItemViewModel vm) {
                 vm.EndEditCommand.Execute(null);
                 e.Handled = true;
             }
         }
     }
 
-    private void OnRenameTextBoxLoaded(object? sender, RoutedEventArgs e)
-    {
-        if (sender is TextBox textBox)
-        {
+    private void OnRenameTextBoxLoaded(object? sender, RoutedEventArgs e) {
+        if (sender is TextBox textBox) {
             textBox.Focus();
             textBox.SelectAll();
         }
     }
 
-    private void OnItemDoubleTapped(object? sender, TappedEventArgs e)
-    {
-        if (sender is Control control && control.DataContext is LayerItemViewModel vm)
-        {
+    private void OnItemDoubleTapped(object? sender, TappedEventArgs e) {
+        if (sender is Control control && control.DataContext is LayerItemViewModel vm) {
             vm.StartEditCommand.Execute(null);
         }
     }

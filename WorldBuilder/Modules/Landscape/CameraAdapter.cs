@@ -2,14 +2,11 @@ using System.Numerics;
 using WorldBuilder.Shared.Models;
 using BackendCamera = Chorizite.OpenGLSDLBackend.ICamera;
 
-namespace WorldBuilder.Modules.Landscape
-{
-    public class CameraAdapter : ICamera
-    {
+namespace WorldBuilder.Modules.Landscape {
+    public class CameraAdapter : ICamera {
         private readonly BackendCamera _backendCamera;
 
-        public CameraAdapter(BackendCamera backendCamera)
-        {
+        public CameraAdapter(BackendCamera backendCamera) {
             _backendCamera = backendCamera;
         }
 

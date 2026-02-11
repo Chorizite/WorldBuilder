@@ -1,6 +1,6 @@
-using System.Numerics;
 using Chorizite.Core.Lib;
 using Chorizite.OpenGLSDLBackend;
+using System.Numerics;
 using Xunit;
 
 namespace Chorizite.OpenGLSDLBackend.Tests {

@@ -1,19 +1,15 @@
 using System;
-using Xunit;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
+using Xunit;
 
-namespace WorldBuilder.Tests.Modules.Landscape.Commands
-{
-    public class ToggleLayerExportCommandTests
-    {
-        private class TestLayer : LandscapeLayerBase
-        {
+namespace WorldBuilder.Tests.Modules.Landscape.Commands {
+    public class ToggleLayerExportCommandTests {
+        private class TestLayer : LandscapeLayerBase {
         }
 
         [Fact]
-        public void Execute_ShouldToggleExportState()
-        {
+        public void Execute_ShouldToggleExportState() {
             // Arrange
             var layer = new TestLayer { IsExported = true };
             var command = new ToggleLayerExportCommand(layer);
@@ -26,8 +22,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands
         }
 
         [Fact]
-        public void Undo_ShouldRevertExportState()
-        {
+        public void Undo_ShouldRevertExportState() {
             // Arrange
             var layer = new TestLayer { IsExported = true };
             var command = new ToggleLayerExportCommand(layer);
@@ -41,8 +36,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands
         }
 
         [Fact]
-        public void Execute_ShouldInvokeCallback()
-        {
+        public void Execute_ShouldInvokeCallback() {
             // Arrange
             var layer = new TestLayer { IsExported = true };
             bool? callbackState = null;

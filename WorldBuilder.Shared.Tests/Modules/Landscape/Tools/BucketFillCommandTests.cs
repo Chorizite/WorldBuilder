@@ -1,12 +1,12 @@
+using Microsoft.Extensions.Logging;
+using Moq;
+using System;
 using System.Collections.Generic;
 using System.Numerics;
-using WorldBuilder.Shared.Modules.Landscape.Tools;
-using Xunit;
-using Moq;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
-using Microsoft.Extensions.Logging;
-using System;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
+using Xunit;
 
 namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
     public class BucketFillCommandTests {
@@ -25,7 +25,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
                 cache[i] = entry;
                 baseCache[i] = entry;
             }
-            
+
             // Set 10 to Type 1 in base cache so fill can find it
             var t1 = new TerrainEntry() { Type = 1 };
             cache[10] = t1;
@@ -53,7 +53,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
                 cache[i] = entry;
                 baseCache[i] = entry;
             }
-            
+
             var t1 = new TerrainEntry() { Type = 1 };
             cache[0] = t1;
             baseCache[0] = t1;
@@ -82,7 +82,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
                 cache[i] = entry;
                 baseCache[i] = entry;
             }
-            
+
             var t1 = new TerrainEntry() { Type = 1 };
             cache[10] = t1;
             baseCache[10] = t1;
@@ -151,10 +151,10 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             var cache = new TerrainEntry[width * height];
             var baseCache = new TerrainEntry[width * height];
-            
+
             var cacheProp = typeof(LandscapeDocument).GetProperty("TerrainCache");
             cacheProp?.SetValue(doc, cache);
-            
+
             var baseCacheProp = typeof(LandscapeDocument).GetProperty("BaseTerrainCache");
             baseCacheProp?.SetValue(doc, baseCache);
 

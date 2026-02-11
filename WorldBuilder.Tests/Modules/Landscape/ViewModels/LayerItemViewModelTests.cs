@@ -1,22 +1,18 @@
 using System;
-using Xunit;
+using System.Linq;
 using WorldBuilder.Modules.Landscape.ViewModels;
 using WorldBuilder.Shared.Models;
-using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
-using System.Linq;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
+using Xunit;
 
-namespace WorldBuilder.Tests.Modules.Landscape.ViewModels
-{
-    public class LayerItemViewModelTests
-    {
-        private class TestLayer : LandscapeLayerBase
-        {
+namespace WorldBuilder.Tests.Modules.Landscape.ViewModels {
+    public class LayerItemViewModelTests {
+        private class TestLayer : LandscapeLayerBase {
         }
 
         [Fact]
-        public void Rename_ShouldExecuteCommandAndUpdateName()
-        {
+        public void Rename_ShouldExecuteCommandAndUpdateName() {
             // Arrange
             var model = new TestLayer { Name = "Old Name" };
             var history = new CommandHistory();
@@ -35,8 +31,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.ViewModels
         }
 
         [Fact]
-        public void Rename_Undo_ShouldRevertName()
-        {
+        public void Rename_Undo_ShouldRevertName() {
             // Arrange
             var model = new TestLayer { Name = "Old Name" };
             var history = new CommandHistory();
@@ -55,8 +50,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.ViewModels
         }
 
         [Fact]
-        public void ToggleExport_ShouldExecuteCommandAndToggleState()
-        {
+        public void ToggleExport_ShouldExecuteCommandAndToggleState() {
             // Arrange
             var model = new TestLayer { IsExported = true };
             var history = new CommandHistory();
@@ -73,8 +67,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.ViewModels
         }
 
         [Fact]
-        public void ToggleExport_Undo_ShouldRevertState()
-        {
+        public void ToggleExport_Undo_ShouldRevertState() {
             // Arrange
             var model = new TestLayer { IsExported = true };
             var history = new CommandHistory();
@@ -89,8 +82,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.ViewModels
             Assert.True(model.IsExported);
         }
         [Fact]
-        public void BaseLayer_ShouldNotBeTogglableOrDeletable()
-        {
+        public void BaseLayer_ShouldNotBeTogglableOrDeletable() {
             // Arrange
             var model = new LandscapeLayer("layer_1", isBase: true);
             var history = new CommandHistory();
@@ -104,8 +96,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.ViewModels
         }
 
         [Fact]
-        public void Visibility_ShouldNotifyChange()
-        {
+        public void Visibility_ShouldNotifyChange() {
             // Arrange
             var model = new TestLayer { IsVisible = true };
             var history = new CommandHistory();
@@ -117,13 +108,12 @@ namespace WorldBuilder.Tests.Modules.Landscape.ViewModels
 
             // Assert
             // Model is not updated directly anymore, LandscapeDocument handles it via the callback
-            Assert.True(model.IsVisible); 
+            Assert.True(model.IsVisible);
             Assert.Equal(LayerChangeType.VisibilityChange, notifiedType);
         }
 
         [Fact]
-        public void Expansion_ShouldNotifyChange()
-        {
+        public void Expansion_ShouldNotifyChange() {
             // Arrange
             var model = new TestLayer();
             var history = new CommandHistory();

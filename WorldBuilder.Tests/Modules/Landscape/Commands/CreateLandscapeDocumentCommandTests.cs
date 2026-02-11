@@ -1,33 +1,29 @@
+using DatReaderWriter.Lib;
+using Moq;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Xunit;
-using Moq;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Services;
-using WorldBuilder.Shared.Lib;
-using DatReaderWriter.Lib;
+using Xunit;
 
-namespace WorldBuilder.Tests.Modules.Landscape.Commands
-{
-    public class CreateLandscapeDocumentCommandTests
-    {
+namespace WorldBuilder.Tests.Modules.Landscape.Commands {
+    public class CreateLandscapeDocumentCommandTests {
         private readonly Mock<IDocumentManager> _mockDocManager;
         private readonly Mock<IDatReaderWriter> _mockDats;
         private readonly Mock<ITransaction> _mockTx;
 
-        public CreateLandscapeDocumentCommandTests()
-        {
+        public CreateLandscapeDocumentCommandTests() {
             _mockDocManager = new Mock<IDocumentManager>();
             _mockDats = new Mock<IDatReaderWriter>();
             _mockTx = new Mock<ITransaction>();
         }
 
         [Fact]
-        public async Task ApplyAsync_ShouldCreateDocumentAndAddBaseLayer()
-        {
+        public async Task ApplyAsync_ShouldCreateDocumentAndAddBaseLayer() {
             // Arrange
             uint regionId = 1234;
             var terrainId = LandscapeDocument.GetIdFromRegion(regionId);

@@ -1,34 +1,30 @@
+using DatReaderWriter.Lib;
+using Moq;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Xunit;
-using Moq;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Services;
-using WorldBuilder.Shared.Lib;
-using DatReaderWriter.Lib;
-using System.Linq;
+using Xunit;
 
-namespace WorldBuilder.Tests.Modules.Landscape.Commands
-{
-    public class ReorderLandscapeLayerCommandTests
-    {
+namespace WorldBuilder.Tests.Modules.Landscape.Commands {
+    public class ReorderLandscapeLayerCommandTests {
         private readonly Mock<IDocumentManager> _mockDocManager;
         private readonly Mock<IDatReaderWriter> _mockDats;
         private readonly Mock<ITransaction> _mockTx;
 
-        public ReorderLandscapeLayerCommandTests()
-        {
+        public ReorderLandscapeLayerCommandTests() {
             _mockDocManager = new Mock<IDocumentManager>();
             _mockDats = new Mock<IDatReaderWriter>();
             _mockTx = new Mock<ITransaction>();
         }
 
         [Fact]
-        public async Task ApplyAsync_ShouldReorderLayerInTerrain()
-        {
+        public async Task ApplyAsync_ShouldReorderLayerInTerrain() {
             // Arrange
             var terrainId = "LandscapeDocument_1";
             var layer1Id = "Layer_1";
@@ -66,11 +62,9 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands
         }
 
         [Fact]
-        public void CreateInverse_ShouldReturnReorderCommandWithSwappedIndices()
-        {
+        public void CreateInverse_ShouldReturnReorderCommandWithSwappedIndices() {
             // Arrange
-            var command = new ReorderLandscapeLayerCommand("terrain1", new List<string>(), "layer1", 5, 2)
-            {
+            var command = new ReorderLandscapeLayerCommand("terrain1", new List<string>(), "layer1", 5, 2) {
                 UserId = "user1"
             };
 

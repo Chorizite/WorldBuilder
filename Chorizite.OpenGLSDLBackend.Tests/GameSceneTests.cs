@@ -1,9 +1,9 @@
-using System.Numerics;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Silk.NET.OpenGL;
-using Xunit;
+using System.Numerics;
 using WorldBuilder.Shared.Models;
+using Xunit;
 
 namespace Chorizite.OpenGLSDLBackend.Tests;
 

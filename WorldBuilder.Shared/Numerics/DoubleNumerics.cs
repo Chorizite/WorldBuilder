@@ -1,19 +1,16 @@
 using System;
 using System.Numerics;
 
-namespace WorldBuilder.Shared.Numerics
-{
+namespace WorldBuilder.Shared.Numerics {
     /// <summary>
     /// A 3D vector using double precision floating point numbers.
     /// </summary>
-    public struct Vector3d
-    {
+    public struct Vector3d {
         public double X;
         public double Y;
         public double Z;
 
-        public Vector3d(double x, double y, double z)
-        {
+        public Vector3d(double x, double y, double z) {
             X = x; Y = y; Z = z;
         }
 
@@ -30,14 +27,12 @@ namespace WorldBuilder.Shared.Numerics
             a.X * b.Y - a.Y * b.X
         );
 
-        public static Vector3d Normalize(Vector3d v)
-        {
+        public static Vector3d Normalize(Vector3d v) {
             double len = Math.Sqrt(v.X * v.X + v.Y * v.Y + v.Z * v.Z);
             return len > 1e-12 ? v / len : new Vector3d(0, 0, 0);
         }
 
-        public static Vector3d Transform(Vector3d v, Matrix4x4d m)
-        {
+        public static Vector3d Transform(Vector3d v, Matrix4x4d m) {
             return new Vector3d(
                v.X * m.M11 + v.Y * m.M21 + v.Z * m.M31 + m.M41,
                v.X * m.M12 + v.Y * m.M22 + v.Z * m.M32 + m.M42,
@@ -45,8 +40,7 @@ namespace WorldBuilder.Shared.Numerics
            );
         }
 
-        public static Vector3d Transform(Vector4d v, Matrix4x4d m)
-        {
+        public static Vector3d Transform(Vector4d v, Matrix4x4d m) {
             double x = v.X * m.M11 + v.Y * m.M21 + v.Z * m.M31 + v.W * m.M41;
             double y = v.X * m.M12 + v.Y * m.M22 + v.Z * m.M32 + v.W * m.M42;
             double z = v.X * m.M13 + v.Y * m.M23 + v.Z * m.M33 + v.W * m.M43;
@@ -63,8 +57,7 @@ namespace WorldBuilder.Shared.Numerics
     /// <summary>
     /// A 4D vector using double precision floating point numbers.
     /// </summary>
-    public struct Vector4d
-    {
+    public struct Vector4d {
         public double X, Y, Z, W;
         public Vector4d(double x, double y, double z, double w) { X = x; Y = y; Z = z; W = w; }
     }
@@ -72,23 +65,20 @@ namespace WorldBuilder.Shared.Numerics
     /// <summary>
     /// A 4x4 matrix using double precision floating point numbers.
     /// </summary>
-    public struct Matrix4x4d
-    {
+    public struct Matrix4x4d {
         public double M11, M12, M13, M14;
         public double M21, M22, M23, M24;
         public double M31, M32, M33, M34;
         public double M41, M42, M43, M44;
 
-        public Matrix4x4d(Matrix4x4 m)
-        {
+        public Matrix4x4d(Matrix4x4 m) {
             M11 = m.M11; M12 = m.M12; M13 = m.M13; M14 = m.M14;
             M21 = m.M21; M22 = m.M22; M23 = m.M23; M24 = m.M24;
             M31 = m.M31; M32 = m.M32; M33 = m.M33; M34 = m.M34;
             M41 = m.M41; M42 = m.M42; M43 = m.M43; M44 = m.M44;
         }
 
-        public static Matrix4x4d operator *(Matrix4x4d matrix1, Matrix4x4d matrix2)
-        {
+        public static Matrix4x4d operator *(Matrix4x4d matrix1, Matrix4x4d matrix2) {
             Matrix4x4d m = new Matrix4x4d();
             m.M11 = matrix1.M11 * matrix2.M11 + matrix1.M12 * matrix2.M21 + matrix1.M13 * matrix2.M31 + matrix1.M14 * matrix2.M41;
             m.M12 = matrix1.M11 * matrix2.M12 + matrix1.M12 * matrix2.M22 + matrix1.M13 * matrix2.M32 + matrix1.M14 * matrix2.M42;
@@ -109,8 +99,7 @@ namespace WorldBuilder.Shared.Numerics
             return m;
         }
 
-        public static bool Invert(Matrix4x4d matrix, out Matrix4x4d result)
-        {
+        public static bool Invert(Matrix4x4d matrix, out Matrix4x4d result) {
             double a = matrix.M11, b = matrix.M12, c = matrix.M13, d = matrix.M14;
             double e = matrix.M21, f = matrix.M22, g = matrix.M23, h = matrix.M24;
             double i = matrix.M31, j = matrix.M32, k = matrix.M33, l = matrix.M34;
@@ -130,8 +119,7 @@ namespace WorldBuilder.Shared.Numerics
 
             double det = a * a11 + b * a12 + c * a13 + d * a14;
 
-            if (Math.Abs(det) < 1e-12)
-            {
+            if (Math.Abs(det) < 1e-12) {
                 result = new Matrix4x4d();
                 return false;
             }
@@ -180,12 +168,10 @@ namespace WorldBuilder.Shared.Numerics
     /// <summary>
     /// An axis-aligned bounding box using double precision floating point numbers.
     /// </summary>
-    public struct BoundingBoxd
-    {
+    public struct BoundingBoxd {
         public Vector3d Min;
         public Vector3d Max;
-        public BoundingBoxd(Vector3d min, Vector3d max)
-        {
+        public BoundingBoxd(Vector3d min, Vector3d max) {
             Min = min;
             Max = max;
         }

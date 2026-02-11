@@ -31,7 +31,7 @@ public partial class MoveLandscapeLayerCommand : BaseCommand<bool> {
     [MemoryPackConstructor]
     public MoveLandscapeLayerCommand() { }
 
-    public MoveLandscapeLayerCommand(string terrainDocumentId, string layerId, 
+    public MoveLandscapeLayerCommand(string terrainDocumentId, string layerId,
         IEnumerable<string> sourceGroupPath, int sourceIndex,
         IEnumerable<string> destinationGroupPath, int destinationIndex) {
         TerrainDocumentId = terrainDocumentId;
@@ -43,7 +43,7 @@ public partial class MoveLandscapeLayerCommand : BaseCommand<bool> {
     }
 
     public override BaseCommand CreateInverse() {
-        return new MoveLandscapeLayerCommand(TerrainDocumentId, LayerId, 
+        return new MoveLandscapeLayerCommand(TerrainDocumentId, LayerId,
             DestinationGroupPath, DestinationIndex,
             SourceGroupPath, SourceIndex) {
             UserId = UserId
@@ -72,13 +72,13 @@ public partial class MoveLandscapeLayerCommand : BaseCommand<bool> {
 
             // 1. Remove from source
             terrainRental.Document.RemoveLayer(SourceGroupPath, LayerId);
-            
+
             // 2. Insert into destination
             terrainRental.Document.InsertItem(DestinationGroupPath, DestinationIndex, item);
 
             await terrainRental.Document.RecalculateTerrainCacheAsync(affectedVertices);
             terrainRental.Document.Version++;
-            
+
             var affectedLandblocks = affectedVertices.Any() ? terrainRental.Document.GetAffectedLandblocks(affectedVertices) : new List<(int, int)>();
             terrainRental.Document.NotifyLandblockChanged(affectedLandblocks);
 

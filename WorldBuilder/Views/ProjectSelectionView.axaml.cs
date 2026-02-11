@@ -17,7 +17,7 @@ public partial class ProjectSelectionView : UserControl, IRecipient<ShowProjectE
         var errorDetailsWindow = new ErrorDetailsWindow();
         var viewModel = new ErrorDetailsWindowViewModel(message.Value.Error ?? "Unknown error");
         errorDetailsWindow.DataContext = viewModel;
-        
+
         var owner = this.VisualRoot as Window;
         if (owner != null) {
             await errorDetailsWindow.ShowDialog(owner);

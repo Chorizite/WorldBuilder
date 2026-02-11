@@ -1,9 +1,9 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
+using WorldBuilder.Shared.Modules.Landscape;
 using WorldBuilder.Shared.Repositories;
 using WorldBuilder.Shared.Services;
-using WorldBuilder.Shared.Modules.Landscape;
 
 namespace WorldBuilder.Shared.Lib.Extensions {
     /// <summary>

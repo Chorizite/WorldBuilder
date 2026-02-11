@@ -5,19 +5,19 @@ using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using Microsoft.Extensions.Logging;
 using WorldBuilder.Lib;
 using WorldBuilder.Lib.Extensions;
+using WorldBuilder.Lib.Factories;
 using WorldBuilder.Lib.Settings;
 using WorldBuilder.Messages;
 using WorldBuilder.Services;
 using WorldBuilder.ViewModels;
 using WorldBuilder.Views;
-using WorldBuilder.Lib.Factories;
 
 namespace WorldBuilder;
 

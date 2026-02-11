@@ -1,39 +1,34 @@
+using DatReaderWriter.Lib;
+using Moq;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Xunit;
-using Moq;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Services;
-using WorldBuilder.Shared.Lib;
-using DatReaderWriter.Lib;
-using System.Linq;
+using Xunit;
 
-namespace WorldBuilder.Tests.Modules.Landscape.Commands
-{
-    public class CreateLandscapeLayerGroupCommandTests
-    {
+namespace WorldBuilder.Tests.Modules.Landscape.Commands {
+    public class CreateLandscapeLayerGroupCommandTests {
         private readonly Mock<IDocumentManager> _mockDocManager;
         private readonly Mock<IDatReaderWriter> _mockDats;
         private readonly Mock<ITransaction> _mockTx;
 
-        public CreateLandscapeLayerGroupCommandTests()
-        {
+        public CreateLandscapeLayerGroupCommandTests() {
             _mockDocManager = new Mock<IDocumentManager>();
             _mockDats = new Mock<IDatReaderWriter>();
             _mockTx = new Mock<ITransaction>();
         }
 
         [Fact]
-        public async Task ApplyAsync_ShouldAddGroupToTerrain()
-        {
+        public async Task ApplyAsync_ShouldAddGroupToTerrain() {
             // Arrange
             var terrainId = "LandscapeDocument_1";
             var groupId = "Group_1";
-            var command = new CreateLandscapeLayerGroupCommand(terrainId, new List<string>(), "New Group")
-            {
+            var command = new CreateLandscapeLayerGroupCommand(terrainId, new List<string>(), "New Group") {
                 GroupId = groupId
             };
 

@@ -1,11 +1,11 @@
+using Microsoft.Extensions.Logging;
+using Moq;
 using System.Collections.Generic;
 using System.Numerics;
-using WorldBuilder.Shared.Modules.Landscape.Tools;
-using Xunit;
-using Moq;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
-using Microsoft.Extensions.Logging;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
+using Xunit;
 
 namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
     public class BrushToolTests {
@@ -167,10 +167,10 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             // Inject TerrainCache and BaseTerrainCache via reflection
             var cache = new TerrainEntry[9 * 9];
             var baseCache = new TerrainEntry[9 * 9];
-            
+
             var cacheProp = typeof(LandscapeDocument).GetProperty("TerrainCache");
             cacheProp?.SetValue(doc, cache);
-            
+
             var baseCacheProp = typeof(LandscapeDocument).GetProperty("BaseTerrainCache");
             baseCacheProp?.SetValue(doc, baseCache);
 

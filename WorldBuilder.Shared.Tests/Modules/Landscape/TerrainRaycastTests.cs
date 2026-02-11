@@ -1,11 +1,11 @@
 using DatReaderWriter.Enums;
-using System.Numerics;
+using Microsoft.Extensions.Logging; // Added for ILogger and LogLevel
 using Moq;
+using System.Numerics;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using Xunit;
-using Microsoft.Extensions.Logging; // Added for ILogger and LogLevel
 
 namespace WorldBuilder.Shared.Tests.Modules.Landscape {
     public class TerrainRaycastTests {
@@ -26,7 +26,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             mock.Setup(r => r.MapHeightInVertices).Returns(lbHeight * 8 + 1);
             mock.Setup(r => r.GetLandblockId(It.IsAny<int>(), It.IsAny<int>())).Returns(0);
             mock.Setup(r => r.LandHeights).Returns(new float[256]);
-            
+
             return mock;
         }
 

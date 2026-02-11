@@ -1,12 +1,12 @@
 using Avalonia.Controls;
-using WorldBuilder.Shared.Models;
-using WorldBuilder.Shared.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Avalonia.VisualTree;
+using Microsoft.Extensions.DependencyInjection;
+using System;
 using System.Linq;
 using WorldBuilder.Lib.Settings;
 using WorldBuilder.Services;
-using System;
+using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Views;
 
@@ -51,7 +51,8 @@ public partial class MainWindow : Window {
             }
             if (!isOpen) {
                 _debugWindow = null;
-            } else {
+            }
+            else {
                 // Bring existing window to front
                 _debugWindow.Activate();
                 return;
@@ -88,7 +89,8 @@ public partial class MainWindow : Window {
                 var result = FindMainRenderView(child);
                 if (result != null) return result;
             }
-        } else if (control is UserControl uc) {
+        }
+        else if (control is UserControl uc) {
             return FindRenderView(uc);
         }
 
@@ -104,7 +106,8 @@ public partial class MainWindow : Window {
                     // Find the RenderView inside the LandscapeView
                     var renderView = FindRenderViewInControl(landscapeView);
                     if (renderView != null) return renderView;
-                } else if (child is RenderView rv) {
+                }
+                else if (child is RenderView rv) {
                     return rv;
                 }
             }
@@ -114,7 +117,8 @@ public partial class MainWindow : Window {
         foreach (var child in control.GetVisualDescendants()) {
             if (child is RenderView renderView) {
                 return renderView;
-            } else if (child is Control controlChild) {
+            }
+            else if (child is Control controlChild) {
                 var result = FindMainRenderView(controlChild);
                 if (result != null) return result;
             }
@@ -131,7 +135,8 @@ public partial class MainWindow : Window {
         foreach (var child in control.GetVisualDescendants()) {
             if (child is RenderView rv) {
                 return rv;
-            } else if (child is Control childControl) {
+            }
+            else if (child is Control childControl) {
                 var result = FindRenderViewInControl(childControl);
                 if (result != null) return result;
             }

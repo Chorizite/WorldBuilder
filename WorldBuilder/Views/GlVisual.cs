@@ -5,9 +5,9 @@ using Avalonia.OpenGL;
 using Avalonia.Platform;
 using Avalonia.Rendering.Composition;
 using Avalonia.Skia;
+using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
 using System;
-using Microsoft.Extensions.Logging;
 
 namespace WorldBuilder.Views {
     public abstract partial class Base3DViewport {

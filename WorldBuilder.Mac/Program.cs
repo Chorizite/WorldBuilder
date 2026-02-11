@@ -6,24 +6,18 @@ using System.Threading.Tasks;
 
 namespace WorldBuilder.Mac;
 
-sealed class Program
-{
+sealed class Program {
     [STAThread]
-    public static void Main(string[] args)
-    {
-        try
-        {
-            TaskScheduler.UnobservedTaskException += (sender, e) =>
-            {
+    public static void Main(string[] args) {
+        try {
+            TaskScheduler.UnobservedTaskException += (sender, e) => {
                 Console.WriteLine(e.Exception);
             };
-            AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
-            {
+            AppDomain.CurrentDomain.UnhandledException += (sender, e) => {
                 Console.WriteLine(e.ExceptionObject);
             };
 
-            try
-            {
+            try {
                 Assembly currentAssembly = Assembly.GetExecutingAssembly();
                 string currentAssemblyPath = currentAssembly.Location;
 
@@ -37,8 +31,7 @@ sealed class Program
             BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             Console.WriteLine(e);
         }
     }

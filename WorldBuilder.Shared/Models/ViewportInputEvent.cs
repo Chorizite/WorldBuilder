@@ -1,12 +1,10 @@
 using System.Numerics;
 
-namespace WorldBuilder.Shared.Models
-{
+namespace WorldBuilder.Shared.Models {
     /// <summary>
     /// Represents an input event occurring within a 3D viewport.
     /// </summary>
-    public class ViewportInputEvent
-    {
+    public class ViewportInputEvent {
         /// <summary>The current mouse position in viewport coordinates.</summary>
         public Vector2 Position { get; set; }
         /// <summary>The change in mouse position since the last event.</summary>

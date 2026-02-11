@@ -3,10 +3,9 @@ using CommunityToolkit.Mvvm.Input;
 using System;
 using System.Collections.ObjectModel;
 using WorldBuilder.Shared.Models;
-using WorldBuilder.ViewModels;
-
-using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 

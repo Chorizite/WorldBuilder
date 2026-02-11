@@ -10,48 +10,38 @@ using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Views;
 
-public partial class ErrorDetailsWindow : Window
-{
+public partial class ErrorDetailsWindow : Window {
     private ErrorDetailsWindowViewModel? _viewModel;
 
-    public ErrorDetailsWindow()
-    {
+    public ErrorDetailsWindow() {
         InitializeComponent();
     }
 
-    public ErrorDetailsWindow(string errorText) : this()
-    {
+    public ErrorDetailsWindow(string errorText) : this() {
         var viewModel = new ErrorDetailsWindowViewModel(errorText);
         DataContext = viewModel;
     }
 
-    protected override void OnDataContextChanged(EventArgs e)
-    {
+    protected override void OnDataContextChanged(EventArgs e) {
         base.OnDataContextChanged(e);
 
-        if (DataContext is ErrorDetailsWindowViewModel viewModel)
-        {
+        if (DataContext is ErrorDetailsWindowViewModel viewModel) {
             _viewModel = viewModel;
         }
     }
 
-    private void CloseButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-        {
+    private void CloseButton_Click(object sender, RoutedEventArgs e) {
+        if (_viewModel != null) {
             _viewModel.DialogResult = true; // Set dialog result to indicate closed
         }
         Close();
     }
 
-    private async void CopyButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_viewModel?.ErrorText != null)
-        {
+    private async void CopyButton_Click(object sender, RoutedEventArgs e) {
+        if (_viewModel?.ErrorText != null) {
             var window = Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
             var clipboard = window?.MainWindow?.Clipboard;
-            if (clipboard != null)
-            {
+            if (clipboard != null) {
                 await clipboard.SetTextAsync(_viewModel.ErrorText);
             }
         }

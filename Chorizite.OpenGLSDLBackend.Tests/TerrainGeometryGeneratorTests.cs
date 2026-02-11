@@ -1,9 +1,9 @@
 using Chorizite.OpenGLSDLBackend.Lib;
+using System;
+using System.Buffers;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using Xunit;
-using System.Buffers;
-using System;
 
 namespace Chorizite.OpenGLSDLBackend.Tests {
     public class TerrainGeometryGeneratorTests {

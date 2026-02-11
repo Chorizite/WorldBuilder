@@ -1,5 +1,5 @@
-using Chorizite.Core.Render;
 using Chorizite.Core.Lib;
+using Chorizite.Core.Render;
 using System;
 using System.Numerics;
 using System.Runtime.CompilerServices;
@@ -84,7 +84,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     block.vOffset, block.iOffset,
                     vertices.Span, indices.Span
                 );
-                
+
                 int localIdx = (int)((block.ly - chunk.LandblockStartY) * 8 + (block.lx - chunk.LandblockStartX));
                 chunk.LandblockBoundsMinZ[localIdx] = lbMinZ;
                 chunk.LandblockBoundsMaxZ[localIdx] = lbMaxZ;

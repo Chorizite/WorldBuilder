@@ -78,7 +78,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             if (record && !_previousState.ContainsKey(index)) {
                 if (_activeLayer.Terrain.TryGetValue((uint)index, out var prev)) {
                     _previousState[index] = prev;
-                } else {
+                }
+                else {
                     _previousState[index] = null;
                 }
             }

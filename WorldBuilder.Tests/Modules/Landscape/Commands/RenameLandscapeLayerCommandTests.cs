@@ -1,20 +1,16 @@
-using System;
-using Xunit;
 using Moq;
+using System;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
+using Xunit;
 
-namespace WorldBuilder.Tests.Modules.Landscape.Commands
-{
-    public class RenameLandscapeLayerCommandTests
-    {
-        private class TestLayer : LandscapeLayerBase
-        {
+namespace WorldBuilder.Tests.Modules.Landscape.Commands {
+    public class RenameLandscapeLayerCommandTests {
+        private class TestLayer : LandscapeLayerBase {
         }
 
         [Fact]
-        public void Execute_ShouldUpdateLayerName()
-        {
+        public void Execute_ShouldUpdateLayerName() {
             // Arrange
             var layer = new TestLayer { Name = "Old Name" };
             var command = new RenameLandscapeLayerCommand(layer, "New Name");
@@ -27,8 +23,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands
         }
 
         [Fact]
-        public void Undo_ShouldRevertLayerName()
-        {
+        public void Undo_ShouldRevertLayerName() {
             // Arrange
             var layer = new TestLayer { Name = "Old Name" };
             var command = new RenameLandscapeLayerCommand(layer, "New Name");
@@ -42,8 +37,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands
         }
 
         [Fact]
-        public void Execute_ShouldInvokeCallback()
-        {
+        public void Execute_ShouldInvokeCallback() {
             // Arrange
             var layer = new TestLayer { Name = "Old Name" };
             string? callbackName = null;

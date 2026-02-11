@@ -1,32 +1,28 @@
 using Avalonia;
 using System;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Threading.Tasks;
 using Velopack;
 
 namespace WorldBuilder.Windows;
 
-sealed class Program
-{
+sealed class Program {
     [STAThread]
-    public static void Main(string[] args)
-    {
+    [RequiresAssemblyFiles("Calls System.Reflection.Assembly.Location")]
+    public static void Main(string[] args) {
         VelopackApp.Build().Run();
 
-        try
-        {
-            TaskScheduler.UnobservedTaskException += (sender, e) =>
-            {
+        try {
+            TaskScheduler.UnobservedTaskException += (sender, e) => {
                 Console.WriteLine(e.Exception);
             };
-            AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
-            {
+            AppDomain.CurrentDomain.UnhandledException += (sender, e) => {
                 Console.WriteLine(e.ExceptionObject);
             };
 
-            try
-            {
+            try {
                 Assembly currentAssembly = Assembly.GetExecutingAssembly();
                 string currentAssemblyPath = currentAssembly.Location;
 
@@ -40,8 +36,7 @@ sealed class Program
             BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             Console.WriteLine(e);
         }
     }

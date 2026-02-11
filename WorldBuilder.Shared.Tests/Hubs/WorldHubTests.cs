@@ -44,4 +44,3 @@ public class WorldHubTests {
         Assert.IsType<byte[][]>(events);
     }
 }
-

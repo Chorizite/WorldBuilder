@@ -1,13 +1,11 @@
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Services;
 
-namespace WorldBuilder.Shared.Modules.Landscape
-{
+namespace WorldBuilder.Shared.Modules.Landscape {
     /// <summary>
     /// Interface for the landscape module.
     /// </summary>
-    public interface ILandscapeModule
-    {
+    public interface ILandscapeModule {
         /// <summary>
         /// Gets or creates a landscape document for the specified region ID asynchronously.
         /// </summary>

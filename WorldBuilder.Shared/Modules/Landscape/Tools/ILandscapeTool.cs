@@ -1,14 +1,12 @@
 using System.Numerics;
-using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Tools
-{
+namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     /// <summary>
     /// Defines the contract for a tool that can interact with the landscape in the editor.
     /// </summary>
-    public interface ILandscapeTool
-    {
+    public interface ILandscapeTool {
         /// <summary>The display name of the tool.</summary>
         string Name { get; }
         /// <summary>The icon glyph representing the tool in the UI.</summary>

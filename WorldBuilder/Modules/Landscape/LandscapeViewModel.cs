@@ -1,28 +1,26 @@
-using CommunityToolkit.Mvvm.ComponentModel;
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.ObjectModel;
 using Avalonia.Input;
-using System.Numerics;
+using Avalonia.Threading;
+using Chorizite.OpenGLSDLBackend;
+using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Numerics;
+using System.Threading;
+using System.Threading.Tasks;
+using WorldBuilder.Lib.Settings;
+using WorldBuilder.Modules.Landscape.ViewModels;
+using WorldBuilder.Services;
 using WorldBuilder.Shared.Models;
-using WorldBuilder.Shared.Services;
-using Avalonia.Threading;
+using WorldBuilder.Shared.Modules.Landscape;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
-using WorldBuilder.Shared.Modules.Landscape;
-using WorldBuilder.Modules.Landscape.ViewModels;
+using WorldBuilder.Shared.Services;
 using WorldBuilder.ViewModels;
-using WorldBuilder.Lib.Settings;
-using WorldBuilder.Services;
-using Microsoft.Extensions.DependencyInjection;
-
-using Chorizite.OpenGLSDLBackend;
 using ICamera = WorldBuilder.Shared.Models.ICamera;
 
 namespace WorldBuilder.Modules.Landscape;
@@ -97,7 +95,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
                     }
 
                     await ActiveDocument.LoadMissingLayersAsync(_documentManager, default);
-                    
+
                     if (changeType == LayerChangeType.StructureChange) {
                         // Commands handle their own invalidation now
                     }
@@ -132,13 +130,14 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
 
     partial void OnActiveDocumentChanged(LandscapeDocument? oldValue, LandscapeDocument? newValue) {
         _log.LogTrace("LandscapeViewModel.OnActiveDocumentChanged: Syncing layers for doc {DocId}", newValue?.Id);
-        
+
         LayersPanel.SyncWithDocument(newValue);
 
         // Set first base layer as active by default
         if (newValue != null && ActiveLayer == null) {
             ActiveLayer = newValue.GetAllLayers().FirstOrDefault(l => l.IsBase);
-        } else if (ActiveLayer != null) {
+        }
+        else if (ActiveLayer != null) {
             LayersPanel.SelectedItem = LayersPanel.FindVM(ActiveLayer.Id);
         }
 
@@ -344,7 +343,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
             if (_settings != null) {
                 _settings.Landscape.PropertyChanged -= OnLandscapeSettingsPropertyChanged;
                 _settings.Landscape.PropertyChanged += OnLandscapeSettingsPropertyChanged;
-                
+
                 _settings.Landscape.Rendering.PropertyChanged -= OnRenderingSettingsPropertyChanged;
                 _settings.Landscape.Rendering.PropertyChanged += OnRenderingSettingsPropertyChanged;
 

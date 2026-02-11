@@ -5,14 +5,12 @@ using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using worldBuilderShared = WorldBuilder.Shared.Services;
 
-namespace WorldBuilder.Modules.Landscape.Commands
-{
+namespace WorldBuilder.Modules.Landscape.Commands {
     /// <summary>
     /// Wraps a <see cref="BaseCommand"/> (system command) into an <see cref="ICommand"/> (UI command)
     /// for integration with <see cref="CommandHistory"/>.
     /// </summary>
-    public class UndoableDocumentCommand : ICommand
-    {
+    public class UndoableDocumentCommand : ICommand {
         private readonly BaseCommand _baseCommand;
         private readonly worldBuilderShared.IDocumentManager _documentManager;
         private readonly Func<Task> _refreshCallback;
@@ -20,37 +18,30 @@ namespace WorldBuilder.Modules.Landscape.Commands
 
         public string Name => _name;
 
-        public UndoableDocumentCommand(string name, BaseCommand baseCommand, worldBuilderShared.IDocumentManager documentManager, Func<Task> refreshCallback)
-        {
+        public UndoableDocumentCommand(string name, BaseCommand baseCommand, worldBuilderShared.IDocumentManager documentManager, Func<Task> refreshCallback) {
             _name = name;
             _baseCommand = baseCommand;
             _documentManager = documentManager;
             _refreshCallback = refreshCallback;
         }
 
-        public void Execute()
-        {
+        public void Execute() {
             // Fire and forget, but on UI thread to ensure safety if needed, 
             // though DocumentManager handles locking.
-            Dispatcher.UIThread.InvokeAsync(async () =>
-            {
+            Dispatcher.UIThread.InvokeAsync(async () => {
                 await ApplyCommand(_baseCommand);
             });
         }
 
-        public void Undo()
-        {
+        public void Undo() {
             var inverse = _baseCommand.CreateInverse();
-            Dispatcher.UIThread.InvokeAsync(async () =>
-            {
+            Dispatcher.UIThread.InvokeAsync(async () => {
                 await ApplyCommand(inverse);
             });
         }
 
-        private async Task ApplyCommand(BaseCommand cmd)
-        {
-            try
-            {
+        private async Task ApplyCommand(BaseCommand cmd) {
+            try {
                 await using var tx = await _documentManager.CreateTransactionAsync(default);
 
                 // Assign a new ID to the event if it's being re-applied (e.g. Redo) or Inverse
@@ -60,18 +51,15 @@ namespace WorldBuilder.Modules.Landscape.Commands
 
                 var result = await _documentManager.ApplyLocalEventAsync(cmd, tx, default);
 
-                if (result.IsSuccess)
-                {
+                if (result.IsSuccess) {
                     await tx.CommitAsync(default);
                     await _refreshCallback();
                 }
-                else
-                {
+                else {
                     Console.WriteLine($"[UndoableDocumentCommand] Failed to apply {cmd.GetType().Name}: {result.Error}");
                 }
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Console.WriteLine($"[UndoableDocumentCommand] Exception applying {cmd.GetType().Name}: {ex}");
             }
         }

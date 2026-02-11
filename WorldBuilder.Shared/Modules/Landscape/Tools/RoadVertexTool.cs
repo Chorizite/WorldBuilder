@@ -2,13 +2,11 @@ using System.Numerics;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Tools
-{
+namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     /// <summary>
     /// A tool for setting road bits on individual vertices.
     /// </summary>
-    public class RoadVertexTool : ILandscapeTool
-    {
+    public class RoadVertexTool : ILandscapeTool {
         private LandscapeToolContext? _context;
         private bool _isPainting;
         private CompoundCommand? _currentStroke;
@@ -21,24 +19,20 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
 
         public int RoadBits { get; set; } = 1;
 
-        public void Activate(LandscapeToolContext context)
-        {
+        public void Activate(LandscapeToolContext context) {
             _context = context;
             IsActive = true;
         }
 
-        public void Deactivate()
-        {
+        public void Deactivate() {
             IsActive = false;
         }
 
-        public bool OnPointerPressed(ViewportInputEvent e)
-        {
+        public bool OnPointerPressed(ViewportInputEvent e) {
             if (_context == null || !e.IsLeftDown) return false;
 
             var hit = Raycast(e.Position.X, e.Position.Y);
-            if (hit.Hit)
-            {
+            if (hit.Hit) {
                 _isPainting = true;
                 _currentStroke = new CompoundCommand("Road Stroke");
                 _lastSnappedPos = null;
@@ -49,13 +43,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
             return false;
         }
 
-        public bool OnPointerMoved(ViewportInputEvent e)
-        {
+        public bool OnPointerMoved(ViewportInputEvent e) {
             if (!_isPainting || _context == null) return false;
 
             var hit = Raycast(e.Position.X, e.Position.Y);
-            if (hit.Hit)
-            {
+            if (hit.Hit) {
                 ApplyPaint(hit);
                 return true;
             }
@@ -63,13 +55,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
             return false;
         }
 
-        public bool OnPointerReleased(ViewportInputEvent e)
-        {
-            if (_isPainting)
-            {
+        public bool OnPointerReleased(ViewportInputEvent e) {
+            if (_isPainting) {
                 _isPainting = false;
-                if (_currentStroke != null && _currentStroke.Count > 0)
-                {
+                if (_currentStroke != null && _currentStroke.Count > 0) {
                     _context?.CommandHistory.Execute(_currentStroke);
                 }
                 _currentStroke = null;
@@ -79,15 +68,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
             return false;
         }
 
-        private TerrainRaycastHit Raycast(double x, double y)
-        {
+        private TerrainRaycastHit Raycast(double x, double y) {
             if (_context == null || _context.Document.Region == null) return new TerrainRaycastHit();
 
             return TerrainRaycast.Raycast((float)x, (float)y, (int)_context.ViewportSize.X, (int)_context.ViewportSize.Y, _context.Camera, _context.Document.Region, _context.Document.TerrainCache);
         }
 
-        private void ApplyPaint(TerrainRaycastHit hit)
-        {
+        private void ApplyPaint(TerrainRaycastHit hit) {
             if (_context == null || _currentStroke == null) return;
 
             var snappedPos = hit.NearestVertice;
@@ -99,8 +86,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
             command.Execute();
         }
 
-        public void Update(double deltaTime)
-        {
+        public void Update(double deltaTime) {
         }
     }
 }

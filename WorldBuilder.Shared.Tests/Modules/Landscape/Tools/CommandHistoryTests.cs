@@ -1,13 +1,10 @@
 using System;
-using Xunit;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
+using Xunit;
 
-namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
-{
-    public class CommandHistoryTests
-    {
-        private class TestCommand : ICommand
-        {
+namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
+    public class CommandHistoryTests {
+        private class TestCommand : ICommand {
             public string Name => "Test";
             public bool Executed { get; private set; }
             public bool Undone { get; private set; }
@@ -17,8 +14,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         }
 
         [Fact]
-        public void Execute_RespectsMaxHistoryDepth()
-        {
+        public void Execute_RespectsMaxHistoryDepth() {
             var history = new CommandHistory { MaxHistoryDepth = 3 };
 
             history.Execute(new TestCommand());
@@ -35,8 +31,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         }
 
         [Fact]
-        public void Clear_ResetsTruncated()
-        {
+        public void Clear_ResetsTruncated() {
             var history = new CommandHistory { MaxHistoryDepth = 1 };
             history.Execute(new TestCommand());
             history.Execute(new TestCommand());
@@ -50,8 +45,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools
         }
 
         [Fact]
-        public void JumpTo_HandlesTruncatedRange()
-        {
+        public void JumpTo_HandlesTruncatedRange() {
             var history = new CommandHistory { MaxHistoryDepth = 2 };
             var cmd1 = new TestCommand();
             var cmd2 = new TestCommand();

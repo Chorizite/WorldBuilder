@@ -282,7 +282,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             surfaceNumber = _nextSurfaceNumber++;
 
             var surfaceInfo = new SurfaceInfo {
-                Surface = surface, PaletteCode = paletteCode, LandCellCount = 1, SurfaceNumber = surfaceNumber
+                Surface = surface,
+                PaletteCode = paletteCode,
+                LandCellCount = 1,
+                SurfaceNumber = surfaceNumber
             };
 
             SurfacesBySurfaceNumber.Add(surfaceNumber, surface);

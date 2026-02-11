@@ -12,9 +12,9 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
             var doc = new LandscapeDocument(_regionId);
             // Default doc has no layers until AddLayer is called.
             // Wait, CreateLandscapeDocumentCommand adds the base layer.
-            
+
             doc.AddLayer([], "Base", true, "base_id");
-            
+
             // Assert
             Assert.Single(doc.GetAllLayers(), l => l.IsBase);
 

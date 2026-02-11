@@ -8,16 +8,14 @@ using System.Threading.Tasks;
 using WorldBuilder.Lib;
 using WorldBuilder.ViewModels;
 
-namespace WorldBuilder.Services
-{
+namespace WorldBuilder.Services {
     /// <summary>
     /// Manages the collection and persistence of recently opened projects.
     /// </summary>
-    public class RecentProjectsManager
-    {
+    public class RecentProjectsManager {
         private readonly ILogger<RecentProjectsManager> _log;
         private readonly WorldBuilderSettings _settings;
-        
+
         /// <summary>
         /// Gets the collection of recently opened projects.
         /// </summary>
@@ -31,8 +29,7 @@ namespace WorldBuilder.Services
         /// <summary>
         /// Initializes a new instance of the RecentProjectsManager class for design-time use.
         /// </summary>
-        public RecentProjectsManager()
-        {
+        public RecentProjectsManager() {
             _settings = new WorldBuilderSettings();
             _log = Microsoft.Extensions.Logging.Abstractions.NullLogger<RecentProjectsManager>.Instance;
             RecentProjects = new ObservableCollection<RecentProject>();
@@ -47,8 +44,7 @@ namespace WorldBuilder.Services
         /// </summary>
         /// <param name="settings">The application settings</param>
         /// <param name="log">The logger instance</param>
-        public RecentProjectsManager(WorldBuilderSettings settings, ILogger<RecentProjectsManager> log)
-        {
+        public RecentProjectsManager(WorldBuilderSettings settings, ILogger<RecentProjectsManager> log) {
             _settings = settings;
             _log = log;
             RecentProjects = new ObservableCollection<RecentProject>();
@@ -63,18 +59,15 @@ namespace WorldBuilder.Services
         /// <param name="name">The name of the project</param>
         /// <param name="filePath">The file path of the project</param>
         /// <returns>A task representing the asynchronous operation</returns>
-        public async Task AddRecentProject(string name, string filePath)
-        {
+        public async Task AddRecentProject(string name, string filePath) {
             // Remove if already exists
             var existing = RecentProjects.FirstOrDefault(p => p.FilePath == filePath);
-            if (existing != null)
-            {
+            if (existing != null) {
                 RecentProjects.Remove(existing);
             }
 
             // Add to beginning of list
-            var recentProject = new RecentProject
-            {
+            var recentProject = new RecentProject {
                 Name = name,
                 FilePath = filePath,
                 LastOpened = DateTime.Now
@@ -83,8 +76,7 @@ namespace WorldBuilder.Services
             RecentProjects.Insert(0, recentProject);
 
             // Keep only the 10 most recent projects
-            while (RecentProjects.Count > 10)
-            {
+            while (RecentProjects.Count > 10) {
                 RecentProjects.RemoveAt(RecentProjects.Count - 1);
             }
 
@@ -96,11 +88,9 @@ namespace WorldBuilder.Services
         /// </summary>
         /// <param name="filePath">The file path of the project to remove</param>
         /// <returns>A task representing the asynchronous operation</returns>
-        public async Task RemoveRecentProject(string filePath)
-        {
+        public async Task RemoveRecentProject(string filePath) {
             var existing = RecentProjects.FirstOrDefault(p => p.FilePath == filePath);
-            if (existing != null)
-            {
+            if (existing != null) {
                 RecentProjects.Remove(existing);
                 await SaveRecentProjects();
             }
@@ -109,32 +99,26 @@ namespace WorldBuilder.Services
         /// <summary>
         /// Loads recent projects from persistent storage.
         /// </summary>
-        private async Task LoadRecentProjects()
-        {
-            try
-            {
+        private async Task LoadRecentProjects() {
+            try {
                 if (!File.Exists(RecentProjectsFilePath))
                     return;
 
                 var json = await File.ReadAllTextAsync(RecentProjectsFilePath);
                 var projects = JsonSerializer.Deserialize<System.Collections.Generic.List<RecentProject>>(json, SourceGenerationContext.Default.ListRecentProject);
 
-                if (projects != null)
-                {
+                if (projects != null) {
                     RecentProjects.Clear();
                     await Task.WhenAll(projects.Select(p => p.Verify()));
-                    foreach (var project in projects.OrderByDescending(p => p.LastOpened))
-                    {
-                        if (project.HasError)
-                        {
+                    foreach (var project in projects.OrderByDescending(p => p.LastOpened)) {
+                        if (project.HasError) {
                             _log.LogWarning($"Failed to load recent project {project.Name} ({project.FilePath}): {project.Error}");
                         }
                         RecentProjects.Add(project);
                     }
                 }
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _log.LogError(ex, "Failed to load recent projects");
                 RecentProjects.Clear();
             }
@@ -143,15 +127,12 @@ namespace WorldBuilder.Services
         /// <summary>
         /// Saves recent projects to persistent storage.
         /// </summary>
-        private async Task SaveRecentProjects()
-        {
-            try
-            {
+        private async Task SaveRecentProjects() {
+            try {
                 var json = JsonSerializer.Serialize(RecentProjects.ToList(), SourceGenerationContext.Default.ListRecentProject);
                 await File.WriteAllTextAsync(RecentProjectsFilePath, json);
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _log.LogError(ex, "Failed to save recent projects");
             }
         }

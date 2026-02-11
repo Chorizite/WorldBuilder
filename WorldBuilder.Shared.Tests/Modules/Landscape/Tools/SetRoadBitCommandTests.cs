@@ -1,12 +1,12 @@
-using System.Numerics;
-using WorldBuilder.Shared.Modules.Landscape.Tools;
-using Xunit;
+using Microsoft.Extensions.Logging;
 using Moq;
+using System;
+using System.Numerics;
+using System.Reflection;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
-using Microsoft.Extensions.Logging;
-using System.Reflection;
-using System;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
+using Xunit;
 
 namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
     public class SetRoadBitCommandTests {
@@ -31,7 +31,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var doc = CreateDocument();
             var cache = doc.TerrainCache;
             var baseCache = doc.BaseTerrainCache;
-            
+
             var r2 = new TerrainEntry { Road = 2 };
             cache[10] = r2;
             baseCache[10] = r2;
@@ -50,7 +50,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
         private LandscapeDocument CreateDocument() {
             var doc = new LandscapeDocument("LandscapeDocument_1");
-            
+
             // Bypass dats loading
             typeof(LandscapeDocument).GetField("_didLoadRegionData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
             typeof(LandscapeDocument).GetField("_didLoadLayers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
@@ -65,7 +65,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             var cacheProp = typeof(LandscapeDocument).GetProperty("TerrainCache");
             cacheProp?.SetValue(doc, cache);
-            
+
             var baseCacheProp = typeof(LandscapeDocument).GetProperty("BaseTerrainCache");
             baseCacheProp?.SetValue(doc, baseCache);
 

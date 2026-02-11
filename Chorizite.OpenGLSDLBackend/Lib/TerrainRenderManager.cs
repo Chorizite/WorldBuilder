@@ -1,5 +1,7 @@
-using Chorizite.Core.Render;
 using Chorizite.Core.Lib;
+using Chorizite.Core.Render;
+using DatReaderWriter;
+using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
 using System;
 using System.Collections.Concurrent;
@@ -7,12 +9,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
-using WorldBuilder.Shared.Models;
-using Microsoft.Extensions.Logging;
-using DatReaderWriter;
-using WorldBuilder.Shared.Services;
 using System.Threading.Tasks;
+using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Services;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
     public class TerrainRenderManager : IDisposable {
@@ -85,7 +85,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
             else {
                 var affected = e.AffectedLandblocks.ToList();
-                _log.LogTrace("LandblockChanged: {Count} landblocks affected: {Landblocks}", 
+                _log.LogTrace("LandblockChanged: {Count} landblocks affected: {Landblocks}",
                     affected.Count, string.Join(", ", affected.Select(lb => $"({lb.x}, {lb.y})")));
                 foreach (var (lbX, lbY) in affected) {
                     InvalidateLandblock(lbX, lbY);
