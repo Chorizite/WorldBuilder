@@ -54,6 +54,9 @@
         <Button Command="{Binding ToggleGrid}" ToolTip.Tip="Toggle Grid">
           <TextBlock Text="📏" />
         </Button>
+        <Button Command="{Binding PrintCameraPositionCommand}" ToolTip.Tip="Print Camera Position">
+          <TextBlock Text="🎯" />
+        </Button>
       </StackPanel>
     </Panel>
 

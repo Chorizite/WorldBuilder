@@ -11,6 +11,28 @@ public class Camera3D : CameraBase {
     private float _yaw; // Rotation around Y axis (left/right)
     private float _pitch; // Rotation around X axis (up/down)
     private float _fov = 60.0f;
+
+    /// <summary>
+    /// Gets or sets the camera yaw in degrees.
+    /// </summary>
+    public float Yaw {
+        get => _yaw;
+        set {
+            _yaw = value % 360.0f;
+            InvalidateMatrices();
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the camera pitch in degrees.
+    /// </summary>
+    public float Pitch {
+        get => _pitch;
+        set {
+            _pitch = Math.Clamp(value, -89.9f, 89.9f);
+            InvalidateMatrices();
+        }
+    }
     private float _nearPlane = 0.1f;
     private float _farPlane = 1000.0f;
     private float _moveSpeed = 10.0f;

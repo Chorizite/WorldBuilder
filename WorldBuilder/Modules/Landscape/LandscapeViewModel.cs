@@ -2,6 +2,7 @@ using Avalonia.Input;
 using Avalonia.Threading;
 using Chorizite.OpenGLSDLBackend;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
@@ -331,6 +332,18 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         IsGridEnabled = !IsGridEnabled;
         if (_settings != null) {
             _settings.Landscape.Grid.ShowGrid = IsGridEnabled;
+        }
+    }
+
+    [RelayCommand]
+    public void PrintCameraPosition() {
+        if (Camera != null) {
+            var pos = Camera.Position;
+            string extra = "";
+            if (_gameScene?.CurrentCamera is Camera3D cam3d) {
+                extra = $", Pitch: {cam3d.Pitch:F2}, Yaw: {cam3d.Yaw:F2}";
+            }
+            _log.LogInformation("Camera Position: X: {X:F2}, Y: {Y:F2}, Z: {Z:F2}{Extra}", pos.X, pos.Y, pos.Z, extra);
         }
     }
 

@@ -6,6 +6,7 @@ using Silk.NET.OpenGL;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Services;
 
 
@@ -105,6 +106,19 @@ public class GameScene : IDisposable {
         if (_initialized && _terrainShader != null) {
             _terrainManager.Initialize(_terrainShader);
         }
+
+        if (landscapeDoc.Region != null) {
+            CenterCameraOnLandscape(landscapeDoc.Region);
+        }
+    }
+
+    private void CenterCameraOnLandscape(ITerrainInfo region) {
+        // yaraq
+        _camera3D.Position = new Vector3(23935f, 19114f, 2103f);
+        _camera3D.Pitch = -89.9f;
+        _camera3D.Yaw = 0;
+        
+        SyncCameraZ();
     }
 
 
