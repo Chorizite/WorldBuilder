@@ -25,6 +25,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         public int[] LandblockVertexOffsets { get; } = new int[64];
 
+        public float[] LandblockBoundsMinZ { get; } = new float[64];
+        public float[] LandblockBoundsMaxZ { get; } = new float[64];
+
         /// <summary>
         /// Tracks which landblocks are dirty and need partial updates.
         /// Index is (ly * 8 + lx).

@@ -1,4 +1,5 @@
 using Chorizite.Core.Render;
+using Chorizite.Core.Lib;
 using System;
 using System.Numerics;
 using System.Runtime.CompilerServices;
@@ -70,22 +71,40 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             actualVertexCount = (int)currentVertexIndex;
             actualIndexCount = (int)currentIndexPosition;
 
+            float minZ = float.MaxValue;
+            float maxZ = float.MinValue;
+            object lockObj = new object();
+
             var localRegion = region;
             Parallel.ForEach(validBlocks, block => {
                 var landblockID = localRegion!.GetLandblockId((int)block.lx, (int)block.ly);
-                GenerateLandblockGeometry(
+                var (lbMinZ, lbMaxZ) = GenerateLandblockGeometry(
                     block.lx, block.ly, landblockID,
                     localRegion!, surfaceManager, terrainCache.Span,
                     block.vOffset, block.iOffset,
                     vertices.Span, indices.Span
                 );
+                
+                int localIdx = (int)((block.ly - chunk.LandblockStartY) * 8 + (block.lx - chunk.LandblockStartX));
+                chunk.LandblockBoundsMinZ[localIdx] = lbMinZ;
+                chunk.LandblockBoundsMaxZ[localIdx] = lbMaxZ;
+
+                lock (lockObj) {
+                    minZ = Math.Min(minZ, lbMinZ);
+                    maxZ = Math.Max(maxZ, lbMaxZ);
+                }
             });
+
+            chunk.Bounds = new BoundingBox(
+                new Vector3(chunk.ChunkX * 8 * 192f, chunk.ChunkY * 8 * 192f, minZ),
+                new Vector3((chunk.ChunkX + 1) * 8 * 192f, (chunk.ChunkY + 1) * 8 * 192f, maxZ)
+            );
         }
 
         /// <summary>
         /// Generates geometry for a single landblock
         /// </summary>
-        public static void GenerateLandblockGeometry(
+        public static (float minZ, float maxZ) GenerateLandblockGeometry(
             uint landblockX,
             uint landblockY,
             uint landblockID,
@@ -98,10 +117,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             Span<uint> indices) {
             float baseLandblockX = landblockX * 192f; // 24 * 8
             float baseLandblockY = landblockY * 192f;
+            float minZ = float.MaxValue;
+            float maxZ = float.MinValue;
 
             for (uint cellY = 0; cellY < 8; cellY++) {
                 for (uint cellX = 0; cellX < 8; cellX++) {
-                    GenerateCell(
+                    var (cellMinZ, cellMaxZ) = GenerateCell(
                         baseLandblockX, baseLandblockY, cellX, cellY,
                         landblockX, landblockY, landblockID,
                         region, surfaceManager, terrainCache,
@@ -109,13 +130,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         vertices, indices
                     );
 
+                    minZ = Math.Min(minZ, cellMinZ);
+                    maxZ = Math.Max(maxZ, cellMaxZ);
+
                     currentVertexIndex += 4;
                     currentIndexPosition += 6;
                 }
             }
+            return (minZ, maxZ);
         }
 
-        private static void GenerateCell(
+        private static (float minZ, float maxZ) GenerateCell(
             float baseLandblockX, float baseLandblockY, uint cellX, uint cellY,
             uint landblockX, uint landblockY,
             uint landblockID,
@@ -140,6 +165,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             float h1 = region.LandHeights[bottomRight.Height ?? 0];
             float h2 = region.LandHeights[topRight.Height ?? 0];
             float h3 = region.LandHeights[topLeft.Height ?? 0];
+
+            float minZ = Math.Min(Math.Min(h0, h1), Math.Min(h2, h3));
+            float maxZ = Math.Max(Math.Max(h0, h1), Math.Max(h2, h3));
 
             ref VertexLandscape v0 = ref vertices[(int)currentVertexIndex];
             ref VertexLandscape v1 = ref vertices[(int)currentVertexIndex + 1];
@@ -221,6 +249,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 Unsafe.Add(ref indexRef, 4) = currentVertexIndex + 2;
                 Unsafe.Add(ref indexRef, 5) = currentVertexIndex + 3;
             }
+
+            return (minZ, maxZ);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

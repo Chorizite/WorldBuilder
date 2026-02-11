@@ -1,4 +1,5 @@
 using Chorizite.Core.Render;
+using Chorizite.Core.Lib;
 using Silk.NET.OpenGL;
 using System;
 using System.Collections.Concurrent;
@@ -60,7 +61,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public float GridOpacity { get; set; } = 1.0f;
         public float ScreenHeight { get; set; } = 1080.0f;
 
-
+        private readonly Frustum _frustum = new();
         private readonly IDatReaderWriter _dats;
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private LandSurfaceManager? _surfaceManager;
@@ -202,6 +203,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _gl.BindBuffer(BufferTargetARB.ArrayBuffer, chunk.VBO);
 
             int updates = 0;
+            bool boundsChanged = false;
             while (chunk.TryGetNextDirty(out int lx, out int ly)) {
                 int vertexOffset = chunk.LandblockVertexOffsets[ly * 8 + lx];
                 if (vertexOffset == -1) continue; // No geometry for this block
@@ -218,7 +220,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 // Generate geometry for this single landblock
                 // We pass 0 as currentVertexIndex/currentIndexPosition because we only care about the vertex data relative to itself
                 // The indices generated will be wrong (relative to 0), but we don't upload them.
-                TerrainGeometryGenerator.GenerateLandblockGeometry(
+                var (lbMinZ, lbMaxZ) = TerrainGeometryGenerator.GenerateLandblockGeometry(
                     landblockX, landblockY, landblockID,
                     _landscapeDoc.Region, _surfaceManager!,
                     _landscapeDoc.TerrainCache.AsSpan(),
@@ -226,11 +228,30 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     tempVertices, tempIndices
                 );
 
+                chunk.LandblockBoundsMinZ[ly * 8 + lx] = lbMinZ;
+                chunk.LandblockBoundsMaxZ[ly * 8 + lx] = lbMaxZ;
+                boundsChanged = true;
+
                 // Upload vertices
                 fixed (VertexLandscape* vPtr = tempVertices) {
                     _gl.BufferSubData(BufferTargetARB.ArrayBuffer, (nint)(vertexOffset * VertexLandscape.Size), (nuint)(tempVertices.Length * VertexLandscape.Size), vPtr);
                 }
                 updates++;
+            }
+
+            if (boundsChanged) {
+                float minZ = float.MaxValue;
+                float maxZ = float.MinValue;
+                for (int i = 0; i < 64; i++) {
+                    if (chunk.LandblockVertexOffsets[i] != -1) {
+                        minZ = Math.Min(minZ, chunk.LandblockBoundsMinZ[i]);
+                        maxZ = Math.Max(maxZ, chunk.LandblockBoundsMaxZ[i]);
+                    }
+                }
+                chunk.Bounds = new BoundingBox(
+                    new Vector3(chunk.ChunkX * 8 * 192f, chunk.ChunkY * 8 * 192f, minZ),
+                    new Vector3((chunk.ChunkX + 1) * 8 * 192f, (chunk.ChunkY + 1) * 8 * 192f, maxZ)
+                );
             }
 
             _gl.BindVertexArray(0);
@@ -402,10 +423,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _shader.SetUniform("xAlphas", 1);
             }
 
+            _frustum.Update(camera.ViewProjectionMatrix);
+
             foreach (var chunk in _chunks.Values) {
                 if (!chunk.IsGenerated || chunk.IndexCount == 0) continue;
 
-                // TODO: Frustum Culling
+                if (!_frustum.Intersects(chunk.Bounds)) continue;
 
                 _gl.BindVertexArray(chunk.VAO);
                 _gl.DrawElements(PrimitiveType.Triangles, (uint)chunk.IndexCount, DrawElementsType.UnsignedInt,
