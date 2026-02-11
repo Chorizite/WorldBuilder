@@ -1,5 +1,8 @@
 using Avalonia;
+using Avalonia.OpenGL;
+using Avalonia.Win32;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
@@ -45,5 +48,14 @@ sealed class Program {
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .WithInterFont()
+            .With(new Win32PlatformOptions() {
+                RenderingMode = new List<Win32RenderingMode>()  {
+                    Win32RenderingMode.AngleEgl
+                },
+            })
+            .With(new AngleOptions
+            {
+                GlProfiles = new[] { new GlVersion(GlProfileType.OpenGLES, 3, 0) }
+            })
             .LogToTrace();
 }

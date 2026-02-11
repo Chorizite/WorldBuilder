@@ -8,6 +8,7 @@ using Avalonia.Skia;
 using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
 using System;
+using System.Runtime.InteropServices;
 
 namespace WorldBuilder.Views {
     public abstract partial class Base3DViewport {
@@ -199,11 +200,20 @@ namespace WorldBuilder.Views {
                                     if (scissorEnabled) SilkGl.Disable(EnableCap.ScissorTest);
 
                                     // Use the context-specific viewport dimensions for blitting
-                                    SilkGl.BlitFramebuffer(
-                                        0, 0, srcWidth, srcHeight,
-                                        destX, destY, destX + destW, destY + destH,
-                                        ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear
-                                    );
+                                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+                                        SilkGl.BlitFramebuffer(
+                                            0, 0, srcWidth, srcHeight,
+                                            destX, destY + destH, destX + destW, destY,
+                                            ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear
+                                        );
+                                    }
+                                    else {
+                                        SilkGl.BlitFramebuffer(
+                                            0, 0, srcWidth, srcHeight,
+                                            destX, destY, destX + destW, destY + destH,
+                                            ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear
+                                        );
+                                    }
 
                                     if (scissorEnabled) SilkGl.Enable(EnableCap.ScissorTest);
                                 }
