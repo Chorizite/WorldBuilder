@@ -56,13 +56,12 @@ public partial class MainViewModel : ViewModelBase {
     }
 
     [RelayCommand]
-    private async Task OpenSettingsWindow() {
+    private void OpenSettingsWindow() {
         if (_settingsOpen) return;
         _settingsOpen = true;
 
-        await _dialogService.ShowSettingsWindowAsync(this);
-
-        _settingsOpen = false;
+        var viewModel = _dialogService.ShowSettingsWindow(this);
+        viewModel.Closed += (s, e) => _settingsOpen = false;
     }
 
     [RelayCommand]

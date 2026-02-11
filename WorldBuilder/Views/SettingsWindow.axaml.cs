@@ -124,11 +124,6 @@ namespace WorldBuilder.Views
                 Settings.Save();
             }
             
-            // Set dialog result to true for success
-            if (ViewModel != null)
-            {
-                ViewModel.DialogResult = true;
-            }
             Close();
         }
 
@@ -140,12 +135,13 @@ namespace WorldBuilder.Views
                 SettingsCloner.Restore(_originalSettings, Settings);
             }
             
-            // Set dialog result to false for cancellation
-            if (ViewModel != null)
-            {
-                ViewModel.DialogResult = false;
-            }
             Close();
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            base.OnClosed(e);
+            ViewModel?.OnClosed();
         }
 
         private void ResetToDefaults_Click(object? sender, RoutedEventArgs e)

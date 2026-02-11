@@ -6,8 +6,9 @@ using WorldBuilder.ViewModels;
 namespace WorldBuilder.Lib.Extensions;
 
 public static class DialogExtensions {
-    public static async Task<bool?> ShowSettingsWindowAsync(this IDialogService dialog, INotifyPropertyChanged ownerViewModel) {
+    public static SettingsWindowViewModel ShowSettingsWindow(this IDialogService dialog, INotifyPropertyChanged ownerViewModel) {
         var viewModel = dialog.CreateViewModel<SettingsWindowViewModel>();
-        return await dialog.ShowDialogAsync(ownerViewModel, viewModel);
+        dialog.Show(ownerViewModel, viewModel);
+        return viewModel;
     }
 }
