@@ -41,14 +41,8 @@ namespace WorldBuilder.Shared.Models {
                 byte[] buffer = new byte[localSize * 10]; // Rough estimate for landblock size
                 int bytesRead;
 
-                // Load existing landblock from the writer (it should have been copied already)
                 if (!datwriter.TryGetFileBytes(RegionId, lbFileId, ref buffer, out bytesRead)) {
-                    // If it's not in the writer, try the original CellDatabase
-                    if (!CellDatabase.TryGetFileBytes(lbFileId, ref buffer, out bytesRead)) {
-                        processed++;
-                        progress?.Report((float)processed / totalAffected);
-                        continue; // Skip if we can't find it
-                    }
+                    throw new Exception($"Unable to load region");
                 }
 
                 var lb = new LandBlock();

@@ -32,5 +32,16 @@ namespace WorldBuilder.Lib.Settings {
         [SettingOrder(3)]
         private int _historyLimit = 50;
         public int HistoryLimit { get => _historyLimit; set => SetProperty(ref _historyLimit, value); }
+
+        [SettingDescription("Last directory used for DAT export")]
+        [SettingPath(PathType.Folder, DialogTitle = "Select Last DAT Export Directory")]
+        [SettingOrder(4)]
+        private string _lastDatExportDirectory = string.Empty;
+        public string LastDatExportDirectory { get => _lastDatExportDirectory; set => SetProperty(ref _lastDatExportDirectory, value); }
+
+        [SettingDescription("Last portal iteration used for DAT export")]
+        [SettingOrder(5)]
+        private int _lastDatExportPortalIteration = 0;
+        public int LastDatExportPortalIteration { get => _lastDatExportPortalIteration; set => SetProperty(ref _lastDatExportPortalIteration, value); }
     }
 }

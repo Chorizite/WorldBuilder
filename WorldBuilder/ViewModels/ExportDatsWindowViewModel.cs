@@ -70,8 +70,8 @@ namespace WorldBuilder.ViewModels {
             _dats = dats;
             _datExportService = datExportService;
 
-            ExportDirectory = _settings.App.ProjectsDirectory;
-            PortalIteration = _dats.PortalIteration;
+            ExportDirectory = !string.IsNullOrEmpty(_settings.App.LastDatExportDirectory) ? _settings.App.LastDatExportDirectory : _settings.App.ProjectsDirectory;
+            PortalIteration = _settings.App.LastDatExportPortalIteration > 0 ? _settings.App.LastDatExportPortalIteration : _dats.PortalIteration;
 
             Validate();
         }
@@ -109,6 +109,10 @@ namespace WorldBuilder.ViewModels {
 
                 var success = await _datExportService.ExportDatsAsync(ExportDirectory, PortalIteration, OverwriteFiles, progressHandler);
                 if (success) {
+                    _settings.App.LastDatExportDirectory = ExportDirectory;
+                    _settings.App.LastDatExportPortalIteration = PortalIteration;
+                    _settings.Save();
+
                     DialogResult = true; // Set dialog result to true for success
                     return true;
                 }
