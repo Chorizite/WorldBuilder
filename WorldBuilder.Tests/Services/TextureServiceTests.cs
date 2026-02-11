@@ -23,7 +23,7 @@ namespace WorldBuilder.Tests.Services {
             var service = new TextureService(mockDats.Object, mockLogger.Object);
 
             uint textureId = 999;
-            SurfaceTexture st = null;
+            SurfaceTexture? st = null;
             mockDats.Setup(d => d.Portal.TryGet<SurfaceTexture>(textureId, out st))
                 .Returns(false);
 
@@ -36,9 +36,9 @@ namespace WorldBuilder.Tests.Services {
                 x => x.Log(
                     LogLevel.Warning,
                     It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Could not find SurfaceTexture")),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Could not find SurfaceTexture")),
                     It.IsAny<System.Exception>(),
-                    It.IsAny<System.Func<It.IsAnyType, System.Exception, string>>()),
+                    It.IsAny<System.Func<It.IsAnyType, System.Exception?, string>>()),
                 Times.Once);
         }
     }

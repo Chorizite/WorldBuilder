@@ -36,6 +36,13 @@ Most operations in `WorldBuilder.Shared` return a `Result<T>` or `Result<Unit>` 
 
 **Best Practice**: Always check `IsSuccess` or `IsFailure` before accessing the `Value`. Use `Result` for any operation that can fail due to external factors (DB, network, validation).
 
+## 3. Transaction System
+The transaction system handles database operations and ensures consistency during state changes.
+
+- **`ITransaction`**: Interface for database transactions used in command execution.
+- **Resource Management**: Always dispose of transactions properly using `await using` pattern.
+- **Commit Operations**: Call `tx.CommitAsync()` to finalize successful transactions.
+
 ## Architecture & Best Practices
 
 ### State Modification
@@ -59,3 +66,10 @@ Most operations in `WorldBuilder.Shared` return a `Result<T>` or `Result<Unit>` 
 2. Define `BaseCommand`s for any actions users can perform on that data.
 3. Register the new types in the `MemoryPackUnion` attributes in `BaseDocument.cs` and `BaseCommand.cs`.
 4. Implement the logic in the command's `ApplyAsync` method.
+
+## Testing
+
+The WorldBuilder.Shared project includes comprehensive unit tests located in the `WorldBuilder.Shared.Tests` project:
+- **Running Tests**: Execute `dotnet test WorldBuilder.Shared.Tests` to run tests specific to this project
+- **Test Structure**: Tests follow the same architectural patterns as the main codebase
+- **Mocking**: Use the mock implementations in the `Mocks` folder for dependency injection during testing

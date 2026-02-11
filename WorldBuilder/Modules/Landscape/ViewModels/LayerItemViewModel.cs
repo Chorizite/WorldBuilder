@@ -18,8 +18,8 @@ public enum DropPosition {
 
 public partial class LayerItemViewModel : ViewModelBase {
     private readonly LandscapeLayerBase _model;
-    private readonly Action<LayerItemViewModel> _onDelete;
-    private readonly Action<LayerItemViewModel, LayerChangeType> _onChanged; // bool isVisibleChange
+    private readonly Action<LayerItemViewModel>? _onDelete;
+    private readonly Action<LayerItemViewModel, LayerChangeType>? _onChanged; // bool isVisibleChange
 
     [ObservableProperty] private LayerItemViewModel? _parent;
     [ObservableProperty] private string _name;
@@ -69,7 +69,7 @@ public partial class LayerItemViewModel : ViewModelBase {
 
     private readonly CommandHistory _history;
 
-    public LayerItemViewModel(LandscapeLayerBase model, CommandHistory history, Action<LayerItemViewModel> onDelete, Action<LayerItemViewModel, LayerChangeType> onChanged) {
+    public LayerItemViewModel(LandscapeLayerBase model, CommandHistory history, Action<LayerItemViewModel>? onDelete, Action<LayerItemViewModel, LayerChangeType>? onChanged) {
         _model = model;
         _history = history;
         _onDelete = onDelete;

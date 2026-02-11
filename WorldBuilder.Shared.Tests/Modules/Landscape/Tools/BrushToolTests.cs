@@ -138,7 +138,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             // Assert
             // In our simple test, the previous state was an uninitialized entry (Type = null)
-            Assert.False(layer.Terrain.ContainsKey(10));
+            Assert.False(layer!.Terrain.ContainsKey(10));
         }
 
         private LandscapeToolContext CreateContext() {
