@@ -4,6 +4,9 @@ using WorldBuilder.Shared.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Avalonia.VisualTree;
 using System.Linq;
+using WorldBuilder.Lib.Settings;
+using WorldBuilder.Services;
+using System;
 
 namespace WorldBuilder.Views;
 
@@ -13,6 +16,20 @@ public partial class MainWindow : Window {
 
     public MainWindow() {
         InitializeComponent();
+
+        var settings = App.Services?.GetService<WorldBuilderSettings>();
+        if (settings?.Project != null) {
+            Width = settings.Project.WindowWidth;
+            Height = settings.Project.WindowHeight;
+        }
+
+        Closing += (s, e) => {
+            if (settings?.Project != null) {
+                settings.Project.WindowWidth = Width;
+                settings.Project.WindowHeight = Height;
+                settings.Project.Save();
+            }
+        };
     }
 
     /// <summary>

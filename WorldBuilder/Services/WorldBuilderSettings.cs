@@ -31,6 +31,13 @@ namespace WorldBuilder.Services {
             set => SetProperty(ref _landscape, value);
         }
 
+        private ProjectSettings? _project;
+        [JsonIgnore]
+        public ProjectSettings? Project {
+            get => _project;
+            set => SetProperty(ref _project, value);
+        }
+
         public WorldBuilderSettings() { }
 
         public WorldBuilderSettings(ILogger<WorldBuilderSettings> log) {

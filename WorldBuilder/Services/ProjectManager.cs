@@ -104,12 +104,19 @@ namespace WorldBuilder.Services {
         }
 
         private void SetProject(Project project) {
+            // Save existing project settings if any
+            _settings.Project?.Save();
+
             var services = new ServiceCollection();
 
             services.AddWorldBuilderProjectServices(project, _rootProvider);
 
             _projectProvider = services.BuildServiceProvider();
             CompositeProvider = new(_projectProvider, _rootProvider);
+
+            // Load project settings
+            var settingsPath = Path.Combine(project.ProjectDirectory, "project_settings.json");
+            _settings.Project = WorldBuilder.Lib.Settings.ProjectSettings.Load(settingsPath);
 
             CurrentProject = project;
 

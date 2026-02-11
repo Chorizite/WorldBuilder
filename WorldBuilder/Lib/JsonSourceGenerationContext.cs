@@ -16,6 +16,7 @@ namespace WorldBuilder.Lib {
     [JsonSerializable(typeof(List<RecentProject>))]
     [JsonSerializable(typeof(RecentProject))]
     [JsonSerializable(typeof(LandscapeEditorSettings))]
+    [JsonSerializable(typeof(ProjectSettings))]
     [JsonSerializable(typeof(AppSettings))]
     [JsonSerializable(typeof(CameraSettings))]
     [JsonSerializable(typeof(RenderingSettings))]
