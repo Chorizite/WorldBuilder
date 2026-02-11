@@ -10,6 +10,13 @@ using WorldBuilder.Shared.Modules.Landscape.Commands;
 
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 
+public enum DropPosition {
+    None,
+    Above,
+    Below,
+    Inside
+}
+
 public partial class LayerItemViewModel : ViewModelBase {
     private readonly LandscapeLayerBase _model;
     private readonly Action<LayerItemViewModel> _onDelete;
@@ -18,6 +25,7 @@ public partial class LayerItemViewModel : ViewModelBase {
     [ObservableProperty] private LayerItemViewModel? _parent;
     [ObservableProperty] private string _name;
     [ObservableProperty] private bool _isVisible = true;
+    [ObservableProperty] private DropPosition _dropPosition = DropPosition.None;
 
     partial void OnIsVisibleChanged(bool value) {
         _onChanged?.Invoke(this, LayerChangeType.VisibilityChange); // Changed to use VisibilityChange

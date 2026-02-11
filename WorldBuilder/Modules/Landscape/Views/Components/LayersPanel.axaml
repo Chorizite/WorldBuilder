@@ -38,7 +38,10 @@
             <!-- Layer Tree -->
             <TreeView Grid.Row="2" ItemsSource="{Binding Items}" 
                       SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
-                      Background="Transparent">
+                      Background="Transparent"
+                      DragDrop.AllowDrop="True"
+                      DragDrop.DragOver="OnDragOver"
+                      DragDrop.Drop="OnDrop">
                 <TreeView.Styles>
                     <Style Selector="TreeViewItem" x:DataType="vm:LayerItemViewModel">
                         <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
@@ -46,8 +49,10 @@
                 </TreeView.Styles>
                 <TreeView.ItemTemplate>
                     <TreeDataTemplate ItemsSource="{Binding Children}">
-                        <Grid ColumnDefinitions="Auto, *, Auto, Auto" Margin="2"
-                              DoubleTapped="OnItemDoubleTapped">
+                        <Grid ColumnDefinitions="Auto, *, Auto, Auto" Margin="2" Background="Transparent"
+                              DragDrop.AllowDrop="True"
+                              PointerPressed="OnPointerPressed"
+                              PointerMoved="OnPointerMoved">
                             <!-- Icon -->
                             <StackPanel Grid.Column="0" Orientation="Horizontal">
                                 <TextBlock Text="📁" IsVisible="{Binding IsGroup}" VerticalAlignment="Center" Margin="0,0,4,0"/>
@@ -55,7 +60,9 @@
                             </StackPanel>
 
                             <!-- Name -->
-                            <Panel Grid.Column="1" VerticalAlignment="Center">
+                            <Panel Grid.Column="1" VerticalAlignment="Center" 
+                                   DoubleTapped="OnItemDoubleTapped"
+                                   Background="Transparent">
                                 <TextBlock Text="{Binding Name}" IsVisible="{Binding !IsEditing}" VerticalAlignment="Center" Padding="2"/>
                                 <TextBox Text="{Binding Name}" IsVisible="{Binding IsEditing}" 
                                          BorderThickness="1" Padding="2" MinHeight="0"
@@ -76,6 +83,44 @@
                                           Command="{Binding ToggleExportCommand}" Padding="4,2" Background="Transparent" BorderThickness="0">
                                 <TextBlock Text="📦" />
                             </ToggleButton>
+
+                            <!-- Drop Indicators -->
+                            <Border Grid.ColumnSpan="4" Height="2" Background="{DynamicResource SystemAccentColor}" 
+                                    VerticalAlignment="Top" Margin="0,-2,0,0" IsHitTestVisible="False">
+                                <Border.IsVisible>
+                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                        <Binding Path="DropPosition" Converter="{x:Static ObjectConverters.Equal}">
+                                            <Binding.ConverterParameter>
+                                                <vm:DropPosition>Above</vm:DropPosition>
+                                            </Binding.ConverterParameter>
+                                        </Binding>
+                                    </MultiBinding>
+                                </Border.IsVisible>
+                            </Border>
+                            <Border Grid.ColumnSpan="4" Height="2" Background="{DynamicResource SystemAccentColor}" 
+                                    VerticalAlignment="Bottom" Margin="0,0,0,-2" IsHitTestVisible="False">
+                                <Border.IsVisible>
+                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                        <Binding Path="DropPosition" Converter="{x:Static ObjectConverters.Equal}">
+                                            <Binding.ConverterParameter>
+                                                <vm:DropPosition>Below</vm:DropPosition>
+                                            </Binding.ConverterParameter>
+                                        </Binding>
+                                    </MultiBinding>
+                                </Border.IsVisible>
+                            </Border>
+                            <Border Grid.ColumnSpan="4" BorderBrush="{DynamicResource SystemAccentColor}" 
+                                    BorderThickness="2" Margin="-2" IsHitTestVisible="False">
+                                <Border.IsVisible>
+                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                        <Binding Path="DropPosition" Converter="{x:Static ObjectConverters.Equal}">
+                                            <Binding.ConverterParameter>
+                                                <vm:DropPosition>Inside</vm:DropPosition>
+                                            </Binding.ConverterParameter>
+                                        </Binding>
+                                    </MultiBinding>
+                                </Border.IsVisible>
+                            </Border>
                         </Grid>
                     </TreeDataTemplate>
                 </TreeView.ItemTemplate>

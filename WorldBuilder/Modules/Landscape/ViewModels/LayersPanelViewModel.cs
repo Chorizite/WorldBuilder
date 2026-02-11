@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Services;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
+using WorldBuilder.Shared.Lib;
 using Avalonia.Threading;
 using System.Threading.Tasks;
 using WorldBuilder.Modules.Landscape.Commands;
@@ -128,6 +129,114 @@ public partial class LayersPanelViewModel : ViewModelBase {
             cmd,
             _documentManager,
             () => Refresh()
+        );
+
+        _history.Execute(undoableCmd);
+    }
+
+    public void HandleDrop(LayerItemViewModel draggingItem, LayerItemViewModel targetItem, DropPosition dropPos) {
+        if (_document == null || draggingItem == targetItem || draggingItem.IsBase) return;
+
+        LayerItemViewModel? newParent = null;
+        int newUIIndex = -1;
+
+        if (dropPos == DropPosition.Inside) {
+            if (!targetItem.IsGroup) return;
+            newParent = targetItem;
+            newUIIndex = 0; // Top of group in UI
+        }
+        else {
+            newParent = targetItem.Parent;
+            var list = newParent?.Children ?? Items;
+            int targetIndex = list.IndexOf(targetItem);
+
+            if (dropPos == DropPosition.Above) {
+                newUIIndex = targetIndex;
+            }
+            else if (dropPos == DropPosition.Below) {
+                newUIIndex = targetIndex + 1;
+            }
+        }
+
+        if (newUIIndex == -1) return;
+
+        // Validation for Base layer in root
+        if (newParent == null) {
+            int baseUIIndex = Items.Count - 1;
+            if (newUIIndex >= baseUIIndex) {
+                newUIIndex = baseUIIndex - 1;
+            }
+        }
+
+        var sourceParent = draggingItem.Parent;
+        var sourceList = sourceParent?.Children ?? Items;
+        int oldUIIndex = sourceList.IndexOf(draggingItem);
+
+        if (sourceParent == newParent) {
+            if (oldUIIndex < newUIIndex) {
+                newUIIndex--;
+            }
+            if (oldUIIndex == newUIIndex) return;
+
+            var groupPath = GetPath(draggingItem);
+            int modelNewIndex = (sourceList.Count - 1) - newUIIndex;
+            int modelOldIndex = (sourceList.Count - 1) - oldUIIndex;
+
+            var cmd = new ReorderLandscapeLayerCommand(
+                _document.Id,
+                groupPath,
+                draggingItem.Model.Id,
+                modelNewIndex,
+                modelOldIndex
+            );
+
+            ExecuteUndoable(cmd, $"Move '{draggingItem.Model.Name}'");
+        }
+        else {
+            var sourcePath = GetPath(draggingItem);
+            var destPath = GetPath(newParent);
+            if (newParent != null && newParent.IsGroup) {
+                destPath.Add(newParent.Model.Id);
+            }
+
+            var destList = newParent?.Children ?? Items;
+            
+            // For move between groups, modelNewIndex = modelDestList.Count - newUIIndex
+            // because item is not yet in destList.
+            int modelNewIndex = destList.Count - newUIIndex;
+            int modelOldIndex = (sourceList.Count - 1) - oldUIIndex;
+
+            var cmd = new MoveLandscapeLayerCommand(
+                _document.Id,
+                draggingItem.Model.Id,
+                sourcePath,
+                modelOldIndex,
+                destPath,
+                modelNewIndex
+            );
+
+            ExecuteUndoable(cmd, $"Move '{draggingItem.Model.Name}' to '{newParent?.Model.Name ?? "Root"}'");
+        }
+    }
+
+    private void ExecuteUndoable(BaseCommand cmd, string description) {
+        var undoableCmd = new UndoableDocumentCommand(
+            description,
+            cmd,
+            _documentManager,
+            async () => {
+                await Refresh();
+                // We don't have the original item VM anymore, but we can try to find the new one
+                if (cmd is ReorderLandscapeLayerCommand reorder) {
+                    await Dispatcher.UIThread.InvokeAsync(() => {
+                        SelectedItem = FindVM(reorder.LayerId);
+                    });
+                } else if (cmd is MoveLandscapeLayerCommand move) {
+                    await Dispatcher.UIThread.InvokeAsync(() => {
+                        SelectedItem = FindVM(move.LayerId);
+                    });
+                }
+            }
         );
 
         _history.Execute(undoableCmd);
@@ -264,16 +373,19 @@ public partial class LayersPanelViewModel : ViewModelBase {
         int index = list.IndexOf(SelectedItem);
         if (index == -1) return false;
 
-        // In root, index 0 is always Base layer, so we can't move above index 1.
-        // In groups, we can move to index 0.
-        int minIndex = (parent == null) ? 1 : 0;
-        return index > minIndex;
+        // In root, the last item is Base layer.
+        // We can move any non-base layer up as long as it's not already at the top (index 0).
+        return index > 0;
     }
 
     private bool CanMoveLayerDown() {
         if (SelectedItem == null || SelectedItem.IsBase) return false;
         var list = SelectedItem.Parent?.Children ?? Items;
         var index = list.IndexOf(SelectedItem);
+        // Can't move into or past the base layer if in root
+        if (SelectedItem.Parent == null) {
+            return index != -1 && index < list.Count - 2;
+        }
         return index != -1 && index < list.Count - 1;
     }
 
@@ -284,26 +396,32 @@ public partial class LayersPanelViewModel : ViewModelBase {
         var parentVM = selected.Parent;
         var targetList = parentVM?.Children ?? Items;
 
-        int oldIndex = targetList.IndexOf(selected);
-        int newIndex = oldIndex + offset;
+        int oldUIIndex = targetList.IndexOf(selected);
+        int newUIIndex = oldUIIndex + offset;
 
         // Validation
-        if (newIndex < 0 || newIndex >= targetList.Count) return;
+        if (newUIIndex < 0 || newUIIndex >= targetList.Count) return;
 
-        // Prevent moving above base layer if in root
+        // Prevent moving into base layer if in root
         if (parentVM == null) {
-            var targetItem = targetList[newIndex];
+            var targetItem = targetList[newUIIndex];
             if (targetItem.IsBase) return;
         }
 
         var groupPath = GetPath(selected); // Path to the parent group
 
+        // Convert UI index to Model index
+        // Items is reversed: Items[0] is LayerTree[Count-1]
+        // ModelIndex = (Count - 1) - UIIndex
+        int modelNewIndex = (targetList.Count - 1) - newUIIndex;
+        int modelOldIndex = (targetList.Count - 1) - oldUIIndex;
+
         var cmd = new ReorderLandscapeLayerCommand(
             _document.Id,
             groupPath,
             selected.Model.Id,
-            newIndex,
-            oldIndex
+            modelNewIndex,
+            modelOldIndex
         );
 
         var undoableCmd = new UndoableDocumentCommand(
