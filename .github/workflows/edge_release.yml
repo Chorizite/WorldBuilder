@@ -108,6 +108,9 @@ jobs:
       - name: Pack
         run: dotnet vpk pack -u WorldBuilder -v ${{ steps.gitversion.outputs.semVer }} -p publish -e WorldBuilder.Windows.exe --framework net8.0-x64-desktop --channel windows-edge
 
+      - name: List Releases
+        run: ls -la Releases/
+
       - name: Upload to Release
         run: |
           gh release upload "v$SEMVER" \
@@ -154,6 +157,9 @@ jobs:
 
       - name: Pack
         run: dotnet vpk pack -u WorldBuilder -v ${{ steps.gitversion.outputs.semVer }} -p publish -e WorldBuilder.Linux --channel linux-edge
+
+      - name: List Releases
+        run: ls -la Releases/
 
       - name: Upload to Release
         run: |
