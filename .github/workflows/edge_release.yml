@@ -63,18 +63,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create Draft Pre-Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ steps.gitversion.outputs.semVer }}
-          name: Edge ${{ steps.gitversion.outputs.semVer }}
-          body: |
-            ### 📋 Changelog
-            ${{ steps.changelog.outputs.changelog }}
-          draft: true
-          prerelease: true
+      - name: Create Pre-Release
+        run: |
+          gh release create "v$SEMVER" \
+            --title "Edge $SEMVER" \
+            --notes-file "$SEMVER.md" \
+            --prerelease
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SEMVER: ${{ steps.gitversion.outputs.semVer }}
 
   build-windows:
     needs: prepare-release
@@ -109,12 +106,19 @@ jobs:
         run: dotnet publish WorldBuilder.Windows/WorldBuilder.Windows.csproj -c Release -r win-x64 -o publish -p:SelfContained=true -p:DebugType=None -p:DebugSymbols=false -p:GenerateDocumentationFile=false -p:InformationalVersion=${{ steps.gitversion.outputs.informationalVersion }} -p:Version=${{ steps.gitversion.outputs.semVer }} -p:AssemblyVersion=${{ steps.gitversion.outputs.assemblySemVer }}
 
       - name: Pack
-        run: |
-          dotnet vpk download github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }} --channel windows-edge
-          dotnet vpk pack -u WorldBuilder -v ${{ steps.gitversion.outputs.semVer }} -p publish -e WorldBuilder.Windows.exe --framework net8.0-x64-desktop --channel windows-edge
+        run: dotnet vpk pack -u WorldBuilder -v ${{ steps.gitversion.outputs.semVer }} -p publish -e WorldBuilder.Windows.exe --framework net8.0-x64-desktop --channel windows-edge
 
       - name: Upload to Release
-        run: dotnet vpk upload github --repoUrl https://github.com/${{ github.repository }} --publish --releaseName "Edge ${{ steps.gitversion.outputs.semVer }}" --tag v${{ steps.gitversion.outputs.semVer }} --token ${{ secrets.GITHUB_TOKEN }} --channel windows-edge
+        run: |
+          gh release upload "v$SEMVER" \
+            Releases/releases.windows-edge.json \
+            Releases/WorldBuilder-${SEMVER}-windows-edge-full.nupkg \
+            Releases/WorldBuilder-windows-edge-Portable.zip \
+            Releases/WorldBuilder-windows-edge-Setup.exe \
+            --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SEMVER: ${{ steps.gitversion.outputs.semVer }}
 
   build-linux:
     needs: prepare-release
@@ -149,9 +153,15 @@ jobs:
         run: dotnet publish WorldBuilder.Linux/WorldBuilder.Linux.csproj -c Release -r linux-x64 -o publish -p:SelfContained=true -p:DebugType=None -p:DebugSymbols=false -p:GenerateDocumentationFile=false -p:InformationalVersion=${{ steps.gitversion.outputs.informationalVersion }} -p:Version=${{ steps.gitversion.outputs.semVer }} -p:AssemblyVersion=${{ steps.gitversion.outputs.assemblySemVer }}
 
       - name: Pack
-        run: |
-          dotnet vpk download github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }} --channel linux-edge
-          dotnet vpk pack -u WorldBuilder -v ${{ steps.gitversion.outputs.semVer }} -p publish -e WorldBuilder.Linux --channel linux-edge
+        run: dotnet vpk pack -u WorldBuilder -v ${{ steps.gitversion.outputs.semVer }} -p publish -e WorldBuilder.Linux --channel linux-edge
 
       - name: Upload to Release
-        run: dotnet vpk upload github --repoUrl https://github.com/${{ github.repository }} --publish --releaseName "Edge ${{ steps.gitversion.outputs.semVer }}" --tag v${{ steps.gitversion.outputs.semVer }} --token ${{ secrets.GITHUB_TOKEN }} --channel linux-edge
+        run: |
+          gh release upload "v$SEMVER" \
+            Releases/releases.linux-edge.json \
+            Releases/WorldBuilder-${SEMVER}-linux-edge-full.nupkg \
+            Releases/WorldBuilder.AppImage \
+            --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SEMVER: ${{ steps.gitversion.outputs.semVer }}
