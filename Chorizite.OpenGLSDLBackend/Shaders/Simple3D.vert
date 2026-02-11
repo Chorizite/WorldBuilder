@@ -1,4 +1,11 @@
-#version 330 core
+#version 300 es
+
+precision highp float;
+precision highp int;
+precision highp sampler2D;
+precision highp sampler2DArray;
+
+
 layout (location = 0) in vec3 aPosition;
 layout (location = 1) in vec4 aColor;
 

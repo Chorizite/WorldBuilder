@@ -261,15 +261,21 @@ public class GameScene : IDisposable {
 
         // Render Terrain
         if (_terrainManager != null) {
-            if (ShowWireframe) {
-                _gl.PolygonMode(GLEnum.FrontAndBack, Silk.NET.OpenGL.PolygonMode.Line);
-            }
-            else {
-                _gl.PolygonMode(GLEnum.FrontAndBack, Silk.NET.OpenGL.PolygonMode.Fill);
+            // TODO: how to polygon mode on windows with ANGLE
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+                if (ShowWireframe) {
+                    _gl.PolygonMode(GLEnum.FrontAndBack, Silk.NET.OpenGL.PolygonMode.Line);
+                }
+                else {
+                    _gl.PolygonMode(GLEnum.FrontAndBack, Silk.NET.OpenGL.PolygonMode.Fill);
+                }
             }
 
             _terrainManager.Render(_currentCamera);
-            _gl.PolygonMode(GLEnum.FrontAndBack, Silk.NET.OpenGL.PolygonMode.Fill);
+
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+                _gl.PolygonMode(GLEnum.FrontAndBack, Silk.NET.OpenGL.PolygonMode.Fill);
+            }
         }
 
         // Restore for Avalonia

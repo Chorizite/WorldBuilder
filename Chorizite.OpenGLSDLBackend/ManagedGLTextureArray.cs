@@ -108,14 +108,14 @@ namespace Chorizite.OpenGLSDLBackend {
                 lock (_mipmapLock) {
                     if (_mipmapDirtyCount > 0 && _usedLayers.All(used => used || true /* or check if cleared */)) {
                         // Optional: Custom validate
-                        if (GLHelpers.ValidateTextureMipmapStatus(GL, GLEnum.Texture2DArray, out string errorMessage)) {
+                        //if (GLHelpers.ValidateTextureMipmapStatus(GL, GLEnum.Texture2DArray, out string errorMessage)) {
                             GL.GenerateMipmap(GLEnum.Texture2DArray);
                             GLHelpers.CheckErrorsWithContext("Generating mipmaps for texture array");
                             _mipmapDirtyCount = 0;
-                        }
-                        else {
-                            _logger.LogWarning("Mipmap gen skipped: {ErrorMessage}", errorMessage);
-                        }
+                        //}
+                        //else {
+                        //    _logger.LogWarning("Mipmap gen skipped: {ErrorMessage}", errorMessage);
+                       // }
                     }
                 }
 
