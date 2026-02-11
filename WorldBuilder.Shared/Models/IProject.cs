@@ -7,7 +7,7 @@ namespace WorldBuilder.Shared.Models {
     /// <summary>
     /// Defines the interface for a WorldBuilder project.
     /// </summary>
-    public interface IProject {
+    public interface IProject : IDisposable {
         /// <summary>
         /// Gets the name of the project.
         /// </summary>

@@ -79,38 +79,28 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         HistoryPanel = new HistoryPanelViewModel(CommandHistory);
         LayersPanel = new LayersPanelViewModel(log, CommandHistory, _documentManager, async (item, changeType) => {
             if (ActiveDocument != null) {
-                // Only request save for actual property changes (e.g. Renaming). 
-                // Visibility changes are client-side only. 
-                // Structure changes (Add/Delete) are handled by their respective commands.
-                if (changeType == LayerChangeType.PropertyChange) {
-                    RequestSave(ActiveDocument.Id);
-                }
-
-                await ActiveDocument.LoadMissingLayersAsync(_documentManager, default);
-                await ActiveDocument.RecalculateTerrainCacheAsync();
-
-                void InvalidateRecursive(LandscapeLayerBase itemBase) {
-                    if (itemBase is LandscapeLayer layer) {
-                        var affectedBlocks = ActiveDocument.GetAffectedLandblocks(layer.Id);
-                        foreach (var (lbX, lbY) in affectedBlocks) {
-                            _invalidateCallback?.Invoke(lbX, lbY);
-                        }
-                    }
-                    else if (itemBase is LandscapeLayerGroup group) {
-                        foreach (var child in group.Children) {
-                            InvalidateRecursive(child);
-                        }
-                    }
-                }
-
-                if (item != null) {
-                    InvalidateRecursive(item.Model);
+                if (changeType == LayerChangeType.VisibilityChange && item != null) {
+                    await ActiveDocument.SetLayerVisibilityAsync(item.Model.Id, item.IsVisible);
                 }
                 else {
-                    _invalidateCallback?.Invoke(-1, -1); // Force full redraw for unknown structure changes
+                    if (changeType == LayerChangeType.PropertyChange) {
+                        RequestSave(ActiveDocument.Id);
+                    }
+
+                    await ActiveDocument.LoadMissingLayersAsync(_documentManager, default);
+                    
+                    if (changeType == LayerChangeType.StructureChange) {
+                        // Commands handle their own invalidation now
+                    }
                 }
             }
         });
+
+        LayersPanel.PropertyChanged += (s, e) => {
+            if (e.PropertyName == nameof(LayersPanel.SelectedItem)) {
+                ActiveLayer = LayersPanel.SelectedItem?.Model as LandscapeLayer;
+            }
+        };
 
         _ = LoadLandscapeAsync();
 
@@ -217,7 +207,16 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
     public void InitializeToolContext(ICamera camera, Action<int, int> invalidateCallback) {
         _log.LogInformation("LandscapeViewModel.InitializeToolContext called");
         Camera = camera;
-        _invalidateCallback = invalidateCallback;
+        _invalidateCallback = (x, y) => {
+            if (ActiveDocument != null) {
+                if (x == -1 && y == -1) {
+                    ActiveDocument.NotifyLandblockChanged(null);
+                }
+                else {
+                    ActiveDocument.NotifyLandblockChanged(new[] { (x, y) });
+                }
+            }
+        };
         UpdateToolContext();
     }
 

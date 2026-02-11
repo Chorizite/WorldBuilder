@@ -7,7 +7,6 @@ using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Repositories;
 using WorldBuilder.Shared.Services;
-using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Shared.Models;
 
@@ -17,6 +16,7 @@ namespace WorldBuilder.Shared.Models;
 public class Project : IProject {
     private readonly IDatReaderWriter _dats;
     private readonly IDocumentManager _documentManager;
+    private bool _disposed;
 
     /// <summary>
     /// Gets the name of the project (determined by the project file name)
@@ -141,5 +141,12 @@ public class Project : IProject {
 
         var projectPath = Path.Combine(projectDirectory, $"{projectName}.wbproj");
         return await Open(projectPath, ct);
+    }
+
+    /// <inheritdoc/>
+    public void Dispose() {
+        if (_disposed) return;
+        _disposed = true;
+        Services?.Dispose();
     }
 }

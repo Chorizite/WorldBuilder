@@ -106,6 +106,7 @@ namespace WorldBuilder.Services {
         private void SetProject(Project project) {
             // Save existing project settings if any
             _settings.Project?.Save();
+            CurrentProject?.Dispose();
 
             var services = new ServiceCollection();
 

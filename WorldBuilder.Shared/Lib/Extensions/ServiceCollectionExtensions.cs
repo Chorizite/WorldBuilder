@@ -44,8 +44,15 @@ namespace WorldBuilder.Shared.Lib.Extensions {
             services.AddSingleton<ILandscapeModule, WorldBuilder.Shared.Modules.Landscape.LandscapeModule>();
 
             // Sync services
-            services.AddSingleton<ISyncClient, SignalRSyncClient>();
-            services.AddSingleton<SyncService>();
+            services.AddSingleton<ISyncClient>(provider => new SignalRSyncClient("https://localhost:7112/sync"));
+            services.AddSingleton<SyncService>(provider => {
+                var docManager = provider.GetRequiredService<IDocumentManager>();
+                var client = provider.GetRequiredService<ISyncClient>();
+                var repo = provider.GetRequiredService<IProjectRepository>();
+                var dats = provider.GetRequiredService<IDatReaderWriter>();
+                var logger = provider.GetService<ILogger<SyncService>>();
+                return new SyncService(docManager, client, repo, dats, docManager.UserId, logger);
+            });
 
             return services;
         }

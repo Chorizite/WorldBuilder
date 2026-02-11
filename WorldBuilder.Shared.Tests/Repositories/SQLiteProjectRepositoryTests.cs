@@ -84,6 +84,27 @@ namespace WorldBuilder.Shared.Tests.Repositories {
             Assert.True(lastMod > initial);
         }
 
+        [Fact]
+        public async Task UpdateDocumentAsync_Fails_WhenVersionIsLower() {
+            var docId = "TestDoc_1";
+            var data1 = new byte[] { 1 };
+            var data2 = new byte[] { 2 };
+
+            // Insert initial version 10
+            await _repo.InsertDocumentAsync(docId, "TestType", data1, 10, null, default);
+
+            // Try to update with version 5
+            var result = await _repo.UpdateDocumentAsync(docId, data2, 5, null, default);
+
+            // Assert
+            Assert.True(result.IsFailure);
+            Assert.Equal("DOCUMENT_NOT_FOUND", result.Error.Code);
+
+            // Verify data is still version 10
+            var blobResult = await _repo.GetDocumentBlobAsync<LandscapeDocument>(docId, default);
+            Assert.Equal(data1, blobResult.Value);
+        }
+
         private async Task<List<string>> GetTableNamesAsync() {
             var cmd = _repo.Connection.CreateCommand();
             cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';";

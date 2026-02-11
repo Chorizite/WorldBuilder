@@ -192,6 +192,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             // Arrange
             var layerId = Guid.NewGuid().ToString();
             var (terrainDoc, terrainRental) = CreateMockTerrainRental();
+            terrainDoc.AddLayer([], "Test Layer", false, layerId);
 
             var command = new DeleteLandscapeLayerCommand {
                 TerrainDocumentId = _terrainDocId,

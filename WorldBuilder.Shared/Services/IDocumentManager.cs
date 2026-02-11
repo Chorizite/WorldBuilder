@@ -13,6 +13,11 @@ namespace WorldBuilder.Shared.Services {
     /// Defines the contract for a document manager, handles document lifecycle, transactions, and event application.
     /// </summary>
     public interface IDocumentManager {
+        /// <summary>
+        /// Gets the user id of the current local user.
+        /// </summary>
+        string UserId { get; }
+
         /// <summary>Initializes the document manager.</summary>
         /// <param name="ct">The cancellation token.</param>
         Task InitializeAsync(CancellationToken ct);

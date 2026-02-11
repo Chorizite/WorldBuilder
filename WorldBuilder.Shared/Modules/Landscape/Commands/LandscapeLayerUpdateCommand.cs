@@ -61,8 +61,13 @@ public partial class LandscapeLayerUpdateCommand : BaseCommand<bool> {
                 }
             }
 
+            await terrainRental.Document.RecalculateTerrainCacheAsync(Changes.Keys);
+
             // We increment version on the document itself since it owns the data now
             terrainRental.Document.Version++;
+
+            var affectedLandblocks = terrainRental.Document.GetAffectedLandblocks(Changes.Keys);
+            terrainRental.Document.NotifyLandblockChanged(affectedLandblocks);
 
             var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);
             if (persistResult.IsFailure) {

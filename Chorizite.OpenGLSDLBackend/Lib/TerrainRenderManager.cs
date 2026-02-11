@@ -73,6 +73,23 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _dats = dats;
             _graphicsDevice = graphicsDevice;
             log.LogInformation($"Initialized TerrainRenderManager");
+
+            _landscapeDoc.LandblockChanged += OnLandblockChanged;
+        }
+
+        private void OnLandblockChanged(object? sender, LandblockChangedEventArgs e) {
+            if (e.AffectedLandblocks == null) {
+                _log.LogInformation("LandblockChanged: All landblocks invalidated");
+                InvalidateLandblock(-1, -1);
+            }
+            else {
+                var affected = e.AffectedLandblocks.ToList();
+                _log.LogInformation("LandblockChanged: {Count} landblocks affected: {Landblocks}", 
+                    affected.Count, string.Join(", ", affected.Select(lb => $"({lb.x}, {lb.y})")));
+                foreach (var (lbX, lbY) in affected) {
+                    InvalidateLandblock(lbX, lbY);
+                }
+            }
         }
 
         public void Initialize(IShader shader) {
@@ -196,6 +213,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 var landblockID = _landscapeDoc.Region.GetLandblockId((int)landblockX, (int)landblockY);
 
+                // _log.LogTrace("Updating landblock {LBX},{LBY} (ID: {LBID:X8}) in chunk {CX},{CY}", landblockX, landblockY, landblockID, chunk.ChunkX, chunk.ChunkY);
+
                 // Generate geometry for this single landblock
                 // We pass 0 as currentVertexIndex/currentIndexPosition because we only care about the vertex data relative to itself
                 // The indices generated will be wrong (relative to 0), but we don't upload them.
@@ -216,7 +235,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             _gl.BindVertexArray(0);
 
-            // if (updates > 0) _log.LogInformation("Updated {Count} landblocks in chunk {CX},{CY}", updates, chunk.ChunkX, chunk.ChunkY);
+            if (updates > 0) _log.LogInformation("Updated {Count} landblocks in chunk {CX},{CY}", updates, chunk.ChunkX, chunk.ChunkY);
         }
 
         private void GenerateChunk(TerrainChunk chunk) {
@@ -430,6 +449,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void Dispose() {
+            _landscapeDoc.LandblockChanged -= OnLandblockChanged;
             foreach (var chunk in _chunks.Values) {
                 chunk.Dispose();
             }

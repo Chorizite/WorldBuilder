@@ -31,5 +31,9 @@ namespace WorldBuilder.Shared.Tests.Mocks {
         public Task<DocumentRental<LandscapeDocument>> GetOrCreateTerrainDocumentAsync(uint regionId, CancellationToken ct) {
             throw new NotImplementedException();
         }
+
+        public void Dispose() {
+            Services?.Dispose();
+        }
     }
 }

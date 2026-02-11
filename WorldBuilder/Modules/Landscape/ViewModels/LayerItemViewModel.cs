@@ -20,7 +20,6 @@ public partial class LayerItemViewModel : ViewModelBase {
     [ObservableProperty] private bool _isVisible = true;
 
     partial void OnIsVisibleChanged(bool value) {
-        _model.IsVisible = value;
         _onChanged?.Invoke(this, LayerChangeType.VisibilityChange); // Changed to use VisibilityChange
     }
     partial void OnIsEditingChanged(bool value) {

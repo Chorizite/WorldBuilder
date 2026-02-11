@@ -54,9 +54,16 @@ public partial class RestoreLandscapeItemCommand : BaseCommand<bool> {
 
             await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
+            var affectedVertices = terrainRental.Document.GetAffectedVertices(Item).ToList();
+
             terrainRental.Document.InsertItem(GroupPath, Index, Item);
 
+            await terrainRental.Document.RecalculateTerrainCacheAsync(affectedVertices);
+
             terrainRental.Document.Version++;
+            var affectedLandblocks = affectedVertices.Any() ? terrainRental.Document.GetAffectedLandblocks(affectedVertices) : new List<(int, int)>();
+            terrainRental.Document.NotifyLandblockChanged(affectedLandblocks);
+
             var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);
 
             if (persistResult.IsFailure) {

@@ -8,6 +8,9 @@ using WorldBuilder.Services;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Lib.Extensions;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Modules.Landscape;
+using WorldBuilder.Shared.Repositories;
+using WorldBuilder.Shared.Services;
 using WorldBuilder.ViewModels;
 using WorldBuilder.Views;
 
@@ -92,12 +95,18 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddTransient<ExportDatsWindowViewModel>();
             collection.AddTransient<WorldBuilder.Modules.Landscape.LandscapeViewModel>();
 
-            // Add project-specific shared services using the project's properties
-            var datDirectory = project.BaseDatDirectory;
-            var connectionString = $"Data Source={project.ProjectFile}";
-
             collection.AddSingleton<TextureService>();
-            collection.AddWorldBuilderSharedServices(connectionString, datDirectory);
+
+            // Register shared services from the project's service provider
+            // to ensure they are the same instances used by the project module.
+            collection.AddSingleton<IDocumentManager>(project.Services.GetRequiredService<IDocumentManager>());
+            collection.AddSingleton<IDatReaderWriter>(project.Services.GetRequiredService<IDatReaderWriter>());
+            collection.AddSingleton<ILandscapeModule>(project.Services.GetRequiredService<ILandscapeModule>());
+            collection.AddSingleton<IProjectRepository>(project.Services.GetRequiredService<IProjectRepository>());
+            collection.AddSingleton<IUndoStack>(project.Services.GetRequiredService<IUndoStack>());
+            collection.AddSingleton<ISyncClient>(project.Services.GetRequiredService<ISyncClient>());
+            collection.AddSingleton<SyncService>(project.Services.GetRequiredService<SyncService>());
+            collection.AddSingleton<IDatExportService>(project.Services.GetRequiredService<IDatExportService>());
         }
     }
 }

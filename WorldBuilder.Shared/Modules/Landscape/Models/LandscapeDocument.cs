@@ -5,6 +5,7 @@ using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Linq;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Services;
 
@@ -15,6 +16,12 @@ namespace WorldBuilder.Shared.Models;
 /// </summary>
 [MemoryPackable]
 public partial class LandscapeDocument : BaseDocument {
+    public event EventHandler<LandblockChangedEventArgs>? LandblockChanged;
+
+    public void NotifyLandblockChanged(IEnumerable<(int x, int y)>? affectedLandblocks) {
+        LandblockChanged?.Invoke(this, new LandblockChangedEventArgs(affectedLandblocks));
+    }
+
     private bool _didLoadLayers;
     private bool _didLoadCacheFromDats;
     private bool _didLoadRegionData;
@@ -281,7 +288,7 @@ public partial class LandscapeDocument : BaseDocument {
         return GetLayersRecursive(LayerTree);
     }
 
-    private IEnumerable<LandscapeLayerBase> GetLayersRecursive(IEnumerable<LandscapeLayerBase> items) {
+    internal IEnumerable<LandscapeLayerBase> GetLayersRecursive(IEnumerable<LandscapeLayerBase> items) {
         foreach (var item in items) {
             yield return item;
             if (item is LandscapeLayerGroup group) {
@@ -298,6 +305,36 @@ public partial class LandscapeDocument : BaseDocument {
     /// <returns>An enumeration of all landscape layers.</returns>
     public IEnumerable<LandscapeLayer> GetAllLayers() {
         return GetAllLayersAndGroups().OfType<LandscapeLayer>();
+    }
+
+    public async Task SetLayerVisibilityAsync(string layerId, bool isVisible) {
+        var item = FindItem(layerId);
+        if (item != null && item.IsVisible != isVisible) {
+            item.IsVisible = isVisible;
+            var affectedVertices = GetAffectedVertices(item).ToList();
+
+            await RecalculateTerrainCacheAsync(affectedVertices);
+            var affectedLandblocks = affectedVertices.Any() ? GetAffectedLandblocks(affectedVertices) : new List<(int, int)>();
+            NotifyLandblockChanged(affectedLandblocks);
+        }
+    }
+
+    public IEnumerable<uint> GetAffectedVertices(LandscapeLayerBase item) {
+        if (item is LandscapeLayer layer) {
+            return layer.Terrain.Keys;
+        }
+        else if (item is LandscapeLayerGroup group) {
+            var vertices = new HashSet<uint>();
+            foreach (var layerItem in GetLayersRecursive([group])) {
+                if (layerItem is LandscapeLayer l) {
+                    foreach (var vertexIndex in l.Terrain.Keys) {
+                        vertices.Add(vertexIndex);
+                    }
+                }
+            }
+            return vertices;
+        }
+        return Enumerable.Empty<uint>();
     }
 
     private async Task LoadLayersAsync(IDocumentManager documentManager, CancellationToken ct) {
@@ -330,33 +367,56 @@ public partial class LandscapeDocument : BaseDocument {
     /// <summary>
     /// Recalculates the merged terrain cache by applying visible layers on top of base terrain data.
     /// </summary>
+    /// <param name="affectedVertices">Optional list of vertex indices to recalculate. If null, the entire cache is recalculated.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    public async Task RecalculateTerrainCacheAsync() {
+    public async Task RecalculateTerrainCacheAsync(IEnumerable<uint>? affectedVertices = null) {
         await _initLock.WaitAsync();
         try {
-            await RecalculateTerrainCacheAsyncInternal();
+            await RecalculateTerrainCacheAsyncInternal(affectedVertices);
         }
         finally {
             _initLock.Release();
         }
     }
 
-    private async Task RecalculateTerrainCacheAsyncInternal() {
+    private async Task RecalculateTerrainCacheAsyncInternal(IEnumerable<uint>? affectedVertices = null) {
         if (!_didLoadCacheFromDats) return;
 
         await Task.Run(() => {
-            // Reset to base data
-            Array.Copy(BaseTerrainCache, TerrainCache, BaseTerrainCache.Length);
+            if (affectedVertices == null) {
+                Console.WriteLine($"[DEBUG] Recalculating FULL terrain cache. Layer count: {GetAllLayers().Count()}");
+                // Reset to base data
+                Array.Copy(BaseTerrainCache, TerrainCache, BaseTerrainCache.Length);
 
-            // Merge layers in order
-            foreach (var layer in GetAllLayers()) {
-                if (!layer.IsVisible) continue;
+                // Merge layers in order
+                foreach (var layer in GetAllLayers()) {
+                    if (!layer.IsVisible) continue;
 
-                foreach (var kvp in layer.Terrain) {
-                    var vertexIndex = kvp.Key;
-                    var terrain = kvp.Value;
+                    foreach (var kvp in layer.Terrain) {
+                        var vertexIndex = kvp.Key;
+                        var terrain = kvp.Value;
+                        if (vertexIndex >= TerrainCache.Length) continue;
+                        TerrainCache[vertexIndex].Merge(terrain);
+                    }
+                }
+            }
+            else {
+                var vertices = affectedVertices.ToList();
+                Console.WriteLine($"[DEBUG] Recalculating PARTIAL terrain cache. Affected vertices: {vertices.Count}. Visible layers: {GetAllLayers().Count(l => l.IsVisible)}");
+                // Partial recalculation
+                var layers = GetAllLayers().Where(l => l.IsVisible).ToList();
+                foreach (var vertexIndex in vertices) {
                     if (vertexIndex >= TerrainCache.Length) continue;
-                    TerrainCache[vertexIndex].Merge(terrain);
+
+                    // Reset to base
+                    TerrainCache[vertexIndex] = BaseTerrainCache[vertexIndex];
+
+                    // Merge layers in order
+                    foreach (var layer in layers) {
+                        if (layer.Terrain.TryGetValue(vertexIndex, out var terrain)) {
+                            TerrainCache[vertexIndex].Merge(terrain);
+                        }
+                    }
                 }
             }
         });
@@ -371,17 +431,43 @@ public partial class LandscapeDocument : BaseDocument {
             return Enumerable.Empty<(int x, int y)>();
         }
 
+        return GetAffectedLandblocks(layer.Terrain.Keys);
+    }
+
+    /// <summary>
+    /// Gets the landblock coordinates affected by a set of vertex indices.
+    /// </summary>
+    public IEnumerable<(int x, int y)> GetAffectedLandblocks(IEnumerable<uint> vertexIndices) {
+        if (Region == null) {
+            return Enumerable.Empty<(int x, int y)>();
+        }
+
         var affectedBlocks = new HashSet<(int x, int y)>();
         var stride = Region.LandblockVerticeLength - 1;
 
-        foreach (var vertexIndex in layer.Terrain.Keys) {
+        foreach (var vertexIndex in vertexIndices) {
             int globalY = (int)(vertexIndex / (uint)Region.MapWidthInVertices);
             int globalX = (int)(vertexIndex % (uint)Region.MapWidthInVertices);
 
             int lbX = globalX / stride;
             int lbY = globalY / stride;
 
-            affectedBlocks.Add((lbX, lbY));
+            bool isXBoundary = globalX > 0 && globalX % stride == 0;
+            bool isYBoundary = globalY > 0 && globalY % stride == 0;
+
+            if (lbX < Region.MapWidthInLandblocks && lbY < Region.MapHeightInLandblocks) {
+                affectedBlocks.Add((lbX, lbY));
+            }
+
+            if (isXBoundary && lbX > 0 && lbY < Region.MapHeightInLandblocks) {
+                affectedBlocks.Add((lbX - 1, lbY));
+            }
+            if (isYBoundary && lbY > 0 && lbX < Region.MapWidthInLandblocks) {
+                affectedBlocks.Add((lbX, lbY - 1));
+            }
+            if (isXBoundary && isYBoundary && lbX > 0 && lbY > 0) {
+                affectedBlocks.Add((lbX - 1, lbY - 1));
+            }
         }
 
         return affectedBlocks;

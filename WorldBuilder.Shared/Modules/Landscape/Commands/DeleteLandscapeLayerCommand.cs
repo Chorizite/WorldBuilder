@@ -74,7 +74,7 @@ public partial class DeleteLandscapeLayerCommand : BaseCommand<bool> {
             await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
             // If properties are not set (first run), find and snapshot the item
-            if (string.IsNullOrEmpty(Name) || DeletedItem == null) {
+            if (DeletedItem == null) {
                 var item = terrainRental.Document.FindItem(LayerId);
                 if (item != null) {
                     Name = item.Name;
@@ -90,9 +90,21 @@ public partial class DeleteLandscapeLayerCommand : BaseCommand<bool> {
                 }
             }
 
+            if (DeletedItem == null) {
+                return Result<bool>.Failure(Error.NotFound($"Layer not found: {LayerId}"));
+            }
+
+            var affectedVertices = terrainRental.Document.GetAffectedVertices(DeletedItem).ToList();
+
             terrainRental.Document.RemoveLayer(GroupPath, LayerId);
 
+            await terrainRental.Document.RecalculateTerrainCacheAsync(affectedVertices);
+
             terrainRental.Document.Version++;
+            var affectedLandblocks = affectedVertices.Any() ? terrainRental.Document.GetAffectedLandblocks(affectedVertices).ToList() : new List<(int, int)>();
+            Console.WriteLine($"[DEBUG] DeleteLandscapeLayerCommand: LayerId={LayerId}, AffectedVertices={affectedVertices.Count}, AffectedLandblocks={affectedLandblocks.Count}");
+            terrainRental.Document.NotifyLandblockChanged(affectedLandblocks);
+
             var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);
 
             if (persistResult.IsFailure) {

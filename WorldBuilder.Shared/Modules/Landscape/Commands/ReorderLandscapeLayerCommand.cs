@@ -70,9 +70,17 @@ public partial class ReorderLandscapeLayerCommand : BaseCommand<bool> {
 
             await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
+            var item = terrainRental.Document.FindItem(LayerId);
+            var affectedVertices = item != null ? terrainRental.Document.GetAffectedVertices(item).ToList() : [];
+
             terrainRental.Document.ReorderLayer(GroupPath, LayerId, NewIndex);
 
+            await terrainRental.Document.RecalculateTerrainCacheAsync(affectedVertices);
+
             terrainRental.Document.Version++;
+            var affectedLandblocks = affectedVertices.Any() ? terrainRental.Document.GetAffectedLandblocks(affectedVertices) : new List<(int, int)>();
+            terrainRental.Document.NotifyLandblockChanged(affectedLandblocks);
+
             var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);
 
             if (persistResult.IsFailure) {

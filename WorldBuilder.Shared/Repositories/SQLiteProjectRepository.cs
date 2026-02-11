@@ -232,7 +232,7 @@ namespace WorldBuilder.Shared.Repositories {
                     SET Data = @data,
                         Version = @ver,
                         LastModified = CURRENT_TIMESTAMP
-                    WHERE Id = @id";
+                    WHERE Id = @id AND Version <= @ver";
 
                 await using var cmd = Connection.CreateCommand();
                 cmd.Transaction = dbTx;
