@@ -21,7 +21,7 @@ namespace Chorizite.OpenGLSDLBackend.Tests {
 
             public MockTerrainInfo() {
                 // Initialize with some heights
-                LandHeights = new float[256]; // Enough for small test
+                LandHeights = new float[256];
                 Array.Fill(LandHeights, 10f);
             }
 
