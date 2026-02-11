@@ -21,7 +21,6 @@ namespace WorldBuilder.Lib.Settings {
         public SettingPropertyMetadata(PropertyInfo property) {
             Property = property;
 
-            // Find backing field for attributes (assuming CommunityToolkit.Mvvm naming convention)
             var fieldName = "_" + char.ToLowerInvariant(property.Name[0]) + property.Name[1..];
             var field = property.DeclaringType?.GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
 

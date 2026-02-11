@@ -1,0 +1,13 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="WorldBuilder.Modules.Landscape.Views.Components.PropertiesPanel">
+    <Border Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+            BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="4" Padding="12">
+        <StackPanel Spacing="8">
+            <TextBlock Text="Properties" FontWeight="SemiBold" />
+            <TextBlock Text="No selection" HorizontalAlignment="Center" Margin="0,20" Opacity="0.5" />
+        </StackPanel>
+    </Border>
+</UserControl>

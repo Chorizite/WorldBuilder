@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Silk.NET.Core.Native;
 using Silk.NET.OpenGL;
 using System;
@@ -7,8 +7,8 @@ using System.Runtime.InteropServices;
 
 namespace Chorizite.OpenGLSDLBackend {
     public static class GLHelpers {
-        public static OpenGLGraphicsDevice Device { get; set; }
-        public static ILogger Logger { get; set; }
+        public static OpenGLGraphicsDevice? Device { get; set; }
+        public static ILogger? Logger { get; set; }
 
         public static void Init(OpenGLGraphicsDevice device, ILogger logger) {
             Logger = logger;
@@ -69,10 +69,14 @@ namespace Chorizite.OpenGLSDLBackend {
             info.AppendLine($"Texture Debug Info for {target}:");
 
             try {
-                gl.GetTexLevelParameter(target, 0, GetTextureParameter.TextureWidth, out int width);
-                gl.GetTexLevelParameter(target, 0, GetTextureParameter.TextureHeight, out int height);
-                gl.GetTexLevelParameter(target, 0, GetTextureParameter.TextureDepthExt, out int depth);
-                gl.GetTexLevelParameter(target, 0, GetTextureParameter.TextureInternalFormat, out int format);
+                gl.GetTextureLevelParameter((uint)gl.GetInteger(GetPName.TextureBinding2DArray), 0,
+                    GetTextureParameter.TextureWidth, out int width);
+                gl.GetTextureLevelParameter((uint)gl.GetInteger(GetPName.TextureBinding2DArray), 0,
+                    GetTextureParameter.TextureHeight, out int height);
+                gl.GetTextureLevelParameter((uint)gl.GetInteger(GetPName.TextureBinding2DArray), 0,
+                    GetTextureParameter.TextureDepthExt, out int depth);
+                gl.GetTextureLevelParameter((uint)gl.GetInteger(GetPName.TextureBinding2DArray), 0,
+                    GetTextureParameter.TextureInternalFormat, out int format);
 
                 info.AppendLine($"  Dimensions: {width}x{height}x{depth}");
                 info.AppendLine($"  Internal Format: {(InternalFormat)format}");
@@ -105,8 +109,6 @@ namespace Chorizite.OpenGLSDLBackend {
         /// Validates texture completeness for mipmapping
         /// </summary>
         public static bool ValidateTextureMipmapStatus(GL gl, GLEnum target, out string errorMessage) {
-            errorMessage = string.Empty;
-
             try {
                 uint boundTexture = (uint)gl.GetInteger(GetPName.TextureBinding2DArray);
                 if (boundTexture == 0) {
@@ -114,9 +116,9 @@ namespace Chorizite.OpenGLSDLBackend {
                     return false;
                 }
 
-                gl.GetTexLevelParameter(target, 0, GetTextureParameter.TextureWidth, out int width);
-                gl.GetTexLevelParameter(target, 0, GetTextureParameter.TextureHeight, out int height);
-                gl.GetTexLevelParameter(target, 0, GetTextureParameter.TextureInternalFormat, out int format);
+                gl.GetTextureLevelParameter(boundTexture, 0, GetTextureParameter.TextureWidth, out int width);
+                gl.GetTextureLevelParameter(boundTexture, 0, GetTextureParameter.TextureHeight, out int height);
+                gl.GetTextureLevelParameter(boundTexture, 0, GetTextureParameter.TextureInternalFormat, out int format);
 
                 if (width == 0 || height == 0) {
                     errorMessage = "Texture has zero dimensions";
@@ -126,12 +128,8 @@ namespace Chorizite.OpenGLSDLBackend {
                 // Check if format is valid for mipmap generation
                 var internalFormat = (InternalFormat)format;
                 if (IsCompressedFormat(internalFormat)) {
-                    // Compressed formats have special requirements
-                    if (!IsCompressedFormatMipmappable(internalFormat)) {
-                        errorMessage =
-                            $"Compressed format {internalFormat} does not support automatic mipmap generation";
-                        return false;
-                    }
+                    errorMessage = $"Compressed format {internalFormat} does not support automatic mipmap generation";
+                    return false;
                 }
 
                 //gl.GetTexParameter(target, GetTextureParameter.TextureImmutableFormat, out int immutable);
@@ -139,7 +137,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 //    errorMessage = "Texture is mutable (not using glTexStorage), which can cause issues with mipmap generation";
                 // Not necessarily fatal, but worth noting
                 //}
-
+                errorMessage = String.Empty;
                 return true;
             }
             catch (Exception ex) {
@@ -156,10 +154,6 @@ namespace Chorizite.OpenGLSDLBackend {
                    format == InternalFormat.CompressedSrgbAlphaS3TCDxt1Ext ||
                    format == InternalFormat.CompressedSrgbAlphaS3TCDxt3Ext ||
                    format == InternalFormat.CompressedSrgbAlphaS3TCDxt5Ext;
-        }
-
-        private static bool IsCompressedFormatMipmappable(InternalFormat format) {
-            return false;
         }
 
         /// <summary>
@@ -190,7 +184,6 @@ namespace Chorizite.OpenGLSDLBackend {
 
             state.AppendLine("======================");
             Logger?.LogInformation(state.ToString());
-            Console.WriteLine(state.ToString());
         }
     }
 }

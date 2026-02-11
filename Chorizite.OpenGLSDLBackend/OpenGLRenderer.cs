@@ -1,20 +1,17 @@
-﻿using Chorizite.Core.Render;
-using Microsoft.Extensions.Logging;
-using Rectangle = Chorizite.Core.Render.Rectangle;
-using Chorizite.OpenGLSDLBackend.Lib;
+﻿using Chorizite.Core.Dats;
+using Chorizite.Core.Render;
 using Chorizite.Core.Render.Enums;
-using Silk.NET.OpenGL;
-using Chorizite.Core.Dats;
-using FontStashSharp.Interfaces;
-using System.Numerics;
+using Chorizite.OpenGLSDLBackend.Lib;
 using DatReaderWriter.DBObjs;
+using FontStashSharp.Interfaces;
+using Microsoft.Extensions.Logging;
+using Silk.NET.OpenGL;
+using System.Numerics;
 using System.Runtime.InteropServices;
+using Rectangle = Chorizite.Core.Render.Rectangle;
 
 namespace Chorizite.OpenGLSDLBackend {
     unsafe public class OpenGLRenderer : BaseRenderer {
-        private object? _currentDisplayMode;
-        private nint _cursor;
-        private nint _cursorSuface;
         private readonly ILogger _log;
         private readonly int _initialWidth;
         private readonly int _initialHeight;
@@ -61,7 +58,7 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public override void Dispose() {
-            
+
         }
     }
 }

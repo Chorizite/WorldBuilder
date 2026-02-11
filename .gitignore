@@ -3,9 +3,10 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
-*.exe
-appcast.xml
-appcast.xml.signature
+docs/
+publish/
+Releases/
+Release/
 
 # User-specific files
 *.rsuser
@@ -456,3 +457,7 @@ $RECYCLE.BIN/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+
+QWEN.md
+.roo/
+AGENTS.md

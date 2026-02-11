@@ -1,0 +1,46 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:WorldBuilder.Modules.Landscape"
+             xmlns:tools="clr-namespace:WorldBuilder.Shared.Modules.Landscape.Tools;assembly=WorldBuilder.Shared"
+             x:Class="WorldBuilder.Modules.Landscape.Views.Components.ToolPanel"
+             x:DataType="vm:LandscapeViewModel">
+    <Border Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+            BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="4" Padding="8">
+        <StackPanel Spacing="4">
+            <TextBlock Text="Tools" FontWeight="SemiBold" Margin="0,0,0,4" />
+            
+            <ListBox ItemsSource="{Binding Tools}" 
+                     SelectedItem="{Binding ActiveTool}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     Padding="0">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Columns="2" />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem" x:DataType="tools:ILandscapeTool">
+                        <Setter Property="Padding" Value="4" />
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="Template">
+                            <ControlTemplate>
+                                <ToggleButton IsChecked="{TemplateBinding IsSelected, Mode=TwoWay}"
+                                            HorizontalAlignment="Stretch" 
+                                            HorizontalContentAlignment="Center"
+                                            Padding="12,8">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding IconGlyph}" />
+                                        <TextBlock Text="{Binding Name}" />
+                                    </StackPanel>
+                                </ToggleButton>
+                            </ControlTemplate>
+                        </Setter>
+                    </Style>
+                </ListBox.Styles>
+            </ListBox>
+        </StackPanel>
+    </Border>
+</UserControl>

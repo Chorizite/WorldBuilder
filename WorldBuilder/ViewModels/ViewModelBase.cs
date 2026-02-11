@@ -6,7 +6,13 @@ using System;
 
 namespace WorldBuilder.ViewModels;
 
+/// <summary>
+/// Base class for all view models in the WorldBuilder application.
+/// </summary>
 public abstract class ViewModelBase : ObservableValidator {
+    /// <summary>
+    /// Gets the top-level window or view for the current application context.
+    /// </summary>
     protected TopLevel TopLevel {
         get {
 

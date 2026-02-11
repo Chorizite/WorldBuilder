@@ -133,7 +133,6 @@
                 MinWidth="100"
                 Padding="20,10"
                 HorizontalContentAlignment="Center"
-                Classes="accent"
                 Command="{Binding GoNextCommand}"
                 Content="Next →" />
         </Grid>

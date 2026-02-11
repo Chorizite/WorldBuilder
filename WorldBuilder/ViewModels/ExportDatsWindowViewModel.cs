@@ -1,36 +1,27 @@
-﻿using Avalonia.Controls;
+using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using DialogHostAvalonia;
+using HanumanInstitute.MvvmDialogs;
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using WorldBuilder.Lib.Settings;
-using WorldBuilder.Shared.Models;
+using WorldBuilder.Services;
+
+using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.ViewModels {
-    public partial class ExportDatsWindowViewModel : ViewModelBase {
+    public partial class ExportDatsWindowViewModel : ViewModelBase, IModalDialogViewModel {
         private readonly WorldBuilderSettings _settings;
-        private readonly Project _project;
-        private readonly Window _window;
-        private readonly string[] datFiles = new[]
-        {
-            "client_cell_1.dat",
-            "client_portal.dat",
-            "client_highres.dat",
-            "client_local_English.dat"
-        };
-        private bool _isValidating; // Reentrancy guard
+        private readonly IDatReaderWriter _dats;
+        private readonly IDatExportService _datExportService;
+        private bool _isValidating;
 
         [ObservableProperty]
         private string _exportDirectory = string.Empty;
 
         [ObservableProperty]
-        private int _portalIteration = 0;
-
-        [ObservableProperty]
-        private int _currentPortalIteration = 0;
+        private int _portalIteration = 1;
 
         [ObservableProperty]
         private bool _overwriteFiles = false;
@@ -50,6 +41,18 @@ namespace WorldBuilder.ViewModels {
         [ObservableProperty]
         private bool _canExport = false;
 
+        [ObservableProperty]
+        private bool _isExporting = false;
+
+        [ObservableProperty]
+        private double _progress = 0;
+
+        [ObservableProperty]
+        private string _exportStatus = string.Empty;
+
+        // Property for the dialog result
+        public bool? DialogResult { get; set; }
+
         partial void OnExportDirectoryChanged(string value) {
             Validate();
         }
@@ -62,91 +65,78 @@ namespace WorldBuilder.ViewModels {
             Validate();
         }
 
-        public ExportDatsWindowViewModel(WorldBuilderSettings settings, Project project, Window window) {
+        public ExportDatsWindowViewModel(WorldBuilderSettings settings, IDatReaderWriter dats, IDatExportService datExportService) {
             _settings = settings;
-            _project = project;
-            _window = window;
+            _dats = dats;
+            _datExportService = datExportService;
 
-            ExportDirectory = _settings.App.ProjectsDirectory;
-            CurrentPortalIteration = _project.DocumentManager.Dats.Dats.Portal.Iteration.CurrentIteration;
-            PortalIteration = _project.DocumentManager.Dats.Dats.Portal.Iteration.CurrentIteration;
+            ExportDirectory = !string.IsNullOrEmpty(_settings.App.LastDatExportDirectory) ? _settings.App.LastDatExportDirectory : _settings.App.ProjectsDirectory;
+            PortalIteration = _settings.App.LastDatExportPortalIteration > 0 ? _settings.App.LastDatExportPortalIteration : _dats.PortalIteration;
+            OverwriteFiles = _settings.Project?.OverwriteDatFiles ?? true;
 
-            Validate(); // Initial validation
+            Validate();
         }
 
         [RelayCommand]
         public async Task BrowseExportDirectory() {
-            var files = await _window.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions {
+            var folders = await TopLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions {
                 Title = "Choose DAT export directory",
                 AllowMultiple = false,
-                SuggestedStartLocation = await _window.StorageProvider.TryGetFolderFromPathAsync(_settings.App.ProjectsDirectory)
+                SuggestedStartLocation = await TopLevel.StorageProvider.TryGetFolderFromPathAsync(ExportDirectory)
             });
 
-            if (files.Count > 0) {
-                var localPath = files[0].TryGetLocalPath();
+            if (folders.Count > 0) {
+                var localPath = folders[0].TryGetLocalPath();
                 if (!string.IsNullOrWhiteSpace(localPath)) {
-                    ExportDirectory = localPath; // This triggers OnExportDirectoryChanged
+                    ExportDirectory = localPath;
                 }
             }
         }
 
-        [RelayCommand]
-        public async Task Export() {
-            if (!Validate()) return;
+        public async Task<bool> Export() {
+            if (!Validate()) return false;
+            if (IsExporting) return false;
+
+            IsExporting = true;
+            CanExport = false;
+            ExportStatus = "Starting export...";
+            Progress = 0;
 
             try {
-                // Check if files exist and overwrite is not checked
-                if (!OverwriteFiles) {
-                    foreach (var datFile in datFiles) {
-                        var filePath = Path.Combine(ExportDirectory, datFile);
-                        if (File.Exists(filePath)) {
-                            DirectoryErrorMessage = $"File {datFile} already exists. Check 'Overwrite existing DAT files' to replace.";
-                            HasDirectoryError = true;
-                            return;
-                        }
+                var progressHandler = new Progress<DatExportProgress>(p => {
+                    ExportStatus = p.Message;
+                    Progress = p.Percent * 100;
+                });
+
+                var success = await _datExportService.ExportDatsAsync(ExportDirectory, PortalIteration, OverwriteFiles, progressHandler);
+                if (success) {
+                    _settings.App.LastDatExportDirectory = ExportDirectory;
+                    _settings.App.LastDatExportPortalIteration = PortalIteration;
+                    _settings.Save();
+
+                    if (_settings.Project is not null) {
+                        _settings.Project.OverwriteDatFiles = OverwriteFiles;
+                        _settings.Project.Save();
                     }
+
+                    DialogResult = true; 
+                    return true;
                 }
-
-                await Task.Run(() => _project.ExportDats(ExportDirectory, PortalIteration));
-
-                // Show success dialog using DialogHost
-                await DialogHost.Show(new StackPanel {
-                    Margin = new Avalonia.Thickness(10),
-                    Spacing = 10,
-                    Children =
-                    {
-                        new TextBlock { Text = "DAT files exported successfully!" },
-                        new Button
-                        {
-                            Content = "OK",
-                            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                            Command = new RelayCommand(() => DialogHost.Close("ExportDialogHost"))
-                        }
-                    }
-                }, "ExportDialogHost");
-
-                _window.Close();
+                else {
+                    DirectoryErrorMessage = "Export failed. Check logs for details.";
+                    HasDirectoryError = true;
+                }
             }
             catch (Exception ex) {
                 DirectoryErrorMessage = $"Export failed: {ex.Message}";
                 HasDirectoryError = true;
-
-                // Show error dialog using DialogHost
-                await DialogHost.Show(new StackPanel {
-                    Margin = new Avalonia.Thickness(10),
-                    Spacing = 10,
-                    Children =
-                    {
-                        new TextBlock { Text = $"Export failed: {ex.Message}" },
-                        new Button
-                        {
-                            Content = "OK",
-                            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                            Command = new RelayCommand(() => DialogHost.Close("ExportDialogHost"))
-                        }
-                    }
-                }, "ExportDialogHost");
             }
+            finally {
+                IsExporting = false;
+                Validate();
+            }
+
+            return false;
         }
 
         private bool Validate() {

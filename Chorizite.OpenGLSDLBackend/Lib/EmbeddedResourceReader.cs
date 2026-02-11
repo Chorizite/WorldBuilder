@@ -12,11 +12,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var assembly = Assembly.GetExecutingAssembly();
             var resourceName = "Chorizite.OpenGLSDLBackend." + filename;
 
-            using (Stream stream = assembly.GetManifestResourceStream(resourceName))
-            using (StreamReader reader = new StreamReader(stream)) {
-                string result = reader.ReadToEnd();
-                return result;
-            }
+            using var stream = assembly.GetManifestResourceStream(resourceName)
+                ?? throw new InvalidOperationException($"Could not find embedded resource '{resourceName}'");
+            using var reader = new StreamReader(stream);
+
+            return reader.ReadToEnd();
         }
     }
 }

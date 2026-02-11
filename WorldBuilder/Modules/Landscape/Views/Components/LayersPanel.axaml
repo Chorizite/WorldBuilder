@@ -1,0 +1,133 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:WorldBuilder.Modules.Landscape.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="450"
+             x:Class="WorldBuilder.Modules.Landscape.Views.Components.LayersPanel"
+             x:DataType="vm:LayersPanelViewModel">
+    <Border Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+            BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="4" Padding="4">
+        <Grid RowDefinitions="Auto, Auto, *">
+            <Border Grid.Row="0" BorderBrush="{DynamicResource AccentPurple}" BorderThickness="0,0,0,2" Margin="4,4,4,8" Padding="0,0,0,4">
+                <TextBlock Text="Layers" FontWeight="Bold" FontSize="14" />
+            </Border>
+            
+            <!-- Toolbar -->
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="4" Margin="4">
+                <Button Command="{Binding AddLayerCommand}" ToolTip.Tip="Add New Layer">
+                    <TextBlock Text="+" />
+                </Button>
+                <Button Command="{Binding AddGroupCommand}" ToolTip.Tip="Add New Group">
+                    <TextBlock Text="📁" />
+                </Button>
+                <Button Command="{Binding SelectedItem.DeleteCommand}" ToolTip.Tip="Delete Selected"
+                        IsVisible="{Binding SelectedItem.CanDelete, FallbackValue=False}"
+                        IsEnabled="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}, FallbackValue=False}">
+                    <TextBlock Text="🗑️" />
+                </Button>
+                <Separator Width="10" IsVisible="False" />
+                <Button Command="{Binding MoveLayerUpCommand}" ToolTip.Tip="Move Up">
+                    <TextBlock Text="⬆️" />
+                </Button>
+                <Button Command="{Binding MoveLayerDownCommand}" ToolTip.Tip="Move Down">
+                    <TextBlock Text="⬇️" />
+                </Button>
+            </StackPanel>
+
+            <!-- Layer Tree -->
+            <TreeView Grid.Row="2" ItemsSource="{Binding Items}" 
+                      SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                      Background="Transparent"
+                      DragDrop.AllowDrop="True"
+                      DragDrop.DragOver="OnDragOver"
+                      DragDrop.Drop="OnDrop">
+                <TreeView.Styles>
+                    <Style Selector="TreeViewItem" x:DataType="vm:LayerItemViewModel">
+                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                    </Style>
+                </TreeView.Styles>
+                <TreeView.ItemTemplate>
+                    <TreeDataTemplate ItemsSource="{Binding Children}">
+                        <Grid ColumnDefinitions="Auto, *, Auto, Auto" Margin="2" Background="Transparent"
+                              DragDrop.AllowDrop="True"
+                              PointerPressed="OnPointerPressed"
+                              PointerReleased="OnPointerReleased"
+                              PointerMoved="OnPointerMoved">
+                            <!-- Icon -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                <TextBlock Text="📁" IsVisible="{Binding IsGroup}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBlock Text="📄" IsVisible="{Binding IsNotGroup}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            </StackPanel>
+
+                            <!-- Name -->
+                            <Panel Grid.Column="1" VerticalAlignment="Center" 
+                                   DoubleTapped="OnItemDoubleTapped"
+                                   Background="Transparent">
+                                <TextBlock Text="{Binding Name}" IsVisible="{Binding !IsEditing}" VerticalAlignment="Center" Padding="2"/>
+                                <TextBox Text="{Binding Name}" IsVisible="{Binding IsEditing}" 
+                                         BorderThickness="1" Padding="2" MinHeight="0"
+                                         KeyDown="OnRenameKeyDown"
+                                         Loaded="OnRenameTextBoxLoaded"/>
+                            </Panel>
+                            
+                            <!-- Visibility Toggle -->
+                            <ToggleButton Grid.Column="2" IsChecked="{Binding IsVisible}" 
+                                          IsVisible="{Binding CanToggleVisibility}"
+                                          Margin="4,0" Padding="4,2" Background="Transparent" BorderThickness="0">
+                                <TextBlock Text="👁️" />
+                            </ToggleButton>
+                            
+                            <!-- Export Toggle -->
+                            <ToggleButton Grid.Column="3" IsChecked="{Binding IsExported, Mode=OneWay}" 
+                                          IsVisible="{Binding CanToggleExport}"
+                                          Command="{Binding ToggleExportCommand}" Padding="4,2" Background="Transparent" BorderThickness="0">
+                                <TextBlock Text="📦" />
+                            </ToggleButton>
+
+                            <!-- Drop Indicators -->
+                            <Border Grid.ColumnSpan="4" Height="2" Background="{DynamicResource AccentPurple}" 
+                                    VerticalAlignment="Top" Margin="0,-2,0,0" IsHitTestVisible="False">
+                                <Border.IsVisible>
+                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                        <Binding Path="DropPosition" Converter="{x:Static ObjectConverters.Equal}">
+                                            <Binding.ConverterParameter>
+                                                <vm:DropPosition>Above</vm:DropPosition>
+                                            </Binding.ConverterParameter>
+                                        </Binding>
+                                    </MultiBinding>
+                                </Border.IsVisible>
+                            </Border>
+                            <Border Grid.ColumnSpan="4" Height="2" Background="{DynamicResource AccentPurple}" 
+                                    VerticalAlignment="Bottom" Margin="0,0,0,-2" IsHitTestVisible="False">
+                                <Border.IsVisible>
+                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                        <Binding Path="DropPosition" Converter="{x:Static ObjectConverters.Equal}">
+                                            <Binding.ConverterParameter>
+                                                <vm:DropPosition>Below</vm:DropPosition>
+                                            </Binding.ConverterParameter>
+                                        </Binding>
+                                    </MultiBinding>
+                                </Border.IsVisible>
+                            </Border>
+                            <Border Grid.ColumnSpan="4" BorderBrush="{DynamicResource AccentPurple}" 
+                                    BorderThickness="2" Margin="-2" IsHitTestVisible="False">
+                                <Border.IsVisible>
+                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                        <Binding Path="DropPosition" Converter="{x:Static ObjectConverters.Equal}">
+                                            <Binding.ConverterParameter>
+                                                <vm:DropPosition>Inside</vm:DropPosition>
+                                            </Binding.ConverterParameter>
+                                        </Binding>
+                                    </MultiBinding>
+                                </Border.IsVisible>
+                            </Border>
+                        </Grid>
+                    </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+        </Grid>
+    </Border>
+</UserControl>

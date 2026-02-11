@@ -1,42 +1,34 @@
-﻿using Avalonia;
-using Avalonia.OpenGL;
+using Avalonia;
 using System;
 using System.Diagnostics;
-using System.IO;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using Avalonia.Win32;
-using System.Collections.Generic;
+using Velopack;
 
 namespace WorldBuilder.Windows;
 
-sealed class Program
-{
-    // Initialization code. Don't use any Avalonia, third-party APIs or any
-    // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
-    // yet and stuff might break.
+sealed class Program {
     [STAThread]
-    public static void Main(string[] args)
-    {
-        try
-        {
-            TaskScheduler.UnobservedTaskException += (sender, e) =>
-            {
+    [RequiresAssemblyFiles("Calls System.Reflection.Assembly.Location")]
+    public static void Main(string[] args) {
+        VelopackApp.Build().Run();
+
+        try {
+            TaskScheduler.UnobservedTaskException += (sender, e) => {
                 Console.WriteLine(e.Exception);
             };
-            AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
-            {
+            AppDomain.CurrentDomain.UnhandledException += (sender, e) => {
                 Console.WriteLine(e.ExceptionObject);
             };
 
-            try
-            {
-                var assemblyPath = Assembly.GetExecutingAssembly().Location;
-                var versionPath = Path.ChangeExtension(assemblyPath, ".exe");
-                App.ExecutablePath = versionPath;
-                App.Version = FileVersionInfo.GetVersionInfo(versionPath)?.ProductVersion ?? "0.0.0";
-                Console.WriteLine($"Executable: {App.Version}");
+            try {
+                Assembly currentAssembly = Assembly.GetExecutingAssembly();
+                string currentAssemblyPath = currentAssembly.Location;
+
+                FileVersionInfo currentFvi = FileVersionInfo.GetVersionInfo(currentAssemblyPath);
+
+                App.Version = currentFvi?.ProductVersion ?? "0.0.0";
                 Console.WriteLine($"Version: {App.Version}");
             }
             catch { }
@@ -44,30 +36,14 @@ sealed class Program
             BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             Console.WriteLine(e);
         }
     }
 
-    // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
-    {
-        var builder = AppBuilder.Configure<App>()
+        => AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .WithInterFont()
-            .With(new Win32PlatformOptions()
-            {
-                RenderingMode = new List<Win32RenderingMode>()
-                {
-                    Win32RenderingMode.AngleEgl
-                },
-            })
-            .With(new AngleOptions
-            {
-                GlProfiles = new[] { new GlVersion(GlProfileType.OpenGLES, 3, 1) }
-            });
-
-        return builder.LogToTrace();
-    }
+            .LogToTrace();
 }

@@ -1,10 +1,10 @@
-﻿using System.Buffers;
-using System.Runtime.InteropServices;
-using Chorizite.Core.Render.Enums;
+﻿using Chorizite.Core.Render.Enums;
 using Chorizite.Core.Render.Vertex;
 using Chorizite.OpenGLSDLBackend.Extensions;
 using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
+using System.Buffers;
+using System.Runtime.InteropServices;
 using BufferUsage = Chorizite.Core.Render.Enums.BufferUsage;
 
 namespace Chorizite.OpenGLSDLBackend {

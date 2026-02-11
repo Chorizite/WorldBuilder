@@ -7,6 +7,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using WorldBuilder.Lib.Settings;
+using WorldBuilder.Services;
+using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Lib {
     [JsonSourceGenerationOptions(WriteIndented = true, Converters = new[] { typeof(Vector3Converter) })]
@@ -14,11 +16,12 @@ namespace WorldBuilder.Lib {
     [JsonSerializable(typeof(List<RecentProject>))]
     [JsonSerializable(typeof(RecentProject))]
     [JsonSerializable(typeof(LandscapeEditorSettings))]
+    [JsonSerializable(typeof(ProjectSettings))]
     [JsonSerializable(typeof(AppSettings))]
+    [JsonSerializable(typeof(Dictionary<string, bool>))]
     [JsonSerializable(typeof(CameraSettings))]
     [JsonSerializable(typeof(RenderingSettings))]
     [JsonSerializable(typeof(GridSettings))]
-    [JsonSerializable(typeof(SelectionSettings))]
     [JsonSerializable(typeof(Vector3))]
     [JsonSerializable(typeof(DateTime))]
     [JsonSerializable(typeof(string))]

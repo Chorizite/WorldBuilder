@@ -1,63 +1,23 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <OutputType>Exe</OutputType>
-        <TargetFramework>net8.0</TargetFramework>
-        <Nullable>enable</Nullable>
-        <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
-        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
-    </PropertyGroup>
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net8.0-macos</TargetFramework>
+		<Nullable>enable</Nullable>
+		<BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+		<SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+	</PropertyGroup>
 
-    <PropertyGroup>
-        <AssemblyTitle>WorldBuilder</AssemblyTitle>
-        <Description>WorldBuilder</Description>
-        <Company>Thrungus</Company>
-        <Product>WorldBuilder</Product>
-        <Copyright>2025 Thrungus</Copyright>
-        <ApplicationManifest>app.manifest</ApplicationManifest>
-        <ApplicationIcon>..\avalonia-logo.ico</ApplicationIcon>
-        <UpdateAssemblyInfo>false</UpdateAssemblyInfo>
-    </PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="Avalonia.Desktop" />
+		<PackageReference Include="Chorizite.DatReaderWriter" />
+		<TrimmerRootAssembly Include="DatReaderWriter" />
+		<TrimmerRootAssembly Include="WorldBuilder" />
+		<TrimmerRootAssembly Include="WorldBuilder.Shared" />
+		<TrimmerRootAssembly Include="MemoryPack.Core" />
+		<TrimmerRootAssembly Include="Microsoft.Data.Sqlite" />
+	</ItemGroup>
 
-    <Target Name="VSGitVersion" BeforeTargets="PreBuildEvent;BeforeCompile" Condition="$(MSBuildRuntimeType)=='Full'">
-        <Exec Command="$(NuGetPackageRoot)\gitversion.msbuild\6.4.0\tools\net8.0\gitversion.exe -showvariable Major" ConsoleToMSBuild="true">
-            <Output TaskParameter="ConsoleOutput" PropertyName="GitVersion_Major" />
-        </Exec>
-        <Exec Command="$(NuGetPackageRoot)\gitversion.msbuild\6.4.0\tools\net8.0\gitversion.exe -showvariable MajorMinorPatch" ConsoleToMSBuild="true">
-            <Output TaskParameter="ConsoleOutput" PropertyName="GitVersion_MajorMinorPatch" />
-        </Exec>
-        <Exec Command="$(NuGetPackageRoot)\gitversion.msbuild\6.4.0\tools\net8.0\gitversion.exe -showvariable PreReleaseTag" ConsoleToMSBuild="true">
-            <Output TaskParameter="ConsoleOutput" PropertyName="GitVersion_PreReleaseTag" />
-        </Exec>
-        <Exec Command="$(NuGetPackageRoot)\gitversion.msbuild\6.4.0\tools\net8.0\gitversion.exe -showvariable CommitsSinceVersionSource" ConsoleToMSBuild="true">
-            <Output TaskParameter="ConsoleOutput" PropertyName="GitVersion_CommitsSinceVersionSource" />
-        </Exec>
-
-        <PropertyGroup>
-            <AssemblyVersion>$(GitVersion_Major).0.0</AssemblyVersion>
-            <Version Condition="'$(GitVersion_PreReleaseTag)' != ''">$(GitVersion_MajorMinorPatch)+$(GitVersion_CommitsSinceVersionSource)</Version>
-            <Version Condition="'$(GitVersion_PreReleaseTag)' == ''">$(GitVersion_MajorMinorPatch)</Version>
-            <ProductVersion Condition="'$(GitVersion_PreReleaseTag)' != ''">$(GitVersion_MajorMinorPatch)+$(GitVersion_CommitsSinceVersionSource)</ProductVersion>
-            <ProductVersion Condition="'$(GitVersion_PreReleaseTag)' == ''">$(GitVersion_MajorMinorPatch)</ProductVersion>
-        </PropertyGroup>
-    </Target>
-
-    <ItemGroup>
-        <PackageReference Include="Avalonia.Desktop" Version="11.3.7" />
-        <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-        <PackageReference Include="Avalonia.Diagnostics" Version="11.3.7">
-            <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
-            <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
-            <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>none</IncludeAssets>
-        </PackageReference>
-        <PackageReference Include="HotAvalonia" Version="3.0.0" PrivateAssets="All" Publish="True" />
-        <PackageReference Include="GitVersion.MsBuild" Version="6.4.0">
-            <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
-    </ItemGroup>
-
-    <ItemGroup>
-        <ProjectReference Include="..\WorldBuilder\WorldBuilder.csproj" />
-    </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\WorldBuilder\WorldBuilder.csproj" />
+	</ItemGroup>
 </Project>

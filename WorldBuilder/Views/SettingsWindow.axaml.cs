@@ -1,14 +1,18 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Linq;
 using WorldBuilder.Lib.Settings;
+using WorldBuilder.Services;
+using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Views {
     public partial class SettingsWindow : Window {
         private WorldBuilderSettings? _originalSettings;
-        private WorldBuilderSettings Settings => (WorldBuilderSettings)DataContext!;
+        private SettingsWindowViewModel? ViewModel => DataContext as SettingsWindowViewModel;
+        private WorldBuilderSettings? Settings => ViewModel?.Settings;
         private SettingsUIGenerator? _uiGenerator;
         private ListBox? _navigationList;
 
@@ -19,12 +23,12 @@ namespace WorldBuilder.Views {
         protected override void OnDataContextChanged(EventArgs e) {
             base.OnDataContextChanged(e);
 
-            if (DataContext is WorldBuilderSettings settings) {
+            if (DataContext is SettingsWindowViewModel viewModel && viewModel.Settings != null) {
                 // Store a copy of original settings for cancel/reset
-                _originalSettings = SettingsCloner.Clone(settings);
+                _originalSettings = SettingsCloner.Clone(viewModel.Settings);
 
                 // Generate UI dynamically
-                GenerateUI(settings);
+                GenerateUI(viewModel.Settings);
             }
         }
 
@@ -86,28 +90,41 @@ namespace WorldBuilder.Views {
             });
 
             if (folders.Count > 0) {
-                Settings.App.ProjectsDirectory = folders[0].Path.LocalPath;
+                if (Settings != null) {
+                    Settings.App.ProjectsDirectory = folders[0].Path.LocalPath;
+                }
             }
         }
 
         private void Save_Click(object? sender, RoutedEventArgs e) {
-            Settings.Save();
+            if (Settings != null) {
+                Settings.Save();
+            }
+
             Close();
         }
 
         private void Cancel_Click(object? sender, RoutedEventArgs e) {
             // Restore original settings
-            if (_originalSettings != null) {
+            if (_originalSettings != null && Settings != null) {
                 SettingsCloner.Restore(_originalSettings, Settings);
             }
+
             Close();
+        }
+
+        protected override void OnClosed(EventArgs e) {
+            base.OnClosed(e);
+            ViewModel?.OnClosed();
         }
 
         private void ResetToDefaults_Click(object? sender, RoutedEventArgs e) {
             // Reset to default values
-            SettingsCloner.ResetToDefaults(Settings, () => new WorldBuilderSettings(
-                Microsoft.Extensions.Logging.Abstractions.NullLogger<WorldBuilderSettings>.Instance
-            ));
+            if (Settings != null) {
+                SettingsCloner.ResetToDefaults(Settings, () => new WorldBuilderSettings(
+                    Microsoft.Extensions.Logging.Abstractions.NullLogger<WorldBuilderSettings>.Instance
+                ));
+            }
         }
     }
 }

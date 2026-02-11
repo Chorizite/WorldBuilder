@@ -14,9 +14,12 @@
     x:CompileBindings="True"
     x:DataType="vm:SplashPageViewModel"
     CanResize="false"
-    Icon="/Assets/avalonia-logo.ico"
+    Icon="/Assets/worldbuilder.ico"
     WindowStartupLocation="CenterScreen"
     mc:Ignorable="d">
+    <Design.DataContext>
+        <vm:SplashPageViewModel />
+    </Design.DataContext>
     <TransitioningContentControl Grid.Row="1" Content="{Binding CurrentPage}">
         <TransitioningContentControl.PageTransition>
             <CrossFade Duration="0:0:0.2" />
