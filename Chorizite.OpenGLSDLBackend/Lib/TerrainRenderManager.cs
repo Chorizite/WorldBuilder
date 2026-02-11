@@ -235,7 +235,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             _gl.BindVertexArray(0);
 
-            if (updates > 0) _log.LogInformation("Updated {Count} landblocks in chunk {CX},{CY}", updates, chunk.ChunkX, chunk.ChunkY);
+            if (updates > 0) _log.LogTrace("Updated {Count} landblocks in chunk {CX},{CY}", updates, chunk.ChunkX, chunk.ChunkY);
         }
 
         private void GenerateChunk(TerrainChunk chunk) {

@@ -92,6 +92,12 @@ public partial class RenderView : Base3DViewport {
             _gameScene.Initialize();
             _gameScene.Resize(canvasSize.Width, canvasSize.Height);
 
+            _gameScene.OnCameraChanged += (is3d) => {
+                Dispatcher.UIThread.Post(() => {
+                    Is3DCamera = is3d;
+                });
+            };
+
             // Initial grid update
             UpdateGridSettings();
 

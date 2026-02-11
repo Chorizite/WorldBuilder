@@ -10,7 +10,7 @@ public class Camera2D : CameraBase {
     private const int RightMouseButton = 1;
 
     private float _zoom = 1.0f;
-    private float _minZoom = 0.1f;
+    private float _minZoom = 0.0001f;
     private float _maxZoom = 100.0f;
     private float _zoomSpeed = 0.1f;
     private bool _isPanning;
@@ -34,7 +34,7 @@ public class Camera2D : CameraBase {
     /// </summary>
     public float MinZoom {
         get => _minZoom;
-        set => _minZoom = Math.Max(0.001f, value);
+        set => _minZoom = Math.Max(0.00001f, value);
     }
 
     /// <summary>
@@ -64,11 +64,10 @@ public class Camera2D : CameraBase {
     /// <inheritdoc/>
     protected override void UpdateMatrices() {
         // View matrix: looking down -Z axis (top-down view, Z is up)
-        // Camera is positioned at (X, Y, height) looking at (X, Y, 0)
-        float cameraHeight = 10.0f; // Fixed height above the XY plane
-        var eye = new Vector3(_position.X, _position.Y, cameraHeight);
-        var target = new Vector3(_position.X, _position.Y, 0);
-        var up = new Vector3(0, 1, 0); // Y is "up" on screen
+        // Camera is positioned at (X, Y, Z) looking at (X, Y, Z-1)
+        var eye = new Vector3(_position.X, _position.Y, _position.Z);
+        var target = new Vector3(_position.X, _position.Y, _position.Z - 1.0f);
+        var up = new Vector3(0, 1, 0); // Y is "North" and "up" on screen
         _viewMatrix = Matrix4x4.CreateLookAt(eye, target, up);
 
         // Orthographic projection using world-space units
@@ -77,7 +76,10 @@ public class Camera2D : CameraBase {
         float aspectRatio = AspectRatio;
         float halfHeight = baseSize;
         float halfWidth = baseSize * aspectRatio;
-        _projectionMatrix = Matrix4x4.CreateOrthographic(halfWidth * 2, halfHeight * 2, 0.1f, 1000.0f);
+
+        // Use a very large near/far plane to ensure we see terrain regardless of camera height
+        // This also ensures raycasting works correctly from any height.
+        _projectionMatrix = Matrix4x4.CreateOrthographic(halfWidth * 2, halfHeight * 2, -10000.0f, 10000.0f);
     }
 
     /// <inheritdoc/>

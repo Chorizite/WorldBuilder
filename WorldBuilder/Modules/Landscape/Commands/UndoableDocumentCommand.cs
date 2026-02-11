@@ -67,8 +67,6 @@ namespace WorldBuilder.Modules.Landscape.Commands
                 }
                 else
                 {
-                    // Log error? The ViewModel doesn't easily expose a logger here.
-                    // Ideally we might want to pass an error handler.
                     Console.WriteLine($"[UndoableDocumentCommand] Failed to apply {cmd.GetType().Name}: {result.Error}");
                 }
             }

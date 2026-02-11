@@ -441,7 +441,6 @@ public partial class LandscapeDocument : BaseDocument {
         }
         else {
             var vertices = affectedVertices.ToList();
-            Console.WriteLine($"[DEBUG] Recalculating PARTIAL terrain cache. Affected vertices: {vertices.Count}. Visible layers: {GetAllLayers().Count(IsItemVisible)}");
             // Partial recalculation
             var layers = GetAllLayers().Where(IsItemVisible).ToList();
             foreach (var vertexIndex in vertices) {

@@ -78,7 +78,7 @@ public class Camera2DTests {
 
     [Fact]
     public void ViewMatrix_IsNotIdentity_AfterResize() {
-        var camera = new Camera2D();
+        var camera = new Camera2D(new Vector3(100, 100, 0));
         camera.Resize(800, 600);
 
         var view = camera.ViewMatrix;

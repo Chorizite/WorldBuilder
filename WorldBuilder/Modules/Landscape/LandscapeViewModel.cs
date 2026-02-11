@@ -62,7 +62,11 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
     private readonly IDocumentManager _documentManager;
 
     private LandscapeToolContext? _toolContext;
-    public ICamera? Camera { get; set; } // Set by View
+    private WorldBuilder.Shared.Models.ICamera? _camera;
+    public WorldBuilder.Shared.Models.ICamera? Camera {
+        get => _gameScene?.CurrentCamera ?? _camera;
+        set => _camera = value;
+    }
 
     public LandscapeViewModel(Project project, IDatReaderWriter dats, IDocumentManager documentManager, ILogger<LandscapeViewModel> log) {
         _project = project;
@@ -228,6 +232,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
             _gameScene.OnPointerPressed -= OnPointerPressed;
             _gameScene.OnPointerMoved -= OnPointerMoved;
             _gameScene.OnPointerReleased -= OnPointerReleased;
+            _gameScene.OnCameraChanged -= OnCameraChanged;
         }
 
         _gameScene = scene;
@@ -236,7 +241,15 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
             _gameScene.OnPointerPressed += OnPointerPressed;
             _gameScene.OnPointerMoved += OnPointerMoved;
             _gameScene.OnPointerReleased += OnPointerReleased;
+            _gameScene.OnCameraChanged += OnCameraChanged;
         }
+    }
+
+    private void OnCameraChanged(bool is3d) {
+        Dispatcher.UIThread.Post(() => {
+            Is3DCameraEnabled = is3d;
+            UpdateToolContext();
+        });
     }
 
     public void OnPointerPressed(ViewportInputEvent e) {

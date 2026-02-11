@@ -108,4 +108,26 @@ public class GameSceneTests {
 
         Assert.NotEqual(initialPos, camera3D.Position);
     }
+
+    [Fact]
+    public void ToggleCamera_SyncsZLevel() {
+        // Starts in 3D mode at Z=2 (default)
+        var camera3D = (Camera3D)_gameScene.CurrentCamera;
+        float height = camera3D.Position.Z;
+
+        _gameScene.ToggleCamera(); // Switch to 2D
+        var camera2D = (Camera2D)_gameScene.CurrentCamera;
+
+        // Check if Zoom is set based on height
+        float fovRad = MathF.PI * camera3D.FieldOfView / 180.0f;
+        float expectedZoom = 10.0f / (height * MathF.Tan(fovRad / 2.0f));
+        Assert.Equal(expectedZoom, camera2D.Zoom, 4);
+
+        // Change Zoom and switch back
+        camera2D.Zoom = 2.0f;
+        _gameScene.ToggleCamera(); // Switch to 3D
+
+        float expectedHeight = 10.0f / (2.0f * MathF.Tan(fovRad / 2.0f));
+        Assert.Equal(expectedHeight, _gameScene.CurrentCamera.Position.Z, 4);
+    }
 }

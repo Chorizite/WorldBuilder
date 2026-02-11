@@ -131,9 +131,11 @@ public class GameScene : IDisposable {
     /// Toggles between 2D and 3D camera modes.
     /// </summary>
     public void ToggleCamera() {
+        SyncCameraZ();
         _is3DMode = !_is3DMode;
         _currentCamera = _is3DMode ? _camera3D : _camera2D;
         _log.LogInformation("Camera toggled to {Mode} mode", _is3DMode ? "3D" : "2D");
+        OnCameraChanged?.Invoke(_is3DMode);
     }
 
     /// <summary>
@@ -141,9 +143,33 @@ public class GameScene : IDisposable {
     /// </summary>
     /// <param name="is3d">Whether to use 3D mode.</param>
     public void SetCameraMode(bool is3d) {
+        if (_is3DMode == is3d) return;
+
+        SyncCameraZ();
         _is3DMode = is3d;
         _currentCamera = _is3DMode ? _camera3D : _camera2D;
         _log.LogInformation("Camera set to {Mode} mode", _is3DMode ? "3D" : "2D");
+        OnCameraChanged?.Invoke(_is3DMode);
+    }
+
+    private void SyncCameraZ() {
+        var fovRad = MathF.PI * _camera3D.FieldOfView / 180.0f;
+        var tanHalfFov = MathF.Tan(fovRad / 2.0f);
+
+        if (_is3DMode) {
+            // 3D -> 2D
+            float h = Math.Max(0.01f, _camera3D.Position.Z);
+            _camera2D.Zoom = 10.0f / (h * tanHalfFov);
+            _camera2D.Position = _camera3D.Position;
+        }
+        else {
+            // 2D -> 3D
+            float zoom = _camera2D.Zoom;
+            float h = 10.0f / (zoom * tanHalfFov);
+            var pos = _camera2D.Position;
+            pos.Z = h;
+            _camera3D.Position = pos;
+        }
     }
 
     /// <summary>
@@ -255,6 +281,7 @@ public class GameScene : IDisposable {
     public event Action<ViewportInputEvent>? OnPointerPressed;
     public event Action<ViewportInputEvent>? OnPointerMoved;
     public event Action<ViewportInputEvent>? OnPointerReleased;
+    public event Action<bool>? OnCameraChanged;
 
     public void HandlePointerPressed(ViewportInputEvent e) {
         OnPointerPressed?.Invoke(e);
