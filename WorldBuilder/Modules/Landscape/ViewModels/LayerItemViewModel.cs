@@ -114,7 +114,6 @@ public partial class LayerItemViewModel : ViewModelBase {
         if (CanToggleExport) {
             var cmd = new ToggleLayerExportCommand(_model, (newState) => {
                 IsExported = newState;
-                _onChanged?.Invoke(this, LayerChangeType.PropertyChange);
             });
             _history.Execute(cmd);
         }

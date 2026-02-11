@@ -440,7 +440,7 @@ public partial class LayersPanelViewModel : ViewModelBase {
         _history.Execute(undoableCmd);
     }
 
-    private LayerItemViewModel? FindVM(string id) {
+    public LayerItemViewModel? FindVM(string id) {
         return Items.SelectMany(GetRangeRecursive).FirstOrDefault(vm => vm.Model.Id == id);
     }
 

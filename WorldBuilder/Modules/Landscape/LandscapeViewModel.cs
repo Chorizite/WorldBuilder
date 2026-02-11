@@ -123,22 +123,27 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
 
     partial void OnActiveDocumentChanged(LandscapeDocument? oldValue, LandscapeDocument? newValue) {
         _log.LogInformation("LandscapeViewModel.OnActiveDocumentChanged: Syncing layers for doc {DocId}", newValue?.Id);
+        
+        LayersPanel.SyncWithDocument(newValue);
+
         // Set first base layer as active by default
         if (newValue != null && ActiveLayer == null) {
             ActiveLayer = newValue.GetAllLayers().FirstOrDefault(l => l.IsBase);
+        } else if (ActiveLayer != null) {
+            LayersPanel.SelectedItem = LayersPanel.FindVM(ActiveLayer.Id);
         }
-
-        LayersPanel.SyncWithDocument(newValue);
 
         if (newValue != null && Camera != null) {
             _log.LogInformation("LandscapeViewModel.OnActiveDocumentChanged: Re-initializing context");
-
             UpdateToolContext();
         }
     }
 
     partial void OnActiveLayerChanged(LandscapeLayer? oldValue, LandscapeLayer? newValue) {
         _log.LogInformation("LandscapeViewModel.OnActiveLayerChanged: New layer {LayerId}", newValue?.Id);
+        if (newValue != null && (LayersPanel.SelectedItem == null || LayersPanel.SelectedItem.Model.Id != newValue.Id)) {
+            LayersPanel.SelectedItem = LayersPanel.FindVM(newValue.Id);
+        }
         UpdateToolContext();
     }
 

@@ -6,17 +6,19 @@
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="450"
              x:Class="WorldBuilder.Modules.Landscape.Views.Components.HistoryPanel"
              x:DataType="landscape:HistoryPanelViewModel">
-  <UserControl.Resources>
-    <SolidColorBrush x:Key="AccentPurple" Color="#A855F7" />
-  </UserControl.Resources>
 
   <Grid RowDefinitions="Auto,*">
-    <Border Grid.Row="0" Background="{StaticResource AccentPurple}" Padding="8">
-      <TextBlock Text="History" FontWeight="Bold" Foreground="White"/>
+    <Border Grid.Row="0" BorderBrush="{DynamicResource AccentPurple}" BorderThickness="0,0,0,2" Margin="4,4,4,8" Padding="0,0,0,4">
+      <TextBlock Text="History" FontWeight="Bold" FontSize="14" />
     </Border>
     
     <ScrollViewer Grid.Row="1" x:Name="HistoryScrollViewer">
       <ItemsControl ItemsSource="{Binding Items}">
+        <ItemsControl.Styles>
+          <Style Selector="Button">
+            <Setter Property="Background" Value="Transparent" />
+          </Style>
+        </ItemsControl.Styles>
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="landscape:HistoryItemViewModel">
             <Button Command="{Binding ((landscape:HistoryPanelViewModel)DataContext).JumpToCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -25,7 +27,7 @@
                     HorizontalContentAlignment="Left"
                     Padding="8,4"
                     BorderThickness="0"
-                    Background="Transparent">
+                    Classes.active="{Binding IsActive}">
               <TextBlock Text="{Binding Name}"
                          Classes.active="{Binding IsActive}"
                          Classes.future="{Binding IsFuture}">
@@ -34,8 +36,8 @@
                     <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
                   </Style>
                   <Style Selector="TextBlock.active">
-                    <Setter Property="FontWeight" Value="Bold"/>
-                    <Setter Property="Foreground" Value="{StaticResource AccentPurple}"/>
+                    <!-- FontWeight is handled globally for Button.active TextBlock -->
+                    <Setter Property="Foreground" Value="White"/>
                   </Style>
                   <Style Selector="TextBlock.future">
                     <Setter Property="Opacity" Value="0.5"/>
