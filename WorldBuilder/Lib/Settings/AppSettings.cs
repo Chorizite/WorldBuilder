@@ -43,5 +43,11 @@ namespace WorldBuilder.Lib.Settings {
         [SettingOrder(5)]
         private int _lastDatExportPortalIteration = 0;
         public int LastDatExportPortalIteration { get => _lastDatExportPortalIteration; set => SetProperty(ref _lastDatExportPortalIteration, value); }
+
+        [SettingDescription("Last directory used for base DAT files when creating a project")]
+        [SettingPath(PathType.Folder, DialogTitle = "Select Last Base DAT Directory")]
+        [SettingOrder(6)]
+        private string _lastBaseDatDirectory = string.Empty;
+        public string LastBaseDatDirectory { get => _lastBaseDatDirectory; set => SetProperty(ref _lastBaseDatDirectory, value); }
     }
 }

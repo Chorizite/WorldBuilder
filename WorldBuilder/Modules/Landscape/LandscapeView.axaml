@@ -17,10 +17,9 @@
 
   <Grid ColumnDefinitions="300, *, 300">
     <!-- Left Sidebar: Tools & Properties -->
-    <Grid Grid.Column="0" RowDefinitions="Auto, Auto, *">
+    <Grid Grid.Column="0" RowDefinitions="Auto, *">
       <components:ToolPanel Grid.Row="0" Margin="4" />
       <components:ToolSettingsPanel Grid.Row="1" Margin="4" />
-      <components:PropertiesPanel Grid.Row="2" Margin="4" />
     </Grid>
 
     <!-- Center Viewport -->

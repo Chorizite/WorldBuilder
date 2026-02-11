@@ -19,6 +19,11 @@ namespace WorldBuilder.Lib.Settings {
         private Dictionary<string, bool> _layerExpanded = new();
         public Dictionary<string, bool> LayerExpanded { get => _layerExpanded; set => SetProperty(ref _layerExpanded, value); }
 
+        [SettingDisplayName("Overwrite DAT Files")]
+        [SettingDescription("Whether to overwrite existing DAT files when exporting.")]
+        private bool _overwriteDatFiles = true;
+        public bool OverwriteDatFiles { get => _overwriteDatFiles; set => SetProperty(ref _overwriteDatFiles, value); }
+
         [JsonIgnore]
         public string? FilePath { get; set; }
 

@@ -95,6 +95,8 @@ namespace WorldBuilder.Services {
                 var projectResult = await Project.Create(model.ProjectName, model.ProjectLocation, model.BaseDatDirectory, default);
 
                 if (projectResult.IsSuccess) {
+                    _settings.App.LastBaseDatDirectory = model.BaseDatDirectory;
+                    _settings.Save();
                     SetProject(projectResult.Value);
                 }
             }

@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
+using System.Threading;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Services;
 
@@ -124,19 +125,19 @@ public partial class LandscapeDocument : BaseDocument {
     /// <summary>
     /// Ensures that the terrain cache is loaded from the DAT files.
     /// </summary>
-    public async Task EnsureCacheLoadedAsync(IDatReaderWriter dats, CancellationToken ct) {
+    public async Task EnsureCacheLoadedAsync(IDatReaderWriter dats, CancellationToken ct, IProgress<float>? progress = null) {
         await _initLock.WaitAsync(ct);
         try {
-            await EnsureCacheLoadedAsyncInternal(dats, ct);
+            await EnsureCacheLoadedAsyncInternal(dats, ct, progress);
         }
         finally {
             _initLock.Release();
         }
     }
 
-    private async Task EnsureCacheLoadedAsyncInternal(IDatReaderWriter dats, CancellationToken ct) {
+    private async Task EnsureCacheLoadedAsyncInternal(IDatReaderWriter dats, CancellationToken ct, IProgress<float>? progress = null) {
         if (_didLoadCacheFromDats) return;
-        await LoadCacheFromDatsAsync(ct);
+        await LoadCacheFromDatsAsync(ct, progress);
         RecalculateTerrainCacheInternal();
     }
 
@@ -319,6 +320,30 @@ public partial class LandscapeDocument : BaseDocument {
         }
     }
 
+    /// <summary>
+    /// Checks if a layer is effectively visible by checking its own visibility and all of its parents.
+    /// </summary>
+    public bool IsItemVisible(LandscapeLayerBase item) {
+        if (!item.IsVisible) return false;
+        var parent = FindParent(item.Id);
+        return parent == null || IsItemVisible(parent);
+    }
+
+    /// <summary>
+    /// Checks if a layer is effectively exported by checking its own export status and all of its parents.
+    /// </summary>
+    public bool IsItemExported(LandscapeLayerBase item) {
+        if (!item.IsExported) return false;
+        var parent = FindParent(item.Id);
+        return parent == null || IsItemExported(parent);
+    }
+
+    public LandscapeLayerGroup? FindParent(string id) {
+        return GetAllLayersAndGroups()
+            .OfType<LandscapeLayerGroup>()
+            .FirstOrDefault(g => g.Children.Any(c => c.Id == id));
+    }
+
     public IEnumerable<uint> GetAffectedVertices(LandscapeLayerBase item) {
         if (item is LandscapeLayer layer) {
             return layer.Terrain.Keys;
@@ -404,7 +429,7 @@ public partial class LandscapeDocument : BaseDocument {
 
             // Merge layers in order
             foreach (var layer in GetAllLayers()) {
-                if (!layer.IsVisible) continue;
+                if (!IsItemVisible(layer)) continue;
 
                 foreach (var kvp in layer.Terrain) {
                     var vertexIndex = kvp.Key;
@@ -416,9 +441,9 @@ public partial class LandscapeDocument : BaseDocument {
         }
         else {
             var vertices = affectedVertices.ToList();
-            Console.WriteLine($"[DEBUG] Recalculating PARTIAL terrain cache. Affected vertices: {vertices.Count}. Visible layers: {GetAllLayers().Count(l => l.IsVisible)}");
+            Console.WriteLine($"[DEBUG] Recalculating PARTIAL terrain cache. Affected vertices: {vertices.Count}. Visible layers: {GetAllLayers().Count(IsItemVisible)}");
             // Partial recalculation
-            var layers = GetAllLayers().Where(l => l.IsVisible).ToList();
+            var layers = GetAllLayers().Where(IsItemVisible).ToList();
             foreach (var vertexIndex in vertices) {
                 if (vertexIndex >= TerrainCache.Length) continue;
 
@@ -486,7 +511,7 @@ public partial class LandscapeDocument : BaseDocument {
         return affectedBlocks;
     }
 
-    private async Task LoadCacheFromDatsAsync(CancellationToken ct) {
+    private async Task LoadCacheFromDatsAsync(CancellationToken ct, IProgress<float>? progress = null) {
         if (_didLoadCacheFromDats) return;
         if (Region is null) throw new InvalidOperationException("Region not loaded yet.");
         if (CellDatabase is null) throw new InvalidOperationException("CellDatabase not loaded yet.");
@@ -501,6 +526,7 @@ public partial class LandscapeDocument : BaseDocument {
         BaseTerrainCache = new TerrainEntry[Region.MapWidthInVertices * Region.MapHeightInVertices];
         TerrainCache = new TerrainEntry[BaseTerrainCache.Length];
 
+        int chunksProcessed = 0;
         await Task.Run(() => {
             var opts = new ParallelOptions() { CancellationToken = ct };
 
@@ -541,6 +567,8 @@ public partial class LandscapeDocument : BaseDocument {
                         };
                     }
                 }
+                Interlocked.Increment(ref chunksProcessed);
+                progress?.Report((float)chunksProcessed / numChunks);
             });
         }, ct);
 

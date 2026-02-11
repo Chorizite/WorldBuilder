@@ -72,6 +72,7 @@ namespace WorldBuilder.ViewModels {
 
             ExportDirectory = !string.IsNullOrEmpty(_settings.App.LastDatExportDirectory) ? _settings.App.LastDatExportDirectory : _settings.App.ProjectsDirectory;
             PortalIteration = _settings.App.LastDatExportPortalIteration > 0 ? _settings.App.LastDatExportPortalIteration : _dats.PortalIteration;
+            OverwriteFiles = _settings.Project?.OverwriteDatFiles ?? true;
 
             Validate();
         }
@@ -112,6 +113,11 @@ namespace WorldBuilder.ViewModels {
                     _settings.App.LastDatExportDirectory = ExportDirectory;
                     _settings.App.LastDatExportPortalIteration = PortalIteration;
                     _settings.Save();
+
+                    if (_settings.Project is not null) {
+                        _settings.Project.OverwriteDatFiles = OverwriteFiles;
+                        _settings.Project.Save();
+                    }
 
                     DialogResult = true; // Set dialog result to true for success
                     return true;

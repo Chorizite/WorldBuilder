@@ -110,6 +110,8 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
         _settings = settings;
 
         _location = settings.App.ProjectsDirectory;
+        _baseDatDirectory = settings.App.LastBaseDatDirectory;
+        ValidateBaseDatDirectory();
         ValidateLocation();
         UpdateCanProceed();
 
@@ -139,10 +141,11 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
     /// <returns>A task representing the asynchronous operation</returns>
     [RelayCommand]
     private async Task BrowseBaseDatDirectory() {
+        var suggestedPath = string.IsNullOrEmpty(_settings.App.LastBaseDatDirectory) ? _settings.App.ProjectsDirectory : _settings.App.LastBaseDatDirectory;
         var files = await TopLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions() {
             Title = "Choose Base DAT directory",
             AllowMultiple = false,
-            SuggestedStartLocation = await TopLevel.StorageProvider.TryGetFolderFromPathAsync(_settings.App.ProjectsDirectory)
+            SuggestedStartLocation = await TopLevel.StorageProvider.TryGetFolderFromPathAsync(suggestedPath)
         });
 
         if (files.Count == 0) return;

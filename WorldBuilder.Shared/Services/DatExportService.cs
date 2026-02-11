@@ -66,53 +66,78 @@ namespace WorldBuilder.Shared.Services {
                     portalIteration = 0;
                 }
 
-                // 3. Export all loaded landscape documents
+                // 3. Pre-scan regions to find which ones have changes
                 var regionIds = _dats.CellRegions.Keys.ToList();
-                int totalRegions = regionIds.Count;
-                _log.LogInformation("Found {Count} regions to process", totalRegions);
+                var projectRegions = new List<(uint regionId, LandscapeDocument doc, DocumentRental<LandscapeDocument> rental, int affectedCount)>();
+                int totalAffectedLandblocks = 0;
 
-                if (totalRegions == 0) {
-                    progress?.Report(new DatExportProgress("No regions to export.", 1.0f));
+                progress?.Report(new DatExportProgress("Scanning for modified regions...", 0.20f));
+
+                await Task.Run(async () => {
+                    try {
+                        foreach (var regionId in regionIds) {
+                            var id = LandscapeDocument.GetIdFromRegion(regionId);
+                            var rentResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(id, CancellationToken.None);
+
+                            if (rentResult.IsSuccess) {
+                                var rental = rentResult.Value;
+                                var doc = rental.Document;
+                                await doc.InitializeForUpdatingAsync(_dats, _documentManager, CancellationToken.None);
+
+                                var exportedLayers = doc.GetAllLayers().Where(doc.IsItemExported).ToList();
+                                var affectedLandblocks = new HashSet<(int x, int y)>();
+                                foreach (var layer in exportedLayers) {
+                                    foreach (var lb in doc.GetAffectedLandblocks(layer.Id)) {
+                                        affectedLandblocks.Add(lb);
+                                    }
+                                }
+
+                                if (affectedLandblocks.Count > 0) {
+                                    _log.LogInformation("Region {RegionId} has {Count} affected landblocks.", regionId, affectedLandblocks.Count);
+                                    projectRegions.Add((regionId, doc, rental, affectedLandblocks.Count));
+                                    totalAffectedLandblocks += affectedLandblocks.Count;
+                                }
+                                else {
+                                    rental.Dispose();
+                                }
+                            }
+                        }
+
+                        if (projectRegions.Count == 0) {
+                            _log.LogInformation("No modified regions found to export.");
+                            progress?.Report(new DatExportProgress("No modified regions found.", 1.0f));
+                            return;
+                        }
+
+                        _log.LogInformation("Found {Count} modified regions to process, with {TotalLandblocks} total landblocks.", projectRegions.Count, totalAffectedLandblocks);
+
+                        int processedLandblocks = 0;
+                        foreach (var (regionId, doc, rental, affectedCount) in projectRegions) {
+                            var regionProgress = new Progress<float>(p => {
+                                float regionBaseProgress = (float)processedLandblocks / totalAffectedLandblocks;
+                                float regionWeight = (float)affectedCount / totalAffectedLandblocks;
+                                float totalProgress = 0.20f + (0.80f * (regionBaseProgress + (p * regionWeight)));
+                                progress?.Report(new DatExportProgress($"Exporting region {regionId}...", totalProgress));
+                            });
+
+                            _log.LogInformation("Saving region {RegionId} to DATs...", regionId);
+                            if (!await doc.SaveToDatsAsync(exportDatWriter, portalIteration, regionProgress)) {
+                                _log.LogError("Failed to save LandscapeDocument (Region {RegionId}) to DATs", regionId);
+                                throw new Exception($"Failed to save LandscapeDocument (Region {regionId}) to DATs");
+                            }
+                            processedLandblocks += affectedCount;
+                            _log.LogInformation("Successfully saved region {RegionId} to DATs.", regionId);
+                        }
+                    }
+                    finally {
+                        foreach (var region in projectRegions) {
+                            region.rental.Dispose();
+                        }
+                    }
+                });
+
+                if (projectRegions.Count == 0 && totalAffectedLandblocks == 0) {
                     return true;
-                }
-
-                int currentRegion = 0;
-                foreach (var regionId in regionIds) {
-                    float currentTotalProgress = 0.20f + (0.80f * currentRegion / totalRegions);
-                    _log.LogDebug("Checking region {RegionId} ({Current}/{Total})", regionId, currentRegion + 1, totalRegions);
-                    progress?.Report(new DatExportProgress($"Checking region {regionId}...", currentTotalProgress));
-
-                    var id = LandscapeDocument.GetIdFromRegion(regionId);
-                    _log.LogDebug("Renting document {DocumentId}", id);
-                    var rentResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(id, CancellationToken.None);
-
-                    if (rentResult.IsFailure) {
-                        _log.LogInformation("Skipping region {RegionId} as it is not part of the current project.", regionId);
-                        currentRegion++;
-                        continue;
-                    }
-
-                    progress?.Report(new DatExportProgress($"Opening region {regionId}...", currentTotalProgress));
-
-                    using var rental = rentResult.Value;
-                    var doc = rental.Document;
-
-                    _log.LogDebug("Initializing document {DocumentId}", id);
-                    // Initialize the document with base DATs so it has Region/CellDatabase info
-                    await doc.InitializeForUpdatingAsync(_dats, _documentManager, CancellationToken.None);
-
-                    var regionProgress = new Progress<float>(p => {
-                        float totalProgress = 0.20f + (0.80f * (currentRegion + p) / totalRegions);
-                        progress?.Report(new DatExportProgress($"Exporting region {regionId}...", totalProgress));
-                    });
-
-                    _log.LogInformation("Saving region {RegionId} to DATs...", regionId);
-                    if (!await doc.SaveToDatsAsync(exportDatWriter, portalIteration, regionProgress)) {
-                        _log.LogError("Failed to save LandscapeDocument (Region {RegionId}) to DATs", regionId);
-                        return false;
-                    }
-                    _log.LogInformation("Successfully saved region {RegionId} to DATs.", regionId);
-                    currentRegion++;
                 }
 
                 progress?.Report(new DatExportProgress("DAT export completed successfully.", 1.0f));

@@ -71,39 +71,41 @@
             BorderThickness="1"
             CornerRadius="4" Padding="12"
             IsVisible="{Binding ActiveTool, Converter={x:Static ObjectConverters.IsNotNull}}">
-      <StackPanel Spacing="10">
-        <TextBlock Text="Tool Settings" FontWeight="SemiBold" FontSize="14" />
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Tool Settings" FontWeight="SemiBold" FontSize="14" />
 
-        <ContentControl Content="{Binding ActiveTool}">
-          <ContentControl.DataTemplates>
-            <DataTemplate DataType="{x:Type tools:BrushTool}">
-              <StackPanel Spacing="8">
-                <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock Text="Size" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="1" Text="{Binding BrushSize}" VerticalAlignment="Center"/>
-                </Grid>
-                <Slider Value="{Binding BrushSize}" Minimum="1" Maximum="10" IsSnapToTickEnabled="True" TickFrequency="1" />
+          <ContentControl Content="{Binding ActiveTool}">
+            <ContentControl.DataTemplates>
+              <DataTemplate DataType="{x:Type tools:BrushTool}">
+                <StackPanel Spacing="8">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Size" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="{Binding BrushSize}" VerticalAlignment="Center"/>
+                  </Grid>
+                  <Slider Value="{Binding BrushSize}" Minimum="1" Maximum="10" IsSnapToTickEnabled="True" TickFrequency="1" />
 
-                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource TextureGridTemplate}"/>
-              </StackPanel>
-            </DataTemplate>
+                  <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource TextureGridTemplate}"/>
+                </StackPanel>
+              </DataTemplate>
 
-            <DataTemplate DataType="{x:Type tools:BucketFillTool}">
-              <StackPanel Spacing="8">
-                <CheckBox Content="Contiguous Fill" IsChecked="{Binding IsContiguous}" />
-                
-                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource TextureGridTemplate}"/>
+              <DataTemplate DataType="{x:Type tools:BucketFillTool}">
+                <StackPanel Spacing="8">
+                  <CheckBox Content="Contiguous Fill" IsChecked="{Binding IsContiguous}" />
+                  
+                  <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource TextureGridTemplate}"/>
 
-                <TextBlock Text="Fills connected areas of the same texture." 
-                           IsVisible="{Binding IsContiguous}"
-                           FontStyle="Italic" FontSize="11" TextWrapping="Wrap" />
-                <TextBlock Text="replaces all instances of the clicked texture globally." 
-                           IsVisible="{Binding !IsContiguous}"
-                           FontStyle="Italic" FontSize="11" TextWrapping="Wrap" />
-              </StackPanel>
-            </DataTemplate>
-          </ContentControl.DataTemplates>
-        </ContentControl>
-      </StackPanel>
+                  <TextBlock Text="Fills connected areas of the same texture." 
+                             IsVisible="{Binding IsContiguous}"
+                             FontStyle="Italic" FontSize="11" TextWrapping="Wrap" />
+                  <TextBlock Text="replaces all instances of the clicked texture globally." 
+                             IsVisible="{Binding !IsContiguous}"
+                             FontStyle="Italic" FontSize="11" TextWrapping="Wrap" />
+                </StackPanel>
+              </DataTemplate>
+            </ContentControl.DataTemplates>
+          </ContentControl>
+        </StackPanel>
+      </ScrollViewer>
     </Border>
 </UserControl>

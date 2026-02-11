@@ -8,11 +8,11 @@ namespace WorldBuilder.Shared.Models {
         protected override async Task<bool> SaveToDatsInternal(IDatReaderWriter datwriter, int iteration = 0, IProgress<float>? progress = null) {
             if (Region == null || CellDatabase == null) return false;
 
-            // 1. Identify affected landblocks from visible layers
+            // 1. Identify affected landblocks from exported layers
             var affectedLandblocks = new HashSet<(int x, int y)>();
-            var visibleLayers = GetAllLayers().Where(l => l.IsVisible).ToList();
+            var exportedLayers = GetAllLayers().Where(IsItemExported).ToList();
 
-            foreach (var layer in visibleLayers) {
+            foreach (var layer in exportedLayers) {
                 foreach (var lb in GetAffectedLandblocks(layer.Id)) {
                     affectedLandblocks.Add(lb);
                 }
@@ -24,8 +24,25 @@ namespace WorldBuilder.Shared.Models {
                 return true;
             }
 
-            // Lazy load the terrain cache only if we have changes to export
-            await EnsureCacheLoadedAsync(datwriter, CancellationToken.None);
+            // Lazy load the base terrain cache if needed
+            var cacheProgress = new Progress<float>(p => {
+                progress?.Report(p * 0.5f);
+            });
+            await EnsureCacheLoadedAsync(datwriter, CancellationToken.None, cacheProgress);
+
+            // Create a temporary export cache by merging exported layers on top of base terrain
+            var exportCache = new TerrainEntry[BaseTerrainCache.Length];
+            Array.Copy(BaseTerrainCache, exportCache, BaseTerrainCache.Length);
+
+            foreach (var layer in exportedLayers) {
+                foreach (var kvp in layer.Terrain) {
+                    var vertexIndex = kvp.Key;
+                    var terrain = kvp.Value;
+                    if (vertexIndex < exportCache.Length) {
+                        exportCache[vertexIndex].Merge(terrain);
+                    }
+                }
+            }
 
             int vertexStride = Region.LandblockVerticeLength;
             int mapWidth = Region.MapWidthInVertices;
@@ -48,7 +65,7 @@ namespace WorldBuilder.Shared.Models {
                 var lb = new LandBlock();
                 lb.Unpack(new DatBinReader(buffer));
 
-                // Update landblock data from our merged cache
+                // Update landblock data from our merged export cache
                 int baseVx = lbX * strideMinusOne;
                 int baseVy = lbY * strideMinusOne;
                 bool modified = false;
@@ -58,9 +75,9 @@ namespace WorldBuilder.Shared.Models {
                     int localX = localIdx / vertexStride;
                     int globalVertexIndex = (baseVy + localY) * mapWidth + (baseVx + localX);
 
-                    if (globalVertexIndex >= TerrainCache.Length) continue;
+                    if (globalVertexIndex >= exportCache.Length) continue;
 
-                    var entry = TerrainCache[globalVertexIndex];
+                    var entry = exportCache[globalVertexIndex];
 
                     if (lb.Height[localIdx] != (entry.Height ?? 0)) {
                         lb.Height[localIdx] = entry.Height ?? 0;
@@ -90,7 +107,7 @@ namespace WorldBuilder.Shared.Models {
                 }
 
                 processed++;
-                progress?.Report((float)processed / totalAffected);
+                progress?.Report(0.5f + (0.5f * processed / totalAffected));
             }
 
             return true;
