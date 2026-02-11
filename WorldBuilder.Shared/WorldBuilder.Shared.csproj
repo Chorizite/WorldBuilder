@@ -32,4 +32,8 @@
 	    <HintPath>..\..\..\home\trevis\.nuget\packages\communitytoolkit.mvvm\8.4.0\lib\net8.0\CommunityToolkit.Mvvm.dll</HintPath>
 	  </Reference>
 	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Commands\" />
+	</ItemGroup>
 </Project>

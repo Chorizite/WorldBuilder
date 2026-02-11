@@ -2,15 +2,11 @@
 
 AC WorldBuilder is a cross-platform, standalone desktop application designed for creating and editing dat content for Asheron's Call emulator servers / clients.
 
-## Prerequisites
-
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-
 ## Installation
 
 - Grab the latest installer from the [Releases](https://github.com/Chorizite/WorldBuilder/releases) page.
 
-## Build and Run
+## Development
 
 ### Platform-Specific Builds
 The application supports multiple platforms:
@@ -18,14 +14,14 @@ The application supports multiple platforms:
 - **Linux**: `dotnet run --project WorldBuilder.Linux`
 - **Mac**: `dotnet run --project WorldBuilder.Mac`
 
-## Testing
+### Testing
 
 The project includes a comprehensive test suite:
 - **Unit Tests**: Located in `WorldBuilder.Tests` and `WorldBuilder.Shared.Tests`
 - **Running Tests**: Execute `dotnet test` from the root directory to run all tests
 
 
-## Project Structure
+### Project Structure
 
 - **WorldBuilder**: The main cross-platform application using Avalonia.
 - **WorldBuilder.Windows**: Windows-specific application entry point.

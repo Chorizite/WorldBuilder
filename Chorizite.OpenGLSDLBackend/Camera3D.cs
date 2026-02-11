@@ -1,3 +1,4 @@
+using System;
 using System.Numerics;
 
 namespace Chorizite.OpenGLSDLBackend;
@@ -40,6 +41,11 @@ public class Camera3D : CameraBase {
     private bool _isLooking;
 
     /// <summary>
+    /// Event triggered when the movement speed changes.
+    /// </summary>
+    public event Action<float>? OnMoveSpeedChanged;
+
+    /// <summary>
     /// Gets or sets the far clipping plane distance.
     /// </summary>
     public float FarPlane {
@@ -74,7 +80,13 @@ public class Camera3D : CameraBase {
     /// </summary>
     public float MoveSpeed {
         get => _moveSpeed;
-        set => _moveSpeed = Math.Max(0.1f, value);
+        set {
+            var newSpeed = Math.Max(0.1f, value);
+            if (Math.Abs(_moveSpeed - newSpeed) > 0.001f) {
+                _moveSpeed = newSpeed;
+                OnMoveSpeedChanged?.Invoke(_moveSpeed);
+            }
+        }
     }
 
     /// <summary>

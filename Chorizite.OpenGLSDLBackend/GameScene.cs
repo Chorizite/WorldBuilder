@@ -68,6 +68,7 @@ public class GameScene : IDisposable {
         // Initialize cameras
         _camera2D = new Camera2D(new Vector3(0, 0, 0));
         _camera3D = new Camera3D(new Vector3(0, -5, 2), 0, -22);
+        _camera3D.OnMoveSpeedChanged += (speed) => OnMoveSpeedChanged?.Invoke(speed);
         _currentCamera = _camera3D;
         _is3DMode = true;
     }
@@ -175,6 +176,14 @@ public class GameScene : IDisposable {
         _camera3D.FarPlane = distance;
     }
 
+    /// <summary>
+    /// Sets the movement speed for the 3D camera.
+    /// </summary>
+    /// <param name="speed">The movement speed in units per second.</param>
+    public void SetMovementSpeed(float speed) {
+        _camera3D.MoveSpeed = speed;
+    }
+
     public void SetBrush(Vector3 position, float radius, Vector4 color, bool show) {
         if (_terrainManager != null) {
             _terrainManager.BrushPosition = position;
@@ -277,6 +286,11 @@ public class GameScene : IDisposable {
     public event Action<ViewportInputEvent>? OnPointerMoved;
     public event Action<ViewportInputEvent>? OnPointerReleased;
     public event Action<bool>? OnCameraChanged;
+
+    /// <summary>
+    /// Event triggered when the 3D camera movement speed changes.
+    /// </summary>
+    public event Action<float>? OnMoveSpeedChanged;
 
     public void HandlePointerPressed(ViewportInputEvent e) {
         OnPointerPressed?.Invoke(e);

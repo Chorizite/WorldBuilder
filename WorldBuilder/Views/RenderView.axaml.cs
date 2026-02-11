@@ -97,6 +97,14 @@ public partial class RenderView : Base3DViewport {
                 });
             };
 
+            _gameScene.OnMoveSpeedChanged += (speed) => {
+                Dispatcher.UIThread.Post(() => {
+                    if (_cameraSettings != null) {
+                        _cameraSettings.MovementSpeed = speed;
+                    }
+                });
+            };
+
             // Initial grid update
             UpdateGridSettings();
 
@@ -143,6 +151,7 @@ public partial class RenderView : Base3DViewport {
         _cameraSettings = _settings.Landscape.Camera;
         _cameraSettings.PropertyChanged += OnCameraSettingsChanged;
         _gameScene.SetDrawDistance(_cameraSettings.MaxDrawDistance);
+        _gameScene.SetMovementSpeed(_cameraSettings.MovementSpeed);
 
         if (_gridSettings != null) {
             _gridSettings.PropertyChanged -= OnGridSettingsChanged;
@@ -160,8 +169,13 @@ public partial class RenderView : Base3DViewport {
     }
 
     private void OnCameraSettingsChanged(object? sender, PropertyChangedEventArgs e) {
-        if (e.PropertyName == nameof(CameraSettings.MaxDrawDistance) && _gameScene != null && _cameraSettings != null) {
+        if (_gameScene == null || _cameraSettings == null) return;
+
+        if (e.PropertyName == nameof(CameraSettings.MaxDrawDistance)) {
             _gameScene.SetDrawDistance(_cameraSettings.MaxDrawDistance);
+        }
+        else if (e.PropertyName == nameof(CameraSettings.MovementSpeed)) {
+            _gameScene.SetMovementSpeed(_cameraSettings.MovementSpeed);
         }
     }
 
