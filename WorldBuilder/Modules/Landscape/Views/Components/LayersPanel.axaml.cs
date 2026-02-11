@@ -51,10 +51,12 @@ public partial class LayersPanel : UserControl {
 
         if (Math.Abs(delta.X) > 5 || Math.Abs(delta.Y) > 5) {
             _isDragging = true;
+#pragma warning disable CS0618
             var dragData = new DataObject();
             dragData.Set("LayerItem", _ghostItem);
 
             var result = await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Move);
+#pragma warning restore CS0618
 
             _isDragging = false;
             _ghostItem = null;
@@ -63,7 +65,9 @@ public partial class LayersPanel : UserControl {
     }
 
     private void OnDragOver(object? sender, DragEventArgs e) {
+#pragma warning disable CS0618
         if (e.Data.Get("LayerItem") is not LayerItemViewModel draggingItem) {
+#pragma warning restore CS0618
             e.DragEffects = DragDropEffects.None;
             return;
         }
@@ -121,7 +125,9 @@ public partial class LayersPanel : UserControl {
     }
 
     private void OnDrop(object? sender, DragEventArgs e) {
+#pragma warning disable CS0618
         if (e.Data.Get("LayerItem") is not LayerItemViewModel draggingItem) return;
+#pragma warning restore CS0618
 
         var visual = e.Source as Visual;
         var treeViewItem = visual?.FindAncestorOfType<TreeViewItem>();
