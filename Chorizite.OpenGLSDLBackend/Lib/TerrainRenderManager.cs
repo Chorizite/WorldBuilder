@@ -72,19 +72,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _landscapeDoc = landscapeDoc;
             _dats = dats;
             _graphicsDevice = graphicsDevice;
-            log.LogInformation($"Initialized TerrainRenderManager");
+            log.LogTrace($"Initialized TerrainRenderManager");
 
             _landscapeDoc.LandblockChanged += OnLandblockChanged;
         }
 
         private void OnLandblockChanged(object? sender, LandblockChangedEventArgs e) {
             if (e.AffectedLandblocks == null) {
-                _log.LogInformation("LandblockChanged: All landblocks invalidated");
+                _log.LogTrace("LandblockChanged: All landblocks invalidated");
                 InvalidateLandblock(-1, -1);
             }
             else {
                 var affected = e.AffectedLandblocks.ToList();
-                _log.LogInformation("LandblockChanged: {Count} landblocks affected: {Landblocks}", 
+                _log.LogTrace("LandblockChanged: {Count} landblocks affected: {Landblocks}", 
                     affected.Count, string.Join(", ", affected.Select(lb => $"({lb.x}, {lb.y})")));
                 foreach (var (lbX, lbY) in affected) {
                     InvalidateLandblock(lbX, lbY);

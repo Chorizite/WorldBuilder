@@ -116,7 +116,6 @@ public class GameScene : IDisposable {
     }
 
     public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats) {
-        _log.LogInformation($"SetLandscape: {landscapeDoc.RegionId}");
         if (_terrainManager != null) {
             _terrainManager.Dispose();
         }

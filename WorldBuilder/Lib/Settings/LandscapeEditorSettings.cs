@@ -6,18 +6,46 @@ namespace WorldBuilder.Lib.Settings {
     [SettingCategory("Landscape Editor", Order = 1)]
     public partial class LandscapeEditorSettings : ObservableObject {
         private CameraSettings _camera = new();
-        public CameraSettings Camera { get => _camera; set => SetProperty(ref _camera, value); }
+        public CameraSettings Camera {
+            get => _camera;
+            set {
+                if (_camera != null) _camera.PropertyChanged -= OnSubSettingsPropertyChanged;
+                if (SetProperty(ref _camera, value) && _camera != null) {
+                    _camera.PropertyChanged += OnSubSettingsPropertyChanged;
+                }
+            }
+        }
 
         private RenderingSettings _rendering = new();
-        public RenderingSettings Rendering { get => _rendering; set => SetProperty(ref _rendering, value); }
+        public RenderingSettings Rendering {
+            get => _rendering;
+            set {
+                if (_rendering != null) _rendering.PropertyChanged -= OnSubSettingsPropertyChanged;
+                if (SetProperty(ref _rendering, value) && _rendering != null) {
+                    _rendering.PropertyChanged += OnSubSettingsPropertyChanged;
+                }
+            }
+        }
 
         private GridSettings _grid = new();
-        public GridSettings Grid { get => _grid; set => SetProperty(ref _grid, value); }
-
-        private SelectionSettings _selection = new();
-        public SelectionSettings Selection { get => _selection; set => SetProperty(ref _selection, value); }
+        public GridSettings Grid {
+            get => _grid;
+            set {
+                if (_grid != null) _grid.PropertyChanged -= OnSubSettingsPropertyChanged;
+                if (SetProperty(ref _grid, value) && _grid != null) {
+                    _grid.PropertyChanged += OnSubSettingsPropertyChanged;
+                }
+            }
+        }
 
         public LandscapeEditorSettings() {
+            if (_camera != null) _camera.PropertyChanged += OnSubSettingsPropertyChanged;
+            if (_rendering != null) _rendering.PropertyChanged += OnSubSettingsPropertyChanged;
+            if (_grid != null) _grid.PropertyChanged += OnSubSettingsPropertyChanged;
+        }
+
+        private void OnSubSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
+            OnPropertyChanged(nameof(Camera)); // Trigger a change on the parent
         }
     }
 
@@ -99,22 +127,5 @@ namespace WorldBuilder.Lib.Settings {
         [SettingOrder(4)]
         private Vector3 _cellColor = new(0f, 1f, 1f);
         public Vector3 CellColor { get => _cellColor; set => SetProperty(ref _cellColor, value); }
-    }
-
-    [SettingCategory("Selection", ParentCategory = "Landscape Editor", Order = 3)]
-    public partial class SelectionSettings : ObservableObject {
-        [SettingDescription("Color of the selection sphere indicator (RGB values 0-1)")]
-        [SettingDisplayName("Sphere Color")]
-        [SettingOrder(0)]
-        private Vector3 _sphereColor = new(1.0f, 1.0f, 1.0f);
-        public Vector3 SphereColor { get => _sphereColor; set => SetProperty(ref _sphereColor, value); }
-
-        [SettingDescription("Radius of the selection sphere in units")]
-        [SettingDisplayName("Sphere Radius")]
-        [SettingRange(0.1, 20.0, 0.1, 1.0)]
-        [SettingFormat("{0:F1}")]
-        [SettingOrder(1)]
-        private float _sphereRadius = 4.6f;
-        public float SphereRadius { get => _sphereRadius; set => SetProperty(ref _sphereRadius, value); }
     }
 }

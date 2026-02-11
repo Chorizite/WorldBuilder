@@ -22,7 +22,6 @@ namespace WorldBuilder.Lib {
     [JsonSerializable(typeof(CameraSettings))]
     [JsonSerializable(typeof(RenderingSettings))]
     [JsonSerializable(typeof(GridSettings))]
-    [JsonSerializable(typeof(SelectionSettings))]
     [JsonSerializable(typeof(Vector3))]
     [JsonSerializable(typeof(DateTime))]
     [JsonSerializable(typeof(string))]

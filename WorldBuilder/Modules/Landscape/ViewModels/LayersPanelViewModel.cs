@@ -68,15 +68,15 @@ public partial class LayersPanelViewModel : ViewModelBase {
             return;
         }
 
-        _log.LogInformation("SyncWithDocument: Syncing with doc {DocId} (Instance: {Hash}). Tree Count: {TreeCount}", _document.Id, _document.GetHashCode(), _document.LayerTree.Count);
+        _log.LogTrace("SyncWithDocument: Syncing with doc {DocId} (Instance: {Hash}). Tree Count: {TreeCount}", _document.Id, _document.GetHashCode(), _document.LayerTree.Count);
 
         Items.Clear();
 
         var layers = _document.LayerTree.AsEnumerable().Reverse().ToList();
-        _log.LogInformation("SyncWithDocument: Found {Count} root layers for doc {DocId}", layers.Count, _document.Id);
+        _log.LogTrace("SyncWithDocument: Found {Count} root layers for doc {DocId}", layers.Count, _document.Id);
 
         foreach (var layerBase in layers) {
-            _log.LogInformation(" - Adding VM for Layer: {Name} ({Id}, Visible: {Visible}, Type: {Type})", layerBase.Name, layerBase.Id, layerBase.IsVisible, layerBase.GetType().Name);
+            _log.LogTrace(" - Adding VM for Layer: {Name} ({Id}, Visible: {Visible}, Type: {Type})", layerBase.Name, layerBase.Id, layerBase.IsVisible, layerBase.GetType().Name);
             Items.Add(CreateVM(layerBase, null, expansionState));
         }
 
@@ -283,8 +283,6 @@ public partial class LayersPanelViewModel : ViewModelBase {
     private async Task Refresh() {
         if (_document == null) return;
 
-        // Re-rent the document to ensure we have the latest instance from the cache
-        // This addresses potential instance staleness between different ViewModels/Modules.
         var rentResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(_document.Id, default);
         if (rentResult.IsSuccess) {
             using var terrainRental = rentResult.Value;

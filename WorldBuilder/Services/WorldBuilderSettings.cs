@@ -22,13 +22,23 @@ namespace WorldBuilder.Services {
         private AppSettings _app = new();
         public AppSettings App {
             get => _app;
-            set => SetProperty(ref _app, value);
+            set {
+                if (_app != null) _app.PropertyChanged -= OnSubSettingsPropertyChanged;
+                if (SetProperty(ref _app, value) && _app != null) {
+                    _app.PropertyChanged += OnSubSettingsPropertyChanged;
+                }
+            }
         }
 
         private LandscapeEditorSettings _landscape = new();
         public LandscapeEditorSettings Landscape {
             get => _landscape;
-            set => SetProperty(ref _landscape, value);
+            set {
+                if (_landscape != null) _landscape.PropertyChanged -= OnSubSettingsPropertyChanged;
+                if (SetProperty(ref _landscape, value) && _landscape != null) {
+                    _landscape.PropertyChanged += OnSubSettingsPropertyChanged;
+                }
+            }
         }
 
         private ProjectSettings? _project;
@@ -38,7 +48,9 @@ namespace WorldBuilder.Services {
             set => SetProperty(ref _project, value);
         }
 
-        public WorldBuilderSettings() { }
+        public WorldBuilderSettings() {
+            SetupListeners();
+        }
 
         public WorldBuilderSettings(ILogger<WorldBuilderSettings> log) {
             _log = log;
@@ -47,7 +59,17 @@ namespace WorldBuilder.Services {
                 Directory.CreateDirectory(AppDataDirectory);
             }
 
+            SetupListeners();
             TryLoad();
+        }
+
+        private void SetupListeners() {
+            if (_app != null) _app.PropertyChanged += OnSubSettingsPropertyChanged;
+            if (_landscape != null) _landscape.PropertyChanged += OnSubSettingsPropertyChanged;
+        }
+
+        private void OnSubSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
+            Save();
         }
 
         private void TryLoad() {

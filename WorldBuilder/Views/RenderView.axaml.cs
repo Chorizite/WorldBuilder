@@ -55,6 +55,10 @@ public partial class RenderView : Base3DViewport {
     }
 
     protected override void OnGlDestroy() {
+        if (_settings != null) {
+            _settings.PropertyChanged -= OnSettingsPropertyChanged;
+            _settings.Landscape.PropertyChanged -= OnLandscapeSettingsPropertyChanged;
+        }
         if (_cameraSettings != null) {
             _cameraSettings.PropertyChanged -= OnCameraSettingsChanged;
             _cameraSettings = null;
@@ -67,6 +71,8 @@ public partial class RenderView : Base3DViewport {
         _gameScene = null;
     }
 
+    private WorldBuilderSettings? _settings;
+
     protected override void OnGlInit(GL gl, PixelSize canvasSize) {
         GL = gl;
 
@@ -75,15 +81,12 @@ public partial class RenderView : Base3DViewport {
             var log = loggerFactory?.CreateLogger("GameScene") ?? new ColorConsoleLogger("GameScene", () => new ColorConsoleLoggerConfiguration());
             _gameScene = new GameScene(gl, Renderer.GraphicsDevice, log);
 
-            var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
-            if (settings != null) {
-                _cameraSettings = settings.Landscape.Camera;
-                _gameScene.SetDrawDistance(_cameraSettings.MaxDrawDistance);
-                _cameraSettings.PropertyChanged += OnCameraSettingsChanged;
-
-                _gridSettings = settings.Landscape.Grid;
-                _gridSettings.PropertyChanged += OnGridSettingsChanged;
-                UpdateGridSettings();
+            _settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
+            if (_settings != null) {
+                _settings.PropertyChanged += OnSettingsPropertyChanged;
+                _settings.Landscape.PropertyChanged += OnLandscapeSettingsPropertyChanged;
+                
+                UpdateSettingsRefs();
             }
 
             _gameScene.Initialize();
@@ -108,6 +111,40 @@ public partial class RenderView : Base3DViewport {
                 }
             });
         }
+    }
+
+    private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+        if (e.PropertyName == nameof(WorldBuilderSettings.Landscape)) {
+            if (_settings != null) {
+                _settings.Landscape.PropertyChanged -= OnLandscapeSettingsPropertyChanged;
+                _settings.Landscape.PropertyChanged += OnLandscapeSettingsPropertyChanged;
+                UpdateSettingsRefs();
+            }
+        }
+    }
+
+    private void OnLandscapeSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+        if (e.PropertyName == nameof(LandscapeEditorSettings.Camera) || e.PropertyName == nameof(LandscapeEditorSettings.Grid)) {
+            UpdateSettingsRefs();
+        }
+    }
+
+    private void UpdateSettingsRefs() {
+        if (_settings == null || _gameScene == null) return;
+
+        if (_cameraSettings != null) {
+            _cameraSettings.PropertyChanged -= OnCameraSettingsChanged;
+        }
+        _cameraSettings = _settings.Landscape.Camera;
+        _cameraSettings.PropertyChanged += OnCameraSettingsChanged;
+        _gameScene.SetDrawDistance(_cameraSettings.MaxDrawDistance);
+
+        if (_gridSettings != null) {
+            _gridSettings.PropertyChanged -= OnGridSettingsChanged;
+        }
+        _gridSettings = _settings.Landscape.Grid;
+        _gridSettings.PropertyChanged += OnGridSettingsChanged;
+        UpdateGridSettings();
     }
 
     protected override void OnDataContextChanged(EventArgs e) {

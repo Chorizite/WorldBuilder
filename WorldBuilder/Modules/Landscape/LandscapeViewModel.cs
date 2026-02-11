@@ -74,6 +74,11 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         if (_settings != null) {
             IsWireframeEnabled = _settings.Landscape.Rendering.ShowWireframe;
             IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
+
+            _settings.PropertyChanged += OnSettingsPropertyChanged;
+            _settings.Landscape.PropertyChanged += OnLandscapeSettingsPropertyChanged;
+            _settings.Landscape.Rendering.PropertyChanged += OnRenderingSettingsPropertyChanged;
+            _settings.Landscape.Grid.PropertyChanged += OnGridSettingsPropertyChanged;
         }
 
         HistoryPanel = new HistoryPanelViewModel(CommandHistory);
@@ -122,7 +127,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
     private Action<int, int>? _invalidateCallback;
 
     partial void OnActiveDocumentChanged(LandscapeDocument? oldValue, LandscapeDocument? newValue) {
-        _log.LogInformation("LandscapeViewModel.OnActiveDocumentChanged: Syncing layers for doc {DocId}", newValue?.Id);
+        _log.LogTrace("LandscapeViewModel.OnActiveDocumentChanged: Syncing layers for doc {DocId}", newValue?.Id);
         
         LayersPanel.SyncWithDocument(newValue);
 
@@ -134,13 +139,13 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         }
 
         if (newValue != null && Camera != null) {
-            _log.LogInformation("LandscapeViewModel.OnActiveDocumentChanged: Re-initializing context");
+            _log.LogTrace("LandscapeViewModel.OnActiveDocumentChanged: Re-initializing context");
             UpdateToolContext();
         }
     }
 
     partial void OnActiveLayerChanged(LandscapeLayer? oldValue, LandscapeLayer? newValue) {
-        _log.LogInformation("LandscapeViewModel.OnActiveLayerChanged: New layer {LayerId}", newValue?.Id);
+        _log.LogTrace("LandscapeViewModel.OnActiveLayerChanged: New layer {LayerId}", newValue?.Id);
         if (newValue != null && (LayersPanel.SelectedItem == null || LayersPanel.SelectedItem.Model.Id != newValue.Id)) {
             LayersPanel.SelectedItem = LayersPanel.FindVM(newValue.Id);
         }
@@ -149,7 +154,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
 
     private void UpdateToolContext() {
         if (ActiveDocument != null && Camera != null) {
-            _log.LogInformation("Updating tool context. ActiveLayer: {LayerId}", ActiveLayer?.Id);
+            _log.LogTrace("Updating tool context. ActiveLayer: {LayerId}", ActiveLayer?.Id);
 
             _toolContext = new LandscapeToolContext(ActiveDocument, CommandHistory, Camera, _log, ActiveLayer);
             _toolContext.RequestSave = RequestSave;
@@ -159,7 +164,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
             ActiveTool?.Activate(_toolContext);
         }
         else {
-            _log.LogInformation("Skipping UpdateToolContext. ActiveDocument: {HasDoc}, Camera: {HasCamera}", ActiveDocument != null, Camera != null);
+            _log.LogTrace("Skipping UpdateToolContext. ActiveDocument: {HasDoc}, Camera: {HasCamera}", ActiveDocument != null, Camera != null);
         }
     }
 
@@ -191,19 +196,10 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         if (ActiveDocument == null) return;
 
         if (docId == ActiveDocument.Id) {
-            _log.LogInformation("Persisting landscape document {DocId} to database", docId);
+            _log.LogDebug("Persisting landscape document {DocId} to database", docId);
             await _documentManager.PersistDocumentAsync(_landscapeRental!, null!, ct);
             return;
         }
-
-        // We only have one document now, so if docId matches, we save.
-        // If it was a layer ID, we might need to map it to the document ID or just ignore/warn?
-        // But wait, RequestSave is called with docId.
-        // In the tools I updated RequestSave to pass _document.Id.
-        // So docId should be the landscape document ID.
-        // However, if there are legacy calls passing layer ID, we should handle it.
-        // But since I updated the tools, it should be fine.
-        // Actually, let's just save the main document if called.
 
         _log.LogWarning("PersistDocumentAsync called with unknown ID {DocId}, saving main document instead", docId);
         await _documentManager.PersistDocumentAsync(_landscapeRental!, null!, ct);
@@ -296,7 +292,6 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
 
     private async Task LoadLandscapeAsync() {
         try {
-            _log.LogDebug("CellRegions count: {Count}", _dats.CellRegions.Count);
             // Find the first region ID
             var regionId = _dats.CellRegions.Keys.OrderBy(k => k).FirstOrDefault();
 
@@ -331,7 +326,64 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         }
     }
 
+    private void OnSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
+        if (e.PropertyName == nameof(WorldBuilderSettings.Landscape)) {
+            if (_settings != null) {
+                _settings.Landscape.PropertyChanged -= OnLandscapeSettingsPropertyChanged;
+                _settings.Landscape.PropertyChanged += OnLandscapeSettingsPropertyChanged;
+                
+                _settings.Landscape.Rendering.PropertyChanged -= OnRenderingSettingsPropertyChanged;
+                _settings.Landscape.Rendering.PropertyChanged += OnRenderingSettingsPropertyChanged;
+
+                _settings.Landscape.Grid.PropertyChanged -= OnGridSettingsPropertyChanged;
+                _settings.Landscape.Grid.PropertyChanged += OnGridSettingsPropertyChanged;
+
+                IsWireframeEnabled = _settings.Landscape.Rendering.ShowWireframe;
+                IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
+            }
+        }
+    }
+
+    private void OnLandscapeSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
+        if (e.PropertyName == nameof(LandscapeEditorSettings.Rendering)) {
+            if (_settings != null) {
+                _settings.Landscape.Rendering.PropertyChanged -= OnRenderingSettingsPropertyChanged;
+                _settings.Landscape.Rendering.PropertyChanged += OnRenderingSettingsPropertyChanged;
+                IsWireframeEnabled = _settings.Landscape.Rendering.ShowWireframe;
+            }
+        }
+        else if (e.PropertyName == nameof(LandscapeEditorSettings.Grid)) {
+            if (_settings != null) {
+                _settings.Landscape.Grid.PropertyChanged -= OnGridSettingsPropertyChanged;
+                _settings.Landscape.Grid.PropertyChanged += OnGridSettingsPropertyChanged;
+                IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
+            }
+        }
+    }
+
+    private void OnRenderingSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
+        if (e.PropertyName == nameof(RenderingSettings.ShowWireframe)) {
+            if (_settings != null) {
+                IsWireframeEnabled = _settings.Landscape.Rendering.ShowWireframe;
+            }
+        }
+    }
+
+    private void OnGridSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
+        if (e.PropertyName == nameof(GridSettings.ShowGrid)) {
+            if (_settings != null) {
+                IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
+            }
+        }
+    }
+
     public void Dispose() {
+        if (_settings != null) {
+            _settings.PropertyChanged -= OnSettingsPropertyChanged;
+            _settings.Landscape.PropertyChanged -= OnLandscapeSettingsPropertyChanged;
+            _settings.Landscape.Rendering.PropertyChanged -= OnRenderingSettingsPropertyChanged;
+            _settings.Landscape.Grid.PropertyChanged -= OnGridSettingsPropertyChanged;
+        }
         _landscapeRental?.Dispose();
     }
 }
