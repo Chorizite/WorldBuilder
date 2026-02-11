@@ -3,7 +3,6 @@ using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Services;
-using static WorldBuilder.Shared.Services.DocumentManager;
 using WorldBuilder.Shared.Tests.Mocks;
 
 namespace WorldBuilder.Shared.Tests.Commands.Landscape {

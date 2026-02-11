@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Data.Common;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Services;
-using static WorldBuilder.Shared.Services.DocumentManager;
 
 namespace WorldBuilder.Shared.Models;
 
@@ -20,6 +19,7 @@ public partial class LandscapeDocument : BaseDocument {
     private bool _didLoadCacheFromDats;
     private bool _didLoadRegionData;
     private readonly HashSet<string> _layerIds = [];
+    private readonly SemaphoreSlim _initLock = new(1, 1);
 
     /// <summary>
     /// A cached version of the terrain data, for faster access. This contains all merged layers and the base dat layer.
@@ -86,28 +86,51 @@ public partial class LandscapeDocument : BaseDocument {
     /// <inheritdoc/>
     public override async Task InitializeForUpdatingAsync(IDatReaderWriter dats, IDocumentManager documentManager,
         CancellationToken ct) {
-        await LoadRegionDataAsync(dats);
-        // LoadCacheFromDatsAsync is deferred until needed (e.g., during export or editing)
-        await LoadLayersAsync(documentManager, ct);
+        await _initLock.WaitAsync(ct);
+        try {
+            await LoadRegionDataAsync(dats);
+            // LoadCacheFromDatsAsync is deferred until needed (e.g., during export or editing)
+            await LoadLayersAsync(documentManager, ct);
+        }
+        finally {
+            _initLock.Release();
+        }
     }
 
     /// <inheritdoc/>
     public override async Task InitializeForEditingAsync(IDatReaderWriter dats, IDocumentManager documentManager,
         CancellationToken ct) {
-        Console.WriteLine($"[DEBUG] Initializing LandscapeDocument {Id} (Instance: {GetHashCode()}) for editing. Current LayerTree Count: {LayerTree.Count}");
-        await InitializeForUpdatingAsync(dats, documentManager, ct);
-        Console.WriteLine($"[DEBUG] After updating, LandscapeDocument {Id} LayerTree Count: {LayerTree.Count}");
-        // For editing, we usually want the cache immediately
-        await EnsureCacheLoadedAsync(dats, ct);
+        await _initLock.WaitAsync(ct);
+        try {
+            Console.WriteLine($"[DEBUG] Initializing LandscapeDocument {Id} (Instance: {GetHashCode()}) for editing. Current LayerTree Count: {LayerTree.Count}");
+            await LoadRegionDataAsync(dats);
+            await LoadLayersAsync(documentManager, ct);
+            Console.WriteLine($"[DEBUG] After updating, LandscapeDocument {Id} LayerTree Count: {LayerTree.Count}");
+            // For editing, we usually want the cache immediately
+            await EnsureCacheLoadedAsyncInternal(dats, ct);
+        }
+        finally {
+            _initLock.Release();
+        }
     }
 
     /// <summary>
     /// Ensures that the terrain cache is loaded from the DAT files.
     /// </summary>
     public async Task EnsureCacheLoadedAsync(IDatReaderWriter dats, CancellationToken ct) {
+        await _initLock.WaitAsync(ct);
+        try {
+            await EnsureCacheLoadedAsyncInternal(dats, ct);
+        }
+        finally {
+            _initLock.Release();
+        }
+    }
+
+    private async Task EnsureCacheLoadedAsyncInternal(IDatReaderWriter dats, CancellationToken ct) {
         if (_didLoadCacheFromDats) return;
         await LoadCacheFromDatsAsync(ct);
-        await RecalculateTerrainCacheAsync();
+        await RecalculateTerrainCacheAsyncInternal();
     }
 
     /// <summary>
@@ -294,7 +317,7 @@ public partial class LandscapeDocument : BaseDocument {
         }
 
         _didLoadLayers = true;
-        await RecalculateTerrainCacheAsync();
+        await RecalculateTerrainCacheAsyncInternal();
     }
 
     /// <summary>
@@ -309,6 +332,16 @@ public partial class LandscapeDocument : BaseDocument {
     /// </summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task RecalculateTerrainCacheAsync() {
+        await _initLock.WaitAsync();
+        try {
+            await RecalculateTerrainCacheAsyncInternal();
+        }
+        finally {
+            _initLock.Release();
+        }
+    }
+
+    private async Task RecalculateTerrainCacheAsyncInternal() {
         if (!_didLoadCacheFromDats) return;
 
         await Task.Run(() => {

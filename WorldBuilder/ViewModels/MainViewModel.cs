@@ -9,7 +9,6 @@ using WorldBuilder.Lib.Factories;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Services;
-using static WorldBuilder.Shared.Services.DocumentManager;
 
 namespace WorldBuilder.ViewModels;
 

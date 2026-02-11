@@ -24,7 +24,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Chorizite.OpenGLSDLBackend;
 using ICamera = WorldBuilder.Shared.Models.ICamera;
-using static WorldBuilder.Shared.Services.DocumentManager;
 
 namespace WorldBuilder.Modules.Landscape;
 

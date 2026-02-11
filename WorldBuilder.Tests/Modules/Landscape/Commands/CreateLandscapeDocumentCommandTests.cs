@@ -38,21 +38,13 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands
             terrainDocMock.Setup(m => m.InitializeForUpdatingAsync(It.IsAny<IDatReaderWriter>(), It.IsAny<IDocumentManager>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
             var terrainDoc = terrainDocMock.Object;
-            var terrainRental = new DocumentManager.DocumentRental<LandscapeDocument>(terrainDoc, () => { });
+            var terrainRental = new DocumentRental<LandscapeDocument>(terrainDoc, () => { });
 
             _mockDocManager.Setup(m => m.CreateDocumentAsync(It.IsAny<LandscapeDocument>(), _mockTx.Object, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Result<DocumentManager.DocumentRental<LandscapeDocument>>.Success(terrainRental));
-
-            var layerDocId = "LandscapeLayerDocument_1";
-            var layerDocMock = new Mock<LandscapeLayerDocument>(layerDocId);
-            layerDocMock.CallBase = true;
-            layerDocMock.Setup(m => m.InitializeForUpdatingAsync(It.IsAny<IDatReaderWriter>(), It.IsAny<IDocumentManager>(), It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
-            var layerDoc = layerDocMock.Object;
-            var layerRental = new DocumentManager.DocumentRental<LandscapeLayerDocument>(layerDoc, () => { });
+                .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
 
             _mockDocManager.Setup(m => m.ApplyLocalEventAsync(It.IsAny<CreateLandscapeLayerCommand>(), _mockTx.Object, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Result<DocumentManager.DocumentRental<LandscapeLayerDocument>?>.Success(layerRental));
+                .ReturnsAsync(Result<string>.Success("base_layer_id"));
 
             _mockDocManager.Setup(m => m.PersistDocumentAsync(terrainRental, _mockTx.Object, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));

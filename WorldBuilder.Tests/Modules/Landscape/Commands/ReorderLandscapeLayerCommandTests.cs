@@ -46,10 +46,10 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands
 
             // Initial order: [Layer 1, Layer 2]
 
-            var terrainRental = new DocumentManager.DocumentRental<LandscapeDocument>(terrainDoc, () => { });
+            var terrainRental = new DocumentRental<LandscapeDocument>(terrainDoc, () => { });
 
             _mockDocManager.Setup(m => m.RentDocumentAsync<LandscapeDocument>(terrainId, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Result<DocumentManager.DocumentRental<LandscapeDocument>>.Success(terrainRental));
+                .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
 
             _mockDocManager.Setup(m => m.PersistDocumentAsync(terrainRental, _mockTx.Object, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));

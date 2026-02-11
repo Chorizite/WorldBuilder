@@ -100,7 +100,7 @@ public class DocumentManager : IDocumentManager, IDisposable {
 
             // Add to cache
             var entry = new DocumentCacheEntry(document);
-            entry.IncrementRentCount();
+            entry.IncrementRentCount(document);
             _cache[document.Id] = entry;
             _logger.LogDebug("Document with ID {DocumentId} added to cache", document.Id);
 
@@ -125,7 +125,7 @@ public class DocumentManager : IDocumentManager, IDisposable {
             if (_cache.TryGetValue(id, out var entry)) {
                 try {
                     var doc = (T)entry.Document;
-                    entry.IncrementRentCount();
+                    entry.IncrementRentCount(doc);
                     _logger.LogDebug("Document with ID {DocumentId} found in cache (Instance: {Hash})", id, doc.GetHashCode());
                     return Result<DocumentRental<T>>.Success(new DocumentRental<T>(doc, () => ReturnDocument(id)));
                 }
@@ -144,7 +144,7 @@ public class DocumentManager : IDocumentManager, IDisposable {
             }
 
             var newEntry = new DocumentCacheEntry(newDoc);
-            newEntry.IncrementRentCount();
+            newEntry.IncrementRentCount(newDoc);
             _cache[id] = newEntry;
             _logger.LogDebug("Document with ID {DocumentId} loaded from database and added to cache (Instance: {Hash})", id, newDoc.GetHashCode());
 
@@ -358,8 +358,9 @@ public class DocumentManager : IDocumentManager, IDisposable {
 
         public bool IsAlive => _strongRef != null || _weakRef.TryGetTarget(out _);
 
-        public void IncrementRentCount() {
+        public void IncrementRentCount(BaseDocument document) {
             Interlocked.Increment(ref _rentCount);
+            _strongRef = document;
             LastAccessTime = DateTime.UtcNow;
         }
 
@@ -376,40 +377,13 @@ public class DocumentManager : IDocumentManager, IDisposable {
             return null;
         }
 
-        public BaseDocument? PrepareForEviction() {
-            var doc = _strongRef;
-            _strongRef = null;
-            return doc;
-        }
-
         public void Dispose() {
             _strongRef?.Dispose();
             _strongRef = null;
         }
+
         public void MarkStale() {
             _isStale = true;
-        }
-    }
-
-    public class DocumentRental<T> : IDisposable where T : BaseDocument {
-        private readonly T _document;
-        private readonly Action _onReturn;
-        private int _disposed;
-
-        public DocumentRental(T document, Action onReturn) {
-            _document = document;
-            _onReturn = onReturn;
-        }
-
-        public T Document => _document;
-
-        // Implicit conversion for convenience
-        public static implicit operator T(DocumentRental<T> rental) => rental._document;
-
-        public void Dispose() {
-            if (Interlocked.CompareExchange(ref _disposed, 1, 0) == 0) {
-                _onReturn();
-            }
         }
     }
 }

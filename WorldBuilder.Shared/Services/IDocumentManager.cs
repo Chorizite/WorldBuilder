@@ -7,7 +7,6 @@ using System.Text;
 using System.Threading.Tasks;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
-using static WorldBuilder.Shared.Services.DocumentManager;
 
 namespace WorldBuilder.Shared.Services {
     /// <summary>

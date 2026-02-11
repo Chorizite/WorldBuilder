@@ -33,7 +33,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands
             var layerId = "LandscapeLayerDocument_1";
             var command = new CreateLandscapeLayerCommand(terrainId, new List<string>(), "New Layer", false)
             {
-                TerrainLayerDocumentId = layerId
+                LayerId = layerId
             };
 
             var terrainDocMock = new Mock<LandscapeDocument>(terrainId);
@@ -42,23 +42,10 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands
                 .Returns(Task.CompletedTask);
             var terrainDoc = terrainDocMock.Object;
 
-            var layerDocMock = new Mock<LandscapeLayerDocument>(layerId);
-            layerDocMock.CallBase = true;
-            layerDocMock.Setup(m => m.InitializeForUpdatingAsync(It.IsAny<IDatReaderWriter>(), It.IsAny<IDocumentManager>(), It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
-            var layerDoc = layerDocMock.Object;
-
-            var terrainRental = new DocumentManager.DocumentRental<LandscapeDocument>(terrainDoc, () => { });
-            var layerRental = new DocumentManager.DocumentRental<LandscapeLayerDocument>(layerDoc, () => { });
-
-            _mockDocManager.Setup(m => m.RentDocumentAsync<LandscapeLayerDocument>(layerId, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Result<DocumentManager.DocumentRental<LandscapeLayerDocument>>.Failure("Not found"));
-
-            _mockDocManager.Setup(m => m.CreateDocumentAsync(It.IsAny<LandscapeLayerDocument>(), _mockTx.Object, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Result<DocumentManager.DocumentRental<LandscapeLayerDocument>>.Success(layerRental));
+            var terrainRental = new DocumentRental<LandscapeDocument>(terrainDoc, () => { });
 
             _mockDocManager.Setup(m => m.RentDocumentAsync<LandscapeDocument>(terrainId, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Result<DocumentManager.DocumentRental<LandscapeDocument>>.Success(terrainRental));
+                .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
 
             _mockDocManager.Setup(m => m.PersistDocumentAsync(terrainRental, _mockTx.Object, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
@@ -80,7 +67,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands
             var layerId = "Layer_1";
             var command = new CreateLandscapeLayerCommand(terrainId, new List<string> { "Group1" }, "New Layer", false)
             {
-                TerrainLayerDocumentId = layerId,
+                LayerId = layerId,
                 UserId = "user1"
             };
 
@@ -90,7 +77,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands
             // Assert
             var deleteCommand = Assert.IsType<DeleteLandscapeLayerCommand>(inverse);
             Assert.Equal(terrainId, deleteCommand.TerrainDocumentId);
-            Assert.Equal(layerId, deleteCommand.TerrainLayerDocumentId);
+            Assert.Equal(layerId, deleteCommand.LayerId);
             Assert.Equal("New Layer", deleteCommand.Name);
             Assert.Equal("user1", deleteCommand.UserId);
             Assert.Equal(command.GroupPath, deleteCommand.GroupPath);

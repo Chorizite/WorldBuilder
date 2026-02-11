@@ -52,7 +52,7 @@ namespace WorldBuilder.Shared.Tests.Services {
             // Arrange
             var regionId = 1u;
             var doc = new LandscapeDocument(regionId);
-            var rental = new DocumentManager.DocumentRental<LandscapeDocument>(doc, () => { });
+            var rental = new DocumentRental<LandscapeDocument>(doc, () => { });
 
             var mockCellDb = new MockDatDatabase([]);
             _datReaderWriterMock.Setup(d => d.CellRegions).Returns(new System.Collections.ObjectModel.ReadOnlyDictionary<uint, IDatDatabase>(new Dictionary<uint, IDatDatabase> {
@@ -70,7 +70,7 @@ namespace WorldBuilder.Shared.Tests.Services {
             await doc.InitializeForUpdatingAsync(_datReaderWriterMock.Object, _documentManagerMock.Object, default);
 
             _documentManagerMock.Setup(m => m.RentDocumentAsync<LandscapeDocument>(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(WorldBuilder.Shared.Lib.Result<DocumentManager.DocumentRental<LandscapeDocument>>.Success(rental));
+                .ReturnsAsync(WorldBuilder.Shared.Lib.Result<DocumentRental<LandscapeDocument>>.Success(rental));
 
             // Act
             var result = await _service.ExportDatsAsync(_testExportDir, 1);

@@ -2,7 +2,6 @@
 using WorldBuilder.Shared.Modules.Landscape;
 using WorldBuilder.Shared.Repositories;
 using WorldBuilder.Shared.Services;
-using static WorldBuilder.Shared.Services.DocumentManager;
 
 namespace WorldBuilder.Shared.Models {
     /// <summary>

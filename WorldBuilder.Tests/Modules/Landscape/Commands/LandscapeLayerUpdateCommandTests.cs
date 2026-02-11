@@ -29,7 +29,29 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands
         public async Task ApplyAsync_ShouldReturnSuccess()
         {
             // Arrange
-            var command = new LandscapeLayerUpdateCommand();
+            var terrainId = "LandscapeDocument_1";
+            var layerId = "Layer_1";
+            var command = new LandscapeLayerUpdateCommand
+            {
+                TerrainDocumentId = terrainId,
+                LayerId = layerId,
+                Changes = new Dictionary<uint, TerrainEntry?>()
+            };
+
+            var terrainDocMock = new Mock<LandscapeDocument>(terrainId);
+            terrainDocMock.CallBase = true;
+            terrainDocMock.Setup(m => m.InitializeForUpdatingAsync(It.IsAny<IDatReaderWriter>(), It.IsAny<IDocumentManager>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+            var terrainDoc = terrainDocMock.Object;
+            terrainDoc.AddLayer(new List<string>(), "Layer 1", false, layerId);
+
+            var terrainRental = new DocumentRental<LandscapeDocument>(terrainDoc, () => { });
+
+            _mockDocManager.Setup(m => m.RentDocumentAsync<LandscapeDocument>(terrainId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
+
+            _mockDocManager.Setup(m => m.PersistDocumentAsync(terrainRental, _mockTx.Object, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act
             var result = await command.ApplyAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, CancellationToken.None);
@@ -43,8 +65,8 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands
         public void CreateInverse_ShouldSwapChangesAndPreviousState()
         {
             // Arrange
-            var changes = new Dictionary<int, TerrainEntry?> { { 1, new TerrainEntry { Height = 10 } } };
-            var previous = new Dictionary<int, TerrainEntry?> { { 1, new TerrainEntry { Height = 5 } } };
+            var changes = new Dictionary<uint, TerrainEntry?> { { 1u, new TerrainEntry { Height = 10 } } };
+            var previous = new Dictionary<uint, TerrainEntry?> { { 1u, new TerrainEntry { Height = 5 } } };
             var command = new LandscapeLayerUpdateCommand
             {
                 Changes = changes,

@@ -6,7 +6,6 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using Microsoft.Extensions.Logging;
 using WorldBuilder.Shared.Services;
-using static WorldBuilder.Shared.Services.DocumentManager;
 
 namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
     public class RoadVertexToolTests {

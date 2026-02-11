@@ -28,7 +28,7 @@ namespace WorldBuilder.Shared.Tests.Mocks {
             return (IProject)new MockProject(projectName ?? "MockProject");
         }
 
-        public Task<DocumentManager.DocumentRental<LandscapeDocument>> GetOrCreateTerrainDocumentAsync(uint regionId, CancellationToken ct) {
+        public Task<DocumentRental<LandscapeDocument>> GetOrCreateTerrainDocumentAsync(uint regionId, CancellationToken ct) {
             throw new NotImplementedException();
         }
     }

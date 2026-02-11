@@ -35,7 +35,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands
             var command = new DeleteLandscapeLayerCommand
             {
                 TerrainDocumentId = terrainId,
-                TerrainLayerDocumentId = layerId,
+                LayerId = layerId,
                 GroupPath = new List<string>()
             };
 
@@ -47,10 +47,10 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands
             var terrainDoc = terrainDocMock.Object;
             terrainDoc.AddLayer(new List<string>(), "Layer 1", false, layerId);
 
-            var terrainRental = new DocumentManager.DocumentRental<LandscapeDocument>(terrainDoc, () => { });
+            var terrainRental = new DocumentRental<LandscapeDocument>(terrainDoc, () => { });
 
             _mockDocManager.Setup(m => m.RentDocumentAsync<LandscapeDocument>(terrainId, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Result<DocumentManager.DocumentRental<LandscapeDocument>>.Success(terrainRental));
+                .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
 
             _mockDocManager.Setup(m => m.PersistDocumentAsync(terrainRental, _mockTx.Object, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
@@ -73,7 +73,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands
             var command = new DeleteLandscapeLayerCommand
             {
                 TerrainDocumentId = terrainId,
-                TerrainLayerDocumentId = layerId,
+                LayerId = layerId,
                 GroupPath = new List<string> { "Group1" },
                 Name = "Layer 1",
                 IsBase = false,
@@ -86,7 +86,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands
             // Assert
             var createCommand = Assert.IsType<CreateLandscapeLayerCommand>(inverse);
             Assert.Equal(terrainId, createCommand.TerrainDocumentId);
-            Assert.Equal(layerId, createCommand.TerrainLayerDocumentId);
+            Assert.Equal(layerId, createCommand.LayerId);
             Assert.Equal("Layer 1", createCommand.Name);
             Assert.Equal("user1", createCommand.UserId);
             Assert.Equal(command.GroupPath, createCommand.GroupPath);

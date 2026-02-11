@@ -14,6 +14,6 @@ namespace WorldBuilder.Shared.Modules.Landscape
         /// <param name="regionId">The region ID.</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing a rental for the landscape document.</returns>
-        Task<DocumentManager.DocumentRental<LandscapeDocument>> GetOrCreateTerrainDocumentAsync(uint regionId, CancellationToken ct);
+        Task<DocumentRental<LandscapeDocument>> GetOrCreateTerrainDocumentAsync(uint regionId, CancellationToken ct);
     }
 }
