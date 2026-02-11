@@ -54,6 +54,7 @@
                         <Grid ColumnDefinitions="Auto, *, Auto, Auto" Margin="2" Background="Transparent"
                               DragDrop.AllowDrop="True"
                               PointerPressed="OnPointerPressed"
+                              PointerReleased="OnPointerReleased"
                               PointerMoved="OnPointerMoved">
                             <!-- Icon -->
                             <StackPanel Grid.Column="0" Orientation="Horizontal">

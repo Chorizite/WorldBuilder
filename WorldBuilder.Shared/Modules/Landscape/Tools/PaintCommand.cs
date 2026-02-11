@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
@@ -16,9 +17,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private readonly float _radius;
         private readonly int _textureId; // 0-31
 
-        // Store previous state for Undo: Index -> TerrainEntry (copy)
-        private readonly Dictionary<int, TerrainEntry> _previousState = new Dictionary<int, TerrainEntry>();
-        private readonly HashSet<int> _wasInLayer = new HashSet<int>();
+        // Store previous state for Undo: Index -> Layer TerrainEntry (nullable)
+        private readonly Dictionary<int, TerrainEntry?> _previousState = new Dictionary<int, TerrainEntry?>();
         private bool _executed = false;
 
         /// <inheritdoc/>
@@ -54,32 +54,31 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         public void Undo() {
-            if (_document.Region == null) return;
+            if (_document.Region == null || _activeLayer == null) return;
             var region = _document.Region;
-            var cache = _document.TerrainCache;
 
             HashSet<(int x, int y)> modifiedLandblocks = new HashSet<(int x, int y)>();
+            List<uint> affectedVertices = new List<uint>();
 
             foreach (var kvp in _previousState) {
                 int index = kvp.Key;
-                cache[index] = kvp.Value;
-
-                if (_activeLayer != null) {
-                    if (_wasInLayer.Contains(index)) {
-                        _activeLayer.Terrain[(uint)index] = kvp.Value;
-                    }
-                    else {
-                        _activeLayer.Terrain.Remove((uint)index);
-                    }
+                if (kvp.Value.HasValue) {
+                    _activeLayer.Terrain[(uint)index] = kvp.Value.Value;
+                }
+                else {
+                    _activeLayer.Terrain.Remove((uint)index);
                 }
 
+                affectedVertices.Add((uint)index);
                 var (vx, vy) = region.GetVertexCoordinates((uint)index);
                 _context.AddAffectedLandblocks(vx, vy, modifiedLandblocks);
             }
 
-            if (_activeLayer != null) {
-                _context.RequestSave?.Invoke(_document.Id);
+            if (affectedVertices.Count > 0) {
+                _document.RecalculateTerrainCache(affectedVertices);
             }
+
+            _context.RequestSave?.Invoke(_document.Id);
 
             foreach (var lb in modifiedLandblocks) {
                 _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
@@ -87,7 +86,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         private void ApplyChanges(bool record = false) {
-            if (_document.Region == null) return;
+            if (_document.Region == null || _activeLayer == null) return;
             var region = _document.Region;
             var cache = _document.TerrainCache;
 
@@ -106,7 +105,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             maxY = Math.Min(region.MapHeightInVertices - 1, maxY);
 
             HashSet<(int x, int y)> modifiedLandblocks = new HashSet<(int x, int y)>();
-            int stride = region.LandblockVerticeLength - 1;
+            List<uint> affectedVertices = new List<uint>();
 
             for (int y = minY; y <= maxY; y++) {
                 for (int x = minX; x <= maxX; x++) {
@@ -121,21 +120,20 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
                     if (distSq <= _radius * _radius) {
                         if (record && !_previousState.ContainsKey(index)) {
-                            _previousState[index] = cache[index];
-                            if (_activeLayer != null && _activeLayer.Terrain.ContainsKey((uint)index)) {
-                                _wasInLayer.Add(index);
+                            if (_activeLayer.Terrain.TryGetValue((uint)index, out var prevEntry)) {
+                                _previousState[index] = prevEntry;
+                            }
+                            else {
+                                _previousState[index] = null;
                             }
                         }
 
-                        // Apply Texture
-                        // Since TerrainEntry is a struct, we must re-assign it to the array
-                        var entry = cache[index];
+                        // Apply Texture to layer
+                        var entry = _activeLayer.Terrain.GetValueOrDefault((uint)index);
                         entry.Type = (byte)_textureId;
-                        cache[index] = entry;
+                        _activeLayer.Terrain[(uint)index] = entry;
 
-                        if (_activeLayer != null) {
-                            _activeLayer.Terrain[(uint)index] = entry;
-                        }
+                        affectedVertices.Add((uint)index);
 
                         // Track modified landblocks
                         _context.AddAffectedLandblocks(x, y, modifiedLandblocks);
@@ -143,9 +141,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 }
             }
 
-            if (_activeLayer != null) {
-                _context.RequestSave?.Invoke(_document.Id);
+            if (affectedVertices.Count > 0) {
+                _document.RecalculateTerrainCache(affectedVertices);
             }
+
+            _context.RequestSave?.Invoke(_document.Id);
 
             foreach (var lb in modifiedLandblocks) {
                 _context.InvalidateLandblock?.Invoke(lb.x, lb.y);

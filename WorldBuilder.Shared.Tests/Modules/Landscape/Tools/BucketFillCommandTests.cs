@@ -15,12 +15,21 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             // Arrange
             var context = CreateContext(9, 9);
             var cache = context.Document.TerrainCache;
+            var baseCache = context.Document.BaseTerrainCache;
             // Initialize cache with a pattern
             // 0 0 0
             // 0 1 0
             // 0 0 0
-            for (int i = 0; i < cache.Length; i++) cache[i] = new TerrainEntry() { Type = 0 };
-            cache[10] = new TerrainEntry() { Type = 1 }; // Center
+            for (int i = 0; i < cache.Length; i++) {
+                var entry = new TerrainEntry() { Type = 0 };
+                cache[i] = entry;
+                baseCache[i] = entry;
+            }
+            
+            // Set 10 to Type 1 in base cache so fill can find it
+            var t1 = new TerrainEntry() { Type = 1 };
+            cache[10] = t1;
+            baseCache[10] = t1;
 
             var startPos = new Vector3(24, 24, 0); // Vertex (1,1) -> Index 10
             var cmd = new BucketFillCommand(context, startPos, 2, true); // Fill Type 1 with Type 2
@@ -38,9 +47,18 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             // Arrange
             var context = CreateContext(9, 9);
             var cache = context.Document.TerrainCache;
-            for (int i = 0; i < cache.Length; i++) cache[i] = new TerrainEntry() { Type = 0 };
-            cache[0] = new TerrainEntry() { Type = 1 };
-            cache[80] = new TerrainEntry() { Type = 1 };
+            var baseCache = context.Document.BaseTerrainCache;
+            for (int i = 0; i < cache.Length; i++) {
+                var entry = new TerrainEntry() { Type = 0 };
+                cache[i] = entry;
+                baseCache[i] = entry;
+            }
+            
+            var t1 = new TerrainEntry() { Type = 1 };
+            cache[0] = t1;
+            baseCache[0] = t1;
+            cache[80] = t1;
+            baseCache[80] = t1;
 
             var startPos = new Vector3(0, 0, 0); // Vertex (0,0) -> Index 0
             var cmd = new BucketFillCommand(context, startPos, 2, false); // Global replace Type 1 with Type 2
@@ -58,8 +76,16 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             // Arrange
             var context = CreateContext(9, 9);
             var cache = context.Document.TerrainCache;
-            for (int i = 0; i < cache.Length; i++) cache[i] = new TerrainEntry() { Type = 0 };
-            cache[10] = new TerrainEntry() { Type = 1 };
+            var baseCache = context.Document.BaseTerrainCache;
+            for (int i = 0; i < cache.Length; i++) {
+                var entry = new TerrainEntry() { Type = 0 };
+                cache[i] = entry;
+                baseCache[i] = entry;
+            }
+            
+            var t1 = new TerrainEntry() { Type = 1 };
+            cache[10] = t1;
+            baseCache[10] = t1;
 
             var startPos = new Vector3(24, 24, 0);
             var cmd = new BucketFillCommand(context, startPos, 2, true);
@@ -83,7 +109,12 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             int height = 256;
             var context = CreateContext(width, height);
             var cache = context.Document.TerrainCache;
-            for (int i = 0; i < cache.Length; i++) cache[i] = new TerrainEntry() { Type = 1 };
+            var baseCache = context.Document.BaseTerrainCache;
+            for (int i = 0; i < cache.Length; i++) {
+                var entry = new TerrainEntry() { Type = 1 };
+                cache[i] = entry;
+                baseCache[i] = entry;
+            }
 
             var startPos = new Vector3(24, 24, 0);
             var cmd = new BucketFillCommand(context, startPos, 5, true);
@@ -98,6 +129,11 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
         private LandscapeToolContext CreateContext(int width, int height) {
             var doc = new LandscapeDocument((uint)0xABCD);
+
+            // Bypass dats loading
+            typeof(LandscapeDocument).GetField("_didLoadRegionData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
+            typeof(LandscapeDocument).GetField("_didLoadLayers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
+            typeof(LandscapeDocument).GetField("_didLoadCacheFromDats", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
 
             // Mock ITerrainInfo
             var regionMock = new Mock<ITerrainInfo>();
@@ -114,11 +150,17 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             regionProp?.SetValue(doc, regionMock.Object);
 
             var cache = new TerrainEntry[width * height];
+            var baseCache = new TerrainEntry[width * height];
+            
             var cacheProp = typeof(LandscapeDocument).GetProperty("TerrainCache");
             cacheProp?.SetValue(doc, cache);
+            
+            var baseCacheProp = typeof(LandscapeDocument).GetProperty("BaseTerrainCache");
+            baseCacheProp?.SetValue(doc, baseCache);
 
             var layerId = Guid.NewGuid().ToString();
-            var activeLayer = new LandscapeLayer(layerId, true);
+            doc.AddLayer([], "Active Layer", true, layerId);
+            var activeLayer = (LandscapeLayer)doc.FindItem(layerId)!;
 
             return new LandscapeToolContext(doc, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer);
         }

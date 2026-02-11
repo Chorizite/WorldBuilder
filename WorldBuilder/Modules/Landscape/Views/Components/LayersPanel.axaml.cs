@@ -23,6 +23,8 @@ public partial class LayersPanel : UserControl
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (e.GetCurrentPoint(this).Properties.PointerUpdateKind != PointerUpdateKind.LeftButtonPressed) return;
+
         if (sender is Control control && control.DataContext is LayerItemViewModel vm)
         {
             if (vm.IsBase) return; // Cannot drag base layer
@@ -33,9 +35,24 @@ public partial class LayersPanel : UserControl
         }
     }
 
+    private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased)
+        {
+            _ghostItem = null;
+        }
+    }
+
     private async void OnPointerMoved(object? sender, PointerEventArgs e)
     {
         if (_ghostItem == null || _isDragging) return;
+
+        var properties = e.GetCurrentPoint(this).Properties;
+        if (!properties.IsLeftButtonPressed)
+        {
+            _ghostItem = null;
+            return;
+        }
 
         var currentPoint = e.GetPosition(this);
         var delta = currentPoint - _dragStartPoint;

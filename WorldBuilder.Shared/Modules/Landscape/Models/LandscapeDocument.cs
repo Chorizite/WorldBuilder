@@ -137,7 +137,7 @@ public partial class LandscapeDocument : BaseDocument {
     private async Task EnsureCacheLoadedAsyncInternal(IDatReaderWriter dats, CancellationToken ct) {
         if (_didLoadCacheFromDats) return;
         await LoadCacheFromDatsAsync(ct);
-        await RecalculateTerrainCacheAsyncInternal();
+        RecalculateTerrainCacheInternal();
     }
 
     /// <summary>
@@ -354,7 +354,7 @@ public partial class LandscapeDocument : BaseDocument {
         }
 
         _didLoadLayers = true;
-        await RecalculateTerrainCacheAsyncInternal();
+        RecalculateTerrainCacheInternal();
     }
 
     /// <summary>
@@ -366,60 +366,73 @@ public partial class LandscapeDocument : BaseDocument {
 
     /// <summary>
     /// Recalculates the merged terrain cache by applying visible layers on top of base terrain data.
+    /// This version is synchronous for use by tools during live updates.
     /// </summary>
     /// <param name="affectedVertices">Optional list of vertex indices to recalculate. If null, the entire cache is recalculated.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    public async Task RecalculateTerrainCacheAsync(IEnumerable<uint>? affectedVertices = null) {
-        await _initLock.WaitAsync();
+    public void RecalculateTerrainCache(IEnumerable<uint>? affectedVertices = null) {
+        _initLock.Wait();
         try {
-            await RecalculateTerrainCacheAsyncInternal(affectedVertices);
+            RecalculateTerrainCacheInternal(affectedVertices);
         }
         finally {
             _initLock.Release();
         }
     }
 
-    private async Task RecalculateTerrainCacheAsyncInternal(IEnumerable<uint>? affectedVertices = null) {
+    /// <summary>
+    /// Recalculates the merged terrain cache by applying visible layers on top of base terrain data.
+    /// </summary>
+    /// <param name="affectedVertices">Optional list of vertex indices to recalculate. If null, the entire cache is recalculated.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task RecalculateTerrainCacheAsync(IEnumerable<uint>? affectedVertices = null) {
+        await _initLock.WaitAsync();
+        try {
+            await Task.Run(() => RecalculateTerrainCacheInternal(affectedVertices));
+        }
+        finally {
+            _initLock.Release();
+        }
+    }
+
+    private void RecalculateTerrainCacheInternal(IEnumerable<uint>? affectedVertices = null) {
         if (!_didLoadCacheFromDats) return;
 
-        await Task.Run(() => {
-            if (affectedVertices == null) {
-                Console.WriteLine($"[DEBUG] Recalculating FULL terrain cache. Layer count: {GetAllLayers().Count()}");
-                // Reset to base data
-                Array.Copy(BaseTerrainCache, TerrainCache, BaseTerrainCache.Length);
+        if (affectedVertices == null) {
+            Console.WriteLine($"[DEBUG] Recalculating FULL terrain cache. Layer count: {GetAllLayers().Count()}");
+            // Reset to base data
+            Array.Copy(BaseTerrainCache, TerrainCache, BaseTerrainCache.Length);
+
+            // Merge layers in order
+            foreach (var layer in GetAllLayers()) {
+                if (!layer.IsVisible) continue;
+
+                foreach (var kvp in layer.Terrain) {
+                    var vertexIndex = kvp.Key;
+                    var terrain = kvp.Value;
+                    if (vertexIndex >= TerrainCache.Length) continue;
+                    TerrainCache[vertexIndex].Merge(terrain);
+                }
+            }
+        }
+        else {
+            var vertices = affectedVertices.ToList();
+            Console.WriteLine($"[DEBUG] Recalculating PARTIAL terrain cache. Affected vertices: {vertices.Count}. Visible layers: {GetAllLayers().Count(l => l.IsVisible)}");
+            // Partial recalculation
+            var layers = GetAllLayers().Where(l => l.IsVisible).ToList();
+            foreach (var vertexIndex in vertices) {
+                if (vertexIndex >= TerrainCache.Length) continue;
+
+                // Reset to base
+                TerrainCache[vertexIndex] = BaseTerrainCache[vertexIndex];
 
                 // Merge layers in order
-                foreach (var layer in GetAllLayers()) {
-                    if (!layer.IsVisible) continue;
-
-                    foreach (var kvp in layer.Terrain) {
-                        var vertexIndex = kvp.Key;
-                        var terrain = kvp.Value;
-                        if (vertexIndex >= TerrainCache.Length) continue;
+                foreach (var layer in layers) {
+                    if (layer.Terrain.TryGetValue(vertexIndex, out var terrain)) {
                         TerrainCache[vertexIndex].Merge(terrain);
                     }
                 }
             }
-            else {
-                var vertices = affectedVertices.ToList();
-                Console.WriteLine($"[DEBUG] Recalculating PARTIAL terrain cache. Affected vertices: {vertices.Count}. Visible layers: {GetAllLayers().Count(l => l.IsVisible)}");
-                // Partial recalculation
-                var layers = GetAllLayers().Where(l => l.IsVisible).ToList();
-                foreach (var vertexIndex in vertices) {
-                    if (vertexIndex >= TerrainCache.Length) continue;
-
-                    // Reset to base
-                    TerrainCache[vertexIndex] = BaseTerrainCache[vertexIndex];
-
-                    // Merge layers in order
-                    foreach (var layer in layers) {
-                        if (layer.Terrain.TryGetValue(vertexIndex, out var terrain)) {
-                            TerrainCache[vertexIndex].Merge(terrain);
-                        }
-                    }
-                }
-            }
-        });
+        }
     }
 
     /// <summary>

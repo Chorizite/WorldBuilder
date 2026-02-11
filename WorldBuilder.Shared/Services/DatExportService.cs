@@ -29,7 +29,7 @@ namespace WorldBuilder.Shared.Services {
             try {
                 _log.LogInformation("Starting DAT export to {ExportDirectory}", exportDirectory);
                 progress?.Report(new DatExportProgress("Preparing export...", 0.05f));
-
+                
                 // 1. Copy base DATs to export directory
                 if (!Directory.Exists(exportDirectory)) {
                     Directory.CreateDirectory(exportDirectory);
@@ -58,8 +58,13 @@ namespace WorldBuilder.Shared.Services {
                 _log.LogInformation("Finished copying base DATs. Opening exported DATs for writing.");
                 progress?.Report(new DatExportProgress("Opening exported DATs...", 0.20f));
 
-                // 2. Open the exported DATs for writing - Offload to avoid UI hang
+                // 2. Open the exported DATs for writing
                 using var exportDatWriter = await Task.Run(() => new DefaultDatReaderWriter(exportDirectory, DatAccessType.ReadWrite));
+
+                // if the iteration is the same, we should set it to 0 so its handled automatically.
+                if (exportDatWriter.Portal.Iteration == portalIteration) {
+                    portalIteration = 0;
+                }
 
                 // 3. Export all loaded landscape documents
                 var regionIds = _dats.CellRegions.Keys.ToList();

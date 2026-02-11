@@ -63,7 +63,12 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             var context = CreateContext();
             var cache = context.Document.TerrainCache;
-            for (int i = 0; i < cache.Length; i++) cache[i] = new TerrainEntry() { Type = 1 };
+            var baseCache = context.Document.BaseTerrainCache;
+            for (int i = 0; i < cache.Length; i++) {
+                var entry = new TerrainEntry() { Type = 1 };
+                cache[i] = entry;
+                baseCache[i] = entry;
+            }
 
             var center = new Vector3(24, 24, 0);
             var cmd = new PaintCommand(context, center, tool.BrushRadius, 5);
@@ -142,6 +147,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             // Bypass dats loading
             typeof(LandscapeDocument).GetField("_didLoadRegionData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
             typeof(LandscapeDocument).GetField("_didLoadLayers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
+            typeof(LandscapeDocument).GetField("_didLoadCacheFromDats", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
 
             // Mock ITerrainInfo
             var regionMock = new Mock<ITerrainInfo>();
@@ -158,14 +164,19 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var regionProp = typeof(LandscapeDocument).GetProperty("Region");
             regionProp?.SetValue(doc, regionMock.Object);
 
-            // Inject TerrainCache via reflection
+            // Inject TerrainCache and BaseTerrainCache via reflection
             var cache = new TerrainEntry[9 * 9];
-            var prop = typeof(LandscapeDocument).GetProperty("TerrainCache");
-            if (prop == null) throw new Exception("TerrainCache property not found on LandscapeDocument");
-            prop.SetValue(doc, cache);
+            var baseCache = new TerrainEntry[9 * 9];
+            
+            var cacheProp = typeof(LandscapeDocument).GetProperty("TerrainCache");
+            cacheProp?.SetValue(doc, cache);
+            
+            var baseCacheProp = typeof(LandscapeDocument).GetProperty("BaseTerrainCache");
+            baseCacheProp?.SetValue(doc, baseCache);
 
             var layerId = Guid.NewGuid().ToString();
-            var activeLayer = new LandscapeLayer(layerId, true);
+            doc.AddLayer([], "Active Layer", true, layerId);
+            var activeLayer = (LandscapeLayer)doc.FindItem(layerId)!;
 
             return new LandscapeToolContext(doc, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer);
         }

@@ -32,10 +32,16 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         public void Undo_ShouldRevertRoadBits() {
             // Arrange
             var doc = CreateDocument();
-            var context = CreateContext(doc);
-            doc.TerrainCache[10] = new TerrainEntry { Road = 1 };
-            doc.TerrainCache[11] = new TerrainEntry { Road = 1 };
+            var cache = doc.TerrainCache;
+            var baseCache = doc.BaseTerrainCache;
+            
+            var r1 = new TerrainEntry { Road = 1 };
+            cache[10] = r1;
+            baseCache[10] = r1;
+            cache[11] = r1;
+            baseCache[11] = r1;
 
+            var context = CreateContext(doc);
             var start = new Vector3(24, 24, 0);
             var end = new Vector3(48, 24, 0);
             var command = new DrawLineCommand(context, start, end, 3);
@@ -66,12 +72,25 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
         private LandscapeDocument CreateDocument() {
             var doc = new LandscapeDocument("LandscapeDocument_1");
+            
+            // Bypass dats loading
+            typeof(LandscapeDocument).GetField("_didLoadRegionData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
+            typeof(LandscapeDocument).GetField("_didLoadLayers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
+            typeof(LandscapeDocument).GetField("_didLoadCacheFromDats", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
+
             var cache = new TerrainEntry[81]; // 9x9
-            for (int i = 0; i < cache.Length; i++) cache[i] = new TerrainEntry();
+            var baseCache = new TerrainEntry[81];
+            for (int i = 0; i < cache.Length; i++) {
+                cache[i] = new TerrainEntry();
+                baseCache[i] = new TerrainEntry();
+            }
 
             // Use reflection to set private TerrainCache
-            var prop = typeof(LandscapeDocument).GetProperty("TerrainCache");
-            prop?.SetValue(doc, cache);
+            var cacheProp = typeof(LandscapeDocument).GetProperty("TerrainCache");
+            cacheProp?.SetValue(doc, cache);
+            
+            var baseCacheProp = typeof(LandscapeDocument).GetProperty("BaseTerrainCache");
+            baseCacheProp?.SetValue(doc, baseCache);
 
             var regionMock = new Mock<ITerrainInfo>();
             regionMock.Setup(r => r.CellSizeInUnits).Returns(24f);
@@ -91,7 +110,8 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
         private LandscapeToolContext CreateContext(LandscapeDocument doc) {
             var layerId = Guid.NewGuid().ToString();
-            var activeLayer = new LandscapeLayer(layerId, true);
+            doc.AddLayer([], "Active Layer", true, layerId);
+            var activeLayer = (LandscapeLayer)doc.FindItem(layerId)!;
             return new LandscapeToolContext(doc, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer);
         }
     }
