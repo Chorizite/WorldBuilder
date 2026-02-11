@@ -50,7 +50,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public float BrushRadius { get; set; } = 30f;
         public Vector4 BrushColor { get; set; } = new Vector4(0.0f, 1.0f, 0.0f, 0.4f);
         public bool ShowBrush { get; set; }
-        public int BrushShape { get; set; } // 0 = Circle, 1 = Square
+        public int BrushShape { get; set; }
 
         // Grid settings
         public bool ShowLandblockGrid { get; set; }
@@ -102,11 +102,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _surfaceManager = new LandSurfaceManager(_graphicsDevice, _dats, regionInfo._region, _log);
                 _chunkSizeInUnits = regionInfo.LandblockSizeInUnits * LandblocksPerChunk;
             }
-
-            // Bind textures
-            if (_surfaceManager != null) {
-                // Nothing to do explicitly here if we bind in Render()
-            }
         }
 
         public void Update(float deltaTime, Vector3 cameraPosition) {
@@ -134,9 +129,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
-            // Process Generation Queue (Background)
-            int maxConcurrency = 2;
-            while (_activeGenerations < maxConcurrency && !_generationQueue.IsEmpty) {
+            while (_activeGenerations < 2 && !_generationQueue.IsEmpty) {
                 System.Threading.Interlocked.Increment(ref _activeGenerations);
                 Task.Run(ProcessGenerationQueueItem);
             }
@@ -217,9 +210,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 // _log.LogTrace("Updating landblock {LBX},{LBY} (ID: {LBID:X8}) in chunk {CX},{CY}", landblockX, landblockY, landblockID, chunk.ChunkX, chunk.ChunkY);
 
-                // Generate geometry for this single landblock
-                // We pass 0 as currentVertexIndex/currentIndexPosition because we only care about the vertex data relative to itself
-                // The indices generated will be wrong (relative to 0), but we don't upload them.
                 var (lbMinZ, lbMaxZ) = TerrainGeometryGenerator.GenerateLandblockGeometry(
                     landblockX, landblockY, landblockID,
                     _landscapeDoc.Region, _surfaceManager!,
@@ -261,10 +251,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private void GenerateChunk(TerrainChunk chunk) {
             try {
-                // 8x8 landblocks per chunk -> 64 cells per landblock -> 4 vertices per cell
-                // Total vertices = 8 * 8 * 64 * 4 = 16384 vertices max
-                // Indices = 8 * 8 * 64 * 6 = 24576 indices max
-
                 var vertices = new VertexLandscape[MaxVertices];
                 var indices = new uint[MaxIndices];
                 int vCount = 0;
@@ -382,7 +368,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("xAmbient", 0.5f); // 0.5 ambient
 
             // Brush uniforms
-            // Brush uniforms
             _shader.SetUniform("uBrushPos", BrushPosition);
             _shader.SetUniform("uBrushRadius", BrushRadius);
             _shader.SetUniform("uBrushColor", BrushColor);
@@ -398,22 +383,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("uGridOpacity", GridOpacity);
             _shader.SetUniform("uScreenHeight", ScreenHeight);
 
-            // Calculate camera distance to ground/target for line width scaling
-            // For now, use the camera's Z height abot 0 plane as a rough approximation if looking down
-            // Or just distance to origin? The shader uses it for pixel size approx at center.
-            // Let's use distance from camera to the point (Camera.X, Camera.Y, 0)
             float camDist = Math.Abs(camera.Position.Z);
-            // If camera is pitched, this might differ. 
-            // Better: use the distance to the "look at" point or just length of position if looking at origin?
-            // "uCameraDistance" in shader calculates "worldUnitsPerPixel". 
-            // If we are looking at the terrain, the distance to the terrain surface is what matters.
-            // Let's try using the Z height for top-down, or distance for perspective.
             _shader.SetUniform("uCameraDistance", camDist < 1f ? 1f : camDist);
-
-
-            if (ShowBrush) {
-                // _log.LogTrace("Render Brush: Pos={Pos} Rad={Rad} Show={Show}", BrushPosition, BrushRadius, ShowBrush);
-            }
 
             if (_surfaceManager != null) {
                 _surfaceManager.TerrainAtlas.Bind(0);

@@ -29,18 +29,13 @@ public partial class LayerItemViewModel : ViewModelBase {
     partial void OnIsVisibleChanged(bool value) {
         _onChanged?.Invoke(this, LayerChangeType.VisibilityChange); // Changed to use VisibilityChange
     }
-    partial void OnIsEditingChanged(bool value) {
-        // IsEditing doesn't need to trigger a save or invalidate
-    }
-
-    partial void OnIsSelectedChanged(bool value) {
-        // IsSelected doesn't need to trigger a save or invalidate
-    }
     partial void OnIsExportedChanged(bool value) {
         Model.IsExported = value;
         _onChanged?.Invoke(this, LayerChangeType.PropertyChange);
     }
+    
     [ObservableProperty] private bool _isExported;
+    
     private bool _isExpanded = true;
     public bool IsExpanded {
         get => _isExpanded;

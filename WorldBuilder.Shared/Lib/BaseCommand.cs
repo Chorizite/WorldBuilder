@@ -4,6 +4,10 @@ using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Shared.Lib {
+    /// <summary>
+    /// Base class for all commands in the system.
+    /// Commands are serializable entities that represent an action to be performed or that has been performed.
+    /// </summary>
     [MemoryPackable]
     [MemoryPackUnion(1, typeof(CreateLandscapeDocumentCommand))]
     [MemoryPackUnion(2, typeof(CreateLandscapeLayerCommand))]
@@ -13,10 +17,6 @@ namespace WorldBuilder.Shared.Lib {
     [MemoryPackUnion(6, typeof(CreateLandscapeLayerGroupCommand))]
     [MemoryPackUnion(7, typeof(RestoreLandscapeItemCommand))]
     [MemoryPackUnion(8, typeof(MoveLandscapeLayerCommand))]
-    /// <summary>
-    /// Base class for all commands in the system.
-    /// Commands are serializable entities that represent an action to be performed or that has been performed.
-    /// </summary>
     public abstract partial class BaseCommand {
         /// <summary>The unique identifier for the command.</summary>
         [MemoryPackOrder(0)] public string Id { get; set; } = Guid.NewGuid().ToString();

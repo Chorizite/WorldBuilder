@@ -38,7 +38,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
         }
 
-        private TerrainTextureType _texture = (TerrainTextureType)5; // Default to Dirt-like if possible
+        private TerrainTextureType _texture = TerrainTextureType.MudRichDirt; 
         /// <summary>Gets or sets the texture to paint.</summary>
         public TerrainTextureType Texture {
             get => _texture;
@@ -62,7 +62,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <param name="size">The brush size (diameter in vertices).</param>
         /// <returns>The world radius.</returns>
         public static float GetWorldRadius(int size) {
-            // Formula: Radius = ((Size - 1) / 2.0f) * CellSize + (CellSize * 0.55f)
             return ((Math.Max(1, size) - 1) / 2.0f) * CELL_SIZE + (CELL_SIZE * 0.55f);
         }
 

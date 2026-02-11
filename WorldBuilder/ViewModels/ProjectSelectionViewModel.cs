@@ -126,8 +126,6 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
     }
 
     private void ShowErrorDetails(RecentProject project) {
-        // Since we can't directly show a window from the ViewModel in MVVM,
-        // we'll send a message to the view to handle showing the error dialog
         WeakReferenceMessenger.Default.Send(new ShowProjectErrorDetailsMessage(project));
     }
 

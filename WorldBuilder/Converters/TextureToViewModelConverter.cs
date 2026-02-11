@@ -18,7 +18,6 @@ namespace WorldBuilder.Converters {
         private static readonly Dictionary<TerrainTextureType, TextureLoader> _cache = new();
 
         public object? Convert(IList<object?> values, Type targetType, object? parameter, CultureInfo culture) {
-            // Handle UnsetValue which Avalonia often passes during initialization or when bindings are broken
             if (values.Count < 2 || values[0] == Avalonia.AvaloniaProperty.UnsetValue || values[1] == Avalonia.AvaloniaProperty.UnsetValue) {
                 return null;
             }

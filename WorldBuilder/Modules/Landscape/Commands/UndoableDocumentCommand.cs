@@ -26,8 +26,6 @@ namespace WorldBuilder.Modules.Landscape.Commands {
         }
 
         public void Execute() {
-            // Fire and forget, but on UI thread to ensure safety if needed, 
-            // though DocumentManager handles locking.
             Dispatcher.UIThread.InvokeAsync(async () => {
                 await ApplyCommand(_baseCommand);
             });
@@ -43,10 +41,6 @@ namespace WorldBuilder.Modules.Landscape.Commands {
         private async Task ApplyCommand(BaseCommand cmd) {
             try {
                 await using var tx = await _documentManager.CreateTransactionAsync(default);
-
-                // Assign a new ID to the event if it's being re-applied (e.g. Redo) or Inverse
-                // Use a stable ID for the original execution if needed, but CommandHistory treats distinct executions.
-                // However, BaseCommand usually expects a unique ID for the event log.
                 cmd.Id = Guid.NewGuid().ToString();
 
                 var result = await _documentManager.ApplyLocalEventAsync(cmd, tx, default);

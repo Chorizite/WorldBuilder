@@ -18,7 +18,6 @@ public class CombinedViewLocator : ViewLocatorBase, IDataTemplate {
             return new TextBlock { Text = "data was null" };
         }
 
-        // Use our custom GetViewName logic to determine the view type
         var name = GetViewName(data);
 #pragma warning disable IL2057 // Unrecognized value passed to the parameter of method. It's not possible to guarantee the availability of the target type.
         var type = Type.GetType(name);

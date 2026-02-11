@@ -51,8 +51,6 @@ namespace WorldBuilder.Shared.Modules.Landscape {
             Vector3d nearWorld = Vector3d.Transform(nearPoint, viewProjectionInverse);
             Vector3d farWorld = Vector3d.Transform(farPoint, viewProjectionInverse);
 
-            // Manual divide by W was done in Transform
-
             Vector3d rayOrigin = new Vector3d(nearWorld.X, nearWorld.Y, nearWorld.Z);
             Vector3d rayDirection = Vector3d.Normalize(farWorld - rayOrigin);
 

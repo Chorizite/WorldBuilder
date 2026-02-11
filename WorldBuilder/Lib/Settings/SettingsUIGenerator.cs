@@ -154,8 +154,6 @@ namespace WorldBuilder.Lib.Settings {
             var border = new Border { Classes = { "SettingGroup" }, Margin = new Thickness(0, 0, 0, 16) };
 
             var stackPanel = new StackPanel();
-
-            // Create binding path
             var bindingPath = metadata.Property.Name;
 
             // Label with value display if applicable

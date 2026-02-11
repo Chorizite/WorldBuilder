@@ -13,7 +13,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public uint ChunkX { get; private set; }
         public uint ChunkY { get; private set; }
 
-        // These will be used by the geometry generator
         public uint LandblockStartX => ChunkX * 8;
         public uint LandblockStartY => ChunkY * 8;
         public uint ActualLandblockCountX { get; set; } = 8;
@@ -99,8 +98,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public void Dispose() {
             if (_disposed) return;
-            // Note: GL resources should ideally be deleted on the main thread/GL context
-            // The manager should handle calling this or queueing deletion
             _disposed = true;
         }
     }

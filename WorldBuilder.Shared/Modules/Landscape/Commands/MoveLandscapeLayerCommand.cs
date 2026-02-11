@@ -70,10 +70,7 @@ public partial class MoveLandscapeLayerCommand : BaseCommand<bool> {
 
             var affectedVertices = terrainRental.Document.GetAffectedVertices(item).ToList();
 
-            // 1. Remove from source
             terrainRental.Document.RemoveLayer(SourceGroupPath, LayerId);
-
-            // 2. Insert into destination
             terrainRental.Document.InsertItem(DestinationGroupPath, DestinationIndex, item);
 
             await terrainRental.Document.RecalculateTerrainCacheAsync(affectedVertices);

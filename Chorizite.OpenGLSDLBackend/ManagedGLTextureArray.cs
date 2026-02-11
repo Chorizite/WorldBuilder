@@ -128,7 +128,6 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public unsafe int AddLayer(byte[] data, PixelFormat? uploadPixelFormat, PixelType? uploadPixelType) {
-            // Removed Bind() here to avoid issues with current OpenGL state during atlas creation
             for (int i = 0; i < _usedLayers.Length; i++) {
                 if (!_usedLayers[i]) {
                     UpdateLayerInternal(i, data, uploadPixelFormat, uploadPixelType);
@@ -209,7 +208,7 @@ namespace Chorizite.OpenGLSDLBackend {
             // Upload a single black/transparent pixel to make layer defined
             byte[] clearData = new byte[GetExpectedDataSize()];
             Array.Clear(clearData, 0, clearData.Length); // Zero-fill (black/transparent)
-            UpdateLayerInternal(layer, clearData, null, null); // Re-uses logic, ignores dirty for now
+            UpdateLayerInternal(layer, clearData, null, null);
         }
 
         private int GetExpectedDataSize() {

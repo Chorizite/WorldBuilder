@@ -65,7 +65,6 @@ namespace Chorizite.OpenGLSDLBackend {
                 throw new InvalidOperationException($"Framebuffer creation failed: {status}");
             }
 
-            // Additional OpenGL error checking
             var error = _gl.GetError();
             if (error != GLEnum.NoError) {
                 throw new InvalidOperationException($"OpenGL error during framebuffer setup: {error}");

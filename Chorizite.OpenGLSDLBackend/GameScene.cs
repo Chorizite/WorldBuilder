@@ -12,25 +12,6 @@ using WorldBuilder.Shared.Services;
 namespace Chorizite.OpenGLSDLBackend;
 
 /// <summary>
-/// Vertex structure for simple 3D rendering with position and color.
-/// </summary>
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct SimpleVertex {
-    public Vector3 Position;
-    public Vector4 Color;
-
-    public SimpleVertex(Vector3 position, Vector4 color) {
-        Position = position;
-        Color = color;
-    }
-
-    public SimpleVertex(float x, float y, float z, float r, float g, float b, float a = 1.0f) {
-        Position = new Vector3(x, y, z);
-        Color = new Vector4(r, g, b, a);
-    }
-}
-
-/// <summary>
 /// Manages the 3D scene including camera, objects, and rendering.
 /// </summary>
 public class GameScene : IDisposable {
@@ -306,7 +287,6 @@ public class GameScene : IDisposable {
     }
 
     public void HandleKeyDown(string key) {
-        // Check for camera toggle
         if (key.Equals("Tab", StringComparison.OrdinalIgnoreCase)) {
             ToggleCamera();
             return;

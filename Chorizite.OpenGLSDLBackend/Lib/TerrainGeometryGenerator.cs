@@ -7,8 +7,6 @@ using System.Threading.Tasks;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
-// using WorldBuilder.Shared.Modules.Landscape.Models; // Removed to avoid ambiguity
-
 namespace Chorizite.OpenGLSDLBackend.Lib {
     public enum CellSplitDirection {
         SWtoNE,

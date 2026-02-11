@@ -95,10 +95,6 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
                     }
 
                     await ActiveDocument.LoadMissingLayersAsync(_documentManager, default);
-
-                    if (changeType == LayerChangeType.StructureChange) {
-                        // Commands handle their own invalidation now
-                    }
                 }
             }
         });

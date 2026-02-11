@@ -198,17 +198,9 @@ vec4 calculateBrush(vec2 worldPos) {
     vec2 p = worldPos - uBrushPos.xy;
     float dist = 0.0;
     
-    // Adjust radius to stroke center (so the stroke is centered on the boundary)
-    // We strictly want the visual boundary to match effect boundary?
-    // Usually outline flows outward or center. 
-    // Let's stick to mathematical distance.
-    
     if (uBrushShape == 1) {
         // Rounded Box (Square)
-        // Use a corner radius relative to the brush size, but capped
         float cornerRadius = min(uBrushRadius * 0.25, 10.0);
-        
-        // uBrushRadius is treated as half-extent (like circle radius)
         dist = sdRoundedBox(p, vec2(uBrushRadius), cornerRadius);
     } else {
         // Circle
@@ -216,25 +208,18 @@ vec4 calculateBrush(vec2 worldPos) {
     }
     
     // Calculate outline
-    // Scale line width based on camera distance to keep constant pixel width
     float pixelSize = (uCameraDistance * tan(0.785398) * 2.0 / uScreenHeight);
     float lineWidth = 2.0 * pixelSize;
-    float feather = 1.0 * pixelSize; // Anti-aliasing
-    
-    // Create outline: 1.0 near 0, decreasing outwards and inwards
-    // abs(dist) represents distance from the shape boundary
+    float feather = 1.0 * pixelSize;
     float outline = 1.0 - smoothstep(lineWidth - feather, lineWidth, abs(dist));
     
-    // Optional: Very faint fill
     float fill = (1.0 - smoothstep(0.0, feather, dist)) * 0.1;
-    
     float alpha = max(outline, fill);
     
     if (alpha <= 0.0) return vec4(0.0);
     
-    // Use brush color
     vec4 brushColor = uBrushColor;
-    if (brushColor.a == 0.0) brushColor = vec4(0.0, 1.0, 0.0, 1.0); // Fallback to green
+    if (brushColor.a == 0.0) brushColor = vec4(0.0, 1.0, 0.0, 1.0);
     
     return vec4(brushColor.rgb, alpha * brushColor.a);
 }
@@ -269,6 +254,7 @@ void main() {
     vec4 brushColor = calculateBrush(worldPos);
     finalColor = mix(finalColor, brushColor.rgb, brushColor.a);
     
+    // Lighting
     vec3 litColor = finalColor * (saturate(vLightingFactor) + xAmbient);
     FragColor = vec4(litColor, uAlpha);
 }

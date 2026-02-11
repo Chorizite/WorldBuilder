@@ -251,8 +251,6 @@ public partial class LandscapeDocument : BaseDocument {
         var targetList = parent?.Children ?? LayerTree;
 
         if (_layerIds.Contains(item.Id)) {
-            // If it already exists (e.g. somehow), throw or ignore?
-            // For undo, it shouldn't exist.
             throw new InvalidOperationException($"Item ID already exists: {item.Id}");
         }
 

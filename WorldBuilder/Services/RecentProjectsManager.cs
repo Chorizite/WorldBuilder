@@ -75,11 +75,6 @@ namespace WorldBuilder.Services {
 
             RecentProjects.Insert(0, recentProject);
 
-            // Keep only the 10 most recent projects
-            while (RecentProjects.Count > 10) {
-                RecentProjects.RemoveAt(RecentProjects.Count - 1);
-            }
-
             await SaveRecentProjects();
         }
 

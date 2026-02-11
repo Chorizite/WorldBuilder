@@ -239,7 +239,6 @@ namespace Chorizite.OpenGLSDLBackend {
                 throw new ArgumentException("Width and height must be positive.");
             }
 
-            // Validate texture dimensions and format if needed (assumes texture is compatible)
             return new ManagedGLFramebuffer(GL, texture, width, height, hasDepthStencil);
         }
 

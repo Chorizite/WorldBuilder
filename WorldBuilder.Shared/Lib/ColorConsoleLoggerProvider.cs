@@ -97,20 +97,14 @@ namespace WorldBuilder.Shared.Lib {
             Func<TState, Exception?, string> formatter) {
             ColorConsoleLoggerConfiguration config = getCurrentConfig();
             if (config.EventId == 0 || config.EventId == eventId.Id) {
-                // Get the formatted message from the formatter
                 string message = formatter(state, exception);
-
-                // Include exception details if present
                 string exceptionMessage = exception != null ? $"\nException: {exception}" : string.Empty;
-
-                // Set console color based on log level
+                
                 if (config.LogLevelToColorMap.TryGetValue(logLevel, out var color)) {
                     Console.ForegroundColor = color;
                 }
 
                 Console.WriteLine($"[{eventId.Id,2}: {logLevel,-12}] {name} - {message}{exceptionMessage}");
-
-                // Reset console color
                 Console.ResetColor();
             }
         }

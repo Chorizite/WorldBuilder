@@ -24,7 +24,6 @@ public partial class HistoryPanelViewModel : ViewModelBase {
         Items.Clear();
         var historicalCommands = _history.History.ToList();
 
-        // Add "Original Document" or "History Truncated" entry
         string baseName = _history.IsTruncated ? "Oldest Undo State (Truncated)" : "Original Document (Opened)";
         Items.Add(new HistoryItemViewModel(-1, baseName, _history.CurrentIndex == -1));
 

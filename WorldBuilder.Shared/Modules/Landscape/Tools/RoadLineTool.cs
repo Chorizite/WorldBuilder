@@ -86,9 +86,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private void UpdatePreview(Vector3 currentPos) {
             if (_context == null || _startPoint == null) return;
 
-            // Simple optimization: only update if position changed
-            // (NearestVertice handles the grid snapping)
-
             _previewCommand?.Undo();
             _previewCommand = new DrawLineCommand(_context, _startPoint.Value, currentPos, RoadBits);
             _previewCommand.Execute();

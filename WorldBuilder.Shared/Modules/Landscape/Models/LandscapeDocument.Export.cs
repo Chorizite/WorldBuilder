@@ -8,7 +8,7 @@ namespace WorldBuilder.Shared.Models {
         protected override async Task<bool> SaveToDatsInternal(IDatReaderWriter datwriter, int iteration = 0, IProgress<float>? progress = null) {
             if (Region == null || CellDatabase == null) return false;
 
-            // 1. Identify affected landblocks from exported layers
+            // Identify affected landblocks from exported layers
             var affectedLandblocks = new HashSet<(int x, int y)>();
             var exportedLayers = GetAllLayers().Where(IsItemExported).ToList();
 
@@ -44,12 +44,12 @@ namespace WorldBuilder.Shared.Models {
             int localSize = vertexStride * vertexStride;
 
             int processed = 0;
-            // 2. Export only affected landblocks
+            // Export only affected landblocks
             foreach (var (lbX, lbY) in affectedLandblocks) {
                 var lbId = Region.GetLandblockId(lbX, lbY);
                 var lbFileId = (uint)((lbId << 16) | 0xFFFF);
 
-                byte[] buffer = new byte[localSize * 10]; // Rough estimate for landblock size
+                byte[] buffer = new byte[localSize * 10];
                 int bytesRead;
 
                 if (!datwriter.TryGetFileBytes(RegionId, lbFileId, ref buffer, out bytesRead)) {

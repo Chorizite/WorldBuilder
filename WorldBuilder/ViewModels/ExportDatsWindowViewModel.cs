@@ -15,7 +15,7 @@ namespace WorldBuilder.ViewModels {
         private readonly WorldBuilderSettings _settings;
         private readonly IDatReaderWriter _dats;
         private readonly IDatExportService _datExportService;
-        private bool _isValidating; // Reentrancy guard
+        private bool _isValidating;
 
         [ObservableProperty]
         private string _exportDirectory = string.Empty;
@@ -119,7 +119,7 @@ namespace WorldBuilder.ViewModels {
                         _settings.Project.Save();
                     }
 
-                    DialogResult = true; // Set dialog result to true for success
+                    DialogResult = true; 
                     return true;
                 }
                 else {
