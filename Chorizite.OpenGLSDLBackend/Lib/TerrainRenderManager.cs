@@ -22,7 +22,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly ConcurrentDictionary<ulong, TerrainChunk> _chunks = new();
 
         // Job queues
-        private readonly ConcurrentQueue<TerrainChunk> _generationQueue = new();
+        private readonly ConcurrentDictionary<ulong, TerrainChunk> _pendingGeneration = new();
         private readonly ConcurrentQueue<TerrainChunk> _uploadQueue = new();
         private readonly ConcurrentQueue<TerrainChunk> _partialUpdateQueue = new();
         private readonly ConcurrentDictionary<TerrainChunk, byte> _queuedForPartialUpdate = new();
@@ -41,7 +41,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Statistics
         public int RenderDistance { get; set; } = 12;
         public int QueuedUploads => _uploadQueue.Count;
-        public int QueuedGenerations => _generationQueue.Count;
+        public int QueuedGenerations => _pendingGeneration.Count;
         public int QueuedPartialUpdates => _partialUpdateQueue.Count;
         public int ActiveChunks => _chunks.Count;
 
@@ -104,17 +104,22 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public void Update(float deltaTime, Vector3 cameraPosition) {
+        public void Update(float deltaTime, ICamera camera) {
             if (!_initialized) return;
 
+            _frustum.Update(camera.ViewProjectionMatrix);
+
             // Calculate current chunk
-            var chunkX = (int)Math.Floor(cameraPosition.X / _chunkSizeInUnits);
-            var chunkY = (int)Math.Floor(cameraPosition.Y / _chunkSizeInUnits);
+            var chunkX = (int)Math.Floor(camera.Position.X / _chunkSizeInUnits);
+            var chunkY = (int)Math.Floor(camera.Position.Y / _chunkSizeInUnits);
 
             // Queue new chunks
             for (int x = chunkX - RenderDistance; x <= chunkX + RenderDistance; x++) {
                 for (int y = chunkY - RenderDistance; y <= chunkY + RenderDistance; y++) {
                     if (x < 0 || y < 0) continue;
+
+                    // Skip chunks outside the camera frustum (using estimated bounds)
+                    if (!IsChunkInFrustum(x, y)) continue;
 
                     var uX = (uint)x;
                     var uY = (uint)y;
@@ -123,27 +128,76 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (!_chunks.ContainsKey(chunkId)) {
                         var chunk = new TerrainChunk(uX, uY);
                         if (_chunks.TryAdd(chunkId, chunk)) {
-                            _generationQueue.Enqueue(chunk);
+                            _pendingGeneration[chunkId] = chunk;
                         }
                     }
                 }
             }
 
-            while (_activeGenerations < 2 && !_generationQueue.IsEmpty) {
+            // Clean up chunks that are no longer in frustum and not yet loaded
+            foreach (var (key, chunk) in _chunks) {
+                if (!chunk.IsGenerated && !IsChunkInFrustum((int)chunk.ChunkX, (int)chunk.ChunkY)) {
+                    if (_chunks.TryRemove(key, out _)) {
+                        _pendingGeneration.TryRemove(key, out _);
+                        chunk.Dispose();
+                    }
+                }
+            }
+
+            while (_activeGenerations < 2 && !_pendingGeneration.IsEmpty) {
+                // Pick the nearest pending chunk (Chebyshev distance)
+                TerrainChunk? nearest = null;
+                int bestDist = int.MaxValue;
+                ulong bestKey = 0;
+
+                foreach (var (key, chunk) in _pendingGeneration) {
+                    var dist = Math.Max(Math.Abs((int)chunk.ChunkX - chunkX), Math.Abs((int)chunk.ChunkY - chunkY));
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        nearest = chunk;
+                        bestKey = key;
+                    }
+                }
+
+                if (nearest == null || !_pendingGeneration.TryRemove(bestKey, out var chunkToGenerate))
+                    break;
+
+                // Skip if now out of range or not in frustum
+                if (bestDist > RenderDistance || !IsChunkInFrustum((int)chunkToGenerate.ChunkX, (int)chunkToGenerate.ChunkY)) {
+                    if (_chunks.TryRemove(bestKey, out _)) {
+                        chunkToGenerate.Dispose();
+                    }
+                    continue;
+                }
+
                 System.Threading.Interlocked.Increment(ref _activeGenerations);
-                Task.Run(ProcessGenerationQueueItem);
+                Task.Run(() => {
+                    try {
+                        GenerateChunk(chunkToGenerate);
+                    }
+                    finally {
+                        System.Threading.Interlocked.Decrement(ref _activeGenerations);
+                    }
+                });
             }
         }
 
-        private async Task ProcessGenerationQueueItem() {
-            try {
-                while (_generationQueue.TryDequeue(out var chunk)) {
-                    GenerateChunk(chunk);
-                }
-            }
-            finally {
-                System.Threading.Interlocked.Decrement(ref _activeGenerations);
-            }
+        private bool IsChunkInFrustum(int chunkX, int chunkY) {
+            var minX = chunkX * _chunkSizeInUnits;
+            var minY = chunkY * _chunkSizeInUnits;
+            var maxX = (chunkX + 1) * _chunkSizeInUnits;
+            var maxY = (chunkY + 1) * _chunkSizeInUnits;
+
+            var box = new BoundingBox(
+                new Vector3(minX, minY, -1000f),
+                new Vector3(maxX, maxY, 5000f)
+            );
+            return _frustum.Intersects(box);
+        }
+
+        private bool IsWithinRenderDistance(TerrainChunk chunk, int cameraChunkX, int cameraChunkY) {
+            return Math.Abs((int)chunk.ChunkX - cameraChunkX) <= RenderDistance
+                && Math.Abs((int)chunk.ChunkY - cameraChunkY) <= RenderDistance;
         }
 
         public void ProcessUploads(float timeBudgetMs) {
@@ -160,6 +214,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 if (_uploadQueue.TryDequeue(out chunk)) {
+                    // Skip if this chunk is no longer in frustum
+                    if (!IsChunkInFrustum((int)chunk.ChunkX, (int)chunk.ChunkY)) {
+                        var chunkId = (ulong)chunk.ChunkX << 32 | chunk.ChunkY;
+                        if (_chunks.TryRemove(chunkId, out _)) {
+                            chunk.Dispose();
+                        }
+                        continue;
+                    }
                     UploadChunk(chunk);
                 }
             }
@@ -436,6 +498,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 else {
                     // Fallback to full regen if not ready
                     if (_chunks.TryRemove(chunkId, out var _)) {
+                        _pendingGeneration.TryRemove(chunkId, out _);
                         chunk.Dispose();
                     }
                 }
@@ -449,6 +512,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             _chunks.Clear();
+            _pendingGeneration.Clear();
         }
     }
 }

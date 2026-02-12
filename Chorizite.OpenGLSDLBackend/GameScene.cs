@@ -254,7 +254,7 @@ public class GameScene : IDisposable {
     public void Update(float deltaTime) {
         var allowedTime = MAX_GPU_UPDATE_TIME_PER_FRAME / 2;
         _currentCamera.Update(deltaTime);
-        _terrainManager?.Update(deltaTime, _currentCamera.Position);
+        _terrainManager?.Update(deltaTime, _currentCamera);
         _terrainManager?.ProcessUploads(allowedTime);
         _sceneryManager?.Update(deltaTime, _currentCamera.Position, _currentCamera.ViewProjectionMatrix);
         _sceneryManager?.ProcessUploads(allowedTime);
