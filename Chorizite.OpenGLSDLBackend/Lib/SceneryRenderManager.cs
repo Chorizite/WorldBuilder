@@ -29,11 +29,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private readonly ObjectMeshManager _meshManager;
 
-        // Per-landblock scenery data, keyed by (gridX, gridY) packed into ulong
-        private readonly ConcurrentDictionary<ulong, ObjectLandblock> _landblocks = new();
+        // Per-landblock scenery data, keyed by (gridX, gridY) packed into ushort
+        private readonly ConcurrentDictionary<ushort, ObjectLandblock> _landblocks = new();
 
         // Queues — generation uses a dictionary for cancellation + priority ordering
-        private readonly ConcurrentDictionary<ulong, ObjectLandblock> _pendingGeneration = new();
+        private readonly ConcurrentDictionary<ushort, ObjectLandblock> _pendingGeneration = new();
         private readonly ConcurrentQueue<ObjectLandblock> _uploadQueue = new();
         private int _activeGenerations = 0;
 
@@ -42,7 +42,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         // Distance-based unloading
         private const float UnloadDelay = 15f;
-        private readonly ConcurrentDictionary<ulong, float> _outOfRangeTimers = new();
+        private readonly ConcurrentDictionary<ushort, float> _outOfRangeTimers = new();
         private Vector3 _cameraPosition;
         private int _cameraLbX;
         private int _cameraLbY;
@@ -153,7 +153,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             // Unload landblocks outside render distance (with delay)
-            var keysToRemove = new List<ulong>();
+            var keysToRemove = new List<ushort>();
             foreach (var (key, lb) in _landblocks) {
                 if (Math.Abs(lb.GridX - _cameraLbX) > RenderDistance || Math.Abs(lb.GridY - _cameraLbY) > RenderDistance) {
                     var elapsed = _outOfRangeTimers.AddOrUpdate(key, deltaTime, (_, e) => e + deltaTime);
@@ -177,7 +177,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 // Pick the nearest pending landblock (Chebyshev distance)
                 ObjectLandblock? nearest = null;
                 int bestDist = int.MaxValue;
-                ulong bestKey = 0;
+                ushort bestKey = 0;
 
                 foreach (var (key, lb) in _pendingGeneration) {
                     var dist = Math.Max(Math.Abs(lb.GridX - _cameraLbX), Math.Abs(lb.GridY - _cameraLbY));
@@ -643,7 +643,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #endregion
 
-        private static ulong PackKey(int x, int y) => ((ulong)(uint)x << 32) | (uint)y;
+        private static ushort PackKey(int x, int y) => (ushort)((x << 8) | y);
 
         public void Dispose() {
             _landscapeDoc.LandblockChanged -= OnLandblockChanged;

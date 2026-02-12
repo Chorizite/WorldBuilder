@@ -19,10 +19,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly GL _gl;
         private readonly ILogger _log;
         private readonly LandscapeDocument _landscapeDoc;
-        private readonly ConcurrentDictionary<ulong, TerrainChunk> _chunks = new();
+        private readonly ConcurrentDictionary<ushort, TerrainChunk> _chunks = new();
 
         // Job queues
-        private readonly ConcurrentDictionary<ulong, TerrainChunk> _pendingGeneration = new();
+        private readonly ConcurrentDictionary<ushort, TerrainChunk> _pendingGeneration = new();
         private readonly ConcurrentQueue<TerrainChunk> _uploadQueue = new();
         private readonly ConcurrentQueue<TerrainChunk> _partialUpdateQueue = new();
         private readonly ConcurrentDictionary<TerrainChunk, byte> _queuedForPartialUpdate = new();
@@ -124,7 +124,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     var uX = (uint)x;
                     var uY = (uint)y;
 
-                    var chunkId = (ulong)uX << 32 | uY;
+                    var chunkId = (ushort)((uX << 8) | uY);
                     if (!_chunks.ContainsKey(chunkId)) {
                         var chunk = new TerrainChunk(uX, uY);
                         if (_chunks.TryAdd(chunkId, chunk)) {
@@ -148,7 +148,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 // Pick the nearest pending chunk (Chebyshev distance)
                 TerrainChunk? nearest = null;
                 int bestDist = int.MaxValue;
-                ulong bestKey = 0;
+                ushort bestKey = 0;
 
                 foreach (var (key, chunk) in _pendingGeneration) {
                     var dist = Math.Max(Math.Abs((int)chunk.ChunkX - chunkX), Math.Abs((int)chunk.ChunkY - chunkY));
@@ -216,7 +216,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (_uploadQueue.TryDequeue(out chunk)) {
                     // Skip if this chunk is no longer in frustum
                     if (!IsChunkInFrustum((int)chunk.ChunkX, (int)chunk.ChunkY)) {
-                        var chunkId = (ulong)chunk.ChunkX << 32 | chunk.ChunkY;
+                        var chunkId = (ushort)((chunk.ChunkX << 8) | chunk.ChunkY);
                         if (_chunks.TryRemove(chunkId, out _)) {
                             chunk.Dispose();
                         }
@@ -486,7 +486,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             var chunkX = (uint)(lbX / 8);
             var chunkY = (uint)(lbY / 8);
-            var chunkId = (ulong)chunkX << 32 | chunkY;
+            var chunkId = (ushort)((chunkX << 8) | chunkY);
 
             if (_chunks.TryGetValue(chunkId, out var chunk)) {
                 if (chunk.IsGenerated) {

@@ -54,7 +54,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             Array.Fill(LandblockVertexOffsets, -1);
         }
 
-        public ulong GetChunkId() => (ulong)ChunkX << 32 | ChunkY;
+        public ushort GetChunkId() => (ushort)((ChunkX << 8) | ChunkY);
 
         public void MarkDirty(int localLx, int localLy) {
             if (localLx < 0 || localLx >= 8 || localLy < 0 || localLy >= 8) return;
