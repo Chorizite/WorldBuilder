@@ -65,6 +65,24 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public int QueuedGenerations => _pendingGeneration.Count;
         public int ActiveLandblocks => _landblocks.Count;
 
+        /// <summary>
+        /// Gets the instances for a landblock.
+        /// </summary>
+        public List<SceneryInstance>? GetLandblockInstances(ushort key) {
+            return _landblocks.TryGetValue(key, out var lb) ? lb.Instances : null;
+        }
+
+        /// <summary>
+        /// Gets the pending instances for a landblock.
+        /// </summary>
+        public List<SceneryInstance>? GetPendingLandblockInstances(ushort key) {
+            return _landblocks.TryGetValue(key, out var lb) ? lb.PendingInstances : null;
+        }
+
+        public bool IsLandblockReady(ushort key) {
+            return _landblocks.TryGetValue(key, out var lb) && lb.MeshDataReady;
+        }
+
         public StaticObjectRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
             IDatReaderWriter dats, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager) {
             _gl = gl;
@@ -361,13 +379,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         var transform = Matrix4x4.CreateFromQuaternion(obj.Frame.Orientation)
                             * Matrix4x4.CreateTranslation(worldPos);
 
+                        var bounds = _meshManager.GetBounds(obj.Id, isSetup);
+                        var bbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max).Transform(transform) : default;
+
                         staticObjects.Add(new SceneryInstance {
                             ObjectId = obj.Id,
                             IsSetup = isSetup,
                             WorldPosition = worldPos,
                             Rotation = obj.Frame.Orientation,
                             Scale = Vector3.One,
-                            Transform = transform
+                            Transform = transform,
+                            BoundingBox = bbox
                         });
                     }
 
@@ -385,13 +407,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         var transform = Matrix4x4.CreateFromQuaternion(building.Frame.Orientation)
                             * Matrix4x4.CreateTranslation(worldPos);
 
+                        var bounds = _meshManager.GetBounds(building.ModelId, isSetup);
+                        var bbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max).Transform(transform) : default;
+
                         staticObjects.Add(new SceneryInstance {
                             ObjectId = building.ModelId,
                             IsSetup = isSetup,
                             WorldPosition = worldPos,
                             Rotation = building.Frame.Orientation,
                             Scale = Vector3.One,
-                            Transform = transform
+                            Transform = transform,
+                            BoundingBox = bbox
                         });
                     }
                 }

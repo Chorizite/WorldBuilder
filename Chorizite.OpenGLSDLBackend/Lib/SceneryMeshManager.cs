@@ -1,3 +1,4 @@
+using Chorizite.Core.Lib;
 using Chorizite.Core.Render;
 using Chorizite.Core.Render.Enums;
 using DatReaderWriter.DBObjs;
@@ -47,6 +48,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         /// <summary>Per-format texture atlas data (to be uploaded to GPU on main thread).</summary>
         public Dictionary<(int Width, int Height, TextureFormat Format), List<TextureBatchData>> TextureBatches { get; set; } = new();
+
+        /// <summary>Local bounding box.</summary>
+        public BoundingBox BoundingBox { get; set; }
     }
 
     /// <summary>
@@ -83,6 +87,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public bool IsSetup { get; set; }
         public List<(uint GfxObjId, Matrix4x4 Transform)> SetupParts { get; set; } = new();
         public Dictionary<(int Width, int Height, TextureFormat Format), TextureAtlasManager> LocalAtlases { get; set; } = new();
+
+        /// <summary>Local bounding box.</summary>
+        public BoundingBox BoundingBox { get; set; }
     }
 
     /// <summary>
@@ -205,7 +212,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     var data = new ObjectRenderData {
                         IsSetup = true,
                         SetupParts = meshData.SetupParts,
-                        Batches = new List<ObjectRenderBatch>()
+                        Batches = new List<ObjectRenderBatch>(),
+                        BoundingBox = meshData.BoundingBox
                     };
                     _renderData[meshData.ObjectId] = data;
                     _usageCount[meshData.ObjectId] = 1;
@@ -214,6 +222,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 var renderData = UploadGfxObjMeshData(meshData);
                 if (renderData != null) {
+                    renderData.BoundingBox = meshData.BoundingBox;
                     _renderData[meshData.ObjectId] = renderData;
                     _usageCount[meshData.ObjectId] = 1;
                 }
@@ -273,6 +282,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var parts = new List<(uint GfxObjId, Matrix4x4 Transform)>();
             var placementFrame = setup.PlacementFrames[0];
 
+            var min = new Vector3(float.MaxValue);
+            var max = new Vector3(float.MinValue);
+            bool hasBounds = false;
+
             for (int i = 0; i < setup.Parts.Count; i++) {
                 var partId = setup.Parts[i];
                 var transform = Matrix4x4.Identity;
@@ -281,12 +294,33 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         * Matrix4x4.CreateTranslation(placementFrame.Frames[i].Origin);
                 }
                 parts.Add((partId, transform));
+
+                if (_dats.Portal.TryGet<GfxObj>(partId, out var partGfx)) {
+                    var (partMin, partMax) = ComputeBounds(partGfx, Vector3.One);
+                    var corners = new Vector3[8];
+                    corners[0] = new Vector3(partMin.X, partMin.Y, partMin.Z);
+                    corners[1] = new Vector3(partMin.X, partMin.Y, partMax.Z);
+                    corners[2] = new Vector3(partMin.X, partMax.Y, partMin.Z);
+                    corners[3] = new Vector3(partMin.X, partMax.Y, partMax.Z);
+                    corners[4] = new Vector3(partMax.X, partMin.Y, partMin.Z);
+                    corners[5] = new Vector3(partMax.X, partMin.Y, partMax.Z);
+                    corners[6] = new Vector3(partMax.X, partMax.Y, partMin.Z);
+                    corners[7] = new Vector3(partMax.X, partMax.Y, partMax.Z);
+
+                    foreach (var corner in corners) {
+                        var transformed = Vector3.Transform(corner, transform);
+                        min = Vector3.Min(min, transformed);
+                        max = Vector3.Max(max, transformed);
+                    }
+                    hasBounds = true;
+                }
             }
 
             return new ObjectMeshData {
                 ObjectId = id,
                 IsSetup = true,
-                SetupParts = parts
+                SetupParts = parts,
+                BoundingBox = hasBounds ? new BoundingBox(min, max) : default
             };
         }
 
@@ -295,6 +329,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var UVLookup = new Dictionary<(ushort vertId, ushort uvIdx), ushort>();
             var batchesByFormat = new Dictionary<(int Width, int Height, TextureFormat Format), List<TextureBatchData>>();
             var allBatches = new List<MeshBatchData>();
+
+            var (min, max) = ComputeBounds(gfxObj, scale);
+            var boundingBox = new BoundingBox(min, max);
 
             foreach (var poly in gfxObj.Polygons.Values) {
                 if (poly.VertexIds.Count < 3) continue;
@@ -411,7 +448,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 ObjectId = id,
                 IsSetup = false,
                 Vertices = vertices.ToArray(),
-                TextureBatches = batchesByFormat
+                TextureBatches = batchesByFormat,
+                BoundingBox = boundingBox
             };
         }
 

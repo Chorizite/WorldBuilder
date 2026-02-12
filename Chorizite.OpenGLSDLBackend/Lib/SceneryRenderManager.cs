@@ -28,6 +28,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly IDatReaderWriter _dats;
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private readonly ObjectMeshManager _meshManager;
+        private readonly StaticObjectRenderManager _staticObjectManager;
 
         // Per-landblock scenery data, keyed by (gridX, gridY) packed into ushort
         private readonly ConcurrentDictionary<ushort, ObjectLandblock> _landblocks = new();
@@ -69,13 +70,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public int ActiveLandblocks => _landblocks.Count;
 
         public SceneryRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
-            IDatReaderWriter dats, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager) {
+            IDatReaderWriter dats, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager,
+            StaticObjectRenderManager staticObjectManager) {
             _gl = gl;
             _log = log;
             _landscapeDoc = landscapeDoc;
             _dats = dats;
             _graphicsDevice = graphicsDevice;
             _meshManager = meshManager;
+            _staticObjectManager = staticObjectManager;
 
             _landscapeDoc.LandblockChanged += OnLandblockChanged;
         }
@@ -373,12 +376,26 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (!IsWithinRenderDistance(lb)) return;
 
                 if (_landscapeDoc.Region is not RegionInfo regionInfo) return;
-                var region = regionInfo._region;
-                var terrainCache = _landscapeDoc.TerrainCache;
-                if (terrainCache == null || terrainCache.Length == 0) return;
 
                 var lbGlobalX = (uint)lb.GridX;
                 var lbGlobalY = (uint)lb.GridY;
+                var key = PackKey((int)lbGlobalX, (int)lbGlobalY);
+
+                // Wait for static objects to be ready for this landblock
+                var sw = Stopwatch.StartNew();
+                while (!_staticObjectManager.IsLandblockReady(key) && sw.ElapsedMilliseconds < 5000) {
+                    Thread.Sleep(10);
+                }
+
+                var buildings = _staticObjectManager.GetLandblockInstances(key) ?? new List<SceneryInstance>();
+                var pendingBuildings = _staticObjectManager.GetPendingLandblockInstances(key);
+                if (pendingBuildings != null) {
+                    buildings = pendingBuildings;
+                }
+
+                var region = regionInfo._region;
+                var terrainCache = _landscapeDoc.TerrainCache;
+                if (terrainCache == null || terrainCache.Length == 0) return;
 
                 var cellLength = regionInfo.LandblockCellLength; // 8
                 var vertLength = regionInfo.LandblockVerticeLength; // 9
@@ -481,14 +498,24 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                         var isSetup = (obj.ObjectId & 0x02000000) != 0;
 
-                        scenery.Add(new SceneryInstance {
+                        var bounds = _meshManager.GetBounds(obj.ObjectId, isSetup);
+                        var bbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max).Transform(transform) : default;
+
+                        var instance = new SceneryInstance {
                             ObjectId = obj.ObjectId,
                             IsSetup = isSetup,
                             WorldPosition = worldOrigin,
                             Rotation = quat,
                             Scale = scale,
-                            Transform = transform
-                        });
+                            Transform = transform,
+                            BoundingBox = bbox
+                        };
+
+                        // Collision detection
+                        if (Collision(buildings, instance) || Collision(scenery, instance))
+                            continue;
+
+                        scenery.Add(instance);
                     }
                 }
 
@@ -531,6 +558,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             catch (Exception ex) {
                 _log.LogError(ex, "Error generating scenery for landblock ({X},{Y})", lb.GridX, lb.GridY);
             }
+        }
+
+        #endregion
+
+        #region Private: Collision Detection
+
+        private bool Collision(List<SceneryInstance> instances, SceneryInstance target) {
+            foreach (var instance in instances) {
+                if (target.BoundingBox.Intersects2D(instance.BoundingBox)) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         #endregion

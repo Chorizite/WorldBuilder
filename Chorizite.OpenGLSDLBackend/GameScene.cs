@@ -171,14 +171,14 @@ public class GameScene : IDisposable {
             _terrainManager.Initialize(_terrainShader);
         }
 
-        _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager);
-        if (_initialized && _sceneryShader != null) {
-            _sceneryManager.Initialize(_sceneryShader);
-        }
-
         _staticObjectManager = new StaticObjectRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager);
         if (_initialized && _sceneryShader != null) {
             _staticObjectManager.Initialize(_sceneryShader);
+        }
+
+        _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager, _staticObjectManager);
+        if (_initialized && _sceneryShader != null) {
+            _sceneryManager.Initialize(_sceneryShader);
         }
 
         if (landscapeDoc.Region != null) {

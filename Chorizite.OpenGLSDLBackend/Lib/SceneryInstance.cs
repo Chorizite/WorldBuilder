@@ -1,3 +1,4 @@
+using Chorizite.Core.Lib;
 using System.Numerics;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
@@ -22,6 +23,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         /// <summary>Pre-computed world transform matrix.</summary>
         public Matrix4x4 Transform;
+
+        /// <summary>World-space bounding box.</summary>
+        public BoundingBox BoundingBox;
     }
 
     /// <summary>
