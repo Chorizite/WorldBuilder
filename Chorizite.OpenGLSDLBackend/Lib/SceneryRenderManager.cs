@@ -512,7 +512,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         };
 
                         // Collision detection
-                        if (Collision(buildings, instance) || Collision(scenery, instance))
+                        if (Collision(buildings, instance) /*|| Collision(scenery, instance) */)
                             continue;
 
                         scenery.Add(instance);
