@@ -103,7 +103,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void Update(float deltaTime, Vector3 cameraPosition, Matrix4x4 viewProjectionMatrix) {
-            if (!_initialized || _landscapeDoc.Region == null) return;
+            if (!_initialized || _landscapeDoc.Region == null || cameraPosition.Z > 4000) return;
 
             var region = _landscapeDoc.Region;
             var lbSize = region.CellSizeInUnits * region.LandblockCellLength;
@@ -233,7 +233,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public unsafe void Render(ICamera camera) {
-            if (!_initialized || _shader is null) return;
+            if (!_initialized || _shader is null || camera.Position.Z > 4000) return;
 
             _shader.Bind();
             _shader.SetUniform("uViewProjection", camera.ViewProjectionMatrix);

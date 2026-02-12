@@ -205,9 +205,8 @@ public class GameScene : IDisposable {
             // 2D -> 3D
             float zoom = _camera2D.Zoom;
             float h = 10.0f / (zoom * tanHalfFov);
-            var pos = _camera2D.Position;
-            pos.Z = h;
-            _camera3D.Position = pos;
+            _camera2D.Position = new Vector3(_camera2D.Position.X, _camera2D.Position.Y, h);
+            _camera3D.Position = _camera2D.Position;
         }
     }
 
@@ -217,6 +216,26 @@ public class GameScene : IDisposable {
     /// <param name="distance">The far clipping plane distance.</param>
     public void SetDrawDistance(float distance) {
         _camera3D.FarPlane = distance;
+    }
+
+    /// <summary>
+    /// Sets the terrain render distance in chunks.
+    /// </summary>
+    /// <param name="distance">The number of chunks to render around the camera.</param>
+    public void SetTerrainRenderDistance(int distance) {
+        if (_terrainManager != null) {
+            _terrainManager.RenderDistance = distance;
+        }
+    }
+
+    /// <summary>
+    /// Sets the scenery render distance in landblocks.
+    /// </summary>
+    /// <param name="distance">The number of landblocks to render around the camera.</param>
+    public void SetSceneryRenderDistance(int distance) {
+        if (_sceneryManager != null) {
+            _sceneryManager.RenderDistance = distance;
+        }
     }
 
     /// <summary>
@@ -370,6 +389,9 @@ public class GameScene : IDisposable {
 
     public void HandlePointerWheelChanged(float delta) {
         _currentCamera.HandlePointerWheelChanged(delta);
+        if (!_is3DMode) {
+            SyncCameraZ();
+        }
     }
 
     public void HandleKeyDown(string key) {

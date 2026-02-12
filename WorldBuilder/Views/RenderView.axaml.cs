@@ -27,6 +27,7 @@ public partial class RenderView : Base3DViewport {
     private Vector2 _lastPointerPosition;
     private LandscapeDocument? _cachedLandscapeDocument;
     private CameraSettings? _cameraSettings;
+    private RenderingSettings? _renderingSettings;
 
     public WorldBuilder.Shared.Models.ICamera? Camera => _gameScene?.Camera;
 
@@ -61,6 +62,10 @@ public partial class RenderView : Base3DViewport {
         if (_cameraSettings != null) {
             _cameraSettings.PropertyChanged -= OnCameraSettingsChanged;
             _cameraSettings = null;
+        }
+        if (_renderingSettings != null) {
+            _renderingSettings.PropertyChanged -= OnRenderingSettingsChanged;
+            _renderingSettings = null;
         }
         if (_gridSettings != null) {
             _gridSettings.PropertyChanged -= OnGridSettingsChanged;
@@ -137,7 +142,7 @@ public partial class RenderView : Base3DViewport {
     }
 
     private void OnLandscapeSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e) {
-        if (e.PropertyName == nameof(LandscapeEditorSettings.Camera) || e.PropertyName == nameof(LandscapeEditorSettings.Grid)) {
+        if (e.PropertyName == nameof(LandscapeEditorSettings.Camera) || e.PropertyName == nameof(LandscapeEditorSettings.Grid) || e.PropertyName == nameof(LandscapeEditorSettings.Rendering)) {
             UpdateSettingsRefs();
         }
     }
@@ -152,6 +157,14 @@ public partial class RenderView : Base3DViewport {
         _cameraSettings.PropertyChanged += OnCameraSettingsChanged;
         _gameScene.SetDrawDistance(_cameraSettings.MaxDrawDistance);
         _gameScene.SetMovementSpeed(_cameraSettings.MovementSpeed);
+
+        if (_renderingSettings != null) {
+            _renderingSettings.PropertyChanged -= OnRenderingSettingsChanged;
+        }
+        _renderingSettings = _settings.Landscape.Rendering;
+        _renderingSettings.PropertyChanged += OnRenderingSettingsChanged;
+        _gameScene.SetTerrainRenderDistance(_renderingSettings.TerrainRenderDistance);
+        _gameScene.SetSceneryRenderDistance(_renderingSettings.SceneryRenderDistance);
 
         if (_gridSettings != null) {
             _gridSettings.PropertyChanged -= OnGridSettingsChanged;
@@ -176,6 +189,17 @@ public partial class RenderView : Base3DViewport {
         }
         else if (e.PropertyName == nameof(CameraSettings.MovementSpeed)) {
             _gameScene.SetMovementSpeed(_cameraSettings.MovementSpeed);
+        }
+    }
+
+    private void OnRenderingSettingsChanged(object? sender, PropertyChangedEventArgs e) {
+        if (_gameScene == null || _renderingSettings == null) return;
+
+        if (e.PropertyName == nameof(RenderingSettings.TerrainRenderDistance)) {
+            _gameScene.SetTerrainRenderDistance(_renderingSettings.TerrainRenderDistance);
+        }
+        else if (e.PropertyName == nameof(RenderingSettings.SceneryRenderDistance)) {
+            _gameScene.SetSceneryRenderDistance(_renderingSettings.SceneryRenderDistance);
         }
     }
 
