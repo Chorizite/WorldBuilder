@@ -36,7 +36,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     /// CPU-side mesh data prepared on a background thread.
     /// Contains vertex data and per-batch index/texture info, but NO GPU resources.
     /// </summary>
-    public class SceneryMeshData {
+    public class ObjectMeshData {
         public uint ObjectId { get; set; }
         public bool IsSetup { get; set; }
         public VertexPositionNormalTexture[] Vertices { get; set; } = Array.Empty<VertexPositionNormalTexture>();
@@ -76,10 +76,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     /// <summary>
     /// GPU-side render data created on the main thread.
     /// </summary>
-    public class SceneryRenderData {
+    public class ObjectRenderData {
         public uint VAO { get; set; }
         public uint VBO { get; set; }
-        public List<SceneryRenderBatch> Batches { get; set; } = new();
+        public List<ObjectRenderBatch> Batches { get; set; } = new();
         public bool IsSetup { get; set; }
         public List<(uint GfxObjId, Matrix4x4 Transform)> SetupParts { get; set; } = new();
         public Dictionary<(int Width, int Height, TextureFormat Format), TextureAtlasManager> LocalAtlases { get; set; } = new();
@@ -88,7 +88,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     /// <summary>
     /// A single GPU draw batch: IBO + texture array layer.
     /// </summary>
-    public class SceneryRenderBatch {
+    public class ObjectRenderBatch {
         public uint IBO { get; set; }
         public int IndexCount { get; set; }
         public ManagedGLTextureArray TextureArray { get; set; } = null!;
@@ -104,13 +104,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     /// Key design: mesh data is prepared on background threads via PrepareMeshData(),
     /// then GPU resources are created on the main thread via UploadMeshData().
     /// </summary>
-    public class SceneryMeshManager : IDisposable {
+    public class ObjectMeshManager : IDisposable {
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private readonly IDatReaderWriter _dats;
-        private readonly Dictionary<uint, SceneryRenderData> _renderData = new();
+        private readonly Dictionary<uint, ObjectRenderData> _renderData = new();
         private readonly ConcurrentDictionary<uint, int> _usageCount = new();
 
-        public SceneryMeshManager(OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats) {
+        public ObjectMeshManager(OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats) {
             _graphicsDevice = graphicsDevice;
             _dats = dats;
         }
@@ -119,7 +119,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Get existing GPU render data for an object, or null if not yet uploaded.
         /// Increments reference count.
         /// </summary>
-        public SceneryRenderData? GetRenderData(uint id) {
+        public ObjectRenderData? GetRenderData(uint id) {
             if (_renderData.TryGetValue(id, out var data)) {
                 _usageCount.AddOrUpdate(id, 1, (_, count) => count + 1);
                 return data;
@@ -136,7 +136,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Get existing GPU render data without modifying reference count.
         /// Use this for render-loop lookups where you don't want to affect lifecycle.
         /// </summary>
-        public SceneryRenderData? TryGetRenderData(uint id) {
+        public ObjectRenderData? TryGetRenderData(uint id) {
             return _renderData.TryGetValue(id, out var data) ? data : null;
         }
 
@@ -176,7 +176,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// This loads vertices, indices, and texture data but creates NO GPU resources.
         /// Thread-safe: only reads from DAT files.
         /// </summary>
-        public SceneryMeshData? PrepareMeshData(uint id, bool isSetup) {
+        public ObjectMeshData? PrepareMeshData(uint id, bool isSetup) {
             try {
                 if (isSetup) {
                     if (!_dats.Portal.TryGet<Setup>(id, out var setup)) return null;
@@ -198,14 +198,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Creates VAO, VBO, IBOs, and texture arrays.
         /// Must be called from the GL thread.
         /// </summary>
-        public SceneryRenderData? UploadMeshData(SceneryMeshData meshData) {
+        public ObjectRenderData? UploadMeshData(ObjectMeshData meshData) {
             try {
                 if (meshData.IsSetup) {
                     // Setup objects are multi-part - each part needs its own render data
-                    var data = new SceneryRenderData {
+                    var data = new ObjectRenderData {
                         IsSetup = true,
                         SetupParts = meshData.SetupParts,
-                        Batches = new List<SceneryRenderBatch>()
+                        Batches = new List<ObjectRenderBatch>()
                     };
                     _renderData[meshData.ObjectId] = data;
                     _usageCount[meshData.ObjectId] = 1;
@@ -269,7 +269,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Private: Background Preparation
 
-        private SceneryMeshData PrepareSetupMeshData(uint id, Setup setup) {
+        private ObjectMeshData PrepareSetupMeshData(uint id, Setup setup) {
             var parts = new List<(uint GfxObjId, Matrix4x4 Transform)>();
             var placementFrame = setup.PlacementFrames[0];
 
@@ -283,14 +283,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 parts.Add((partId, transform));
             }
 
-            return new SceneryMeshData {
+            return new ObjectMeshData {
                 ObjectId = id,
                 IsSetup = true,
                 SetupParts = parts
             };
         }
 
-        private SceneryMeshData? PrepareGfxObjMeshData(uint id, GfxObj gfxObj, Vector3 scale) {
+        private ObjectMeshData? PrepareGfxObjMeshData(uint id, GfxObj gfxObj, Vector3 scale) {
             var vertices = new List<VertexPositionNormalTexture>();
             var UVLookup = new Dictionary<(ushort vertId, ushort uvIdx), ushort>();
             var batchesByFormat = new Dictionary<(int Width, int Height, TextureFormat Format), List<TextureBatchData>>();
@@ -407,7 +407,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 BuildPolygonIndices(poly, gfxObj, scale, UVLookup, vertices, batch.Indices, useNegSurface);
             }
 
-            return new SceneryMeshData {
+            return new ObjectMeshData {
                 ObjectId = id,
                 IsSetup = false,
                 Vertices = vertices.ToArray(),
@@ -464,7 +464,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Private: GPU Upload
 
-        private unsafe SceneryRenderData? UploadGfxObjMeshData(SceneryMeshData meshData) {
+        private unsafe ObjectRenderData? UploadGfxObjMeshData(ObjectMeshData meshData) {
             if (meshData.Vertices.Length == 0) return null;
 
             var gl = _graphicsDevice.GL;
@@ -488,7 +488,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             gl.EnableVertexAttribArray(2);
             gl.VertexAttribPointer(2, 2, GLEnum.Float, false, (uint)stride, (void*)(6 * sizeof(float)));
 
-            var renderBatches = new List<SceneryRenderBatch>();
+            var renderBatches = new List<ObjectRenderBatch>();
             var localAtlases = new Dictionary<(int Width, int Height, TextureFormat Format), TextureAtlasManager>();
 
             foreach (var (format, batches) in meshData.TextureBatches) {
@@ -509,7 +509,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         gl.BufferData(GLEnum.ElementArrayBuffer, (nuint)(indexArray.Length * sizeof(ushort)), iptr, GLEnum.StaticDraw);
                     }
 
-                    renderBatches.Add(new SceneryRenderBatch {
+                    renderBatches.Add(new ObjectRenderBatch {
                         IBO = ibo,
                         IndexCount = indexArray.Length,
                         TextureArray = atlasManager.TextureArray,
@@ -521,7 +521,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
-            var renderData = new SceneryRenderData {
+            var renderData = new ObjectRenderData {
                 VAO = vao,
                 VBO = vbo,
                 Batches = renderBatches,

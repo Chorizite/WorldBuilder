@@ -25,9 +25,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     }
 
     /// <summary>
-    /// Holds all scenery instances for a single landblock, ready for rendering.
+    /// Holds all instances for a single landblock, ready for rendering.
+    /// Shared by both scenery and static object render managers.
     /// </summary>
-    public class SceneryLandblock {
+    public class ObjectLandblock {
         /// <summary>Grid X coordinate of this landblock.</summary>
         public int GridX { get; set; }
 
