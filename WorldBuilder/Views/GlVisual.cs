@@ -141,7 +141,7 @@ namespace WorldBuilder.Views {
 
                             SilkGl.Enable(EnableCap.CullFace);
                             SilkGl.CullFace(TriangleFace.Back);
-                            SilkGl.FrontFace(FrontFaceDirection.Ccw);
+                            SilkGl.FrontFace(FrontFaceDirection.CW);
 
                             SilkGl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
                             SilkGl.BlendEquation(BlendEquationModeEXT.FuncAdd);

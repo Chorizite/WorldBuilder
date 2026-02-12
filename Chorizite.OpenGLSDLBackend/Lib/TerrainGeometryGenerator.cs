@@ -225,28 +225,28 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             if (splitDirection == CellSplitDirection.SWtoNE) {
                 // Diagonal from bottom-left to top-right
-                // Tri 1: BL, BR, TL (0, 1, 3) 
+                // Tri 1: BL, TL, BR (0, 3, 1) - CW
                 Unsafe.Add(ref indexRef, 0) = currentVertexIndex + 0;
-                Unsafe.Add(ref indexRef, 1) = currentVertexIndex + 1;
-                Unsafe.Add(ref indexRef, 2) = currentVertexIndex + 3;
+                Unsafe.Add(ref indexRef, 1) = currentVertexIndex + 3;
+                Unsafe.Add(ref indexRef, 2) = currentVertexIndex + 1;
 
-                // Tri 2: BR, TR, TL (1, 2, 3)
+                // Tri 2: BR, TL, TR (1, 3, 2) - CW
                 Unsafe.Add(ref indexRef, 3) = currentVertexIndex + 1;
-                Unsafe.Add(ref indexRef, 4) = currentVertexIndex + 2;
-                Unsafe.Add(ref indexRef, 5) = currentVertexIndex + 3;
+                Unsafe.Add(ref indexRef, 4) = currentVertexIndex + 3;
+                Unsafe.Add(ref indexRef, 5) = currentVertexIndex + 2;
             }
             else {
                 // SEtoNW
                 // Diagonal from bottom-right to top-left
-                // Tri 1: BL, BR, TR (0, 1, 2)
+                // Tri 1: BL, TR, BR (0, 2, 1) - CW
                 Unsafe.Add(ref indexRef, 0) = currentVertexIndex + 0;
-                Unsafe.Add(ref indexRef, 1) = currentVertexIndex + 1;
-                Unsafe.Add(ref indexRef, 2) = currentVertexIndex + 2;
+                Unsafe.Add(ref indexRef, 1) = currentVertexIndex + 2;
+                Unsafe.Add(ref indexRef, 2) = currentVertexIndex + 1;
 
-                // Tri 2: BL, TR, TL (0, 2, 3)
+                // Tri 2: BL, TL, TR (0, 3, 2) - CW
                 Unsafe.Add(ref indexRef, 3) = currentVertexIndex + 0;
-                Unsafe.Add(ref indexRef, 4) = currentVertexIndex + 2;
-                Unsafe.Add(ref indexRef, 5) = currentVertexIndex + 3;
+                Unsafe.Add(ref indexRef, 4) = currentVertexIndex + 3;
+                Unsafe.Add(ref indexRef, 5) = currentVertexIndex + 2;
             }
 
             return (minZ, maxZ);
@@ -290,11 +290,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (splitDirection == CellSplitDirection.SWtoNE) {
                 Vector3 edge1_t1 = p3 - p0;
                 Vector3 edge2_t1 = p1 - p0;
-                Vector3 normal1 = Vector3.Normalize(Vector3.Cross(edge2_t1, edge1_t1));
+                Vector3 normal1 = Vector3.Normalize(Vector3.Cross(edge1_t1, edge2_t1));
 
                 Vector3 edge1_t2 = p3 - p1;
                 Vector3 edge2_t2 = p2 - p1;
-                Vector3 normal2 = Vector3.Normalize(Vector3.Cross(edge2_t2, edge1_t2));
+                Vector3 normal2 = Vector3.Normalize(Vector3.Cross(edge1_t2, edge2_t2));
 
                 v0.Normal = normal1;
                 v1.Normal = Vector3.Normalize(normal1 + normal2);
@@ -304,11 +304,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             else {
                 Vector3 edge1_t1 = p2 - p0;
                 Vector3 edge2_t1 = p1 - p0;
-                Vector3 normal1 = Vector3.Normalize(Vector3.Cross(edge2_t1, edge1_t1));
+                Vector3 normal1 = Vector3.Normalize(Vector3.Cross(edge1_t1, edge2_t1));
 
                 Vector3 edge1_t2 = p3 - p0;
                 Vector3 edge2_t2 = p2 - p0;
-                Vector3 normal2 = Vector3.Normalize(Vector3.Cross(edge2_t2, edge1_t2));
+                Vector3 normal2 = Vector3.Normalize(Vector3.Cross(edge1_t2, edge2_t2));
 
                 v0.Normal = Vector3.Normalize(normal1 + normal2);
                 v1.Normal = normal1;

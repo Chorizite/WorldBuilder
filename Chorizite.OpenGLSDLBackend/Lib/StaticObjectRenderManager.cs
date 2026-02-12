@@ -204,8 +204,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public void ProcessUploads(float timeBudgetMs) {
-            if (!_initialized) return;
+        public float ProcessUploads(float timeBudgetMs) {
+            if (!_initialized) return 0;
 
             var sw = Stopwatch.StartNew();
             while (sw.Elapsed.TotalMilliseconds < timeBudgetMs && _uploadQueue.TryDequeue(out var lb)) {
@@ -222,6 +222,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
                 UploadLandblockMeshes(lb);
             }
+
+            return (float)sw.Elapsed.TotalMilliseconds;
         }
 
         public unsafe void Render(ICamera camera) {

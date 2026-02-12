@@ -25,8 +25,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly ConcurrentDictionary<ushort, TerrainChunk> _pendingGeneration = new();
         private readonly ConcurrentQueue<TerrainChunk> _uploadQueue = new();
         private readonly ConcurrentQueue<TerrainChunk> _partialUpdateQueue = new();
+        private readonly ConcurrentQueue<TerrainChunk> _readyForUploadQueue = new();
         private readonly ConcurrentDictionary<TerrainChunk, byte> _queuedForPartialUpdate = new();
         private int _activeGenerations = 0;
+        private int _activePartialUpdates = 0;
 
         // Constants
         private const int MaxVertices = 16384;
@@ -147,7 +149,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
-            while (_activeGenerations < 2 && !_pendingGeneration.IsEmpty) {
+            while (_activeGenerations < 12 && !_pendingGeneration.IsEmpty) {
                 // Pick the nearest pending chunk (Chebyshev distance)
                 TerrainChunk? nearest = null;
                 int bestDist = int.MaxValue;
@@ -204,13 +206,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 && Math.Abs((int)chunk.ChunkY - cameraChunkY) <= RenderDistance;
         }
 
-        public void ProcessUploads(float timeBudgetMs) {
-            if (!_initialized) return;
+        public float ProcessUploads(float timeBudgetMs) {
+            if (!_initialized) return 0;
 
             var sw = Stopwatch.StartNew();
 
-            // Prioritize partial updates for responsiveness
-            ProcessPartialUpdates(sw, timeBudgetMs);
+            // Background generation of partial updates
+            DispatchPartialUpdates();
+
+            // Prioritize partial updates for responsiveness (Main thread GPU upload)
+            ApplyPartialUpdates(sw, timeBudgetMs);
 
             while (_uploadQueue.TryPeek(out var chunk)) {
                 if (sw.Elapsed.TotalMilliseconds > timeBudgetMs) {
@@ -229,91 +234,123 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     UploadChunk(chunk);
                 }
             }
+
+            return (float)sw.Elapsed.TotalMilliseconds;
         }
 
-        private unsafe void ProcessPartialUpdates(Stopwatch sw, float timeBudgetMs) {
-            // Re-queue chunks that we don't finish
-            int processedCount = 0;
-            int initialCount = _partialUpdateQueue.Count;
-
-            while (processedCount < initialCount && sw.Elapsed.TotalMilliseconds < timeBudgetMs) {
-                if (_partialUpdateQueue.TryDequeue(out var chunk)) {
-                    _queuedForPartialUpdate.TryRemove(chunk, out _);
-
-                    if (chunk.HasDirtyBlocks()) {
-                        UpdateChunk(chunk);
+        private void DispatchPartialUpdates() {
+            while (_activePartialUpdates < 8 && _partialUpdateQueue.TryDequeue(out var chunk)) {
+                System.Threading.Interlocked.Increment(ref _activePartialUpdates);
+                Task.Run(() => {
+                    try {
+                        ProcessChunkUpdate(chunk);
                     }
-                    processedCount++;
+                    finally {
+                        System.Threading.Interlocked.Decrement(ref _activePartialUpdates);
+                    }
+                });
+            }
+        }
+
+        private void ProcessChunkUpdate(TerrainChunk chunk) {
+            try {
+                // Temporary buffers for single landblock
+                var tempVertices = new VertexLandscape[TerrainGeometryGenerator.VerticesPerLandblock];
+                var tempIndices = new uint[TerrainGeometryGenerator.IndicesPerLandblock]; // Unused but required by signature
+
+                while (chunk.TryGetNextDirty(out int lx, out int ly)) {
+                    int vertexOffset = chunk.LandblockVertexOffsets[ly * 8 + lx];
+                    if (vertexOffset == -1) continue; // No geometry for this block
+
+                    var landblockX = chunk.LandblockStartX + (uint)lx;
+                    var landblockY = chunk.LandblockStartY + (uint)ly;
+
+                    if (_landscapeDoc.Region is null) continue;
+
+                    var landblockID = _landscapeDoc.Region.GetLandblockId((int)landblockX, (int)landblockY);
+
+                    var (lbMinZ, lbMaxZ) = TerrainGeometryGenerator.GenerateLandblockGeometry(
+                        landblockX, landblockY, landblockID,
+                        _landscapeDoc.Region, _surfaceManager!,
+                        _landscapeDoc.TerrainCache.AsSpan(),
+                        0, 0,
+                        tempVertices, tempIndices
+                    );
+
+                    var update = new PendingPartialUpdate {
+                        LocalX = lx,
+                        LocalY = ly,
+                        Vertices = tempVertices.ToArray(),
+                        MinZ = lbMinZ,
+                        MaxZ = lbMaxZ
+                    };
+                    chunk.PendingPartialUpdates.Enqueue(update);
+                }
+
+                _readyForUploadQueue.Enqueue(chunk);
+            }
+            catch (Exception ex) {
+                _log.LogError(ex, "Error processing partial update for chunk {CX},{CY}", chunk.ChunkX, chunk.ChunkY);
+            }
+            finally {
+                _queuedForPartialUpdate.TryRemove(chunk, out _);
+            }
+        }
+
+        private unsafe void ApplyPartialUpdates(Stopwatch sw, float timeBudgetMs) {
+            int initialCount = _readyForUploadQueue.Count;
+            int processed = 0;
+
+            while (processed < initialCount && sw.Elapsed.TotalMilliseconds < timeBudgetMs) {
+                if (_readyForUploadQueue.TryDequeue(out var chunk)) {
+                    _gl.BindVertexArray(chunk.VAO);
+                    _gl.BindBuffer(BufferTargetARB.ArrayBuffer, chunk.VBO);
+
+                    bool boundsChanged = false;
+                    while (chunk.PendingPartialUpdates.TryDequeue(out var update)) {
+                        int vertexOffset = chunk.LandblockVertexOffsets[update.LocalY * 8 + update.LocalX];
+                        if (vertexOffset == -1) continue;
+
+                        chunk.LandblockBoundsMinZ[update.LocalY * 8 + update.LocalX] = update.MinZ;
+                        chunk.LandblockBoundsMaxZ[update.LocalY * 8 + update.LocalX] = update.MaxZ;
+                        boundsChanged = true;
+
+                        // Upload vertices
+                        fixed (VertexLandscape* vPtr = update.Vertices) {
+                            _gl.BufferSubData(BufferTargetARB.ArrayBuffer, (nint)(vertexOffset * VertexLandscape.Size), (nuint)(update.Vertices.Length * VertexLandscape.Size), vPtr);
+                        }
+
+                        if (sw.Elapsed.TotalMilliseconds > timeBudgetMs) {
+                            break;
+                        }
+                    }
+
+                    if (boundsChanged) {
+                        float minZ = float.MaxValue;
+                        float maxZ = float.MinValue;
+                        for (int i = 0; i < 64; i++) {
+                            if (chunk.LandblockVertexOffsets[i] != -1) {
+                                minZ = Math.Min(minZ, chunk.LandblockBoundsMinZ[i]);
+                                maxZ = Math.Max(maxZ, chunk.LandblockBoundsMaxZ[i]);
+                            }
+                        }
+                        var offset = _landscapeDoc.Region?.MapOffset ?? Vector2.Zero;
+                        chunk.Bounds = new BoundingBox(
+                            new Vector3(new Vector2(chunk.ChunkX * 8 * 192f, chunk.ChunkY * 8 * 192f) + offset, minZ),
+                            new Vector3(new Vector2((chunk.ChunkX + 1) * 8 * 192f, (chunk.ChunkY + 1) * 8 * 192f) + offset, maxZ)
+                        );
+                    }
+
+                    // If we still have pending updates for this chunk (because we hit the budget), put it back in the queue
+                    if (!chunk.PendingPartialUpdates.IsEmpty) {
+                        _readyForUploadQueue.Enqueue(chunk);
+                    }
+                    processed++;
                 }
                 else {
                     break;
                 }
             }
-        }
-
-        private unsafe void UpdateChunk(TerrainChunk chunk) {
-            if (!chunk.IsGenerated || chunk.VAO == 0) return;
-
-            // Temporary buffers for single landblock
-            Span<VertexLandscape> tempVertices = stackalloc VertexLandscape[TerrainGeometryGenerator.VerticesPerLandblock];
-            Span<uint> tempIndices = stackalloc uint[TerrainGeometryGenerator.IndicesPerLandblock]; // Unused but required by signature
-
-            _gl.BindVertexArray(chunk.VAO);
-            _gl.BindBuffer(BufferTargetARB.ArrayBuffer, chunk.VBO);
-
-            int updates = 0;
-            bool boundsChanged = false;
-            while (chunk.TryGetNextDirty(out int lx, out int ly)) {
-                int vertexOffset = chunk.LandblockVertexOffsets[ly * 8 + lx];
-                if (vertexOffset == -1) continue; // No geometry for this block
-
-                var landblockX = chunk.LandblockStartX + (uint)lx;
-                var landblockY = chunk.LandblockStartY + (uint)ly;
-
-                if (_landscapeDoc.Region is null) continue;
-
-                var landblockID = _landscapeDoc.Region.GetLandblockId((int)landblockX, (int)landblockY);
-
-                // _log.LogTrace("Updating landblock {LBX},{LBY} (ID: {LBID:X8}) in chunk {CX},{CY}", landblockX, landblockY, landblockID, chunk.ChunkX, chunk.ChunkY);
-
-                var (lbMinZ, lbMaxZ) = TerrainGeometryGenerator.GenerateLandblockGeometry(
-                    landblockX, landblockY, landblockID,
-                    _landscapeDoc.Region, _surfaceManager!,
-                    _landscapeDoc.TerrainCache.AsSpan(),
-                    0, 0,
-                    tempVertices, tempIndices
-                );
-
-                chunk.LandblockBoundsMinZ[ly * 8 + lx] = lbMinZ;
-                chunk.LandblockBoundsMaxZ[ly * 8 + lx] = lbMaxZ;
-                boundsChanged = true;
-
-                // Upload vertices
-                fixed (VertexLandscape* vPtr = tempVertices) {
-                    _gl.BufferSubData(BufferTargetARB.ArrayBuffer, (nint)(vertexOffset * VertexLandscape.Size), (nuint)(tempVertices.Length * VertexLandscape.Size), vPtr);
-                }
-                updates++;
-            }
-
-            if (boundsChanged) {
-                float minZ = float.MaxValue;
-                float maxZ = float.MinValue;
-                for (int i = 0; i < 64; i++) {
-                    if (chunk.LandblockVertexOffsets[i] != -1) {
-                        minZ = Math.Min(minZ, chunk.LandblockBoundsMinZ[i]);
-                        maxZ = Math.Max(maxZ, chunk.LandblockBoundsMaxZ[i]);
-                    }
-                }
-                var offset = _landscapeDoc.Region?.MapOffset ?? Vector2.Zero;
-                chunk.Bounds = new BoundingBox(
-                    new Vector3(new Vector2(chunk.ChunkX * 8 * 192f, chunk.ChunkY * 8 * 192f) + offset, minZ),
-                    new Vector3(new Vector2((chunk.ChunkX + 1) * 8 * 192f, (chunk.ChunkY + 1) * 8 * 192f) + offset, maxZ)
-                );
-            }
-
-            _gl.BindVertexArray(0);
-
-            if (updates > 0) _log.LogTrace("Updated {Count} landblocks in chunk {CX},{CY}", updates, chunk.ChunkX, chunk.ChunkY);
         }
 
         private void GenerateChunk(TerrainChunk chunk) {

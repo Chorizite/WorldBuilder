@@ -16,7 +16,7 @@ namespace Chorizite.OpenGLSDLBackend;
 /// Manages the 3D scene including camera, objects, and rendering.
 /// </summary>
 public class GameScene : IDisposable {
-    private const uint MAX_GPU_UPDATE_TIME_PER_FRAME = 30; // max gpu time spent doing uploads per frame, in ms
+    private const uint MAX_GPU_UPDATE_TIME_PER_FRAME = 60; // max gpu time spent doing uploads per frame, in ms
     private readonly GL _gl;
     private readonly OpenGLGraphicsDevice _graphicsDevice;
     private readonly ILogger _log;
@@ -44,6 +44,10 @@ public class GameScene : IDisposable {
     private ObjectMeshManager? _meshManager;
     private SceneryRenderManager? _sceneryManager;
     private StaticObjectRenderManager? _staticObjectManager;
+
+    private float _lastTerrainUploadTime;
+    private float _lastSceneryUploadTime;
+    private float _lastStaticObjectUploadTime;
 
     /// <summary>
     /// Gets the number of pending terrain uploads.
@@ -79,6 +83,21 @@ public class GameScene : IDisposable {
     /// Gets the number of pending static object generations.
     /// </summary>
     public int PendingStaticObjectGenerations => _staticObjectManager?.QueuedGenerations ?? 0;
+
+    /// <summary>
+    /// Gets the time spent on the last terrain upload in ms.
+    /// </summary>
+    public float LastTerrainUploadTime => _lastTerrainUploadTime;
+
+    /// <summary>
+    /// Gets the time spent on the last scenery upload in ms.
+    /// </summary>
+    public float LastSceneryUploadTime => _lastSceneryUploadTime;
+
+    /// <summary>
+    /// Gets the time spent on the last static object upload in ms.
+    /// </summary>
+    public float LastStaticObjectUploadTime => _lastStaticObjectUploadTime;
 
     /// <summary>
     /// Gets the current active camera.
@@ -303,14 +322,19 @@ public class GameScene : IDisposable {
     /// Updates the scene.
     /// </summary>
     public void Update(float deltaTime) {
-        var allowedTime = MAX_GPU_UPDATE_TIME_PER_FRAME / 3;
+        float remainingTime = MAX_GPU_UPDATE_TIME_PER_FRAME;
         _currentCamera.Update(deltaTime);
+
         _terrainManager?.Update(deltaTime, _currentCamera);
-        _terrainManager?.ProcessUploads(allowedTime);
+        _lastTerrainUploadTime = _terrainManager?.ProcessUploads(remainingTime) ?? 0;
+        remainingTime = Math.Max(0, remainingTime - _lastTerrainUploadTime);
+
         _sceneryManager?.Update(deltaTime, _currentCamera.Position, _currentCamera.ViewProjectionMatrix);
-        _sceneryManager?.ProcessUploads(allowedTime);
+        _lastSceneryUploadTime = _sceneryManager?.ProcessUploads(remainingTime) ?? 0;
+        remainingTime = Math.Max(0, remainingTime - _lastSceneryUploadTime);
+
         _staticObjectManager?.Update(deltaTime, _currentCamera.Position, _currentCamera.ViewProjectionMatrix);
-        _staticObjectManager?.ProcessUploads(allowedTime);
+        _lastStaticObjectUploadTime = _staticObjectManager?.ProcessUploads(remainingTime) ?? 0;
     }
 
     /// <summary>
@@ -356,7 +380,9 @@ public class GameScene : IDisposable {
         _gl.DepthFunc(DepthFunction.Less);
         _gl.DepthMask(true);
         _gl.ClearDepth(1.0f);
-        _gl.Disable(EnableCap.CullFace);
+        _gl.Enable(EnableCap.CullFace);
+        _gl.CullFace(GLEnum.Back);
+        _gl.FrontFace(GLEnum.CW);
         _gl.Disable(EnableCap.ScissorTest);
         _gl.Disable(EnableCap.Blend);
 

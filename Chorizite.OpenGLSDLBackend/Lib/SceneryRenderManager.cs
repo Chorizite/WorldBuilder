@@ -177,7 +177,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             // Start background generation tasks — prioritize nearest landblocks
-            while (_activeGenerations < 21 && !_pendingGeneration.IsEmpty) {
+            while (_activeGenerations < 12 && !_pendingGeneration.IsEmpty) {
                 // Pick the nearest pending landblock (Chebyshev distance)
                 ObjectLandblock? nearest = null;
                 int bestDist = int.MaxValue;
@@ -215,8 +215,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public void ProcessUploads(float timeBudgetMs) {
-            if (!_initialized) return;
+        public float ProcessUploads(float timeBudgetMs) {
+            if (!_initialized) return 0;
 
             var sw = Stopwatch.StartNew();
             while (sw.Elapsed.TotalMilliseconds < timeBudgetMs && _uploadQueue.TryDequeue(out var lb)) {
@@ -234,6 +234,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
                 UploadLandblockMeshes(lb);
             }
+
+            return (float)sw.Elapsed.TotalMilliseconds;
         }
 
         public unsafe void Render(ICamera camera) {
