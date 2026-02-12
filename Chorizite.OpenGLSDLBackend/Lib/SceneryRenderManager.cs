@@ -142,6 +142,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
+            // Clean up landblocks that are no longer in frustum and not yet loaded
+            foreach (var (key, lb) in _landblocks) {
+                if (!lb.GpuReady && !IsLandblockInFrustum(lb.GridX, lb.GridY)) {
+                    if (_landblocks.TryRemove(key, out _)) {
+                        _pendingGeneration.TryRemove(key, out _);
+                        UnloadLandblockResources(lb);
+                    }
+                }
+            }
+
             // Unload landblocks outside render distance (with delay)
             var keysToRemove = new List<ulong>();
             foreach (var (key, lb) in _landblocks) {
@@ -181,9 +191,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (nearest == null || !_pendingGeneration.TryRemove(bestKey, out var lbToGenerate))
                     break;
 
-                // Skip if now out of range
-                if (bestDist > RenderDistance)
-                    break;
+                // Skip if now out of range or not in frustum
+                if (bestDist > RenderDistance || !IsLandblockInFrustum(lbToGenerate.GridX, lbToGenerate.GridY)) {
+                    if (_landblocks.TryRemove(bestKey, out _)) {
+                        UnloadLandblockResources(lbToGenerate);
+                    }
+                    continue;
+                }
 
                 Interlocked.Increment(ref _activeGenerations);
                 Task.Run(() => {
@@ -202,8 +216,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             var sw = Stopwatch.StartNew();
             while (sw.Elapsed.TotalMilliseconds < timeBudgetMs && _uploadQueue.TryDequeue(out var lb)) {
-                // Skip if this landblock is no longer within render distance
-                if (!IsWithinRenderDistance(lb)) continue;
+                var key = PackKey(lb.GridX, lb.GridY);
+                if (!_landblocks.TryGetValue(key, out var currentLb) || currentLb != lb) {
+                    continue;
+                }
+
+                // Skip if this landblock is no longer within render distance or no longer in frustum
+                if (!IsWithinRenderDistance(lb) || !IsLandblockInFrustum(lb.GridX, lb.GridY)) {
+                    if (_landblocks.TryRemove(key, out _)) {
+                        UnloadLandblockResources(lb);
+                    }
+                    continue;
+                }
                 UploadLandblockMeshes(lb);
             }
         }

@@ -16,6 +16,7 @@ namespace Chorizite.OpenGLSDLBackend;
 /// Manages the 3D scene including camera, objects, and rendering.
 /// </summary>
 public class GameScene : IDisposable {
+    private const uint MAX_GPU_UPDATE_TIME_PER_FRAME = 30; // max gpu time spent doing uploads per frame, in ms
     private readonly GL _gl;
     private readonly OpenGLGraphicsDevice _graphicsDevice;
     private readonly ILogger _log;
@@ -48,9 +49,24 @@ public class GameScene : IDisposable {
     public int PendingTerrainUploads => _terrainManager?.QueuedUploads ?? 0;
 
     /// <summary>
+    /// Gets the number of pending terrain generations.
+    /// </summary>
+    public int PendingTerrainGenerations => _terrainManager?.QueuedGenerations ?? 0;
+
+    /// <summary>
+    /// Gets the number of pending terrain partial updates.
+    /// </summary>
+    public int PendingTerrainPartialUpdates => _terrainManager?.QueuedPartialUpdates ?? 0;
+
+    /// <summary>
     /// Gets the number of pending scenery uploads.
     /// </summary>
     public int PendingSceneryUploads => _sceneryManager?.QueuedUploads ?? 0;
+
+    /// <summary>
+    /// Gets the number of pending scenery generations.
+    /// </summary>
+    public int PendingSceneryGenerations => _sceneryManager?.QueuedGenerations ?? 0;
 
     /// <summary>
     /// Gets the current active camera.
@@ -236,11 +252,12 @@ public class GameScene : IDisposable {
     /// Updates the scene.
     /// </summary>
     public void Update(float deltaTime) {
+        var allowedTime = MAX_GPU_UPDATE_TIME_PER_FRAME / 2;
         _currentCamera.Update(deltaTime);
         _terrainManager?.Update(deltaTime, _currentCamera.Position);
-        _terrainManager?.ProcessUploads(25.0f);
+        _terrainManager?.ProcessUploads(allowedTime);
         _sceneryManager?.Update(deltaTime, _currentCamera.Position, _currentCamera.ViewProjectionMatrix);
-        _sceneryManager?.ProcessUploads(25.0f);
+        _sceneryManager?.ProcessUploads(allowedTime);
     }
 
     /// <summary>

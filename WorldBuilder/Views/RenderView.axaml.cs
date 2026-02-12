@@ -283,6 +283,9 @@ public partial class RenderView : Base3DViewport {
         _gameScene?.HandlePointerWheelChanged((float)e.Delta.Y);
     }
 
+    private bool _isLoading;
+    private int _lastPendingCount;
+
     protected override void OnGlRender(double frameTime) {
         if (GL is null) return;
 
@@ -304,6 +307,22 @@ public partial class RenderView : Base3DViewport {
 
         _gameScene.Update((float)frameTime);
         _gameScene.Render();
+
+        int pendingCount = _gameScene.PendingTerrainUploads + _gameScene.PendingTerrainGenerations +
+                           _gameScene.PendingTerrainPartialUpdates + _gameScene.PendingSceneryUploads +
+                           _gameScene.PendingSceneryGenerations;
+        bool isLoading = pendingCount > 0;
+
+        if (isLoading != _isLoading || (isLoading && pendingCount != _lastPendingCount)) {
+            _isLoading = isLoading;
+            _lastPendingCount = pendingCount;
+            Dispatcher.UIThread.Post(() => {
+                LoadingIndicator.IsVisible = _isLoading;
+                if (_isLoading) {
+                    LoadingText.Text = $"{pendingCount}";
+                }
+            });
+        }
     }
 
     public static readonly StyledProperty<LandscapeDocument?> LandscapeDocumentProperty =

@@ -6,5 +6,17 @@
     xmlns:vm="using:WorldBuilder.ViewModels"
     x:CompileBindings="True"
     x:DataType="vm:RenderViewModel">
-    <Panel x:Name="Viewport" Background="Transparent" />
+    <Grid x:DataType="vm:RenderViewModel">
+        <Panel x:Name="Viewport" Background="Transparent" />
+        <Border x:Name="LoadingIndicator" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="10" Padding="8,4" Background="#AA000000" CornerRadius="4" IsVisible="False">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="⏳" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="White" FontSize="14" />
+                <TextBlock x:Name="LoadingText" Text="0" VerticalAlignment="Center" Foreground="White" FontSize="12" FontWeight="SemiBold">
+                    <TextBlock.Effect>
+                        <DropShadowEffect BlurRadius="2" OffsetX="1" OffsetY="1" Opacity="0.8" />
+                    </TextBlock.Effect>
+                </TextBlock>
+            </StackPanel>
+        </Border>
+    </Grid>
 </views:Base3DViewport>
