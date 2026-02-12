@@ -141,6 +141,32 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             Assert.False(layer!.Terrain.ContainsKey(10));
         }
 
+        [Fact]
+        public void PaintCommand_Execute_ShouldAccountForMapOffset() {
+            // Arrange
+            var tool = new BrushTool();
+            tool.BrushSize = 1;
+
+            float offset = -1000f;
+            var context = CreateContext();
+            var doc = context.Document;
+            var regionMock = Mock.Get(doc.Region!);
+            regionMock.Setup(r => r.MapOffset).Returns(new Vector2(offset, offset));
+
+            var cache = context.Document.TerrainCache;
+            for (int i = 0; i < cache.Length; i++) cache[i] = new TerrainEntry();
+
+            var center = new Vector3(24f + offset, 24f + offset, 0);
+            var cmd = new PaintCommand(context, center, tool.BrushRadius, 5);
+
+            // Act
+            cmd.Execute();
+
+            // Assert
+            // Vertex at (1,1) is index 10
+            Assert.Equal((byte?)5, cache[10].Type);
+        }
+
         private LandscapeToolContext CreateContext() {
             var doc = new LandscapeDocument((uint)0xABCD);
 

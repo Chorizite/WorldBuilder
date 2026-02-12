@@ -1,9 +1,18 @@
 using Chorizite.Core.Lib;
 using Silk.NET.OpenGL;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
+    public struct PendingPartialUpdate {
+        public int LocalX;
+        public int LocalY;
+        public VertexLandscape[] Vertices;
+        public float MinZ;
+        public float MaxZ;
+    }
+
     /// <summary>
     /// Represents a renderable chunk of terrain logic and GPU resources.
     /// </summary>
@@ -34,6 +43,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly bool[] _dirtyLandblocks = new bool[64];
         private readonly object _dirtyLock = new();
 
+        public ConcurrentQueue<PendingPartialUpdate> PendingPartialUpdates { get; } = new();
+
         public BoundingBox Bounds { get; set; }
         public bool IsGenerated { get; set; }
 
@@ -54,7 +65,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             Array.Fill(LandblockVertexOffsets, -1);
         }
 
-        public ulong GetChunkId() => (ulong)ChunkX << 32 | ChunkY;
+        public ushort GetChunkId() => (ushort)((ChunkX << 8) | ChunkY);
 
         public void MarkDirty(int localLx, int localLy) {
             if (localLx < 0 || localLx >= 8 || localLy < 0 || localLy >= 8) return;

@@ -104,13 +104,13 @@ namespace WorldBuilder.Lib.Settings {
         [SettingDescription("Number of terrain chunks to render around the camera")]
         [SettingRange(1, 64, 1, 4)]
         [SettingOrder(4)]
-        private int _terrainRenderDistance = 25;
+        private int _terrainRenderDistance = 18;
         public int TerrainRenderDistance { get => _terrainRenderDistance; set => SetProperty(ref _terrainRenderDistance, value); }
 
         [SettingDescription("Number of landblocks to render scenery around the camera")]
         [SettingRange(1, 64, 1, 4)]
         [SettingOrder(5)]
-        private int _sceneryRenderDistance = 25;
+        private int _sceneryRenderDistance = 12;
         public int SceneryRenderDistance { get => _sceneryRenderDistance; set => SetProperty(ref _sceneryRenderDistance, value); }
     }
 

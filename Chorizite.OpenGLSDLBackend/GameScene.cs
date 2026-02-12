@@ -16,7 +16,7 @@ namespace Chorizite.OpenGLSDLBackend;
 /// Manages the 3D scene including camera, objects, and rendering.
 /// </summary>
 public class GameScene : IDisposable {
-    private const uint MAX_GPU_UPDATE_TIME_PER_FRAME = 30; // max gpu time spent doing uploads per frame, in ms
+    private const uint MAX_GPU_UPDATE_TIME_PER_FRAME = 60; // max gpu time spent doing uploads per frame, in ms
     private readonly GL _gl;
     private readonly OpenGLGraphicsDevice _graphicsDevice;
     private readonly ILogger _log;
@@ -40,8 +40,14 @@ public class GameScene : IDisposable {
     // Terrain
     private TerrainRenderManager? _terrainManager;
 
-    // Scenery
+    // Scenery / Static Objects
+    private ObjectMeshManager? _meshManager;
     private SceneryRenderManager? _sceneryManager;
+    private StaticObjectRenderManager? _staticObjectManager;
+
+    private float _lastTerrainUploadTime;
+    private float _lastSceneryUploadTime;
+    private float _lastStaticObjectUploadTime;
 
     /// <summary>
     /// Gets the number of pending terrain uploads.
@@ -67,6 +73,31 @@ public class GameScene : IDisposable {
     /// Gets the number of pending scenery generations.
     /// </summary>
     public int PendingSceneryGenerations => _sceneryManager?.QueuedGenerations ?? 0;
+
+    /// <summary>
+    /// Gets the number of pending static object uploads.
+    /// </summary>
+    public int PendingStaticObjectUploads => _staticObjectManager?.QueuedUploads ?? 0;
+
+    /// <summary>
+    /// Gets the number of pending static object generations.
+    /// </summary>
+    public int PendingStaticObjectGenerations => _staticObjectManager?.QueuedGenerations ?? 0;
+
+    /// <summary>
+    /// Gets the time spent on the last terrain upload in ms.
+    /// </summary>
+    public float LastTerrainUploadTime => _lastTerrainUploadTime;
+
+    /// <summary>
+    /// Gets the time spent on the last scenery upload in ms.
+    /// </summary>
+    public float LastSceneryUploadTime => _lastSceneryUploadTime;
+
+    /// <summary>
+    /// Gets the time spent on the last static object upload in ms.
+    /// </summary>
+    public float LastStaticObjectUploadTime => _lastStaticObjectUploadTime;
 
     /// <summary>
     /// Gets the current active camera.
@@ -130,6 +161,10 @@ public class GameScene : IDisposable {
             _sceneryManager.Initialize(_sceneryShader);
         }
 
+        if (_staticObjectManager != null && _sceneryShader != null) {
+            _staticObjectManager.Initialize(_sceneryShader);
+        }
+
         _log.LogInformation("GameScene initialized");
     }
 
@@ -141,12 +176,26 @@ public class GameScene : IDisposable {
             _sceneryManager.Dispose();
         }
 
+        if (_staticObjectManager != null) {
+            _staticObjectManager.Dispose();
+        }
+        if (_meshManager != null) {
+            _meshManager.Dispose();
+        }
+
+        _meshManager = new ObjectMeshManager(_graphicsDevice, dats);
+
         _terrainManager = new TerrainRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice);
         if (_initialized && _terrainShader != null) {
             _terrainManager.Initialize(_terrainShader);
         }
 
-        _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice);
+        _staticObjectManager = new StaticObjectRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager);
+        if (_initialized && _sceneryShader != null) {
+            _staticObjectManager.Initialize(_sceneryShader);
+        }
+
+        _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager, _staticObjectManager);
         if (_initialized && _sceneryShader != null) {
             _sceneryManager.Initialize(_sceneryShader);
         }
@@ -157,8 +206,7 @@ public class GameScene : IDisposable {
     }
 
     private void CenterCameraOnLandscape(ITerrainInfo region) {
-        // yaraq
-        _camera3D.Position = new Vector3(23935f, 19114f, 2103f);
+        _camera3D.Position = new Vector3(-701.20f, -5347.16f, 2000f);
         _camera3D.Pitch = -89.9f;
         _camera3D.Yaw = 0;
 
@@ -236,6 +284,9 @@ public class GameScene : IDisposable {
         if (_sceneryManager != null) {
             _sceneryManager.RenderDistance = distance;
         }
+        if (_staticObjectManager != null) {
+            _staticObjectManager.RenderDistance = distance;
+        }
     }
 
     /// <summary>
@@ -271,12 +322,19 @@ public class GameScene : IDisposable {
     /// Updates the scene.
     /// </summary>
     public void Update(float deltaTime) {
-        var allowedTime = MAX_GPU_UPDATE_TIME_PER_FRAME / 2;
+        float remainingTime = MAX_GPU_UPDATE_TIME_PER_FRAME;
         _currentCamera.Update(deltaTime);
+
         _terrainManager?.Update(deltaTime, _currentCamera);
-        _terrainManager?.ProcessUploads(allowedTime);
+        _lastTerrainUploadTime = _terrainManager?.ProcessUploads(remainingTime) ?? 0;
+        remainingTime = Math.Max(0, remainingTime - _lastTerrainUploadTime);
+
         _sceneryManager?.Update(deltaTime, _currentCamera.Position, _currentCamera.ViewProjectionMatrix);
-        _sceneryManager?.ProcessUploads(allowedTime);
+        _lastSceneryUploadTime = _sceneryManager?.ProcessUploads(remainingTime) ?? 0;
+        remainingTime = Math.Max(0, remainingTime - _lastSceneryUploadTime);
+
+        _staticObjectManager?.Update(deltaTime, _currentCamera.Position, _currentCamera.ViewProjectionMatrix);
+        _lastStaticObjectUploadTime = _staticObjectManager?.ProcessUploads(remainingTime) ?? 0;
     }
 
     /// <summary>
@@ -292,6 +350,7 @@ public class GameScene : IDisposable {
     public void InvalidateLandblock(int lbX, int lbY) {
         _terrainManager?.InvalidateLandblock(lbX, lbY);
         _sceneryManager?.InvalidateLandblock(lbX, lbY);
+        _staticObjectManager?.InvalidateLandblock(lbX, lbY);
     }
 
     /// <summary>
@@ -321,7 +380,9 @@ public class GameScene : IDisposable {
         _gl.DepthFunc(DepthFunction.Less);
         _gl.DepthMask(true);
         _gl.ClearDepth(1.0f);
-        _gl.Disable(EnableCap.CullFace);
+        _gl.Enable(EnableCap.CullFace);
+        _gl.CullFace(GLEnum.Back);
+        _gl.FrontFace(GLEnum.CW);
         _gl.Disable(EnableCap.ScissorTest);
         _gl.Disable(EnableCap.Blend);
 
@@ -347,6 +408,7 @@ public class GameScene : IDisposable {
         // Render Scenery
         if (ShowScenery) {
             _sceneryManager?.Render(_currentCamera);
+            _staticObjectManager?.Render(_currentCamera);
         }
 
         // Restore for Avalonia
@@ -417,5 +479,7 @@ public class GameScene : IDisposable {
     public void Dispose() {
         _terrainManager?.Dispose();
         _sceneryManager?.Dispose();
+        _staticObjectManager?.Dispose();
+        _meshManager?.Dispose();
     }
 }

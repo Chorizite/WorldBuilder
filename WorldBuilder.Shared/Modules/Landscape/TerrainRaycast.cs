@@ -70,10 +70,11 @@ namespace WorldBuilder.Shared.Modules.Landscape {
 
             Vector3d rayEnd = rayOrigin + rayDirection * maxDistance;
 
-            int startLbX = (int)Math.Floor(rayOrigin.X / landblockSize);
-            int startLbY = (int)Math.Floor(rayOrigin.Y / landblockSize);
-            int endLbX = (int)Math.Floor(rayEnd.X / landblockSize);
-            int endLbY = (int)Math.Floor(rayEnd.Y / landblockSize);
+            var offset = new Vector3d(region.MapOffset.X, region.MapOffset.Y, 0);
+            int startLbX = (int)Math.Floor((rayOrigin.X - offset.X) / landblockSize);
+            int startLbY = (int)Math.Floor((rayOrigin.Y - offset.Y) / landblockSize);
+            int endLbX = (int)Math.Floor((rayEnd.X - offset.X) / landblockSize);
+            int endLbY = (int)Math.Floor((rayEnd.Y - offset.Y) / landblockSize);
 
             int currentLbX = startLbX;
             int currentLbY = startLbY;
@@ -85,12 +86,12 @@ namespace WorldBuilder.Shared.Modules.Landscape {
             double deltaDistY = Math.Abs(1.0 / rayDirection.Y);
 
             double sideDistX = rayDirection.X < 0
-                ? (rayOrigin.X / landblockSize - currentLbX) * deltaDistX
-                : (currentLbX + 1.0 - rayOrigin.X / landblockSize) * deltaDistX;
+                ? ((rayOrigin.X - offset.X) / landblockSize - currentLbX) * deltaDistX
+                : (currentLbX + 1.0 - (rayOrigin.X - offset.X) / landblockSize) * deltaDistX;
 
             double sideDistY = rayDirection.Y < 0
-                ? (rayOrigin.Y / landblockSize - currentLbY) * deltaDistY
-                : (currentLbY + 1.0 - rayOrigin.Y / landblockSize) * deltaDistY;
+                ? ((rayOrigin.Y - offset.Y) / landblockSize - currentLbY) * deltaDistY
+                : (currentLbY + 1.0 - (rayOrigin.Y - offset.Y) / landblockSize) * deltaDistY;
 
             double closestDistance = double.MaxValue;
 
@@ -137,8 +138,8 @@ namespace WorldBuilder.Shared.Modules.Landscape {
             TerrainRaycastHit hit = new TerrainRaycastHit { Hit = false };
 
             double landblockSize = region.CellSizeInUnits * region.LandblockCellLength;
-            double baseLandblockX = landblockX * landblockSize;
-            double baseLandblockY = landblockY * landblockSize;
+            double baseLandblockX = landblockX * landblockSize + region.MapOffset.X;
+            double baseLandblockY = landblockY * landblockSize + region.MapOffset.Y;
 
             BoundingBoxd landblockBounds = new BoundingBoxd(
                 new Vector3d(baseLandblockX, baseLandblockY, -2000.0),
@@ -209,6 +210,9 @@ namespace WorldBuilder.Shared.Modules.Landscape {
                 hit.HitPosition = hitPosition.ToVector3();
                 hit.Distance = (float)closestDistance;
                 hit.LandcellId = (landblockID << 16) + hitCellX * 8 + hitCellY;
+                hit.MapOffset = region.MapOffset;
+                hit.CellSize = region.CellSizeInUnits;
+                hit.LandblockCellLength = region.LandblockCellLength;
             }
 
             return hit;

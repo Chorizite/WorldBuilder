@@ -1,6 +1,7 @@
 using Chorizite.OpenGLSDLBackend.Lib;
 using System;
 using System.Buffers;
+using System.Numerics;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using Xunit;
@@ -18,6 +19,7 @@ namespace Chorizite.OpenGLSDLBackend.Tests {
             public int LandblockVerticeLength => 9;
             public float RoadWidthInUnits => 5f;
             public float[] LandHeights { get; }
+            public Vector2 MapOffset => Vector2.Zero;
 
             public MockTerrainInfo() {
                 // Initialize with some heights

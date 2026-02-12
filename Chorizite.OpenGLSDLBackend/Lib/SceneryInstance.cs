@@ -1,3 +1,4 @@
+using Chorizite.Core.Lib;
 using System.Numerics;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
@@ -22,12 +23,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         /// <summary>Pre-computed world transform matrix.</summary>
         public Matrix4x4 Transform;
+
+        /// <summary>World-space bounding box.</summary>
+        public BoundingBox BoundingBox;
     }
 
     /// <summary>
-    /// Holds all scenery instances for a single landblock, ready for rendering.
+    /// Holds all instances for a single landblock, ready for rendering.
+    /// Shared by both scenery and static object render managers.
     /// </summary>
-    public class SceneryLandblock {
+    public class ObjectLandblock {
         /// <summary>Grid X coordinate of this landblock.</summary>
         public int GridX { get; set; }
 
@@ -37,6 +42,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public List<SceneryInstance> Instances { get; set; } = new();
 
         public List<SceneryInstance>? PendingInstances { get; set; }
+
+        /// <summary>
+        /// Whether instances (positions/bounding boxes) have been generated.
+        /// Useful for scenery manager to know it can proceed with collision detection.
+        /// </summary>
+        public bool InstancesReady { get; set; }
 
         /// <summary>
         /// Whether mesh data for all instances has been prepared (CPU-side).
