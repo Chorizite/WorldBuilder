@@ -29,6 +29,7 @@ public class GameScene : IDisposable {
     // Cube rendering
     private IShader? _shader;
     private IShader? _terrainShader;
+    private IShader? _sceneryShader;
     private bool _initialized;
     public bool ShowWireframe { get; set; }
     private int _width;
@@ -37,10 +38,18 @@ public class GameScene : IDisposable {
     // Terrain
     private TerrainRenderManager? _terrainManager;
 
+    // Scenery
+    private SceneryRenderManager? _sceneryManager;
+
     /// <summary>
     /// Gets the number of pending terrain uploads.
     /// </summary>
     public int PendingTerrainUploads => _terrainManager?.QueuedUploads ?? 0;
+
+    /// <summary>
+    /// Gets the number of pending scenery uploads.
+    /// </summary>
+    public int PendingSceneryUploads => _sceneryManager?.QueuedUploads ?? 0;
 
     /// <summary>
     /// Gets the current active camera.
@@ -89,10 +98,19 @@ public class GameScene : IDisposable {
         var tFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Landscape.frag");
         _terrainShader = _graphicsDevice.CreateShader("Landscape", tVertSource, tFragSource);
 
+        // Create scenery shader
+        var sVertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.StaticObject.vert");
+        var sFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.StaticObject.frag");
+        _sceneryShader = _graphicsDevice.CreateShader("StaticObject", sVertSource, sFragSource);
+
         _initialized = true;
 
         if (_terrainManager != null && _terrainShader != null) {
             _terrainManager.Initialize(_terrainShader);
+        }
+
+        if (_sceneryManager != null && _sceneryShader != null) {
+            _sceneryManager.Initialize(_sceneryShader);
         }
 
         _log.LogInformation("GameScene initialized");
@@ -102,10 +120,18 @@ public class GameScene : IDisposable {
         if (_terrainManager != null) {
             _terrainManager.Dispose();
         }
+        if (_sceneryManager != null) {
+            _sceneryManager.Dispose();
+        }
 
         _terrainManager = new TerrainRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice);
         if (_initialized && _terrainShader != null) {
             _terrainManager.Initialize(_terrainShader);
+        }
+
+        _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice);
+        if (_initialized && _sceneryShader != null) {
+            _sceneryManager.Initialize(_sceneryShader);
         }
 
         if (landscapeDoc.Region != null) {
@@ -118,7 +144,7 @@ public class GameScene : IDisposable {
         _camera3D.Position = new Vector3(23935f, 19114f, 2103f);
         _camera3D.Pitch = -89.9f;
         _camera3D.Yaw = 0;
-        
+
         SyncCameraZ();
     }
 
@@ -212,6 +238,8 @@ public class GameScene : IDisposable {
         _currentCamera.Update(deltaTime);
         _terrainManager?.Update(deltaTime, _currentCamera.Position);
         _terrainManager?.ProcessUploads(25.0f);
+        _sceneryManager?.Update(deltaTime, _currentCamera.Position);
+        _sceneryManager?.ProcessUploads(25.0f);
     }
 
     /// <summary>
@@ -226,6 +254,7 @@ public class GameScene : IDisposable {
 
     public void InvalidateLandblock(int lbX, int lbY) {
         _terrainManager?.InvalidateLandblock(lbX, lbY);
+        _sceneryManager?.InvalidateLandblock(lbX, lbY);
     }
 
     /// <summary>
@@ -277,6 +306,9 @@ public class GameScene : IDisposable {
                 _gl.PolygonMode(GLEnum.FrontAndBack, Silk.NET.OpenGL.PolygonMode.Fill);
             }
         }
+
+        // Render Scenery
+        _sceneryManager?.Render(_currentCamera);
 
         // Restore for Avalonia
         _gl.Enable(EnableCap.ScissorTest);
@@ -342,5 +374,6 @@ public class GameScene : IDisposable {
 
     public void Dispose() {
         _terrainManager?.Dispose();
+        _sceneryManager?.Dispose();
     }
 }
