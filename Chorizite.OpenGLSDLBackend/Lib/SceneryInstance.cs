@@ -44,6 +44,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public List<SceneryInstance>? PendingInstances { get; set; }
 
         /// <summary>
+        /// Whether instances (positions/bounding boxes) have been generated.
+        /// Useful for scenery manager to know it can proceed with collision detection.
+        /// </summary>
+        public bool InstancesReady { get; set; }
+
+        /// <summary>
         /// Whether mesh data for all instances has been prepared (CPU-side).
         /// </summary>
         public bool MeshDataReady { get; set; }

@@ -117,6 +117,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly Dictionary<uint, ObjectRenderData> _renderData = new();
         private readonly ConcurrentDictionary<uint, int> _usageCount = new();
         private readonly ConcurrentDictionary<uint, (Vector3 Min, Vector3 Max)?> _boundsCache = new();
+        private readonly ConcurrentDictionary<uint, Task<ObjectMeshData?>> _preparationTasks = new();
 
         public ObjectMeshManager(OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats) {
             _graphicsDevice = graphicsDevice;
@@ -180,6 +181,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         /// <summary>
+        /// Phase 1 (Background Thread): Prepare CPU-side mesh data from DAT asynchronously.
+        /// Returns an existing task if this object is already being prepared.
+        /// </summary>
+        public Task<ObjectMeshData?> PrepareMeshDataAsync(uint id, bool isSetup) {
+            if (HasRenderData(id)) return Task.FromResult<ObjectMeshData?>(null);
+            return _preparationTasks.GetOrAdd(id, _ => Task.Run(() => PrepareMeshData(id, isSetup)));
+        }
+
+        /// <summary>
         /// Phase 1 (Background Thread): Prepare CPU-side mesh data from DAT.
         /// This loads vertices, indices, and texture data but creates NO GPU resources.
         /// Thread-safe: only reads from DAT files.
@@ -208,6 +218,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         public ObjectRenderData? UploadMeshData(ObjectMeshData meshData) {
             try {
+                if (_renderData.TryGetValue(meshData.ObjectId, out var existing)) {
+                    return existing;
+                }
+                _preparationTasks.TryRemove(meshData.ObjectId, out _);
                 if (meshData.IsSetup) {
                     // Setup objects are multi-part - each part needs its own render data
                     var data = new ObjectRenderData {

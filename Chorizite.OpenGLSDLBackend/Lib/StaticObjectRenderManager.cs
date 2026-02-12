@@ -40,6 +40,32 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Prepared mesh data waiting for GPU upload (thread-safe buffer between background and main thread)
         private readonly ConcurrentDictionary<uint, ObjectMeshData> _preparedMeshes = new();
 
+        private readonly ConcurrentDictionary<ushort, TaskCompletionSource> _instanceReadyTcs = new();
+        private readonly object _tcsLock = new();
+
+        /// <summary>
+        /// Waits until instances for a specific landblock are ready.
+        /// </summary>
+        public async Task WaitForInstancesAsync(ushort key, CancellationToken ct = default) {
+            Task task;
+            lock (_tcsLock) {
+                if (_landblocks.TryGetValue(key, out var lb) && lb.InstancesReady) {
+                    return;
+                }
+                var tcs = _instanceReadyTcs.GetOrAdd(key, _ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+                task = tcs.Task;
+            }
+            using (ct.Register(() => {
+                lock (_tcsLock) {
+                    if (_instanceReadyTcs.TryGetValue(key, out var tcs)) {
+                        tcs.TrySetCanceled();
+                    }
+                }
+            })) {
+                await task;
+            }
+        }
+
         // Distance-based unloading
         private const float UnloadDelay = 15f;
         private readonly ConcurrentDictionary<ushort, float> _outOfRangeTimers = new();
@@ -193,9 +219,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 Interlocked.Increment(ref _activeGenerations);
-                Task.Run(() => {
+                Task.Run(async () => {
                     try {
-                        GenerateStaticObjectsForLandblock(lbToGenerate);
+                        await GenerateStaticObjectsForLandblock(lbToGenerate);
                     }
                     finally {
                         Interlocked.Decrement(ref _activeGenerations);
@@ -284,9 +310,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public void InvalidateLandblock(int lbX, int lbY) {
             if (lbX < 0 || lbY < 0) return;
             var key = PackKey(lbX, lbY);
-            if (_landblocks.TryGetValue(key, out var lb)) {
-                lb.MeshDataReady = false;
-                _pendingGeneration[key] = lb;
+            lock (_tcsLock) {
+                _instanceReadyTcs.TryRemove(key, out _);
+                if (_landblocks.TryGetValue(key, out var lb)) {
+                    lb.InstancesReady = false;
+                    lb.MeshDataReady = false;
+                    _pendingGeneration[key] = lb;
+                }
             }
         }
 
@@ -312,6 +342,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         private void UnloadLandblockResources(ObjectLandblock lb) {
+            var key = PackKey(lb.GridX, lb.GridY);
+            lock (_tcsLock) {
+                _instanceReadyTcs.TryRemove(key, out _);
+                lb.InstancesReady = false;
+            }
             DecrementInstanceRefCounts(lb.Instances);
             lb.Instances.Clear();
             lb.PendingInstances = null;
@@ -353,9 +388,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Load static objects from LandBlockInfo in the cell DAT.
         /// Objects include placed items and buildings.
         /// </summary>
-        private void GenerateStaticObjectsForLandblock(ObjectLandblock lb) {
+        private async Task GenerateStaticObjectsForLandblock(ObjectLandblock lb) {
             try {
-                if (!IsWithinRenderDistance(lb)) return;
+                var key = PackKey(lb.GridX, lb.GridY);
+                if (!IsWithinRenderDistance(lb) || !_landblocks.ContainsKey(key)) return;
 
                 if (_landscapeDoc.Region is not RegionInfo regionInfo) return;
 
@@ -426,6 +462,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 lb.PendingInstances = staticObjects;
 
+                lock (_tcsLock) {
+                    lb.InstancesReady = true;
+                    if (_instanceReadyTcs.TryGetValue(key, out var tcs)) {
+                        tcs.TrySetResult();
+                    }
+                }
+
                 if (staticObjects.Count > 0) {
                     _log.LogTrace("Generated {Count} static objects for landblock ({X},{Y})", staticObjects.Count, lb.GridX, lb.GridY);
                 }
@@ -435,23 +478,33 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     .Distinct()
                     .ToList();
 
+                var preparationTasks = new List<Task<ObjectMeshData?>>();
                 foreach (var (objectId, isSetup) in uniqueObjects) {
                     if (_meshManager.HasRenderData(objectId) || _preparedMeshes.ContainsKey(objectId))
                         continue;
 
-                    var meshData = _meshManager.PrepareMeshData(objectId, isSetup);
-                    if (meshData != null) {
-                        _preparedMeshes.TryAdd(objectId, meshData);
+                    preparationTasks.Add(_meshManager.PrepareMeshDataAsync(objectId, isSetup));
+                }
 
-                        // For Setup objects, also prepare each part's GfxObj
-                        if (isSetup && meshData.SetupParts.Count > 0) {
-                            foreach (var (partId, _) in meshData.SetupParts) {
-                                if (!_meshManager.HasRenderData(partId) && !_preparedMeshes.ContainsKey(partId)) {
-                                    var partData = _meshManager.PrepareMeshData(partId, false);
-                                    if (partData != null) {
-                                        _preparedMeshes.TryAdd(partId, partData);
-                                    }
-                                }
+                var preparedMeshes = await Task.WhenAll(preparationTasks);
+                foreach (var meshData in preparedMeshes) {
+                    if (meshData == null) continue;
+                    
+                    _preparedMeshes.TryAdd(meshData.ObjectId, meshData);
+
+                    // For Setup objects, also prepare each part's GfxObj
+                    if (meshData.IsSetup && meshData.SetupParts.Count > 0) {
+                        var partTasks = new List<Task<ObjectMeshData?>>();
+                        foreach (var (partId, _) in meshData.SetupParts) {
+                            if (!_meshManager.HasRenderData(partId) && !_preparedMeshes.ContainsKey(partId)) {
+                                partTasks.Add(_meshManager.PrepareMeshDataAsync(partId, false));
+                            }
+                        }
+                        
+                        var partMeshes = await Task.WhenAll(partTasks);
+                        foreach (var partData in partMeshes) {
+                            if (partData != null) {
+                                _preparedMeshes.TryAdd(partData.ObjectId, partData);
                             }
                         }
                     }

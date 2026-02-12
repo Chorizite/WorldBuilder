@@ -2,6 +2,7 @@
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Lib.IO;
 using DatReaderWriter.Options;
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 
@@ -37,22 +38,22 @@ namespace WorldBuilder.Shared.Services {
             Portal = new DefaultDatDatabase(new PortalDatabase((options) => {
                 options.AccessType = accessType;
                 options.FilePath = Path.Combine(datDirectory, "client_portal.dat");
-                options.FileCachingStrategy = FileCachingStrategy.Never;
-                options.IndexCachingStrategy = IndexCachingStrategy.Never;
+                options.FileCachingStrategy = FileCachingStrategy.OnDemand;
+                options.IndexCachingStrategy = IndexCachingStrategy.OnDemand;
             }));
 
             Language = new DefaultDatDatabase(new LocalDatabase((options) => {
                 options.AccessType = accessType;
                 options.FilePath = Path.Combine(datDirectory, "client_local_English.dat");
-                options.FileCachingStrategy = FileCachingStrategy.Never;
-                options.IndexCachingStrategy = IndexCachingStrategy.Never;
+                options.FileCachingStrategy = FileCachingStrategy.OnDemand;
+                options.IndexCachingStrategy = IndexCachingStrategy.OnDemand;
             }));
 
             HighRes = new DefaultDatDatabase(new PortalDatabase((options) => {
                 options.AccessType = accessType;
                 options.FilePath = Path.Combine(datDirectory, "client_highres.dat");
-                options.FileCachingStrategy = FileCachingStrategy.Never;
-                options.IndexCachingStrategy = IndexCachingStrategy.Never;
+                options.FileCachingStrategy = FileCachingStrategy.OnDemand;
+                options.IndexCachingStrategy = IndexCachingStrategy.OnDemand;
             }));
 
             // Load all region cells
@@ -73,8 +74,8 @@ namespace WorldBuilder.Shared.Services {
                 var cell = new DefaultDatDatabase(new CellDatabase((options) => {
                     options.AccessType = accessType;
                     options.FilePath = cellFilePath;
-                    options.FileCachingStrategy = FileCachingStrategy.Never;
-                    options.IndexCachingStrategy = IndexCachingStrategy.Never;
+                    options.FileCachingStrategy = FileCachingStrategy.OnDemand;
+                    options.IndexCachingStrategy = IndexCachingStrategy.OnDemand;
                 }));
                 _cellRegions.Add(regionId, cell);
                 _regionFileMap.Add(regionId, regionFileId);
@@ -129,6 +130,8 @@ namespace WorldBuilder.Shared.Services {
     /// </summary>
     public class DefaultDatDatabase : IDatDatabase {
         private DatDatabase _db;
+        private readonly ConcurrentDictionary<(Type, uint), IDBObj> _objCache = new();
+        private readonly object _lock = new();
 
         public DefaultDatDatabase(DatDatabase db) {
             _db = db;
@@ -138,24 +141,42 @@ namespace WorldBuilder.Shared.Services {
         public int Iteration => _db.Iteration.CurrentIteration;
 
         public IEnumerable<uint> GetAllIdsOfType<T>() where T : IDBObj {
-            return _db.GetAllIdsOfType<T>();
+            lock (_lock) {
+                return _db.GetAllIdsOfType<T>().ToList();
+            }
         }
 
         public bool TryGet<T>(uint fileId, [MaybeNullWhen(false)] out T value) where T : IDBObj {
-            return _db.TryGet(fileId, out value);
+            if (_objCache.TryGetValue((typeof(T), fileId), out var cached)) {
+                value = (T)cached;
+                return true;
+            }
+            lock (_lock) {
+                if (_db.TryGet<T>(fileId, out value)) {
+                    _objCache.TryAdd((typeof(T), fileId), value);
+                    return true;
+                }
+            }
+            return false;
         }
 
         public bool TryGetFileBytes(uint fileId, [MaybeNullWhen(false)] out byte[] value) {
-            return _db.TryGetFileBytes(fileId, out value);
+            lock (_lock) {
+                return _db.TryGetFileBytes(fileId, out value);
+            }
         }
 
         public bool TryGetFileBytes(uint fileId, ref byte[] bytes, out int bytesRead) {
-            return _db.TryGetFileBytes(fileId, ref bytes, out bytesRead);
+            lock (_lock) {
+                return _db.TryGetFileBytes(fileId, ref bytes, out bytesRead);
+            }
         }
 
         /// <inheritdoc/>
         public bool TrySave<T>(T obj, int iteration = 0) where T : IDBObj {
-            return _db.TryWriteFile(obj, iteration);
+            lock (_lock) {
+                return _db.TryWriteFile(obj, iteration);
+            }
         }
 
         /// <inheritdoc/>
