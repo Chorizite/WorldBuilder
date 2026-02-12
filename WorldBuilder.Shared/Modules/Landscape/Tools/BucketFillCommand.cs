@@ -80,10 +80,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             var region = _document.Region;
             var cache = _document.TerrainCache;
             float cellSize = region.CellSizeInUnits;
+            var offset = region.MapOffset;
 
             // Get target vertex from merged cache
-            int startX = (int)Math.Round(_startPos.X / cellSize);
-            int startY = (int)Math.Round(_startPos.Y / cellSize);
+            int startX = (int)Math.Round((_startPos.X - offset.X) / cellSize);
+            int startY = (int)Math.Round((_startPos.Y - offset.Y) / cellSize);
 
             if (startX < 0 || startX >= region.MapWidthInVertices || startY < 0 || startY >= region.MapHeightInVertices)
                 return;

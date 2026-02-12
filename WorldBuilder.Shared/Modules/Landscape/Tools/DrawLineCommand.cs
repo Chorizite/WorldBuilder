@@ -80,12 +80,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             var region = _document.Region;
             var cache = _document.TerrainCache;
             float cellSize = region.CellSizeInUnits;
+            var offset = region.MapOffset;
 
             // Snap start/end to vertex coordinates
-            int x1 = (int)Math.Round(_start.X / cellSize);
-            int y1 = (int)Math.Round(_start.Y / cellSize);
-            int x2 = (int)Math.Round(_end.X / cellSize);
-            int y2 = (int)Math.Round(_end.Y / cellSize);
+            int x1 = (int)Math.Round((_start.X - offset.X) / cellSize);
+            int y1 = (int)Math.Round((_start.Y - offset.Y) / cellSize);
+            int x2 = (int)Math.Round((_end.X - offset.X) / cellSize);
+            int y2 = (int)Math.Round((_end.Y - offset.Y) / cellSize);
 
             // Bresenham's line algorithm for contiguous vertex path
             int dx = Math.Abs(x2 - x1);

@@ -91,12 +91,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             var cache = _document.TerrainCache;
 
             float cellSize = region.CellSizeInUnits; // 24
+            var offset = region.MapOffset;
 
             // Determine bounds in vertex coordinates
-            int minX = (int)Math.Floor((_center.X - _radius) / cellSize);
-            int maxX = (int)Math.Ceiling((_center.X + _radius) / cellSize);
-            int minY = (int)Math.Floor((_center.Y - _radius) / cellSize);
-            int maxY = (int)Math.Ceiling((_center.Y + _radius) / cellSize);
+            int minX = (int)Math.Floor((_center.X - offset.X - _radius) / cellSize);
+            int maxX = (int)Math.Ceiling((_center.X - offset.X + _radius) / cellSize);
+            int minY = (int)Math.Floor((_center.Y - offset.Y - _radius) / cellSize);
+            int maxY = (int)Math.Ceiling((_center.Y - offset.Y + _radius) / cellSize);
 
             // Clamp to map bounds
             minX = Math.Max(0, minX);
@@ -111,8 +112,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 for (int x = minX; x <= maxX; x++) {
                     int index = region.GetVertexIndex(x, y);
 
-                    float vx = x * cellSize;
-                    float vy = y * cellSize;
+                    float vx = x * cellSize + offset.X;
+                    float vy = y * cellSize + offset.Y;
 
                     float dx = vx - _center.X;
                     float dy = vy - _center.Y;

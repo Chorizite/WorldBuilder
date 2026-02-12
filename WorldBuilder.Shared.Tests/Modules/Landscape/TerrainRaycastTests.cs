@@ -286,5 +286,47 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             Assert.Equal(expectedVertX, nearest.X);
             Assert.Equal(expectedVertY, nearest.Y);
         }
+
+        [Fact]
+        public void Raycast_ShouldAccountForMapOffset() {
+            // Arrange
+            var cameraMock = new Mock<ICamera>();
+            float offset = -1000f;
+            var regionMock = CreateRegionMock(10, 10);
+            regionMock.Setup(r => r.MapOffset).Returns(new Vector2(offset, offset));
+            regionMock.Setup(r => r.GetLandblockId(It.IsAny<int>(), It.IsAny<int>()))
+                .Returns((int x, int y) => (ushort)((x << 8) + y));
+            
+            // Look at center of map (offset + mapWidth/2)
+            // MapWidth = 10 landblocks * 192 = 1920
+            // Center = -1000 + 1920/2 = -1000 + 960 = -40
+            float centerX = offset + (10 * 8 * 24f) / 2f;
+            float centerY = offset + (10 * 8 * 24f) / 2f;
+            var target = new Vector3(centerX, centerY, 0);
+            var position = new Vector3(centerX, centerY, 100);
+
+            cameraMock.Setup(c => c.ProjectionMatrix).Returns(Matrix4x4.CreatePerspectiveFieldOfView(1f, 1f, 0.1f, 1000f));
+            cameraMock.Setup(c => c.ViewMatrix).Returns(Matrix4x4.CreateLookAt(position, target, Vector3.UnitY));
+
+            var terrainCache = new TerrainEntry[81 * 81];
+
+            // Act
+            var result = TerrainRaycast.Raycast(50, 50, 100, 100, cameraMock.Object, regionMock.Object, terrainCache);
+
+            // Assert
+            Assert.True(result.Hit);
+            Assert.InRange(result.HitPosition.X, centerX - 1f, centerX + 1f);
+            Assert.InRange(result.HitPosition.Y, centerY - 1f, centerY + 1f);
+            
+            // Landblock index for center should be 5 (if 10 landblocks)
+            Assert.Equal(5u, result.LandblockX);
+            Assert.Equal(5u, result.LandblockY);
+            
+            // Nearest vertex should also account for offset
+            // Vertex X for center is 5 * 8 = 40
+            // World X = 40 * 24 + (-1000) = 960 - 1000 = -40
+            Assert.Equal(centerX, result.NearestVertice.X);
+            Assert.Equal(centerY, result.NearestVertice.Y);
+        }
     }
 }

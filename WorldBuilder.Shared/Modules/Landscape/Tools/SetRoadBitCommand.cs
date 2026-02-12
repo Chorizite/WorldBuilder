@@ -66,9 +66,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             var region = _document.Region;
             var cache = _document.TerrainCache;
             float cellSize = region.CellSizeInUnits;
+            var offset = region.MapOffset;
 
-            int vx = (int)Math.Round(_position.X / cellSize);
-            int vy = (int)Math.Round(_position.Y / cellSize);
+            int vx = (int)Math.Round((_position.X - offset.X) / cellSize);
+            int vy = (int)Math.Round((_position.Y - offset.Y) / cellSize);
 
             if (vx < 0 || vx >= region.MapWidthInVertices || vy < 0 || vy >= region.MapHeightInVertices)
                 return;
