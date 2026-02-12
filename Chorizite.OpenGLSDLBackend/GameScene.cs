@@ -98,7 +98,7 @@ public class GameScene : IDisposable {
         var tFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Landscape.frag");
         _terrainShader = _graphicsDevice.CreateShader("Landscape", tVertSource, tFragSource);
 
-        // Create scenery shader
+        // Create scenery / static obj shader
         var sVertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.StaticObject.vert");
         var sFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.StaticObject.frag");
         _sceneryShader = _graphicsDevice.CreateShader("StaticObject", sVertSource, sFragSource);
@@ -238,7 +238,7 @@ public class GameScene : IDisposable {
         _currentCamera.Update(deltaTime);
         _terrainManager?.Update(deltaTime, _currentCamera.Position);
         _terrainManager?.ProcessUploads(25.0f);
-        _sceneryManager?.Update(deltaTime, _currentCamera.Position);
+        _sceneryManager?.Update(deltaTime, _currentCamera.Position, _currentCamera.ViewProjectionMatrix, _is3DMode);
         _sceneryManager?.ProcessUploads(25.0f);
     }
 

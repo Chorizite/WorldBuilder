@@ -133,6 +133,32 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public bool HasRenderData(uint id) => _renderData.ContainsKey(id);
 
         /// <summary>
+        /// Get existing GPU render data without modifying reference count.
+        /// Use this for render-loop lookups where you don't want to affect lifecycle.
+        /// </summary>
+        public SceneryRenderData? TryGetRenderData(uint id) {
+            return _renderData.TryGetValue(id, out var data) ? data : null;
+        }
+
+        /// <summary>
+        /// Increment reference count for an object (e.g. when a landblock starts using it).
+        /// </summary>
+        public void IncrementRefCount(uint id) {
+            _usageCount.AddOrUpdate(id, 1, (_, count) => count + 1);
+        }
+
+        /// <summary>
+        /// Decrement reference count and unload GPU resources if no longer needed.
+        /// </summary>
+        public void DecrementRefCount(uint id) {
+            var newCount = _usageCount.AddOrUpdate(id, 0, (_, c) => c - 1);
+            if (newCount <= 0) {
+                UnloadObject(id);
+                _usageCount.TryRemove(id, out _);
+            }
+        }
+
+        /// <summary>
         /// Decrement reference count and unload if no longer needed.
         /// </summary>
         public void ReleaseRenderData(uint id) {

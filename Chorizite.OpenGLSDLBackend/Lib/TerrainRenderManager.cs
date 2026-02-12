@@ -39,7 +39,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private bool _initialized;
 
         // Statistics
-        public int RenderDistance { get; set; } = 8;
+        public int RenderDistance { get; set; } = 12;
         public int QueuedUploads => _uploadQueue.Count;
         public int QueuedGenerations => _generationQueue.Count;
         public int QueuedPartialUpdates => _partialUpdateQueue.Count;

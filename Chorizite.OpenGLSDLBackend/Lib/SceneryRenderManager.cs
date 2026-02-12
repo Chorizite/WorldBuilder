@@ -1,3 +1,4 @@
+using Chorizite.Core.Lib;
 using Chorizite.Core.Render;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Types;
@@ -31,13 +32,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Per-landblock scenery data, keyed by (gridX, gridY) packed into ulong
         private readonly ConcurrentDictionary<ulong, SceneryLandblock> _landblocks = new();
 
-        // Queues
-        private readonly ConcurrentQueue<SceneryLandblock> _generationQueue = new();
+        // Queues — generation uses a dictionary for cancellation + priority ordering
+        private readonly ConcurrentDictionary<ulong, SceneryLandblock> _pendingGeneration = new();
         private readonly ConcurrentQueue<SceneryLandblock> _uploadQueue = new();
         private int _activeGenerations = 0;
 
         // Prepared mesh data waiting for GPU upload (thread-safe buffer between background and main thread)
         private readonly ConcurrentDictionary<uint, SceneryMeshData> _preparedMeshes = new();
+
+        // Distance-based unloading
+        private const float UnloadDelay = 15f;
+        private readonly ConcurrentDictionary<ulong, float> _outOfRangeTimers = new();
+        private Vector3 _cameraPosition;
+        private int _cameraLbX;
+        private int _cameraLbY;
+
+        // Frustum culling for 3D mode
+        private readonly Frustum _frustum = new();
+        private bool _is3DMode;
+        private float _lbSizeInUnits;
 
         // Render state
         private IShader? _shader;
@@ -51,9 +64,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private const int InstanceStride = 64 + 4;
 
         // Statistics
-        public int RenderDistance { get; set; } = 15;
+        public int RenderDistance { get; set; } = 25;
         public int QueuedUploads => _uploadQueue.Count;
-        public int QueuedGenerations => _generationQueue.Count;
+        public int QueuedGenerations => _pendingGeneration.Count;
         public int ActiveLandblocks => _landblocks.Count;
 
         public SceneryRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
@@ -74,7 +87,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     lb.GpuReady = false;
                     lb.MeshDataReady = false;
                     lb.Instances.Clear();
-                    _generationQueue.Enqueue(lb);
+                    var key = PackKey(lb.GridX, lb.GridY);
+                    _pendingGeneration[key] = lb;
                 }
             }
             else {
@@ -91,47 +105,99 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _log.LogInformation("SceneryRenderManager initialized");
         }
 
-        public void Update(float deltaTime, Vector3 cameraPosition) {
+        public void Update(float deltaTime, Vector3 cameraPosition, Matrix4x4 viewProjectionMatrix, bool is3DMode) {
             if (!_initialized || _landscapeDoc.Region == null) return;
 
             var region = _landscapeDoc.Region;
             var lbSize = region.CellSizeInUnits * region.LandblockCellLength;
 
-            var lbX = (int)Math.Floor(cameraPosition.X / lbSize);
-            var lbY = (int)Math.Floor(cameraPosition.Y / lbSize);
+            _cameraPosition = cameraPosition;
+            _cameraLbX = (int)Math.Floor(cameraPosition.X / lbSize);
+            _cameraLbY = (int)Math.Floor(cameraPosition.Y / lbSize);
+            _is3DMode = is3DMode;
+            _lbSizeInUnits = lbSize;
+
+            _frustum.Update(viewProjectionMatrix);
 
             // Queue landblocks within render distance
-            for (int x = lbX - RenderDistance; x <= lbX + RenderDistance; x++) {
-                for (int y = lbY - RenderDistance; y <= lbY + RenderDistance; y++) {
+            for (int x = _cameraLbX - RenderDistance; x <= _cameraLbX + RenderDistance; x++) {
+                for (int y = _cameraLbY - RenderDistance; y <= _cameraLbY + RenderDistance; y++) {
                     if (x < 0 || y < 0 || x >= region.MapWidthInLandblocks || y >= region.MapHeightInLandblocks)
                         continue;
 
+                    // In 3D mode, skip landblocks outside the camera frustum
+                    if (_is3DMode && !IsLandblockInFrustum(x, y))
+                        continue;
+
                     var key = PackKey(x, y);
+
+                    // Clear out-of-range timer if this landblock is back in range
+                    _outOfRangeTimers.TryRemove(key, out _);
+
                     if (!_landblocks.ContainsKey(key)) {
                         var lb = new SceneryLandblock {
                             GridX = x,
                             GridY = y
                         };
                         if (_landblocks.TryAdd(key, lb)) {
-                            _generationQueue.Enqueue(lb);
+                            _pendingGeneration[key] = lb;
                         }
                     }
                 }
             }
 
-            // Start background generation tasks (max 2 concurrent)
-            while (_activeGenerations < 21 && !_generationQueue.IsEmpty) {
-                if (_generationQueue.TryDequeue(out var lb)) {
-                    Interlocked.Increment(ref _activeGenerations);
-                    Task.Run(() => {
-                        try {
-                            GenerateSceneryForLandblock(lb);
-                        }
-                        finally {
-                            Interlocked.Decrement(ref _activeGenerations);
-                        }
-                    });
+            // Unload landblocks outside render distance (with delay)
+            var keysToRemove = new List<ulong>();
+            foreach (var (key, lb) in _landblocks) {
+                if (Math.Abs(lb.GridX - _cameraLbX) > RenderDistance || Math.Abs(lb.GridY - _cameraLbY) > RenderDistance) {
+                    var elapsed = _outOfRangeTimers.AddOrUpdate(key, deltaTime, (_, e) => e + deltaTime);
+                    if (elapsed >= UnloadDelay) {
+                        keysToRemove.Add(key);
+                    }
                 }
+            }
+
+            // Actually remove + release GPU resources
+            foreach (var key in keysToRemove) {
+                if (_landblocks.TryRemove(key, out var lb)) {
+                    UnloadLandblockResources(lb);
+                }
+                _outOfRangeTimers.TryRemove(key, out _);
+                _pendingGeneration.TryRemove(key, out _);
+            }
+
+            // Start background generation tasks — prioritize nearest landblocks
+            while (_activeGenerations < 21 && !_pendingGeneration.IsEmpty) {
+                // Pick the nearest pending landblock (Chebyshev distance)
+                SceneryLandblock? nearest = null;
+                int bestDist = int.MaxValue;
+                ulong bestKey = 0;
+
+                foreach (var (key, lb) in _pendingGeneration) {
+                    var dist = Math.Max(Math.Abs(lb.GridX - _cameraLbX), Math.Abs(lb.GridY - _cameraLbY));
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        nearest = lb;
+                        bestKey = key;
+                    }
+                }
+
+                if (nearest == null || !_pendingGeneration.TryRemove(bestKey, out var lbToGenerate))
+                    break;
+
+                // Skip if now out of range
+                if (bestDist > RenderDistance)
+                    break;
+
+                Interlocked.Increment(ref _activeGenerations);
+                Task.Run(() => {
+                    try {
+                        GenerateSceneryForLandblock(lbToGenerate);
+                    }
+                    finally {
+                        Interlocked.Decrement(ref _activeGenerations);
+                    }
+                });
             }
         }
 
@@ -140,6 +206,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             var sw = Stopwatch.StartNew();
             while (sw.Elapsed.TotalMilliseconds < timeBudgetMs && _uploadQueue.TryDequeue(out var lb)) {
+                // Skip if this landblock is no longer within render distance
+                if (!IsWithinRenderDistance(lb)) continue;
                 UploadLandblockMeshes(lb);
             }
         }
@@ -160,7 +228,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var objectInstances = new Dictionary<uint, List<Matrix4x4>>();
 
             foreach (var lb in _landblocks.Values) {
-                if (!lb.GpuReady || lb.Instances.Count == 0) continue;
+                if (!lb.GpuReady || lb.Instances.Count == 0 || !IsWithinRenderDistance(lb)) continue;
 
                 foreach (var instance in lb.Instances) {
                     if (!objectInstances.TryGetValue(instance.ObjectId, out var list)) {
@@ -174,13 +242,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (objectInstances.Count == 0) return;
 
             foreach (var (objectId, transforms) in objectInstances) {
-                var renderData = _meshManager.GetRenderData(objectId);
+                // Use TryGetRenderData to avoid incrementing ref count each frame
+                var renderData = _meshManager.TryGetRenderData(objectId);
                 if (renderData == null) continue;
 
                 if (renderData.IsSetup) {
                     // Setup: render each part's GfxObj with combined transforms
                     foreach (var (partId, partTransform) in renderData.SetupParts) {
-                        var partRenderData = _meshManager.GetRenderData(partId);
+                        var partRenderData = _meshManager.TryGetRenderData(partId);
                         if (partRenderData == null) continue;
 
                         var partTransforms = new Matrix4x4[transforms.Count];
@@ -206,14 +275,65 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 lb.GpuReady = false;
                 lb.MeshDataReady = false;
                 lb.Instances.Clear();
-                _generationQueue.Enqueue(lb);
+                _pendingGeneration[key] = lb;
             }
         }
+
+        #region Private: Distance Helpers
+
+        private bool IsWithinRenderDistance(SceneryLandblock lb) {
+            return Math.Abs(lb.GridX - _cameraLbX) <= RenderDistance
+                && Math.Abs(lb.GridY - _cameraLbY) <= RenderDistance;
+        }
+
+        /// <summary>
+        /// Tests whether a landblock's bounding box intersects the camera frustum.
+        /// Uses a generous Z range to avoid missing objects on hills/valleys.
+        /// </summary>
+        private bool IsLandblockInFrustum(int gridX, int gridY) {
+            var minX = gridX * _lbSizeInUnits;
+            var minY = gridY * _lbSizeInUnits;
+            var maxX = (gridX + 1) * _lbSizeInUnits;
+            var maxY = (gridY + 1) * _lbSizeInUnits;
+
+            var box = new BoundingBox(
+                new Vector3(minX, minY, -1000f),
+                new Vector3(maxX, maxY, 5000f)
+            );
+            return _frustum.Intersects(box);
+        }
+
+        /// <summary>
+        /// Release GPU resources for a landblock being unloaded.
+        /// Decrements ref counts for each unique object — mesh/texture data is only
+        /// freed when no other loaded landblock references the same object.
+        /// </summary>
+        private void UnloadLandblockResources(SceneryLandblock lb) {
+            var uniqueObjectIds = lb.Instances.Select(i => i.ObjectId).Distinct().ToList();
+            foreach (var objectId in uniqueObjectIds) {
+                // Check if this is a Setup object — if so, also release parts
+                var renderData = _meshManager.TryGetRenderData(objectId);
+                if (renderData is { IsSetup: true }) {
+                    foreach (var (partId, _) in renderData.SetupParts) {
+                        _meshManager.DecrementRefCount(partId);
+                    }
+                }
+                _meshManager.DecrementRefCount(objectId);
+            }
+            lb.Instances.Clear();
+            lb.GpuReady = false;
+            lb.MeshDataReady = false;
+        }
+
+        #endregion
 
         #region Private: Background Generation
 
         private void GenerateSceneryForLandblock(SceneryLandblock lb) {
             try {
+                // Early-out if no longer within render distance
+                if (!IsWithinRenderDistance(lb)) return;
+
                 if (_landscapeDoc.Region is not RegionInfo regionInfo) return;
                 var region = regionInfo._region;
                 var terrainCache = _landscapeDoc.TerrainCache;
@@ -289,9 +409,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         var cellSize = regionInfo.CellSizeInUnits; // 24
                         var lx = cellX * cellSize + localPos.X;
                         var ly = cellY * cellSize + localPos.Y;
-                        var lbSize = regionInfo.LandblockSizeInUnits; // 192
+                        var lbSizeUnits = regionInfo.LandblockSizeInUnits; // 192
 
-                        if (lx < 0 || ly < 0 || lx >= lbSize || ly >= lbSize) continue;
+                        if (lx < 0 || ly < 0 || lx >= lbSizeUnits || ly >= lbSizeUnits) continue;
 
                         // Road check
                         if (TerrainGeometryGenerator.OnRoad(new Vector3(lx, ly, 0), lbTerrainEntries)) continue;
@@ -315,7 +435,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         var scaleVal = SceneryHelpers.ScaleObj(obj, globalCellX, globalCellY, j);
                         var scale = new Vector3(scaleVal);
 
-                        var worldOrigin = new Vector3(lbGlobalX * lbSize + lx, lbGlobalY * lbSize + ly, z);
+                        var worldOrigin = new Vector3(lbGlobalX * lbSizeUnits + lx, lbGlobalY * lbSizeUnits + ly, z);
 
                         var transform = Matrix4x4.CreateScale(scale)
                             * Matrix4x4.CreateFromQuaternion(quat)
@@ -390,10 +510,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 UploadPreparedMesh(objectId);
 
                 // Also upload Setup parts
-                var renderData = _meshManager.GetRenderData(objectId);
+                var renderData = _meshManager.TryGetRenderData(objectId);
                 if (renderData is { IsSetup: true }) {
                     foreach (var (partId, _) in renderData.SetupParts) {
                         UploadPreparedMesh(partId);
+                    }
+                }
+            }
+
+            // Increment ref counts for all unique objects in this landblock
+            foreach (var objectId in uniqueObjects) {
+                _meshManager.IncrementRefCount(objectId);
+                var renderData = _meshManager.TryGetRenderData(objectId);
+                if (renderData is { IsSetup: true }) {
+                    foreach (var (partId, _) in renderData.SetupParts) {
+                        _meshManager.IncrementRefCount(partId);
                     }
                 }
             }
@@ -478,6 +609,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
             _landblocks.Clear();
             _preparedMeshes.Clear();
+            _pendingGeneration.Clear();
+            _outOfRangeTimers.Clear();
         }
     }
 }
