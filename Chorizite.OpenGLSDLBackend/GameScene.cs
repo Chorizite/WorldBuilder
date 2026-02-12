@@ -32,6 +32,7 @@ public class GameScene : IDisposable {
     private IShader? _sceneryShader;
     private bool _initialized;
     public bool ShowWireframe { get; set; }
+    public bool ShowScenery { get; set; } = true;
     private int _width;
     private int _height;
 
@@ -308,7 +309,9 @@ public class GameScene : IDisposable {
         }
 
         // Render Scenery
-        _sceneryManager?.Render(_currentCamera);
+        if (ShowScenery) {
+            _sceneryManager?.Render(_currentCamera);
+        }
 
         // Restore for Avalonia
         _gl.Enable(EnableCap.ScissorTest);

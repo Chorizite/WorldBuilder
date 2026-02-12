@@ -354,6 +354,14 @@ public partial class RenderView : Base3DViewport {
         set => SetValue(ShowWireframeProperty, value);
     }
 
+    public static readonly StyledProperty<bool> ShowSceneryProperty =
+        AvaloniaProperty.Register<RenderView, bool>(nameof(ShowScenery), defaultValue: true);
+
+    public bool ShowScenery {
+        get => GetValue(ShowSceneryProperty);
+        set => SetValue(ShowSceneryProperty, value);
+    }
+
     public static readonly StyledProperty<bool> Is3DCameraProperty =
         AvaloniaProperty.Register<RenderView, bool>(nameof(Is3DCamera), defaultValue: true);
 
@@ -384,6 +392,11 @@ public partial class RenderView : Base3DViewport {
         else if (change.Property == ShowWireframeProperty) {
             if (_gameScene != null) {
                 _gameScene.ShowWireframe = ShowWireframe;
+            }
+        }
+        else if (change.Property == ShowSceneryProperty) {
+            if (_gameScene != null) {
+                _gameScene.ShowScenery = ShowScenery;
             }
         }
         else if (change.Property == Is3DCameraProperty) {

@@ -93,6 +93,11 @@ namespace WorldBuilder.Lib.Settings {
         [SettingOrder(2)]
         private bool _showWireframe = false;
         public bool ShowWireframe { get => _showWireframe; set => SetProperty(ref _showWireframe, value); }
+
+        [SettingDescription("Render scenery objects (trees, buildings, etc)")]
+        [SettingOrder(3)]
+        private bool _showScenery = true;
+        public bool ShowScenery { get => _showScenery; set => SetProperty(ref _showScenery, value); }
     }
 
     [SettingCategory("Grid", ParentCategory = "Landscape Editor", Order = 2)]

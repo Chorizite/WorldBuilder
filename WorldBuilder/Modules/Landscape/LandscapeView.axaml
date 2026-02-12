@@ -31,6 +31,7 @@
                         BrushRadius="{Binding BrushRadius}"
                         ShowBrush="{Binding ShowBrush}"
                         ShowWireframe="{Binding IsWireframeEnabled}"
+                        ShowScenery="{Binding IsSceneryEnabled}"
                         Is3DCamera="{Binding Is3DCameraEnabled}" />
 
       <!-- Overlay Buttons -->
@@ -51,10 +52,13 @@
         <Button Command="{Binding ToggleWireframe}" ToolTip.Tip="Toggle Wireframe">
           <TextBlock Text="🕸️" />
         </Button>
+        <Button Command="{Binding ToggleScenery}" ToolTip.Tip="Toggle Scenery">
+          <TextBlock Text="🌳" />
+        </Button>
         <Button Command="{Binding ToggleGrid}" ToolTip.Tip="Toggle Grid">
           <TextBlock Text="📏" />
         </Button>
-        <Button Command="{Binding PrintCameraPositionCommand}" ToolTip.Tip="Print Camera Position">
+        <Button Command="{Binding PrintCameraPosition}" ToolTip.Tip="Print Camera Position">
           <TextBlock Text="🎯" />
         </Button>
       </StackPanel>
