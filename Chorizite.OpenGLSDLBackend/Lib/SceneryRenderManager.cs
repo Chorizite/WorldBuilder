@@ -84,9 +84,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private void OnLandblockChanged(object? sender, LandblockChangedEventArgs e) {
             if (e.AffectedLandblocks == null) {
                 foreach (var lb in _landblocks.Values) {
-                    lb.GpuReady = false;
                     lb.MeshDataReady = false;
-                    lb.Instances.Clear();
                     var key = PackKey(lb.GridX, lb.GridY);
                     _pendingGeneration[key] = lb;
                 }
@@ -272,9 +270,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (lbX < 0 || lbY < 0) return;
             var key = PackKey(lbX, lbY);
             if (_landblocks.TryGetValue(key, out var lb)) {
-                lb.GpuReady = false;
                 lb.MeshDataReady = false;
-                lb.Instances.Clear();
                 _pendingGeneration[key] = lb;
             }
         }
@@ -309,9 +305,29 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// freed when no other loaded landblock references the same object.
         /// </summary>
         private void UnloadLandblockResources(SceneryLandblock lb) {
-            var uniqueObjectIds = lb.Instances.Select(i => i.ObjectId).Distinct().ToList();
+            DecrementInstanceRefCounts(lb.Instances);
+            lb.Instances.Clear();
+            lb.PendingInstances = null;
+            lb.GpuReady = false;
+            lb.MeshDataReady = false;
+        }
+
+        private void IncrementInstanceRefCounts(List<SceneryInstance> instances) {
+            var uniqueObjectIds = instances.Select(i => i.ObjectId).Distinct();
             foreach (var objectId in uniqueObjectIds) {
-                // Check if this is a Setup object — if so, also release parts
+                _meshManager.IncrementRefCount(objectId);
+                var renderData = _meshManager.TryGetRenderData(objectId);
+                if (renderData is { IsSetup: true }) {
+                    foreach (var (partId, _) in renderData.SetupParts) {
+                        _meshManager.IncrementRefCount(partId);
+                    }
+                }
+            }
+        }
+
+        private void DecrementInstanceRefCounts(List<SceneryInstance> instances) {
+            var uniqueObjectIds = instances.Select(i => i.ObjectId).Distinct();
+            foreach (var objectId in uniqueObjectIds) {
                 var renderData = _meshManager.TryGetRenderData(objectId);
                 if (renderData is { IsSetup: true }) {
                     foreach (var (partId, _) in renderData.SetupParts) {
@@ -320,9 +336,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
                 _meshManager.DecrementRefCount(objectId);
             }
-            lb.Instances.Clear();
-            lb.GpuReady = false;
-            lb.MeshDataReady = false;
         }
 
         #endregion
@@ -454,7 +467,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     }
                 }
 
-                lb.Instances = scenery;
+                lb.PendingInstances = scenery;
 
                 if (scenery.Count > 0) {
                     _log.LogTrace("Generated {Count} scenery instances for landblock ({X},{Y})", scenery.Count, lb.GridX, lb.GridY);
@@ -500,8 +513,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #region Private: GPU Upload
 
         private void UploadLandblockMeshes(SceneryLandblock lb) {
+            var instancesToUpload = lb.PendingInstances ?? lb.Instances;
+
             // Upload any prepared mesh data that hasn't been uploaded yet
-            var uniqueObjects = lb.Instances
+            var uniqueObjects = instancesToUpload
                 .Select(s => s.ObjectId)
                 .Distinct()
                 .ToList();
@@ -518,15 +533,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
-            // Increment ref counts for all unique objects in this landblock
-            foreach (var objectId in uniqueObjects) {
-                _meshManager.IncrementRefCount(objectId);
-                var renderData = _meshManager.TryGetRenderData(objectId);
-                if (renderData is { IsSetup: true }) {
-                    foreach (var (partId, _) in renderData.SetupParts) {
-                        _meshManager.IncrementRefCount(partId);
-                    }
-                }
+            if (lb.PendingInstances != null) {
+                // Decrement ref counts for OLD instances
+                DecrementInstanceRefCounts(lb.Instances);
+
+                // Increment ref counts for NEW instances
+                IncrementInstanceRefCounts(lb.PendingInstances);
+
+                lb.Instances = lb.PendingInstances;
+                lb.PendingInstances = null;
+            }
+            else if (!lb.GpuReady) {
+                // First time load
+                IncrementInstanceRefCounts(lb.Instances);
             }
 
             lb.GpuReady = true;

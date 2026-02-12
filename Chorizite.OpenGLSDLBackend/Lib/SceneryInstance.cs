@@ -36,6 +36,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public List<SceneryInstance> Instances { get; set; } = new();
 
+        public List<SceneryInstance>? PendingInstances { get; set; }
+
         /// <summary>
         /// Whether mesh data for all instances has been prepared (CPU-side).
         /// </summary>
