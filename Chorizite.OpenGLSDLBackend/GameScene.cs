@@ -238,7 +238,7 @@ public class GameScene : IDisposable {
         _currentCamera.Update(deltaTime);
         _terrainManager?.Update(deltaTime, _currentCamera.Position);
         _terrainManager?.ProcessUploads(25.0f);
-        _sceneryManager?.Update(deltaTime, _currentCamera.Position, _currentCamera.ViewProjectionMatrix, _is3DMode);
+        _sceneryManager?.Update(deltaTime, _currentCamera.Position, _currentCamera.ViewProjectionMatrix);
         _sceneryManager?.ProcessUploads(25.0f);
     }
 

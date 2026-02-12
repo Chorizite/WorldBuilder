@@ -47,9 +47,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private int _cameraLbX;
         private int _cameraLbY;
 
-        // Frustum culling for 3D mode
+        // Frustum culling
         private readonly Frustum _frustum = new();
-        private bool _is3DMode;
         private float _lbSizeInUnits;
 
         // Render state
@@ -103,7 +102,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _log.LogInformation("SceneryRenderManager initialized");
         }
 
-        public void Update(float deltaTime, Vector3 cameraPosition, Matrix4x4 viewProjectionMatrix, bool is3DMode) {
+        public void Update(float deltaTime, Vector3 cameraPosition, Matrix4x4 viewProjectionMatrix) {
             if (!_initialized || _landscapeDoc.Region == null) return;
 
             var region = _landscapeDoc.Region;
@@ -112,7 +111,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _cameraPosition = cameraPosition;
             _cameraLbX = (int)Math.Floor(cameraPosition.X / lbSize);
             _cameraLbY = (int)Math.Floor(cameraPosition.Y / lbSize);
-            _is3DMode = is3DMode;
             _lbSizeInUnits = lbSize;
 
             _frustum.Update(viewProjectionMatrix);
@@ -123,8 +121,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (x < 0 || y < 0 || x >= region.MapWidthInLandblocks || y >= region.MapHeightInLandblocks)
                         continue;
 
-                    // In 3D mode, skip landblocks outside the camera frustum
-                    if (_is3DMode && !IsLandblockInFrustum(x, y))
+                    // Skip landblocks outside the camera frustum
+                    if (!IsLandblockInFrustum(x, y))
                         continue;
 
                     var key = PackKey(x, y);
@@ -220,6 +218,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("uAmbientIntensity", 0.3f);
             _shader.SetUniform("uSpecularPower", 32.0f);
 
+            _frustum.Update(camera.ViewProjectionMatrix);
+
             // Collect all instances grouped by (objectId, batchIndex) for instanced drawing
             // Each batch within a render data has its own IBO and texture, so we need to draw
             // each batch separately with its own set of instance transforms
@@ -227,6 +227,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             foreach (var lb in _landblocks.Values) {
                 if (!lb.GpuReady || lb.Instances.Count == 0 || !IsWithinRenderDistance(lb)) continue;
+
+                if (!IsLandblockInFrustum(lb.GridX, lb.GridY)) continue;
 
                 foreach (var instance in lb.Instances) {
                     if (!objectInstances.TryGetValue(instance.ObjectId, out var list)) {
