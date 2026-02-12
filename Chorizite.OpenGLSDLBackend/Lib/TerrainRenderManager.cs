@@ -109,9 +109,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             _frustum.Update(camera.ViewProjectionMatrix);
 
+            if (_landscapeDoc.Region is null) return;
+
             // Calculate current chunk
-            var chunkX = (int)Math.Floor(camera.Position.X / _chunkSizeInUnits);
-            var chunkY = (int)Math.Floor(camera.Position.Y / _chunkSizeInUnits);
+            var pos = new Vector2(camera.Position.X, camera.Position.Y) - _landscapeDoc.Region.MapOffset;
+            var chunkX = (int)Math.Floor(pos.X / _chunkSizeInUnits);
+            var chunkY = (int)Math.Floor(pos.Y / _chunkSizeInUnits);
 
             // Queue new chunks
             for (int x = chunkX - RenderDistance; x <= chunkX + RenderDistance; x++) {
@@ -183,10 +186,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         private bool IsChunkInFrustum(int chunkX, int chunkY) {
-            var minX = chunkX * _chunkSizeInUnits;
-            var minY = chunkY * _chunkSizeInUnits;
-            var maxX = (chunkX + 1) * _chunkSizeInUnits;
-            var maxY = (chunkY + 1) * _chunkSizeInUnits;
+            var offset = _landscapeDoc.Region?.MapOffset ?? Vector2.Zero;
+            var minX = chunkX * _chunkSizeInUnits + offset.X;
+            var minY = chunkY * _chunkSizeInUnits + offset.Y;
+            var maxX = (chunkX + 1) * _chunkSizeInUnits + offset.X;
+            var maxY = (chunkY + 1) * _chunkSizeInUnits + offset.Y;
 
             var box = new BoundingBox(
                 new Vector3(minX, minY, -1000f),
@@ -300,9 +304,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         maxZ = Math.Max(maxZ, chunk.LandblockBoundsMaxZ[i]);
                     }
                 }
+                var offset = _landscapeDoc.Region?.MapOffset ?? Vector2.Zero;
                 chunk.Bounds = new BoundingBox(
-                    new Vector3(chunk.ChunkX * 8 * 192f, chunk.ChunkY * 8 * 192f, minZ),
-                    new Vector3((chunk.ChunkX + 1) * 8 * 192f, (chunk.ChunkY + 1) * 8 * 192f, maxZ)
+                    new Vector3(new Vector2(chunk.ChunkX * 8 * 192f, chunk.ChunkY * 8 * 192f) + offset, minZ),
+                    new Vector3(new Vector2((chunk.ChunkX + 1) * 8 * 192f, (chunk.ChunkY + 1) * 8 * 192f) + offset, maxZ)
                 );
             }
 

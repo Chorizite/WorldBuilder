@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -17,6 +18,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         int LandblockVerticeLength { get; }
         float RoadWidthInUnits { get; }
         float[] LandHeights { get; }
+        Vector2 MapOffset { get; }
         int GetVertexIndex(int x, int y);
         (int x, int y) GetVertexCoordinates(uint index);
         ushort GetLandblockId(int x, int y);
@@ -79,6 +81,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         /// Land height lookupg table in game units. The index corresponds to the heights array in <see cref="LandBlock"/> dbobj.
         /// </summary>
         public float[] LandHeights => _region.LandDefs.LandHeightTable;
+
+        /// <summary>
+        /// Global map offset to center the map at (0,0).
+        /// </summary>
+        public Vector2 MapOffset => new Vector2(
+            -(MapWidthInLandblocks * LandblockSizeInUnits) / 2f,
+            -(MapHeightInLandblocks * LandblockSizeInUnits) / 2f
+        );
 
         public RegionInfo(Region region) {
             _region = region;

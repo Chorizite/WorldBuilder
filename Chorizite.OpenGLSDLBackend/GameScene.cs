@@ -187,8 +187,7 @@ public class GameScene : IDisposable {
     }
 
     private void CenterCameraOnLandscape(ITerrainInfo region) {
-        // yaraq
-        _camera3D.Position = new Vector3(23935f, 19114f, 2103f);
+        _camera3D.Position = new Vector3(-701.20f, -5347.16f, 2000f);
         _camera3D.Pitch = -89.9f;
         _camera3D.Yaw = 0;
 

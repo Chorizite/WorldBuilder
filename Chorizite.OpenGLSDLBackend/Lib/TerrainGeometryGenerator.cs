@@ -93,9 +93,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             });
 
+            var mapOffset = region.MapOffset;
             chunk.Bounds = new BoundingBox(
-                new Vector3(chunk.ChunkX * 8 * 192f, chunk.ChunkY * 8 * 192f, minZ),
-                new Vector3((chunk.ChunkX + 1) * 8 * 192f, (chunk.ChunkY + 1) * 8 * 192f, maxZ)
+                new Vector3(new Vector2(chunk.ChunkX * 8 * 192f, chunk.ChunkY * 8 * 192f) + mapOffset, minZ),
+                new Vector3(new Vector2((chunk.ChunkX + 1) * 8 * 192f, (chunk.ChunkY + 1) * 8 * 192f) + mapOffset, maxZ)
             );
         }
 
@@ -113,8 +114,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             uint currentIndexPosition,
             Span<VertexLandscape> vertices,
             Span<uint> indices) {
-            float baseLandblockX = landblockX * 192f; // 24 * 8
-            float baseLandblockY = landblockY * 192f;
+            float baseLandblockX = landblockX * 192f + region.MapOffset.X; // 24 * 8
+            float baseLandblockY = landblockY * 192f + region.MapOffset.Y;
             float minZ = float.MaxValue;
             float maxZ = float.MinValue;
 

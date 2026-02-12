@@ -112,8 +112,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var lbSize = region.CellSizeInUnits * region.LandblockCellLength;
 
             _cameraPosition = cameraPosition;
-            _cameraLbX = (int)Math.Floor(cameraPosition.X / lbSize);
-            _cameraLbY = (int)Math.Floor(cameraPosition.Y / lbSize);
+            var pos = new Vector2(cameraPosition.X, cameraPosition.Y) - region.MapOffset;
+            _cameraLbX = (int)Math.Floor(pos.X / lbSize);
+            _cameraLbY = (int)Math.Floor(pos.Y / lbSize);
             _lbSizeInUnits = lbSize;
 
             _frustum.Update(viewProjectionMatrix);
@@ -315,10 +316,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Uses a generous Z range to avoid missing objects on hills/valleys.
         /// </summary>
         private bool IsLandblockInFrustum(int gridX, int gridY) {
-            var minX = gridX * _lbSizeInUnits;
-            var minY = gridY * _lbSizeInUnits;
-            var maxX = (gridX + 1) * _lbSizeInUnits;
-            var maxY = (gridY + 1) * _lbSizeInUnits;
+            var offset = _landscapeDoc.Region?.MapOffset ?? Vector2.Zero;
+            var minX = gridX * _lbSizeInUnits + offset.X;
+            var minY = gridY * _lbSizeInUnits + offset.Y;
+            var maxX = (gridX + 1) * _lbSizeInUnits + offset.X;
+            var maxY = (gridY + 1) * _lbSizeInUnits + offset.Y;
 
             var box = new BoundingBox(
                 new Vector3(minX, minY, -1000f),
@@ -490,7 +492,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         var scaleVal = SceneryHelpers.ScaleObj(obj, globalCellX, globalCellY, j);
                         var scale = new Vector3(scaleVal);
 
-                        var worldOrigin = new Vector3(lbGlobalX * lbSizeUnits + lx, lbGlobalY * lbSizeUnits + ly, z);
+                        var worldOrigin = new Vector3(new Vector2(lbGlobalX * lbSizeUnits + lx, lbGlobalY * lbSizeUnits + ly) + regionInfo.MapOffset, z);
 
                         var transform = Matrix4x4.CreateScale(scale)
                             * Matrix4x4.CreateFromQuaternion(quat)

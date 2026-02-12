@@ -107,8 +107,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var lbSize = region.CellSizeInUnits * region.LandblockCellLength;
 
             _cameraPosition = cameraPosition;
-            _cameraLbX = (int)Math.Floor(cameraPosition.X / lbSize);
-            _cameraLbY = (int)Math.Floor(cameraPosition.Y / lbSize);
+            var pos = new Vector2(cameraPosition.X, cameraPosition.Y) - region.MapOffset;
+            _cameraLbX = (int)Math.Floor(pos.X / lbSize);
+            _cameraLbY = (int)Math.Floor(pos.Y / lbSize);
             _lbSizeInUnits = lbSize;
 
             _frustum.Update(viewProjectionMatrix);
@@ -295,10 +296,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         private bool IsLandblockInFrustum(int gridX, int gridY) {
-            var minX = gridX * _lbSizeInUnits;
-            var minY = gridY * _lbSizeInUnits;
-            var maxX = (gridX + 1) * _lbSizeInUnits;
-            var maxY = (gridY + 1) * _lbSizeInUnits;
+            var offset = _landscapeDoc.Region?.MapOffset ?? Vector2.Zero;
+            var minX = gridX * _lbSizeInUnits + offset.X;
+            var minY = gridY * _lbSizeInUnits + offset.Y;
+            var maxX = (gridX + 1) * _lbSizeInUnits + offset.X;
+            var maxY = (gridY + 1) * _lbSizeInUnits + offset.Y;
 
             var box = new BoundingBox(
                 new Vector3(minX, minY, -1000f),
@@ -371,8 +373,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                         var isSetup = (obj.Id & 0x02000000) != 0;
                         var worldPos = new Vector3(
-                            lbGlobalX * lbSizeUnits + obj.Frame.Origin.X,
-                            lbGlobalY * lbSizeUnits + obj.Frame.Origin.Y,
+                            new Vector2(lbGlobalX * lbSizeUnits + obj.Frame.Origin.X, lbGlobalY * lbSizeUnits + obj.Frame.Origin.Y) + regionInfo.MapOffset,
                             obj.Frame.Origin.Z
                         );
 
@@ -399,8 +400,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                         var isSetup = (building.ModelId & 0x02000000) != 0;
                         var worldPos = new Vector3(
-                            lbGlobalX * lbSizeUnits + building.Frame.Origin.X,
-                            lbGlobalY * lbSizeUnits + building.Frame.Origin.Y,
+                            new Vector2(lbGlobalX * lbSizeUnits + building.Frame.Origin.X, lbGlobalY * lbSizeUnits + building.Frame.Origin.Y) + regionInfo.MapOffset,
                             building.Frame.Origin.Z
                         );
 
