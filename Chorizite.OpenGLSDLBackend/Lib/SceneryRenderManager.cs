@@ -33,7 +33,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Per-landblock scenery data, keyed by (gridX, gridY) packed into ushort
         private readonly ConcurrentDictionary<ushort, ObjectLandblock> _landblocks = new();
 
-        // Queues — generation uses a dictionary for cancellation + priority ordering
+        // Caches
+        private readonly ConcurrentDictionary<uint, Scene> _sceneCache = new();
         private readonly ConcurrentDictionary<ushort, ObjectLandblock> _pendingGeneration = new();
         private readonly ConcurrentQueue<ObjectLandblock> _uploadQueue = new();
         private int _activeGenerations = 0;
@@ -388,13 +389,30 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 // Wait for static objects to be ready for this landblock
                 var sw = Stopwatch.StartNew();
                 while (!_staticObjectManager.IsLandblockReady(key) && sw.ElapsedMilliseconds < 5000) {
-                    Thread.Sleep(10);
+                    Thread.Sleep(1);
                 }
 
                 var buildings = _staticObjectManager.GetLandblockInstances(key) ?? new List<SceneryInstance>();
                 var pendingBuildings = _staticObjectManager.GetPendingLandblockInstances(key);
                 if (pendingBuildings != null) {
                     buildings = pendingBuildings;
+                }
+
+                // Spatial index for buildings to speed up collisions (8x8 grid)
+                var lbSizeUnits = regionInfo.LandblockSizeInUnits; // 192
+                var buildingsGrid = new List<SceneryInstance>[8, 8];
+                foreach (var b in buildings) {
+                    var minX = (int)Math.Max(0, (b.BoundingBox.Min.X - regionInfo.MapOffset.X - lbGlobalX * lbSizeUnits) / 24f);
+                    var maxX = (int)Math.Min(7, (b.BoundingBox.Max.X - regionInfo.MapOffset.X - lbGlobalX * lbSizeUnits) / 24f);
+                    var minY = (int)Math.Max(0, (b.BoundingBox.Min.Y - regionInfo.MapOffset.Y - lbGlobalY * lbSizeUnits) / 24f);
+                    var maxY = (int)Math.Min(7, (b.BoundingBox.Max.Y - regionInfo.MapOffset.Y - lbGlobalY * lbSizeUnits) / 24f);
+
+                    for (int gx = minX; gx <= maxX; gx++) {
+                        for (int gy = minY; gy <= maxY; gy++) {
+                            buildingsGrid[gx, gy] ??= new List<SceneryInstance>();
+                            buildingsGrid[gx, gy].Add(b);
+                        }
+                    }
                 }
 
                 var region = regionInfo._region;
@@ -448,7 +466,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     sceneIdx = Math.Clamp(sceneIdx, 0, sceneInfo.Scenes.Count - 1);
                     var sceneId = sceneInfo.Scenes[sceneIdx];
 
-                    if (!_dats.Portal.TryGet<Scene>(sceneId, out var scene) || scene.Objects.Count == 0) continue;
+                    if (!_sceneCache.TryGetValue(sceneId, out var scene)) {
+                        if (!_dats.Portal.TryGet<Scene>(sceneId, out scene)) continue;
+                        _sceneCache[sceneId] = scene;
+                    }
+                    if (scene.Objects.Count == 0) continue;
 
                     // Skip road cells
                     if ((entry.Road ?? 0) != 0) continue;
@@ -468,7 +490,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         var cellSize = regionInfo.CellSizeInUnits; // 24
                         var lx = cellX * cellSize + localPos.X;
                         var ly = cellY * cellSize + localPos.Y;
-                        var lbSizeUnits = regionInfo.LandblockSizeInUnits; // 192
 
                         if (lx < 0 || ly < 0 || lx >= lbSizeUnits || ly >= lbSizeUnits) continue;
 
@@ -515,8 +536,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             BoundingBox = bbox
                         };
 
-                        // Collision detection
-                        if (Collision(buildings, instance) /*|| Collision(scenery, instance) */)
+                        // Collision detection using spatial index
+                        var gx = (int)Math.Clamp(lx / 24f, 0, 7);
+                        var gy = (int)Math.Clamp(ly / 24f, 0, 7);
+                        var nearbyBuildings = buildingsGrid[gx, gy];
+
+                        if (nearbyBuildings != null && Collision(nearbyBuildings, instance))
                             continue;
 
                         scenery.Add(instance);

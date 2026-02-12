@@ -116,6 +116,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly IDatReaderWriter _dats;
         private readonly Dictionary<uint, ObjectRenderData> _renderData = new();
         private readonly ConcurrentDictionary<uint, int> _usageCount = new();
+        private readonly ConcurrentDictionary<uint, (Vector3 Min, Vector3 Max)?> _boundsCache = new();
 
         public ObjectMeshManager(OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats) {
             _graphicsDevice = graphicsDevice;
@@ -238,7 +239,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Gets bounding box for an object (for frustum culling).
         /// </summary>
         public (Vector3 Min, Vector3 Max)? GetBounds(uint id, bool isSetup) {
+            if (_boundsCache.TryGetValue(id, out var cachedBounds)) {
+                return cachedBounds;
+            }
+
             try {
+                (Vector3 Min, Vector3 Max)? result = null;
                 if (isSetup) {
                     if (!_dats.Portal.TryGet<Setup>(id, out var setup)) return null;
                     var min = new Vector3(float.MaxValue);
@@ -263,12 +269,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             hasBounds = true;
                         }
                     }
-                    return hasBounds ? (min, max) : null;
+                    result = hasBounds ? (min, max) : null;
                 }
                 else {
                     if (!_dats.Portal.TryGet<GfxObj>(id, out var gfxObj)) return null;
-                    return ComputeBounds(gfxObj, Vector3.One);
+                    result = ComputeBounds(gfxObj, Vector3.One);
                 }
+                _boundsCache[id] = result;
+                return result;
             }
             catch (Exception ex) {
                 Console.WriteLine($"Error computing bounds for 0x{id:X8}: {ex}");
