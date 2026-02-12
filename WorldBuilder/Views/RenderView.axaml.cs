@@ -27,6 +27,7 @@ public partial class RenderView : Base3DViewport {
     private Vector2 _lastPointerPosition;
     private LandscapeDocument? _cachedLandscapeDocument;
     private CameraSettings? _cameraSettings;
+    private RenderingSettings? _renderingSettings;
 
     public WorldBuilder.Shared.Models.ICamera? Camera => _gameScene?.Camera;
 
@@ -61,6 +62,10 @@ public partial class RenderView : Base3DViewport {
         if (_cameraSettings != null) {
             _cameraSettings.PropertyChanged -= OnCameraSettingsChanged;
             _cameraSettings = null;
+        }
+        if (_renderingSettings != null) {
+            _renderingSettings.PropertyChanged -= OnRenderingSettingsChanged;
+            _renderingSettings = null;
         }
         if (_gridSettings != null) {
             _gridSettings.PropertyChanged -= OnGridSettingsChanged;
@@ -137,7 +142,7 @@ public partial class RenderView : Base3DViewport {
     }
 
     private void OnLandscapeSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e) {
-        if (e.PropertyName == nameof(LandscapeEditorSettings.Camera) || e.PropertyName == nameof(LandscapeEditorSettings.Grid)) {
+        if (e.PropertyName == nameof(LandscapeEditorSettings.Camera) || e.PropertyName == nameof(LandscapeEditorSettings.Grid) || e.PropertyName == nameof(LandscapeEditorSettings.Rendering)) {
             UpdateSettingsRefs();
         }
     }
@@ -152,6 +157,14 @@ public partial class RenderView : Base3DViewport {
         _cameraSettings.PropertyChanged += OnCameraSettingsChanged;
         _gameScene.SetDrawDistance(_cameraSettings.MaxDrawDistance);
         _gameScene.SetMovementSpeed(_cameraSettings.MovementSpeed);
+
+        if (_renderingSettings != null) {
+            _renderingSettings.PropertyChanged -= OnRenderingSettingsChanged;
+        }
+        _renderingSettings = _settings.Landscape.Rendering;
+        _renderingSettings.PropertyChanged += OnRenderingSettingsChanged;
+        _gameScene.SetTerrainRenderDistance(_renderingSettings.TerrainRenderDistance);
+        _gameScene.SetSceneryRenderDistance(_renderingSettings.SceneryRenderDistance);
 
         if (_gridSettings != null) {
             _gridSettings.PropertyChanged -= OnGridSettingsChanged;
@@ -176,6 +189,17 @@ public partial class RenderView : Base3DViewport {
         }
         else if (e.PropertyName == nameof(CameraSettings.MovementSpeed)) {
             _gameScene.SetMovementSpeed(_cameraSettings.MovementSpeed);
+        }
+    }
+
+    private void OnRenderingSettingsChanged(object? sender, PropertyChangedEventArgs e) {
+        if (_gameScene == null || _renderingSettings == null) return;
+
+        if (e.PropertyName == nameof(RenderingSettings.TerrainRenderDistance)) {
+            _gameScene.SetTerrainRenderDistance(_renderingSettings.TerrainRenderDistance);
+        }
+        else if (e.PropertyName == nameof(RenderingSettings.SceneryRenderDistance)) {
+            _gameScene.SetSceneryRenderDistance(_renderingSettings.SceneryRenderDistance);
         }
     }
 
@@ -283,6 +307,9 @@ public partial class RenderView : Base3DViewport {
         _gameScene?.HandlePointerWheelChanged((float)e.Delta.Y);
     }
 
+    private bool _isLoading;
+    private int _lastPendingCount;
+
     protected override void OnGlRender(double frameTime) {
         if (GL is null) return;
 
@@ -304,6 +331,22 @@ public partial class RenderView : Base3DViewport {
 
         _gameScene.Update((float)frameTime);
         _gameScene.Render();
+
+        int pendingCount = _gameScene.PendingTerrainUploads + _gameScene.PendingTerrainGenerations +
+                           _gameScene.PendingTerrainPartialUpdates + _gameScene.PendingSceneryUploads +
+                           _gameScene.PendingSceneryGenerations;
+        bool isLoading = pendingCount > 0;
+
+        if (isLoading != _isLoading || (isLoading && pendingCount != _lastPendingCount)) {
+            _isLoading = isLoading;
+            _lastPendingCount = pendingCount;
+            Dispatcher.UIThread.Post(() => {
+                LoadingIndicator.IsVisible = _isLoading;
+                if (_isLoading) {
+                    LoadingText.Text = $"{pendingCount}";
+                }
+            });
+        }
     }
 
     public static readonly StyledProperty<LandscapeDocument?> LandscapeDocumentProperty =
@@ -354,6 +397,14 @@ public partial class RenderView : Base3DViewport {
         set => SetValue(ShowWireframeProperty, value);
     }
 
+    public static readonly StyledProperty<bool> ShowSceneryProperty =
+        AvaloniaProperty.Register<RenderView, bool>(nameof(ShowScenery), defaultValue: true);
+
+    public bool ShowScenery {
+        get => GetValue(ShowSceneryProperty);
+        set => SetValue(ShowSceneryProperty, value);
+    }
+
     public static readonly StyledProperty<bool> Is3DCameraProperty =
         AvaloniaProperty.Register<RenderView, bool>(nameof(Is3DCamera), defaultValue: true);
 
@@ -384,6 +435,11 @@ public partial class RenderView : Base3DViewport {
         else if (change.Property == ShowWireframeProperty) {
             if (_gameScene != null) {
                 _gameScene.ShowWireframe = ShowWireframe;
+            }
+        }
+        else if (change.Property == ShowSceneryProperty) {
+            if (_gameScene != null) {
+                _gameScene.ShowScenery = ShowScenery;
             }
         }
         else if (change.Property == Is3DCameraProperty) {

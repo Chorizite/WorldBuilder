@@ -16,6 +16,7 @@ namespace Chorizite.OpenGLSDLBackend;
 /// Manages the 3D scene including camera, objects, and rendering.
 /// </summary>
 public class GameScene : IDisposable {
+    private const uint MAX_GPU_UPDATE_TIME_PER_FRAME = 30; // max gpu time spent doing uploads per frame, in ms
     private readonly GL _gl;
     private readonly OpenGLGraphicsDevice _graphicsDevice;
     private readonly ILogger _log;
@@ -29,18 +30,43 @@ public class GameScene : IDisposable {
     // Cube rendering
     private IShader? _shader;
     private IShader? _terrainShader;
+    private IShader? _sceneryShader;
     private bool _initialized;
     public bool ShowWireframe { get; set; }
+    public bool ShowScenery { get; set; } = true;
     private int _width;
     private int _height;
 
     // Terrain
     private TerrainRenderManager? _terrainManager;
 
+    // Scenery
+    private SceneryRenderManager? _sceneryManager;
+
     /// <summary>
     /// Gets the number of pending terrain uploads.
     /// </summary>
     public int PendingTerrainUploads => _terrainManager?.QueuedUploads ?? 0;
+
+    /// <summary>
+    /// Gets the number of pending terrain generations.
+    /// </summary>
+    public int PendingTerrainGenerations => _terrainManager?.QueuedGenerations ?? 0;
+
+    /// <summary>
+    /// Gets the number of pending terrain partial updates.
+    /// </summary>
+    public int PendingTerrainPartialUpdates => _terrainManager?.QueuedPartialUpdates ?? 0;
+
+    /// <summary>
+    /// Gets the number of pending scenery uploads.
+    /// </summary>
+    public int PendingSceneryUploads => _sceneryManager?.QueuedUploads ?? 0;
+
+    /// <summary>
+    /// Gets the number of pending scenery generations.
+    /// </summary>
+    public int PendingSceneryGenerations => _sceneryManager?.QueuedGenerations ?? 0;
 
     /// <summary>
     /// Gets the current active camera.
@@ -89,10 +115,19 @@ public class GameScene : IDisposable {
         var tFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Landscape.frag");
         _terrainShader = _graphicsDevice.CreateShader("Landscape", tVertSource, tFragSource);
 
+        // Create scenery / static obj shader
+        var sVertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.StaticObject.vert");
+        var sFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.StaticObject.frag");
+        _sceneryShader = _graphicsDevice.CreateShader("StaticObject", sVertSource, sFragSource);
+
         _initialized = true;
 
         if (_terrainManager != null && _terrainShader != null) {
             _terrainManager.Initialize(_terrainShader);
+        }
+
+        if (_sceneryManager != null && _sceneryShader != null) {
+            _sceneryManager.Initialize(_sceneryShader);
         }
 
         _log.LogInformation("GameScene initialized");
@@ -102,10 +137,18 @@ public class GameScene : IDisposable {
         if (_terrainManager != null) {
             _terrainManager.Dispose();
         }
+        if (_sceneryManager != null) {
+            _sceneryManager.Dispose();
+        }
 
         _terrainManager = new TerrainRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice);
         if (_initialized && _terrainShader != null) {
             _terrainManager.Initialize(_terrainShader);
+        }
+
+        _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice);
+        if (_initialized && _sceneryShader != null) {
+            _sceneryManager.Initialize(_sceneryShader);
         }
 
         if (landscapeDoc.Region != null) {
@@ -118,7 +161,7 @@ public class GameScene : IDisposable {
         _camera3D.Position = new Vector3(23935f, 19114f, 2103f);
         _camera3D.Pitch = -89.9f;
         _camera3D.Yaw = 0;
-        
+
         SyncCameraZ();
     }
 
@@ -162,9 +205,8 @@ public class GameScene : IDisposable {
             // 2D -> 3D
             float zoom = _camera2D.Zoom;
             float h = 10.0f / (zoom * tanHalfFov);
-            var pos = _camera2D.Position;
-            pos.Z = h;
-            _camera3D.Position = pos;
+            _camera2D.Position = new Vector3(_camera2D.Position.X, _camera2D.Position.Y, h);
+            _camera3D.Position = _camera2D.Position;
         }
     }
 
@@ -174,6 +216,26 @@ public class GameScene : IDisposable {
     /// <param name="distance">The far clipping plane distance.</param>
     public void SetDrawDistance(float distance) {
         _camera3D.FarPlane = distance;
+    }
+
+    /// <summary>
+    /// Sets the terrain render distance in chunks.
+    /// </summary>
+    /// <param name="distance">The number of chunks to render around the camera.</param>
+    public void SetTerrainRenderDistance(int distance) {
+        if (_terrainManager != null) {
+            _terrainManager.RenderDistance = distance;
+        }
+    }
+
+    /// <summary>
+    /// Sets the scenery render distance in landblocks.
+    /// </summary>
+    /// <param name="distance">The number of landblocks to render around the camera.</param>
+    public void SetSceneryRenderDistance(int distance) {
+        if (_sceneryManager != null) {
+            _sceneryManager.RenderDistance = distance;
+        }
     }
 
     /// <summary>
@@ -209,9 +271,12 @@ public class GameScene : IDisposable {
     /// Updates the scene.
     /// </summary>
     public void Update(float deltaTime) {
+        var allowedTime = MAX_GPU_UPDATE_TIME_PER_FRAME / 2;
         _currentCamera.Update(deltaTime);
-        _terrainManager?.Update(deltaTime, _currentCamera.Position);
-        _terrainManager?.ProcessUploads(25.0f);
+        _terrainManager?.Update(deltaTime, _currentCamera);
+        _terrainManager?.ProcessUploads(allowedTime);
+        _sceneryManager?.Update(deltaTime, _currentCamera.Position, _currentCamera.ViewProjectionMatrix);
+        _sceneryManager?.ProcessUploads(allowedTime);
     }
 
     /// <summary>
@@ -226,6 +291,7 @@ public class GameScene : IDisposable {
 
     public void InvalidateLandblock(int lbX, int lbY) {
         _terrainManager?.InvalidateLandblock(lbX, lbY);
+        _sceneryManager?.InvalidateLandblock(lbX, lbY);
     }
 
     /// <summary>
@@ -278,6 +344,11 @@ public class GameScene : IDisposable {
             }
         }
 
+        // Render Scenery
+        if (ShowScenery) {
+            _sceneryManager?.Render(_currentCamera);
+        }
+
         // Restore for Avalonia
         _gl.Enable(EnableCap.ScissorTest);
         _gl.Enable(EnableCap.DepthTest);
@@ -318,6 +389,9 @@ public class GameScene : IDisposable {
 
     public void HandlePointerWheelChanged(float delta) {
         _currentCamera.HandlePointerWheelChanged(delta);
+        if (!_is3DMode) {
+            SyncCameraZ();
+        }
     }
 
     public void HandleKeyDown(string key) {
@@ -342,5 +416,6 @@ public class GameScene : IDisposable {
 
     public void Dispose() {
         _terrainManager?.Dispose();
+        _sceneryManager?.Dispose();
     }
 }

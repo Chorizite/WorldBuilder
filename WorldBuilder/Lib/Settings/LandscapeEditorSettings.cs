@@ -45,7 +45,9 @@ namespace WorldBuilder.Lib.Settings {
         }
 
         private void OnSubSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
-            OnPropertyChanged(nameof(Camera)); // Trigger a change on the parent
+            if (sender == _camera) OnPropertyChanged(nameof(Camera));
+            else if (sender == _rendering) OnPropertyChanged(nameof(Rendering));
+            else if (sender == _grid) OnPropertyChanged(nameof(Grid));
         }
     }
 
@@ -93,6 +95,23 @@ namespace WorldBuilder.Lib.Settings {
         [SettingOrder(2)]
         private bool _showWireframe = false;
         public bool ShowWireframe { get => _showWireframe; set => SetProperty(ref _showWireframe, value); }
+
+        [SettingDescription("Render scenery objects (trees, buildings, etc)")]
+        [SettingOrder(3)]
+        private bool _showScenery = true;
+        public bool ShowScenery { get => _showScenery; set => SetProperty(ref _showScenery, value); }
+
+        [SettingDescription("Number of terrain chunks to render around the camera")]
+        [SettingRange(1, 64, 1, 4)]
+        [SettingOrder(4)]
+        private int _terrainRenderDistance = 25;
+        public int TerrainRenderDistance { get => _terrainRenderDistance; set => SetProperty(ref _terrainRenderDistance, value); }
+
+        [SettingDescription("Number of landblocks to render scenery around the camera")]
+        [SettingRange(1, 64, 1, 4)]
+        [SettingOrder(5)]
+        private int _sceneryRenderDistance = 25;
+        public int SceneryRenderDistance { get => _sceneryRenderDistance; set => SetProperty(ref _sceneryRenderDistance, value); }
     }
 
     [SettingCategory("Grid", ParentCategory = "Landscape Editor", Order = 2)]

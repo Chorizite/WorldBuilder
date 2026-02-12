@@ -48,6 +48,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
     [ObservableProperty] private bool _showBrush;
 
     [ObservableProperty] private bool _isWireframeEnabled;
+    [ObservableProperty] private bool _isSceneryEnabled = true;
     [ObservableProperty] private bool _isGridEnabled;
     [ObservableProperty] private bool _is3DCameraEnabled = true;
 
@@ -76,6 +77,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
 
         if (_settings != null) {
             IsWireframeEnabled = _settings.Landscape.Rendering.ShowWireframe;
+            IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
             IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
 
             _settings.PropertyChanged += OnSettingsPropertyChanged;
@@ -317,10 +319,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         }
     }
 
+    [RelayCommand]
     public void ToggleCamera() {
         Is3DCameraEnabled = !Is3DCameraEnabled;
     }
 
+    [RelayCommand]
     public void ToggleWireframe() {
         IsWireframeEnabled = !IsWireframeEnabled;
         if (_settings != null) {
@@ -328,6 +332,15 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         }
     }
 
+    [RelayCommand]
+    public void ToggleScenery() {
+        IsSceneryEnabled = !IsSceneryEnabled;
+        if (_settings != null) {
+            _settings.Landscape.Rendering.ShowScenery = IsSceneryEnabled;
+        }
+    }
+
+    [RelayCommand]
     public void ToggleGrid() {
         IsGridEnabled = !IsGridEnabled;
         if (_settings != null) {
@@ -360,6 +373,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
                 _settings.Landscape.Grid.PropertyChanged += OnGridSettingsPropertyChanged;
 
                 IsWireframeEnabled = _settings.Landscape.Rendering.ShowWireframe;
+                IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
                 IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
             }
         }
@@ -371,6 +385,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
                 _settings.Landscape.Rendering.PropertyChanged -= OnRenderingSettingsPropertyChanged;
                 _settings.Landscape.Rendering.PropertyChanged += OnRenderingSettingsPropertyChanged;
                 IsWireframeEnabled = _settings.Landscape.Rendering.ShowWireframe;
+                IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
             }
         }
         else if (e.PropertyName == nameof(LandscapeEditorSettings.Grid)) {
@@ -386,6 +401,11 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         if (e.PropertyName == nameof(RenderingSettings.ShowWireframe)) {
             if (_settings != null) {
                 IsWireframeEnabled = _settings.Landscape.Rendering.ShowWireframe;
+            }
+        }
+        else if (e.PropertyName == nameof(RenderingSettings.ShowScenery)) {
+            if (_settings != null) {
+                IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
             }
         }
     }
