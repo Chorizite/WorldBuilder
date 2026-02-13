@@ -131,7 +131,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                     var chunkId = (ushort)((uX << 8) | uY);
                     if (!_chunks.ContainsKey(chunkId)) {
-                        var chunk = new TerrainChunk(uX, uY);
+                        var chunk = new TerrainChunk(_gl, uX, uY);
                         if (_chunks.TryAdd(chunkId, chunk)) {
                             _pendingGeneration[chunkId] = chunk;
                         }
@@ -407,6 +407,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _gl.BufferData(BufferTargetARB.ArrayBuffer, (nuint)(vertices.Length * VertexLandscape.Size), vPtr,
                     BufferUsageARB.StaticDraw);
             }
+            GpuMemoryTracker.TrackAllocation(vertices.Length * VertexLandscape.Size);
 
             chunk.EBO = _gl.GenBuffer();
             _gl.BindBuffer(BufferTargetARB.ElementArrayBuffer, chunk.EBO);
@@ -415,6 +416,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _gl.BufferData(BufferTargetARB.ElementArrayBuffer, (nuint)(indices.Length * sizeof(uint)), iPtr,
                     BufferUsageARB.StaticDraw);
             }
+            GpuMemoryTracker.TrackAllocation(indices.Length * sizeof(uint));
 
             // Set up attributes based on VertexLandscape.Format
             // 0: Pos (3 float)
@@ -450,6 +452,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _gl.VertexAttribIPointer(7, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord5);
 
             chunk.IndexCount = indices.Length;
+            chunk.VertexCount = vertices.Length;
             chunk.IsGenerated = true;
 
             // Clear cpu memory

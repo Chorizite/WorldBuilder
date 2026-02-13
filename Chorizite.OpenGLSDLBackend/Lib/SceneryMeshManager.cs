@@ -83,6 +83,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     public class ObjectRenderData {
         public uint VAO { get; set; }
         public uint VBO { get; set; }
+        public int VertexCount { get; set; }
         public List<ObjectRenderBatch> Batches { get; set; } = new();
         public bool IsSetup { get; set; }
         public List<(uint GfxObjId, Matrix4x4 Transform)> SetupParts { get; set; } = new();
@@ -538,6 +539,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             fixed (VertexPositionNormalTexture* ptr = meshData.Vertices) {
                 gl.BufferData(GLEnum.ArrayBuffer, (nuint)(meshData.Vertices.Length * VertexPositionNormalTexture.Size), ptr, GLEnum.StaticDraw);
             }
+            GpuMemoryTracker.TrackAllocation(meshData.Vertices.Length * VertexPositionNormalTexture.Size);
 
             int stride = VertexPositionNormalTexture.Size;
             // Position (location 0)
@@ -576,6 +578,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     fixed (ushort* iptr = indexArray) {
                         gl.BufferData(GLEnum.ElementArrayBuffer, (nuint)(indexArray.Length * sizeof(ushort)), iptr, GLEnum.StaticDraw);
                     }
+                    GpuMemoryTracker.TrackAllocation(indexArray.Length * sizeof(ushort));
 
                     renderBatches.Add(new ObjectRenderBatch {
                         IBO = ibo,
@@ -592,6 +595,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var renderData = new ObjectRenderData {
                 VAO = vao,
                 VBO = vbo,
+                VertexCount = meshData.Vertices.Length,
                 Batches = renderBatches
             };
 
@@ -619,10 +623,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             var gl = _graphicsDevice.GL;
             if (data.VAO != 0) gl.DeleteVertexArray(data.VAO);
-            if (data.VBO != 0) gl.DeleteBuffer(data.VBO);
+            if (data.VBO != 0) {
+                gl.DeleteBuffer(data.VBO);
+                GpuMemoryTracker.TrackDeallocation(data.VertexCount * VertexPositionNormalTexture.Size);
+            }
 
             foreach (var batch in data.Batches) {
-                if (batch.IBO != 0) gl.DeleteBuffer(batch.IBO);
+                if (batch.IBO != 0) {
+                    gl.DeleteBuffer(batch.IBO);
+                    GpuMemoryTracker.TrackDeallocation(batch.IndexCount * sizeof(ushort));
+                }
                 batch.Atlas.ReleaseTexture(batch.Key);
             }
 
@@ -635,9 +645,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var gl = _graphicsDevice.GL;
             foreach (var data in _renderData.Values) {
                 if (data.VAO != 0) gl.DeleteVertexArray(data.VAO);
-                if (data.VBO != 0) gl.DeleteBuffer(data.VBO);
+                if (data.VBO != 0) {
+                    gl.DeleteBuffer(data.VBO);
+                    GpuMemoryTracker.TrackDeallocation(data.VertexCount * VertexPositionNormalTexture.Size);
+                }
                 foreach (var batch in data.Batches) {
-                    if (batch.IBO != 0) gl.DeleteBuffer(batch.IBO);
+                    if (batch.IBO != 0) {
+                        gl.DeleteBuffer(batch.IBO);
+                        GpuMemoryTracker.TrackDeallocation(batch.IndexCount * sizeof(ushort));
+                    }
                 }
             }
             _renderData.Clear();
