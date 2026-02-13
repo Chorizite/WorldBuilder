@@ -19,12 +19,34 @@
         </DataTemplate>
     </UserControl.DataTemplates>
     
-    <Grid RowDefinitions="Auto, *">
-        <ComboBox Grid.Row="0"
-                  ItemsSource="{Binding DatTypes}" 
-                  SelectedItem="{Binding SelectedType}"
-                  HorizontalAlignment="Left" Margin="5"/>
-        
-        <ContentControl Grid.Row="1" Content="{Binding CurrentBrowser}" />
+    <Grid ColumnDefinitions="*, Auto, 300">
+        <Grid Grid.Column="0" RowDefinitions="Auto, *">
+            <ComboBox Grid.Row="0"
+                      ItemsSource="{Binding DatTypes}" 
+                      SelectedItem="{Binding SelectedType}"
+                      HorizontalAlignment="Left" Margin="5"/>
+            
+            <ContentControl Grid.Row="1" Content="{Binding CurrentBrowser}" />
+        </Grid>
+
+        <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" />
+
+        <Grid Grid.Column="2" RowDefinitions="Auto, *">
+            <TextBlock Grid.Row="0" Text="Properties" FontWeight="Bold" Margin="5"/>
+            <TreeView Grid.Row="1" ItemsSource="{Binding ReflectionNodes}">
+                <TreeView.ItemTemplate>
+                    <TreeDataTemplate ItemsSource="{Binding Children}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                            <TextBlock Text=": "/>
+                            <TextBlock Text="{Binding Value}" Foreground="Gray" IsVisible="{Binding Value, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                            <TextBlock Text=" (" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding TypeName}" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
+                            <TextBlock Text=")" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+        </Grid>
     </Grid>
 </UserControl>
