@@ -11,12 +11,37 @@ using DatReaderWriter.Lib.IO;
 using DatReaderWriter.Types;
 using DatReaderWriter;
 
+using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
-    public class ReflectionNodeViewModel : ViewModelBase {
+    public record OpenQualifiedDataIdMessage(uint DataId, Type? TargetType);
+
+    public partial class ReflectionNodeViewModel : ViewModelBase {
         public string Name { get; }
         public string? Value { get; }
         public string TypeName { get; }
         public ObservableCollection<ReflectionNodeViewModel>? Children { get; }
+
+        public uint? DataId { get; set; }
+        public Type? TargetType { get; set; }
+        public bool IsQualifiedDataId => DataId.HasValue;
+
+        [RelayCommand]
+        private void Copy() {
+            if (DataId.HasValue) {
+                TopLevel.Clipboard?.SetTextAsync($"0x{DataId.Value:X8}");
+            } else {
+                TopLevel.Clipboard?.SetTextAsync(Value ?? "");
+            }
+        }
+
+        [RelayCommand]
+        private void OpenInNewWindow() {
+            if (DataId.HasValue) {
+                WeakReferenceMessenger.Default.Send(new OpenQualifiedDataIdMessage(DataId.Value, TargetType));
+            }
+        }
 
         public ReflectionNodeViewModel(string name, string? value, string typeName, IEnumerable<ReflectionNodeViewModel>? children = null) {
             Name = name;
@@ -27,9 +52,13 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             }
         }
 
-        public static ReflectionNodeViewModel Create(string name, object? obj, HashSet<object>? visited = null) {
+        public static ReflectionNodeViewModel Create(string name, object? obj, HashSet<object>? visited = null, int depth = 0) {
             if (obj == null) {
                 return new ReflectionNodeViewModel(name, "null", "object");
+            }
+
+            if (depth > 10) {
+                return new ReflectionNodeViewModel(name, "{Max Depth Reached}", obj.GetType().Name);
             }
 
             var type = obj.GetType();
@@ -37,6 +66,15 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
             if (IsSimpleType(type)) {
                 return new ReflectionNodeViewModel(name, obj.ToString(), type.Name);
+            }
+
+            if (obj is QualifiedDataId qid) {
+                var node = new ReflectionNodeViewModel(name, qid.ToString(), type.Name);
+                node.DataId = qid.DataId;
+                if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(QualifiedDataId<>)) {
+                    node.TargetType = type.GetGenericArguments()[0];
+                }
+                return node;
             }
 
             if (visited.Contains(obj)) {
@@ -50,13 +88,14 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             if (obj is IEnumerable enumerable && obj is not string) {
                 int index = 0;
                 foreach (var item in enumerable) {
-                    children.Add(Create($"[{index++}]", item, new HashSet<object>(visited, ReferenceEqualityComparer.Instance)));
+                    }
+                    children.Add(Create($"[{index++}]", item, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
                 }
             } else {
                 var flags = BindingFlags.Public | BindingFlags.Instance;
                 foreach (var field in type.GetFields(flags)) {
                     try {
-                        children.Add(Create(field.Name, field.GetValue(obj), new HashSet<object>(visited, ReferenceEqualityComparer.Instance)));
+                        children.Add(Create(field.Name, field.GetValue(obj), new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
                     } catch (Exception ex) {
                         children.Add(new ReflectionNodeViewModel(field.Name, $"Error: {ex.Message}", field.FieldType.Name));
                     }
@@ -64,7 +103,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 foreach (var prop in type.GetProperties(flags)) {
                     if (prop.GetIndexParameters().Length > 0) continue;
                     try {
-                        children.Add(Create(prop.Name, prop.GetValue(obj), new HashSet<object>(visited, ReferenceEqualityComparer.Instance)));
+                        children.Add(Create(prop.Name, prop.GetValue(obj), new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
                     } catch (Exception ex) {
                         children.Add(new ReflectionNodeViewModel(prop.Name, $"Error: {ex.Message}", prop.PropertyType.Name));
                     }

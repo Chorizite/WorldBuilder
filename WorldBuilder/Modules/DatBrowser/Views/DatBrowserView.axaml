@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
              xmlns:v="using:WorldBuilder.Modules.DatBrowser.Views"
+             xmlns:views="using:WorldBuilder.Views"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="WorldBuilder.Modules.DatBrowser.Views.DatBrowserView"
              x:DataType="vm:DatBrowserWindowViewModel">
@@ -20,7 +21,7 @@
     </UserControl.DataTemplates>
     
     <Grid ColumnDefinitions="*, Auto, 300">
-        <Grid Grid.Column="0" RowDefinitions="Auto, *">
+        <Grid Grid.Column="0" RowDefinitions="Auto, *" IsVisible="{Binding !IsMinimalMode}">
             <ComboBox Grid.Row="0"
                       ItemsSource="{Binding DatTypes}" 
                       SelectedItem="{Binding SelectedType}"
@@ -29,14 +30,36 @@
             <ContentControl Grid.Row="1" Content="{Binding CurrentBrowser}" />
         </Grid>
 
-        <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" />
+        <Panel Grid.Column="0" Background="#202020" IsVisible="{Binding IsMinimalMode}">
+            <views:DatObjectViewer 
+                FileId="{Binding PreviewFileId}" 
+                IsSetup="{Binding PreviewIsSetup}"
+                Dats="{Binding Dats}"
+                IsVisible="{Binding IsPreviewSupported}"
+                HorizontalAlignment="Stretch" 
+                VerticalAlignment="Stretch"/>
+
+            <TextBlock Text="Object cannot be previewed" 
+                       IsVisible="{Binding !IsPreviewSupported}"
+                       HorizontalAlignment="Center" 
+                       VerticalAlignment="Center" 
+                       Foreground="Gray"/>
+        </Panel>
+
+        <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" IsVisible="{Binding !IsMinimalMode}" />
 
         <Grid Grid.Column="2" RowDefinitions="Auto, *">
             <TextBlock Grid.Row="0" Text="Properties" FontWeight="Bold" Margin="5"/>
             <TreeView Grid.Row="1" ItemsSource="{Binding ReflectionNodes}">
                 <TreeView.ItemTemplate>
                     <TreeDataTemplate ItemsSource="{Binding Children}">
-                        <StackPanel Orientation="Horizontal">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <StackPanel.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Copy" Command="{Binding CopyCommand}"/>
+                                    <MenuItem Header="Open in New Window" Command="{Binding OpenInNewWindowCommand}" IsVisible="{Binding IsQualifiedDataId}"/>
+                                </ContextMenu>
+                            </StackPanel.ContextMenu>
                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
                             <TextBlock Text=": "/>
                             <TextBlock Text="{Binding Value}" Foreground="Gray" IsVisible="{Binding Value, Converter={x:Static ObjectConverters.IsNotNull}}"/>

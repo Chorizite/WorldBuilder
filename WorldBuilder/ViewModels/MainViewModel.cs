@@ -9,17 +9,25 @@ using WorldBuilder.Lib.Factories;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Services;
+using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.DependencyInjection;
+using WorldBuilder.Modules.DatBrowser.ViewModels;
+using DatReaderWriter;
+using DatReaderWriter.DBObjs;
+using DatReaderWriter.Lib.IO;
+using System.Diagnostics.CodeAnalysis;
 
 namespace WorldBuilder.ViewModels;
 
 /// <summary>
 /// The main view model for the application, containing the primary UI logic and data.
 /// </summary>
-public partial class MainViewModel : ViewModelBase, IDisposable {
+public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<OpenQualifiedDataIdMessage> {
     private readonly WorldBuilderSettings _settings;
     private readonly IDialogService _dialogService;
     private readonly IServiceProvider _serviceProvider;
     private readonly Project _project;
+    private readonly IDatReaderWriter _dats;
     private readonly PerformanceService _performanceService;
     private readonly CancellationTokenSource _cts = new();
     private bool _settingsOpen;
@@ -48,21 +56,64 @@ public partial class MainViewModel : ViewModelBase, IDisposable {
         _dialogService = null!;
         _serviceProvider = null!;
         _project = null!;
+        _dats = null!;
         _landscape = null!;
         _performanceService = null!;
     }
 
     [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
+    [UnconditionalSuppressMessage("Trimming", "IL2026")]
+    [UnconditionalSuppressMessage("AOT", "IL3050")]
     public MainViewModel(WorldBuilderSettings settings, IDialogService dialogService, IServiceProvider serviceProvider, Project project,
-        WorldBuilder.Modules.Landscape.LandscapeViewModel landscape, PerformanceService performanceService) {
+        WorldBuilder.Modules.Landscape.LandscapeViewModel landscape, PerformanceService performanceService, IDatReaderWriter dats) {
         _settings = settings;
         _dialogService = dialogService;
         _serviceProvider = serviceProvider;
         _project = project;
         _landscape = landscape;
         _performanceService = performanceService;
+        _dats = dats;
+
+        WeakReferenceMessenger.Default.RegisterAll(this);
 
         _ = UpdateStatsLoop();
+    }
+
+    [UnconditionalSuppressMessage("Trimming", "IL2026")]
+    [UnconditionalSuppressMessage("AOT", "IL3050")]
+    public void Receive(OpenQualifiedDataIdMessage message) {
+        var newViewModel = _serviceProvider.GetRequiredService<DatBrowserWindowViewModel>();
+        newViewModel.IsMinimalMode = true;
+        newViewModel.PreviewFileId = message.DataId;
+        newViewModel.PreviewIsSetup = message.TargetType == typeof(DatReaderWriter.DBObjs.Setup);
+
+        IDBObj? obj = null;
+        if (message.TargetType != null && typeof(IDBObj).IsAssignableFrom(message.TargetType)) {
+            var method = typeof(IDatDatabase).GetMethod(nameof(IDatDatabase.TryGet))?.MakeGenericMethod(message.TargetType);
+            if (method != null) {
+                var args = new object?[] { message.DataId, null };
+                if ((bool)method.Invoke(_dats.Portal, args)!) {
+                    obj = (IDBObj?)args[1];
+                } else if ((bool)method.Invoke(_dats.HighRes, args)!) {
+                    obj = (IDBObj?)args[1];
+                }
+            }
+        }
+
+        if (obj == null) {
+            if (_dats.Portal.TryGet<IDBObj>(message.DataId, out var portalObj)) {
+                obj = portalObj;
+            } else if (_dats.HighRes.TryGet<IDBObj>(message.DataId, out var highResObj)) {
+                obj = highResObj;
+            }
+
+            if (obj is DatReaderWriter.DBObjs.Setup) {
+                newViewModel.PreviewIsSetup = true;
+            }
+        }
+
+        newViewModel.SelectedObject = obj;
+        _dialogService.Show(null, newViewModel);
     }
 
     private async Task UpdateStatsLoop() {
@@ -97,6 +148,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable {
 
     /// <inheritdoc />
     public void Dispose() {
+        WeakReferenceMessenger.Default.UnregisterAll(this);
         _cts.Cancel();
         _cts.Dispose();
     }
@@ -126,7 +178,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable {
     [RelayCommand]
     private void OpenDatBrowser() {
         var viewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<WorldBuilder.Modules.DatBrowser.ViewModels.DatBrowserWindowViewModel>(_serviceProvider);
-        _dialogService.Show(this, viewModel);
+        _dialogService.Show(null, viewModel);
     }
 
     [RelayCommand]

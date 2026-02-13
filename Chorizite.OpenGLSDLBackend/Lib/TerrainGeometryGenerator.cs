@@ -93,7 +93,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             });
 
-            var mapOffset = region.MapOffset;
+            var mapOffset = region!.MapOffset;
             chunk.Bounds = new BoundingBox(
                 new Vector3(new Vector2(chunk.ChunkX * 8 * 192f, chunk.ChunkY * 8 * 192f) + mapOffset, minZ),
                 new Vector3(new Vector2((chunk.ChunkX + 1) * 8 * 192f, (chunk.ChunkY + 1) * 8 * 192f) + mapOffset, maxZ)

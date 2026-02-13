@@ -41,7 +41,7 @@ namespace WorldBuilder.Services {
                 if (descriptor == null) return null;
             }
 
-            var texId = (uint)descriptor.TerrainTex.TexGID;
+            var texId = (uint)descriptor.TerrainTex.TextureId;
             return await GetTextureAsync(texId);
         }
 
