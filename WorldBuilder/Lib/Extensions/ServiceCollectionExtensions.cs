@@ -67,6 +67,7 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddTransient<SettingsWindow>();
             collection.AddTransient<ExportDatsWindow>();
             collection.AddTransient<ErrorDetailsWindow>();
+            collection.AddTransient<DatBrowserWindow>();
 
             return collection;
         }
@@ -96,6 +97,7 @@ namespace WorldBuilder.Lib.Extensions {
             // ViewModels
             collection.AddTransient<MainViewModel>();
             collection.AddTransient<ExportDatsWindowViewModel>();
+            collection.AddTransient<DatBrowserWindowViewModel>();
             collection.AddSingleton<WorldBuilder.Modules.Landscape.LandscapeViewModel>();
 
             collection.AddSingleton<TextureService>();

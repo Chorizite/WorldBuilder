@@ -493,12 +493,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 else if (!useNegSurface && poly.PosUVIndices != null && i < poly.PosUVIndices.Count)
                     uvIdx = poly.PosUVIndices[i];
 
-                if (vertId >= gfxObj.VertexArray.Vertices.Count) continue;
-                if (uvIdx >= gfxObj.VertexArray.Vertices[vertId].UVs.Count) {
+                if (!gfxObj.VertexArray.Vertices.TryGetValue(vertId, out var vertex)) continue;
+
+                if (uvIdx >= vertex.UVs.Count) {
                     uvIdx = 0;
                 }
 
-                var vertex = gfxObj.VertexArray.Vertices[vertId];
                 var key = (vertId, uvIdx);
                 if (!UVLookup.TryGetValue(key, out var idx)) {
                     var uv = vertex.UVs.Count > 0

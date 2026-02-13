@@ -124,6 +124,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable {
     }
 
     [RelayCommand]
+    private void OpenDatBrowser() {
+        var viewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<DatBrowserWindowViewModel>(_serviceProvider);
+        _dialogService.Show(this, viewModel);
+    }
+
+    [RelayCommand]
     private void OpenDebugWindow() {
         var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
         if (desktop?.MainWindow is Views.MainWindow mainWindow) {

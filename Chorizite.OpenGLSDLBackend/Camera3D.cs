@@ -145,6 +145,16 @@ public class Camera3D : CameraBase {
     }
 
     /// <inheritdoc/>
+    public override void LookAt(Vector3 target) {
+        var diff = target - Position;
+        if (diff == Vector3.Zero) return;
+        var direction = Vector3.Normalize(diff);
+
+        Yaw = MathF.Atan2(direction.X, direction.Y) * 180f / MathF.PI;
+        Pitch = MathF.Asin(Math.Clamp(direction.Z, -1f, 1f)) * 180f / MathF.PI;
+    }
+
+    /// <inheritdoc/>
     protected override void UpdateMatrices() {
         // Calculate target point
         var target = _position + Forward;

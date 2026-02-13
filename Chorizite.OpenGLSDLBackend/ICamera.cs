@@ -79,4 +79,11 @@ public interface ICamera : WorldBuilder.Shared.Models.ICamera {
     /// </summary>
     /// <param name="key">The key that was released.</param>
     void HandleKeyUp(string key);
+
+    /// <summary>
+    /// Points the camera at a target position.
+    /// </summary>
+    void LookAt(Vector3 target);
 }
+
+    
