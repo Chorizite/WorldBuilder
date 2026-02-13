@@ -4,9 +4,12 @@ using System.Numerics;
 namespace WorldBuilder.Shared.Modules.Landscape.Models {
     public class PreviewRegionInfo : ITerrainInfo {
         private readonly ITerrainInfo _baseRegion;
+        private readonly float[] _zeroHeights;
 
         public PreviewRegionInfo(ITerrainInfo baseRegion) {
             _baseRegion = baseRegion;
+            _zeroHeights = new float[256];
+            Array.Fill(_zeroHeights, 0f);
         }
 
         public Region Region => _baseRegion.Region;
@@ -19,7 +22,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         public int LandblockVerticeLength => 9;
         public float LandblockSizeInUnits => _baseRegion.LandblockSizeInUnits;
         public float RoadWidthInUnits => _baseRegion.RoadWidthInUnits;
-        public float[] LandHeights => _baseRegion.LandHeights;
+        public float[] LandHeights => _zeroHeights;
         public Vector2 MapOffset => new Vector2(-LandblockSizeInUnits / 2f, -LandblockSizeInUnits / 2f);
 
         public int GetVertexIndex(int x, int y) => y * 9 + x;

@@ -64,7 +64,7 @@ public partial class LandscapeDocument : BaseDocument {
     /// The cell database for this region
     /// </summary>
     [MemoryPackIgnore]
-    public IDatDatabase? CellDatabase { get; private set; }
+    public IDatDatabase? CellDatabase { get; set; }
 
     /// <summary>Initializes a new instance of the <see cref="LandscapeDocument"/> class.</summary>
     [MemoryPackConstructor]

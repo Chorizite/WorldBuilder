@@ -29,6 +29,7 @@ public partial class SceneryPreview : Base3DViewport {
     private byte _cachedSceneryIndex;
     private IDatReaderWriter? _cachedDats;
     private bool _needsUpdate;
+    private double _totalTime;
 
     public static readonly StyledProperty<TerrainTextureType> TextureProperty =
         AvaloniaProperty.Register<SceneryPreview, TerrainTextureType>(nameof(Texture));
@@ -68,15 +69,10 @@ public partial class SceneryPreview : Base3DViewport {
         _gameScene.Initialize();
         _gameScene.Resize(canvasSize.Width, canvasSize.Height);
         _gameScene.SetCameraMode(true);
-        _gameScene.SetTerrainRenderDistance(1);
-        _gameScene.SetSceneryRenderDistance(1);
         
-        // Initial camera setup
-        if (_gameScene.CurrentCamera is Camera3D cam3d) {
-            cam3d.Position = new Vector3(96, 96, 150);
-            cam3d.Pitch = -80f;
-            cam3d.Yaw = 45f;
-        }
+        // Increase render distances to ensure the preview landblock is always loaded
+        _gameScene.SetTerrainRenderDistance(5);
+        _gameScene.SetSceneryRenderDistance(5);
 
         _needsUpdate = true;
     }
@@ -102,6 +98,7 @@ public partial class SceneryPreview : Base3DViewport {
                         _previewRegion = new PreviewRegionInfo(new RegionInfo(region));
                         _previewDoc = new LandscapeDocument(regionId) {
                             Region = _previewRegion,
+                            CellDatabase = _cachedDats.CellRegions.TryGetValue(regionId, out var cellDb) ? cellDb : null,
                             TerrainCache = new TerrainEntry[_previewRegion.MapWidthInVertices * _previewRegion.MapHeightInVertices],
                             BaseTerrainCache = new TerrainEntry[_previewRegion.MapWidthInVertices * _previewRegion.MapHeightInVertices]
                         };
@@ -123,14 +120,6 @@ public partial class SceneryPreview : Base3DViewport {
 
             _gameScene.SetLandscape(_previewDoc, _cachedDats);
             _gameScene.InvalidateLandblock(0, 0);
-            
-            // Re-center camera because SetLandscape centers it on hardcoded values
-            if (_gameScene.CurrentCamera is Camera3D cam3d) {
-                // Look at the center of the landblock (0, 0) from an offset
-                cam3d.Position = new Vector3(0, -150, 150);
-                cam3d.Pitch = -45f;
-                cam3d.Yaw = 0f;
-            }
         }
         _needsUpdate = false;
     }
@@ -142,7 +131,30 @@ public partial class SceneryPreview : Base3DViewport {
             UpdatePreview();
         }
 
-        _gl.ClearColor(0.1f, 0.1f, 0.15f, 1.0f);
+        _totalTime += frameTime;
+        if (_gameScene.CurrentCamera is Camera3D cam3d) {
+            float speed = 40f; // degrees per second
+            float angleDegrees = (float)(_totalTime * speed) % 360f;
+            float angleRad = angleDegrees * MathF.PI / 180f;
+            
+            float baseRadius = 130f;
+            float radiusAmplitude = 100f;
+            float radius = baseRadius + MathF.Sin((float)_totalTime * 0.5f) * radiusAmplitude;
+            
+            float baseHeight = 90f;
+            float heightAmplitude = 70f;
+            float height = baseHeight + MathF.Cos((float)_totalTime * 0.3f) * heightAmplitude;
+
+            // Rotate around origin (0,0,0)
+            cam3d.Position = new Vector3(MathF.Sin(angleRad) * radius, -MathF.Cos(angleRad) * radius, height);
+            
+            // Point back to origin
+            cam3d.Yaw = -angleDegrees;
+            cam3d.Pitch = MathF.Atan2(-height, radius) * 180f / MathF.PI;
+        }
+
+        // Slightly brighter background to see the viewport
+        _gl.ClearColor(0.15f, 0.15f, 0.2f, 1.0f);
         _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
         _gameScene.Update((float)frameTime);
