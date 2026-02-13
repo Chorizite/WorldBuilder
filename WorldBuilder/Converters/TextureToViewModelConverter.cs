@@ -10,45 +10,70 @@ using System.Threading.Tasks;
 using WorldBuilder.Modules.Landscape;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Converters {
-    public class TextureToViewModelConverter : IMultiValueConverter {
+    public class TextureToViewModelConverter : IMultiValueConverter, IValueConverter {
         // Cache to avoid reloading the same texture view model multiple times for the same type
         private static readonly Dictionary<TerrainTextureType, TextureLoader> _cache = new();
 
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) {
+            return Convert(new List<object?> { value }, targetType, parameter, culture);
+        }
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) {
+            throw new NotImplementedException();
+        }
+
         public object? Convert(IList<object?> values, Type targetType, object? parameter, CultureInfo culture) {
-            if (values.Count < 2 || values[0] == Avalonia.AvaloniaProperty.UnsetValue || values[1] == Avalonia.AvaloniaProperty.UnsetValue) {
+            if (values.Count < 1 || values[0] == Avalonia.AvaloniaProperty.UnsetValue || values[0] == null) {
                 return null;
             }
 
-            var textureType = values[0] as TerrainTextureType?;
-            var viewModel = values[1] as LandscapeViewModel;
+            if (values[0] is TextureLoader alreadyLoader) {
+                return alreadyLoader;
+            }
+
+            if (values[0] is not TerrainTextureType textureType) {
+                return null;
+            }
+
+            var viewModel = (values.Count > 1 && values[1] != Avalonia.AvaloniaProperty.UnsetValue) ? values[1] : null;
             var activeDoc = (values.Count > 2 && values[2] != Avalonia.AvaloniaProperty.UnsetValue)
                 ? values[2] as WorldBuilder.Shared.Models.LandscapeDocument
                 : null;
 
-            if (textureType == null || viewModel == null) {
-                return null;
+            var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
+
+            if (viewModel == null) {
+                viewModel = projectManager?.GetProjectService<WorldBuilder.Modules.Landscape.LandscapeViewModel>();
             }
 
-            if (_cache.TryGetValue(textureType.Value, out var loader)) {
-                var region = activeDoc?.Region ?? viewModel.ActiveDocument?.Region;
+            if (activeDoc == null && viewModel is ITexturePaintingTool tool) {
+                activeDoc = tool.ActiveDocument;
+            }
+            if (activeDoc == null && viewModel is LandscapeViewModel lvm) {
+                activeDoc = lvm.ActiveDocument;
+            }
+
+            if (_cache.TryGetValue(textureType, out var loader)) {
+                var region = activeDoc?.Region;
                 if (loader.Image == null && region != null) {
                     loader.Reload(region);
                 }
                 return loader;
             }
 
-            var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
             var textureService = projectManager?.GetProjectService<TextureService>();
 
             if (textureService == null) {
                 return null;
             }
 
-            loader = new TextureLoader(textureType.Value, activeDoc?.Region ?? viewModel.ActiveDocument?.Region, textureService);
-            _cache[textureType.Value] = loader;
+            var loaderRegion = activeDoc?.Region;
+            loader = new TextureLoader(textureType, loaderRegion, textureService);
+            _cache[textureType] = loader;
             return loader;
         }
     }
@@ -56,19 +81,19 @@ namespace WorldBuilder.Converters {
     public partial class TextureLoader : ObservableObject {
         [ObservableProperty] private Bitmap? _image;
         [ObservableProperty] private bool _isLoading;
+        [ObservableProperty] private TerrainTextureType _type;
 
-        private readonly TerrainTextureType _type;
         private readonly TextureService _service;
 
         public TextureLoader(TerrainTextureType type, ITerrainInfo? region, TextureService service) {
-            _type = type;
+            Type = type;
             _service = service;
             LoadImage(type, region);
         }
 
         public void Reload(ITerrainInfo? region) {
             if (region != null && !IsLoading) {
-                LoadImage(_type, region);
+                LoadImage(Type, region);
             }
         }
 

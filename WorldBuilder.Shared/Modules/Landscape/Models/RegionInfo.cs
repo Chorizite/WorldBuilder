@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Models {
     public interface ITerrainInfo {
+        Region Region { get; }
         int MapWidthInLandblocks { get; }
         int MapHeightInLandblocks { get; }
         int MapWidthInVertices { get; }
@@ -16,16 +17,20 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         float CellSizeInUnits { get; }
         int LandblockCellLength { get; }
         int LandblockVerticeLength { get; }
+        float LandblockSizeInUnits { get; }
         float RoadWidthInUnits { get; }
         float[] LandHeights { get; }
         Vector2 MapOffset { get; }
         int GetVertexIndex(int x, int y);
         (int x, int y) GetVertexCoordinates(uint index);
         ushort GetLandblockId(int x, int y);
+        uint? GetSceneryId(int terrainType, int sceneryIndex);
     }
 
     public class RegionInfo : ITerrainInfo {
         public readonly Region _region;
+
+        public Region Region => _region;
 
         /// <summary>
         /// Total number of landblocks in a row of this region (width).
@@ -148,6 +153,17 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
                     $"Landblock coordinates (y={y}) out of range [0, {MapHeightInLandblocks - 1}]");
 
             return (ushort)((x << 8) + y);
+        }
+
+        /// <inheritdoc/>
+        public uint? GetSceneryId(int terrainType, int sceneryIndex) {
+            if (terrainType < 0 || terrainType >= _region.TerrainInfo.TerrainTypes.Count) return null;
+            var terrain = _region.TerrainInfo.TerrainTypes[terrainType];
+            if (sceneryIndex < 0 || sceneryIndex >= terrain.SceneTypes.Count) return null;
+            var sceneTypeIndex = terrain.SceneTypes[sceneryIndex];
+            if (sceneTypeIndex < 0 || sceneTypeIndex >= _region.SceneInfo.SceneTypes.Count) return null;
+            var sceneType = _region.SceneInfo.SceneTypes[(int)sceneTypeIndex];
+            return sceneType.Scenes.Count > 0 ? sceneType.Scenes[0] : null;
         }
     }
 }

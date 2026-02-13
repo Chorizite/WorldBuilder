@@ -10,6 +10,7 @@ namespace Chorizite.OpenGLSDLBackend.Tests {
     public class TerrainGeometryGeneratorTests {
 
         class MockTerrainInfo : ITerrainInfo {
+            public DatReaderWriter.DBObjs.Region Region => null!;
             public int MapWidthInLandblocks => 2;
             public int MapHeightInLandblocks => 2;
             public int MapWidthInVertices => MapWidthInLandblocks * 8 + 1;
@@ -17,6 +18,7 @@ namespace Chorizite.OpenGLSDLBackend.Tests {
             public float CellSizeInUnits => 24f;
             public int LandblockCellLength => 8;
             public int LandblockVerticeLength => 9;
+            public float LandblockSizeInUnits => CellSizeInUnits * LandblockCellLength;
             public float RoadWidthInUnits => 5f;
             public float[] LandHeights { get; }
             public Vector2 MapOffset => Vector2.Zero;
@@ -38,6 +40,8 @@ namespace Chorizite.OpenGLSDLBackend.Tests {
             public ushort GetLandblockId(int x, int y) {
                 return (ushort)((x << 8) + y);
             }
+
+            public uint? GetSceneryId(int terrainType, int sceneryIndex) => null;
         }
     }
 }

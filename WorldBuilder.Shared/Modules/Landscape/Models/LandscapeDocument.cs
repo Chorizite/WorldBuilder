@@ -33,13 +33,13 @@ public partial class LandscapeDocument : BaseDocument {
     /// A cached version of the terrain data, for faster access. This contains all merged layers and the base dat layer.
     /// </summary>
     [MemoryPackIgnore]
-    public TerrainEntry[] TerrainCache { get; private set; } = [];
+    public TerrainEntry[] TerrainCache { get; set; } = [];
 
     /// <summary>
     /// The base terrain data from dats, used for recalculating the merged cache.
     /// </summary>
     [MemoryPackIgnore]
-    public TerrainEntry[] BaseTerrainCache { get; private set; } = [];
+    public TerrainEntry[] BaseTerrainCache { get; set; } = [];
 
     /// <summary>
     /// The terrain layer tree
@@ -52,7 +52,7 @@ public partial class LandscapeDocument : BaseDocument {
     /// Region info + helpers
     /// </summary>
     [MemoryPackIgnore]
-    public ITerrainInfo? Region { get; private set; }
+    public ITerrainInfo? Region { get; set; }
 
     /// <summary>
     /// The region id this document belongs to
@@ -64,7 +64,7 @@ public partial class LandscapeDocument : BaseDocument {
     /// The cell database for this region
     /// </summary>
     [MemoryPackIgnore]
-    public IDatDatabase? CellDatabase { get; private set; }
+    public IDatDatabase? CellDatabase { get; set; }
 
     /// <summary>Initializes a new instance of the <see cref="LandscapeDocument"/> class.</summary>
     [MemoryPackConstructor]

@@ -53,6 +53,11 @@
             <Setter Property="Foreground" Value="White" />
             <Setter Property="FontWeight" Value="Bold" />
         </Style>
+
+        <Style Selector="ToolTip">
+          <Setter Property="MaxWidth" Value="1000" />
+          <Setter Property="MaxHeight" Value="1000" />
+        </Style>
     </Application.Styles>
     <Application.DataTemplates>
         <services:CombinedViewLocator />
