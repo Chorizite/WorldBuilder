@@ -22,6 +22,9 @@
             <MenuItem Header="File">
                 <MenuItem Command="{Binding OpenExportDatsWindowCommand}" Header="Export Dats" />
             </MenuItem>
+            <MenuItem Header="Tools">
+                <MenuItem Command="{Binding OpenDatBrowserCommand}" Header="Dat Browser" />
+            </MenuItem>
             <!--
             <MenuItem Header="Debug">
                 <MenuItem Command="{Binding OpenDebugWindowCommand}" Header="Open Debug Window" />

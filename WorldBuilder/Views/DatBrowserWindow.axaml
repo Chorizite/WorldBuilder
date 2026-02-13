@@ -1,0 +1,56 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="using:WorldBuilder.Views"
+        xmlns:vm="using:WorldBuilder.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="WorldBuilder.Views.DatBrowserWindow"
+        x:DataType="vm:DatBrowserWindowViewModel"
+        Title="Dat Browser"
+        Width="1000" Height="600">
+    <Grid ColumnDefinitions="300, 5, *">
+        <!-- Sidebar -->
+        <Grid Grid.Column="0" RowDefinitions="Auto, *">
+            <ComboBox Grid.Row="0"
+                      ItemsSource="{Binding DatTypes}" 
+                      SelectedItem="{Binding SelectedType}"
+                      HorizontalAlignment="Stretch" Margin="5"/>
+            
+            <ListBox Grid.Row="1" ItemsSource="{Binding FileIds}" SelectedItem="{Binding SelectedFileId}" Margin="5">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding StringFormat='{}{0:X8}'}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
+
+        <GridSplitter Grid.Column="1" Background="Gray" ResizeDirection="Columns"/>
+
+        <!-- Preview Area -->
+        <Panel Grid.Column="2" Background="#202020">
+            <!-- 3D Viewer -->
+            <views:DatObjectViewer 
+                IsVisible="{Binding IsObject}" 
+                FileId="{Binding SelectedFileId}" 
+                IsSetup="{Binding IsSetupType}"
+                Dats="{Binding Dats}"
+                HorizontalAlignment="Stretch" 
+                VerticalAlignment="Stretch"/>
+            
+            <!-- Texture Viewer -->
+            <Image 
+                IsVisible="{Binding IsTexture}"
+                Source="{Binding TextureBitmap}" 
+                Stretch="Uniform" 
+                Margin="10"/>
+
+            <TextBlock Text="Select an item to preview" 
+                       IsVisible="{Binding !SelectedFileId}"
+                       HorizontalAlignment="Center" 
+                       VerticalAlignment="Center" 
+                       Foreground="Gray"/>
+        </Panel>
+    </Grid>
+</Window>

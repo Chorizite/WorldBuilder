@@ -106,4 +106,9 @@ public abstract class CameraBase : ICamera {
     protected void InvalidateMatrices() {
         _matricesDirty = true;
     }
+
+    /// <inheritdoc/>
+    public abstract void LookAt(Vector3 target);
 }
+
+    

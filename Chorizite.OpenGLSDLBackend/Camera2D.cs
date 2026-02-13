@@ -62,6 +62,11 @@ public class Camera2D : CameraBase {
     }
 
     /// <inheritdoc/>
+    public override void LookAt(Vector3 target) {
+        Position = new Vector3(target.X, target.Y, Position.Z);
+    }
+
+    /// <inheritdoc/>
     protected override void UpdateMatrices() {
         // View matrix: looking down -Z axis (top-down view, Z is up)
         // Camera is positioned at (X, Y, Z) looking at (X, Y, Z-1)

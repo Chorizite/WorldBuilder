@@ -149,8 +149,7 @@ public partial class SceneryPreview : Base3DViewport {
             cam3d.Position = new Vector3(MathF.Sin(angleRad) * radius, -MathF.Cos(angleRad) * radius, height);
             
             // Point back to origin
-            cam3d.Yaw = -angleDegrees;
-            cam3d.Pitch = MathF.Atan2(-height, radius) * 180f / MathF.PI;
+            cam3d.LookAt(Vector3.Zero);
         }
 
         // Slightly brighter background to see the viewport
