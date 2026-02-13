@@ -14,9 +14,17 @@ using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Converters {
-    public class TextureToViewModelConverter : IMultiValueConverter {
+    public class TextureToViewModelConverter : IMultiValueConverter, IValueConverter {
         // Cache to avoid reloading the same texture view model multiple times for the same type
         private static readonly Dictionary<TerrainTextureType, TextureLoader> _cache = new();
+
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) {
+            return Convert(new List<object?> { value }, targetType, parameter, culture);
+        }
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) {
+            throw new NotImplementedException();
+        }
 
         public object? Convert(IList<object?> values, Type targetType, object? parameter, CultureInfo culture) {
             if (values.Count < 1 || values[0] == Avalonia.AvaloniaProperty.UnsetValue || values[0] == null) {
@@ -73,19 +81,19 @@ namespace WorldBuilder.Converters {
     public partial class TextureLoader : ObservableObject {
         [ObservableProperty] private Bitmap? _image;
         [ObservableProperty] private bool _isLoading;
+        [ObservableProperty] private TerrainTextureType _type;
 
-        private readonly TerrainTextureType _type;
         private readonly TextureService _service;
 
         public TextureLoader(TerrainTextureType type, ITerrainInfo? region, TextureService service) {
-            _type = type;
+            Type = type;
             _service = service;
             LoadImage(type, region);
         }
 
         public void Reload(ITerrainInfo? region) {
             if (region != null && !IsLoading) {
-                LoadImage(_type, region);
+                LoadImage(Type, region);
             }
         }
 
