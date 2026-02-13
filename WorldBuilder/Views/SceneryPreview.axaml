@@ -1,0 +1,8 @@
+<views:Base3DViewport
+    x:Class="WorldBuilder.Views.SceneryPreview"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:views="using:WorldBuilder.Views"
+    x:CompileBindings="True">
+    <Panel x:Name="Viewport" Background="Transparent" />
+</views:Base3DViewport>

@@ -382,7 +382,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 // Early-out if no longer within render distance or no longer tracked
                 if (!IsWithinRenderDistance(lb) || !_landblocks.ContainsKey(key)) return;
 
-                if (_landscapeDoc.Region is not RegionInfo regionInfo) return;
+                if (_landscapeDoc.Region is not ITerrainInfo regionInfo) return;
 
                 var lbGlobalX = (uint)lb.GridX;
                 var lbGlobalY = (uint)lb.GridY;
@@ -420,7 +420,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     }
                 }
 
-                var region = regionInfo._region;
+                var region = regionInfo.Region;
                 var terrainCache = _landscapeDoc.TerrainCache;
                 if (terrainCache == null || terrainCache.Length == 0) return;
 

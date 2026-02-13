@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Models {
     public interface ITerrainInfo {
+        Region Region { get; }
         int MapWidthInLandblocks { get; }
         int MapHeightInLandblocks { get; }
         int MapWidthInVertices { get; }
@@ -16,6 +17,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         float CellSizeInUnits { get; }
         int LandblockCellLength { get; }
         int LandblockVerticeLength { get; }
+        float LandblockSizeInUnits { get; }
         float RoadWidthInUnits { get; }
         float[] LandHeights { get; }
         Vector2 MapOffset { get; }
@@ -27,6 +29,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
 
     public class RegionInfo : ITerrainInfo {
         public readonly Region _region;
+
+        public Region Region => _region;
 
         /// <summary>
         /// Total number of landblocks in a row of this region (width).

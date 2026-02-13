@@ -3,6 +3,7 @@
              xmlns:vm="clr-namespace:WorldBuilder.Modules.Landscape"
              xmlns:tools="clr-namespace:WorldBuilder.Shared.Modules.Landscape.Tools;assembly=WorldBuilder.Shared"
              xmlns:converters="clr-namespace:WorldBuilder.Converters"
+             xmlns:views="clr-namespace:WorldBuilder.Views"
              x:Class="WorldBuilder.Modules.Landscape.Views.Components.ToolSettingsPanel"
              x:Name="SettingsRoot"
              x:DataType="vm:LandscapeViewModel">
@@ -53,8 +54,14 @@
                       SelectedItem="{Binding SelectedScenery}"
                       HorizontalAlignment="Stretch">
               <ComboBox.ItemTemplate>
-                <DataTemplate>
-                  <StackPanel Orientation="Horizontal" Spacing="8">
+                <DataTemplate x:DataType="tools:SceneryItem">
+                  <StackPanel Orientation="Horizontal" Spacing="8" Background="Transparent">
+                    <ToolTip.Tip>
+                      <views:SceneryPreview Width="256" Height="256"
+                                            Texture="{Binding $parent[ComboBox].DataContext.Texture}"
+                                            SceneryIndex="{Binding Index}"
+                                            Dats="{Binding #SettingsRoot.((vm:LandscapeViewModel)DataContext).Dats}" />
+                    </ToolTip.Tip>
                     <TextBlock Text="{Binding DisplayIndex}" Opacity="0.5" Width="24" />
                     <TextBlock Text="{Binding Name}" FontSize="11" VerticalAlignment="Center" />
                   </StackPanel>

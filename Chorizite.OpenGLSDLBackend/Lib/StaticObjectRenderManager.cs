@@ -393,7 +393,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var key = PackKey(lb.GridX, lb.GridY);
                 if (!IsWithinRenderDistance(lb) || !_landblocks.ContainsKey(key)) return;
 
-                if (_landscapeDoc.Region is not RegionInfo regionInfo) return;
+                if (_landscapeDoc.Region is not ITerrainInfo regionInfo) return;
 
                 var lbGlobalX = (uint)lb.GridX;
                 var lbGlobalY = (uint)lb.GridY;

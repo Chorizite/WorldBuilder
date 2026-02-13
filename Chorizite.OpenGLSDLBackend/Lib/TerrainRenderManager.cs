@@ -100,8 +100,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _initialized = true;
 
             // Initialize Surface Manager
-            if (_landscapeDoc.Region is RegionInfo regionInfo) {
-                _surfaceManager = new LandSurfaceManager(_graphicsDevice, _dats, regionInfo._region, _log);
+            if (_landscapeDoc.Region is ITerrainInfo regionInfo) {
+                _surfaceManager = new LandSurfaceManager(_graphicsDevice, _dats, regionInfo.Region, _log);
                 _chunkSizeInUnits = regionInfo.LandblockSizeInUnits * LandblocksPerChunk;
             }
         }
