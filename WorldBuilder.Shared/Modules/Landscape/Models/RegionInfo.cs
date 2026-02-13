@@ -22,6 +22,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         int GetVertexIndex(int x, int y);
         (int x, int y) GetVertexCoordinates(uint index);
         ushort GetLandblockId(int x, int y);
+        uint? GetSceneryId(int terrainType, int sceneryIndex);
     }
 
     public class RegionInfo : ITerrainInfo {
@@ -148,6 +149,17 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
                     $"Landblock coordinates (y={y}) out of range [0, {MapHeightInLandblocks - 1}]");
 
             return (ushort)((x << 8) + y);
+        }
+
+        /// <inheritdoc/>
+        public uint? GetSceneryId(int terrainType, int sceneryIndex) {
+            if (terrainType < 0 || terrainType >= _region.TerrainInfo.TerrainTypes.Count) return null;
+            var terrain = _region.TerrainInfo.TerrainTypes[terrainType];
+            if (sceneryIndex < 0 || sceneryIndex >= terrain.SceneTypes.Count) return null;
+            var sceneTypeIndex = terrain.SceneTypes[sceneryIndex];
+            if (sceneTypeIndex < 0 || sceneTypeIndex >= _region.SceneInfo.SceneTypes.Count) return null;
+            var sceneType = _region.SceneInfo.SceneTypes[(int)sceneTypeIndex];
+            return sceneType.Scenes.Count > 0 ? sceneType.Scenes[0] : null;
         }
     }
 }

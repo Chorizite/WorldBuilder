@@ -11,57 +11,49 @@
       <DataTemplate x:Key="TextureGridTemplate" x:DataType="tools:ITexturePaintingTool">
         <StackPanel Spacing="4">
           <TextBlock Text="Texture" FontWeight="SemiBold" FontSize="12" Margin="0,4,0,0"/>
-          <ListBox ItemsSource="{Binding AllTextures}" 
-                   SelectedItem="{Binding Texture}"
-                   Background="Transparent" BorderThickness="0" Padding="0">
-            <ListBox.ItemsPanel>
-              <ItemsPanelTemplate>
-                <WrapPanel Orientation="Horizontal" />
-              </ItemsPanelTemplate>
-            </ListBox.ItemsPanel>
-            <ListBox.ItemTemplate>
+          <ComboBox ItemsSource="{Binding AllTextures}" 
+                    SelectedItem="{Binding Texture}"
+                    HorizontalAlignment="Stretch">
+            <ComboBox.ItemTemplate>
               <DataTemplate>
-                <Border Width="36" Height="36" 
-                        Background="{DynamicResource ControlFillColorDefaultBrush}"
-                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="4"
-                        ToolTip.Tip="{Binding}">
-                  <Panel>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Border Width="24" Height="24" 
+                          Background="{DynamicResource ControlFillColorDefaultBrush}"
+                          BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                          BorderThickness="1"
+                          CornerRadius="4">
+                    <Panel>
                     <Panel.DataContext>
-                        <MultiBinding Converter="{StaticResource TextureConverter}">
-                            <Binding Path="DataContext" RelativeSource="{RelativeSource AncestorType=Border}" />
-                            <Binding ElementName="SettingsRoot" Path="DataContext" />
-                            <Binding ElementName="SettingsRoot" Path="DataContext.ActiveDocument" />
+                        <MultiBinding Converter="{StaticResource TextureConverter}" x:CompileBindings="False">
+                          <Binding Path="$parent[Border].DataContext" />
+                          <Binding RelativeSource="{RelativeSource AncestorType=ComboBox}" Path="DataContext" />
+                          <Binding RelativeSource="{RelativeSource AncestorType=ComboBox}" Path="DataContext.ActiveDocument" />
                         </MultiBinding>
                     </Panel.DataContext>
-                    <Image Width="32" Height="32" Stretch="UniformToFill" Source="{Binding Image, DataType=converters:TextureLoader}"/>
-                    <TextBlock Text="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Border}}" 
-                               FontSize="8" 
-                               TextWrapping="Wrap" 
-                               HorizontalAlignment="Center" 
-                               VerticalAlignment="Center" 
-                               TextAlignment="Center"
-                               Opacity="0.7"
-                               IsVisible="{Binding Image, Converter={x:Static ObjectConverters.IsNull}, DataType=converters:TextureLoader}"/>
-                  </Panel>
-                </Border>
+                      <Image Width="20" Height="20" Stretch="UniformToFill" Source="{Binding Image, DataType=converters:TextureLoader}"/>
+                    </Panel>
+                  </Border>
+                  <TextBlock Text="{Binding}" VerticalAlignment="Center" />
+                </StackPanel>
               </DataTemplate>
-            </ListBox.ItemTemplate>
-            <ListBox.Styles>
-              <Style Selector="ListBoxItem">
-                <Setter Property="Padding" Value="2"/>
-                <Setter Property="MinWidth" Value="0"/>
-              </Style>
-              <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
-                <Setter Property="Background" Value="Transparent"/>
-              </Style>
-              <Style Selector="ListBoxItem:selected Border">
-                <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}"/>
-                <Setter Property="BorderThickness" Value="2"/>
-              </Style>
-            </ListBox.Styles>
-          </ListBox>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Scenery" FontWeight="SemiBold" FontSize="12" Margin="0,4,0,0"/>
+            <ComboBox ItemsSource="{Binding AllSceneries}" 
+                      SelectedItem="{Binding SelectedScenery}"
+                      HorizontalAlignment="Stretch">
+              <ComboBox.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding DisplayIndex}" Opacity="0.5" Width="24" />
+                    <TextBlock Text="{Binding Name}" FontSize="11" VerticalAlignment="Center" />
+                  </StackPanel>
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </StackPanel>
         </StackPanel>
       </DataTemplate>
     </UserControl.Resources>

@@ -38,6 +38,8 @@ namespace Chorizite.OpenGLSDLBackend.Tests {
             public ushort GetLandblockId(int x, int y) {
                 return (ushort)((x << 8) + y);
             }
+
+            public uint? GetSceneryId(int terrainType, int sceneryIndex) => null;
         }
     }
 }

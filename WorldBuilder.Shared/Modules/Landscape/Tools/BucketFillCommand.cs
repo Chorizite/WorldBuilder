@@ -15,6 +15,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private readonly LandscapeLayer? _activeLayer;
         private readonly Vector3 _startPos;
         private readonly int _fillTextureId;
+        private readonly byte? _fillSceneryId;
         private readonly bool _contiguous;
 
         private readonly Dictionary<int, TerrainEntry?> _previousState = new Dictionary<int, TerrainEntry?>();
@@ -23,12 +24,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <inheritdoc/>
         public string Name => "Bucket Fill";
 
-        public BucketFillCommand(LandscapeToolContext context, Vector3 startPos, int fillTextureId, bool contiguous) {
+        public BucketFillCommand(LandscapeToolContext context, Vector3 startPos, int fillTextureId, byte? fillSceneryId, bool contiguous) {
             _context = context;
             _document = context.Document;
             _activeLayer = context.ActiveLayer;
             _startPos = startPos;
             _fillTextureId = fillTextureId;
+            _fillSceneryId = fillSceneryId;
             _contiguous = contiguous;
         }
 
@@ -145,6 +147,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
                 var entry = _activeLayer!.Terrain.GetValueOrDefault((uint)index);
                 entry.Type = (byte)_fillTextureId;
+                if (_fillSceneryId.HasValue) {
+                    entry.Scenery = _fillSceneryId.Value;
+                }
                 _activeLayer.Terrain[(uint)index] = entry;
 
                 affectedVertices.Add((uint)index);
@@ -186,6 +191,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
                         var entry = _activeLayer!.Terrain.GetValueOrDefault((uint)index);
                         entry.Type = (byte)_fillTextureId;
+                        if (_fillSceneryId.HasValue) {
+                            entry.Scenery = _fillSceneryId.Value;
+                        }
                         _activeLayer.Terrain[(uint)index] = entry;
 
                         affectedVertices.Add((uint)index);

@@ -93,7 +93,7 @@ namespace WorldBuilder.Lib.Extensions {
             // ViewModels
             collection.AddTransient<MainViewModel>();
             collection.AddTransient<ExportDatsWindowViewModel>();
-            collection.AddTransient<WorldBuilder.Modules.Landscape.LandscapeViewModel>();
+            collection.AddSingleton<WorldBuilder.Modules.Landscape.LandscapeViewModel>();
 
             collection.AddSingleton<TextureService>();
 

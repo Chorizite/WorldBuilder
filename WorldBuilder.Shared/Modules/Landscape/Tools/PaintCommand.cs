@@ -16,6 +16,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private readonly Vector3 _center;
         private readonly float _radius;
         private readonly int _textureId; // 0-31
+        private readonly byte? _sceneryId; // 0-31
 
         // Store previous state for Undo: Index -> Layer TerrainEntry (nullable)
         private readonly Dictionary<int, TerrainEntry?> _previousState = new Dictionary<int, TerrainEntry?>();
@@ -31,13 +32,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <param name="center">The center position of the paint operation.</param>
         /// <param name="radius">The radius of the paint operation.</param>
         /// <param name="textureId">The texture ID to apply.</param>
-        public PaintCommand(LandscapeToolContext context, Vector3 center, float radius, int textureId) {
+        /// <param name="sceneryId">The scenery ID to apply (optional).</param>
+        public PaintCommand(LandscapeToolContext context, Vector3 center, float radius, int textureId, byte? sceneryId = null) {
             _context = context;
             _document = context.Document;
             _activeLayer = context.ActiveLayer;
             _center = center;
             _radius = radius;
             _textureId = textureId;
+            _sceneryId = sceneryId;
         }
 
         public void Execute() {
@@ -132,6 +135,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                         // Apply Texture to layer
                         var entry = _activeLayer.Terrain.GetValueOrDefault((uint)index);
                         entry.Type = (byte)_textureId;
+                        if (_sceneryId.HasValue) {
+                            entry.Scenery = _sceneryId.Value;
+                        }
                         _activeLayer.Terrain[(uint)index] = entry;
 
                         affectedVertices.Add((uint)index);

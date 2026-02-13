@@ -185,6 +185,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
                 .Returns<int, int>((x, y) => y * 9 + x);
             regionMock.Setup(r => r.GetVertexCoordinates(It.IsAny<uint>()))
                 .Returns<uint>((delegate (uint idx) { return ((int)(idx % 9), (int)(idx / 9)); }));
+            regionMock.Setup(r => r.GetSceneryId(It.IsAny<int>(), It.IsAny<int>())).Returns(0x120000A5u);
 
             // Inject Region via reflection
             var regionProp = typeof(LandscapeDocument).GetProperty("Region");

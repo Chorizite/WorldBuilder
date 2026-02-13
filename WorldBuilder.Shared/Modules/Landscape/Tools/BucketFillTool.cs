@@ -20,13 +20,28 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <inheritdoc/>
         public bool IsActive { get; private set; }
 
+        /// <inheritdoc/>
+        public LandscapeDocument? ActiveDocument => _context?.Document;
+
         private LandscapeToolContext? _context;
 
         private TerrainTextureType _texture = (TerrainTextureType)5;
         /// <summary>Gets or sets the texture to fill with.</summary>
         public TerrainTextureType Texture {
             get => _texture;
-            set => SetProperty(ref _texture, value);
+            set {
+                if (SetProperty(ref _texture, value)) {
+                    OnPropertyChanged(nameof(AllSceneries));
+                    SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == 255);
+                }
+            }
+        }
+
+        private SceneryItem? _selectedScenery;
+        /// <summary>Gets or sets the scenery to fill with.</summary>
+        public SceneryItem? SelectedScenery {
+            get => _selectedScenery;
+            set => SetProperty(ref _selectedScenery, value);
         }
 
         /// <summary>Gets all available terrain textures.</summary>
@@ -34,6 +49,23 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private static readonly IEnumerable<TerrainTextureType> _allTextures = Enum.GetValues<TerrainTextureType>()
             .Where(t => !t.ToString().Contains("RoadType") && !t.ToString().Contains("Invalid"))
             .OrderBy(t => t.ToString());
+
+        /// <summary>Gets all available scenery for the current texture.</summary>
+        public IEnumerable<SceneryItem> AllSceneries {
+            get {
+                var sceneries = new List<SceneryItem>();
+                sceneries.Add(new SceneryItem(255, "Leave as-is"));
+
+                if (_context?.Document.Region != null) {
+                    var region = _context.Document.Region;
+                    for (byte i = 0; i < 32; i++) {
+                        var sceneryId = region.GetSceneryId((int)Texture, i);
+                        sceneries.Add(new SceneryItem(i, SceneryInfo.GetSceneryName(sceneryId)));
+                    }
+                }
+                return sceneries;
+            }
+        }
 
         private bool _isContiguous = true;
         /// <summary>Gets or sets whether to fill only connected areas (flood fill) or globally replace.</summary>
@@ -45,6 +77,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public void Activate(LandscapeToolContext context) {
             _context = context;
             IsActive = true;
+            OnPropertyChanged(nameof(ActiveDocument));
+            OnPropertyChanged(nameof(AllSceneries));
+            SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == 255);
         }
 
         public void Deactivate() {
@@ -60,7 +95,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
             var hit = Raycast(e.Position.X, e.Position.Y);
             if (hit.Hit) {
-                var command = new BucketFillCommand(_context, hit.HitPosition, (int)Texture, IsContiguous);
+                byte? sceneryIndex = (SelectedScenery == null || SelectedScenery.Index == 255) ? null : SelectedScenery.Index;
+                var command = new BucketFillCommand(_context, hit.HitPosition, (int)Texture, sceneryIndex, IsContiguous);
                 _context.CommandHistory.Execute(command);
                 return true;
             }

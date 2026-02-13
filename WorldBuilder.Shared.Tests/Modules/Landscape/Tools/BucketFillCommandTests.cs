@@ -32,7 +32,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             baseCache[10] = t1;
 
             var startPos = new Vector3(24, 24, 0); // Vertex (1,1) -> Index 10
-            var cmd = new BucketFillCommand(context, startPos, 2, true); // Fill Type 1 with Type 2
+            var cmd = new BucketFillCommand(context, startPos, 2, null, true); // Fill Type 1 with Type 2
 
             // Act
             cmd.Execute();
@@ -61,7 +61,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             baseCache[80] = t1;
 
             var startPos = new Vector3(0, 0, 0); // Vertex (0,0) -> Index 0
-            var cmd = new BucketFillCommand(context, startPos, 2, false); // Global replace Type 1 with Type 2
+            var cmd = new BucketFillCommand(context, startPos, 2, null, false); // Global replace Type 1 with Type 2
 
             // Act
             cmd.Execute();
@@ -88,7 +88,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             baseCache[10] = t1;
 
             var startPos = new Vector3(24, 24, 0);
-            var cmd = new BucketFillCommand(context, startPos, 2, true);
+            var cmd = new BucketFillCommand(context, startPos, 2, null, true);
 
             // Act
             cmd.Execute();
@@ -117,7 +117,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             }
 
             var startPos = new Vector3(24, 24, 0);
-            var cmd = new BucketFillCommand(context, startPos, 5, true);
+            var cmd = new BucketFillCommand(context, startPos, 5, null, true);
 
             // Act
             cmd.Execute();
@@ -145,6 +145,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
                 .Returns<int, int>((x, y) => y * width + x);
             regionMock.Setup(r => r.GetVertexCoordinates(It.IsAny<uint>()))
                 .Returns<uint>((delegate (uint idx) { return ((int)(idx % width), (int)(idx / width)); }));
+            regionMock.Setup(r => r.GetSceneryId(It.IsAny<int>(), It.IsAny<int>())).Returns(0x120000A5u);
 
             var regionProp = typeof(LandscapeDocument).GetProperty("Region");
             regionProp?.SetValue(doc, regionMock.Object);
