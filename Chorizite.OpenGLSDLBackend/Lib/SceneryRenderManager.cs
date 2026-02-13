@@ -700,7 +700,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _gl.VertexAttrib1((uint)7, (float)batch.TextureIndex);
 
                 // Bind texture array
-                batch.TextureArray.Bind(0);
+                batch.Atlas.TextureArray.Bind(0);
                 _shader!.SetUniform("uTextureArray", 0);
 
                 // Draw instanced

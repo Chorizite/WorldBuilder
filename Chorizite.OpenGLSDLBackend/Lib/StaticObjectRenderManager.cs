@@ -590,7 +590,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _gl.DisableVertexAttribArray(7);
                 _gl.VertexAttrib1((uint)7, (float)batch.TextureIndex);
 
-                batch.TextureArray.Bind(0);
+                batch.Atlas.TextureArray.Bind(0);
                 _shader!.SetUniform("uTextureArray", 0);
 
                 _gl.BindBuffer(GLEnum.ElementArrayBuffer, batch.IBO);

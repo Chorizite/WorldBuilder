@@ -86,7 +86,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public List<ObjectRenderBatch> Batches { get; set; } = new();
         public bool IsSetup { get; set; }
         public List<(uint GfxObjId, Matrix4x4 Transform)> SetupParts { get; set; } = new();
-        public Dictionary<(int Width, int Height, TextureFormat Format), TextureAtlasManager> LocalAtlases { get; set; } = new();
 
         /// <summary>Local bounding box.</summary>
         public BoundingBox BoundingBox { get; set; }
@@ -98,7 +97,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     public class ObjectRenderBatch {
         public uint IBO { get; set; }
         public int IndexCount { get; set; }
-        public ManagedGLTextureArray TextureArray { get; set; } = null!;
+        public TextureAtlasManager Atlas { get; set; } = null!;
         public int TextureIndex { get; set; }
         public (int Width, int Height) TextureSize { get; set; }
         public TextureFormat TextureFormat { get; set; }
@@ -118,6 +117,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly ConcurrentDictionary<uint, int> _usageCount = new();
         private readonly ConcurrentDictionary<uint, (Vector3 Min, Vector3 Max)?> _boundsCache = new();
         private readonly ConcurrentDictionary<uint, Task<ObjectMeshData?>> _preparationTasks = new();
+
+        // Shared atlases grouped by (Width, Height, Format)
+        private readonly Dictionary<(int Width, int Height, TextureFormat Format), List<TextureAtlasManager>> _globalAtlases = new();
 
         public ObjectMeshManager(OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats) {
             _graphicsDevice = graphicsDevice;
@@ -549,16 +551,22 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             gl.VertexAttribPointer(2, 2, GLEnum.Float, false, (uint)stride, (void*)(6 * sizeof(float)));
 
             var renderBatches = new List<ObjectRenderBatch>();
-            var localAtlases = new Dictionary<(int Width, int Height, TextureFormat Format), TextureAtlasManager>();
 
             foreach (var (format, batches) in meshData.TextureBatches) {
-                if (!localAtlases.TryGetValue(format, out var atlasManager)) {
-                    atlasManager = new TextureAtlasManager(_graphicsDevice, format.Width, format.Height, format.Format);
-                    localAtlases[format] = atlasManager;
-                }
-
                 foreach (var batch in batches) {
                     if (batch.Indices.Count == 0) continue;
+
+                    // Find or create a shared atlas with free space
+                    if (!_globalAtlases.TryGetValue(format, out var atlasList)) {
+                        atlasList = new List<TextureAtlasManager>();
+                        _globalAtlases[format] = atlasList;
+                    }
+
+                    TextureAtlasManager? atlasManager = atlasList.FirstOrDefault(a => a.FreeSlots > 0 || a.HasTexture(batch.Key));
+                    if (atlasManager == null) {
+                        atlasManager = new TextureAtlasManager(_graphicsDevice, format.Width, format.Height, format.Format);
+                        atlasList.Add(atlasManager);
+                    }
 
                     int textureIndex = atlasManager.AddTexture(batch.Key, batch.TextureData, batch.UploadPixelFormat, batch.UploadPixelType);
 
@@ -572,7 +580,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     renderBatches.Add(new ObjectRenderBatch {
                         IBO = ibo,
                         IndexCount = indexArray.Length,
-                        TextureArray = atlasManager.TextureArray,
+                        Atlas = atlasManager,
                         TextureIndex = textureIndex,
                         TextureSize = (format.Width, format.Height),
                         TextureFormat = format.Format,
@@ -584,8 +592,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var renderData = new ObjectRenderData {
                 VAO = vao,
                 VBO = vbo,
-                Batches = renderBatches,
-                LocalAtlases = localAtlases
+                Batches = renderBatches
             };
 
             gl.BindVertexArray(0);
@@ -616,10 +623,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             foreach (var batch in data.Batches) {
                 if (batch.IBO != 0) gl.DeleteBuffer(batch.IBO);
-            }
-
-            foreach (var atlasManager in data.LocalAtlases.Values) {
-                atlasManager.Dispose();
+                batch.Atlas.ReleaseTexture(batch.Key);
             }
 
             _renderData.Remove(key);
@@ -635,11 +639,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 foreach (var batch in data.Batches) {
                     if (batch.IBO != 0) gl.DeleteBuffer(batch.IBO);
                 }
-                foreach (var atlas in data.LocalAtlases.Values) {
+            }
+            _renderData.Clear();
+
+            foreach (var atlasList in _globalAtlases.Values) {
+                foreach (var atlas in atlasList) {
                     atlas.Dispose();
                 }
             }
-            _renderData.Clear();
+            _globalAtlases.Clear();
         }
     }
 }
