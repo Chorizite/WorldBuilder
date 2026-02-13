@@ -57,6 +57,8 @@ namespace Chorizite.OpenGLSDLBackend {
             GLHelpers.CheckErrors();
             GL.BindTexture(GLEnum.Texture2D, 0);
             GLHelpers.CheckErrors();
+
+            GpuMemoryTracker.TrackAllocation(Width * Height * 4);
         }
 
         /// <inheritdoc/>
@@ -114,6 +116,7 @@ namespace Chorizite.OpenGLSDLBackend {
         protected void ReleaseTexture() {
             if (_texture != 0) {
                 GL.DeleteTexture(_texture);
+                GpuMemoryTracker.TrackDeallocation(Width * Height * 4);
             }
             GLHelpers.CheckErrors();
             _texture = 0;

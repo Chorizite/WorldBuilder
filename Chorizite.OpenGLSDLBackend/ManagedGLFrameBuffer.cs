@@ -15,6 +15,8 @@ namespace Chorizite.OpenGLSDLBackend {
         private readonly uint _fboId;
         private readonly uint _depthStencilRenderbuffer; // 0 if not used
         private readonly ITexture _texture;
+        private readonly int _width;
+        private readonly int _height;
 
         public ITexture Texture => _texture;
         public IntPtr NativeHandle => new IntPtr(_fboId);
@@ -22,6 +24,8 @@ namespace Chorizite.OpenGLSDLBackend {
         public ManagedGLFramebuffer(GL gl, ITexture texture, int width, int height, bool hasDepthStencil) {
             _gl = gl;
             _texture = texture;
+            _width = width;
+            _height = height;
 
             // Generate and bind the framebuffer
             _fboId = _gl.GenFramebuffer();
@@ -52,6 +56,7 @@ namespace Chorizite.OpenGLSDLBackend {
                     RenderbufferTarget.Renderbuffer,
                     _depthStencilRenderbuffer
                 );
+                GpuMemoryTracker.TrackAllocation(_width * _height * 4); // Depth24Stencil8 is 4 bytes per pixel
             }
 
             // Check framebuffer completeness
@@ -78,6 +83,7 @@ namespace Chorizite.OpenGLSDLBackend {
             _gl.DeleteFramebuffer(_fboId);
             if (_depthStencilRenderbuffer != 0) {
                 _gl.DeleteRenderbuffer(_depthStencilRenderbuffer);
+                GpuMemoryTracker.TrackDeallocation(_width * _height * 4);
             }
         }
     }

@@ -47,6 +47,9 @@ public partial class RenderView : Base3DViewport {
 
     public static SharedOpenGLContextManager SharedContextManager {
         get {
+            var service = WorldBuilder.App.Services?.GetService<SharedOpenGLContextManager>();
+            if (service != null) return service;
+
             if (_sharedContextManager == null) {
                 _sharedContextManager = new SharedOpenGLContextManager();
             }

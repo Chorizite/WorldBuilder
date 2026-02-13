@@ -48,6 +48,8 @@ namespace Chorizite.OpenGLSDLBackend {
                 (void*)0, // No initial data
                 Usage.ToGL());
             GLHelpers.CheckErrors();
+
+            GpuMemoryTracker.TrackAllocation(Size);
         }
 
         /// <inheritdoc />
@@ -153,6 +155,7 @@ namespace Chorizite.OpenGLSDLBackend {
             if (bufferId != 0) {
                 GL.DeleteBuffer(bufferId);
                 GLHelpers.CheckErrors();
+                GpuMemoryTracker.TrackDeallocation(Size);
                 bufferId = 0;
             }
         }

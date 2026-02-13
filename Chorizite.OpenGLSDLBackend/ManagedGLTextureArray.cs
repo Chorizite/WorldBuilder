@@ -84,6 +84,27 @@ namespace Chorizite.OpenGLSDLBackend {
             }
 
             GLHelpers.CheckErrors();
+
+            GpuMemoryTracker.TrackAllocation(CalculateTotalSize());
+        }
+
+        private long CalculateTotalSize() {
+            int maxDimension = Math.Max(Width, Height);
+            int mipLevels = _isCompressed ? 1 : (int)Math.Floor(Math.Log2(maxDimension)) + 1;
+            long layerSize = GetExpectedDataSize();
+            long totalSize = 0;
+
+            for (int i = 0; i < mipLevels; i++) {
+                int w = Math.Max(1, Width >> i);
+                int h = Math.Max(1, Height >> i);
+                if (_isCompressed) {
+                    totalSize += TextureHelpers.GetCompressedLayerSize(w, h, Format) * Size;
+                }
+                else {
+                    totalSize += (long)w * h * (layerSize / (Width * Height)) * Size;
+                }
+            }
+            return totalSize;
         }
 
         private bool IsCompressedFormat(TextureFormat format) {
@@ -263,6 +284,7 @@ namespace Chorizite.OpenGLSDLBackend {
             if (NativePtr != 0) {
                 GL.DeleteTexture((uint)NativePtr);
                 GLHelpers.CheckErrors();
+                GpuMemoryTracker.TrackDeallocation(CalculateTotalSize());
                 NativePtr = 0;
             }
         }

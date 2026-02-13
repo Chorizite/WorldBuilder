@@ -1,13 +1,27 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:WorldBuilder.ViewModels"
+             x:DataType="vm:MainViewModel"
              x:Class="WorldBuilder.Views.Components.StatusBar">
     <Border Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
             BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"
             BorderThickness="0,1,0,0"
             Padding="8,2">
-        <Grid ColumnDefinitions="*, Auto">
+        <Grid ColumnDefinitions="*, Auto, Auto">
             <TextBlock Text="Ready" VerticalAlignment="Center" FontSize="12" />
-            <TextBlock Grid.Column="1" Text="v1.0.0-alpha" VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
+            
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="15" Margin="0,0,15,0">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <TextBlock Text="RAM:" VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
+                    <TextBlock Text="{Binding RamUsage}" VerticalAlignment="Center" FontSize="11" Opacity="0.8" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <TextBlock Text="VRAM:" VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
+                    <TextBlock Text="{Binding VramUsage}" VerticalAlignment="Center" FontSize="11" Opacity="0.8" />
+                </StackPanel>
+            </StackPanel>
+            
+            <TextBlock Grid.Column="2" Text="v1.0.0-alpha" VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
         </Grid>
     </Border>
 </UserControl>
