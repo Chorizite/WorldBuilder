@@ -18,6 +18,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     /// </summary>
     public class TerrainChunk : IDisposable {
         private bool _disposed;
+        private readonly GL _gl;
 
         public uint ChunkX { get; private set; }
         public uint ChunkY { get; private set; }
@@ -53,12 +54,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public uint VBO { get; set; }
         public uint EBO { get; set; }
         public int IndexCount { get; set; }
+        public int VertexCount { get; set; }
 
         // Temporary data for upload
         public Memory<VertexLandscape> GeneratedVertices { get; set; }
         public Memory<uint> GeneratedIndices { get; set; }
 
-        public TerrainChunk(uint x, uint y) {
+        public TerrainChunk(GL gl, uint x, uint y) {
+            _gl = gl;
             ChunkX = x;
             ChunkY = y;
             // Initialize offsets to -1
@@ -109,6 +112,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public void Dispose() {
             if (_disposed) return;
+            if (VAO != 0) _gl.DeleteVertexArray(VAO);
+            if (VBO != 0) {
+                _gl.DeleteBuffer(VBO);
+                GpuMemoryTracker.TrackDeallocation(VertexCount * VertexLandscape.Size);
+            }
+            if (EBO != 0) {
+                _gl.DeleteBuffer(EBO);
+                GpuMemoryTracker.TrackDeallocation(IndexCount * sizeof(uint));
+            }
             _disposed = true;
         }
     }

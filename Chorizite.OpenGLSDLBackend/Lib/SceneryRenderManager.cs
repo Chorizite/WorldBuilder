@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using WorldBuilder.Shared.Models;
@@ -700,7 +701,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _gl.VertexAttrib1((uint)7, (float)batch.TextureIndex);
 
                 // Bind texture array
-                batch.TextureArray.Bind(0);
+                batch.Atlas.TextureArray.Bind(0);
                 _shader!.SetUniform("uTextureArray", 0);
 
                 // Draw instanced
@@ -719,10 +720,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private unsafe void EnsureInstanceBufferCapacity(int count) {
             if (count <= _instanceBufferCapacity) return;
 
+            if (_instanceBufferCapacity > 0) {
+                GpuMemoryTracker.TrackDeallocation(_instanceBufferCapacity * sizeof(Matrix4x4));
+            }
+
             _instanceBufferCapacity = Math.Max(count, 256);
             _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVBO);
             _gl.BufferData(GLEnum.ArrayBuffer, (nuint)(_instanceBufferCapacity * sizeof(Matrix4x4)),
                 (void*)null, GLEnum.DynamicDraw);
+            GpuMemoryTracker.TrackAllocation(_instanceBufferCapacity * sizeof(Matrix4x4));
         }
 
         #endregion
@@ -733,6 +739,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _landscapeDoc.LandblockChanged -= OnLandblockChanged;
             if (_instanceVBO != 0) {
                 _gl.DeleteBuffer(_instanceVBO);
+                GpuMemoryTracker.TrackDeallocation(_instanceBufferCapacity * Marshal.SizeOf<Matrix4x4>());
             }
             _landblocks.Clear();
             _preparedMeshes.Clear();

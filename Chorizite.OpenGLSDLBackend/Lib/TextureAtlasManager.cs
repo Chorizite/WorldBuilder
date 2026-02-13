@@ -20,7 +20,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly Dictionary<int, int> _refCounts = new();
         private readonly Stack<int> _freeSlots = new();
         private int _nextIndex = 0;
-        private const int InitialCapacity = 90;
+        private const int InitialCapacity = 32;
 
         public ManagedGLTextureArray TextureArray { get; private set; } = null!;
         public int UsedSlots => _textureIndices.Count;

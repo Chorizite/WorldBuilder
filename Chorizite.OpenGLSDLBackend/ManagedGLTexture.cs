@@ -57,6 +57,21 @@ namespace Chorizite.OpenGLSDLBackend {
             GLHelpers.CheckErrors();
             GL.BindTexture(GLEnum.Texture2D, 0);
             GLHelpers.CheckErrors();
+
+            GpuMemoryTracker.TrackAllocation(CalculateSize());
+        }
+
+        private long CalculateSize() {
+            int maxDimension = Math.Max(Width, Height);
+            int mipLevels = (int)Math.Floor(Math.Log2(maxDimension)) + 1;
+            long totalSize = 0;
+
+            for (int i = 0; i < mipLevels; i++) {
+                int w = Math.Max(1, Width >> i);
+                int h = Math.Max(1, Height >> i);
+                totalSize += (long)w * h * 4;
+            }
+            return totalSize;
         }
 
         /// <inheritdoc/>
@@ -114,6 +129,7 @@ namespace Chorizite.OpenGLSDLBackend {
         protected void ReleaseTexture() {
             if (_texture != 0) {
                 GL.DeleteTexture(_texture);
+                GpuMemoryTracker.TrackDeallocation(CalculateSize());
             }
             GLHelpers.CheckErrors();
             _texture = 0;
