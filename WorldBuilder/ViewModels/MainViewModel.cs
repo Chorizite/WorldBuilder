@@ -125,7 +125,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable {
 
     [RelayCommand]
     private void OpenDatBrowser() {
-        var viewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<DatBrowserWindowViewModel>(_serviceProvider);
+        var viewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<WorldBuilder.Modules.DatBrowser.ViewModels.DatBrowserWindowViewModel>(_serviceProvider);
         _dialogService.Show(this, viewModel);
     }
 

@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
+             xmlns:v="using:WorldBuilder.Modules.DatBrowser.Views"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="WorldBuilder.Modules.DatBrowser.Views.DatBrowserView"
+             x:DataType="vm:DatBrowserWindowViewModel">
+    <UserControl.DataTemplates>
+        <DataTemplate DataType="vm:SetupBrowserViewModel">
+            <v:SetupBrowserView/>
+        </DataTemplate>
+        <DataTemplate DataType="vm:GfxObjBrowserViewModel">
+            <v:GfxObjBrowserView/>
+        </DataTemplate>
+        <DataTemplate DataType="vm:TextureBrowserViewModel">
+            <v:TextureBrowserView/>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+    
+    <Grid RowDefinitions="Auto, *">
+        <ComboBox Grid.Row="0"
+                  ItemsSource="{Binding DatTypes}" 
+                  SelectedItem="{Binding SelectedType}"
+                  HorizontalAlignment="Left" Margin="5"/>
+        
+        <ContentControl Grid.Row="1" Content="{Binding CurrentBrowser}" />
+    </Grid>
+</UserControl>

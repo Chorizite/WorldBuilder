@@ -1,0 +1,39 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
+             xmlns:views="using:WorldBuilder.Views"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="WorldBuilder.Modules.DatBrowser.Views.SetupBrowserView"
+             x:DataType="vm:SetupBrowserViewModel">
+    <Grid ColumnDefinitions="300, 5, *">
+        <!-- Sidebar -->
+        <ListBox Grid.Column="0" ItemsSource="{Binding FileIds}" SelectedItem="{Binding SelectedFileId}" Margin="5">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding StringFormat='{}{0:X8}'}" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <GridSplitter Grid.Column="1" Background="Gray" ResizeDirection="Columns"/>
+
+        <!-- Preview Area -->
+        <Panel Grid.Column="2" Background="#202020">
+            <views:DatObjectViewer 
+                IsVisible="{Binding SelectedFileId}" 
+                FileId="{Binding SelectedFileId}" 
+                IsSetup="True"
+                Dats="{Binding Dats}"
+                HorizontalAlignment="Stretch" 
+                VerticalAlignment="Stretch"/>
+
+            <TextBlock Text="Select a setup to preview" 
+                       IsVisible="{Binding !SelectedFileId}"
+                       HorizontalAlignment="Center" 
+                       VerticalAlignment="Center" 
+                       Foreground="Gray"/>
+        </Panel>
+    </Grid>
+</UserControl>
