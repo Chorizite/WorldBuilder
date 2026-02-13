@@ -70,9 +70,24 @@ public partial class MainViewModel : ViewModelBase, IDisposable {
             while (!_cts.IsCancellationRequested) {
                 var ram = _performanceService.GetRamUsage();
                 var vram = _performanceService.GetVramUsage();
+                var freeVram = _performanceService.GetFreeVram();
+                var totalVram = _performanceService.GetTotalVram();
 
                 RamUsage = FormatBytes(ram);
-                VramUsage = vram > 0 ? FormatBytes(vram) : "N/A";
+                if (vram > 0) {
+                    var vramStr = FormatBytes(vram);
+                    if (freeVram > 0 && totalVram > 0) {
+                        VramUsage = $"{vramStr} / {FormatBytes(freeVram)} Free ({FormatBytes(totalVram)} Total)";
+                    } else if (freeVram > 0) {
+                        VramUsage = $"{vramStr} / {FormatBytes(freeVram)} Free";
+                    } else if (totalVram > 0) {
+                        VramUsage = $"{vramStr} / {FormatBytes(totalVram)} Total";
+                    } else {
+                        VramUsage = vramStr;
+                    }
+                } else {
+                    VramUsage = "N/A";
+                }
 
                 await Task.Delay(1000, _cts.Token);
             }
