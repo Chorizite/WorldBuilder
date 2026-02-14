@@ -1,6 +1,7 @@
 using Chorizite.Core.Render;
 using Chorizite.OpenGLSDLBackend.Lib;
 using DatReaderWriter;
+using DatReaderWriter.Enums;
 using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
 using System.Numerics;
@@ -210,6 +211,8 @@ namespace Chorizite.OpenGLSDLBackend {
             }
 
             foreach (var batch in renderData.Batches) {
+                SetCullMode(batch.CullMode);
+
                 _gl.DisableVertexAttribArray(7);
                 _gl.VertexAttrib1((uint)7, (float)batch.TextureIndex);
                 
@@ -224,6 +227,23 @@ namespace Chorizite.OpenGLSDLBackend {
             for (uint i = 0; i < 4; i++) {
                 _gl.DisableVertexAttribArray(3 + i);
                 _gl.VertexAttribDivisor(3 + i, 0);
+            }
+        }
+
+        private void SetCullMode(CullMode mode) {
+            switch (mode) {
+                case CullMode.None:
+                    _gl.Disable(EnableCap.CullFace);
+                    break;
+                case CullMode.Clockwise:
+                    _gl.Enable(EnableCap.CullFace);
+                    _gl.CullFace(GLEnum.Front);
+                    break;
+                case CullMode.CounterClockwise:
+                case CullMode.Landblock:
+                    _gl.Enable(EnableCap.CullFace);
+                    _gl.CullFace(GLEnum.Back);
+                    break;
             }
         }
 
