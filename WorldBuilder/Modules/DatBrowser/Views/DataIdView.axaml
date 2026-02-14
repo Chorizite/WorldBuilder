@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="30"
+             x:Class="WorldBuilder.Modules.DatBrowser.Views.DataIdView"
+             x:DataType="vm:ReflectionNodeViewModel">
+    <StackPanel Orientation="Horizontal" Spacing="5">
+        <TextBlock Text="{Binding Value}" VerticalAlignment="Center" FontFamily="Cascadia Code,Consolas,Monospace" />
+        <Border Background="#444" CornerRadius="4" Padding="4,1" VerticalAlignment="Center" IsVisible="{Binding DbType, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <TextBlock Text="{Binding DbType}" FontSize="10" Foreground="White" VerticalAlignment="Center"/>
+        </Border>
+        <Button Command="{Binding OpenInNewWindowCommand}" 
+                ToolTip.Tip="Open in new window" 
+                Padding="4,2" 
+                Background="Transparent" 
+                BorderThickness="0"
+                VerticalAlignment="Center">
+            <TextBlock Text="↗" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource AccentPurple}"/>
+        </Button>
+    </StackPanel>
+</UserControl>

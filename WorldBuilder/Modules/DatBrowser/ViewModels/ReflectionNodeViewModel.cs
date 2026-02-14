@@ -11,8 +11,10 @@ using DatReaderWriter.Lib.IO;
 using DatReaderWriter.Types;
 using DatReaderWriter;
 
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
     public record OpenQualifiedDataIdMessage(uint DataId, Type? TargetType);
@@ -26,6 +28,9 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         public uint? DataId { get; set; }
         public Type? TargetType { get; set; }
         public bool IsQualifiedDataId => DataId.HasValue;
+
+        [ObservableProperty]
+        private DBObjType? _dbType;
 
         [RelayCommand]
         private void Copy() {
@@ -52,7 +57,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             }
         }
 
-        public static ReflectionNodeViewModel Create(string name, object? obj, HashSet<object>? visited = null, int depth = 0) {
+        public static ReflectionNodeViewModel Create(string name, object? obj, IDatReaderWriter dats, HashSet<object>? visited = null, int depth = 0) {
             if (obj == null) {
                 return new ReflectionNodeViewModel(name, "null", "object");
             }
@@ -69,11 +74,16 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             }
 
             if (obj is QualifiedDataId qid) {
-                var node = new ReflectionNodeViewModel(name, qid.ToString(), type.Name);
+                var node = new ReflectionNodeViewModel(name, $"0x{qid.DataId:X8}", type.Name);
                 node.DataId = qid.DataId;
                 if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(QualifiedDataId<>)) {
                     node.TargetType = type.GetGenericArguments()[0];
                 }
+
+                if (node.DataId.HasValue) {
+                    node.DbType = dats.TypeFromId(node.DataId.Value);
+                }
+
                 return node;
             }
 
@@ -88,7 +98,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
             if (obj is IDictionary dictionary) {
                 foreach (DictionaryEntry entry in dictionary) {
-                    children.Add(Create(entry.Key?.ToString() ?? "null", entry.Value, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
+                    children.Add(Create(entry.Key?.ToString() ?? "null", entry.Value, dats, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
                 }
             } else if (obj is IEnumerable enumerable && obj is not string) {
                 int index = 0;
@@ -97,17 +107,17 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                     if (itemType != null && itemType.IsGenericType && itemType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>)) {
                         var key = itemType.GetProperty("Key")?.GetValue(item);
                         var value = itemType.GetProperty("Value")?.GetValue(item);
-                        children.Add(Create(key?.ToString() ?? "null", value, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
+                        children.Add(Create(key?.ToString() ?? "null", value, dats, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
                     } else {
                         isList = true;
-                        children.Add(Create($"[{index++}]", item, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
+                        children.Add(Create($"[{index++}]", item, dats, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
                     }
                 }
             } else {
                 var flags = BindingFlags.Public | BindingFlags.Instance;
                 foreach (var field in type.GetFields(flags)) {
                     try {
-                        children.Add(Create(field.Name, field.GetValue(obj), new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
+                        children.Add(Create(field.Name, field.GetValue(obj), dats, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
                     } catch (Exception ex) {
                         children.Add(new ReflectionNodeViewModel(field.Name, $"Error: {ex.Message}", field.FieldType.Name));
                     }
@@ -115,7 +125,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 foreach (var prop in type.GetProperties(flags)) {
                     if (prop.GetIndexParameters().Length > 0) continue;
                     try {
-                        children.Add(Create(prop.Name, prop.GetValue(obj), new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
+                        children.Add(Create(prop.Name, prop.GetValue(obj), dats, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
                     } catch (Exception ex) {
                         children.Add(new ReflectionNodeViewModel(prop.Name, $"Error: {ex.Message}", prop.PropertyType.Name));
                     }

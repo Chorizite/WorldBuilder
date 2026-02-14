@@ -62,10 +62,15 @@
                             </StackPanel.ContextMenu>
                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
                             <TextBlock Text=": "/>
-                            <TextBlock Text="{Binding Value}" Foreground="Gray" IsVisible="{Binding Value, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                            <TextBlock Text=" (" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding TypeName}" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
-                            <TextBlock Text=")" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
+
+                            <v:DataIdView IsVisible="{Binding IsQualifiedDataId}" />
+
+                            <StackPanel Orientation="Horizontal" IsVisible="{Binding !IsQualifiedDataId}">
+                                <TextBlock Text="{Binding Value}" Foreground="Gray" IsVisible="{Binding Value, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                <TextBlock Text=" (" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding TypeName}" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
+                                <TextBlock Text=")" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
+                            </StackPanel>
                         </StackPanel>
                     </TreeDataTemplate>
                 </TreeView.ItemTemplate>

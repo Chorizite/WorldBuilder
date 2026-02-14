@@ -112,7 +112,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             ReflectionNodes.Clear();
             if (value != null) {
                 Task.Run(() => {
-                    var root = ReflectionNodeViewModel.Create("Root", value);
+                    var root = ReflectionNodeViewModel.Create("Root", value, _dats);
                     var children = root.Children?.ToList() ?? new List<ReflectionNodeViewModel>();
                     Avalonia.Threading.Dispatcher.UIThread.Post(() => {
                         foreach (var child in children) {
