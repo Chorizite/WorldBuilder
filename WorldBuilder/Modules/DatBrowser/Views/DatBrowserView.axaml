@@ -34,25 +34,10 @@
         </Grid>
 
         <Panel Grid.Column="0" Background="#202020" IsVisible="{Binding IsMinimalMode}">
-            <views:DatObjectViewer 
-                FileId="{Binding PreviewFileId}" 
-                IsSetup="{Binding PreviewIsSetup}"
+            <views:DatObjectPreview 
+                DataId="{Binding PreviewFileId}"
                 Dats="{Binding Dats}"
-                IsVisible="{Binding Is3D}"
-                HorizontalAlignment="Stretch" 
-                VerticalAlignment="Stretch"/>
-
-            <Image 
-                IsVisible="{Binding Is2D}"
-                Source="{Binding TextureBitmap}" 
-                Stretch="Uniform" 
-                Margin="10"/>
-
-            <TextBlock Text="Object cannot be previewed" 
-                       IsVisible="{Binding !IsPreviewSupported}"
-                       HorizontalAlignment="Center" 
-                       VerticalAlignment="Center" 
-                       Foreground="Gray"/>
+                IsTooltip="False" />
         </Panel>
 
         <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" IsVisible="{Binding !IsMinimalMode}" />

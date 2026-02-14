@@ -21,19 +21,10 @@
 
         <!-- Preview Area -->
         <Panel Grid.Column="2" Background="#202020">
-            <views:DatObjectViewer 
-                IsVisible="{Binding SelectedFileId}" 
-                FileId="{Binding SelectedFileId}" 
-                IsSetup="True"
+            <views:DatObjectPreview 
+                DataId="{Binding SelectedFileId}"
                 Dats="{Binding Dats}"
-                HorizontalAlignment="Stretch" 
-                VerticalAlignment="Stretch"/>
-
-            <TextBlock Text="Select a setup to preview" 
-                       IsVisible="{Binding !SelectedFileId}"
-                       HorizontalAlignment="Center" 
-                       VerticalAlignment="Center" 
-                       Foreground="Gray"/>
+                IsTooltip="False" />
         </Panel>
     </Grid>
 </UserControl>

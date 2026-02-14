@@ -14,7 +14,6 @@ using DatReaderWriter;
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
     public partial class RenderSurfaceBrowserViewModel : ViewModelBase, IDatBrowserViewModel {
         private readonly IDatReaderWriter _dats;
-        private readonly TextureService _textureService;
 
         [ObservableProperty]
         private IEnumerable<uint> _fileIds = Enumerable.Empty<uint>();
@@ -23,29 +22,23 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private uint _selectedFileId;
 
         [ObservableProperty]
-        private Avalonia.Media.Imaging.Bitmap? _textureBitmap;
-
-        [ObservableProperty]
         private IDBObj? _selectedObject;
 
         public IDatReaderWriter Dats => _dats;
 
-        public RenderSurfaceBrowserViewModel(IDatReaderWriter dats, TextureService textureService) {
+        public RenderSurfaceBrowserViewModel(IDatReaderWriter dats) {
             _dats = dats;
-            _textureService = textureService;
             _fileIds = _dats.Portal.GetAllIdsOfType<DatReaderWriter.DBObjs.RenderSurface>().OrderBy(x => x).ToList();
         }
 
-        async partial void OnSelectedFileIdChanged(uint value) {
+        partial void OnSelectedFileIdChanged(uint value) {
             if (value != 0) {
-                TextureBitmap = await _textureService.GetTextureAsync(value);
                 if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.RenderSurface>(value, out var obj)) {
                     SelectedObject = obj;
                 } else {
                     SelectedObject = null;
                 }
             } else {
-                TextureBitmap = null;
                 SelectedObject = null;
             }
         }

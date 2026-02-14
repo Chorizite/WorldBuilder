@@ -106,7 +106,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
         var newViewModel = _serviceProvider.GetRequiredService<DatBrowserViewModel>();
         newViewModel.IsMinimalMode = true;
         newViewModel.PreviewFileId = message.DataId;
-        newViewModel.PreviewIsSetup = message.TargetType == typeof(DatReaderWriter.DBObjs.Setup);
 
         IDBObj? obj = null;
         if (message.TargetType != null && typeof(IDBObj).IsAssignableFrom(message.TargetType)) {
@@ -126,10 +125,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
                 obj = portalObj;
             } else if (_dats.HighRes.TryGet<IDBObj>(message.DataId, out var highResObj)) {
                 obj = highResObj;
-            }
-
-            if (obj is DatReaderWriter.DBObjs.Setup) {
-                newViewModel.PreviewIsSetup = true;
             }
         }
 

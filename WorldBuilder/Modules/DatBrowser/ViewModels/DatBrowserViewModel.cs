@@ -39,31 +39,16 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private ViewModelBase? _currentBrowser;
 
         [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(IsPreviewSupported))]
         private IDBObj? _selectedObject;
 
-        public bool IsPreviewSupported => SelectedObject is Setup or GfxObj or SurfaceTexture or RenderSurface;
-
         [ObservableProperty]
-        private Avalonia.Media.Imaging.Bitmap? _textureBitmap;
-
-        [ObservableProperty]
-        private bool _is3D;
-
-        [ObservableProperty]
-        private bool _is2D;
+        private uint _previewFileId;
 
         [ObservableProperty]
         private ObservableCollection<ReflectionNodeViewModel> _reflectionNodes = new();
 
         [ObservableProperty]
         private bool _isMinimalMode;
-
-        [ObservableProperty]
-        private uint _previewFileId;
-
-        [ObservableProperty]
-        private bool _previewIsSetup;
 
         private readonly SetupBrowserViewModel _setupBrowser;
         private readonly GfxObjBrowserViewModel _gfxObjBrowser;
@@ -124,23 +109,13 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         partial void OnSelectedObjectChanged(IDBObj? value) {
             ReflectionNodes.Clear();
-            Is3D = value is Setup or GfxObj;
-            Is2D = value is SurfaceTexture or RenderSurface;
-            TextureBitmap = null;
+            if (value != null) {
+                PreviewFileId = value.Id;
+            } else if (!IsMinimalMode) {
+                PreviewFileId = 0;
+            }
 
             if (value != null) {
-                if (Is2D) {
-                    var textureService = WorldBuilder.App.ProjectManager?.GetProjectService<TextureService>();
-                    if (textureService != null) {
-                        Task.Run(async () => {
-                            var bitmap = await textureService.GetTextureAsync(value.Id);
-                            Avalonia.Threading.Dispatcher.UIThread.Post(() => {
-                                TextureBitmap = bitmap;
-                            });
-                        });
-                    }
-                }
-
                 Task.Run(() => {
                     var root = ReflectionNodeViewModel.Create("Root", value, _dats);
                     var children = root.Children?.ToList() ?? new List<ReflectionNodeViewModel>();
