@@ -359,24 +359,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var uniqueObjectIds = instances.Select(i => i.ObjectId).Distinct();
             foreach (var objectId in uniqueObjectIds) {
                 _meshManager.IncrementRefCount(objectId);
-                var renderData = _meshManager.TryGetRenderData(objectId);
-                if (renderData is { IsSetup: true }) {
-                    foreach (var (partId, _) in renderData.SetupParts) {
-                        _meshManager.IncrementRefCount(partId);
-                    }
-                }
             }
         }
 
         private void DecrementInstanceRefCounts(List<SceneryInstance> instances) {
             var uniqueObjectIds = instances.Select(i => i.ObjectId).Distinct();
             foreach (var objectId in uniqueObjectIds) {
-                var renderData = _meshManager.TryGetRenderData(objectId);
-                if (renderData is { IsSetup: true }) {
-                    foreach (var (partId, _) in renderData.SetupParts) {
-                        _meshManager.DecrementRefCount(partId);
-                    }
-                }
                 _meshManager.DecrementRefCount(objectId);
             }
         }
@@ -586,6 +574,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _gl.VertexAttribPointer(loc, 4, GLEnum.Float, false, (uint)sizeof(Matrix4x4), (void*)(i * 16));
                 _gl.VertexAttribDivisor(loc, 1);
             }
+            GLHelpers.CheckErrors();
 
             foreach (var batch in renderData.Batches) {
                 _gl.DisableVertexAttribArray(7);
