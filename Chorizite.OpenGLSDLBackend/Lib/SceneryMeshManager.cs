@@ -395,6 +395,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 PixelFormat? uploadPixelFormat = null;
                 PixelType? uploadPixelType = null;
                 bool isSolid = poly.Stippling == StipplingType.NoPos || surface.Type.HasFlag(SurfaceType.Base1Solid);
+                bool isClipMap = surface.Type.HasFlag(SurfaceType.Base1ClipMap);
                 uint paletteId = 0;
 
                 if (isSolid) {
@@ -436,7 +437,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 if (!_dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var paletteData))
                                     throw new Exception($"Unable to load Palette: 0x{renderSurface.DefaultPaletteId:X8}");
                                 textureData = new byte[texWidth * texHeight * 4];
-                                TextureHelpers.FillIndex16(renderSurface.SourceData, paletteData, textureData.AsSpan(), texWidth, texHeight);
+                                TextureHelpers.FillIndex16(renderSurface.SourceData, paletteData, textureData.AsSpan(), texWidth, texHeight, isClipMap);
                                 uploadPixelFormat = PixelFormat.Rgba;
                                 break;
                             default:

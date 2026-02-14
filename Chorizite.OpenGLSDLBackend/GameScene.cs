@@ -383,7 +383,7 @@ public class GameScene : IDisposable {
         _gl.DepthFunc(DepthFunction.Less);
         _gl.DepthMask(true);
         _gl.ClearDepth(1.0f);
-        _gl.Enable(EnableCap.CullFace);
+        _gl.Disable(EnableCap.CullFace);
         _gl.CullFace(GLEnum.Back);
         _gl.FrontFace(GLEnum.CW);
         _gl.Disable(EnableCap.ScissorTest);

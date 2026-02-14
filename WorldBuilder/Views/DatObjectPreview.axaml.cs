@@ -140,8 +140,9 @@ namespace WorldBuilder.Views {
                 if (textureService != null) {
                     if (DataObjectType == DBObjType.Surface) {
                         if (Dats.Portal.TryGet<Surface>(DataId, out var surface)) {
+                            bool isClipMap = surface.Type.HasFlag(SurfaceType.Base1ClipMap);
                             if (surface.OrigTextureId != 0) {
-                                TextureBitmap = await textureService.GetTextureAsync(surface.OrigTextureId, surface.OrigPaletteId);
+                                TextureBitmap = await textureService.GetTextureAsync(surface.OrigTextureId, surface.OrigPaletteId, isClipMap);
                             } else if (surface.Type.HasFlag(SurfaceType.Base1Solid)) {
                                 TextureBitmap = textureService.CreateSolidColorBitmap(surface.ColorValue);
                             }

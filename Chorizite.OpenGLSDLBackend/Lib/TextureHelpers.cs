@@ -20,17 +20,26 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return bytes;
         }
 
-        public static void FillIndex16(byte[] src, Palette palette, Span<byte> dst, int width, int height) {
+        public static void FillIndex16(byte[] src, Palette palette, Span<byte> dst, int width, int height, bool isClipMap = false) {
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
                     var srcIdx = (y * width + x) * 2;
                     var palIdx = (ushort)(src[srcIdx] | (src[srcIdx + 1] << 8));
                     var color = palette.Colors[palIdx];
                     var dstIdx = (y * width + x) * 4;
-                    dst[dstIdx + 0] = color.Red;
-                    dst[dstIdx + 1] = color.Green;
-                    dst[dstIdx + 2] = color.Blue;
-                    dst[dstIdx + 3] = color.Alpha;
+
+                    if (isClipMap && palIdx < 8) {
+                        dst[dstIdx + 0] = 0;
+                        dst[dstIdx + 1] = 0;
+                        dst[dstIdx + 2] = 0;
+                        dst[dstIdx + 3] = 0;
+                    }
+                    else {
+                        dst[dstIdx + 0] = color.Red;
+                        dst[dstIdx + 1] = color.Green;
+                        dst[dstIdx + 2] = color.Blue;
+                        dst[dstIdx + 3] = color.Alpha;
+                    }
                 }
             }
         }

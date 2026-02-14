@@ -51,8 +51,8 @@ namespace WorldBuilder.Services {
             return await GetTextureAsync(texId);
         }
 
-        public async Task<Bitmap?> GetTextureAsync(uint textureId, uint paletteId = 0) {
-            var cacheKey = ((long)textureId << 32) | paletteId;
+        public async Task<Bitmap?> GetTextureAsync(uint textureId, uint paletteId = 0, bool isClipMap = false) {
+            var cacheKey = ((long)textureId << 32) | (paletteId << 1) | (isClipMap ? 1L : 0L);
             if (_textureCache.TryGetValue(cacheKey, out var cachedBitmap)) {
                 return cachedBitmap;
             }
@@ -82,7 +82,7 @@ namespace WorldBuilder.Services {
                         return null;
                     }
 
-                    var bitmap = CreateBitmapFromSurface(renderSurface, paletteId);
+                    var bitmap = CreateBitmapFromSurface(renderSurface, paletteId, isClipMap);
                     _textureCache.TryAdd(cacheKey, bitmap);
                     return bitmap;
                 }
@@ -109,12 +109,12 @@ namespace WorldBuilder.Services {
             return wb;
         }
 
-        private Bitmap? CreateBitmapFromSurface(RenderSurface surface, uint paletteId = 0) {
+        private Bitmap? CreateBitmapFromSurface(RenderSurface surface, uint paletteId = 0, bool isClipMap = false) {
             int width = surface.Width;
             int height = surface.Height;
             if (width <= 0 || height <= 0) return null;
 
-            byte[]? pixelData = ToRgba8(surface, paletteId);
+            byte[]? pixelData = ToRgba8(surface, paletteId, isClipMap);
             if (pixelData == null || pixelData.Length == 0) return null;
 
             var wb = new WriteableBitmap(new Avalonia.PixelSize(width, height), new Avalonia.Vector(96, 96), Avalonia.Platform.PixelFormat.Rgba8888, Avalonia.Platform.AlphaFormat.Unpremul);
@@ -126,7 +126,7 @@ namespace WorldBuilder.Services {
             return wb;
         }
 
-        private byte[]? ToRgba8(RenderSurface renderSurface, uint overridePaletteId = 0) {
+        private byte[]? ToRgba8(RenderSurface renderSurface, uint overridePaletteId = 0, bool isClipMap = false) {
             int width = renderSurface.Width;
             int height = renderSurface.Height;
             byte[] sourceData = renderSurface.SourceData;
@@ -183,10 +183,18 @@ namespace WorldBuilder.Services {
                     if (paletteId != 0 && _dats.Portal.TryGet<Palette>(paletteId, out var palette)) {
                         for (int i = 0; i < width * height; i++) {
                             var color = palette.Colors[sourceData[i]];
-                            rgba8[i * 4] = color.Red;
-                            rgba8[i * 4 + 1] = color.Green;
-                            rgba8[i * 4 + 2] = color.Blue;
-                            rgba8[i * 4 + 3] = color.Alpha == 0 ? (byte)255 : color.Alpha;
+                            if (isClipMap && sourceData[i] < 8) {
+                                rgba8[i * 4] = 0;
+                                rgba8[i * 4 + 1] = 0;
+                                rgba8[i * 4 + 2] = 0;
+                                rgba8[i * 4 + 3] = 0;
+                            }
+                            else {
+                                rgba8[i * 4] = color.Red;
+                                rgba8[i * 4 + 1] = color.Green;
+                                rgba8[i * 4 + 2] = color.Blue;
+                                rgba8[i * 4 + 3] = color.Alpha == 0 ? (byte)255 : color.Alpha;
+                            }
                         }
                     } else {
                         // Greyscale fallback if no palette
@@ -204,10 +212,18 @@ namespace WorldBuilder.Services {
                         for (int i = 0; i < width * height; i++) {
                             ushort index = BitConverter.ToUInt16(sourceData, i * 2);
                             var color = palette16.Colors[index];
-                            rgba8[i * 4] = color.Red;
-                            rgba8[i * 4 + 1] = color.Green;
-                            rgba8[i * 4 + 2] = color.Blue;
-                            rgba8[i * 4 + 3] = color.Alpha == 0 ? (byte)255 : color.Alpha;
+                            if (isClipMap && index < 8) {
+                                rgba8[i * 4] = 0;
+                                rgba8[i * 4 + 1] = 0;
+                                rgba8[i * 4 + 2] = 0;
+                                rgba8[i * 4 + 3] = 0;
+                            }
+                            else {
+                                rgba8[i * 4] = color.Red;
+                                rgba8[i * 4 + 1] = color.Green;
+                                rgba8[i * 4 + 2] = color.Blue;
+                                rgba8[i * 4 + 3] = color.Alpha == 0 ? (byte)255 : color.Alpha;
+                            }
                         }
                     } else {
                         // Greyscale fallback if no palette
