@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
@@ -100,14 +101,102 @@ namespace WorldBuilder.Views {
             private set => SetAndRaise(TextureBitmapProperty, ref _textureBitmap, value);
         }
 
+        public static readonly StyledProperty<Stretch> ImageStretchProperty =
+            AvaloniaProperty.Register<DatObjectPreview, Stretch>(nameof(ImageStretch), Stretch.Uniform);
+
+        public Stretch ImageStretch {
+            get => GetValue(ImageStretchProperty);
+            set => SetValue(ImageStretchProperty, value);
+        }
+
+        public static readonly StyledProperty<double> ZoomLevelProperty =
+            AvaloniaProperty.Register<DatObjectPreview, double>(nameof(ZoomLevel), 1.0);
+
+        public double ZoomLevel {
+            get => GetValue(ZoomLevelProperty);
+            set => SetValue(ZoomLevelProperty, value);
+        }
+
+        public static readonly StyledProperty<double> ZoomedWidthProperty =
+            AvaloniaProperty.Register<DatObjectPreview, double>(nameof(ZoomedWidth), double.NaN);
+
+        public double ZoomedWidth {
+            get => GetValue(ZoomedWidthProperty);
+            set => SetValue(ZoomedWidthProperty, value);
+        }
+
+        public static readonly StyledProperty<double> ZoomedHeightProperty =
+            AvaloniaProperty.Register<DatObjectPreview, double>(nameof(ZoomedHeight), double.NaN);
+
+        public double ZoomedHeight {
+            get => GetValue(ZoomedHeightProperty);
+            set => SetValue(ZoomedHeightProperty, value);
+        }
+
+        public static readonly StyledProperty<bool> IsManualZoomProperty =
+            AvaloniaProperty.Register<DatObjectPreview, bool>(nameof(IsManualZoom), false);
+
+        public bool IsManualZoom {
+            get => GetValue(IsManualZoomProperty);
+            set => SetValue(IsManualZoomProperty, value);
+        }
+
         public DatObjectPreview() {
             InitializeComponent();
+            AddHandler(PointerWheelChangedEvent, (s, e) => {
+                if (Is2D && !IsTooltip && TextureBitmap != null) {
+                    if (!IsManualZoom) {
+                        // Calculate initial zoom level from "Fit" size
+                        var scrollViewer = this.FindControl<ScrollViewer>("PreviewScrollViewer");
+                        if (scrollViewer != null) {
+                            var viewport = scrollViewer.Viewport;
+                            var texSize = TextureBitmap.Size;
+                            var scaleX = (viewport.Width - 10) / texSize.Width; // subtract margin
+                            var scaleY = (viewport.Height - 10) / texSize.Height;
+                            ZoomLevel = Math.Min(scaleX, scaleY);
+                        }
+                        IsManualZoom = true;
+                        ImageStretch = Stretch.Fill;
+                    }
+
+                    var delta = e.Delta.Y;
+                    if (delta > 0) {
+                        ZoomLevel *= 1.1;
+                    } else {
+                        ZoomLevel /= 1.1;
+                    }
+                    UpdateZoomedSize();
+                    e.Handled = true;
+                }
+            }, Avalonia.Interactivity.RoutingStrategies.Bubble);
         }
+
+        public void SetStretch(Stretch stretch) {
+            IsManualZoom = stretch != Stretch.Uniform;
+            ImageStretch = stretch;
+            ZoomLevel = 1.0;
+            UpdateZoomedSize();
+        }
+
+        private void UpdateZoomedSize() {
+            if (TextureBitmap == null || !IsManualZoom) {
+                ZoomedWidth = double.NaN;
+                ZoomedHeight = double.NaN;
+            } else {
+                ZoomedWidth = TextureBitmap.Size.Width * ZoomLevel;
+                ZoomedHeight = TextureBitmap.Size.Height * ZoomLevel;
+            }
+        }
+
+        public void On1To1Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => SetStretch(Stretch.Fill);
+        public void OnFitClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => SetStretch(Stretch.Uniform);
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
             base.OnPropertyChanged(change);
             if (change.Property == DataIdProperty || change.Property == DatsProperty) {
                 UpdatePreview();
+            } else if (change.Property == TextureBitmapProperty || change.Property == ZoomLevelProperty || change.Property == ImageStretchProperty) {
+                UpdateZoomedSize();
             }
         }
 

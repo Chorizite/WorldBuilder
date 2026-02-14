@@ -21,8 +21,25 @@
 
         <!-- Preview Area -->
         <Panel Grid.Column="2" Background="#202020">
+            <TabControl ItemsSource="{Binding Textures}" SelectedItem="{Binding PreviewFileId}" 
+                        IsVisible="{Binding Textures.Count, FallbackValue=False}">
+                <TabControl.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding StringFormat='{}{0:X8}'}" />
+                    </DataTemplate>
+                </TabControl.ItemTemplate>
+                <TabControl.ContentTemplate>
+                    <DataTemplate>
+                        <views:DatObjectPreview 
+                            DataId="{Binding}"
+                            Dats="{Binding $parent[UserControl].((vm:SurfaceTextureBrowserViewModel)DataContext).Dats}"
+                            IsTooltip="False" />
+                    </DataTemplate>
+                </TabControl.ContentTemplate>
+            </TabControl>
             <views:DatObjectPreview 
-                DataId="{Binding SelectedFileId}"
+                IsVisible="{Binding !Textures.Count, FallbackValue=True}"
+                DataId="{Binding PreviewFileId}"
                 Dats="{Binding Dats}"
                 IsTooltip="False" />
         </Panel>

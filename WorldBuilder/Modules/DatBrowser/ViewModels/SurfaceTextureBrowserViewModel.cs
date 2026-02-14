@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -22,6 +23,12 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private uint _selectedFileId;
 
         [ObservableProperty]
+        private uint _previewFileId;
+
+        [ObservableProperty]
+        private IReadOnlyList<uint> _textures = Array.Empty<uint>();
+
+        [ObservableProperty]
         private IDBObj? _selectedObject;
 
         public IDatReaderWriter Dats => _dats;
@@ -35,11 +42,17 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             if (value != 0) {
                 if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.SurfaceTexture>(value, out var obj)) {
                     SelectedObject = obj;
+                    Textures = obj.Textures.Select(x => x.DataId).ToList();
+                    PreviewFileId = Textures.FirstOrDefault();
                 } else {
                     SelectedObject = null;
+                    Textures = Array.Empty<uint>();
+                    PreviewFileId = 0;
                 }
             } else {
                 SelectedObject = null;
+                Textures = Array.Empty<uint>();
+                PreviewFileId = 0;
             }
         }
     }

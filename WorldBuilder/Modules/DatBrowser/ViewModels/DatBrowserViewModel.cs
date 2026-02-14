@@ -43,6 +43,12 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private IDBObj? _selectedObject;
 
         [ObservableProperty]
+        private object? _objectOverview;
+
+        [ObservableProperty]
+        private int _selectedPropertiesTabIndex;
+
+        [ObservableProperty]
         private uint _previewFileId;
 
         [ObservableProperty]
@@ -101,6 +107,11 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             if (e.PropertyName == nameof(IDatBrowserViewModel.SelectedObject)) {
                 UpdateSelectedObject();
             }
+            if (sender is SurfaceTextureBrowserViewModel stBrowser && e.PropertyName == nameof(SurfaceTextureBrowserViewModel.PreviewFileId)) {
+                if (ObjectOverview is SurfaceTextureOverviewViewModel stovm) {
+                    stovm.SelectedTextureId = stBrowser.PreviewFileId;
+                }
+            }
         }
 
         private void UpdateSelectedObject() {
@@ -112,9 +123,26 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         }
 
         partial void OnSelectedObjectChanged(IDBObj? value) {
+            if (ObjectOverview is INotifyPropertyChanged oldNotify) {
+                oldNotify.PropertyChanged -= OnOverviewPropertyChanged;
+            }
             ReflectionNodes.Clear();
+            ObjectOverview = CreateOverview(value);
+            if (ObjectOverview is INotifyPropertyChanged newNotify) {
+                newNotify.PropertyChanged += OnOverviewPropertyChanged;
+            }
+            SelectedPropertiesTabIndex = ObjectOverview != null ? 0 : 1;
+
             if (value != null) {
-                PreviewFileId = value.Id;
+                if (ObjectOverview is SurfaceTextureOverviewViewModel stovm) {
+                    PreviewFileId = stovm.SelectedTextureId;
+                } else {
+                    PreviewFileId = value.Id;
+                }
+
+                if (CurrentBrowser is SurfaceTextureBrowserViewModel stBrowser) {
+                    stBrowser.PreviewFileId = PreviewFileId;
+                }
             } else if (!IsMinimalMode) {
                 PreviewFileId = 0;
             }
@@ -130,6 +158,22 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                     });
                 });
             }
+        }
+
+        private void OnOverviewPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+            if (sender is SurfaceTextureOverviewViewModel stovm && (e.PropertyName == nameof(SurfaceTextureOverviewViewModel.SelectedTextureId) || e.PropertyName == nameof(SurfaceTextureOverviewViewModel.SelectedTexture))) {
+                PreviewFileId = stovm.SelectedTextureId;
+                if (CurrentBrowser is SurfaceTextureBrowserViewModel stBrowser) {
+                    stBrowser.PreviewFileId = stovm.SelectedTextureId;
+                }
+            }
+        }
+
+        private object? CreateOverview(IDBObj? obj) {
+            if (obj is SurfaceTexture surfaceTexture) {
+                return new SurfaceTextureOverviewViewModel(surfaceTexture, _dats);
+            }
+            return null;
         }
     }
 }

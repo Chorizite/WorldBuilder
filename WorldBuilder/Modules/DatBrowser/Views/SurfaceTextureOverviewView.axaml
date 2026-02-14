@@ -1,0 +1,63 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
+             xmlns:v="using:WorldBuilder.Modules.DatBrowser.Views"
+             xmlns:views="using:WorldBuilder.Views"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="450"
+             x:Class="WorldBuilder.Modules.DatBrowser.Views.SurfaceTextureOverviewView"
+             x:DataType="vm:SurfaceTextureOverviewViewModel">
+    <UserControl.Styles>
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="2"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="#44ffffff"/>
+        </Style>
+        <Style Selector="ListBoxItem:selected Border#ItemBorder">
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}"/>
+            <Setter Property="BorderThickness" Value="3"/>
+            <Setter Property="Background" Value="#22ffffff"/>
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer>
+        <StackPanel Margin="10" Spacing="10">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+                <TextBlock Text="ID:" FontWeight="Bold"/>
+                <TextBlock Text="{Binding SurfaceTexture.Id, StringFormat='0x{0:X8}'}"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="5">
+                <TextBlock Text="Type:" FontWeight="Bold"/>
+                <TextBlock Text="{Binding Type}"/>
+            </StackPanel>
+
+            <StackPanel Spacing="5">
+                <TextBlock Text="Textures:" FontWeight="Bold"/>
+                <ListBox ItemsSource="{Binding Textures}" SelectedItem="{Binding SelectedTexture}" Background="Transparent">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Panel>
+                                <Border x:Name="ItemBorder" BorderBrush="#444" BorderThickness="1" Margin="2" Height="300">
+                                    <views:DatObjectPreview DataId="{Binding DataId}" Dats="{Binding Dats}" IsTooltip="True" />
+                                </Border>
+                                <Button Command="{Binding OpenInNewWindowCommand}" 
+                                        ToolTip.Tip="Open in new window" 
+                                        HorizontalAlignment="Right" 
+                                        VerticalAlignment="Top"
+                                        Margin="5"
+                                        Background="#80000000" 
+                                        BorderThickness="0">
+                                    <TextBlock Text="↗" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource AccentPurple}"/>
+                                </Button>
+                            </Panel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
