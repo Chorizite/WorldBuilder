@@ -234,7 +234,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         BoundingBox = meshData.BoundingBox
                     };
                     _renderData[meshData.ObjectId] = data;
-                    _usageCount[meshData.ObjectId] = 1;
+                    _usageCount.TryAdd(meshData.ObjectId, 1);
+
+                    // Increment ref counts for all parts
+                    foreach (var (partId, _) in meshData.SetupParts) {
+                        IncrementRefCount(partId);
+                    }
+
                     return data;
                 }
 
@@ -242,7 +248,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (renderData != null) {
                     renderData.BoundingBox = meshData.BoundingBox;
                     _renderData[meshData.ObjectId] = renderData;
-                    _usageCount[meshData.ObjectId] = 1;
+                    _usageCount.TryAdd(meshData.ObjectId, 1);
                 }
                 return renderData;
             }
@@ -634,6 +640,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     GpuMemoryTracker.TrackDeallocation(batch.IndexCount * sizeof(ushort));
                 }
                 batch.Atlas.ReleaseTexture(batch.Key);
+            }
+
+            if (data.IsSetup) {
+                foreach (var (partId, _) in data.SetupParts) {
+                    DecrementRefCount(partId);
+                }
             }
 
             _renderData.Remove(key);

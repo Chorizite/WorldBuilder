@@ -120,6 +120,7 @@ namespace Chorizite.OpenGLSDLBackend {
             }
 
             GL.BindSampler((uint)slot, 0);
+            GLHelpers.CheckErrors();
             GL.ActiveTexture(GLEnum.Texture0 + slot);
             GLHelpers.CheckErrors();
             GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
@@ -171,6 +172,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public void UpdateLayer(int layer, byte[] data, PixelFormat? uploadPixelFormat, PixelType? uploadPixelType) {
             UpdateLayerInternal(layer, data, uploadPixelFormat, uploadPixelType);
+            _usedLayers[layer] = true;
         }
 
         private unsafe void UpdateLayerInternal(int layer, byte[] data, PixelFormat? uploadPixelFormat,
