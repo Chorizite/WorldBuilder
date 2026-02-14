@@ -84,11 +84,24 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             visited.Add(obj);
 
             var children = new List<ReflectionNodeViewModel>();
+            bool isList = false;
 
-            if (obj is IEnumerable enumerable && obj is not string) {
+            if (obj is IDictionary dictionary) {
+                foreach (DictionaryEntry entry in dictionary) {
+                    children.Add(Create(entry.Key?.ToString() ?? "null", entry.Value, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
+                }
+            } else if (obj is IEnumerable enumerable && obj is not string) {
                 int index = 0;
                 foreach (var item in enumerable) {
-                    children.Add(Create($"[{index++}]", item, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
+                    var itemType = item?.GetType();
+                    if (itemType != null && itemType.IsGenericType && itemType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>)) {
+                        var key = itemType.GetProperty("Key")?.GetValue(item);
+                        var value = itemType.GetProperty("Value")?.GetValue(item);
+                        children.Add(Create(key?.ToString() ?? "null", value, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
+                    } else {
+                        isList = true;
+                        children.Add(Create($"[{index++}]", item, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
+                    }
                 }
             } else {
                 var flags = BindingFlags.Public | BindingFlags.Instance;
@@ -109,7 +122,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 }
             }
 
-            return new ReflectionNodeViewModel(name, null, type.Name, children.OrderBy(x => x.Name));
+            return new ReflectionNodeViewModel(name, null, type.Name, isList ? children : children.OrderBy(x => x.Name));
         }
 
         private static bool IsSimpleType(Type type) {
