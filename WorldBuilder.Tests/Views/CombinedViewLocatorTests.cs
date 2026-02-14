@@ -115,10 +115,14 @@ public class CombinedViewLocatorTests {
         mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.Setup>()).Returns(Enumerable.Empty<uint>());
         mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.GfxObj>()).Returns(Enumerable.Empty<uint>());
         mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.SurfaceTexture>()).Returns(Enumerable.Empty<uint>());
+        mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.RenderSurface>()).Returns(Enumerable.Empty<uint>());
+        mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.Surface>()).Returns(Enumerable.Empty<uint>());
         
         var mockSetup = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SetupBrowserViewModel>(mockDats.Object);
         var mockGfx = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.GfxObjBrowserViewModel>(mockDats.Object);
-        var mockTex = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.TextureBrowserViewModel>(mockDats.Object, null!);
+        var mockTex = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SurfaceTextureBrowserViewModel>(mockDats.Object);
+        var mockRenderTex = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.RenderSurfaceBrowserViewModel>(mockDats.Object);
+        var mockSurface = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SurfaceBrowserViewModel>(mockDats.Object);
         var mockDialog = new Moq.Mock<HanumanInstitute.MvvmDialogs.IDialogService>();
         var mockServiceProvider = new Moq.Mock<IServiceProvider>();
 
@@ -126,6 +130,8 @@ public class CombinedViewLocatorTests {
             mockSetup.Object,
             mockGfx.Object,
             mockTex.Object,
+            mockRenderTex.Object,
+            mockSurface.Object,
             mockDialog.Object,
             mockServiceProvider.Object,
             mockDats.Object

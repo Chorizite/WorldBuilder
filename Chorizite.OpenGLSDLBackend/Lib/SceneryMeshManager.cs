@@ -3,6 +3,7 @@ using Chorizite.Core.Render;
 using Chorizite.Core.Render.Enums;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
+using CullMode = DatReaderWriter.Enums.CullMode;
 using DatReaderWriter.Types;
 using Silk.NET.OpenGL;
 using System;
@@ -64,6 +65,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public byte[] TextureData { get; set; } = Array.Empty<byte>();
         public PixelFormat? UploadPixelFormat { get; set; }
         public PixelType? UploadPixelType { get; set; }
+        public DatReaderWriter.Enums.CullMode CullMode { get; set; }
     }
 
     /// <summary>
@@ -75,6 +77,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public PixelFormat? UploadPixelFormat { get; set; }
         public PixelType? UploadPixelType { get; set; }
         public List<ushort> Indices { get; set; } = new();
+        public DatReaderWriter.Enums.CullMode CullMode { get; set; }
     }
 
     /// <summary>
@@ -104,6 +107,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public TextureFormat TextureFormat { get; set; }
         public uint SurfaceId { get; set; }
         public TextureAtlasManager.TextureKey Key { get; set; }
+        public DatReaderWriter.Enums.CullMode CullMode { get; set; }
     }
 
     /// <summary>
@@ -357,9 +361,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private ObjectMeshData? PrepareGfxObjMeshData(uint id, GfxObj gfxObj, Vector3 scale) {
             var vertices = new List<VertexPositionNormalTexture>();
-            var UVLookup = new Dictionary<(ushort vertId, ushort uvIdx), ushort>();
+            var UVLookup = new Dictionary<(ushort vertId, ushort uvIdx, bool isNeg), ushort>();
             var batchesByFormat = new Dictionary<(int Width, int Height, TextureFormat Format), List<TextureBatchData>>();
-            var allBatches = new List<MeshBatchData>();
 
             var (min, max) = ComputeBounds(gfxObj, scale);
             var boundingBox = new BoundingBox(min, max);
@@ -367,112 +370,114 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var poly in gfxObj.Polygons.Values) {
                 if (poly.VertexIds.Count < 3) continue;
 
-                int surfaceIdx = poly.PosSurface;
-                bool useNegSurface = false;
-
-                if (poly.Stippling == StipplingType.NoPos) {
-                    if (poly.PosSurface < gfxObj.Surfaces.Count) {
-                        surfaceIdx = poly.PosSurface;
-                    }
-                    else if (poly.NegSurface < gfxObj.Surfaces.Count) {
-                        surfaceIdx = poly.NegSurface;
-                        useNegSurface = true;
-                    }
-                    else {
-                        continue;
-                    }
-                }
-                else if (surfaceIdx >= gfxObj.Surfaces.Count) {
-                    continue;
+                // Handle Positive Surface
+                if (!poly.Stippling.HasFlag(StipplingType.NoPos)) {
+                    AddSurfaceToBatch(poly, poly.PosSurface, false);
                 }
 
-                var surfaceId = gfxObj.Surfaces[surfaceIdx];
-                if (!_dats.Portal.TryGet<Surface>(surfaceId, out var surface)) continue;
+                // Handle Negative Surface
+                // Some objects use Clockwise CullMode to indicate negative surface data is present
+                bool hasNeg = poly.Stippling.HasFlag(StipplingType.Negative) ||
+                             poly.Stippling.HasFlag(StipplingType.Both) ||
+                             (!poly.Stippling.HasFlag(StipplingType.NoNeg) && poly.SidesType == CullMode.Clockwise);
 
-                int texWidth, texHeight;
-                byte[] textureData;
-                TextureFormat textureFormat;
-                PixelFormat? uploadPixelFormat = null;
-                PixelType? uploadPixelType = null;
-                bool isSolid = poly.Stippling == StipplingType.NoPos || surface.Type.HasFlag(SurfaceType.Base1Solid);
-                uint paletteId = 0;
-
-                if (isSolid) {
-                    texWidth = texHeight = 32;
-                    textureData = TextureHelpers.CreateSolidColorTexture(surface.ColorValue, texWidth, texHeight);
-                    textureFormat = TextureFormat.RGBA8;
-                    uploadPixelFormat = PixelFormat.Rgba;
+                if (hasNeg) {
+                    AddSurfaceToBatch(poly, poly.NegSurface, true);
                 }
-                else if (_dats.Portal.TryGet<SurfaceTexture>(surface.OrigTextureId, out var surfaceTexture) &&
-                         surfaceTexture.Textures?.Any() == true) {
-                    var renderSurfaceId = surfaceTexture.Textures.Last();
-                    if (!_dats.Portal.TryGet<RenderSurface>(renderSurfaceId, out var renderSurface)) continue;
 
-                    texWidth = renderSurface.Width;
-                    texHeight = renderSurface.Height;
-                    paletteId = renderSurface.DefaultPaletteId;
+                void AddSurfaceToBatch(Polygon poly, short surfaceIdx, bool isNeg) {
+                    if (surfaceIdx < 0 || surfaceIdx >= gfxObj.Surfaces.Count) return;
 
-                    if (TextureHelpers.IsCompressedFormat(renderSurface.Format)) {
-                        textureFormat = renderSurface.Format switch {
-                            DatReaderWriter.Enums.PixelFormat.PFID_DXT1 => TextureFormat.DXT1,
-                            DatReaderWriter.Enums.PixelFormat.PFID_DXT3 => TextureFormat.DXT3,
-                            DatReaderWriter.Enums.PixelFormat.PFID_DXT5 => TextureFormat.DXT5,
-                            _ => throw new NotSupportedException($"Unsupported compressed format: {renderSurface.Format}")
-                        };
-                        textureData = renderSurface.SourceData;
-                    }
-                    else {
+                    var surfaceId = gfxObj.Surfaces[surfaceIdx];
+                    if (!_dats.Portal.TryGet<Surface>(surfaceId, out var surface)) return;
+
+                    int texWidth, texHeight;
+                    byte[] textureData;
+                    TextureFormat textureFormat;
+                    PixelFormat? uploadPixelFormat = null;
+                    PixelType? uploadPixelType = null;
+                    bool isSolid = poly.Stippling.HasFlag(StipplingType.NoPos) || surface.Type.HasFlag(SurfaceType.Base1Solid);
+                    bool isClipMap = surface.Type.HasFlag(SurfaceType.Base1ClipMap);
+                    uint paletteId = 0;
+
+                    if (isSolid) {
+                        texWidth = texHeight = 32;
+                        textureData = TextureHelpers.CreateSolidColorTexture(surface.ColorValue, texWidth, texHeight);
                         textureFormat = TextureFormat.RGBA8;
-                        textureData = renderSurface.SourceData;
-                        switch (renderSurface.Format) {
-                            case DatReaderWriter.Enums.PixelFormat.PFID_A8R8G8B8:
-                                uploadPixelFormat = PixelFormat.Rgba;
-                                break;
-                            case DatReaderWriter.Enums.PixelFormat.PFID_R8G8B8:
-                                uploadPixelFormat = PixelFormat.Rgb;
-                                textureFormat = TextureFormat.RGB8;
-                                break;
-                            case DatReaderWriter.Enums.PixelFormat.PFID_INDEX16:
-                                if (!_dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var paletteData))
-                                    throw new Exception($"Unable to load Palette: 0x{renderSurface.DefaultPaletteId:X8}");
-                                textureData = new byte[texWidth * texHeight * 4];
-                                TextureHelpers.FillIndex16(renderSurface.SourceData, paletteData, textureData.AsSpan(), texWidth, texHeight);
-                                uploadPixelFormat = PixelFormat.Rgba;
-                                break;
-                            default:
-                                throw new NotSupportedException($"Unsupported surface format: {renderSurface.Format}");
+                        uploadPixelFormat = PixelFormat.Rgba;
+                    }
+                    else if (_dats.Portal.TryGet<SurfaceTexture>(surface.OrigTextureId, out var surfaceTexture) &&
+                             surfaceTexture.Textures?.Any() == true) {
+                        var renderSurfaceId = surfaceTexture.Textures.Last();
+                        if (!_dats.Portal.TryGet<RenderSurface>(renderSurfaceId, out var renderSurface)) return;
+
+                        texWidth = renderSurface.Width;
+                        texHeight = renderSurface.Height;
+                        paletteId = renderSurface.DefaultPaletteId;
+
+                        if (TextureHelpers.IsCompressedFormat(renderSurface.Format)) {
+                            textureFormat = renderSurface.Format switch {
+                                DatReaderWriter.Enums.PixelFormat.PFID_DXT1 => TextureFormat.DXT1,
+                                DatReaderWriter.Enums.PixelFormat.PFID_DXT3 => TextureFormat.DXT3,
+                                DatReaderWriter.Enums.PixelFormat.PFID_DXT5 => TextureFormat.DXT5,
+                                _ => throw new NotSupportedException($"Unsupported compressed format: {renderSurface.Format}")
+                            };
+                            textureData = renderSurface.SourceData;
+                        }
+                        else {
+                            textureFormat = TextureFormat.RGBA8;
+                            textureData = renderSurface.SourceData;
+                            switch (renderSurface.Format) {
+                                case DatReaderWriter.Enums.PixelFormat.PFID_A8R8G8B8:
+                                    uploadPixelFormat = PixelFormat.Rgba;
+                                    break;
+                                case DatReaderWriter.Enums.PixelFormat.PFID_R8G8B8:
+                                    uploadPixelFormat = PixelFormat.Rgb;
+                                    textureFormat = TextureFormat.RGB8;
+                                    break;
+                                case DatReaderWriter.Enums.PixelFormat.PFID_INDEX16:
+                                    if (!_dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var paletteData))
+                                        throw new Exception($"Unable to load Palette: 0x{renderSurface.DefaultPaletteId:X8}");
+                                    textureData = new byte[texWidth * texHeight * 4];
+                                    TextureHelpers.FillIndex16(renderSurface.SourceData, paletteData, textureData.AsSpan(), texWidth, texHeight, isClipMap);
+                                    uploadPixelFormat = PixelFormat.Rgba;
+                                    break;
+                                default:
+                                    throw new NotSupportedException($"Unsupported surface format: {renderSurface.Format}");
+                            }
                         }
                     }
-                }
-                else {
-                    continue;
-                }
+                    else {
+                        return;
+                    }
 
-                var format = (texWidth, texHeight, textureFormat);
-                var key = new TextureAtlasManager.TextureKey {
-                    SurfaceId = surfaceId,
-                    PaletteId = paletteId,
-                    Stippling = poly.Stippling,
-                    IsSolid = isSolid
-                };
-
-                if (!batchesByFormat.TryGetValue(format, out var batches)) {
-                    batches = new List<TextureBatchData>();
-                    batchesByFormat[format] = batches;
-                }
-
-                var batch = batches.FirstOrDefault(b => b.Key.Equals(key));
-                if (batch == null) {
-                    batch = new TextureBatchData {
-                        Key = key,
-                        TextureData = textureData,
-                        UploadPixelFormat = uploadPixelFormat,
-                        UploadPixelType = uploadPixelType
+                    var format = (texWidth, texHeight, textureFormat);
+                    var key = new TextureAtlasManager.TextureKey {
+                        SurfaceId = surfaceId,
+                        PaletteId = paletteId,
+                        Stippling = poly.Stippling,
+                        IsSolid = isSolid
                     };
-                    batches.Add(batch);
-                }
 
-                BuildPolygonIndices(poly, gfxObj, scale, UVLookup, vertices, batch.Indices, useNegSurface);
+                    if (!batchesByFormat.TryGetValue(format, out var batches)) {
+                        batches = new List<TextureBatchData>();
+                        batchesByFormat[format] = batches;
+                    }
+
+                    var batch = batches.FirstOrDefault(b => b.Key.Equals(key) && b.CullMode == poly.SidesType);
+                    if (batch == null) {
+                        batch = new TextureBatchData {
+                            Key = key,
+                            CullMode = poly.SidesType,
+                            TextureData = textureData,
+                            UploadPixelFormat = uploadPixelFormat,
+                            UploadPixelType = uploadPixelType
+                        };
+                        batches.Add(batch);
+                    }
+
+                    BuildPolygonIndices(poly, gfxObj, scale, UVLookup, vertices, batch.Indices, isNeg);
+                }
             }
 
             return new ObjectMeshData {
@@ -485,7 +490,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         private void BuildPolygonIndices(Polygon poly, GfxObj gfxObj, Vector3 scale,
-            Dictionary<(ushort vertId, ushort uvIdx), ushort> UVLookup,
+            Dictionary<(ushort vertId, ushort uvIdx, bool isNeg), ushort> UVLookup,
             List<VertexPositionNormalTexture> vertices, List<ushort> indices, bool useNegSurface) {
 
             var polyIndices = new List<ushort>();
@@ -505,16 +510,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     uvIdx = 0;
                 }
 
-                var key = (vertId, uvIdx);
+                var key = (vertId, uvIdx, useNegSurface);
                 if (!UVLookup.TryGetValue(key, out var idx)) {
                     var uv = vertex.UVs.Count > 0
                         ? new Vector2(vertex.UVs[uvIdx].U, vertex.UVs[uvIdx].V)
                         : Vector2.Zero;
 
+                    var normal = Vector3.Normalize(vertex.Normal);
+                    if (useNegSurface) {
+                        normal = -normal;
+                    }
+
                     idx = (ushort)vertices.Count;
                     vertices.Add(new VertexPositionNormalTexture(
                         vertex.Origin * scale,
-                        Vector3.Normalize(vertex.Normal),
+                        normal,
                         uv
                     ));
                     UVLookup[key] = idx;
@@ -522,10 +532,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 polyIndices.Add(idx);
             }
 
-            for (int i = 2; i < polyIndices.Count; i++) {
-                indices.Add(polyIndices[i]);
-                indices.Add(polyIndices[i - 1]);
-                indices.Add(polyIndices[0]);
+            if (useNegSurface) {
+                // Reverse winding for negative surface so it's visible from the other side
+                for (int i = 2; i < polyIndices.Count; i++) {
+                    indices.Add(polyIndices[0]);
+                    indices.Add(polyIndices[i - 1]);
+                    indices.Add(polyIndices[i]);
+                }
+            }
+            else {
+                for (int i = 2; i < polyIndices.Count; i++) {
+                    indices.Add(polyIndices[i]);
+                    indices.Add(polyIndices[i - 1]);
+                    indices.Add(polyIndices[0]);
+                }
             }
         }
 
@@ -593,7 +613,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         TextureIndex = textureIndex,
                         TextureSize = (format.Width, format.Height),
                         TextureFormat = format.Format,
-                        Key = batch.Key
+                        Key = batch.Key,
+                        CullMode = batch.CullMode
                     });
                 }
             }

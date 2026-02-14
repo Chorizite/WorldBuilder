@@ -9,7 +9,10 @@
 
 	<ItemGroup>
 		<PackageReference Include="Avalonia.Desktop" />
+		<PackageReference Include="BCnEncoder.Net" />
+		<PackageReference Include="BCnEncoder.Net.ImageSharp" />
 		<PackageReference Include="Chorizite.DatReaderWriter" />
+		<PackageReference Include="Chorizite.DatReaderWriter.Extensions" />
 		<TrimmerRootAssembly Include="DatReaderWriter" />
 		<TrimmerRootAssembly Include="WorldBuilder" />
 		<TrimmerRootAssembly Include="WorldBuilder.Shared" />

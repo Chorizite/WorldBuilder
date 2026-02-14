@@ -13,6 +13,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using WorldBuilder.Shared.Services;
+using WorldBuilder.Services;
 using HanumanInstitute.MvvmDialogs;
 using System.Threading.Tasks;
 using WorldBuilder.Lib;
@@ -21,7 +22,9 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
     public enum DatType {
         Setup,
         GfxObj,
-        Texture
+        SurfaceTexture,
+        RenderSurface,
+        Surface
     }
 
     public partial class DatBrowserViewModel : ViewModelBase, IToolModule {
@@ -37,10 +40,10 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private ViewModelBase? _currentBrowser;
 
         [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(IsPreviewSupported))]
         private IDBObj? _selectedObject;
 
-        public bool IsPreviewSupported => SelectedObject is Setup or GfxObj;
+        [ObservableProperty]
+        private uint _previewFileId;
 
         [ObservableProperty]
         private ObservableCollection<ReflectionNodeViewModel> _reflectionNodes = new();
@@ -48,25 +51,23 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         [ObservableProperty]
         private bool _isMinimalMode;
 
-        [ObservableProperty]
-        private uint _previewFileId;
-
-        [ObservableProperty]
-        private bool _previewIsSetup;
-
         private readonly SetupBrowserViewModel _setupBrowser;
         private readonly GfxObjBrowserViewModel _gfxObjBrowser;
-        private readonly TextureBrowserViewModel _textureBrowser;
+        private readonly SurfaceTextureBrowserViewModel _surfaceTextureBrowser;
+        private readonly RenderSurfaceBrowserViewModel _renderSurfaceBrowser;
+        private readonly SurfaceBrowserViewModel _surfaceBrowser;
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
         private readonly IDatReaderWriter _dats;
 
         public IDatReaderWriter Dats => _dats;
 
-        public DatBrowserViewModel(SetupBrowserViewModel setupBrowser, GfxObjBrowserViewModel gfxObjBrowser, TextureBrowserViewModel textureBrowser, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats) {
+        public DatBrowserViewModel(SetupBrowserViewModel setupBrowser, GfxObjBrowserViewModel gfxObjBrowser, SurfaceTextureBrowserViewModel surfaceTextureBrowser, RenderSurfaceBrowserViewModel renderSurfaceBrowser, SurfaceBrowserViewModel surfaceBrowser, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats) {
             _setupBrowser = setupBrowser;
             _gfxObjBrowser = gfxObjBrowser;
-            _textureBrowser = textureBrowser;
+            _surfaceTextureBrowser = surfaceTextureBrowser;
+            _renderSurfaceBrowser = renderSurfaceBrowser;
+            _surfaceBrowser = surfaceBrowser;
             _dialogService = dialogService;
             _serviceProvider = serviceProvider;
             _dats = dats;
@@ -79,7 +80,9 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             CurrentBrowser = value switch {
                 DatType.Setup => _setupBrowser,
                 DatType.GfxObj => _gfxObjBrowser,
-                DatType.Texture => _textureBrowser,
+                DatType.SurfaceTexture => _surfaceTextureBrowser,
+                DatType.RenderSurface => _renderSurfaceBrowser,
+                DatType.Surface => _surfaceBrowser,
                 _ => null
             };
         }
@@ -111,8 +114,14 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         partial void OnSelectedObjectChanged(IDBObj? value) {
             ReflectionNodes.Clear();
             if (value != null) {
+                PreviewFileId = value.Id;
+            } else if (!IsMinimalMode) {
+                PreviewFileId = 0;
+            }
+
+            if (value != null) {
                 Task.Run(() => {
-                    var root = ReflectionNodeViewModel.Create("Root", value);
+                    var root = ReflectionNodeViewModel.Create("Root", value, _dats);
                     var children = root.Children?.ToList() ?? new List<ReflectionNodeViewModel>();
                     Avalonia.Threading.Dispatcher.UIThread.Post(() => {
                         foreach (var child in children) {

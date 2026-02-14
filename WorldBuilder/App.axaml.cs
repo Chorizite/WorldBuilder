@@ -30,6 +30,11 @@ public partial class App : Application {
     /// </summary>
     public static IServiceProvider? Services { get; private set; }
 
+    /// <summary>
+    /// Gets the project manager for the application.
+    /// </summary>
+    public static ProjectManager? ProjectManager { get; private set; }
+
     private readonly ProjectManager? _projectManager;
 
     /// <summary>
@@ -43,6 +48,7 @@ public partial class App : Application {
     public App() {
         Services = ApplicationBootstrapper.BuildServiceProvider();
         _projectManager = Services.GetService<ProjectManager>();
+        ProjectManager = _projectManager;
     }
 
     /// <summary>

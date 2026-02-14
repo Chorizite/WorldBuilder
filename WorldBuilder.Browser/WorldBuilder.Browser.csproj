@@ -13,7 +13,10 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="Avalonia.Browser" />
+		<PackageReference Include="BCnEncoder.Net" />
+		<PackageReference Include="BCnEncoder.Net.ImageSharp" />
 		<PackageReference Include="Chorizite.DatReaderWriter" />
+		<PackageReference Include="Chorizite.DatReaderWriter.Extensions" />
 	</ItemGroup>
 
 	<ItemGroup>

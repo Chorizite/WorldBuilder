@@ -1,4 +1,5 @@
 ﻿using DatReaderWriter;
+using DatReaderWriter.Enums;
 using DatReaderWriter.Lib.IO;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
@@ -62,12 +63,16 @@ namespace WorldBuilder.Shared.Services {
         /// <param name="iteration">The iteration to save as.</param>
         /// <returns>True if the object was saved; otherwise, false.</returns>
         bool TrySave<T>(uint regionId, T obj, int iteration = 0) where T : IDBObj;
+
+        public DBObjType TypeFromId(uint id);
     }
 
     /// <summary>
     /// Interface for a dat database, providing methods to retrieve files and objects.
     /// </summary>
     public interface IDatDatabase : IDisposable {
+        DatDatabase Db { get; }
+
         /// <summary>Retrieves the current iteration of the database.</summary>
         int Iteration { get; }
 

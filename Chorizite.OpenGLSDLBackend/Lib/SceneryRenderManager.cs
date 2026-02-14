@@ -1,6 +1,7 @@
 using Chorizite.Core.Lib;
 using Chorizite.Core.Render;
 using DatReaderWriter.DBObjs;
+using DatReaderWriter.Enums;
 using DatReaderWriter.Types;
 using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
@@ -252,46 +253,41 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             _frustum.Update(camera.ViewProjectionMatrix);
 
-            // Collect all instances grouped by (objectId, batchIndex) for instanced drawing
-            // Each batch within a render data has its own IBO and texture, so we need to draw
-            // each batch separately with its own set of instance transforms
-            var objectInstances = new Dictionary<uint, List<Matrix4x4>>();
+            // Group all GfxObj parts by their ID across all instances
+            var groupedGfxObjs = new Dictionary<uint, List<Matrix4x4>>();
 
             foreach (var lb in _landblocks.Values) {
                 if (!lb.GpuReady || lb.Instances.Count == 0 || !IsWithinRenderDistance(lb)) continue;
-
                 if (!IsLandblockInFrustum(lb.GridX, lb.GridY)) continue;
 
                 foreach (var instance in lb.Instances) {
-                    if (!objectInstances.TryGetValue(instance.ObjectId, out var list)) {
-                        list = new List<Matrix4x4>();
-                        objectInstances[instance.ObjectId] = list;
+                    if (instance.IsSetup) {
+                        var renderData = _meshManager.TryGetRenderData(instance.ObjectId);
+                        if (renderData is { IsSetup: true }) {
+                            foreach (var (partId, partTransform) in renderData.SetupParts) {
+                                if (!groupedGfxObjs.TryGetValue(partId, out var list)) {
+                                    list = new List<Matrix4x4>();
+                                    groupedGfxObjs[partId] = list;
+                                }
+                                list.Add(partTransform * instance.Transform);
+                            }
+                        }
                     }
-                    list.Add(instance.Transform);
+                    else {
+                        if (!groupedGfxObjs.TryGetValue(instance.ObjectId, out var list)) {
+                            list = new List<Matrix4x4>();
+                            groupedGfxObjs[instance.ObjectId] = list;
+                        }
+                        list.Add(instance.Transform);
+                    }
                 }
             }
 
-            if (objectInstances.Count == 0) return;
+            if (groupedGfxObjs.Count == 0) return;
 
-            foreach (var (objectId, transforms) in objectInstances) {
-                var renderData = _meshManager.TryGetRenderData(objectId);
-                if (renderData == null) continue;
-
-                if (renderData.IsSetup) {
-                    // Setup: render each part's GfxObj with combined transforms
-                    foreach (var (partId, partTransform) in renderData.SetupParts) {
-                        var partRenderData = _meshManager.TryGetRenderData(partId);
-                        if (partRenderData == null) continue;
-
-                        var partTransforms = new Matrix4x4[transforms.Count];
-                        for (int i = 0; i < transforms.Count; i++) {
-                            partTransforms[i] = partTransform * transforms[i];
-                        }
-
-                        RenderObjectBatches(partRenderData, partTransforms);
-                    }
-                }
-                else {
+            foreach (var (gfxObjId, transforms) in groupedGfxObjs) {
+                var renderData = _meshManager.TryGetRenderData(gfxObjId);
+                if (renderData != null && !renderData.IsSetup) {
                     RenderObjectBatches(renderData, transforms.ToArray());
                 }
             }
@@ -685,6 +681,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             GLHelpers.CheckErrors();
 
             foreach (var batch in renderData.Batches) {
+                SetCullMode(batch.CullMode);
+
                 // Set texture index as a vertex attribute constant (location 7)
                 _gl.DisableVertexAttribArray(7);
                 _gl.VertexAttrib1((uint)7, (float)batch.TextureIndex);
@@ -703,6 +701,23 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             for (uint i = 0; i < 4; i++) {
                 _gl.DisableVertexAttribArray(3 + i);
                 _gl.VertexAttribDivisor(3 + i, 0);
+            }
+        }
+
+        private void SetCullMode(CullMode mode) {
+            switch (mode) {
+                case CullMode.None:
+                    _gl.Disable(EnableCap.CullFace);
+                    break;
+                case CullMode.Clockwise:
+                    _gl.Enable(EnableCap.CullFace);
+                    _gl.CullFace(GLEnum.Front);
+                    break;
+                case CullMode.CounterClockwise:
+                case CullMode.Landblock:
+                    _gl.Enable(EnableCap.CullFace);
+                    _gl.CullFace(GLEnum.Back);
+                    break;
             }
         }
 

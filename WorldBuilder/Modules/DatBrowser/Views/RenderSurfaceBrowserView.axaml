@@ -5,8 +5,8 @@
              xmlns:vm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
              xmlns:views="using:WorldBuilder.Views"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="WorldBuilder.Modules.DatBrowser.Views.GfxObjBrowserView"
-             x:DataType="vm:GfxObjBrowserViewModel">
+             x:Class="WorldBuilder.Modules.DatBrowser.Views.RenderSurfaceBrowserView"
+             x:DataType="vm:RenderSurfaceBrowserViewModel">
     <Grid ColumnDefinitions="300, 5, *">
         <!-- Sidebar -->
         <ListBox Grid.Column="0" ItemsSource="{Binding FileIds}" SelectedItem="{Binding SelectedFileId}" Margin="5">

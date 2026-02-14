@@ -15,8 +15,14 @@
         <DataTemplate DataType="vm:GfxObjBrowserViewModel">
             <v:GfxObjBrowserView/>
         </DataTemplate>
-        <DataTemplate DataType="vm:TextureBrowserViewModel">
-            <v:TextureBrowserView/>
+        <DataTemplate DataType="vm:SurfaceTextureBrowserViewModel">
+            <v:SurfaceTextureBrowserView/>
+        </DataTemplate>
+        <DataTemplate DataType="vm:RenderSurfaceBrowserViewModel">
+            <v:RenderSurfaceBrowserView/>
+        </DataTemplate>
+        <DataTemplate DataType="vm:SurfaceBrowserViewModel">
+            <v:SurfaceBrowserView/>
         </DataTemplate>
     </UserControl.DataTemplates>
     
@@ -31,19 +37,10 @@
         </Grid>
 
         <Panel Grid.Column="0" Background="#202020" IsVisible="{Binding IsMinimalMode}">
-            <views:DatObjectViewer 
-                FileId="{Binding PreviewFileId}" 
-                IsSetup="{Binding PreviewIsSetup}"
+            <views:DatObjectPreview 
+                DataId="{Binding PreviewFileId}"
                 Dats="{Binding Dats}"
-                IsVisible="{Binding IsPreviewSupported}"
-                HorizontalAlignment="Stretch" 
-                VerticalAlignment="Stretch"/>
-
-            <TextBlock Text="Object cannot be previewed" 
-                       IsVisible="{Binding !IsPreviewSupported}"
-                       HorizontalAlignment="Center" 
-                       VerticalAlignment="Center" 
-                       Foreground="Gray"/>
+                IsTooltip="False" />
         </Panel>
 
         <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" IsVisible="{Binding !IsMinimalMode}" />
@@ -62,10 +59,15 @@
                             </StackPanel.ContextMenu>
                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
                             <TextBlock Text=": "/>
-                            <TextBlock Text="{Binding Value}" Foreground="Gray" IsVisible="{Binding Value, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                            <TextBlock Text=" (" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding TypeName}" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
-                            <TextBlock Text=")" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
+
+                            <v:DataIdView IsVisible="{Binding IsQualifiedDataId}" />
+
+                            <StackPanel Orientation="Horizontal" IsVisible="{Binding !IsQualifiedDataId}">
+                                <TextBlock Text="{Binding Value}" Foreground="Gray" IsVisible="{Binding Value, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                <TextBlock Text=" (" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding TypeName}" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
+                                <TextBlock Text=")" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
+                            </StackPanel>
                         </StackPanel>
                     </TreeDataTemplate>
                 </TreeView.ItemTemplate>

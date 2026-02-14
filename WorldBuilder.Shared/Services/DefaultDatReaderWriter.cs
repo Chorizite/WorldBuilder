@@ -1,5 +1,6 @@
 ﻿using DatReaderWriter;
 using DatReaderWriter.DBObjs;
+using DatReaderWriter.Enums;
 using DatReaderWriter.Lib.IO;
 using DatReaderWriter.Options;
 using System.Collections.Concurrent;
@@ -111,6 +112,15 @@ namespace WorldBuilder.Shared.Services {
             }
             return Portal.TryGetFileBytes(fileId, ref bytes, out bytesRead);
         }
+        
+        /// <summary>
+        /// Get the type of a DBObj based on its id.
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public DBObjType TypeFromId(uint id) {
+            return Portal.Db.TypeFromId(id);
+        }
 
         /// <inheritdoc/>
         public void Dispose() {
@@ -129,20 +139,20 @@ namespace WorldBuilder.Shared.Services {
     /// Default implementation of <see cref="IDatDatabase"/>, wrapping a <see cref="DatDatabase"/>.
     /// </summary>
     public class DefaultDatDatabase : IDatDatabase {
-        private DatDatabase _db;
+        public DatDatabase Db { get; private set; }
         private readonly ConcurrentDictionary<(Type, uint), IDBObj> _objCache = new();
         private readonly object _lock = new();
 
         public DefaultDatDatabase(DatDatabase db) {
-            _db = db;
+            Db = db;
         }
 
         /// <inheritdoc/>
-        public int Iteration => _db.Iteration.CurrentIteration;
+        public int Iteration => Db.Iteration.CurrentIteration;
 
         public IEnumerable<uint> GetAllIdsOfType<T>() where T : IDBObj {
             lock (_lock) {
-                return _db.GetAllIdsOfType<T>().ToList();
+                return Db.GetAllIdsOfType<T>().ToList();
             }
         }
 
@@ -152,7 +162,7 @@ namespace WorldBuilder.Shared.Services {
                 return true;
             }
             lock (_lock) {
-                if (_db.TryGet<T>(fileId, out value)) {
+                if (Db.TryGet<T>(fileId, out value)) {
                     _objCache.TryAdd((typeof(T), fileId), value);
                     return true;
                 }
@@ -162,20 +172,20 @@ namespace WorldBuilder.Shared.Services {
 
         public bool TryGetFileBytes(uint fileId, [MaybeNullWhen(false)] out byte[] value) {
             lock (_lock) {
-                return _db.TryGetFileBytes(fileId, out value);
+                return Db.TryGetFileBytes(fileId, out value);
             }
         }
 
         public bool TryGetFileBytes(uint fileId, ref byte[] bytes, out int bytesRead) {
             lock (_lock) {
-                return _db.TryGetFileBytes(fileId, ref bytes, out bytesRead);
+                return Db.TryGetFileBytes(fileId, ref bytes, out bytesRead);
             }
         }
 
         /// <inheritdoc/>
         public bool TrySave<T>(T obj, int iteration = 0) where T : IDBObj {
             lock (_lock) {
-                return _db.TryWriteFile(obj, iteration);
+                return Db.TryWriteFile(obj, iteration);
             }
         }
 

@@ -8,8 +8,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="BCnEncoder.Net" />
+    <PackageReference Include="BCnEncoder.Net.ImageSharp" />
     <PackageReference Include="BenchmarkDotNet" />
     <PackageReference Include="Chorizite.DatReaderWriter" />
+    <PackageReference Include="Chorizite.DatReaderWriter.Extensions" />
   </ItemGroup>
 
   <ItemGroup>
