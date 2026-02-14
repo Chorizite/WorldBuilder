@@ -168,6 +168,8 @@ public partial class RenderView : Base3DViewport {
         _renderingSettings.PropertyChanged += OnRenderingSettingsChanged;
         _gameScene.SetTerrainRenderDistance(_renderingSettings.TerrainRenderDistance);
         _gameScene.SetSceneryRenderDistance(_renderingSettings.SceneryRenderDistance);
+        _gameScene.ShowScenery = _renderingSettings.ShowScenery;
+        _gameScene.ShowStaticObjects = _renderingSettings.ShowStaticObjects;
 
         if (_gridSettings != null) {
             _gridSettings.PropertyChanged -= OnGridSettingsChanged;
@@ -203,6 +205,12 @@ public partial class RenderView : Base3DViewport {
         }
         else if (e.PropertyName == nameof(RenderingSettings.SceneryRenderDistance)) {
             _gameScene.SetSceneryRenderDistance(_renderingSettings.SceneryRenderDistance);
+        }
+        else if (e.PropertyName == nameof(RenderingSettings.ShowScenery)) {
+            _gameScene.ShowScenery = _renderingSettings.ShowScenery;
+        }
+        else if (e.PropertyName == nameof(RenderingSettings.ShowStaticObjects)) {
+            _gameScene.ShowStaticObjects = _renderingSettings.ShowStaticObjects;
         }
     }
 
@@ -404,6 +412,14 @@ public partial class RenderView : Base3DViewport {
         set => SetValue(ShowSceneryProperty, value);
     }
 
+    public static readonly StyledProperty<bool> ShowStaticObjectsProperty =
+        AvaloniaProperty.Register<RenderView, bool>(nameof(ShowStaticObjects), defaultValue: true);
+
+    public bool ShowStaticObjects {
+        get => GetValue(ShowStaticObjectsProperty);
+        set => SetValue(ShowStaticObjectsProperty, value);
+    }
+
     public static readonly StyledProperty<bool> Is3DCameraProperty =
         AvaloniaProperty.Register<RenderView, bool>(nameof(Is3DCamera), defaultValue: true);
 
@@ -439,6 +455,11 @@ public partial class RenderView : Base3DViewport {
         else if (change.Property == ShowSceneryProperty) {
             if (_gameScene != null) {
                 _gameScene.ShowScenery = ShowScenery;
+            }
+        }
+        else if (change.Property == ShowStaticObjectsProperty) {
+            if (_gameScene != null) {
+                _gameScene.ShowStaticObjects = ShowStaticObjects;
             }
         }
         else if (change.Property == Is3DCameraProperty) {

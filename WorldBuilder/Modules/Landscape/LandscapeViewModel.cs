@@ -58,6 +58,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
     [ObservableProperty] private bool _isWireframeEnabled;
     [ObservableProperty] private bool _isSceneryEnabled = true;
+    [ObservableProperty] private bool _isStaticObjectsEnabled = true;
     [ObservableProperty] private bool _isGridEnabled;
     [ObservableProperty] private bool _is3DCameraEnabled = true;
 
@@ -87,6 +88,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         if (_settings != null) {
             IsWireframeEnabled = _settings.Landscape.Rendering.ShowWireframe;
             IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
+            IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
             IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
 
             _settings.PropertyChanged += OnSettingsPropertyChanged;
@@ -354,6 +356,14 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     }
 
     [RelayCommand]
+    public void ToggleStaticObjects() {
+        IsStaticObjectsEnabled = !IsStaticObjectsEnabled;
+        if (_settings != null) {
+            _settings.Landscape.Rendering.ShowStaticObjects = IsStaticObjectsEnabled;
+        }
+    }
+
+    [RelayCommand]
     public void ToggleGrid() {
         IsGridEnabled = !IsGridEnabled;
         if (_settings != null) {
@@ -387,6 +397,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
                 IsWireframeEnabled = _settings.Landscape.Rendering.ShowWireframe;
                 IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
+                IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
                 IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
             }
         }
@@ -399,6 +410,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 _settings.Landscape.Rendering.PropertyChanged += OnRenderingSettingsPropertyChanged;
                 IsWireframeEnabled = _settings.Landscape.Rendering.ShowWireframe;
                 IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
+                IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
             }
         }
         else if (e.PropertyName == nameof(LandscapeEditorSettings.Grid)) {
@@ -419,6 +431,11 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         else if (e.PropertyName == nameof(RenderingSettings.ShowScenery)) {
             if (_settings != null) {
                 IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
+            }
+        }
+        else if (e.PropertyName == nameof(RenderingSettings.ShowStaticObjects)) {
+            if (_settings != null) {
+                IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
             }
         }
     }

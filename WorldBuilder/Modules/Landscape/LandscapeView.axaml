@@ -32,6 +32,7 @@
                         ShowBrush="{Binding ShowBrush}"
                         ShowWireframe="{Binding IsWireframeEnabled}"
                         ShowScenery="{Binding IsSceneryEnabled}"
+                        ShowStaticObjects="{Binding IsStaticObjectsEnabled}"
                         Is3DCamera="{Binding Is3DCameraEnabled}" />
 
       <!-- Overlay Buttons -->
@@ -54,6 +55,9 @@
         </Button>
         <Button Command="{Binding ToggleScenery}" ToolTip.Tip="Toggle Scenery">
           <TextBlock Text="🌳" />
+        </Button>
+        <Button Command="{Binding ToggleStaticObjects}" ToolTip.Tip="Toggle Static Objects">
+          <TextBlock Text="🏛️" />
         </Button>
         <Button Command="{Binding ToggleGrid}" ToolTip.Tip="Toggle Grid">
           <TextBlock Text="📏" />

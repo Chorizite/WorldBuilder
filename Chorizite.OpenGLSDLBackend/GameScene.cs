@@ -34,6 +34,7 @@ public class GameScene : IDisposable {
     private bool _initialized;
     public bool ShowWireframe { get; set; }
     public bool ShowScenery { get; set; } = true;
+    public bool ShowStaticObjects { get; set; } = true;
     private int _width;
     private int _height;
 
@@ -411,6 +412,10 @@ public class GameScene : IDisposable {
         // Render Scenery
         if (ShowScenery) {
             _sceneryManager?.Render(_currentCamera);
+        }
+
+        // Render Static Objects
+        if (ShowStaticObjects) {
             _staticObjectManager?.Render(_currentCamera);
         }
 
