@@ -6,7 +6,7 @@
         xmlns:vm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="WorldBuilder.Modules.DatBrowser.Views.DatBrowserWindow"
-        x:DataType="vm:DatBrowserWindowViewModel"
+        x:DataType="vm:DatBrowserViewModel"
         Title="Dat Browser"
         Width="1000" Height="600">
     <v:DatBrowserView />

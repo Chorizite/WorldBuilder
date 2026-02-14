@@ -15,6 +15,7 @@ using System;
 using WorldBuilder.Shared.Services;
 using HanumanInstitute.MvvmDialogs;
 using System.Threading.Tasks;
+using WorldBuilder.Lib;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
     public enum DatType {
@@ -23,7 +24,10 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         Texture
     }
 
-    public partial class DatBrowserWindowViewModel : ViewModelBase {
+    public partial class DatBrowserViewModel : ViewModelBase, IToolModule {
+        public string Name => "Dat Browser";
+        public ViewModelBase ViewModel => this;
+
         public IEnumerable<DatType> DatTypes => System.Enum.GetValues<DatType>();
 
         [ObservableProperty]
@@ -59,7 +63,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         public IDatReaderWriter Dats => _dats;
 
-        public DatBrowserWindowViewModel(SetupBrowserViewModel setupBrowser, GfxObjBrowserViewModel gfxObjBrowser, TextureBrowserViewModel textureBrowser, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats) {
+        public DatBrowserViewModel(SetupBrowserViewModel setupBrowser, GfxObjBrowserViewModel gfxObjBrowser, TextureBrowserViewModel textureBrowser, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats) {
             _setupBrowser = setupBrowser;
             _gfxObjBrowser = gfxObjBrowser;
             _textureBrowser = textureBrowser;

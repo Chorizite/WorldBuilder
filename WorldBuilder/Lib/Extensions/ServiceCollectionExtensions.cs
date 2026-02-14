@@ -41,7 +41,7 @@ namespace WorldBuilder.Lib.Extensions {
             // Register dialog service
             collection.AddSingleton<IDialogService>(provider => new DialogService(
                 new DialogManager(
-                    viewLocator: new CombinedViewLocator()),
+                    viewLocator: new CombinedViewLocator(true)),
                 viewModelFactory: provider.GetService));
 
             return collection;
@@ -97,11 +97,14 @@ namespace WorldBuilder.Lib.Extensions {
             // ViewModels
             collection.AddTransient<MainViewModel>();
             collection.AddTransient<ExportDatsWindowViewModel>();
-            collection.AddTransient<WorldBuilder.Modules.DatBrowser.ViewModels.DatBrowserWindowViewModel>();
+            collection.AddTransient<WorldBuilder.Modules.DatBrowser.ViewModels.DatBrowserViewModel>();
             collection.AddTransient<WorldBuilder.Modules.DatBrowser.ViewModels.SetupBrowserViewModel>();
             collection.AddTransient<WorldBuilder.Modules.DatBrowser.ViewModels.GfxObjBrowserViewModel>();
             collection.AddTransient<WorldBuilder.Modules.DatBrowser.ViewModels.TextureBrowserViewModel>();
+
             collection.AddSingleton<WorldBuilder.Modules.Landscape.LandscapeViewModel>();
+            collection.AddSingleton<IToolModule, WorldBuilder.Modules.Landscape.LandscapeModule>();
+            collection.AddSingleton<IToolModule, WorldBuilder.Modules.DatBrowser.DatBrowserModule>();
 
             collection.AddSingleton<TextureService>();
 

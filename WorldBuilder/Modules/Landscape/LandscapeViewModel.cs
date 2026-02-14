@@ -14,6 +14,7 @@ using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
 using WorldBuilder.Lib.Settings;
+using WorldBuilder.Lib;
 using WorldBuilder.Modules.Landscape.ViewModels;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Models;
@@ -26,11 +27,14 @@ using ICamera = WorldBuilder.Shared.Models.ICamera;
 
 namespace WorldBuilder.Modules.Landscape;
 
-public partial class LandscapeViewModel : ViewModelBase, IDisposable {
+public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModule {
     private readonly Project _project;
     private readonly IDatReaderWriter _dats;
     private readonly ILogger<LandscapeViewModel> _log;
     private DocumentRental<LandscapeDocument>? _landscapeRental;
+
+    public string Name => "Landscape";
+    public ViewModelBase ViewModel => this;
 
     [ObservableProperty] private LandscapeDocument? _activeDocument;
     public IDatReaderWriter Dats => _dats;

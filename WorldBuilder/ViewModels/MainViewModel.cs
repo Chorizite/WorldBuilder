@@ -17,6 +17,11 @@ using DatReaderWriter.DBObjs;
 using DatReaderWriter.Lib.IO;
 using System.Diagnostics.CodeAnalysis;
 
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using WorldBuilder.Lib;
+
 namespace WorldBuilder.ViewModels;
 
 /// <summary>
@@ -57,7 +62,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     /// </summary>
     [ObservableProperty] private string _greeting = "Welcome to Avalonia!";
 
-    [ObservableProperty] private WorldBuilder.Modules.Landscape.LandscapeViewModel? _landscape;
+    public ObservableCollection<ToolTabViewModel> ToolTabs { get; } = new();
 
     // for designer use only
     [Obsolete("Designer use only")]
@@ -67,7 +72,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
         _serviceProvider = null!;
         _project = null!;
         _dats = null!;
-        _landscape = null!;
         _performanceService = null!;
     }
 
@@ -75,14 +79,21 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     [UnconditionalSuppressMessage("Trimming", "IL2026")]
     [UnconditionalSuppressMessage("AOT", "IL3050")]
     public MainViewModel(WorldBuilderSettings settings, IDialogService dialogService, IServiceProvider serviceProvider, Project project,
-        WorldBuilder.Modules.Landscape.LandscapeViewModel landscape, PerformanceService performanceService, IDatReaderWriter dats) {
+        IEnumerable<IToolModule> toolModules, PerformanceService performanceService, IDatReaderWriter dats) {
         _settings = settings;
         _dialogService = dialogService;
         _serviceProvider = serviceProvider;
         _project = project;
-        _landscape = landscape;
         _performanceService = performanceService;
         _dats = dats;
+
+        foreach (var module in toolModules) {
+            ToolTabs.Add(new ToolTabViewModel(module));
+        }
+
+        if (ToolTabs.Count > 0) {
+            ToolTabs[0].IsSelected = true;
+        }
 
         WeakReferenceMessenger.Default.RegisterAll(this);
 
@@ -92,7 +103,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     [UnconditionalSuppressMessage("Trimming", "IL2026")]
     [UnconditionalSuppressMessage("AOT", "IL3050")]
     public void Receive(OpenQualifiedDataIdMessage message) {
-        var newViewModel = _serviceProvider.GetRequiredService<DatBrowserWindowViewModel>();
+        var newViewModel = _serviceProvider.GetRequiredService<DatBrowserViewModel>();
         newViewModel.IsMinimalMode = true;
         newViewModel.PreviewFileId = message.DataId;
         newViewModel.PreviewIsSetup = message.TargetType == typeof(DatReaderWriter.DBObjs.Setup);
@@ -184,12 +195,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
 
         var viewModel = _dialogService.ShowSettingsWindow(this);
         viewModel.Closed += (s, e) => _settingsOpen = false;
-    }
-
-    [RelayCommand]
-    private void OpenDatBrowser() {
-        var viewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<WorldBuilder.Modules.DatBrowser.ViewModels.DatBrowserWindowViewModel>(_serviceProvider);
-        _dialogService.Show(null, viewModel);
     }
 
     [RelayCommand]

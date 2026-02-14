@@ -16,11 +16,13 @@ internal class MockWindowView { }
 
 // Test wrapper to expose the protected GetViewName method
 public class TestableCombinedViewLocator : CombinedViewLocator {
+    public TestableCombinedViewLocator(bool preferWindows = false) : base(preferWindows) { }
     public string GetViewNamePublic(object viewModel) => base.GetViewName(viewModel);
 }
 
 public class CombinedViewLocatorTests {
     private readonly TestableCombinedViewLocator _locator = new TestableCombinedViewLocator();
+    private readonly TestableCombinedViewLocator _windowLocator = new TestableCombinedViewLocator(true);
 
 
     [Fact]
@@ -102,5 +104,37 @@ public class CombinedViewLocatorTests {
 
         // Assert
         Assert.Equal("WorldBuilder.Views.ExportDatsWindow", result);
+    }
+
+    [Fact]
+    public void GetViewName_DatBrowserViewModel_WithPreferWindows_ReturnsWindowName() {
+        // Arrange
+        var mockDats = new Moq.Mock<WorldBuilder.Shared.Services.IDatReaderWriter>();
+        var mockPortal = new Moq.Mock<WorldBuilder.Shared.Services.IDatDatabase>();
+        mockDats.Setup(d => d.Portal).Returns(mockPortal.Object);
+        mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.Setup>()).Returns(Enumerable.Empty<uint>());
+        mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.GfxObj>()).Returns(Enumerable.Empty<uint>());
+        mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.SurfaceTexture>()).Returns(Enumerable.Empty<uint>());
+        
+        var mockSetup = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SetupBrowserViewModel>(mockDats.Object);
+        var mockGfx = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.GfxObjBrowserViewModel>(mockDats.Object);
+        var mockTex = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.TextureBrowserViewModel>(mockDats.Object, null!);
+        var mockDialog = new Moq.Mock<HanumanInstitute.MvvmDialogs.IDialogService>();
+        var mockServiceProvider = new Moq.Mock<IServiceProvider>();
+
+        var viewModel = new WorldBuilder.Modules.DatBrowser.ViewModels.DatBrowserViewModel(
+            mockSetup.Object,
+            mockGfx.Object,
+            mockTex.Object,
+            mockDialog.Object,
+            mockServiceProvider.Object,
+            mockDats.Object
+        );
+
+        // Act
+        var result = _windowLocator.GetViewNamePublic(viewModel);
+
+        // Assert
+        Assert.Equal("WorldBuilder.Modules.DatBrowser.Views.DatBrowserWindow", result);
     }
 }

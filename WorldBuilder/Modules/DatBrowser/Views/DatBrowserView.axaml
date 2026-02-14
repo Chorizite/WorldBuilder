@@ -7,7 +7,7 @@
              xmlns:views="using:WorldBuilder.Views"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="WorldBuilder.Modules.DatBrowser.Views.DatBrowserView"
-             x:DataType="vm:DatBrowserWindowViewModel">
+             x:DataType="vm:DatBrowserViewModel">
     <UserControl.DataTemplates>
         <DataTemplate DataType="vm:SetupBrowserViewModel">
             <v:SetupBrowserView/>
