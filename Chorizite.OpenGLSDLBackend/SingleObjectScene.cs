@@ -26,8 +26,24 @@ namespace Chorizite.OpenGLSDLBackend {
         // Instance buffer for the single object
         private uint _instanceVBO;
         private float _rotation;
+        private bool _isAutoCamera = true;
 
         public ICamera Camera => _camera;
+
+        public bool IsAutoCamera {
+            get => _isAutoCamera;
+            set {
+                _isAutoCamera = value;
+                if (_isAutoCamera) {
+                    _camera.HandleKeyUp("W");
+                    _camera.HandleKeyUp("S");
+                    _camera.HandleKeyUp("A");
+                    _camera.HandleKeyUp("D");
+                    _camera.HandleKeyUp("Q");
+                    _camera.HandleKeyUp("E");
+                }
+            }
+        }
 
         public SingleObjectScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILogger log, IDatReaderWriter dats) {
             _gl = gl;
@@ -37,6 +53,7 @@ namespace Chorizite.OpenGLSDLBackend {
             _meshManager = new ObjectMeshManager(graphicsDevice, dats);
             
             _camera = new Camera3D(new Vector3(0, -5, 2), 0, 0);
+            _camera.MoveSpeed = 0.5f;
         }
 
         public void Initialize() {
@@ -87,8 +104,34 @@ namespace Chorizite.OpenGLSDLBackend {
         public void Update(float deltaTime) {
             _camera.Update(deltaTime);
             
-            // Spin object
-            _rotation += deltaTime * 1.0f;
+            if (IsAutoCamera) {
+                // Spin object
+                _rotation += deltaTime * 1.0f;
+            }
+        }
+
+        public void HandleKeyDown(string key) {
+            if (!IsAutoCamera) _camera.HandleKeyDown(key);
+        }
+
+        public void HandleKeyUp(string key) {
+            if (!IsAutoCamera) _camera.HandleKeyUp(key);
+        }
+
+        public void HandlePointerPressed(int button, Vector2 position) {
+            if (!IsAutoCamera) _camera.HandlePointerPressed(button, position);
+        }
+
+        public void HandlePointerReleased(int button, Vector2 position) {
+            if (!IsAutoCamera) _camera.HandlePointerReleased(button, position);
+        }
+
+        public void HandlePointerMoved(Vector2 position, Vector2 delta) {
+            if (!IsAutoCamera) _camera.HandlePointerMoved(position, delta);
+        }
+
+        public void HandlePointerWheelChanged(float delta) {
+            if (!IsAutoCamera) _camera.HandlePointerWheelChanged(delta);
         }
 
         public void Render() {

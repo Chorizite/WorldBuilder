@@ -4,5 +4,27 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:views="using:WorldBuilder.Views"
     x:CompileBindings="True">
-    <Panel x:Name="Viewport" Background="Transparent" />
+    <Panel Background="Transparent">
+        <Panel x:Name="Viewport" Background="Transparent" />
+        
+        <!-- Overlay Buttons -->
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" Spacing="4"
+                    IsVisible="{Binding !IsTooltip, RelativeSource={RelativeSource AncestorType=views:DatObjectViewer}}">
+            <StackPanel.Styles>
+                <Style Selector="Button, ToggleButton">
+                    <Setter Property="Focusable" Value="False" />
+                    <Setter Property="Padding" Value="4" />
+                    <Setter Property="Width" Value="32" />
+                    <Setter Property="Height" Value="32" />
+                    <Setter Property="HorizontalContentAlignment" Value="Center" />
+                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                </Style>
+            </StackPanel.Styles>
+            <ToggleButton IsChecked="{Binding !IsAutoCamera, RelativeSource={RelativeSource AncestorType=views:DatObjectViewer}}" 
+                          ToolTip.Tip="Toggle Freecam"
+                          Background="#80000000">
+                <TextBlock Text="📷" />
+            </ToggleButton>
+        </StackPanel>
+    </Panel>
 </views:Base3DViewport>
