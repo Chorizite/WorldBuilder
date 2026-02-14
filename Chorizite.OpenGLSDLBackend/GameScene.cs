@@ -359,19 +359,22 @@ public class GameScene : IDisposable {
     public void Render() {
         if (_width == 0 || _height == 0) return;
 
-        // Preserve the current viewport state and restore it after rendering
+        // Preserve the current viewport and scissor state and restore it after rendering
         Span<int> currentViewport = stackalloc int[4];
         _gl.GetInteger(GetPName.Viewport, currentViewport);
+        bool wasScissorEnabled = _gl.IsEnabled(EnableCap.ScissorTest);
 
         _gl.ClearColor(0.2f, 0.2f, 0.3f, 1.0f);
         _gl.DepthMask(true);
+        _gl.Disable(EnableCap.ScissorTest); // Ensure clear affects full FBO
         _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
         if (!_initialized) {
             _log.LogWarning("GameScene not fully initialized");
-            // Restore the original viewport before returning
+            // Restore the original state before returning
             _gl.Viewport(currentViewport[0], currentViewport[1],
                          (uint)currentViewport[2], (uint)currentViewport[3]);
+            if (wasScissorEnabled) _gl.Enable(EnableCap.ScissorTest);
             return;
         }
 
@@ -412,7 +415,7 @@ public class GameScene : IDisposable {
         }
 
         // Restore for Avalonia
-        _gl.Enable(EnableCap.ScissorTest);
+        if (wasScissorEnabled) _gl.Enable(EnableCap.ScissorTest);
         _gl.Enable(EnableCap.DepthTest);
         _gl.Enable(EnableCap.Blend);
         _gl.Viewport(currentViewport[0], currentViewport[1],

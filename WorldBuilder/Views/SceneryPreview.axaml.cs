@@ -152,10 +152,6 @@ public partial class SceneryPreview : Base3DViewport {
             cam3d.LookAt(Vector3.Zero);
         }
 
-        // Slightly brighter background to see the viewport
-        _gl.ClearColor(0.15f, 0.15f, 0.2f, 1.0f);
-        _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-
         _gameScene.Update((float)frameTime);
         _gameScene.Render();
     }

@@ -93,92 +93,107 @@ namespace Chorizite.OpenGLSDLBackend {
         public void Render() {
             if (!_initialized || _shader == null) return;
             
-            _gl.Disable(EnableCap.ScissorTest);
-            _gl.Disable(EnableCap.Blend);
-            _gl.Enable(EnableCap.DepthTest);
-            _gl.DepthFunc(DepthFunction.Less);
-            _gl.DepthMask(true);
-            _gl.ClearDepth(1.0f);
-            _gl.Disable(EnableCap.CullFace);
+            // Preserve the current viewport and scissor state
+            Span<int> currentViewport = stackalloc int[4];
+            _gl.GetInteger(GetPName.Viewport, currentViewport);
+            bool wasScissorEnabled = _gl.IsEnabled(EnableCap.ScissorTest);
 
-            _gl.ClearColor(0.15f, 0.15f, 0.2f, 1.0f);
-            _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+            try {
+                _gl.Disable(EnableCap.ScissorTest);
+                _gl.Disable(EnableCap.Blend);
+                _gl.Enable(EnableCap.DepthTest);
+                _gl.DepthFunc(DepthFunction.Less);
+                _gl.DepthMask(true);
+                _gl.ClearDepth(1.0f);
+                _gl.Disable(EnableCap.CullFace);
 
-            // Handle loading
-            if (_needsLoad) {
-                _needsLoad = false;
-                _currentFileId = _pendingFileId;
-                _isSetup = _pendingIsSetup;
-                
-                var meshData = _meshManager.PrepareMeshData(_currentFileId, _isSetup);
-                if (meshData != null) {
-                    var renderData = _meshManager.UploadMeshData(meshData);
-                    if (renderData != null && renderData.IsSetup) {
-                        foreach (var part in renderData.SetupParts) {
-                             if (!_meshManager.HasRenderData(part.GfxObjId)) {
-                                 var partMesh = _meshManager.PrepareMeshData(part.GfxObjId, false);
-                                 if (partMesh != null) {
-                                     _meshManager.UploadMeshData(partMesh);
-                                 } else {
-                                     _log.LogWarning($"Failed to load part mesh: 0x{part.GfxObjId:X8}");
-                                 }
-                             }
+                _gl.ClearColor(0.15f, 0.15f, 0.2f, 1.0f);
+                _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
+                // Handle loading
+                if (_needsLoad) {
+                    _needsLoad = false;
+                    _currentFileId = _pendingFileId;
+                    _isSetup = _pendingIsSetup;
+                    
+                    var meshData = _meshManager.PrepareMeshData(_currentFileId, _isSetup);
+                    if (meshData != null) {
+                        var renderData = _meshManager.UploadMeshData(meshData);
+                        if (renderData != null && renderData.IsSetup) {
+                            foreach (var part in renderData.SetupParts) {
+                                if (!_meshManager.HasRenderData(part.GfxObjId)) {
+                                    var partMesh = _meshManager.PrepareMeshData(part.GfxObjId, false);
+                                    if (partMesh != null) {
+                                        _meshManager.UploadMeshData(partMesh);
+                                    } else {
+                                        _log.LogWarning($"Failed to load part mesh: 0x{part.GfxObjId:X8}");
+                                    }
+                                }
+                            }
+                        }
+
+                        // Center camera on object
+                        if (renderData != null && renderData.BoundingBox.Min != renderData.BoundingBox.Max) {
+                            var center = (renderData.BoundingBox.Min + renderData.BoundingBox.Max) / 2f;
+                            var size = Vector3.Distance(renderData.BoundingBox.Min, renderData.BoundingBox.Max);
+                            
+                            // Adjust camera
+                            _camera.Position = center + new Vector3(0, -size, size * 0.5f);
+                            
+                            // Look at center
+                            _camera.LookAt(center);
+                        } else {
+                            _log.LogWarning("BoundingBox is invalid or zero-sized.");
+                        }
+                    } else {
+                        _log.LogWarning("PrepareMeshData returned null.");
+                    }
+                }
+
+                if (_currentFileId == 0) return;
+
+                var data = _meshManager.GetRenderData(_currentFileId);
+                if (data == null) {
+                    // _log.LogWarning($"No RenderData for 0x{_currentFileId:X8}"); // Spammy
+                    return;
+                }
+
+                _shader.Bind();
+                _shader.SetUniform("uViewProjection", _camera.ViewProjectionMatrix);
+                _shader.SetUniform("uCameraPosition", _camera.Position);
+                _shader.SetUniform("uLightDirection", Vector3.Normalize(new Vector3(0.5f, 1.0f, 0.5f)));
+                _shader.SetUniform("uAmbientIntensity", 0.4f);
+                _shader.SetUniform("uSpecularPower", 16.0f);
+
+                var transform = Matrix4x4.CreateRotationZ(_rotation);
+                // Update instance buffer
+                _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVBO);
+                unsafe {
+                    _gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)sizeof(Matrix4x4), &transform);
+                }
+
+                if (data.IsSetup) {
+                    foreach (var part in data.SetupParts) {
+                        var partData = _meshManager.GetRenderData(part.GfxObjId);
+                        if (partData != null) {
+                            var finalTransform = part.Transform * transform;
+                            unsafe {
+                                _gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)sizeof(Matrix4x4), &finalTransform);
+                            }
+                            RenderObject(partData);
                         }
                     }
-
-                    // Center camera on object
-                    if (renderData != null && renderData.BoundingBox.Min != renderData.BoundingBox.Max) {
-                         var center = (renderData.BoundingBox.Min + renderData.BoundingBox.Max) / 2f;
-                         var size = Vector3.Distance(renderData.BoundingBox.Min, renderData.BoundingBox.Max);
-                         
-                         // Adjust camera
-                         _camera.Position = center + new Vector3(0, -size, size * 0.5f);
-                         
-                         // Look at center
-                         _camera.LookAt(center);
-                    } else {
-                         _log.LogWarning("BoundingBox is invalid or zero-sized.");
-                    }
                 } else {
-                    _log.LogWarning("PrepareMeshData returned null.");
+                    RenderObject(data);
                 }
             }
-
-            if (_currentFileId == 0) return;
-
-            var data = _meshManager.GetRenderData(_currentFileId);
-            if (data == null) {
-                 // _log.LogWarning($"No RenderData for 0x{_currentFileId:X8}"); // Spammy
-                 return;
-            }
-
-            _shader.Bind();
-            _shader.SetUniform("uViewProjection", _camera.ViewProjectionMatrix);
-            _shader.SetUniform("uCameraPosition", _camera.Position);
-            _shader.SetUniform("uLightDirection", Vector3.Normalize(new Vector3(0.5f, 1.0f, 0.5f)));
-            _shader.SetUniform("uAmbientIntensity", 0.4f);
-            _shader.SetUniform("uSpecularPower", 16.0f);
-
-            var transform = Matrix4x4.CreateRotationZ(_rotation);
-            // Update instance buffer
-            _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVBO);
-            unsafe {
-                 _gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)sizeof(Matrix4x4), &transform);
-            }
-
-            if (data.IsSetup) {
-                 foreach (var part in data.SetupParts) {
-                     var partData = _meshManager.GetRenderData(part.GfxObjId);
-                     if (partData != null) {
-                         var finalTransform = part.Transform * transform;
-                         unsafe {
-                             _gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)sizeof(Matrix4x4), &finalTransform);
-                         }
-                         RenderObject(partData);
-                     }
-                 }
-            } else {
-                RenderObject(data);
+            finally {
+                // Restore for Avalonia
+                if (wasScissorEnabled) _gl.Enable(EnableCap.ScissorTest);
+                _gl.Enable(EnableCap.DepthTest);
+                _gl.Enable(EnableCap.Blend);
+                _gl.Viewport(currentViewport[0], currentViewport[1],
+                             (uint)currentViewport[2], (uint)currentViewport[3]);
             }
         }
 

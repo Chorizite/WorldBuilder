@@ -323,10 +323,6 @@ public partial class RenderView : Base3DViewport {
             _pendingDatReader = null;
         }
 
-        // Always clear with black first as a baseline
-        GL.ClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-
         if (_gameScene is null) {
             _logger.LogError("RenderView.OnGlRender: _gameScene is null!");
             return;

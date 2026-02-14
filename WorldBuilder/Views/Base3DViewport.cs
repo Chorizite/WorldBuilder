@@ -59,8 +59,17 @@ namespace WorldBuilder.Views {
                     var point = _viewport.TranslatePoint(new Point(0, 0), topLevel);
                     if (point.HasValue) {
                         var scaling = topLevel.RenderScaling;
+                        var bounds = _viewport.Bounds;
+                        
+                        if (bounds.Width > 0 && bounds.Height > 0) {
+                            InputScale = new Vector2((float)scaling, (float)scaling);
+                        }
+
                         _visual.SendHandlerMessage(new PositionMessage {
-                            Position = new PixelPoint((int)(point.Value.X * scaling), (int)(point.Value.Y * scaling))
+                            Position = new PixelPoint((int)(point.Value.X * scaling), (int)(point.Value.Y * scaling)),
+                            Size = new PixelSize((int)(bounds.Width * scaling), (int)(bounds.Height * scaling)),
+                            Scaling = scaling,
+                            SurfaceHeight = (int)(topLevel.ClientSize.Height * scaling)
                         });
                     }
                 }
@@ -77,12 +86,6 @@ namespace WorldBuilder.Views {
         protected virtual void OnGlResizeInternal(PixelSize size) {
             _renderSize = size;
             Renderer?.Resize(size.Width, size.Height);
-
-            if (_viewport != null && _viewport.Bounds.Width > 0 && _viewport.Bounds.Height > 0) {
-                var bounds = _viewport.Bounds;
-                InputScale = new Vector2((float)(size.Width / bounds.Width), (float)(size.Height / bounds.Height));
-            }
-
             OnGlResize(size);
         }
 
@@ -111,7 +114,6 @@ namespace WorldBuilder.Views {
             Renderer.GraphicsDevice.GL.Viewport(0, 0, (uint)_renderSize.Width, (uint)_renderSize.Height);
 
             OnGlRender(frameTime);
-            Renderer.BindRenderTarget(null);
         }
 
         protected virtual void OnGlDestroyInternal() {
@@ -219,6 +221,7 @@ namespace WorldBuilder.Views {
             _logger.LogInformation("Attached to visual tree");
             // Update size immediately
             UpdateSize(_viewport.Bounds.Size);
+            UpdateScreenPosition();
         }
 
         private void ViewportDetachedFromVisualTree(object? sender, VisualTreeAttachmentEventArgs e) {
@@ -240,18 +243,6 @@ namespace WorldBuilder.Views {
                     Math.Abs(viewportSize.Height - _lastViewportSize.Height) > 0.5) {
                     _lastViewportSize = viewportSize;
                     UpdateSize(viewportSize);
-
-                    // Update render size when layout changes to ensure proper scaling
-                    var topLevel = TopLevel.GetTopLevel(this);
-                    var scaling = topLevel?.RenderScaling ?? 1.0;
-                    var pixelWidth = (int)(viewportSize.Width * scaling);
-                    var pixelHeight = (int)(viewportSize.Height * scaling);
-
-                    if (_renderSize.Width != pixelWidth || _renderSize.Height != pixelHeight) {
-                        _renderSize = new PixelSize(pixelWidth, pixelHeight);
-                        Renderer?.Resize(pixelWidth, pixelHeight);
-                    }
-
                     UpdateScreenPosition();
                 }
             }
@@ -272,6 +263,9 @@ namespace WorldBuilder.Views {
 
         public class PositionMessage {
             public PixelPoint Position { get; set; }
+            public PixelSize Size { get; set; }
+            public double Scaling { get; set; }
+            public int SurfaceHeight { get; set; }
         }
     }
 }
