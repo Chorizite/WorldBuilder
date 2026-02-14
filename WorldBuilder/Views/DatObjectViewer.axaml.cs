@@ -22,6 +22,7 @@ namespace WorldBuilder.Views {
         private IDatReaderWriter? _renderDats;
         private uint _renderFileId;
         private bool _renderIsSetup;
+        private bool _renderIsAutoCamera = true;
 
         public static readonly StyledProperty<uint> FileIdProperty =
             AvaloniaProperty.Register<DatObjectViewer, uint>(nameof(FileId));
@@ -47,6 +48,14 @@ namespace WorldBuilder.Views {
             set => SetValue(DatsProperty, value);
         }
 
+        public static readonly StyledProperty<bool> IsAutoCameraProperty =
+            AvaloniaProperty.Register<DatObjectViewer, bool>(nameof(IsAutoCamera), true);
+
+        public bool IsAutoCamera {
+            get => GetValue(IsAutoCameraProperty);
+            set => SetValue(IsAutoCameraProperty, value);
+        }
+
         public DatObjectViewer() {
             InitializeComponent();
             InitializeBase3DView();
@@ -59,6 +68,7 @@ namespace WorldBuilder.Views {
             
             if (_renderDats != null) {
                 _scene = new SingleObjectScene(gl, Renderer!.GraphicsDevice, log, _renderDats);
+                _scene.IsAutoCamera = _renderIsAutoCamera;
                 _scene.Initialize();
                 _scene.Resize(canvasSize.Width, canvasSize.Height);
                 if (_renderFileId != 0) {
@@ -69,16 +79,23 @@ namespace WorldBuilder.Views {
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
             base.OnPropertyChanged(change);
-            if (change.Property == FileIdProperty || change.Property == IsSetupProperty || change.Property == DatsProperty) {
+            if (change.Property == FileIdProperty || change.Property == IsSetupProperty || change.Property == DatsProperty || change.Property == IsAutoCameraProperty) {
                 // Sync values for render thread
                 _renderFileId = FileId;
                 _renderIsSetup = IsSetup;
                 _renderDats = Dats;
+                _renderIsAutoCamera = IsAutoCamera;
 
                 if (Dispatcher.UIThread.CheckAccess()) {
                     UpdateObject();
                 } else {
                     Dispatcher.UIThread.Post(UpdateObject);
+                }
+            }
+
+            if (change.Property == IsAutoCameraProperty) {
+                if (_scene != null) {
+                    _scene.IsAutoCamera = _renderIsAutoCamera;
                 }
             }
         }
@@ -112,11 +129,18 @@ namespace WorldBuilder.Views {
             _scene = null;
         }
 
-        protected override void OnGlKeyDown(KeyEventArgs e) { }
-        protected override void OnGlKeyUp(KeyEventArgs e) { }
+        protected override void OnGlKeyDown(KeyEventArgs e) {
+            _scene?.HandleKeyDown(e.Key.ToString());
+        }
+
+        protected override void OnGlKeyUp(KeyEventArgs e) {
+            _scene?.HandleKeyUp(e.Key.ToString());
+        }
         
         protected override void OnGlPointerMoved(PointerEventArgs e, Vector2 mousePositionScaled) {
-             _lastPointerPosition = mousePositionScaled;
+            var input = CreateInputEvent(e);
+            _scene?.HandlePointerMoved(input.Position, input.Delta);
+            _lastPointerPosition = mousePositionScaled;
         }
 
         private ViewportInputEvent CreateInputEvent(PointerEventArgs e) {
@@ -139,12 +163,38 @@ namespace WorldBuilder.Views {
             };
         }
 
-        protected override void OnGlPointerWheelChanged(PointerWheelEventArgs e) { }
-        
-        protected override void OnGlPointerPressed(PointerPressedEventArgs e) {
-             _lastPointerPosition = CreateInputEvent(e).Position;
+        protected override void OnGlPointerWheelChanged(PointerWheelEventArgs e) {
+            _scene?.HandlePointerWheelChanged((float)e.Delta.Y);
         }
         
-        protected override void OnGlPointerReleased(PointerReleasedEventArgs e) { }
+        protected override void OnGlPointerPressed(PointerPressedEventArgs e) {
+            // Focus this control to receive keyboard input
+            this.Focus();
+
+            var input = CreateInputEvent(e);
+            int button = -1;
+            var props = e.GetCurrentPoint(this).Properties;
+            if (props.PointerUpdateKind == PointerUpdateKind.LeftButtonPressed) button = 0;
+            else if (props.PointerUpdateKind == PointerUpdateKind.RightButtonPressed) button = 1;
+            else if (props.PointerUpdateKind == PointerUpdateKind.MiddleButtonPressed) button = 2;
+            
+            if (button != -1) {
+                _scene?.HandlePointerPressed(button, input.Position);
+            }
+            _lastPointerPosition = input.Position;
+        }
+        
+        protected override void OnGlPointerReleased(PointerReleasedEventArgs e) {
+            var input = CreateInputEvent(e);
+            int button = -1;
+            var props = e.GetCurrentPoint(this).Properties;
+            if (props.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased) button = 0;
+            else if (props.PointerUpdateKind == PointerUpdateKind.RightButtonReleased) button = 1;
+            else if (props.PointerUpdateKind == PointerUpdateKind.MiddleButtonReleased) button = 2;
+
+            if (button != -1) {
+                _scene?.HandlePointerReleased(button, input.Position);
+            }
+        }
     }
 }

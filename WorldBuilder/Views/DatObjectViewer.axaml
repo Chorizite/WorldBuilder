@@ -4,5 +4,41 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:views="using:WorldBuilder.Views"
     x:CompileBindings="True">
-    <Panel x:Name="Viewport" Background="Transparent" />
+    <Panel Background="Transparent">
+        <Panel x:Name="Viewport" Background="Transparent" />
+        
+        <!-- Overlay Buttons -->
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" Spacing="4"
+                    IsVisible="{Binding !IsTooltip, RelativeSource={RelativeSource AncestorType=views:DatObjectViewer}}">
+            <StackPanel.Styles>
+                <Style Selector="Button, ToggleButton">
+                    <Setter Property="Focusable" Value="False" />
+                    <Setter Property="Padding" Value="4" />
+                    <Setter Property="Width" Value="32" />
+                    <Setter Property="Height" Value="32" />
+                    <Setter Property="HorizontalContentAlignment" Value="Center" />
+                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                    <Setter Property="Background" Value="#80000000" />
+                    <Setter Property="BorderBrush" Value="#40FFFFFF" />
+                    <Setter Property="BorderThickness" Value="1" />
+                </Style>
+                <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="{DynamicResource SystemAccentColor}" />
+                    <Setter Property="Opacity" Value="0.8" />
+                    <Setter Property="BorderBrush" Value="#FFFFFF" />
+                </Style>
+                <Style Selector="ToggleButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="#A0000000" />
+                </Style>
+                <Style Selector="ToggleButton:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="{DynamicResource SystemAccentColor}" />
+                    <Setter Property="Opacity" Value="1.0" />
+                </Style>
+            </StackPanel.Styles>
+            <ToggleButton IsChecked="{Binding !IsAutoCamera, RelativeSource={RelativeSource AncestorType=views:DatObjectViewer}}" 
+                          ToolTip.Tip="Toggle Freecam">
+                <TextBlock Text="📷" />
+            </ToggleButton>
+        </StackPanel>
+    </Panel>
 </views:Base3DViewport>

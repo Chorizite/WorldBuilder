@@ -91,25 +91,25 @@ namespace WorldBuilder.Lib.Settings {
         private float _lightIntensity = 0.45f;
         public float LightIntensity { get => _lightIntensity; set => SetProperty(ref _lightIntensity, value); }
 
-        [SettingDescription("Render the landscape in wireframe mode")]
-        [SettingOrder(2)]
-        private bool _showWireframe = false;
-        public bool ShowWireframe { get => _showWireframe; set => SetProperty(ref _showWireframe, value); }
-
         [SettingDescription("Render scenery objects (trees, buildings, etc)")]
         [SettingOrder(3)]
         private bool _showScenery = true;
         public bool ShowScenery { get => _showScenery; set => SetProperty(ref _showScenery, value); }
 
+        [SettingDescription("Render static objects")]
+        [SettingOrder(4)]
+        private bool _showStaticObjects = true;
+        public bool ShowStaticObjects { get => _showStaticObjects; set => SetProperty(ref _showStaticObjects, value); }
+
         [SettingDescription("Number of terrain chunks to render around the camera")]
         [SettingRange(1, 64, 1, 4)]
-        [SettingOrder(4)]
+        [SettingOrder(5)]
         private int _terrainRenderDistance = 18;
         public int TerrainRenderDistance { get => _terrainRenderDistance; set => SetProperty(ref _terrainRenderDistance, value); }
 
         [SettingDescription("Number of landblocks to render scenery around the camera")]
         [SettingRange(1, 64, 1, 4)]
-        [SettingOrder(5)]
+        [SettingOrder(6)]
         private int _sceneryRenderDistance = 12;
         public int SceneryRenderDistance { get => _sceneryRenderDistance; set => SetProperty(ref _sceneryRenderDistance, value); }
     }
