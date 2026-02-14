@@ -396,14 +396,6 @@ public partial class RenderView : Base3DViewport {
         set => SetValue(ShowBrushProperty, value);
     }
 
-    public static readonly StyledProperty<bool> ShowWireframeProperty =
-        AvaloniaProperty.Register<RenderView, bool>(nameof(ShowWireframe));
-
-    public bool ShowWireframe {
-        get => GetValue(ShowWireframeProperty);
-        set => SetValue(ShowWireframeProperty, value);
-    }
-
     public static readonly StyledProperty<bool> ShowSceneryProperty =
         AvaloniaProperty.Register<RenderView, bool>(nameof(ShowScenery), defaultValue: true);
 
@@ -446,11 +438,6 @@ public partial class RenderView : Base3DViewport {
                  change.Property == BrushRadiusProperty ||
                  change.Property == ShowBrushProperty) {
             _gameScene?.SetBrush(BrushPosition, BrushRadius, new Vector4(0, 1, 0, 0.4f), ShowBrush);
-        }
-        else if (change.Property == ShowWireframeProperty) {
-            if (_gameScene != null) {
-                _gameScene.ShowWireframe = ShowWireframe;
-            }
         }
         else if (change.Property == ShowSceneryProperty) {
             if (_gameScene != null) {

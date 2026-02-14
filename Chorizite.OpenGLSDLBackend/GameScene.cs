@@ -32,7 +32,6 @@ public class GameScene : IDisposable {
     private IShader? _terrainShader;
     private IShader? _sceneryShader;
     private bool _initialized;
-    public bool ShowWireframe { get; set; }
     public bool ShowScenery { get; set; } = true;
     public bool ShowStaticObjects { get; set; } = true;
     private int _width;
@@ -392,21 +391,7 @@ public class GameScene : IDisposable {
 
         // Render Terrain
         if (_terrainManager != null) {
-            // TODO: how to polygon mode on windows with ANGLE
-            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
-                if (ShowWireframe) {
-                    _gl.PolygonMode(GLEnum.FrontAndBack, Silk.NET.OpenGL.PolygonMode.Line);
-                }
-                else {
-                    _gl.PolygonMode(GLEnum.FrontAndBack, Silk.NET.OpenGL.PolygonMode.Fill);
-                }
-            }
-
             _terrainManager.Render(_currentCamera);
-
-            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
-                _gl.PolygonMode(GLEnum.FrontAndBack, Silk.NET.OpenGL.PolygonMode.Fill);
-            }
         }
 
         // Render Scenery
@@ -467,12 +452,6 @@ public class GameScene : IDisposable {
     public void HandleKeyDown(string key) {
         if (key.Equals("Tab", StringComparison.OrdinalIgnoreCase)) {
             ToggleCamera();
-            return;
-        }
-
-        if (key.Equals("X", StringComparison.OrdinalIgnoreCase)) {
-            ShowWireframe = !ShowWireframe;
-            _log.LogInformation("Wireframe mode: {Mode}", ShowWireframe ? "On" : "Off");
             return;
         }
 

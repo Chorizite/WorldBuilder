@@ -56,17 +56,10 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     [ObservableProperty] private float _brushRadius = 30f;
     [ObservableProperty] private bool _showBrush;
 
-    [ObservableProperty] private bool _isWireframeEnabled;
     [ObservableProperty] private bool _isSceneryEnabled = true;
     [ObservableProperty] private bool _isStaticObjectsEnabled = true;
     [ObservableProperty] private bool _isGridEnabled;
     [ObservableProperty] private bool _is3DCameraEnabled = true;
-
-    partial void OnIsWireframeEnabledChanged(bool value) {
-        if (_settings != null) {
-            _settings.Landscape.Rendering.ShowWireframe = value;
-        }
-    }
 
     partial void OnIsSceneryEnabledChanged(bool value) {
         if (_settings != null) {
@@ -114,7 +107,6 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         _settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
 
         if (_settings != null) {
-            IsWireframeEnabled = _settings.Landscape.Rendering.ShowWireframe;
             IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
             IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
             IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
@@ -386,7 +378,6 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 _settings.Landscape.Grid.PropertyChanged -= OnGridSettingsPropertyChanged;
                 _settings.Landscape.Grid.PropertyChanged += OnGridSettingsPropertyChanged;
 
-                IsWireframeEnabled = _settings.Landscape.Rendering.ShowWireframe;
                 IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
                 IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
                 IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
@@ -399,7 +390,6 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             if (_settings != null) {
                 _settings.Landscape.Rendering.PropertyChanged -= OnRenderingSettingsPropertyChanged;
                 _settings.Landscape.Rendering.PropertyChanged += OnRenderingSettingsPropertyChanged;
-                IsWireframeEnabled = _settings.Landscape.Rendering.ShowWireframe;
                 IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
                 IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
             }
@@ -414,12 +404,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     }
 
     private void OnRenderingSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
-        if (e.PropertyName == nameof(RenderingSettings.ShowWireframe)) {
-            if (_settings != null) {
-                IsWireframeEnabled = _settings.Landscape.Rendering.ShowWireframe;
-            }
-        }
-        else if (e.PropertyName == nameof(RenderingSettings.ShowScenery)) {
+        if (e.PropertyName == nameof(RenderingSettings.ShowScenery)) {
             if (_settings != null) {
                 IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
             }

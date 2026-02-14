@@ -91,11 +91,6 @@ namespace WorldBuilder.Lib.Settings {
         private float _lightIntensity = 0.45f;
         public float LightIntensity { get => _lightIntensity; set => SetProperty(ref _lightIntensity, value); }
 
-        [SettingDescription("Render the landscape in wireframe mode")]
-        [SettingOrder(2)]
-        private bool _showWireframe = false;
-        public bool ShowWireframe { get => _showWireframe; set => SetProperty(ref _showWireframe, value); }
-
         [SettingDescription("Render scenery objects (trees, buildings, etc)")]
         [SettingOrder(3)]
         private bool _showScenery = true;

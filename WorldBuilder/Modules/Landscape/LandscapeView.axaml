@@ -30,7 +30,6 @@
                         BrushPosition="{Binding BrushPosition}"
                         BrushRadius="{Binding BrushRadius}"
                         ShowBrush="{Binding ShowBrush}"
-                        ShowWireframe="{Binding IsWireframeEnabled}"
                         ShowScenery="{Binding IsSceneryEnabled}"
                         ShowStaticObjects="{Binding IsStaticObjectsEnabled}"
                         Is3DCamera="{Binding Is3DCameraEnabled}" />
@@ -64,9 +63,6 @@
         </StackPanel.Styles>
         <ToggleButton IsChecked="{Binding Is3DCameraEnabled}" ToolTip.Tip="Toggle Camera">
           <TextBlock Text="📷" />
-        </ToggleButton>
-        <ToggleButton IsChecked="{Binding IsWireframeEnabled}" ToolTip.Tip="Toggle Wireframe">
-          <TextBlock Text="🕸️" />
         </ToggleButton>
         <ToggleButton IsChecked="{Binding IsSceneryEnabled}" ToolTip.Tip="Toggle Scenery">
           <TextBlock Text="🌳" />
