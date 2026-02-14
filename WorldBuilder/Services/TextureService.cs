@@ -57,29 +57,25 @@ namespace WorldBuilder.Services {
 
             return await Task.Run(() => {
                 try {
-                    if (!_dats.Portal.TryGet<SurfaceTexture>(textureId, out var surfaceTexture)) {
-                        _logger.LogWarning("Could not find SurfaceTexture {TextureId}", textureId);
-                        _textureCache.TryAdd(textureId, null);
-                        return null;
-                    }
-
                     RenderSurface? renderSurface = null;
-                    uint bestTexId = 0;
-                    int maxArea = -1;
+                    var type = _dats.TypeFromId(textureId);
+                    var renderSurfaceId = textureId;
 
-                    foreach (var tid in surfaceTexture.Textures) {
-                        if (_dats.Portal.TryGet<RenderSurface>(tid, out var surf)) {
-                            int area = surf.Width * surf.Height;
-                            if (area > maxArea) {
-                                maxArea = area;
-                                renderSurface = surf;
-                                bestTexId = tid;
-                            }
+                    if (type == DBObjType.SurfaceTexture) {
+                        if (_dats.Portal.TryGet<SurfaceTexture>(textureId, out var surfaceTexture)) {
+                            renderSurfaceId = surfaceTexture.Textures.FirstOrDefault() ?? 0;
                         }
+                    }
+                    
+                    if (_dats.HighRes.TryGet<RenderSurface>(renderSurfaceId, out var surf)) {
+                        renderSurface = surf;
+                    }
+                    else if (_dats.Portal.TryGet<RenderSurface>(renderSurfaceId, out var surf2)) {
+                        renderSurface = surf2;
                     }
 
                     if (renderSurface == null) {
-                        _logger.LogWarning("Could not find any RenderSurface for SurfaceTexture {TextureId}", textureId);
+                        _logger.LogWarning("Could not find any RenderSurface for texture 0x{TextureId:X8} (Type: {Type})", textureId, type);
                         _textureCache.TryAdd(textureId, null);
                         return null;
                     }
@@ -165,7 +161,7 @@ namespace WorldBuilder.Services {
                     }
                     break;
                 case DatPixelFormat.PFID_P8:
-                    if (_dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var palette)) {
+                    if (renderSurface.DefaultPaletteId != 0 && _dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var palette)) {
                         for (int i = 0; i < width * height; i++) {
                             var color = palette.Colors[sourceData[i]];
                             rgba8[i * 4] = color.Red;
@@ -173,10 +169,19 @@ namespace WorldBuilder.Services {
                             rgba8[i * 4 + 2] = color.Blue;
                             rgba8[i * 4 + 3] = color.Alpha == 0 ? (byte)255 : color.Alpha;
                         }
+                    } else {
+                        // Greyscale fallback if no palette
+                        for (int i = 0; i < width * height; i++) {
+                            byte val = sourceData[i];
+                            rgba8[i * 4] = val;
+                            rgba8[i * 4 + 1] = val;
+                            rgba8[i * 4 + 2] = val;
+                            rgba8[i * 4 + 3] = 255;
+                        }
                     }
                     break;
                 case DatPixelFormat.PFID_INDEX16:
-                    if (_dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var palette16)) {
+                    if (renderSurface.DefaultPaletteId != 0 && _dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var palette16)) {
                         for (int i = 0; i < width * height; i++) {
                             ushort index = BitConverter.ToUInt16(sourceData, i * 2);
                             var color = palette16.Colors[index];
@@ -184,6 +189,16 @@ namespace WorldBuilder.Services {
                             rgba8[i * 4 + 1] = color.Green;
                             rgba8[i * 4 + 2] = color.Blue;
                             rgba8[i * 4 + 3] = color.Alpha == 0 ? (byte)255 : color.Alpha;
+                        }
+                    } else {
+                        // Greyscale fallback if no palette
+                        for (int i = 0; i < width * height; i++) {
+                            ushort index = BitConverter.ToUInt16(sourceData, i * 2);
+                            byte val = (byte)((index >> 8) & 0xFF);
+                            rgba8[i * 4] = val;
+                            rgba8[i * 4 + 1] = val;
+                            rgba8[i * 4 + 2] = val;
+                            rgba8[i * 4 + 3] = 255;
                         }
                     }
                     break;

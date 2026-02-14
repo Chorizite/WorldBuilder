@@ -28,7 +28,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         public uint? DataId { get; set; }
         public Type? TargetType { get; set; }
         public IDatReaderWriter? Dats { get; set; }
-        public bool IsPreviewable => IsQualifiedDataId && (DbType == DBObjType.Setup || DbType == DBObjType.GfxObj || DbType == DBObjType.SurfaceTexture);
+        public bool IsPreviewable => IsQualifiedDataId && (DbType == DBObjType.Setup || DbType == DBObjType.GfxObj || DbType == DBObjType.SurfaceTexture || DbType == DBObjType.RenderSurface);
         public bool IsQualifiedDataId => DataId.HasValue;
 
         [ObservableProperty]

@@ -115,10 +115,12 @@ public class CombinedViewLocatorTests {
         mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.Setup>()).Returns(Enumerable.Empty<uint>());
         mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.GfxObj>()).Returns(Enumerable.Empty<uint>());
         mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.SurfaceTexture>()).Returns(Enumerable.Empty<uint>());
+        mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.RenderSurface>()).Returns(Enumerable.Empty<uint>());
         
         var mockSetup = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SetupBrowserViewModel>(mockDats.Object);
         var mockGfx = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.GfxObjBrowserViewModel>(mockDats.Object);
         var mockTex = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SurfaceTextureBrowserViewModel>(mockDats.Object, null!);
+        var mockRenderTex = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.RenderSurfaceBrowserViewModel>(mockDats.Object, null!);
         var mockDialog = new Moq.Mock<HanumanInstitute.MvvmDialogs.IDialogService>();
         var mockServiceProvider = new Moq.Mock<IServiceProvider>();
 
@@ -126,6 +128,7 @@ public class CombinedViewLocatorTests {
             mockSetup.Object,
             mockGfx.Object,
             mockTex.Object,
+            mockRenderTex.Object,
             mockDialog.Object,
             mockServiceProvider.Object,
             mockDats.Object

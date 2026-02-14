@@ -27,5 +27,30 @@
                    HorizontalAlignment="Center" 
                    VerticalAlignment="Center" 
                    Foreground="Gray"/>
+
+        <Border Background="#80000000" 
+                VerticalAlignment="Bottom" 
+                HorizontalAlignment="Stretch"
+                IsVisible="{Binding HasData, ElementName=Root}"
+                Padding="5,2">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+                <TextBlock Text="{Binding DataId, ElementName=Root, StringFormat='0x{0:X8}'}" 
+                           Foreground="White" 
+                           FontSize="10"
+                           FontFamily="Cascadia Code,Consolas,Monospace"/>
+                <TextBlock Text="|" Foreground="Gray" FontSize="10" />
+                <TextBlock Text="{Binding DataObjectType, ElementName=Root}" 
+                           Foreground="White" 
+                           FontSize="10"
+                           FontFamily="Cascadia Code,Consolas,Monospace"/>
+                <StackPanel Orientation="Horizontal" IsVisible="{Binding PreviewDetails, ElementName=Root, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <TextBlock Text="|" Foreground="Gray" FontSize="10" Margin="5,0" />
+                    <TextBlock Text="{Binding PreviewDetails, ElementName=Root}" 
+                               Foreground="#AAA" 
+                               FontSize="10"
+                               FontFamily="Cascadia Code,Consolas,Monospace"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
     </Panel>
 </UserControl>

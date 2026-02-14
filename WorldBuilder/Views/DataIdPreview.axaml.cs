@@ -34,37 +34,61 @@ namespace WorldBuilder.Views {
             set => SetValue(IsTooltipProperty, value);
         }
 
-        public static readonly DirectProperty<DataIdPreview, bool> Is3DProperty =
-            AvaloniaProperty.RegisterDirect<DataIdPreview, bool>(nameof(Is3D), o => o.Is3D);
+        public static readonly StyledProperty<bool> Is3DProperty =
+            AvaloniaProperty.Register<DataIdPreview, bool>(nameof(Is3D));
 
-        private bool _is3D;
         public bool Is3D {
-            get => _is3D;
-            private set => SetAndRaise(Is3DProperty, ref _is3D, value);
+            get => GetValue(Is3DProperty);
+            private set => SetValue(Is3DProperty, value);
         }
 
-        public static readonly DirectProperty<DataIdPreview, bool> Is2DProperty =
-            AvaloniaProperty.RegisterDirect<DataIdPreview, bool>(nameof(Is2D), o => o.Is2D);
+        public static readonly StyledProperty<bool> Is2DProperty =
+            AvaloniaProperty.Register<DataIdPreview, bool>(nameof(Is2D));
 
-        private bool _is2D;
         public bool Is2D {
-            get => _is2D;
-            private set => SetAndRaise(Is2DProperty, ref _is2D, value);
+            get => GetValue(Is2DProperty);
+            private set => SetValue(Is2DProperty, value);
         }
 
-        public static readonly DirectProperty<DataIdPreview, bool> IsSetupProperty =
-            AvaloniaProperty.RegisterDirect<DataIdPreview, bool>(nameof(IsSetup), o => o.IsSetup);
+        public static readonly StyledProperty<bool> IsSetupProperty =
+            AvaloniaProperty.Register<DataIdPreview, bool>(nameof(IsSetup));
 
-        private bool _isSetup;
         public bool IsSetup {
-            get => _isSetup;
-            private set => SetAndRaise(IsSetupProperty, ref _isSetup, value);
+            get => GetValue(IsSetupProperty);
+            private set => SetValue(IsSetupProperty, value);
         }
 
-        public static readonly DirectProperty<DataIdPreview, bool> IsPreviewableProperty =
-            AvaloniaProperty.RegisterDirect<DataIdPreview, bool>(nameof(IsPreviewable), o => o.IsPreviewable);
+        public static readonly StyledProperty<bool> IsPreviewableProperty =
+            AvaloniaProperty.Register<DataIdPreview, bool>(nameof(IsPreviewable));
 
-        public bool IsPreviewable => Is3D || Is2D;
+        public bool IsPreviewable {
+            get => GetValue(IsPreviewableProperty);
+            private set => SetValue(IsPreviewableProperty, value);
+        }
+
+        public static readonly StyledProperty<bool> HasDataProperty =
+            AvaloniaProperty.Register<DataIdPreview, bool>(nameof(HasData));
+
+        public bool HasData {
+            get => GetValue(HasDataProperty);
+            private set => SetValue(HasDataProperty, value);
+        }
+
+        public static readonly StyledProperty<DBObjType> DataObjectTypeProperty =
+            AvaloniaProperty.Register<DataIdPreview, DBObjType>(nameof(DataObjectType));
+
+        public DBObjType DataObjectType {
+            get => GetValue(DataObjectTypeProperty);
+            private set => SetValue(DataObjectTypeProperty, value);
+        }
+
+        public static readonly StyledProperty<string?> PreviewDetailsProperty =
+            AvaloniaProperty.Register<DataIdPreview, string?>(nameof(PreviewDetails));
+
+        public string? PreviewDetails {
+            get => GetValue(PreviewDetailsProperty);
+            private set => SetValue(PreviewDetailsProperty, value);
+        }
 
         public static readonly DirectProperty<DataIdPreview, Bitmap?> TextureBitmapProperty =
             AvaloniaProperty.RegisterDirect<DataIdPreview, Bitmap?>(nameof(TextureBitmap), o => o.TextureBitmap);
@@ -91,26 +115,46 @@ namespace WorldBuilder.Views {
                 Is3D = false;
                 Is2D = false;
                 IsSetup = false;
+                IsPreviewable = false;
+                HasData = false;
+                DataObjectType = DBObjType.Unknown;
+                PreviewDetails = null;
                 TextureBitmap = null;
                 return;
             }
 
+            HasData = true;
             var type = Dats.TypeFromId(DataId);
+            DataObjectType = type;
+            PreviewDetails = null;
             
             IsSetup = type == DBObjType.Setup;
             Is3D = IsSetup || type == DBObjType.GfxObj;
-            Is2D = type == DBObjType.SurfaceTexture;
+            Is2D = type == DBObjType.SurfaceTexture || type == DBObjType.RenderSurface;
+
+            IsPreviewable = Is3D || Is2D;
 
             if (Is2D) {
-                var textureService = WorldBuilder.App.Services?.GetService<TextureService>();
+                var textureService = WorldBuilder.App.ProjectManager?.GetProjectService<TextureService>();
                 if (textureService != null) {
                     TextureBitmap = await textureService.GetTextureAsync(DataId);
+                }
+
+                if (DataObjectType == DBObjType.RenderSurface) {
+                    if (Dats.HighRes.TryGet<DatReaderWriter.DBObjs.RenderSurface>(DataId, out var surf)) {
+                        PreviewDetails = $"{surf.Width}x{surf.Height} {surf.Format}";
+                    }
+                    else if (Dats.Portal.TryGet<DatReaderWriter.DBObjs.RenderSurface>(DataId, out var surf2)) {
+                        PreviewDetails = $"{surf2.Width}x{surf2.Height} {surf2.Format}";
+                    }
+                } else if (DataObjectType == DBObjType.SurfaceTexture) {
+                    if (Dats.Portal.TryGet<DatReaderWriter.DBObjs.SurfaceTexture>(DataId, out var surfTex)) {
+                        PreviewDetails = $"{surfTex.Textures.Count} textures";
+                    }
                 }
             } else {
                 TextureBitmap = null;
             }
-            
-            RaisePropertyChanged(IsPreviewableProperty, !IsPreviewable, IsPreviewable);
         }
     }
 }

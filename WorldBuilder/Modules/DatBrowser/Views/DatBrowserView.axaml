@@ -18,6 +18,9 @@
         <DataTemplate DataType="vm:SurfaceTextureBrowserViewModel">
             <v:SurfaceTextureBrowserView/>
         </DataTemplate>
+        <DataTemplate DataType="vm:RenderSurfaceBrowserViewModel">
+            <v:RenderSurfaceBrowserView/>
+        </DataTemplate>
     </UserControl.DataTemplates>
     
     <Grid ColumnDefinitions="*, Auto, 300">
@@ -35,9 +38,15 @@
                 FileId="{Binding PreviewFileId}" 
                 IsSetup="{Binding PreviewIsSetup}"
                 Dats="{Binding Dats}"
-                IsVisible="{Binding IsPreviewSupported}"
+                IsVisible="{Binding Is3D}"
                 HorizontalAlignment="Stretch" 
                 VerticalAlignment="Stretch"/>
+
+            <Image 
+                IsVisible="{Binding Is2D}"
+                Source="{Binding TextureBitmap}" 
+                Stretch="Uniform" 
+                Margin="10"/>
 
             <TextBlock Text="Object cannot be previewed" 
                        IsVisible="{Binding !IsPreviewSupported}"
