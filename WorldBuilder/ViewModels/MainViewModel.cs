@@ -33,6 +33,16 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     private bool _settingsOpen;
 
     /// <summary>
+    /// Gets a value indicating whether the current project is read-only.
+    /// </summary>
+    public bool IsReadOnly => _project.IsReadOnly;
+
+    /// <summary>
+    /// Gets the window title for the application.
+    /// </summary>
+    public string WindowTitle => $"WorldBuilder - {_project.Name}{(IsReadOnly ? " (Read Only)" : "")}";
+
+    /// <summary>
     /// Gets the current RAM usage as a formatted string.
     /// </summary>
     [ObservableProperty] private string _ramUsage = "0 MB";
@@ -162,6 +172,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
 
     [RelayCommand]
     private async Task OpenExportDatsWindow() {
+        if (IsReadOnly) return;
         var viewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<ExportDatsWindowViewModel>(_serviceProvider);
         await _dialogService.ShowDialogAsync(this, viewModel);
     }

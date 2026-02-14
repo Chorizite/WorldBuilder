@@ -19,7 +19,7 @@
     <DockPanel>
         <!--  Menu Bar at the top  -->
         <Menu DockPanel.Dock="Top">
-            <MenuItem Header="File">
+            <MenuItem Header="File" IsVisible="{Binding !IsReadOnly}">
                 <MenuItem Command="{Binding OpenExportDatsWindowCommand}" Header="Export Dats" />
             </MenuItem>
             <MenuItem Header="Tools">

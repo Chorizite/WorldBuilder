@@ -35,6 +35,11 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
     [ObservableProperty] private LandscapeDocument? _activeDocument;
     public IDatReaderWriter Dats => _dats;
 
+    /// <summary>
+    /// Gets a value indicating whether the current project is read-only.
+    /// </summary>
+    public bool IsReadOnly => _project.IsReadOnly;
+
     public ObservableCollection<ILandscapeTool> Tools { get; } = new();
 
     [ObservableProperty]
@@ -87,7 +92,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         }
 
         HistoryPanel = new HistoryPanelViewModel(CommandHistory);
-        LayersPanel = new LayersPanelViewModel(log, CommandHistory, _documentManager, _settings, async (item, changeType) => {
+        LayersPanel = new LayersPanelViewModel(log, CommandHistory, _documentManager, _settings, _project, async (item, changeType) => {
             if (ActiveDocument != null) {
                 if (changeType == LayerChangeType.VisibilityChange && item != null) {
                     await ActiveDocument.SetLayerVisibilityAsync(item.Model.Id, item.IsVisible);
@@ -111,10 +116,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
         _ = LoadLandscapeAsync();
 
         // Register Tools
-        Tools.Add(new BrushTool());
-        Tools.Add(new BucketFillTool());
-        Tools.Add(new RoadVertexTool());
-        Tools.Add(new RoadLineTool());
+        if (!_project.IsReadOnly) {
+            Tools.Add(new BrushTool());
+            Tools.Add(new BucketFillTool());
+            Tools.Add(new RoadVertexTool());
+            Tools.Add(new RoadLineTool());
+        }
         ActiveTool = Tools.FirstOrDefault();
     }
 
@@ -171,6 +178,8 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
     }
 
     public void RequestSave(string docId) {
+        if (_project.IsReadOnly) return;
+
         if (_saveDebounceTokens.TryGetValue(docId, out var existingCts)) {
             existingCts.Cancel();
             existingCts.Dispose();
@@ -195,7 +204,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable {
     }
 
     private async Task PersistDocumentAsync(string docId, CancellationToken ct) {
-        if (ActiveDocument == null) return;
+        if (_project.IsReadOnly || ActiveDocument == null) return;
 
         if (docId == ActiveDocument.Id) {
             _log.LogDebug("Persisting landscape document {DocId} to database", docId);

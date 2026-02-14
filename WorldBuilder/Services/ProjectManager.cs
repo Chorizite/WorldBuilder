@@ -129,7 +129,7 @@ namespace WorldBuilder.Services {
             }
 
             CurrentProjectChanged?.Invoke(this, EventArgs.Empty);
-            _ = _recentProjectsManager.AddRecentProject(project.Name, project.ProjectFile);
+            _ = _recentProjectsManager.AddRecentProject(project.Name, project.ProjectFile, project.IsReadOnly);
         }
 
         private async Task SetProject(string projectPath) {

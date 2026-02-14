@@ -88,7 +88,6 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             if (obj is IEnumerable enumerable && obj is not string) {
                 int index = 0;
                 foreach (var item in enumerable) {
-                    }
                     children.Add(Create($"[{index++}]", item, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
                 }
             } else {
