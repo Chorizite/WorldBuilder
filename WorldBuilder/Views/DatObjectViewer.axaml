@@ -18,11 +18,25 @@
                     <Setter Property="Height" Value="32" />
                     <Setter Property="HorizontalContentAlignment" Value="Center" />
                     <Setter Property="VerticalContentAlignment" Value="Center" />
+                    <Setter Property="Background" Value="#80000000" />
+                    <Setter Property="BorderBrush" Value="#40FFFFFF" />
+                    <Setter Property="BorderThickness" Value="1" />
+                </Style>
+                <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="{DynamicResource SystemAccentColor}" />
+                    <Setter Property="Opacity" Value="0.8" />
+                    <Setter Property="BorderBrush" Value="#FFFFFF" />
+                </Style>
+                <Style Selector="ToggleButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="#A0000000" />
+                </Style>
+                <Style Selector="ToggleButton:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="{DynamicResource SystemAccentColor}" />
+                    <Setter Property="Opacity" Value="1.0" />
                 </Style>
             </StackPanel.Styles>
             <ToggleButton IsChecked="{Binding !IsAutoCamera, RelativeSource={RelativeSource AncestorType=views:DatObjectViewer}}" 
-                          ToolTip.Tip="Toggle Freecam"
-                          Background="#80000000">
+                          ToolTip.Tip="Toggle Freecam">
                 <TextBlock Text="📷" />
             </ToggleButton>
         </StackPanel>

@@ -62,6 +62,34 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     [ObservableProperty] private bool _isGridEnabled;
     [ObservableProperty] private bool _is3DCameraEnabled = true;
 
+    partial void OnIsWireframeEnabledChanged(bool value) {
+        if (_settings != null) {
+            _settings.Landscape.Rendering.ShowWireframe = value;
+        }
+    }
+
+    partial void OnIsSceneryEnabledChanged(bool value) {
+        if (_settings != null) {
+            _settings.Landscape.Rendering.ShowScenery = value;
+        }
+    }
+
+    partial void OnIsStaticObjectsEnabledChanged(bool value) {
+        if (_settings != null) {
+            _settings.Landscape.Rendering.ShowStaticObjects = value;
+        }
+    }
+
+    partial void OnIsGridEnabledChanged(bool value) {
+        if (_settings != null) {
+            _settings.Landscape.Grid.ShowGrid = value;
+        }
+    }
+
+    partial void OnIs3DCameraEnabledChanged(bool value) {
+        UpdateToolContext();
+    }
+
     private readonly WorldBuilderSettings? _settings;
 
     public CommandHistory CommandHistory { get; } = new();
@@ -331,43 +359,6 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         }
         catch (Exception ex) {
             _log.LogError(ex, "Error loading landscape");
-        }
-    }
-
-    [RelayCommand]
-    public void ToggleCamera() {
-        Is3DCameraEnabled = !Is3DCameraEnabled;
-    }
-
-    [RelayCommand]
-    public void ToggleWireframe() {
-        IsWireframeEnabled = !IsWireframeEnabled;
-        if (_settings != null) {
-            _settings.Landscape.Rendering.ShowWireframe = IsWireframeEnabled;
-        }
-    }
-
-    [RelayCommand]
-    public void ToggleScenery() {
-        IsSceneryEnabled = !IsSceneryEnabled;
-        if (_settings != null) {
-            _settings.Landscape.Rendering.ShowScenery = IsSceneryEnabled;
-        }
-    }
-
-    [RelayCommand]
-    public void ToggleStaticObjects() {
-        IsStaticObjectsEnabled = !IsStaticObjectsEnabled;
-        if (_settings != null) {
-            _settings.Landscape.Rendering.ShowStaticObjects = IsStaticObjectsEnabled;
-        }
-    }
-
-    [RelayCommand]
-    public void ToggleGrid() {
-        IsGridEnabled = !IsGridEnabled;
-        if (_settings != null) {
-            _settings.Landscape.Grid.ShowGrid = IsGridEnabled;
         }
     }
 

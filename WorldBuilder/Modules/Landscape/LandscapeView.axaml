@@ -38,7 +38,7 @@
       <!-- Overlay Buttons -->
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" Spacing="4">
         <StackPanel.Styles>
-          <Style Selector="Button">
+          <Style Selector="Button, ToggleButton">
             <Setter Property="Focusable" Value="False" />
             <Setter Property="Padding" Value="4" />
             <Setter Property="Width" Value="32" />
@@ -46,23 +46,37 @@
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Background" Value="#80000000" />
+            <Setter Property="BorderBrush" Value="#40FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+          </Style>
+          <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SystemAccentColor}" />
+            <Setter Property="Opacity" Value="0.8" />
+            <Setter Property="BorderBrush" Value="#FFFFFF" />
+          </Style>
+          <Style Selector="ToggleButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#A0000000" />
+          </Style>
+          <Style Selector="ToggleButton:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SystemAccentColor}" />
+            <Setter Property="Opacity" Value="1.0" />
           </Style>
         </StackPanel.Styles>
-        <Button Command="{Binding ToggleCamera}" ToolTip.Tip="Toggle Camera">
+        <ToggleButton IsChecked="{Binding Is3DCameraEnabled}" ToolTip.Tip="Toggle Camera">
           <TextBlock Text="📷" />
-        </Button>
-        <Button Command="{Binding ToggleWireframe}" ToolTip.Tip="Toggle Wireframe">
+        </ToggleButton>
+        <ToggleButton IsChecked="{Binding IsWireframeEnabled}" ToolTip.Tip="Toggle Wireframe">
           <TextBlock Text="🕸️" />
-        </Button>
-        <Button Command="{Binding ToggleScenery}" ToolTip.Tip="Toggle Scenery">
+        </ToggleButton>
+        <ToggleButton IsChecked="{Binding IsSceneryEnabled}" ToolTip.Tip="Toggle Scenery">
           <TextBlock Text="🌳" />
-        </Button>
-        <Button Command="{Binding ToggleStaticObjects}" ToolTip.Tip="Toggle Static Objects">
+        </ToggleButton>
+        <ToggleButton IsChecked="{Binding IsStaticObjectsEnabled}" ToolTip.Tip="Toggle Static Objects">
           <TextBlock Text="🏛️" />
-        </Button>
-        <Button Command="{Binding ToggleGrid}" ToolTip.Tip="Toggle Grid">
+        </ToggleButton>
+        <ToggleButton IsChecked="{Binding IsGridEnabled}" ToolTip.Tip="Toggle Grid">
           <TextBlock Text="📏" />
-        </Button>
+        </ToggleButton>
         <Button Command="{Binding PrintCameraPosition}" ToolTip.Tip="Print Camera Position">
           <TextBlock Text="🎯" />
         </Button>
