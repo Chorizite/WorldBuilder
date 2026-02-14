@@ -1,4 +1,5 @@
-﻿using DatReaderWriter.DBObjs;
+﻿using DatReaderWriter;
+using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
 using DatReaderWriter.Lib.IO;
 using DatReaderWriter.Types;
@@ -44,6 +45,8 @@ namespace WorldBuilder.Shared.Tests.Mocks {
             return true;
         }
 
+        public DBObjType TypeFromId(uint id) => DBObjType.Unknown;
+
         public void Dispose() {
 
         }
@@ -52,6 +55,8 @@ namespace WorldBuilder.Shared.Tests.Mocks {
     internal class MockDatDatabase : IDatDatabase {
         private readonly IEnumerable<Type> _validObjTypes;
         private readonly ConcurrentDictionary<uint, IDBObj?> _cache = new();
+
+        public DatDatabase Db => null!;
 
         public MockDatDatabase(IEnumerable<Type> validTypes) {
             _validObjTypes = validTypes;

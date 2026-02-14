@@ -25,6 +25,14 @@ namespace WorldBuilder.Views {
         public RenderTarget? RenderTarget { get; protected set; }
         public OpenGLRenderer? Renderer { get; private set; }
 
+        public static readonly StyledProperty<bool> IsTooltipProperty =
+            AvaloniaProperty.Register<Base3DViewport, bool>(nameof(IsTooltip));
+
+        public bool IsTooltip {
+            get => GetValue(IsTooltipProperty);
+            set => SetValue(IsTooltipProperty, value);
+        }
+
         public Vector2 InputScale { get; private set; }
 
         protected Base3DViewport() {

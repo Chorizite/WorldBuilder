@@ -63,6 +63,7 @@
                     <ToolTip.Tip>
                       <Border Width="512" Height="512">
                         <views:SceneryPreview Width="512" Height="512"
+                                              IsTooltip="True"
                                               Texture="{Binding $parent[ComboBox].DataContext.Texture}"
                                               SceneryIndex="{Binding Index}"
                                               Dats="{Binding #SettingsRoot.((vm:LandscapeViewModel)DataContext).Dats}" />

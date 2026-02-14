@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:views="using:WorldBuilder.Views"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="300"
+             x:Class="WorldBuilder.Views.DataIdPreview"
+             x:Name="Root">
+    <Panel>
+        <views:DatObjectViewer 
+            IsVisible="{Binding Is3D, ElementName=Root}"
+            FileId="{Binding DataId, ElementName=Root}"
+            IsSetup="{Binding IsSetup, ElementName=Root}"
+            Dats="{Binding Dats, ElementName=Root}"
+            IsTooltip="{Binding IsTooltip, ElementName=Root}"
+            HorizontalAlignment="Stretch" 
+            VerticalAlignment="Stretch"/>
+
+        <Image 
+            IsVisible="{Binding Is2D, ElementName=Root}"
+            Source="{Binding TextureBitmap, ElementName=Root}"
+            Stretch="Uniform"
+            Margin="5"/>
+
+        <TextBlock Text="No Preview Available" 
+                   IsVisible="{Binding !IsPreviewable, ElementName=Root}"
+                   HorizontalAlignment="Center" 
+                   VerticalAlignment="Center" 
+                   Foreground="Gray"/>
+    </Panel>
+</UserControl>

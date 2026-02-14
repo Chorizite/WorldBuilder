@@ -27,9 +27,12 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         public uint? DataId { get; set; }
         public Type? TargetType { get; set; }
+        public IDatReaderWriter? Dats { get; set; }
+        public bool IsPreviewable => IsQualifiedDataId && (DbType == DBObjType.Setup || DbType == DBObjType.GfxObj || DbType == DBObjType.SurfaceTexture);
         public bool IsQualifiedDataId => DataId.HasValue;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsPreviewable))]
         private DBObjType? _dbType;
 
         [RelayCommand]
@@ -76,6 +79,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             if (obj is QualifiedDataId qid) {
                 var node = new ReflectionNodeViewModel(name, $"0x{qid.DataId:X8}", type.Name);
                 node.DataId = qid.DataId;
+                node.Dats = dats;
                 if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(QualifiedDataId<>)) {
                     node.TargetType = type.GetGenericArguments()[0];
                 }
