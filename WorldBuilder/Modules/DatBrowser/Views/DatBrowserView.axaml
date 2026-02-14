@@ -1,0 +1,75 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
+             xmlns:v="using:WorldBuilder.Modules.DatBrowser.Views"
+             xmlns:views="using:WorldBuilder.Views"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="WorldBuilder.Modules.DatBrowser.Views.DatBrowserView"
+             x:DataType="vm:DatBrowserViewModel">
+    <UserControl.DataTemplates>
+        <DataTemplate DataType="vm:SetupBrowserViewModel">
+            <v:SetupBrowserView/>
+        </DataTemplate>
+        <DataTemplate DataType="vm:GfxObjBrowserViewModel">
+            <v:GfxObjBrowserView/>
+        </DataTemplate>
+        <DataTemplate DataType="vm:TextureBrowserViewModel">
+            <v:TextureBrowserView/>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+    
+    <Grid ColumnDefinitions="*, Auto, 300">
+        <Grid Grid.Column="0" RowDefinitions="Auto, *" IsVisible="{Binding !IsMinimalMode}">
+            <ComboBox Grid.Row="0"
+                      ItemsSource="{Binding DatTypes}" 
+                      SelectedItem="{Binding SelectedType}"
+                      HorizontalAlignment="Left" Margin="5"/>
+            
+            <ContentControl Grid.Row="1" Content="{Binding CurrentBrowser}" />
+        </Grid>
+
+        <Panel Grid.Column="0" Background="#202020" IsVisible="{Binding IsMinimalMode}">
+            <views:DatObjectViewer 
+                FileId="{Binding PreviewFileId}" 
+                IsSetup="{Binding PreviewIsSetup}"
+                Dats="{Binding Dats}"
+                IsVisible="{Binding IsPreviewSupported}"
+                HorizontalAlignment="Stretch" 
+                VerticalAlignment="Stretch"/>
+
+            <TextBlock Text="Object cannot be previewed" 
+                       IsVisible="{Binding !IsPreviewSupported}"
+                       HorizontalAlignment="Center" 
+                       VerticalAlignment="Center" 
+                       Foreground="Gray"/>
+        </Panel>
+
+        <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" IsVisible="{Binding !IsMinimalMode}" />
+
+        <Grid Grid.Column="2" RowDefinitions="Auto, *">
+            <TextBlock Grid.Row="0" Text="Properties" FontWeight="Bold" Margin="5"/>
+            <TreeView Grid.Row="1" ItemsSource="{Binding ReflectionNodes}">
+                <TreeView.ItemTemplate>
+                    <TreeDataTemplate ItemsSource="{Binding Children}">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <StackPanel.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Copy" Command="{Binding CopyCommand}"/>
+                                    <MenuItem Header="Open in New Window" Command="{Binding OpenInNewWindowCommand}" IsVisible="{Binding IsQualifiedDataId}"/>
+                                </ContextMenu>
+                            </StackPanel.ContextMenu>
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                            <TextBlock Text=": "/>
+                            <TextBlock Text="{Binding Value}" Foreground="Gray" IsVisible="{Binding Value, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                            <TextBlock Text=" (" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding TypeName}" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
+                            <TextBlock Text=")" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+        </Grid>
+    </Grid>
+</UserControl>

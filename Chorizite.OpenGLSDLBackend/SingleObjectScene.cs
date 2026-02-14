@@ -74,14 +74,12 @@ namespace Chorizite.OpenGLSDLBackend {
         private bool _needsLoad;
 
         public void SetObject(uint fileId, bool isSetup) {
-            _log.LogInformation($"SetObject called: FileId=0x{fileId:X8}, IsSetup={isSetup}");
             _pendingFileId = fileId;
             _pendingIsSetup = isSetup;
             _needsLoad = true;
         }
 
         public void Resize(int width, int height) {
-            _log.LogInformation($"Resize called: {width}x{height}");
             _camera.Resize(width, height);
         }
 
@@ -108,7 +106,6 @@ namespace Chorizite.OpenGLSDLBackend {
 
             // Handle loading
             if (_needsLoad) {
-                _log.LogInformation($"Processing Load: FileId=0x{_pendingFileId:X8}");
                 _needsLoad = false;
                 _currentFileId = _pendingFileId;
                 _isSetup = _pendingIsSetup;
@@ -116,10 +113,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 var meshData = _meshManager.PrepareMeshData(_currentFileId, _isSetup);
                 if (meshData != null) {
                     var renderData = _meshManager.UploadMeshData(meshData);
-                    _log.LogInformation($"RenderData Uploaded. Vertices: {renderData?.VertexCount}, Batches: {renderData?.Batches.Count}");
-                    
                     if (renderData != null && renderData.IsSetup) {
-                        _log.LogInformation($"Loading Setup Parts: {renderData.SetupParts.Count}");
                         foreach (var part in renderData.SetupParts) {
                              if (!_meshManager.HasRenderData(part.GfxObjId)) {
                                  var partMesh = _meshManager.PrepareMeshData(part.GfxObjId, false);
@@ -142,7 +136,6 @@ namespace Chorizite.OpenGLSDLBackend {
                          
                          // Look at center
                          _camera.LookAt(center);
-                         _log.LogInformation($"Camera Adjusted. Position: {_camera.Position}, Target: {center}");
                     } else {
                          _log.LogWarning("BoundingBox is invalid or zero-sized.");
                     }

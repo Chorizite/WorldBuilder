@@ -13,6 +13,7 @@ using WorldBuilder.Shared.Services;
 namespace WorldBuilder.Shared.Tests.Mocks {
     internal class MockProject : IProject {
         public string Name { get; init; }
+        public bool IsReadOnly { get; init; }
         public ServiceProvider Services { get; init; }
         public IDocumentManager Documents { get; init; }
 

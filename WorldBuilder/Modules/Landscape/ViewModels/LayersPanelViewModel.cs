@@ -31,6 +31,7 @@ public partial class LayersPanelViewModel : ViewModelBase {
     private readonly CommandHistory _history;
     private readonly IDocumentManager _documentManager;
     private readonly WorldBuilderSettings? _settings;
+    private readonly IProject? _project;
     private readonly Action<LayerItemViewModel?, LayerChangeType> _onLayersChanged; // (affectedItem, type)
 
     [ObservableProperty] private ObservableCollection<LayerItemViewModel> _items = new();
@@ -40,11 +41,12 @@ public partial class LayersPanelViewModel : ViewModelBase {
     [NotifyCanExecuteChangedFor(nameof(MoveLayerDownCommand))]
     private LayerItemViewModel? _selectedItem;
 
-    public LayersPanelViewModel(ILogger log, CommandHistory history, IDocumentManager documentManager, WorldBuilderSettings? settings, Action<LayerItemViewModel?, LayerChangeType> onLayersChanged) {
+    public LayersPanelViewModel(ILogger log, CommandHistory history, IDocumentManager documentManager, WorldBuilderSettings? settings, IProject? project, Action<LayerItemViewModel?, LayerChangeType> onLayersChanged) {
         _log = log;
         _history = history;
         _documentManager = documentManager;
         _settings = settings;
+        _project = project;
         _onLayersChanged = onLayersChanged;
     }
 
@@ -149,7 +151,7 @@ public partial class LayersPanelViewModel : ViewModelBase {
     }
 
     private void OnDeleteItem(LayerItemViewModel item) {
-        if (_document == null || item.IsBase) return;
+        if (_project?.IsReadOnly == true || _document == null || item.IsBase) return;
 
         var path = GetPath(item);
 
@@ -172,7 +174,7 @@ public partial class LayersPanelViewModel : ViewModelBase {
     }
 
     public void HandleDrop(LayerItemViewModel draggingItem, LayerItemViewModel targetItem, DropPosition dropPos) {
-        if (_document == null || draggingItem == targetItem || draggingItem.IsBase) return;
+        if (_project?.IsReadOnly == true || _document == null || draggingItem == targetItem || draggingItem.IsBase) return;
 
         LayerItemViewModel? newParent = null;
         int newUIIndex = -1;
@@ -309,7 +311,7 @@ public partial class LayersPanelViewModel : ViewModelBase {
 
     [RelayCommand]
     public void AddLayer() {
-        if (_document == null) return;
+        if (_project?.IsReadOnly == true || _document == null) return;
 
         var selected = SelectedItem;
         var parentVM = selected?.IsGroup == true ? selected : selected?.Parent;
@@ -353,7 +355,7 @@ public partial class LayersPanelViewModel : ViewModelBase {
 
     [RelayCommand]
     public void AddGroup() {
-        if (_document == null) return;
+        if (_project?.IsReadOnly == true || _document == null) return;
 
         var selected = SelectedItem;
         var parentVM = selected?.IsGroup == true ? selected : selected?.Parent;
@@ -403,7 +405,7 @@ public partial class LayersPanelViewModel : ViewModelBase {
     }
 
     private bool CanMoveLayerUp() {
-        if (SelectedItem == null || SelectedItem.IsBase) return false;
+        if (_project?.IsReadOnly == true || SelectedItem == null || SelectedItem.IsBase) return false;
         var parent = SelectedItem.Parent;
         var list = parent?.Children ?? Items;
         int index = list.IndexOf(SelectedItem);
@@ -415,7 +417,7 @@ public partial class LayersPanelViewModel : ViewModelBase {
     }
 
     private bool CanMoveLayerDown() {
-        if (SelectedItem == null || SelectedItem.IsBase) return false;
+        if (_project?.IsReadOnly == true || SelectedItem == null || SelectedItem.IsBase) return false;
         var list = SelectedItem.Parent?.Children ?? Items;
         var index = list.IndexOf(SelectedItem);
         // Can't move into or past the base layer if in root
@@ -426,7 +428,7 @@ public partial class LayersPanelViewModel : ViewModelBase {
     }
 
     private void MoveLayer(int offset) {
-        if (_document == null || SelectedItem == null || SelectedItem.IsBase) return;
+        if (_project?.IsReadOnly == true || _document == null || SelectedItem == null || SelectedItem.IsBase) return;
 
         var selected = SelectedItem;
         var parentVM = selected.Parent;

@@ -13,6 +13,14 @@ namespace WorldBuilder.Services;
 /// Implements Avalonia's IDataTemplate for general view resolution and extends ViewLocatorBase for dialog support.
 /// </summary>
 public class CombinedViewLocator : ViewLocatorBase, IDataTemplate {
+    private readonly bool _preferWindows;
+
+    public CombinedViewLocator() : this(false) { }
+
+    public CombinedViewLocator(bool preferWindows) {
+        _preferWindows = preferWindows;
+    }
+
     public override Control Build(object? data) {
         if (data is null) {
             return new TextBlock { Text = "data was null" };
@@ -53,10 +61,19 @@ public class CombinedViewLocator : ViewLocatorBase, IDataTemplate {
 
     /// <inheritdoc />
     protected override string GetViewName(object viewModel) {
-        var viewModelName = viewModel.GetType().FullName!;
+        var viewModelType = viewModel.GetType();
+        var viewModelName = viewModelType.FullName!;
 
         if (viewModelName.EndsWith("WindowViewModel")) {
             return viewModelName.Replace(".ViewModels.", ".Views.").Replace("ViewModel", "");
+        }
+
+        if (_preferWindows) {
+            var windowName = viewModelName.Replace(".ViewModels.", ".Views.").Replace("ViewModel", "Window");
+            var windowType = viewModelType.Assembly.GetType(windowName);
+            if (windowType != null) {
+                return windowName;
+            }
         }
 
         return viewModelName.Replace(".ViewModels.", ".Views.").Replace("ViewModel", "View");

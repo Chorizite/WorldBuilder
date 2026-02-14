@@ -83,6 +83,9 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
             FileTypeFilter = new[] {
                 new FilePickerFileType("WorldBuilder Project") {
                     Patterns = new[] { "*.wbproj" }
+                },
+                new FilePickerFileType("DAT Files") {
+                    Patterns = new[] { "*.dat" }
                 }
             }
         });

@@ -58,8 +58,9 @@ namespace WorldBuilder.Services {
         /// </summary>
         /// <param name="name">The name of the project</param>
         /// <param name="filePath">The file path of the project</param>
+        /// <param name="isReadOnly">Whether the project is read-only</param>
         /// <returns>A task representing the asynchronous operation</returns>
-        public async Task AddRecentProject(string name, string filePath) {
+        public async Task AddRecentProject(string name, string filePath, bool isReadOnly) {
             // Remove if already exists
             var existing = RecentProjects.FirstOrDefault(p => p.FilePath == filePath);
             if (existing != null) {
@@ -70,7 +71,8 @@ namespace WorldBuilder.Services {
             var recentProject = new RecentProject {
                 Name = name,
                 FilePath = filePath,
-                LastOpened = DateTime.Now
+                LastOpened = DateTime.Now,
+                IsReadOnly = isReadOnly
             };
 
             RecentProjects.Insert(0, recentProject);

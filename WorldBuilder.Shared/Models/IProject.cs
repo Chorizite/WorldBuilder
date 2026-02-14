@@ -14,6 +14,11 @@ namespace WorldBuilder.Shared.Models {
         string Name { get; }
 
         /// <summary>
+        /// Gets a value indicating whether this project is read-only.
+        /// </summary>
+        bool IsReadOnly { get; }
+
+        /// <summary>
         /// Gets the service provider for this project.
         /// </summary>
         ServiceProvider Services { get; }

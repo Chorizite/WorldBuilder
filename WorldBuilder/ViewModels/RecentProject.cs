@@ -40,6 +40,16 @@ namespace WorldBuilder.ViewModels {
             set => SetProperty(ref _lastOpened, value);
         }
 
+        private bool _isReadOnly;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the project is read-only.
+        /// </summary>
+        public bool IsReadOnly {
+            get => _isReadOnly;
+            set => SetProperty(ref _isReadOnly, value);
+        }
+
         // Your [JsonIgnore] properties remain unchanged
         /// <summary>
         /// Gets a display-formatted string of the last opened date.
@@ -52,6 +62,12 @@ namespace WorldBuilder.ViewModels {
         /// </summary>
         [JsonIgnore]
         public string FileDirectory => Path.GetDirectoryName(FilePath) ?? string.Empty;
+
+        /// <summary>
+        /// Gets the icon glyph for the project.
+        /// </summary>
+        [JsonIgnore]
+        public string IconGlyph => IsReadOnly ? "📂" : "📚";
 
         /// <summary>
         /// Gets or sets the error message if the project has one.

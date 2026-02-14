@@ -17,6 +17,7 @@ public class Project : IProject {
     private readonly IDatReaderWriter _dats;
     private readonly IDocumentManager _documentManager;
     private bool _disposed;
+    private readonly string? _baseDatDirectory;
 
     /// <summary>
     /// Gets the name of the project (determined by the project file name)
@@ -29,6 +30,11 @@ public class Project : IProject {
     public string ProjectFile { get; }
 
     /// <summary>
+    /// Gets a value indicating whether this project is read-only.
+    /// </summary>
+    public bool IsReadOnly { get; }
+
+    /// <summary>
     /// Gets the path to the project directory
     /// </summary>
     public string ProjectDirectory => Path.GetDirectoryName(ProjectFile) ?? string.Empty;
@@ -36,7 +42,7 @@ public class Project : IProject {
     /// <summary>
     /// Gets the path to the base dat directory
     /// </summary>
-    public string BaseDatDirectory => Path.Combine(ProjectDirectory, "dats", "base");
+    public string BaseDatDirectory => _baseDatDirectory ?? Path.Combine(ProjectDirectory, "dats", "base");
 
     /// <summary>
     /// Gets the service provider for this project
@@ -48,13 +54,17 @@ public class Project : IProject {
     /// </summary>
     public LandscapeModule Landscape { get; }
 
-    private Project(string projectFile) {
+    private Project(string projectFile, string? baseDatDirectory = null, bool isReadOnly = false) {
         ProjectFile = projectFile;
+        IsReadOnly = isReadOnly;
+        _baseDatDirectory = baseDatDirectory;
 
         var services = new ServiceCollection();
-        services.AddWorldBuilderSharedServices($"Data Source={ProjectFile}", BaseDatDirectory);
+        var connectionString = IsReadOnly ? $"Data Source=file:{Guid.NewGuid()}?mode=memory&cache=shared" : $"Data Source={ProjectFile}";
+        services.AddWorldBuilderSharedServices(connectionString, BaseDatDirectory);
 
         services.AddSingleton<LandscapeModule>();
+        services.AddSingleton<IProject>(this);
 
         Services = services.BuildServiceProvider();
 
@@ -74,12 +84,20 @@ public class Project : IProject {
     /// <param name="ct">A cancellation token to cancel the operation</param>
     /// <returns>A Result containing a Project instance if successful, or an error</returns>
     public static async Task<Result<Project>> Open(string projectFile, CancellationToken ct) {
-        var projectDirectory = Path.GetDirectoryName(projectFile);
-        if (!Directory.Exists(projectDirectory)) {
-            return Result<Project>.Failure($"Invalid project directory, does not exist: {projectDirectory}", "PROJECT_DIRECTORY_NOT_FOUND");
+        var isReadOnly = projectFile.EndsWith(".dat", StringComparison.OrdinalIgnoreCase);
+        string? baseDatDir = null;
+
+        if (isReadOnly) {
+            baseDatDir = Path.GetDirectoryName(projectFile);
+        }
+        else {
+            var projectDirectory = Path.GetDirectoryName(projectFile);
+            if (!Directory.Exists(projectDirectory)) {
+                return Result<Project>.Failure($"Invalid project directory, does not exist: {projectDirectory}", "PROJECT_DIRECTORY_NOT_FOUND");
+            }
         }
 
-        var project = new Project(projectFile);
+        var project = new Project(projectFile, baseDatDir, isReadOnly);
         await project.Initialize(ct);
 
         return Result<Project>.Success(project);

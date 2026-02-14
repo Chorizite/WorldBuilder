@@ -17,6 +17,11 @@ namespace WorldBuilder.Views {
         private GL? _gl;
         private SingleObjectScene? _scene;
         private Vector2 _lastPointerPosition;
+        
+        // Thread-safe copies for the render thread
+        private IDatReaderWriter? _renderDats;
+        private uint _renderFileId;
+        private bool _renderIsSetup;
 
         public static readonly StyledProperty<uint> FileIdProperty =
             AvaloniaProperty.Register<DatObjectViewer, uint>(nameof(FileId));
@@ -52,46 +57,43 @@ namespace WorldBuilder.Views {
             var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>();
             var log = loggerFactory?.CreateLogger("DatObjectViewer") ?? new ColorConsoleLogger("DatObjectViewer", () => new ColorConsoleLoggerConfiguration());
             
-            IDatReaderWriter? dats = null;
-            uint fileId = 0;
-            bool isSetup = false;
-
-            Dispatcher.UIThread.Invoke(() => {
-                dats = Dats;
-                fileId = FileId;
-                isSetup = IsSetup;
-            });
-
-            if (dats != null) {
-                _scene = new SingleObjectScene(gl, Renderer!.GraphicsDevice, log, dats);
+            if (_renderDats != null) {
+                _scene = new SingleObjectScene(gl, Renderer!.GraphicsDevice, log, _renderDats);
                 _scene.Initialize();
                 _scene.Resize(canvasSize.Width, canvasSize.Height);
-                if (fileId != 0) {
-                    _scene.SetObject(fileId, isSetup);
+                if (_renderFileId != 0) {
+                    _scene.SetObject(_renderFileId, _renderIsSetup);
                 }
             }
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
             base.OnPropertyChanged(change);
-            if (change.Property == FileIdProperty || change.Property == IsSetupProperty) {
-                UpdateObject();
-            }
-            else if (change.Property == DatsProperty) {
-                if (_scene == null && _gl != null && Dats != null) {
-                     var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>();
-                     var log = loggerFactory?.CreateLogger("DatObjectViewer") ?? new ColorConsoleLogger("DatObjectViewer", () => new ColorConsoleLoggerConfiguration());
-                     _scene = new SingleObjectScene(_gl, Renderer!.GraphicsDevice, log, Dats);
-                     _scene.Initialize();
-                     _scene.Resize((int)Bounds.Width, (int)Bounds.Height); // Approximation until resize
+            if (change.Property == FileIdProperty || change.Property == IsSetupProperty || change.Property == DatsProperty) {
+                // Sync values for render thread
+                _renderFileId = FileId;
+                _renderIsSetup = IsSetup;
+                _renderDats = Dats;
+
+                if (Dispatcher.UIThread.CheckAccess()) {
+                    UpdateObject();
+                } else {
+                    Dispatcher.UIThread.Post(UpdateObject);
                 }
-                UpdateObject();
             }
         }
 
         private void UpdateObject() {
-            if (_scene != null && FileId != 0) {
-                _scene.SetObject(FileId, IsSetup);
+            if (_scene == null && _gl != null && _renderDats != null) {
+                 var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>();
+                 var log = loggerFactory?.CreateLogger("DatObjectViewer") ?? new ColorConsoleLogger("DatObjectViewer", () => new ColorConsoleLoggerConfiguration());
+                 _scene = new SingleObjectScene(_gl, Renderer!.GraphicsDevice, log, _renderDats);
+                 _scene.Initialize();
+                 _scene.Resize((int)Bounds.Width, (int)Bounds.Height);
+            }
+
+            if (_scene != null && _renderFileId != 0) {
+                _scene.SetObject(_renderFileId, _renderIsSetup);
             }
         }
 

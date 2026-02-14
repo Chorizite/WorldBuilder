@@ -19,11 +19,8 @@
     <DockPanel>
         <!--  Menu Bar at the top  -->
         <Menu DockPanel.Dock="Top">
-            <MenuItem Header="File">
+            <MenuItem Header="File" IsVisible="{Binding !IsReadOnly}">
                 <MenuItem Command="{Binding OpenExportDatsWindowCommand}" Header="Export Dats" />
-            </MenuItem>
-            <MenuItem Header="Tools">
-                <MenuItem Command="{Binding OpenDatBrowserCommand}" Header="Dat Browser" />
             </MenuItem>
             <!--
             <MenuItem Header="Debug">
@@ -37,6 +34,32 @@
         <components:StatusBar DockPanel.Dock="Bottom" />
 
         <!-- Main Content -->
-        <landscape:LandscapeView DataContext="{Binding Landscape}" />
+        <DockPanel>
+            <TabStrip DockPanel.Dock="Top" ItemsSource="{Binding ToolTabs}">
+                <TabStrip.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ToolTabViewModel">
+                        <TextBlock Text="{Binding Name}" />
+                    </DataTemplate>
+                </TabStrip.ItemTemplate>
+                <TabStrip.Styles>
+                    <Style Selector="TabStripItem" x:DataType="vm:ToolTabViewModel">
+                        <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+                    </Style>
+                </TabStrip.Styles>
+            </TabStrip>
+
+            <ItemsControl ItemsSource="{Binding ToolTabs}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <Panel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ToolTabViewModel">
+                        <ContentControl Content="{Binding ViewModel}" IsVisible="{Binding IsSelected}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </DockPanel>
     </DockPanel>
 </UserControl>
