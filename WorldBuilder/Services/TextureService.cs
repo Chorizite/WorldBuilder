@@ -7,6 +7,7 @@ using Chorizite.Core.Dats;
 using DatReaderWriter;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
+using DatReaderWriter.Types;
 using Microsoft.Extensions.Logging;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -25,7 +26,7 @@ namespace WorldBuilder.Services {
     public class TextureService {
         private readonly IDatReaderWriter _dats;
         private readonly ILogger<TextureService> _logger;
-        private readonly ConcurrentDictionary<uint, Bitmap?> _textureCache = new();
+        private readonly ConcurrentDictionary<long, Bitmap?> _textureCache = new();
 
         public TextureService(IDatReaderWriter dats, ILogger<TextureService> logger) {
             _dats = dats;
@@ -50,8 +51,9 @@ namespace WorldBuilder.Services {
             return await GetTextureAsync(texId);
         }
 
-        public async Task<Bitmap?> GetTextureAsync(uint textureId) {
-            if (_textureCache.TryGetValue(textureId, out var cachedBitmap)) {
+        public async Task<Bitmap?> GetTextureAsync(uint textureId, uint paletteId = 0) {
+            var cacheKey = ((long)textureId << 32) | paletteId;
+            if (_textureCache.TryGetValue(cacheKey, out var cachedBitmap)) {
                 return cachedBitmap;
             }
 
@@ -76,12 +78,12 @@ namespace WorldBuilder.Services {
 
                     if (renderSurface == null) {
                         _logger.LogWarning("Could not find any RenderSurface for texture 0x{TextureId:X8} (Type: {Type})", textureId, type);
-                        _textureCache.TryAdd(textureId, null);
+                        _textureCache.TryAdd(cacheKey, null);
                         return null;
                     }
 
-                    var bitmap = CreateBitmapFromSurface(renderSurface);
-                    _textureCache.TryAdd(textureId, bitmap);
+                    var bitmap = CreateBitmapFromSurface(renderSurface, paletteId);
+                    _textureCache.TryAdd(cacheKey, bitmap);
                     return bitmap;
                 }
                 catch (Exception ex) {
@@ -91,12 +93,28 @@ namespace WorldBuilder.Services {
             });
         }
 
-        private Bitmap? CreateBitmapFromSurface(RenderSurface surface) {
+        public Bitmap CreateSolidColorBitmap(ColorARGB color, int width = 32, int height = 32) {
+            var wb = new WriteableBitmap(new Avalonia.PixelSize(width, height), new Avalonia.Vector(96, 96), Avalonia.Platform.PixelFormat.Rgba8888, Avalonia.Platform.AlphaFormat.Unpremul);
+
+            using (var locked = wb.Lock()) {
+                unsafe {
+                    uint* ptr = (uint*)locked.Address;
+                    uint val = (uint)(color.Red | (color.Green << 8) | (color.Blue << 16) | (color.Alpha << 24));
+                    for (int i = 0; i < width * height; i++) {
+                        ptr[i] = val;
+                    }
+                }
+            }
+
+            return wb;
+        }
+
+        private Bitmap? CreateBitmapFromSurface(RenderSurface surface, uint paletteId = 0) {
             int width = surface.Width;
             int height = surface.Height;
             if (width <= 0 || height <= 0) return null;
 
-            byte[]? pixelData = ToRgba8(surface);
+            byte[]? pixelData = ToRgba8(surface, paletteId);
             if (pixelData == null || pixelData.Length == 0) return null;
 
             var wb = new WriteableBitmap(new Avalonia.PixelSize(width, height), new Avalonia.Vector(96, 96), Avalonia.Platform.PixelFormat.Rgba8888, Avalonia.Platform.AlphaFormat.Unpremul);
@@ -108,11 +126,12 @@ namespace WorldBuilder.Services {
             return wb;
         }
 
-        private byte[]? ToRgba8(RenderSurface renderSurface) {
+        private byte[]? ToRgba8(RenderSurface renderSurface, uint overridePaletteId = 0) {
             int width = renderSurface.Width;
             int height = renderSurface.Height;
             byte[] sourceData = renderSurface.SourceData;
             byte[] rgba8 = new byte[width * height * 4];
+            uint paletteId = overridePaletteId != 0 ? overridePaletteId : renderSurface.DefaultPaletteId;
 
             switch (renderSurface.Format) {
                 case DatPixelFormat.PFID_R8G8B8:
@@ -161,7 +180,7 @@ namespace WorldBuilder.Services {
                     }
                     break;
                 case DatPixelFormat.PFID_P8:
-                    if (renderSurface.DefaultPaletteId != 0 && _dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var palette)) {
+                    if (paletteId != 0 && _dats.Portal.TryGet<Palette>(paletteId, out var palette)) {
                         for (int i = 0; i < width * height; i++) {
                             var color = palette.Colors[sourceData[i]];
                             rgba8[i * 4] = color.Red;
@@ -181,7 +200,7 @@ namespace WorldBuilder.Services {
                     }
                     break;
                 case DatPixelFormat.PFID_INDEX16:
-                    if (renderSurface.DefaultPaletteId != 0 && _dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var palette16)) {
+                    if (paletteId != 0 && _dats.Portal.TryGet<Palette>(paletteId, out var palette16)) {
                         for (int i = 0; i < width * height; i++) {
                             ushort index = BitConverter.ToUInt16(sourceData, i * 2);
                             var color = palette16.Colors[index];

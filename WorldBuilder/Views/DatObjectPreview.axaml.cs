@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
+using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
 using Microsoft.Extensions.DependencyInjection;
 using System;
@@ -130,26 +131,40 @@ namespace WorldBuilder.Views {
             
             IsSetup = type == DBObjType.Setup;
             Is3D = IsSetup || type == DBObjType.GfxObj;
-            Is2D = type == DBObjType.SurfaceTexture || type == DBObjType.RenderSurface;
+            Is2D = type == DBObjType.SurfaceTexture || type == DBObjType.RenderSurface || type == DBObjType.Surface;
 
             IsPreviewable = Is3D || Is2D;
 
             if (Is2D) {
                 var textureService = WorldBuilder.App.ProjectManager?.GetProjectService<TextureService>();
                 if (textureService != null) {
-                    TextureBitmap = await textureService.GetTextureAsync(DataId);
+                    if (DataObjectType == DBObjType.Surface) {
+                        if (Dats.Portal.TryGet<Surface>(DataId, out var surface)) {
+                            if (surface.OrigTextureId != 0) {
+                                TextureBitmap = await textureService.GetTextureAsync(surface.OrigTextureId, surface.OrigPaletteId);
+                            } else if (surface.Type.HasFlag(SurfaceType.Base1Solid)) {
+                                TextureBitmap = textureService.CreateSolidColorBitmap(surface.ColorValue);
+                            }
+                        }
+                    } else {
+                        TextureBitmap = await textureService.GetTextureAsync(DataId);
+                    }
                 }
 
                 if (DataObjectType == DBObjType.RenderSurface) {
-                    if (Dats.HighRes.TryGet<DatReaderWriter.DBObjs.RenderSurface>(DataId, out var surf)) {
+                    if (Dats.HighRes.TryGet<RenderSurface>(DataId, out var surf)) {
                         PreviewDetails = $"{surf.Width}x{surf.Height} {surf.Format}";
                     }
-                    else if (Dats.Portal.TryGet<DatReaderWriter.DBObjs.RenderSurface>(DataId, out var surf2)) {
+                    else if (Dats.Portal.TryGet<RenderSurface>(DataId, out var surf2)) {
                         PreviewDetails = $"{surf2.Width}x{surf2.Height} {surf2.Format}";
                     }
                 } else if (DataObjectType == DBObjType.SurfaceTexture) {
-                    if (Dats.Portal.TryGet<DatReaderWriter.DBObjs.SurfaceTexture>(DataId, out var surfTex)) {
+                    if (Dats.Portal.TryGet<SurfaceTexture>(DataId, out var surfTex)) {
                         PreviewDetails = $"{surfTex.Textures.Count} textures";
+                    }
+                } else if (DataObjectType == DBObjType.Surface) {
+                    if (Dats.Portal.TryGet<Surface>(DataId, out var surface)) {
+                        PreviewDetails = $"{surface.Type}";
                     }
                 }
             } else {

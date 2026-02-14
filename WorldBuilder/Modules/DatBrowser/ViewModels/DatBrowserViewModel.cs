@@ -23,7 +23,8 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         Setup,
         GfxObj,
         SurfaceTexture,
-        RenderSurface
+        RenderSurface,
+        Surface
     }
 
     public partial class DatBrowserViewModel : ViewModelBase, IToolModule {
@@ -54,17 +55,19 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private readonly GfxObjBrowserViewModel _gfxObjBrowser;
         private readonly SurfaceTextureBrowserViewModel _surfaceTextureBrowser;
         private readonly RenderSurfaceBrowserViewModel _renderSurfaceBrowser;
+        private readonly SurfaceBrowserViewModel _surfaceBrowser;
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
         private readonly IDatReaderWriter _dats;
 
         public IDatReaderWriter Dats => _dats;
 
-        public DatBrowserViewModel(SetupBrowserViewModel setupBrowser, GfxObjBrowserViewModel gfxObjBrowser, SurfaceTextureBrowserViewModel surfaceTextureBrowser, RenderSurfaceBrowserViewModel renderSurfaceBrowser, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats) {
+        public DatBrowserViewModel(SetupBrowserViewModel setupBrowser, GfxObjBrowserViewModel gfxObjBrowser, SurfaceTextureBrowserViewModel surfaceTextureBrowser, RenderSurfaceBrowserViewModel renderSurfaceBrowser, SurfaceBrowserViewModel surfaceBrowser, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats) {
             _setupBrowser = setupBrowser;
             _gfxObjBrowser = gfxObjBrowser;
             _surfaceTextureBrowser = surfaceTextureBrowser;
             _renderSurfaceBrowser = renderSurfaceBrowser;
+            _surfaceBrowser = surfaceBrowser;
             _dialogService = dialogService;
             _serviceProvider = serviceProvider;
             _dats = dats;
@@ -79,6 +82,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 DatType.GfxObj => _gfxObjBrowser,
                 DatType.SurfaceTexture => _surfaceTextureBrowser,
                 DatType.RenderSurface => _renderSurfaceBrowser,
+                DatType.Surface => _surfaceBrowser,
                 _ => null
             };
         }

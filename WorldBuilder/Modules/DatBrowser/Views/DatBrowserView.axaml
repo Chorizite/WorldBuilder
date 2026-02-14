@@ -21,6 +21,9 @@
         <DataTemplate DataType="vm:RenderSurfaceBrowserViewModel">
             <v:RenderSurfaceBrowserView/>
         </DataTemplate>
+        <DataTemplate DataType="vm:SurfaceBrowserViewModel">
+            <v:SurfaceBrowserView/>
+        </DataTemplate>
     </UserControl.DataTemplates>
     
     <Grid ColumnDefinitions="*, Auto, 300">
