@@ -21,7 +21,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
     public enum DatType {
         Setup,
         GfxObj,
-        Texture
+        SurfaceTexture
     }
 
     public partial class DatBrowserViewModel : ViewModelBase, IToolModule {
@@ -56,17 +56,17 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         private readonly SetupBrowserViewModel _setupBrowser;
         private readonly GfxObjBrowserViewModel _gfxObjBrowser;
-        private readonly TextureBrowserViewModel _textureBrowser;
+        private readonly SurfaceTextureBrowserViewModel _surfaceTextureBrowser;
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
         private readonly IDatReaderWriter _dats;
 
         public IDatReaderWriter Dats => _dats;
 
-        public DatBrowserViewModel(SetupBrowserViewModel setupBrowser, GfxObjBrowserViewModel gfxObjBrowser, TextureBrowserViewModel textureBrowser, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats) {
+        public DatBrowserViewModel(SetupBrowserViewModel setupBrowser, GfxObjBrowserViewModel gfxObjBrowser, SurfaceTextureBrowserViewModel surfaceTextureBrowser, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats) {
             _setupBrowser = setupBrowser;
             _gfxObjBrowser = gfxObjBrowser;
-            _textureBrowser = textureBrowser;
+            _surfaceTextureBrowser = surfaceTextureBrowser;
             _dialogService = dialogService;
             _serviceProvider = serviceProvider;
             _dats = dats;
@@ -79,7 +79,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             CurrentBrowser = value switch {
                 DatType.Setup => _setupBrowser,
                 DatType.GfxObj => _gfxObjBrowser,
-                DatType.Texture => _textureBrowser,
+                DatType.SurfaceTexture => _surfaceTextureBrowser,
                 _ => null
             };
         }

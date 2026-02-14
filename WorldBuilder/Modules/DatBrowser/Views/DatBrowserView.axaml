@@ -15,8 +15,8 @@
         <DataTemplate DataType="vm:GfxObjBrowserViewModel">
             <v:GfxObjBrowserView/>
         </DataTemplate>
-        <DataTemplate DataType="vm:TextureBrowserViewModel">
-            <v:TextureBrowserView/>
+        <DataTemplate DataType="vm:SurfaceTextureBrowserViewModel">
+            <v:SurfaceTextureBrowserView/>
         </DataTemplate>
     </UserControl.DataTemplates>
     

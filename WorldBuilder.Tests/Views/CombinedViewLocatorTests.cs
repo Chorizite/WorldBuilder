@@ -118,7 +118,7 @@ public class CombinedViewLocatorTests {
         
         var mockSetup = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SetupBrowserViewModel>(mockDats.Object);
         var mockGfx = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.GfxObjBrowserViewModel>(mockDats.Object);
-        var mockTex = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.TextureBrowserViewModel>(mockDats.Object, null!);
+        var mockTex = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SurfaceTextureBrowserViewModel>(mockDats.Object, null!);
         var mockDialog = new Moq.Mock<HanumanInstitute.MvvmDialogs.IDialogService>();
         var mockServiceProvider = new Moq.Mock<IServiceProvider>();
 

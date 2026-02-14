@@ -12,7 +12,7 @@ using DatReaderWriter.Types;
 using DatReaderWriter;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
-    public partial class TextureBrowserViewModel : ViewModelBase, IDatBrowserViewModel {
+    public partial class SurfaceTextureBrowserViewModel : ViewModelBase, IDatBrowserViewModel {
         private readonly IDatReaderWriter _dats;
         private readonly TextureService _textureService;
 
@@ -30,7 +30,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         public IDatReaderWriter Dats => _dats;
 
-        public TextureBrowserViewModel(IDatReaderWriter dats, TextureService textureService) {
+        public SurfaceTextureBrowserViewModel(IDatReaderWriter dats, TextureService textureService) {
             _dats = dats;
             _textureService = textureService;
             _fileIds = _dats.Portal.GetAllIdsOfType<DatReaderWriter.DBObjs.SurfaceTexture>().OrderBy(x => x).ToList();
