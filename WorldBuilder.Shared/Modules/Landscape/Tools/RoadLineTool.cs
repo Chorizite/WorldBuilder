@@ -38,7 +38,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 (int)_context.ViewportSize.X, (int)_context.ViewportSize.Y,
                 _context.Camera,
                 _context.Document.Region!,
-                _context.Document.TerrainCache);
+                _context.Document);
 
             if (!hit.Hit) return false;
 
@@ -66,7 +66,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 (int)_context.ViewportSize.X, (int)_context.ViewportSize.Y,
                 _context.Camera,
                 _context.Document.Region!,
-                _context.Document.TerrainCache);
+                _context.Document);
 
             if (hit.Hit) {
                 UpdatePreview(hit.NearestVertice);

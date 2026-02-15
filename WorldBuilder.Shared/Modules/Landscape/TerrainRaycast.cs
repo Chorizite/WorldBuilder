@@ -24,7 +24,7 @@ namespace WorldBuilder.Shared.Modules.Landscape {
             int viewportWidth, int viewportHeight,
             ICamera camera,
             ITerrainInfo region,
-            TerrainEntry[] terrainCache,
+            LandscapeDocument doc,
             ILogger? logger = null) {
             TerrainRaycastHit hit = new TerrainRaycastHit { Hit = false };
 
@@ -54,14 +54,14 @@ namespace WorldBuilder.Shared.Modules.Landscape {
             Vector3d rayOrigin = new Vector3d(nearWorld.X, nearWorld.Y, nearWorld.Z);
             Vector3d rayDirection = Vector3d.Normalize(farWorld - rayOrigin);
 
-            return TraverseLandblocks(rayOrigin, rayDirection, region, terrainCache, logger);
+            return TraverseLandblocks(rayOrigin, rayDirection, region, doc, logger);
         }
 
         private static TerrainRaycastHit TraverseLandblocks(
             Vector3d rayOrigin,
             Vector3d rayDirection,
             ITerrainInfo region,
-            TerrainEntry[] terrainCache,
+            LandscapeDocument doc,
             ILogger? logger = null) {
             TerrainRaycastHit hit = new TerrainRaycastHit { Hit = false };
 
@@ -105,7 +105,7 @@ namespace WorldBuilder.Shared.Modules.Landscape {
                     var landblockHit = TestLandblockIntersection(
                         rayOrigin, rayDirection,
                         (uint)currentLbX, (uint)currentLbY, landblockID,
-                        region, terrainCache, logger);
+                        region, doc, logger);
 
                     if (landblockHit.Hit && landblockHit.Distance < closestDistance) {
                         hit = landblockHit;
@@ -133,7 +133,7 @@ namespace WorldBuilder.Shared.Modules.Landscape {
         private static TerrainRaycastHit TestLandblockIntersection(
             Vector3d rayOrigin, Vector3d rayDirection,
             uint landblockX, uint landblockY, uint landblockID,
-            ITerrainInfo region, TerrainEntry[] terrainCache,
+            ITerrainInfo region, LandscapeDocument doc,
             ILogger? logger = null) {
             TerrainRaycastHit hit = new TerrainRaycastHit { Hit = false };
 
@@ -161,7 +161,7 @@ namespace WorldBuilder.Shared.Modules.Landscape {
                 Vector3d[] vertices = GenerateCellVertices(
                     baseLandblockX, baseLandblockY, cellX, cellY,
                     landblockX, landblockY,
-                    region, terrainCache);
+                    region, doc);
 
                 BoundingBoxd cellBounds = CalculateCellBounds(vertices);
                 if (!RayIntersectsBox(rayOrigin, rayDirection, cellBounds, out double cellTMin, out double cellTMax)) {
@@ -222,14 +222,14 @@ namespace WorldBuilder.Shared.Modules.Landscape {
             double baseLandblockX, double baseLandblockY,
             uint cellX, uint cellY,
             uint lbX, uint lbY,
-            ITerrainInfo region, TerrainEntry[] terrainCache) {
+            ITerrainInfo region, LandscapeDocument doc) {
             var vertices = new Vector3d[4];
             double cellSize = region.CellSizeInUnits;
 
-            var h0 = GetHeight(lbX, lbY, cellX, cellY, region, terrainCache);
-            var h1 = GetHeight(lbX, lbY, cellX + 1, cellY, region, terrainCache);
-            var h2 = GetHeight(lbX, lbY, cellX + 1, cellY + 1, region, terrainCache);
-            var h3 = GetHeight(lbX, lbY, cellX, cellY + 1, region, terrainCache);
+            var h0 = GetHeight(lbX, lbY, cellX, cellY, region, doc);
+            var h1 = GetHeight(lbX, lbY, cellX + 1, cellY, region, doc);
+            var h2 = GetHeight(lbX, lbY, cellX + 1, cellY + 1, region, doc);
+            var h3 = GetHeight(lbX, lbY, cellX, cellY + 1, region, doc);
 
             vertices[0] = new Vector3d(baseLandblockX + cellX * cellSize, baseLandblockY + cellY * cellSize, h0);
             vertices[1] = new Vector3d(baseLandblockX + (cellX + 1) * cellSize, baseLandblockY + cellY * cellSize, h1);
@@ -239,7 +239,7 @@ namespace WorldBuilder.Shared.Modules.Landscape {
             return vertices;
         }
 
-        private static float GetHeight(uint lbX, uint lbY, uint localX, uint localY, ITerrainInfo region, TerrainEntry[] cache) {
+        private static float GetHeight(uint lbX, uint lbY, uint localX, uint localY, ITerrainInfo region, LandscapeDocument doc) {
             if (localX >= 8) {
                 localX -= 8;
                 lbX++;
@@ -261,13 +261,10 @@ namespace WorldBuilder.Shared.Modules.Landscape {
             long globalX = baseVx + localX;
             long globalY = baseVy + localY;
 
-            long index = globalY * mapWidth + globalX;
+            uint index = (uint)(globalY * mapWidth + globalX);
 
-            if (index >= 0 && index < cache.Length) {
-                return region.LandHeights[cache[index].Height ?? 0];
-            }
-
-            return 0f;
+            var entry = doc.GetCachedEntry(index);
+            return region.LandHeights[entry.Height ?? 0];
         }
 
         private static IEnumerable<(uint cellX, uint cellY)> GetCellTraversalOrder(

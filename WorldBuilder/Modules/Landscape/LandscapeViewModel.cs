@@ -302,7 +302,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         if (ActiveTool != null && ActiveDocument?.Region != null && Camera != null) {
             var hit = TerrainRaycast.Raycast(e.Position.X, e.Position.Y,
                 (int)e.ViewportSize.X, (int)e.ViewportSize.Y,
-                Camera, ActiveDocument.Region, ActiveDocument.TerrainCache);
+                Camera, ActiveDocument.Region, ActiveDocument);
 
             if (hit.Hit) {
                 BrushPosition = hit.HitPosition;

@@ -80,7 +80,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     block.lx, block.ly, landblockID,
                     localRegion!, surfaceManager, terrainCache.Span,
                     block.vOffset, block.iOffset,
-                    vertices.Span, indices.Span
+                    vertices.Span, indices.Span,
+                    chunk.LandblockStartX, chunk.LandblockStartY
                 );
 
                 int localIdx = (int)((block.ly - chunk.LandblockStartY) * 8 + (block.lx - chunk.LandblockStartX));
@@ -113,7 +114,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             uint currentVertexIndex,
             uint currentIndexPosition,
             Span<VertexLandscape> vertices,
-            Span<uint> indices) {
+            Span<uint> indices,
+            uint chunkLbStartX,
+            uint chunkLbStartY) {
             float baseLandblockX = landblockX * 192f + region.MapOffset.X; // 24 * 8
             float baseLandblockY = landblockY * 192f + region.MapOffset.Y;
             float minZ = float.MaxValue;
@@ -126,7 +129,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         landblockX, landblockY, landblockID,
                         region, surfaceManager, terrainCache,
                         currentVertexIndex, currentIndexPosition,
-                        vertices, indices
+                        vertices, indices,
+                        chunkLbStartX, chunkLbStartY
                     );
 
                     minZ = Math.Min(minZ, cellMinZ);
@@ -147,12 +151,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             LandSurfaceManager surfaceManager,
             ReadOnlySpan<TerrainEntry> terrainCache,
             uint currentVertexIndex, uint currentIndexPosition,
-            Span<VertexLandscape> vertices, Span<uint> indices) {
+            Span<VertexLandscape> vertices, Span<uint> indices,
+            uint chunkLbStartX, uint chunkLbStartY) {
             // Get terrain entries from document cache
-            var bottomLeft = GetTerrainEntry(region, terrainCache, landblockX, landblockY, cellX, cellY);
-            var bottomRight = GetTerrainEntry(region, terrainCache, landblockX, landblockY, cellX + 1, cellY);
-            var topRight = GetTerrainEntry(region, terrainCache, landblockX, landblockY, cellX + 1, cellY + 1);
-            var topLeft = GetTerrainEntry(region, terrainCache, landblockX, landblockY, cellX, cellY + 1);
+            var bottomLeft = GetTerrainEntry(region, terrainCache, landblockX, landblockY, cellX, cellY, chunkLbStartX, chunkLbStartY);
+            var bottomRight = GetTerrainEntry(region, terrainCache, landblockX, landblockY, cellX + 1, cellY, chunkLbStartX, chunkLbStartY);
+            var topRight = GetTerrainEntry(region, terrainCache, landblockX, landblockY, cellX + 1, cellY + 1, chunkLbStartX, chunkLbStartY);
+            var topLeft = GetTerrainEntry(region, terrainCache, landblockX, landblockY, cellX, cellY + 1, chunkLbStartX, chunkLbStartY);
 
             float cellSize = 24f;
             float x0 = baseLandblockX + cellX * cellSize;
@@ -253,8 +258,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static TerrainEntry GetTerrainEntry(ITerrainInfo region, ReadOnlySpan<TerrainEntry> terrainCache,
-            uint lbX, uint lbY, uint cellX, uint cellY) {
+        private static TerrainEntry GetTerrainEntry(ITerrainInfo region, ReadOnlySpan<TerrainEntry> chunkCache,
+            uint lbX, uint lbY, uint cellX, uint cellY, uint chunkLbStartX, uint chunkLbStartY) {
             // Adjust for cell overflow (neighbors)
             if (cellX >= 8) {
                 lbX++;
@@ -266,14 +271,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 cellY -= 8;
             }
 
-            int mapWidth = region.MapWidthInVertices;
-            int globalX = (int)lbX * 8 + (int)cellX;
-            int globalY = (int)lbY * 8 + (int)cellY;
+            int localLbX = (int)(lbX - chunkLbStartX);
+            int localLbY = (int)(lbY - chunkLbStartY);
 
-            int globalIndex = globalY * mapWidth + globalX;
+            int localX = localLbX * 8 + (int)cellX;
+            int localY = localLbY * 8 + (int)cellY;
 
-            if (globalIndex >= 0 && globalIndex < terrainCache.Length) {
-                return terrainCache[globalIndex];
+            int localIndex = localY * LandscapeChunk.ChunkVertexStride + localX;
+
+            if (localIndex >= 0 && localIndex < chunkCache.Length) {
+                return chunkCache[localIndex];
             }
 
             return new TerrainEntry(0, 0, 0, 0, 0);
