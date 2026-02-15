@@ -13,47 +13,22 @@ using DatReaderWriter.Types;
 using DatReaderWriter;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
-    public partial class SurfaceTextureBrowserViewModel : ViewModelBase, IDatBrowserViewModel {
-        private readonly IDatReaderWriter _dats;
-
-        [ObservableProperty]
-        private IEnumerable<uint> _fileIds = Enumerable.Empty<uint>();
-
-        [ObservableProperty]
-        private uint _selectedFileId;
-
+    public partial class SurfaceTextureBrowserViewModel : BaseDatBrowserViewModel<DatReaderWriter.DBObjs.SurfaceTexture> {
         [ObservableProperty]
         private uint _previewFileId;
 
         [ObservableProperty]
         private IReadOnlyList<uint> _textures = Array.Empty<uint>();
 
-        [ObservableProperty]
-        private IDBObj? _selectedObject;
-
-        public IDatReaderWriter Dats => _dats;
-
-        public GridBrowserViewModel GridBrowser { get; }
-
-        public SurfaceTextureBrowserViewModel(IDatReaderWriter dats) {
-            _dats = dats;
-            _fileIds = _dats.Portal.GetAllIdsOfType<DatReaderWriter.DBObjs.SurfaceTexture>().OrderBy(x => x).ToList();
-            GridBrowser = new GridBrowserViewModel(DBObjType.SurfaceTexture, dats, (id) => SelectedFileId = id);
+        public SurfaceTextureBrowserViewModel(IDatReaderWriter dats) : base(DBObjType.SurfaceTexture, dats) {
         }
 
-        partial void OnSelectedFileIdChanged(uint value) {
-            if (value != 0) {
-                if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.SurfaceTexture>(value, out var obj)) {
-                    SelectedObject = obj;
-                    Textures = obj.Textures.Select(x => x.DataId).ToList();
-                    PreviewFileId = Textures.FirstOrDefault();
-                } else {
-                    SelectedObject = null;
-                    Textures = Array.Empty<uint>();
-                    PreviewFileId = 0;
-                }
-            } else {
-                SelectedObject = null;
+        protected override void OnObjectLoaded(DatReaderWriter.DBObjs.SurfaceTexture? obj) {
+            if (obj != null) {
+                Textures = obj.Textures.Select(x => x.DataId).ToList();
+                PreviewFileId = Textures.FirstOrDefault();
+            }
+            else {
                 Textures = Array.Empty<uint>();
                 PreviewFileId = 0;
             }
