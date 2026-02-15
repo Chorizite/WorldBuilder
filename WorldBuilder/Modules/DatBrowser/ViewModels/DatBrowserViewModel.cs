@@ -21,24 +21,25 @@ using WorldBuilder.Lib;
 using CommunityToolkit.Mvvm.Input;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
-    public enum DatType {
-        Setup,
-        GfxObj,
-        SurfaceTexture,
-        RenderSurface,
-        Surface
-    }
-
     public partial class DatBrowserViewModel : ViewModelBase, IToolModule {
         public string Name => "Dat Browser";
         public ViewModelBase ViewModel => this;
 
-        public IEnumerable<DatType> DatTypes => System.Enum.GetValues<DatType>();
+        public IEnumerable<DBObjType> DatTypes => System.Enum.GetValues<DBObjType>().Where(t => {
+                return t switch {
+                    DBObjType.Setup => true,
+                    DBObjType.GfxObj => true,
+                    DBObjType.SurfaceTexture => true,
+                    DBObjType.RenderSurface => true,
+                    DBObjType.Surface => true,
+                    _ => false
+                };
+        });
 
         public bool CanBrowse => true;
 
         [ObservableProperty]
-        private DatType _selectedType;
+        private DBObjType _selectedType;
 
         [ObservableProperty]
         private ViewModelBase? _currentBrowser;
@@ -57,6 +58,8 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         [ObservableProperty]
         private ObservableCollection<ReflectionNodeViewModel> _reflectionNodes = new();
+
+        private bool _isSettingObject;
 
 
         private readonly SetupBrowserViewModel _setupBrowser;
@@ -80,7 +83,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             _serviceProvider = serviceProvider;
             _dats = dats;
 
-            SelectedType = DatType.Setup;
+            SelectedType = DBObjType.Setup;
             CurrentBrowser = _setupBrowser;
         }
 
@@ -98,13 +101,13 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             }
         }
 
-        partial void OnSelectedTypeChanged(DatType value) {
+        partial void OnSelectedTypeChanged(DBObjType value) {
             CurrentBrowser = value switch {
-                DatType.Setup => _setupBrowser,
-                DatType.GfxObj => _gfxObjBrowser,
-                DatType.SurfaceTexture => _surfaceTextureBrowser,
-                DatType.RenderSurface => _renderSurfaceBrowser,
-                DatType.Surface => _surfaceBrowser,
+                DBObjType.Setup => _setupBrowser,
+                DBObjType.GfxObj => _gfxObjBrowser,
+                DBObjType.SurfaceTexture => _surfaceTextureBrowser,
+                DBObjType.RenderSurface => _renderSurfaceBrowser,
+                DBObjType.Surface => _surfaceBrowser,
                 _ => null
             };
         }
@@ -131,6 +134,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         }
 
         private void UpdateSelectedObject() {
+            if (_isSettingObject) return;
             if (CurrentBrowser is IDatBrowserViewModel browser) {
                 SelectedObject = browser.SelectedObject;
             }
@@ -151,19 +155,27 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             SelectedPropertiesTabIndex = ObjectOverview != null ? 0 : 1;
 
             if (value != null) {
-                if (ObjectOverview is SurfaceTextureOverviewViewModel stovm) {
-                    PreviewFileId = stovm.SelectedTextureId;
-                }
-                else {
-                    PreviewFileId = value.Id;
-                }
+                _isSettingObject = true;
+                try {
+                    SelectedType = Dats.TypeFromId(value.Id);
 
-                if (CurrentBrowser is SurfaceTextureBrowserViewModel stBrowser) {
-                    stBrowser.PreviewFileId = PreviewFileId;
-                }
+                    if (ObjectOverview is SurfaceTextureOverviewViewModel stovm) {
+                        PreviewFileId = stovm.SelectedTextureId;
+                    }
+                    else {
+                        PreviewFileId = value.Id;
+                    }
 
-                if (CurrentBrowser is IDatBrowserViewModel browser) {
-                    browser.SelectedFileId = value.Id;
+                    if (CurrentBrowser is SurfaceTextureBrowserViewModel stBrowser) {
+                        stBrowser.PreviewFileId = PreviewFileId;
+                    }
+
+                    if (CurrentBrowser is IDatBrowserViewModel browser) {
+                        browser.SelectedFileId = value.Id;
+                    }
+                }
+                finally {
+                    _isSettingObject = false;
                 }
             }
             else {

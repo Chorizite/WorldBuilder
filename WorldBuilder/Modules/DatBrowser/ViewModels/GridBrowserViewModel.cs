@@ -9,12 +9,13 @@ using CommunityToolkit.Mvvm.Input;
 using System;
 using WorldBuilder.Shared.Services;
 using CommunityToolkit.Mvvm.Messaging;
+using DatReaderWriter.Enums;
 
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
     public partial class GridBrowserViewModel : ViewModelBase {
         private readonly IDatReaderWriter _dats;
-        private readonly DatType _type;
+        private readonly DBObjType _type;
         private readonly Action<uint> _onSelected;
 
         [ObservableProperty]
@@ -30,7 +31,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         public IDatReaderWriter Dats => _dats;
 
-        public GridBrowserViewModel(DatType type, IDatReaderWriter dats, Action<uint> onSelected) {
+        public GridBrowserViewModel(DBObjType type, IDatReaderWriter dats, Action<uint> onSelected) {
             _type = type;
             _dats = dats;
             _onSelected = onSelected;
@@ -41,11 +42,11 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         private void LoadIds() {
             IEnumerable<uint> ids = _type switch {
-                DatType.Setup => _dats.Portal.GetAllIdsOfType<Setup>(),
-                DatType.GfxObj => _dats.Portal.GetAllIdsOfType<GfxObj>(),
-                DatType.SurfaceTexture => _dats.Portal.GetAllIdsOfType<SurfaceTexture>(),
-                DatType.RenderSurface => _dats.Portal.GetAllIdsOfType<RenderSurface>(),
-                DatType.Surface => _dats.Portal.GetAllIdsOfType<Surface>(),
+                DBObjType.Setup => _dats.Portal.GetAllIdsOfType<Setup>(),
+                DBObjType.GfxObj => _dats.Portal.GetAllIdsOfType<GfxObj>(),
+                DBObjType.SurfaceTexture => _dats.Portal.GetAllIdsOfType<SurfaceTexture>(),
+                DBObjType.RenderSurface => _dats.Portal.GetAllIdsOfType<RenderSurface>(),
+                DBObjType.Surface => _dats.Portal.GetAllIdsOfType<Surface>(),
                 _ => Enumerable.Empty<uint>()
             };
 

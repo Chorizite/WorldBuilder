@@ -506,6 +506,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     TextureHelpers.FillR5G6B5(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
                                     uploadPixelFormat = PixelFormat.Rgba;
                                     break;
+                                case DatReaderWriter.Enums.PixelFormat.PFID_A4R4G4B4:
+                                    textureData = new byte[texWidth * texHeight * 4];
+                                    TextureHelpers.FillA4R4G4B4(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                    uploadPixelFormat = PixelFormat.Rgba;
+                                    break;
                                 default:
                                     throw new NotSupportedException($"Unsupported surface format: {renderSurface.Format}");
                             }

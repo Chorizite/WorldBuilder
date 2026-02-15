@@ -83,6 +83,22 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
+        public static void FillA4R4G4B4(byte[] src, Span<byte> dst, int width, int height) {
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    var srcIdx = (y * width + x) * 2;
+                    var val = (ushort)(src[srcIdx] | (src[srcIdx + 1] << 8));
+                    var dstIdx = (y * width + x) * 4;
+
+                    dst[dstIdx + 0] = (byte)(((val >> 8) & 0x0F) * 17);
+                    dst[dstIdx + 1] = (byte)(((val >> 4) & 0x0F) * 17);
+                    dst[dstIdx + 2] = (byte)((val & 0x0F) * 17);
+                    var alpha = (byte)(((val >> 12) & 0x0F) * 17);
+                    dst[dstIdx + 3] = alpha == 0 ? (byte)255 : alpha;
+                }
+            }
+        }
+
         /// <summary>
         /// Checks if a pixel format is compressed
         /// </summary>

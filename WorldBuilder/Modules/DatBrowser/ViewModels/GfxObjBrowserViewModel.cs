@@ -29,7 +29,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         public GfxObjBrowserViewModel(IDatReaderWriter dats) {
             _dats = dats;
             _fileIds = _dats.Portal.GetAllIdsOfType<DatReaderWriter.DBObjs.GfxObj>().OrderBy(x => x).ToList();
-            GridBrowser = new GridBrowserViewModel(DatType.GfxObj, dats, (id) => SelectedFileId = id);
+            GridBrowser = new GridBrowserViewModel(DBObjType.GfxObj, dats, (id) => SelectedFileId = id);
         }
 
         partial void OnSelectedFileIdChanged(uint value) {

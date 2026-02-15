@@ -38,7 +38,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         public SurfaceTextureBrowserViewModel(IDatReaderWriter dats) {
             _dats = dats;
             _fileIds = _dats.Portal.GetAllIdsOfType<DatReaderWriter.DBObjs.SurfaceTexture>().OrderBy(x => x).ToList();
-            GridBrowser = new GridBrowserViewModel(DatType.SurfaceTexture, dats, (id) => SelectedFileId = id);
+            GridBrowser = new GridBrowserViewModel(DBObjType.SurfaceTexture, dats, (id) => SelectedFileId = id);
         }
 
         partial void OnSelectedFileIdChanged(uint value) {

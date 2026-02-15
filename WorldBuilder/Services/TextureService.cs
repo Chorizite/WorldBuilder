@@ -56,7 +56,7 @@ namespace WorldBuilder.Services {
 
         public async Task<Bitmap?> GetTextureAsync(uint textureId, uint paletteId = 0, bool isClipMap = false) {
             var cacheKey = ((long)textureId << 32) | (paletteId << 1) | (isClipMap ? 1L : 0L);
-            
+
             lock (_textureCache) {
                 if (_textureCache.TryGetValue(cacheKey, out var cachedBitmap)) {
                     // Move to end of LRU
@@ -77,7 +77,7 @@ namespace WorldBuilder.Services {
                             renderSurfaceId = surfaceTexture.Textures.FirstOrDefault() ?? 0;
                         }
                     }
-                    
+
                     if (_dats.HighRes != null && _dats.HighRes.TryGet<RenderSurface>(renderSurfaceId, out var surf)) {
                         renderSurface = surf;
                     }
@@ -109,7 +109,7 @@ namespace WorldBuilder.Services {
                     _lruList.RemoveFirst();
                     _textureCache.Remove(oldestKey);
                 }
-                
+
                 if (_textureCache.TryAdd(key, bitmap)) {
                     _lruList.AddLast(key);
                 }
@@ -219,7 +219,8 @@ namespace WorldBuilder.Services {
                                 rgba8[i * 4 + 3] = color.Alpha == 0 ? (byte)255 : color.Alpha;
                             }
                         }
-                    } else {
+                    }
+                    else {
                         // Greyscale fallback if no palette
                         for (int i = 0; i < width * height; i++) {
                             byte val = sourceData[i];
@@ -248,7 +249,8 @@ namespace WorldBuilder.Services {
                                 rgba8[i * 4 + 3] = color.Alpha == 0 ? (byte)255 : color.Alpha;
                             }
                         }
-                    } else {
+                    }
+                    else {
                         // Greyscale fallback if no palette
                         for (int i = 0; i < width * height; i++) {
                             ushort index = BitConverter.ToUInt16(sourceData, i * 2);
