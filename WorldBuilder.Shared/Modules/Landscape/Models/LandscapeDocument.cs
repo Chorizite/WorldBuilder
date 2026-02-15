@@ -304,6 +304,8 @@ namespace WorldBuilder.Shared.Models {
                 item.IsVisible = isVisible;
                 var affectedVertices = GetAffectedVertices(item).ToList();
 
+                await RecalculateTerrainCacheAsync(affectedVertices);
+
                 var affectedLandblocks = affectedVertices.Any() ? GetAffectedLandblocks(affectedVertices) : new List<(int, int)>();
                 NotifyLandblockChanged(affectedLandblocks);
             }

@@ -285,18 +285,13 @@ public partial class LayersPanelViewModel : ViewModelBase {
     private async Task Refresh() {
         if (_document == null) return;
 
-        var rentResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(_document.Id, default);
-        if (rentResult.IsSuccess) {
-            using var terrainRental = rentResult.Value;
-            await Dispatcher.UIThread.InvokeAsync(() => {
-                _log.LogInformation("Refresh: Syncing with rented doc {DocId} (Instance: {Hash})", terrainRental.Document.Id, terrainRental.Document.GetHashCode());
-                SyncWithDocument(terrainRental.Document);
-                _onLayersChanged?.Invoke(null, LayerChangeType.StructureChange);
-            });
-        }
-        else {
-            _log.LogWarning("Refresh: Failed to re-rent document {DocId}: {Error}", _document.Id, rentResult.Error);
-        }
+        // Use the existing document instance which is shared with LandscapeViewModel.
+        // The document should already be updated by the command execution.
+        await Dispatcher.UIThread.InvokeAsync(() => {
+            _log.LogInformation("Refresh: Re-syncing with existing doc {DocId}", _document.Id);
+            SyncWithDocument(_document);
+            _onLayersChanged?.Invoke(null, LayerChangeType.StructureChange);
+        });
     }
 
     private List<string> GetPath(LayerItemViewModel? item) {
@@ -314,23 +309,25 @@ public partial class LayersPanelViewModel : ViewModelBase {
         if (_project?.IsReadOnly == true || _document == null) return;
 
         var selected = SelectedItem;
-        var parentVM = selected?.IsGroup == true ? selected : selected?.Parent;
-        var groupPath = GetPath(selected?.IsGroup == true ? selected : selected); // Path to the parent group
-
-        var targetListVM = parentVM?.Children ?? Items;
+        var groupPath = GetPath(selected);
+        var targetListVM = selected?.Parent?.Children ?? Items;
         int index = -1;
 
         if (selected != null) {
             if (selected.IsGroup) {
                 // Add at top of group
-                index = 0;
                 groupPath.Add(selected.Model.Id);
+                targetListVM = selected.Children;
+                index = 0;
             }
             else {
-                // Add above selected layer
+                // Add above selected layer in UI
                 index = targetListVM.IndexOf(selected);
-                if (selected.IsBase) index = 1; // Always above base
             }
+
+            // Convert UI index to Model index
+            // Items are displayed in reverse order of the model's LayerTree
+            index = targetListVM.Count - index;
         }
 
         var cmd = new CreateLandscapeLayerCommand(_document.Id, groupPath, "New Layer", false) {
@@ -358,20 +355,24 @@ public partial class LayersPanelViewModel : ViewModelBase {
         if (_project?.IsReadOnly == true || _document == null) return;
 
         var selected = SelectedItem;
-        var parentVM = selected?.IsGroup == true ? selected : selected?.Parent;
-        var groupPath = GetPath(selected?.IsGroup == true ? selected : selected);
-
-        var targetListVM = parentVM?.Children ?? Items;
+        var groupPath = GetPath(selected);
+        var targetListVM = selected?.Parent?.Children ?? Items;
         int index = -1;
 
         if (selected != null) {
             if (selected.IsGroup) {
-                index = 0;
+                // Add at top of group
                 groupPath.Add(selected.Model.Id);
+                targetListVM = selected.Children;
+                index = 0;
             }
             else {
+                // Add above selected layer in UI
                 index = targetListVM.IndexOf(selected);
             }
+
+            // Convert UI index to Model index
+            index = targetListVM.Count - index;
         }
 
         var cmd = new CreateLandscapeLayerGroupCommand(_document.Id, groupPath, "New Group") {
