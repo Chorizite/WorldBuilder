@@ -36,12 +36,7 @@
                                         Dats="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).Dats}"
                                         IsTooltip="True"
                                         Height="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).ItemSize}" />
-                                    <Border Grid.Row="1" Background="#222222" Padding="4">
-                                        <TextBlock Text="{Binding StringFormat='{}{0:X8}'}" 
-                                                   HorizontalAlignment="Center" 
-                                                   FontSize="12" 
-                                                   FontFamily="Cascadia Code,Consolas,Monospace"/>
-                                    </Border>
+
                                 </Grid>
                             </Button>
                             <Button Command="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).OpenInNewWindowCommand}" 
