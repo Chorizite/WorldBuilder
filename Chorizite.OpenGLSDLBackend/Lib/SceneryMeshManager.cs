@@ -12,6 +12,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 using WorldBuilder.Shared.Services;
 using PixelFormat = Silk.NET.OpenGL.PixelFormat;
 
@@ -227,9 +229,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Phase 1 (Background Thread): Prepare CPU-side mesh data from DAT asynchronously.
         /// Returns an existing task if this object is already being prepared.
         /// </summary>
-        public Task<ObjectMeshData?> PrepareMeshDataAsync(uint id, bool isSetup) {
+        public Task<ObjectMeshData?> PrepareMeshDataAsync(uint id, bool isSetup, CancellationToken ct = default) {
             if (HasRenderData(id)) return Task.FromResult<ObjectMeshData?>(null);
-            return _preparationTasks.GetOrAdd(id, _ => Task.Run(() => PrepareMeshData(id, isSetup)));
+            return _preparationTasks.GetOrAdd(id, k => Task.Run(() => {
+                try {
+                    return PrepareMeshData(id, isSetup, ct);
+                }
+                finally {
+                    _preparationTasks.TryRemove(k, out _);
+                }
+            }, ct));
         }
 
         /// <summary>
@@ -237,16 +246,22 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// This loads vertices, indices, and texture data but creates NO GPU resources.
         /// Thread-safe: only reads from DAT files.
         /// </summary>
-        public ObjectMeshData? PrepareMeshData(uint id, bool isSetup) {
+        public ObjectMeshData? PrepareMeshData(uint id, bool isSetup, CancellationToken ct = default) {
             try {
-                if (isSetup) {
+                var type = _dats.TypeFromId(id);
+                if (type == DBObjType.Setup) {
                     if (!_dats.Portal.TryGet<Setup>(id, out var setup)) return null;
-                    return PrepareSetupMeshData(id, setup);
+                    return PrepareSetupMeshData(id, setup, ct);
                 }
-                else {
+                else if (type == DBObjType.GfxObj) {
                     if (!_dats.Portal.TryGet<GfxObj>(id, out var gfxObj)) return null;
-                    return PrepareGfxObjMeshData(id, gfxObj, Vector3.One);
+                    return PrepareGfxObjMeshData(id, gfxObj, Vector3.One, ct);
                 }
+                return null;
+            }
+            catch (OperationCanceledException) {
+                // Ignore
+                return null;
             }
             catch (Exception ex) {
                 Console.WriteLine($"Error preparing mesh data for 0x{id:X8}: {ex}");
@@ -311,13 +326,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             try {
                 (Vector3 Min, Vector3 Max)? result = null;
-                if (isSetup) {
+                var type = _dats.TypeFromId(id);
+                if (type == DBObjType.Setup) {
                     var min = new Vector3(float.MaxValue);
                     var max = new Vector3(float.MinValue);
                     bool hasBounds = false;
                     var parts = new List<(uint GfxObjId, Matrix4x4 Transform)>();
 
-                    CollectParts(id, Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds);
+                    CollectParts(id, Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds, CancellationToken.None);
                     result = hasBounds ? (min, max) : null;
                 }
                 else {
@@ -335,13 +351,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Private: Background Preparation
 
-        private ObjectMeshData? PrepareSetupMeshData(uint id, Setup setup) {
+        private ObjectMeshData? PrepareSetupMeshData(uint id, Setup setup, CancellationToken ct) {
             var parts = new List<(uint GfxObjId, Matrix4x4 Transform)>();
             var min = new Vector3(float.MaxValue);
             var max = new Vector3(float.MinValue);
             bool hasBounds = false;
 
-            CollectParts(id, Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds);
+            CollectParts(id, Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds, ct);
 
             return new ObjectMeshData {
                 ObjectId = id,
@@ -351,7 +367,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             };
         }
 
-        private void CollectParts(uint id, Matrix4x4 currentTransform, List<(uint GfxObjId, Matrix4x4 Transform)> parts, ref Vector3 min, ref Vector3 max, ref bool hasBounds) {
+        private void CollectParts(uint id, Matrix4x4 currentTransform, List<(uint GfxObjId, Matrix4x4 Transform)> parts, ref Vector3 min, ref Vector3 max, ref bool hasBounds, CancellationToken ct) {
+            ct.ThrowIfCancellationRequested();
             var type = _dats.TypeFromId(id);
             if (type == DBObjType.Setup) {
                 if (!_dats.Portal.TryGet<Setup>(id, out var setup)) return;
@@ -365,7 +382,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             * Matrix4x4.CreateTranslation(placementFrame.Frames[i].Origin);
                     }
 
-                    CollectParts(partId, transform * currentTransform, parts, ref min, ref max, ref hasBounds);
+                    CollectParts(partId, transform * currentTransform, parts, ref min, ref max, ref hasBounds, ct);
                 }
             }
             else if (type == DBObjType.GfxObj) {
@@ -393,7 +410,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        private ObjectMeshData? PrepareGfxObjMeshData(uint id, GfxObj gfxObj, Vector3 scale) {
+        private ObjectMeshData? PrepareGfxObjMeshData(uint id, GfxObj gfxObj, Vector3 scale, CancellationToken ct) {
             var vertices = new List<VertexPositionNormalTexture>();
             var UVLookup = new Dictionary<(ushort vertId, ushort uvIdx, bool isNeg), ushort>();
             var batchesByFormat = new Dictionary<(int Width, int Height, TextureFormat Format), List<TextureBatchData>>();
@@ -402,6 +419,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var boundingBox = new BoundingBox(min, max);
 
             foreach (var poly in gfxObj.Polygons.Values) {
+                ct.ThrowIfCancellationRequested();
                 if (poly.VertexIds.Count < 3) continue;
 
                 // Handle Positive Surface

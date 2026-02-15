@@ -37,6 +37,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Queues — generation uses a dictionary for cancellation + priority ordering
         private readonly ConcurrentDictionary<ushort, ObjectLandblock> _pendingGeneration = new();
         private readonly ConcurrentQueue<ObjectLandblock> _uploadQueue = new();
+        private readonly ConcurrentDictionary<ushort, CancellationTokenSource> _generationCTS = new();
         private int _activeGenerations = 0;
 
         // Prepared mesh data waiting for GPU upload (thread-safe buffer between background and main thread)
@@ -171,6 +172,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (!lb.GpuReady && !IsLandblockInFrustum(lb.GridX, lb.GridY)) {
                     if (_landblocks.TryRemove(key, out _)) {
                         _pendingGeneration.TryRemove(key, out _);
+                        if (_generationCTS.TryRemove(key, out var cts)) {
+                            cts.Cancel();
+                            cts.Dispose();
+                        }
                         UnloadLandblockResources(lb);
                     }
                 }
@@ -189,6 +194,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             foreach (var key in keysToRemove) {
                 if (_landblocks.TryRemove(key, out var lb)) {
+                    if (_generationCTS.TryRemove(key, out var cts)) {
+                        cts.Cancel();
+                        cts.Dispose();
+                    }
                     UnloadLandblockResources(lb);
                 }
                 _outOfRangeTimers.TryRemove(key, out _);
@@ -221,11 +230,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 Interlocked.Increment(ref _activeGenerations);
+                var cts = new CancellationTokenSource();
+                _generationCTS[bestKey] = cts;
+                var token = cts.Token;
                 Task.Run(async () => {
                     try {
-                        await GenerateStaticObjectsForLandblock(lbToGenerate);
+                        await GenerateStaticObjectsForLandblock(lbToGenerate, token);
                     }
                     finally {
+                        _generationCTS.TryRemove(bestKey, out _);
+                        cts.Dispose();
                         Interlocked.Decrement(ref _activeGenerations);
                     }
                 });
@@ -377,10 +391,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Load static objects from LandBlockInfo in the cell DAT.
         /// Objects include placed items and buildings.
         /// </summary>
-        private async Task GenerateStaticObjectsForLandblock(ObjectLandblock lb) {
+        private async Task GenerateStaticObjectsForLandblock(ObjectLandblock lb, CancellationToken ct) {
             try {
                 var key = PackKey(lb.GridX, lb.GridY);
                 if (!IsWithinRenderDistance(lb) || !_landblocks.ContainsKey(key)) return;
+                ct.ThrowIfCancellationRequested();
 
                 if (_landscapeDoc.Region is not ITerrainInfo regionInfo) return;
 
@@ -398,7 +413,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     foreach (var obj in lbi.Objects) {
                         if (obj.Id == 0) continue;
 
-                        var isSetup = (obj.Id & 0x02000000) != 0;
+                        var isSetup = (obj.Id >> 24) == 0x02;
                         var worldPos = new Vector3(
                             new Vector2(lbGlobalX * lbSizeUnits + obj.Frame.Origin.X, lbGlobalY * lbSizeUnits + obj.Frame.Origin.Y) + regionInfo.MapOffset,
                             obj.Frame.Origin.Z
@@ -425,7 +440,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     foreach (var building in lbi.Buildings) {
                         if (building.ModelId == 0) continue;
 
-                        var isSetup = (building.ModelId & 0x02000000) != 0;
+                        var isSetup = (building.ModelId >> 24) == 0x02;
                         var worldPos = new Vector3(
                             new Vector2(lbGlobalX * lbSizeUnits + building.Frame.Origin.X, lbGlobalY * lbSizeUnits + building.Frame.Origin.Y) + regionInfo.MapOffset,
                             building.Frame.Origin.Z
@@ -472,13 +487,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (_meshManager.HasRenderData(objectId) || _preparedMeshes.ContainsKey(objectId))
                         continue;
 
-                    preparationTasks.Add(_meshManager.PrepareMeshDataAsync(objectId, isSetup));
+                    preparationTasks.Add(_meshManager.PrepareMeshDataAsync(objectId, isSetup, ct));
                 }
 
                 var preparedMeshes = await Task.WhenAll(preparationTasks);
                 foreach (var meshData in preparedMeshes) {
                     if (meshData == null) continue;
-                    
+
                     _preparedMeshes.TryAdd(meshData.ObjectId, meshData);
 
                     // For Setup objects, also prepare each part's GfxObj
@@ -486,10 +501,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         var partTasks = new List<Task<ObjectMeshData?>>();
                         foreach (var (partId, _) in meshData.SetupParts) {
                             if (!_meshManager.HasRenderData(partId) && !_preparedMeshes.ContainsKey(partId)) {
-                                partTasks.Add(_meshManager.PrepareMeshDataAsync(partId, false));
+                                partTasks.Add(_meshManager.PrepareMeshDataAsync(partId, false, ct));
                             }
                         }
-                        
+
                         var partMeshes = await Task.WhenAll(partTasks);
                         foreach (var partData in partMeshes) {
                             if (partData != null) {
@@ -501,6 +516,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 lb.MeshDataReady = true;
                 _uploadQueue.Enqueue(lb);
+            }
+            catch (OperationCanceledException) {
+                // Ignore cancellations
             }
             catch (Exception ex) {
                 _log.LogError(ex, "Error generating static objects for landblock ({X},{Y})", lb.GridX, lb.GridY);

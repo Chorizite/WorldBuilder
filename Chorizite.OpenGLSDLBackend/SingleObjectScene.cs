@@ -96,7 +96,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
             try {
                 // Prepare mesh data on background thread
-                var meshData = await _meshManager.PrepareMeshDataAsync(fileId, isSetup);
+                var meshData = await _meshManager.PrepareMeshDataAsync(fileId, isSetup, ct);
                 if (meshData != null && !ct.IsCancellationRequested) {
                     _stagedMeshData.Enqueue(meshData);
 
@@ -105,7 +105,7 @@ namespace Chorizite.OpenGLSDLBackend {
                         foreach (var (partId, _) in meshData.SetupParts) {
                             if (ct.IsCancellationRequested) break;
                             if (!_meshManager.HasRenderData(partId)) {
-                                var partData = await _meshManager.PrepareMeshDataAsync(partId, false);
+                                var partData = await _meshManager.PrepareMeshDataAsync(partId, false, ct);
                                 if (partData != null) {
                                     _stagedMeshData.Enqueue(partData);
                                 }
@@ -334,6 +334,8 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public void Dispose() {
+            _loadCts?.Cancel();
+            _loadCts?.Dispose();
             ReleaseCurrentObject();
             _gl.DeleteBuffer(_instanceVBO);
             if (_ownsMeshManager) {
