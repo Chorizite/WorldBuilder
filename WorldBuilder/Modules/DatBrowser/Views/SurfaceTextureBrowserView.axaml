@@ -39,15 +39,9 @@
                     </DataTemplate>
                 </TabControl.ContentTemplate>
             </TabControl>
-            <views:DatObjectPreview 
-                IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsNotZero}}"
-                DataId="{Binding PreviewFileId}"
-                Dats="{Binding Dats}"
-                IsTooltip="False" />
-            <v:GridBrowserView 
-                x:DataType="vm:SurfaceTextureBrowserViewModel"
-                IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsZero}}"
-                DataContext="{Binding GridBrowser}" />
+            <Panel IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsZero}}">
+                <v:GridBrowserView DataContext="{Binding GridBrowser}" />
+            </Panel>
         </Panel>
     </Grid>
 </UserControl>

@@ -23,25 +23,38 @@
                 </ItemsRepeater.Layout>
                 <ItemsRepeater.ItemTemplate>
                     <DataTemplate x:DataType="sys:UInt32">
-                        <Button Command="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).SelectItemCommand}"
-                                CommandParameter="{Binding}"
-                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                Background="#333333" Padding="0">
-                            <Grid RowDefinitions="*, Auto">
-                                <views:DatObjectPreview 
-                                    Grid.Row="0"
-                                    DataId="{Binding}"
-                                    Dats="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).Dats}"
-                                    IsTooltip="True"
-                                    Height="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).ItemSize}" />
-                                <Border Grid.Row="1" Background="#222222" Padding="4">
-                                    <TextBlock Text="{Binding StringFormat='{}{0:X8}'}" 
-                                               HorizontalAlignment="Center" 
-                                               FontSize="12" 
-                                               FontFamily="Cascadia Code,Consolas,Monospace"/>
-                                </Border>
-                            </Grid>
-                        </Button>
+                        <Panel>
+                            <Button Command="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).SelectItemCommand}"
+                                    CommandParameter="{Binding}"
+                                    PointerPressed="OnItemPointerPressed"
+                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                    Background="#333333" Padding="0">
+                                <Grid RowDefinitions="*, Auto">
+                                    <views:DatObjectPreview 
+                                        Grid.Row="0"
+                                        DataId="{Binding}"
+                                        Dats="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).Dats}"
+                                        IsTooltip="True"
+                                        Height="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).ItemSize}" />
+                                    <Border Grid.Row="1" Background="#222222" Padding="4">
+                                        <TextBlock Text="{Binding StringFormat='{}{0:X8}'}" 
+                                                   HorizontalAlignment="Center" 
+                                                   FontSize="12" 
+                                                   FontFamily="Cascadia Code,Consolas,Monospace"/>
+                                    </Border>
+                                </Grid>
+                            </Button>
+                            <Button Command="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).OpenInNewWindowCommand}" 
+                                    CommandParameter="{Binding}"
+                                    ToolTip.Tip="Open in new window" 
+                                    HorizontalAlignment="Right" 
+                                    VerticalAlignment="Top"
+                                    Margin="5"
+                                    Background="#80000000" 
+                                    BorderThickness="0">
+                                <TextBlock Text="↗" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource AccentPurple}"/>
+                            </Button>
+                        </Panel>
                     </DataTemplate>
                 </ItemsRepeater.ItemTemplate>
             </ItemsRepeater>

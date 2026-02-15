@@ -125,7 +125,7 @@ private class GlVisual : CompositionCustomVisualHandler {
                 var version = SilkGl.GetStringS(StringName.Version);
                 var vendor = SilkGl.GetStringS(StringName.Vendor);
                 var renderer = SilkGl.GetStringS(StringName.Renderer);
-                _parent._logger.LogInformation("OpenGL Version: {Version} // {Vendor} // {Renderer}", version, vendor, renderer);
+                _parent._logger.LogTrace("OpenGL Version: {Version} // {Vendor} // {Renderer}", version, vendor, renderer);
             }
 
             private GlState SaveGlState(GL gl) {

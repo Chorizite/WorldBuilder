@@ -58,8 +58,6 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         [ObservableProperty]
         private ObservableCollection<ReflectionNodeViewModel> _reflectionNodes = new();
 
-        [ObservableProperty]
-        private bool _isMinimalMode;
 
         private readonly SetupBrowserViewModel _setupBrowser;
         private readonly GfxObjBrowserViewModel _gfxObjBrowser;
@@ -88,6 +86,13 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         [RelayCommand]
         private void Browse() {
+            if (CurrentBrowser is IDatBrowserViewModel browser) {
+                browser.SelectedFileId = 0;
+            }
+        }
+
+        [RelayCommand]
+        private void Back() {
             if (CurrentBrowser is IDatBrowserViewModel browser) {
                 browser.SelectedFileId = 0;
             }
@@ -128,7 +133,8 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private void UpdateSelectedObject() {
             if (CurrentBrowser is IDatBrowserViewModel browser) {
                 SelectedObject = browser.SelectedObject;
-            } else {
+            }
+            else {
                 SelectedObject = null;
             }
         }
@@ -147,15 +153,24 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             if (value != null) {
                 if (ObjectOverview is SurfaceTextureOverviewViewModel stovm) {
                     PreviewFileId = stovm.SelectedTextureId;
-                } else {
+                }
+                else {
                     PreviewFileId = value.Id;
                 }
 
                 if (CurrentBrowser is SurfaceTextureBrowserViewModel stBrowser) {
                     stBrowser.PreviewFileId = PreviewFileId;
                 }
-            } else if (!IsMinimalMode) {
+
+                if (CurrentBrowser is IDatBrowserViewModel browser) {
+                    browser.SelectedFileId = value.Id;
+                }
+            }
+            else {
                 PreviewFileId = 0;
+                if (CurrentBrowser is IDatBrowserViewModel browser) {
+                    browser.SelectedFileId = 0;
+                }
             }
 
             if (value != null) {

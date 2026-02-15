@@ -28,10 +28,9 @@
                 DataId="{Binding SelectedFileId}"
                 Dats="{Binding Dats}"
                 IsTooltip="False" />
-            <v:GridBrowserView 
-                x:DataType="vm:SurfaceBrowserViewModel"
-                IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsZero}}"
-                DataContext="{Binding GridBrowser}" />
+            <Panel IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsZero}}">
+                <v:GridBrowserView DataContext="{Binding GridBrowser}" />
+            </Panel>
         </Panel>
     </Grid>
 </UserControl>

@@ -38,8 +38,8 @@
         </Style>
     </UserControl.Styles>
     
-    <Grid ColumnDefinitions="*, Auto, 400">
-        <Grid Grid.Column="0" RowDefinitions="Auto, *" IsVisible="{Binding !IsMinimalMode}">
+    <Grid ColumnDefinitions="*, Auto, Auto">
+        <Grid Grid.Column="0" RowDefinitions="Auto, *">
             <StackPanel Grid.Row="0" Orientation="Horizontal">
                 <ComboBox ItemsSource="{Binding DatTypes}" 
                           SelectedItem="{Binding SelectedType}"
@@ -53,17 +53,10 @@
             <ContentControl Grid.Row="1" Content="{Binding CurrentBrowser}" />
         </Grid>
 
-        <Panel Grid.Column="0" Background="#202020" IsVisible="{Binding IsMinimalMode}">
-            <views:DatObjectPreview 
-                DataId="{Binding PreviewFileId}"
-                Dats="{Binding Dats}"
-                IsTooltip="False" />
-        </Panel>
-
         <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" 
                       IsVisible="{Binding SelectedObject, Converter={x:Static conv:NumericConverters.IsNotZero}}" />
 
-        <TabControl Grid.Column="2" SelectedIndex="{Binding SelectedPropertiesTabIndex}"
+        <TabControl Grid.Column="2" Width="400" SelectedIndex="{Binding SelectedPropertiesTabIndex}"
                     IsVisible="{Binding SelectedObject, Converter={x:Static conv:NumericConverters.IsNotZero}}">
             <TabItem Header="Overview" IsVisible="{Binding ObjectOverview, Converter={x:Static ObjectConverters.IsNotNull}}">
                 <ContentControl Content="{Binding ObjectOverview}" />

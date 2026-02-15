@@ -119,7 +119,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 return;
             }
             else {
-                _log.LogInformation($"{(Program != 0 ? "Reloaded" : "Loaded")} shader: {Name}");
+                _log.LogTrace($"{(Program != 0 ? "Reloaded" : "Loaded")} shader: {Name}");
             }
 
             GL.DeleteShader(vertexShader);

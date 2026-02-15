@@ -44,6 +44,45 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
+        public static void FillP8(byte[] src, Palette palette, Span<byte> dst, int width, int height, bool isClipMap = false) {
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    var srcIdx = (y * width + x);
+                    var palIdx = src[srcIdx];
+                    var color = palette.Colors[palIdx];
+                    var dstIdx = (y * width + x) * 4;
+
+                    if (isClipMap && palIdx < 8) {
+                        dst[dstIdx + 0] = 0;
+                        dst[dstIdx + 1] = 0;
+                        dst[dstIdx + 2] = 0;
+                        dst[dstIdx + 3] = 0;
+                    }
+                    else {
+                        dst[dstIdx + 0] = color.Red;
+                        dst[dstIdx + 1] = color.Green;
+                        dst[dstIdx + 2] = color.Blue;
+                        dst[dstIdx + 3] = color.Alpha;
+                    }
+                }
+            }
+        }
+
+        public static void FillR5G6B5(byte[] src, Span<byte> dst, int width, int height) {
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    var srcIdx = (y * width + x) * 2;
+                    var val = (ushort)(src[srcIdx] | (src[srcIdx + 1] << 8));
+                    var dstIdx = (y * width + x) * 4;
+
+                    dst[dstIdx + 0] = (byte)(((val & 0xF800) >> 11) << 3);
+                    dst[dstIdx + 1] = (byte)(((val & 0x7E0) >> 5) << 2);
+                    dst[dstIdx + 2] = (byte)((val & 0x1F) << 3);
+                    dst[dstIdx + 3] = 255;
+                }
+            }
+        }
+
         /// <summary>
         /// Checks if a pixel format is compressed
         /// </summary>

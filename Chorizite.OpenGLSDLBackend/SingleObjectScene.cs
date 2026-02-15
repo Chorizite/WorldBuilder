@@ -4,7 +4,10 @@ using DatReaderWriter;
 using DatReaderWriter.Enums;
 using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
+using System.Collections.Concurrent;
 using System.Numerics;
+using System.Threading;
+using System.Threading.Tasks;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Services;
 
@@ -18,15 +21,21 @@ namespace Chorizite.OpenGLSDLBackend {
         private Camera3D _camera;
         private IShader? _shader;
         private ObjectMeshManager _meshManager;
-        
+        private readonly bool _ownsMeshManager;
+
         private uint _currentFileId;
         private bool _isSetup;
         private bool _initialized;
-        
+
         // Instance buffer for the single object
         private uint _instanceVBO;
         private float _rotation;
         private bool _isAutoCamera = true;
+
+        private CancellationTokenSource? _loadCts;
+        private readonly ConcurrentQueue<ObjectMeshData> _stagedMeshData = new();
+        private uint _loadingFileId;
+        private bool _loadingIsSetup;
 
         public ICamera Camera => _camera;
 
@@ -45,13 +54,14 @@ namespace Chorizite.OpenGLSDLBackend {
             }
         }
 
-        public SingleObjectScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILogger log, IDatReaderWriter dats) {
+        public SingleObjectScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILogger log, IDatReaderWriter dats, ObjectMeshManager? meshManager = null) {
             _gl = gl;
             _graphicsDevice = graphicsDevice;
             _log = log;
             _dats = dats;
-            _meshManager = new ObjectMeshManager(graphicsDevice, dats);
-            
+            _ownsMeshManager = meshManager == null;
+            _meshManager = meshManager ?? new ObjectMeshManager(graphicsDevice, dats);
+
             _camera = new Camera3D(new Vector3(0, -5, 2), 0, 0);
             _camera.MoveSpeed = 0.5f;
         }
@@ -64,37 +74,56 @@ namespace Chorizite.OpenGLSDLBackend {
             _shader = _graphicsDevice.CreateShader("StaticObject", vertSource, fragSource);
 
             _gl.GenBuffers(1, out _instanceVBO);
-            
+
             // Initialize instance buffer with identity matrix
             _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVBO);
             unsafe {
-                 _gl.BufferData(GLEnum.ArrayBuffer, (nuint)sizeof(Matrix4x4), (void*)null, GLEnum.DynamicDraw);
-                 var identity = Matrix4x4.Identity;
-                 _gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)sizeof(Matrix4x4), &identity);
+                _gl.BufferData(GLEnum.ArrayBuffer, (nuint)sizeof(Matrix4x4), (void*)null, GLEnum.DynamicDraw);
+                var identity = Matrix4x4.Identity;
+                _gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)sizeof(Matrix4x4), &identity);
             }
 
             _initialized = true;
         }
 
-        public async Task LoadObject(uint fileId, bool isSetup) {
-            _currentFileId = fileId;
-            _isSetup = isSetup;
+        public async Task LoadObjectAsync(uint fileId, bool isSetup) {
+            _loadingFileId = fileId;
+            _loadingIsSetup = isSetup;
 
-            // Prepare mesh data
-            var meshData = await _meshManager.PrepareMeshDataAsync(fileId, isSetup);
-            if (meshData != null) {
-                // Upload must happen on the GL thread, handled in Render()
+            _loadCts?.Cancel();
+            _loadCts = new CancellationTokenSource();
+            var ct = _loadCts.Token;
+
+            try {
+                // Prepare mesh data on background thread
+                var meshData = await _meshManager.PrepareMeshDataAsync(fileId, isSetup);
+                if (meshData != null && !ct.IsCancellationRequested) {
+                    _stagedMeshData.Enqueue(meshData);
+
+                    // For Setup objects, also prepare each part's GfxObj on background thread
+                    if (meshData.IsSetup && meshData.SetupParts.Count > 0) {
+                        foreach (var (partId, _) in meshData.SetupParts) {
+                            if (ct.IsCancellationRequested) break;
+                            if (!_meshManager.HasRenderData(partId)) {
+                                var partData = await _meshManager.PrepareMeshDataAsync(partId, false);
+                                if (partData != null) {
+                                    _stagedMeshData.Enqueue(partData);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException) {
+                // Ignore
+            }
+            catch (Exception ex) {
+                _log.LogError(ex, "Error loading object 0x{FileId:X8}", fileId);
             }
         }
-        
-        private uint _pendingFileId;
-        private bool _pendingIsSetup;
-        private bool _needsLoad;
 
         public void SetObject(uint fileId, bool isSetup) {
-            _pendingFileId = fileId;
-            _pendingIsSetup = isSetup;
-            _needsLoad = true;
+            _ = LoadObjectAsync(fileId, isSetup);
         }
 
         private void ReleaseCurrentObject() {
@@ -116,7 +145,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public void Update(float deltaTime) {
             _camera.Update(deltaTime);
-            
+
             if (IsAutoCamera) {
                 // Spin object
                 _rotation += deltaTime * 1.0f;
@@ -149,7 +178,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public void Render() {
             if (!_initialized || _shader == null) return;
-            
+
             // Preserve the current viewport and scissor state
             Span<int> currentViewport = stackalloc int[4];
             _gl.GetInteger(GetPName.Viewport, currentViewport);
@@ -167,44 +196,26 @@ namespace Chorizite.OpenGLSDLBackend {
                 _gl.ClearColor(0.15f, 0.15f, 0.2f, 1.0f);
                 _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-                // Handle loading
-                if (_needsLoad) {
-                    _needsLoad = false;
+                // Check if we need to swap objects
+                if (_loadingFileId != 0 && _loadingFileId != _currentFileId) {
                     ReleaseCurrentObject();
-                    _currentFileId = _pendingFileId;
-                    _isSetup = _pendingIsSetup;
-                    
-                    var meshData = _meshManager.PrepareMeshData(_currentFileId, _isSetup);
-                    if (meshData != null) {
-                        var renderData = _meshManager.UploadMeshData(meshData);
-                        if (renderData != null && renderData.IsSetup) {
-                            foreach (var part in renderData.SetupParts) {
-                                if (!_meshManager.HasRenderData(part.GfxObjId)) {
-                                    var partMesh = _meshManager.PrepareMeshData(part.GfxObjId, false);
-                                    if (partMesh != null) {
-                                        _meshManager.UploadMeshData(partMesh);
-                                    } else {
-                                        _log.LogWarning($"Failed to load part mesh: 0x{part.GfxObjId:X8}");
-                                    }
-                                }
-                            }
-                        }
+                    _currentFileId = _loadingFileId;
+                    _isSetup = _loadingIsSetup;
+                    _loadingFileId = 0;
 
-                        // Center camera on object
-                        if (renderData != null && renderData.BoundingBox.Min != renderData.BoundingBox.Max) {
-                            var center = (renderData.BoundingBox.Min + renderData.BoundingBox.Max) / 2f;
-                            var size = Vector3.Distance(renderData.BoundingBox.Min, renderData.BoundingBox.Max);
-                            
-                            // Adjust camera
-                            _camera.Position = center + new Vector3(0, -size, size * 0.5f);
-                            
-                            // Look at center
-                            _camera.LookAt(center);
-                        } else {
-                            _log.LogWarning("BoundingBox is invalid or zero-sized.");
-                        }
-                    } else {
-                        _log.LogWarning("PrepareMeshData returned null.");
+                    // If the object is already loaded, center the camera immediately
+                    var existingData = _meshManager.TryGetRenderData(_currentFileId);
+                    if (existingData != null) {
+                        CenterCameraOnObject(existingData);
+                    }
+                }
+
+                // Handle staged mesh data
+                while (_stagedMeshData.TryDequeue(out var meshData)) {
+                    var renderData = _meshManager.UploadMeshData(meshData);
+
+                    if (renderData != null && meshData.ObjectId == _currentFileId) {
+                        CenterCameraOnObject(renderData);
                     }
                 }
 
@@ -241,7 +252,8 @@ namespace Chorizite.OpenGLSDLBackend {
                             RenderObject(partData);
                         }
                     }
-                } else {
+                }
+                else {
                     RenderObject(data);
                 }
             }
@@ -255,9 +267,26 @@ namespace Chorizite.OpenGLSDLBackend {
             }
         }
 
+        private void CenterCameraOnObject(ObjectRenderData renderData) {
+            if (renderData != null && renderData.BoundingBox.Min != renderData.BoundingBox.Max) {
+                var center = (renderData.BoundingBox.Min + renderData.BoundingBox.Max) / 2f;
+                var size = Vector3.Distance(renderData.BoundingBox.Min, renderData.BoundingBox.Max);
+
+                // Adjust camera
+                _camera.Position = center + new Vector3(0, -size, size * 0.5f);
+
+                // Dynamically adjust clipping planes based on object size
+                _camera.NearPlane = Math.Max(0.001f, size * 0.005f);
+                _camera.FarPlane = Math.Max(100f, size * 20f);
+
+                // Look at center
+                _camera.LookAt(center);
+            }
+        }
+
         private unsafe void RenderObject(ObjectRenderData renderData) {
             _gl.BindVertexArray(renderData.VAO);
-            
+
             // Setup instance attributes (locations 3-6)
             _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVBO);
             for (uint i = 0; i < 4; i++) {
@@ -272,15 +301,15 @@ namespace Chorizite.OpenGLSDLBackend {
 
                 _gl.DisableVertexAttribArray(7);
                 _gl.VertexAttrib1((uint)7, (float)batch.TextureIndex);
-                
+
                 batch.Atlas.TextureArray.Bind(0);
                 _shader!.SetUniform("uTextureArray", 0);
-                
+
                 _gl.BindBuffer(GLEnum.ElementArrayBuffer, batch.IBO);
                 _gl.DrawElementsInstanced(PrimitiveType.Triangles, (uint)batch.IndexCount, DrawElementsType.UnsignedShort, (void*)0, 1);
             }
-            
-             // Cleanup
+
+            // Cleanup
             for (uint i = 0; i < 4; i++) {
                 _gl.DisableVertexAttribArray(3 + i);
                 _gl.VertexAttribDivisor(3 + i, 0);
@@ -307,7 +336,9 @@ namespace Chorizite.OpenGLSDLBackend {
         public void Dispose() {
             ReleaseCurrentObject();
             _gl.DeleteBuffer(_instanceVBO);
-            _meshManager.Dispose();
+            if (_ownsMeshManager) {
+                _meshManager.Dispose();
+            }
         }
     }
 }

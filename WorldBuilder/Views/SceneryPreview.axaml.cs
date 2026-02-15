@@ -118,7 +118,11 @@ public partial class SceneryPreview : Base3DViewport {
                 };
             }
 
-            _gameScene.SetLandscape(_previewDoc, _cachedDats);
+            var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
+            var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
+            var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _cachedDats);
+
+            _gameScene.SetLandscape(_previewDoc, _cachedDats, meshManager);
             _gameScene.InvalidateLandblock(0, 0);
         }
         _needsUpdate = false;

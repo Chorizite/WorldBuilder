@@ -8,6 +8,8 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.Input;
 using System;
 using WorldBuilder.Shared.Services;
+using CommunityToolkit.Mvvm.Messaging;
+
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
     public partial class GridBrowserViewModel : ViewModelBase {
@@ -55,6 +57,11 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         [RelayCommand]
         private void SelectItem(uint id) {
             _onSelected?.Invoke(id);
+        }
+
+        [RelayCommand]
+        private void OpenInNewWindow(uint id) {
+            WeakReferenceMessenger.Default.Send(new OpenQualifiedDataIdMessage(id, null));
         }
     }
 }

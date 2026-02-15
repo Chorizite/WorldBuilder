@@ -125,7 +125,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly ConcurrentDictionary<uint, int> _usageCount = new();
         private readonly ConcurrentDictionary<uint, (Vector3 Min, Vector3 Max)?> _boundsCache = new();
         private readonly ConcurrentDictionary<uint, Task<ObjectMeshData?>> _preparationTasks = new();
-        
+
         // LRU Cache for Unused objects
         private readonly LinkedList<uint> _lruList = new();
         private readonly long _maxGpuMemory = 512 * 1024 * 1024; // 512MB
@@ -146,7 +146,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public ObjectRenderData? GetRenderData(uint id) {
             if (_renderData.TryGetValue(id, out var data)) {
                 _usageCount.AddOrUpdate(id, 1, (_, count) => count + 1);
-                
+
                 // If it was in LRU, remove it as it's now in use
                 lock (_lruList) {
                     _lruList.Remove(id);
@@ -312,29 +312,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             try {
                 (Vector3 Min, Vector3 Max)? result = null;
                 if (isSetup) {
-                    if (!_dats.Portal.TryGet<Setup>(id, out var setup)) return null;
                     var min = new Vector3(float.MaxValue);
                     var max = new Vector3(float.MinValue);
                     bool hasBounds = false;
-                    var placementFrame = setup.PlacementFrames[0];
+                    var parts = new List<(uint GfxObjId, Matrix4x4 Transform)>();
 
-                    for (int i = 0; i < setup.Parts.Count; i++) {
-                        var partId = setup.Parts[i];
-                        var transform = Matrix4x4.Identity;
-                        if (placementFrame.Frames != null && i < placementFrame.Frames.Count) {
-                            transform = Matrix4x4.CreateFromQuaternion(placementFrame.Frames[i].Orientation)
-                                * Matrix4x4.CreateTranslation(placementFrame.Frames[i].Origin);
-                        }
-
-                        if (_dats.Portal.TryGet<GfxObj>(partId, out var partGfx)) {
-                            var (partMin, partMax) = ComputeBounds(partGfx, Vector3.One);
-                            var transMin = Vector3.Transform(partMin, transform);
-                            var transMax = Vector3.Transform(partMax, transform);
-                            min = Vector3.Min(min, Vector3.Min(transMin, transMax));
-                            max = Vector3.Max(max, Vector3.Max(transMin, transMax));
-                            hasBounds = true;
-                        }
-                    }
+                    CollectParts(id, Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds);
                     result = hasBounds ? (min, max) : null;
                 }
                 else {
@@ -352,24 +335,43 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Private: Background Preparation
 
-        private ObjectMeshData PrepareSetupMeshData(uint id, Setup setup) {
+        private ObjectMeshData? PrepareSetupMeshData(uint id, Setup setup) {
             var parts = new List<(uint GfxObjId, Matrix4x4 Transform)>();
-            var placementFrame = setup.PlacementFrames[0];
-
             var min = new Vector3(float.MaxValue);
             var max = new Vector3(float.MinValue);
             bool hasBounds = false;
 
-            for (int i = 0; i < setup.Parts.Count; i++) {
-                var partId = setup.Parts[i];
-                var transform = Matrix4x4.Identity;
-                if (placementFrame.Frames != null && i < placementFrame.Frames.Count) {
-                    transform = Matrix4x4.CreateFromQuaternion(placementFrame.Frames[i].Orientation)
-                        * Matrix4x4.CreateTranslation(placementFrame.Frames[i].Origin);
-                }
-                parts.Add((partId, transform));
+            CollectParts(id, Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds);
 
-                if (_dats.Portal.TryGet<GfxObj>(partId, out var partGfx)) {
+            return new ObjectMeshData {
+                ObjectId = id,
+                IsSetup = true,
+                SetupParts = parts,
+                BoundingBox = hasBounds ? new BoundingBox(min, max) : default
+            };
+        }
+
+        private void CollectParts(uint id, Matrix4x4 currentTransform, List<(uint GfxObjId, Matrix4x4 Transform)> parts, ref Vector3 min, ref Vector3 max, ref bool hasBounds) {
+            var type = _dats.TypeFromId(id);
+            if (type == DBObjType.Setup) {
+                if (!_dats.Portal.TryGet<Setup>(id, out var setup)) return;
+                var placementFrame = setup.PlacementFrames[0];
+
+                for (int i = 0; i < setup.Parts.Count; i++) {
+                    var partId = setup.Parts[i];
+                    var transform = Matrix4x4.Identity;
+                    if (placementFrame.Frames != null && i < placementFrame.Frames.Count) {
+                        transform = Matrix4x4.CreateFromQuaternion(placementFrame.Frames[i].Orientation)
+                            * Matrix4x4.CreateTranslation(placementFrame.Frames[i].Origin);
+                    }
+
+                    CollectParts(partId, transform * currentTransform, parts, ref min, ref max, ref hasBounds);
+                }
+            }
+            else if (type == DBObjType.GfxObj) {
+                parts.Add((id, currentTransform));
+
+                if (_dats.Portal.TryGet<GfxObj>(id, out var partGfx)) {
                     var (partMin, partMax) = ComputeBounds(partGfx, Vector3.One);
                     var corners = new Vector3[8];
                     corners[0] = new Vector3(partMin.X, partMin.Y, partMin.Z);
@@ -382,20 +384,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     corners[7] = new Vector3(partMax.X, partMax.Y, partMax.Z);
 
                     foreach (var corner in corners) {
-                        var transformed = Vector3.Transform(corner, transform);
+                        var transformed = Vector3.Transform(corner, currentTransform);
                         min = Vector3.Min(min, transformed);
                         max = Vector3.Max(max, transformed);
                     }
                     hasBounds = true;
                 }
             }
-
-            return new ObjectMeshData {
-                ObjectId = id,
-                IsSetup = true,
-                SetupParts = parts,
-                BoundingBox = hasBounds ? new BoundingBox(min, max) : default
-            };
         }
 
         private ObjectMeshData? PrepareGfxObjMeshData(uint id, GfxObj gfxObj, Vector3 scale) {
@@ -479,6 +474,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                         throw new Exception($"Unable to load Palette: 0x{renderSurface.DefaultPaletteId:X8}");
                                     textureData = new byte[texWidth * texHeight * 4];
                                     TextureHelpers.FillIndex16(renderSurface.SourceData, paletteData, textureData.AsSpan(), texWidth, texHeight, isClipMap);
+                                    uploadPixelFormat = PixelFormat.Rgba;
+                                    break;
+                                case DatReaderWriter.Enums.PixelFormat.PFID_P8:
+                                    if (!_dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var p8PaletteData))
+                                        throw new Exception($"Unable to load Palette: 0x{renderSurface.DefaultPaletteId:X8}");
+                                    textureData = new byte[texWidth * texHeight * 4];
+                                    TextureHelpers.FillP8(renderSurface.SourceData, p8PaletteData, textureData.AsSpan(), texWidth, texHeight, isClipMap);
+                                    uploadPixelFormat = PixelFormat.Rgba;
+                                    break;
+                                case DatReaderWriter.Enums.PixelFormat.PFID_R5G6B5:
+                                    textureData = new byte[texWidth * texHeight * 4];
+                                    TextureHelpers.FillR5G6B5(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
                                     uploadPixelFormat = PixelFormat.Rgba;
                                     break;
                                 default:
@@ -663,7 +670,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 VBO = vbo,
                 VertexCount = meshData.Vertices.Length,
                 Batches = renderBatches,
-                MemorySize = (meshData.Vertices.Length * VertexPositionNormalTexture.Size) + 
+                MemorySize = (meshData.Vertices.Length * VertexPositionNormalTexture.Size) +
                              renderBatches.Sum(b => (long)b.IndexCount * sizeof(ushort))
             };
 
