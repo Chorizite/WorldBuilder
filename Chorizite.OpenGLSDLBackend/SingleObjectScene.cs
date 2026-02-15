@@ -97,6 +97,19 @@ namespace Chorizite.OpenGLSDLBackend {
             _needsLoad = true;
         }
 
+        private void ReleaseCurrentObject() {
+            if (_currentFileId != 0) {
+                var data = _meshManager.TryGetRenderData(_currentFileId);
+                if (data != null && data.IsSetup) {
+                    foreach (var (partId, _) in data.SetupParts) {
+                        _meshManager.ReleaseRenderData(partId);
+                    }
+                }
+                _meshManager.ReleaseRenderData(_currentFileId);
+                _currentFileId = 0;
+            }
+        }
+
         public void Resize(int width, int height) {
             _camera.Resize(width, height);
         }
@@ -157,6 +170,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 // Handle loading
                 if (_needsLoad) {
                     _needsLoad = false;
+                    ReleaseCurrentObject();
                     _currentFileId = _pendingFileId;
                     _isSetup = _pendingIsSetup;
                     
@@ -291,6 +305,7 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public void Dispose() {
+            ReleaseCurrentObject();
             _gl.DeleteBuffer(_instanceVBO);
             _meshManager.Dispose();
         }

@@ -24,9 +24,12 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         public IDatReaderWriter Dats => _dats;
 
+        public GridBrowserViewModel GridBrowser { get; }
+
         public SetupBrowserViewModel(IDatReaderWriter dats) {
             _dats = dats;
             _fileIds = _dats.Portal.GetAllIdsOfType<DatReaderWriter.DBObjs.Setup>().OrderBy(x => x).ToList();
+            GridBrowser = new GridBrowserViewModel(DatType.Setup, dats, (id) => SelectedFileId = id);
         }
 
         partial void OnSelectedFileIdChanged(uint value) {

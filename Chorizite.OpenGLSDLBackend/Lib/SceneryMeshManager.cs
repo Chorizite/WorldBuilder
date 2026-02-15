@@ -93,6 +93,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         /// <summary>Local bounding box.</summary>
         public BoundingBox BoundingBox { get; set; }
+
+        /// <summary>Estimated GPU memory usage in bytes.</summary>
+        public long MemorySize { get; set; }
     }
 
     /// <summary>
@@ -122,6 +125,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly ConcurrentDictionary<uint, int> _usageCount = new();
         private readonly ConcurrentDictionary<uint, (Vector3 Min, Vector3 Max)?> _boundsCache = new();
         private readonly ConcurrentDictionary<uint, Task<ObjectMeshData?>> _preparationTasks = new();
+        
+        // LRU Cache for Unused objects
+        private readonly LinkedList<uint> _lruList = new();
+        private readonly long _maxGpuMemory = 512 * 1024 * 1024; // 512MB
+        private long _currentGpuMemory = 0;
 
         // Shared atlases grouped by (Width, Height, Format)
         private readonly Dictionary<(int Width, int Height, TextureFormat Format), List<TextureAtlasManager>> _globalAtlases = new();
@@ -138,6 +146,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public ObjectRenderData? GetRenderData(uint id) {
             if (_renderData.TryGetValue(id, out var data)) {
                 _usageCount.AddOrUpdate(id, 1, (_, count) => count + 1);
+                
+                // If it was in LRU, remove it as it's now in use
+                lock (_lruList) {
+                    _lruList.Remove(id);
+                }
+
                 return data;
             }
             return null;
@@ -169,8 +183,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public void DecrementRefCount(uint id) {
             var newCount = _usageCount.AddOrUpdate(id, 0, (_, c) => c - 1);
             if (newCount <= 0) {
-                UnloadObject(id);
-                _usageCount.TryRemove(id, out _);
+                // Instead of unloading, move to LRU
+                lock (_lruList) {
+                    _lruList.Remove(id);
+                    _lruList.AddLast(id);
+                }
+                EvictOldResources();
             }
         }
 
@@ -181,8 +199,26 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (_usageCount.TryGetValue(id, out var count) && count > 0) {
                 var newCount = _usageCount.AddOrUpdate(id, 0, (_, c) => c - 1);
                 if (newCount <= 0) {
-                    UnloadObject(id);
-                    _usageCount.TryRemove(id, out _);
+                    // Instead of unloading, move to LRU
+                    lock (_lruList) {
+                        _lruList.Remove(id);
+                        _lruList.AddLast(id);
+                    }
+                    EvictOldResources();
+                }
+            }
+        }
+
+        private void EvictOldResources() {
+            lock (_lruList) {
+                while (_currentGpuMemory > _maxGpuMemory && _lruList.Count > 0) {
+                    var idToEvict = _lruList.First!.Value;
+                    _lruList.RemoveFirst();
+
+                    if (_usageCount.TryGetValue(idToEvict, out var count) && count <= 0) {
+                        UnloadObject(idToEvict);
+                        _usageCount.TryRemove(idToEvict, out _);
+                    }
                 }
             }
         }
@@ -235,10 +271,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         IsSetup = true,
                         SetupParts = meshData.SetupParts,
                         Batches = new List<ObjectRenderBatch>(),
-                        BoundingBox = meshData.BoundingBox
+                        BoundingBox = meshData.BoundingBox,
+                        MemorySize = 1024 // Small overhead for the setup itself
                     };
                     _renderData[meshData.ObjectId] = data;
                     _usageCount.TryAdd(meshData.ObjectId, 1);
+                    _currentGpuMemory += data.MemorySize;
 
                     // Increment ref counts for all parts
                     foreach (var (partId, _) in meshData.SetupParts) {
@@ -253,6 +291,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     renderData.BoundingBox = meshData.BoundingBox;
                     _renderData[meshData.ObjectId] = renderData;
                     _usageCount.TryAdd(meshData.ObjectId, 1);
+                    _currentGpuMemory += renderData.MemorySize;
                 }
                 return renderData;
             }
@@ -623,7 +662,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 VAO = vao,
                 VBO = vbo,
                 VertexCount = meshData.Vertices.Length,
-                Batches = renderBatches
+                Batches = renderBatches,
+                MemorySize = (meshData.Vertices.Length * VertexPositionNormalTexture.Size) + 
+                             renderBatches.Sum(b => (long)b.IndexCount * sizeof(ushort))
             };
 
             gl.BindVertexArray(0);
@@ -669,7 +710,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
+            _currentGpuMemory -= data.MemorySize;
             _renderData.Remove(key);
+            lock (_lruList) {
+                _lruList.Remove(key);
+            }
         }
 
         #endregion

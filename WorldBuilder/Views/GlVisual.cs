@@ -243,6 +243,7 @@ private class GlVisual : CompositionCustomVisualHandler {
                 try {
                     if (_contentInitialized) {
                         using (_gl.MakeCurrent()) {
+                            _parent.OnGlDestroyInternal();
                             _contentInitialized = false;
                         }
                     }

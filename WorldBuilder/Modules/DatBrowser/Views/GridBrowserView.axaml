@@ -1,0 +1,50 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
+        xmlns:views="using:WorldBuilder.Views"
+        xmlns:sys="using:System"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="WorldBuilder.Modules.DatBrowser.Views.GridBrowserView"
+        x:DataType="vm:GridBrowserViewModel">
+    <Grid RowDefinitions="Auto, *">
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="10,0,10,0" Spacing="10">
+            <TextBlock Text="Item Size:" VerticalAlignment="Center"/>
+            <Slider Minimum="80" Maximum="400" Value="{Binding ItemSize}" Width="200" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding ItemSize, StringFormat='{}{0:F0}px'}" VerticalAlignment="Center" Width="50"/>
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <ItemsRepeater ItemsSource="{Binding FileIds}" Margin="10">
+                <ItemsRepeater.Layout>
+                    <UniformGridLayout MinItemWidth="{Binding ItemSize}" 
+                                       MinColumnSpacing="10" MinRowSpacing="10" />
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
+                    <DataTemplate x:DataType="sys:UInt32">
+                        <Button Command="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).SelectItemCommand}"
+                                CommandParameter="{Binding}"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                Background="#333333" Padding="0">
+                            <Grid RowDefinitions="*, Auto">
+                                <views:DatObjectPreview 
+                                    Grid.Row="0"
+                                    DataId="{Binding}"
+                                    Dats="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).Dats}"
+                                    IsTooltip="True"
+                                    Height="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).ItemSize}" />
+                                <Border Grid.Row="1" Background="#222222" Padding="4">
+                                    <TextBlock Text="{Binding StringFormat='{}{0:X8}'}" 
+                                               HorizontalAlignment="Center" 
+                                               FontSize="12" 
+                                               FontFamily="Cascadia Code,Consolas,Monospace"/>
+                                </Border>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+            </ItemsRepeater>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

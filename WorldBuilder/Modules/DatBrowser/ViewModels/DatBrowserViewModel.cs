@@ -18,6 +18,8 @@ using HanumanInstitute.MvvmDialogs;
 using System.Threading.Tasks;
 using WorldBuilder.Lib;
 
+using CommunityToolkit.Mvvm.Input;
+
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
     public enum DatType {
         Setup,
@@ -32,6 +34,8 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         public ViewModelBase ViewModel => this;
 
         public IEnumerable<DatType> DatTypes => System.Enum.GetValues<DatType>();
+
+        public bool CanBrowse => true;
 
         [ObservableProperty]
         private DatType _selectedType;
@@ -80,6 +84,13 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
             SelectedType = DatType.Setup;
             CurrentBrowser = _setupBrowser;
+        }
+
+        [RelayCommand]
+        private void Browse() {
+            if (CurrentBrowser is IDatBrowserViewModel browser) {
+                browser.SelectedFileId = 0;
+            }
         }
 
         partial void OnSelectedTypeChanged(DatType value) {
