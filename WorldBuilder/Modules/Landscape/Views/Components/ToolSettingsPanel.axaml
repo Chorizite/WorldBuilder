@@ -106,6 +106,7 @@
               <DataTemplate DataType="{x:Type tools:BucketFillTool}">
                 <StackPanel Spacing="8">
                   <CheckBox Content="Contiguous Fill" IsChecked="{Binding IsContiguous}" />
+                  <CheckBox Content="Only fill same scenery" IsChecked="{Binding OnlyFillSameScenery}" />
                   
                   <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource TextureGridTemplate}"/>
 

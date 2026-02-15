@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,6 +18,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private readonly int _fillTextureId;
         private readonly byte? _fillSceneryId;
         private readonly bool _contiguous;
+        private readonly bool _onlyFillSameScenery;
 
         private readonly Dictionary<int, TerrainEntry?> _previousState = new Dictionary<int, TerrainEntry?>();
         private bool _executed = false;
@@ -24,7 +26,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <inheritdoc/>
         public string Name => "Bucket Fill";
 
-        public BucketFillCommand(LandscapeToolContext context, Vector3 startPos, int fillTextureId, byte? fillSceneryId, bool contiguous) {
+        public BucketFillCommand(LandscapeToolContext context, Vector3 startPos, int fillTextureId, byte? fillSceneryId, bool contiguous, bool onlyFillSameScenery) {
             _context = context;
             _document = context.Document;
             _activeLayer = context.ActiveLayer;
@@ -32,6 +34,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             _fillTextureId = fillTextureId;
             _fillSceneryId = fillSceneryId;
             _contiguous = contiguous;
+            _onlyFillSameScenery = onlyFillSameScenery;
         }
 
         public void Execute() {
@@ -40,6 +43,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 return;
             }
 
+            _context.Logger.LogInformation("BucketFillCommand: Executing FillTexture={FillTexture}, FillScenery={FillScenery}", _fillTextureId, _fillSceneryId);
             _previousState.Clear();
             ApplyChanges(record: true);
             _executed = true;
@@ -92,18 +96,24 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 return;
 
             int startIndex = region.GetVertexIndex(startX, startY);
-            byte targetTextureId = cache[startIndex].Type ?? 0;
 
-            if (targetTextureId == _fillTextureId) return;
+            byte targetTextureId = cache[startIndex].Type ?? 0;
+            byte targetSceneryId = cache[startIndex].Scenery ?? 0;
+
+            // If we are filling with the same texture, we only proceed if we are also updating the scenery.
+            if (targetTextureId == _fillTextureId && !_fillSceneryId.HasValue) {
+                _context.Logger.LogInformation("BucketFillCommand: Skipping fill as texture is same and no scenery update requested.");
+                return;
+            }
 
             HashSet<(int x, int y)> modifiedLandblocks = new HashSet<(int x, int y)>();
             List<uint> affectedVertices = new List<uint>();
 
             if (_contiguous) {
-                PerformFloodFill(startX, startY, targetTextureId, record, modifiedLandblocks, affectedVertices);
+                PerformFloodFill(startX, startY, targetTextureId, targetSceneryId, record, modifiedLandblocks, affectedVertices);
             }
             else {
-                PerformGlobalReplace(targetTextureId, record, modifiedLandblocks, affectedVertices);
+                PerformGlobalReplace(targetTextureId, targetSceneryId, record, modifiedLandblocks, affectedVertices);
             }
 
             if (affectedVertices.Count > 0) {
@@ -117,7 +127,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
         }
 
-        private void PerformFloodFill(int startX, int startY, byte targetTextureId, bool record, HashSet<(int x, int y)> modifiedLandblocks, List<uint> affectedVertices) {
+        private void PerformFloodFill(int startX, int startY, byte targetTextureId, byte targetSceneryId, bool record, HashSet<(int x, int y)> modifiedLandblocks, List<uint> affectedVertices) {
             var region = _document.Region!;
             var cache = _document.TerrainCache;
             int width = region.MapWidthInVertices;
@@ -161,16 +171,22 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
                     if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
                         int nIndex = region.GetVertexIndex(nx, ny);
-                        if (!visited.Contains(nIndex) && (cache[nIndex].Type ?? 0) == targetTextureId) {
-                            visited.Add(nIndex);
-                            queue.Enqueue((nx, ny));
+                        if (!visited.Contains(nIndex)) {
+                            var neighborEntry = cache[nIndex];
+                            bool isTextureMatch = (neighborEntry.Type ?? 0) == targetTextureId;
+                            bool isSceneryMatch = !_onlyFillSameScenery || (neighborEntry.Scenery ?? 0) == targetSceneryId;
+
+                            if (isTextureMatch && isSceneryMatch) {
+                                visited.Add(nIndex);
+                                queue.Enqueue((nx, ny));
+                            }
                         }
                     }
                 }
             }
         }
 
-        private void PerformGlobalReplace(byte targetTextureId, bool record, HashSet<(int x, int y)> modifiedLandblocks, List<uint> affectedVertices) {
+        private void PerformGlobalReplace(byte targetTextureId, byte targetSceneryId, bool record, HashSet<(int x, int y)> modifiedLandblocks, List<uint> affectedVertices) {
             var region = _document.Region!;
             var cache = _document.TerrainCache;
             int width = region.MapWidthInVertices;
@@ -179,7 +195,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
                     int index = region.GetVertexIndex(x, y);
-                    if ((cache[index].Type ?? 0) == targetTextureId) {
+                    var entryCheck = cache[index];
+                    bool isTextureMatch = (entryCheck.Type ?? 0) == targetTextureId;
+                    bool isSceneryMatch = !_onlyFillSameScenery || (entryCheck.Scenery ?? 0) == targetSceneryId;
+
+                    if (isTextureMatch && isSceneryMatch) {
                         if (record && !_previousState.ContainsKey(index)) {
                             if (_activeLayer!.Terrain.TryGetValue((uint)index, out var prev)) {
                                 _previousState[index] = prev;

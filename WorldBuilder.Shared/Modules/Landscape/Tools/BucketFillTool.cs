@@ -74,6 +74,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             set => SetProperty(ref _isContiguous, value);
         }
 
+        private bool _onlyFillSameScenery = false;
+        /// <summary>Gets or sets whether to only fill if the source scenery matches the target scenery.</summary>
+        public bool OnlyFillSameScenery {
+            get => _onlyFillSameScenery;
+            set => SetProperty(ref _onlyFillSameScenery, value);
+        }
+
         public void Activate(LandscapeToolContext context) {
             _context = context;
             IsActive = true;
@@ -96,7 +103,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             var hit = Raycast(e.Position.X, e.Position.Y);
             if (hit.Hit) {
                 byte? sceneryIndex = (SelectedScenery == null || SelectedScenery.Index == 255) ? null : SelectedScenery.Index;
-                var command = new BucketFillCommand(_context, hit.HitPosition, (int)Texture, sceneryIndex, IsContiguous);
+                var command = new BucketFillCommand(_context, hit.HitPosition, (int)Texture, sceneryIndex, IsContiguous, OnlyFillSameScenery);
                 _context.CommandHistory.Execute(command);
                 return true;
             }
