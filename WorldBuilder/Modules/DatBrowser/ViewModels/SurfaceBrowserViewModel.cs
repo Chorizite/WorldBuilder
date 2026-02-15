@@ -37,11 +37,16 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         partial void OnSelectedFileIdChanged(uint value) {
             if (value != 0) {
                 if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Surface>(value, out var obj)) {
+                    if (obj.Id == 0) {
+                        obj.Id = value;
+                    }
                     SelectedObject = obj;
-                } else {
+                }
+                else {
                     SelectedObject = null;
                 }
-            } else {
+            }
+            else {
                 SelectedObject = null;
             }
         }
