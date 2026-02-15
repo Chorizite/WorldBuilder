@@ -163,7 +163,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
             var sceneTypeIndex = terrain.SceneTypes[sceneryIndex];
             if (sceneTypeIndex < 0 || sceneTypeIndex >= _region.SceneInfo.SceneTypes.Count) return null;
             var sceneType = _region.SceneInfo.SceneTypes[(int)sceneTypeIndex];
-            return sceneType.Scenes.Count > 0 ? sceneType.Scenes[0] : null;
+            if (sceneType.Scenes.Count > 0) {
+                var scene = sceneType.Scenes[0];
+                if (scene != null) {
+                    return (uint)scene;
+                }
+            }
+            return null;
         }
     }
 }

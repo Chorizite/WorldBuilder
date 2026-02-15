@@ -53,6 +53,31 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             Assert.Equal((byte?)fillSceneryId, cache[10].Scenery);
         }
 
+        [Fact]
+        public void BucketFillCommand_SameTextureDifferentScenery_ShouldModifyScenery() {
+            // Arrange
+            var context = CreateContext(9, 9);
+            var cache = context.Document.TerrainCache;
+            var baseCache = context.Document.BaseTerrainCache;
+            for (int i = 0; i < cache.Length; i++) {
+                var entry = new TerrainEntry() { Type = 5, Scenery = 0 }; // Initial: Texture 5, Scenery 0
+                cache[i] = entry;
+                baseCache[i] = entry;
+            }
+
+            var startPos = new Vector3(24, 24, 0); // Vertex (1,1) -> Index 10
+            var fillTextureId = 5; // Same as initial
+            byte fillSceneryId = 7;
+            var cmd = new BucketFillCommand(context, startPos, fillTextureId, fillSceneryId, true);
+
+            // Act
+            cmd.Execute();
+
+            // Assert
+            Assert.Equal((byte?)fillTextureId, cache[10].Type);
+            Assert.Equal((byte?)fillSceneryId, cache[10].Scenery);
+        }
+
         private LandscapeToolContext CreateContext(int width, int height) {
             var doc = new LandscapeDocument((uint)0xABCD);
 
