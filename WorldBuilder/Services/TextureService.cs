@@ -13,6 +13,7 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -26,7 +27,9 @@ namespace WorldBuilder.Services {
     public class TextureService {
         private readonly IDatReaderWriter _dats;
         private readonly ILogger<TextureService> _logger;
-        private readonly ConcurrentDictionary<long, Bitmap?> _textureCache = new();
+        private readonly Dictionary<long, Bitmap?> _textureCache = new();
+        private readonly LinkedList<long> _lruList = new();
+        private const int MaxCacheSize = 200;
 
         public TextureService(IDatReaderWriter dats, ILogger<TextureService> logger) {
             _dats = dats;
@@ -53,8 +56,14 @@ namespace WorldBuilder.Services {
 
         public async Task<Bitmap?> GetTextureAsync(uint textureId, uint paletteId = 0, bool isClipMap = false) {
             var cacheKey = ((long)textureId << 32) | (paletteId << 1) | (isClipMap ? 1L : 0L);
-            if (_textureCache.TryGetValue(cacheKey, out var cachedBitmap)) {
-                return cachedBitmap;
+
+            lock (_textureCache) {
+                if (_textureCache.TryGetValue(cacheKey, out var cachedBitmap)) {
+                    // Move to end of LRU
+                    _lruList.Remove(cacheKey);
+                    _lruList.AddLast(cacheKey);
+                    return cachedBitmap;
+                }
             }
 
             return await Task.Run(() => {
@@ -64,26 +73,26 @@ namespace WorldBuilder.Services {
                     var renderSurfaceId = textureId;
 
                     if (type == DBObjType.SurfaceTexture) {
-                        if (_dats.Portal.TryGet<SurfaceTexture>(textureId, out var surfaceTexture)) {
+                        if (_dats.Portal != null && _dats.Portal.TryGet<SurfaceTexture>(textureId, out var surfaceTexture)) {
                             renderSurfaceId = surfaceTexture.Textures.FirstOrDefault() ?? 0;
                         }
                     }
-                    
-                    if (_dats.HighRes.TryGet<RenderSurface>(renderSurfaceId, out var surf)) {
+
+                    if (_dats.HighRes != null && _dats.HighRes.TryGet<RenderSurface>(renderSurfaceId, out var surf)) {
                         renderSurface = surf;
                     }
-                    else if (_dats.Portal.TryGet<RenderSurface>(renderSurfaceId, out var surf2)) {
+                    else if (_dats.Portal != null && _dats.Portal.TryGet<RenderSurface>(renderSurfaceId, out var surf2)) {
                         renderSurface = surf2;
                     }
 
                     if (renderSurface == null) {
                         _logger.LogWarning("Could not find any RenderSurface for texture 0x{TextureId:X8} (Type: {Type})", textureId, type);
-                        _textureCache.TryAdd(cacheKey, null);
+                        AddToCache(cacheKey, null);
                         return null;
                     }
 
                     var bitmap = CreateBitmapFromSurface(renderSurface, paletteId, isClipMap);
-                    _textureCache.TryAdd(cacheKey, bitmap);
+                    AddToCache(cacheKey, bitmap);
                     return bitmap;
                 }
                 catch (Exception ex) {
@@ -91,6 +100,20 @@ namespace WorldBuilder.Services {
                     return null;
                 }
             });
+        }
+
+        private void AddToCache(long key, Bitmap? bitmap) {
+            lock (_textureCache) {
+                if (_textureCache.Count >= MaxCacheSize) {
+                    var oldestKey = _lruList.First!.Value;
+                    _lruList.RemoveFirst();
+                    _textureCache.Remove(oldestKey);
+                }
+
+                if (_textureCache.TryAdd(key, bitmap)) {
+                    _lruList.AddLast(key);
+                }
+            }
         }
 
         public Bitmap CreateSolidColorBitmap(ColorARGB color, int width = 32, int height = 32) {
@@ -196,7 +219,8 @@ namespace WorldBuilder.Services {
                                 rgba8[i * 4 + 3] = color.Alpha == 0 ? (byte)255 : color.Alpha;
                             }
                         }
-                    } else {
+                    }
+                    else {
                         // Greyscale fallback if no palette
                         for (int i = 0; i < width * height; i++) {
                             byte val = sourceData[i];
@@ -225,7 +249,8 @@ namespace WorldBuilder.Services {
                                 rgba8[i * 4 + 3] = color.Alpha == 0 ? (byte)255 : color.Alpha;
                             }
                         }
-                    } else {
+                    }
+                    else {
                         // Greyscale fallback if no palette
                         for (int i = 0; i < width * height; i++) {
                             ushort index = BitConverter.ToUInt16(sourceData, i * 2);

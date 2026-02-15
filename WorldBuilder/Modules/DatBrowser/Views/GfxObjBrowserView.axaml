@@ -4,6 +4,8 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
              xmlns:views="using:WorldBuilder.Views"
+             xmlns:v="using:WorldBuilder.Modules.DatBrowser.Views"
+             xmlns:conv="using:WorldBuilder.Converters"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="WorldBuilder.Modules.DatBrowser.Views.GfxObjBrowserView"
              x:DataType="vm:GfxObjBrowserViewModel">
@@ -22,9 +24,13 @@
         <!-- Preview Area -->
         <Panel Grid.Column="2" Background="#202020">
             <views:DatObjectPreview 
+                IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsNotZero}}"
                 DataId="{Binding SelectedFileId}"
                 Dats="{Binding Dats}"
                 IsTooltip="False" />
+            <Panel IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsZero}}">
+                <v:GridBrowserView DataContext="{Binding GridBrowser}" />
+            </Panel>
         </Panel>
     </Grid>
 </UserControl>

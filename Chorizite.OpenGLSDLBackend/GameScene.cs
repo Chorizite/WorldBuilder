@@ -42,6 +42,7 @@ public class GameScene : IDisposable {
 
     // Scenery / Static Objects
     private ObjectMeshManager? _meshManager;
+    private bool _ownsMeshManager;
     private SceneryRenderManager? _sceneryManager;
     private StaticObjectRenderManager? _staticObjectManager;
 
@@ -168,7 +169,7 @@ public class GameScene : IDisposable {
         _log.LogInformation("GameScene initialized");
     }
 
-    public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats) {
+    public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats, ObjectMeshManager? meshManager = null) {
         if (_terrainManager != null) {
             _terrainManager.Dispose();
         }
@@ -179,11 +180,12 @@ public class GameScene : IDisposable {
         if (_staticObjectManager != null) {
             _staticObjectManager.Dispose();
         }
-        if (_meshManager != null) {
+        if (_meshManager != null && _ownsMeshManager) {
             _meshManager.Dispose();
         }
 
-        _meshManager = new ObjectMeshManager(_graphicsDevice, dats);
+        _ownsMeshManager = meshManager == null;
+        _meshManager = meshManager ?? new ObjectMeshManager(_graphicsDevice, dats);
 
         _terrainManager = new TerrainRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice);
         if (_initialized && _terrainShader != null) {
@@ -467,6 +469,8 @@ public class GameScene : IDisposable {
         _terrainManager?.Dispose();
         _sceneryManager?.Dispose();
         _staticObjectManager?.Dispose();
-        _meshManager?.Dispose();
+        if (_ownsMeshManager) {
+            _meshManager?.Dispose();
+        }
     }
 }

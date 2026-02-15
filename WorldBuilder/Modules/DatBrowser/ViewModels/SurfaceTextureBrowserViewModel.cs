@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -12,34 +13,24 @@ using DatReaderWriter.Types;
 using DatReaderWriter;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
-    public partial class SurfaceTextureBrowserViewModel : ViewModelBase, IDatBrowserViewModel {
-        private readonly IDatReaderWriter _dats;
+    public partial class SurfaceTextureBrowserViewModel : BaseDatBrowserViewModel<DatReaderWriter.DBObjs.SurfaceTexture> {
+        [ObservableProperty]
+        private uint _previewFileId;
 
         [ObservableProperty]
-        private IEnumerable<uint> _fileIds = Enumerable.Empty<uint>();
+        private IReadOnlyList<uint> _textures = Array.Empty<uint>();
 
-        [ObservableProperty]
-        private uint _selectedFileId;
-
-        [ObservableProperty]
-        private IDBObj? _selectedObject;
-
-        public IDatReaderWriter Dats => _dats;
-
-        public SurfaceTextureBrowserViewModel(IDatReaderWriter dats) {
-            _dats = dats;
-            _fileIds = _dats.Portal.GetAllIdsOfType<DatReaderWriter.DBObjs.SurfaceTexture>().OrderBy(x => x).ToList();
+        public SurfaceTextureBrowserViewModel(IDatReaderWriter dats) : base(DBObjType.SurfaceTexture, dats) {
         }
 
-        partial void OnSelectedFileIdChanged(uint value) {
-            if (value != 0) {
-                if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.SurfaceTexture>(value, out var obj)) {
-                    SelectedObject = obj;
-                } else {
-                    SelectedObject = null;
-                }
-            } else {
-                SelectedObject = null;
+        protected override void OnObjectLoaded(DatReaderWriter.DBObjs.SurfaceTexture? obj) {
+            if (obj != null) {
+                Textures = obj.Textures.Select(x => x.DataId).ToList();
+                PreviewFileId = Textures.FirstOrDefault();
+            }
+            else {
+                Textures = Array.Empty<uint>();
+                PreviewFileId = 0;
             }
         }
     }

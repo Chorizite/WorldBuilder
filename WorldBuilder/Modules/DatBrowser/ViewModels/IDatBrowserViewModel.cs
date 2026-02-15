@@ -7,5 +7,7 @@ using DatReaderWriter;
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
     public interface IDatBrowserViewModel {
         IDBObj? SelectedObject { get; }
+        uint SelectedFileId { get; set; }
+        GridBrowserViewModel GridBrowser { get; }
     }
 }

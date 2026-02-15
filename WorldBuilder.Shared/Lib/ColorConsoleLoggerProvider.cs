@@ -95,6 +95,8 @@ namespace WorldBuilder.Shared.Lib {
             TState state,
             Exception? exception,
             Func<TState, Exception?, string> formatter) {
+            if (logLevel == LogLevel.Trace) return;
+
             ColorConsoleLoggerConfiguration config = getCurrentConfig();
             if (config.EventId == 0 || config.EventId == eventId.Id) {
                 string message = formatter(state, exception);

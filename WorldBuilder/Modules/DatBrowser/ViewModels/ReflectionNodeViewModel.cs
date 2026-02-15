@@ -76,6 +76,10 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 return new ReflectionNodeViewModel(name, obj.ToString(), type.Name);
             }
 
+            if (obj is byte[] bytes) {
+                return new ReflectionNodeViewModel(name, "byte[]", $"{bytes.Length} bytes");
+            }
+
             if (obj is QualifiedDataId qid) {
                 var node = new ReflectionNodeViewModel(name, $"0x{qid.DataId:X8}", type.Name);
                 node.DataId = qid.DataId;

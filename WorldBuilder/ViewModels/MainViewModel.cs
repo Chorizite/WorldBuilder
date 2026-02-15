@@ -104,7 +104,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     [UnconditionalSuppressMessage("AOT", "IL3050")]
     public void Receive(OpenQualifiedDataIdMessage message) {
         var newViewModel = _serviceProvider.GetRequiredService<DatBrowserViewModel>();
-        newViewModel.IsMinimalMode = true;
         newViewModel.PreviewFileId = message.DataId;
 
         IDBObj? obj = null;
@@ -114,7 +113,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
                 var args = new object?[] { message.DataId, null };
                 if ((bool)method.Invoke(_dats.Portal, args)!) {
                     obj = (IDBObj?)args[1];
-                } else if ((bool)method.Invoke(_dats.HighRes, args)!) {
+                }
+                else if ((bool)method.Invoke(_dats.HighRes, args)!) {
                     obj = (IDBObj?)args[1];
                 }
             }
@@ -123,7 +123,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
         if (obj == null) {
             if (_dats.Portal.TryGet<IDBObj>(message.DataId, out var portalObj)) {
                 obj = portalObj;
-            } else if (_dats.HighRes.TryGet<IDBObj>(message.DataId, out var highResObj)) {
+            }
+            else if (_dats.HighRes.TryGet<IDBObj>(message.DataId, out var highResObj)) {
                 obj = highResObj;
             }
         }
@@ -145,14 +146,18 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
                     var vramStr = FormatBytes(vram);
                     if (freeVram > 0 && totalVram > 0) {
                         VramUsage = $"{vramStr} / {FormatBytes(freeVram)} Free ({FormatBytes(totalVram)} Total)";
-                    } else if (freeVram > 0) {
+                    }
+                    else if (freeVram > 0) {
                         VramUsage = $"{vramStr} / {FormatBytes(freeVram)} Free";
-                    } else if (totalVram > 0) {
+                    }
+                    else if (totalVram > 0) {
                         VramUsage = $"{vramStr} / {FormatBytes(totalVram)} Total";
-                    } else {
+                    }
+                    else {
                         VramUsage = vramStr;
                     }
-                } else {
+                }
+                else {
                     VramUsage = "N/A";
                 }
 

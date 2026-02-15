@@ -4,6 +4,8 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
              xmlns:views="using:WorldBuilder.Views"
+             xmlns:v="using:WorldBuilder.Modules.DatBrowser.Views"
+             xmlns:conv="using:WorldBuilder.Converters"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="WorldBuilder.Modules.DatBrowser.Views.SurfaceTextureBrowserView"
              x:DataType="vm:SurfaceTextureBrowserViewModel">
@@ -21,10 +23,25 @@
 
         <!-- Preview Area -->
         <Panel Grid.Column="2" Background="#202020">
-            <views:DatObjectPreview 
-                DataId="{Binding SelectedFileId}"
-                Dats="{Binding Dats}"
-                IsTooltip="False" />
+            <TabControl ItemsSource="{Binding Textures}" SelectedItem="{Binding PreviewFileId}" 
+                        IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsNotZero}}">
+                <TabControl.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding StringFormat='{}{0:X8}'}" />
+                    </DataTemplate>
+                </TabControl.ItemTemplate>
+                <TabControl.ContentTemplate>
+                    <DataTemplate>
+                        <views:DatObjectPreview 
+                            DataId="{Binding}"
+                            Dats="{Binding $parent[UserControl].((vm:SurfaceTextureBrowserViewModel)DataContext).Dats}"
+                            IsTooltip="False" />
+                    </DataTemplate>
+                </TabControl.ContentTemplate>
+            </TabControl>
+            <Panel IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsZero}}">
+                <v:GridBrowserView DataContext="{Binding GridBrowser}" />
+            </Panel>
         </Panel>
     </Grid>
 </UserControl>

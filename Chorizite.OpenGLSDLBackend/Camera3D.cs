@@ -41,6 +41,17 @@ public class Camera3D : CameraBase {
     private bool _isLooking;
 
     /// <summary>
+    /// Gets or sets the near clipping plane distance.
+    /// </summary>
+    public float NearPlane {
+        get => _nearPlane;
+        set {
+            _nearPlane = Math.Clamp(value, 0.001f, _farPlane - 0.1f);
+            InvalidateMatrices();
+        }
+    }
+
+    /// <summary>
     /// Event triggered when the movement speed changes.
     /// </summary>
     public event Action<float>? OnMoveSpeedChanged;

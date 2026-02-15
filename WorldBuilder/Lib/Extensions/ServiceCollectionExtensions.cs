@@ -109,6 +109,7 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton<IToolModule, WorldBuilder.Modules.DatBrowser.DatBrowserModule>();
 
             collection.AddSingleton<TextureService>();
+            collection.AddSingleton<MeshManagerService>();
 
             // Register shared services from the project's service provider
             // to ensure they are the same instances used by the project module.

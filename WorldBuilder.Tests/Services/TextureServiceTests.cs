@@ -19,12 +19,14 @@ namespace WorldBuilder.Tests.Services {
         public async Task GetTextureAsync_ReturnsNull_WhenTextureMissing() {
             // Arrange
             var mockDats = new Mock<IDatReaderWriter>();
+            var mockPortal = new Mock<IDatDatabase>();
+            mockDats.Setup(d => d.Portal).Returns(mockPortal.Object);
             var mockLogger = new Mock<ILogger<TextureService>>();
             var service = new TextureService(mockDats.Object, mockLogger.Object);
 
             uint textureId = 999;
             SurfaceTexture? st = null;
-            mockDats.Setup(d => d.Portal.TryGet<SurfaceTexture>(textureId, out st))
+            mockPortal.Setup(d => d.TryGet<SurfaceTexture>(textureId, out st))
                 .Returns(false);
 
             // Act
@@ -36,7 +38,7 @@ namespace WorldBuilder.Tests.Services {
                 x => x.Log(
                     LogLevel.Warning,
                     It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Could not find SurfaceTexture")),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Could not find any RenderSurface")),
                     It.IsAny<System.Exception>(),
                     It.IsAny<System.Func<It.IsAnyType, System.Exception?, string>>()),
                 Times.Once);

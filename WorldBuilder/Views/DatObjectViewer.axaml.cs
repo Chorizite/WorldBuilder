@@ -8,6 +8,7 @@ using Silk.NET.OpenGL;
 using System;
 using System.Numerics;
 using WorldBuilder.Lib;
+using WorldBuilder.Services;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Services;
@@ -17,7 +18,7 @@ namespace WorldBuilder.Views {
         private GL? _gl;
         private SingleObjectScene? _scene;
         private Vector2 _lastPointerPosition;
-        
+
         // Thread-safe copies for the render thread
         private IDatReaderWriter? _renderDats;
         private uint _renderFileId;
@@ -39,7 +40,7 @@ namespace WorldBuilder.Views {
             get => GetValue(IsSetupProperty);
             set => SetValue(IsSetupProperty, value);
         }
-        
+
         public static readonly StyledProperty<IDatReaderWriter?> DatsProperty =
             AvaloniaProperty.Register<DatObjectViewer, IDatReaderWriter?>(nameof(Dats));
 
@@ -65,9 +66,13 @@ namespace WorldBuilder.Views {
             _gl = gl;
             var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>();
             var log = loggerFactory?.CreateLogger("DatObjectViewer") ?? new ColorConsoleLogger("DatObjectViewer", () => new ColorConsoleLoggerConfiguration());
-            
+
             if (_renderDats != null) {
-                _scene = new SingleObjectScene(gl, Renderer!.GraphicsDevice, log, _renderDats);
+                var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
+                var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
+                var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _renderDats);
+
+                _scene = new SingleObjectScene(gl, Renderer!.GraphicsDevice, log, _renderDats, meshManager);
                 _scene.IsAutoCamera = _renderIsAutoCamera;
                 _scene.Initialize();
                 _scene.Resize(canvasSize.Width, canvasSize.Height);
@@ -88,7 +93,8 @@ namespace WorldBuilder.Views {
 
                 if (Dispatcher.UIThread.CheckAccess()) {
                     UpdateObject();
-                } else {
+                }
+                else {
                     Dispatcher.UIThread.Post(UpdateObject);
                 }
             }
@@ -102,15 +108,20 @@ namespace WorldBuilder.Views {
 
         private void UpdateObject() {
             if (_scene == null && _gl != null && _renderDats != null) {
-                 var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>();
-                 var log = loggerFactory?.CreateLogger("DatObjectViewer") ?? new ColorConsoleLogger("DatObjectViewer", () => new ColorConsoleLoggerConfiguration());
-                 _scene = new SingleObjectScene(_gl, Renderer!.GraphicsDevice, log, _renderDats);
-                 _scene.Initialize();
-                 _scene.Resize((int)Bounds.Width, (int)Bounds.Height);
+                var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>();
+                var log = loggerFactory?.CreateLogger("DatObjectViewer") ?? new ColorConsoleLogger("DatObjectViewer", () => new ColorConsoleLoggerConfiguration());
+
+                var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
+                var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
+                var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _renderDats);
+
+                _scene = new SingleObjectScene(_gl, Renderer!.GraphicsDevice, log, _renderDats, meshManager);
+                _scene.Initialize();
+                _scene.Resize((int)Bounds.Width, (int)Bounds.Height);
             }
 
             if (_scene != null && _renderFileId != 0) {
-                _scene.SetObject(_renderFileId, _renderIsSetup);
+                _ = _scene.LoadObjectAsync(_renderFileId, _renderIsSetup);
             }
         }
 
@@ -136,7 +147,7 @@ namespace WorldBuilder.Views {
         protected override void OnGlKeyUp(KeyEventArgs e) {
             _scene?.HandleKeyUp(e.Key.ToString());
         }
-        
+
         protected override void OnGlPointerMoved(PointerEventArgs e, Vector2 mousePositionScaled) {
             var input = CreateInputEvent(e);
             _scene?.HandlePointerMoved(input.Position, input.Delta);
@@ -166,7 +177,7 @@ namespace WorldBuilder.Views {
         protected override void OnGlPointerWheelChanged(PointerWheelEventArgs e) {
             _scene?.HandlePointerWheelChanged((float)e.Delta.Y);
         }
-        
+
         protected override void OnGlPointerPressed(PointerPressedEventArgs e) {
             // Focus this control to receive keyboard input
             this.Focus();
@@ -177,13 +188,13 @@ namespace WorldBuilder.Views {
             if (props.PointerUpdateKind == PointerUpdateKind.LeftButtonPressed) button = 0;
             else if (props.PointerUpdateKind == PointerUpdateKind.RightButtonPressed) button = 1;
             else if (props.PointerUpdateKind == PointerUpdateKind.MiddleButtonPressed) button = 2;
-            
+
             if (button != -1) {
                 _scene?.HandlePointerPressed(button, input.Position);
             }
             _lastPointerPosition = input.Position;
         }
-        
+
         protected override void OnGlPointerReleased(PointerReleasedEventArgs e) {
             var input = CreateInputEvent(e);
             int button = -1;

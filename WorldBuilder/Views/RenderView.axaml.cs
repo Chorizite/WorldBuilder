@@ -326,7 +326,11 @@ public partial class RenderView : Base3DViewport {
 
         // Process pending landscape updates
         if (_pendingLandscapeDocument != null && _pendingDatReader != null && _gameScene != null) {
-            _gameScene.SetLandscape(_pendingLandscapeDocument, _pendingDatReader);
+            var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
+            var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
+            var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _pendingDatReader);
+            
+            _gameScene.SetLandscape(_pendingLandscapeDocument, _pendingDatReader, meshManager);
             _pendingLandscapeDocument = null;
             _pendingDatReader = null;
         }

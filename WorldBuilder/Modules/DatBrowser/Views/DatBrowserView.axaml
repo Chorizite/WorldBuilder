@@ -5,6 +5,7 @@
              xmlns:vm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
              xmlns:v="using:WorldBuilder.Modules.DatBrowser.Views"
              xmlns:views="using:WorldBuilder.Views"
+             xmlns:conv="using:WorldBuilder.Converters"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="WorldBuilder.Modules.DatBrowser.Views.DatBrowserView"
              x:DataType="vm:DatBrowserViewModel">
@@ -24,54 +25,69 @@
         <DataTemplate DataType="vm:SurfaceBrowserViewModel">
             <v:SurfaceBrowserView/>
         </DataTemplate>
+        <DataTemplate DataType="vm:SurfaceTextureOverviewViewModel">
+            <v:SurfaceTextureOverviewView/>
+        </DataTemplate>
     </UserControl.DataTemplates>
+
+    <UserControl.Styles>
+        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="MinHeight" Value="24"/>
+            <Setter Property="Padding" Value="8,0"/>
+        </Style>
+    </UserControl.Styles>
     
-    <Grid ColumnDefinitions="*, Auto, 300">
-        <Grid Grid.Column="0" RowDefinitions="Auto, *" IsVisible="{Binding !IsMinimalMode}">
-            <ComboBox Grid.Row="0"
-                      ItemsSource="{Binding DatTypes}" 
-                      SelectedItem="{Binding SelectedType}"
-                      HorizontalAlignment="Left" Margin="5"/>
+    <Grid ColumnDefinitions="*, Auto, Auto">
+        <Grid Grid.Column="0" RowDefinitions="Auto, *">
+            <StackPanel Grid.Row="0" Orientation="Horizontal">
+                <ComboBox ItemsSource="{Binding DatTypes}" 
+                          SelectedItem="{Binding SelectedType}"
+                          HorizontalAlignment="Left" Margin="5"/>
+                <Button Content="Browse" 
+                        Command="{Binding BrowseCommand}" 
+                        IsVisible="{Binding CanBrowse}"
+                        VerticalAlignment="Center" Margin="5"/>
+            </StackPanel>
             
             <ContentControl Grid.Row="1" Content="{Binding CurrentBrowser}" />
         </Grid>
 
-        <Panel Grid.Column="0" Background="#202020" IsVisible="{Binding IsMinimalMode}">
-            <views:DatObjectPreview 
-                DataId="{Binding PreviewFileId}"
-                Dats="{Binding Dats}"
-                IsTooltip="False" />
-        </Panel>
+        <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" 
+                      IsVisible="{Binding SelectedObject, Converter={x:Static conv:NumericConverters.IsNotZero}}" />
 
-        <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" IsVisible="{Binding !IsMinimalMode}" />
+        <TabControl Grid.Column="2" Width="400" SelectedIndex="{Binding SelectedPropertiesTabIndex}"
+                    IsVisible="{Binding SelectedObject, Converter={x:Static conv:NumericConverters.IsNotZero}}">
+            <TabItem Header="Overview" IsVisible="{Binding ObjectOverview, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <ContentControl Content="{Binding ObjectOverview}" />
+            </TabItem>
+            <TabItem Header="Props">
+                <TreeView ItemsSource="{Binding ReflectionNodes}">
+                    <TreeView.ItemTemplate>
+                        <TreeDataTemplate ItemsSource="{Binding Children}">
+                            <StackPanel Orientation="Horizontal" Background="Transparent">
+                                <StackPanel.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Copy" Command="{Binding CopyCommand}"/>
+                                        <MenuItem Header="Open in New Window" Command="{Binding OpenInNewWindowCommand}" IsVisible="{Binding IsQualifiedDataId}"/>
+                                    </ContextMenu>
+                                </StackPanel.ContextMenu>
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                <TextBlock Text=": "/>
 
-        <Grid Grid.Column="2" RowDefinitions="Auto, *">
-            <TextBlock Grid.Row="0" Text="Properties" FontWeight="Bold" Margin="5"/>
-            <TreeView Grid.Row="1" ItemsSource="{Binding ReflectionNodes}">
-                <TreeView.ItemTemplate>
-                    <TreeDataTemplate ItemsSource="{Binding Children}">
-                        <StackPanel Orientation="Horizontal" Background="Transparent">
-                            <StackPanel.ContextMenu>
-                                <ContextMenu>
-                                    <MenuItem Header="Copy" Command="{Binding CopyCommand}"/>
-                                    <MenuItem Header="Open in New Window" Command="{Binding OpenInNewWindowCommand}" IsVisible="{Binding IsQualifiedDataId}"/>
-                                </ContextMenu>
-                            </StackPanel.ContextMenu>
-                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
-                            <TextBlock Text=": "/>
+                                <v:DataIdView IsVisible="{Binding IsQualifiedDataId}" />
 
-                            <v:DataIdView IsVisible="{Binding IsQualifiedDataId}" />
-
-                            <StackPanel Orientation="Horizontal" IsVisible="{Binding !IsQualifiedDataId}">
-                                <TextBlock Text="{Binding Value}" Foreground="Gray" IsVisible="{Binding Value, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                                <TextBlock Text=" (" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding TypeName}" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
-                                <TextBlock Text=")" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
+                                <StackPanel Orientation="Horizontal" IsVisible="{Binding !IsQualifiedDataId}">
+                                    <TextBlock Text="{Binding Value}" Foreground="Gray" IsVisible="{Binding Value, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                    <TextBlock Text=" (" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding TypeName}" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
+                                    <TextBlock Text=")" Foreground="LightGray" FontSize="10" VerticalAlignment="Center"/>
+                                </StackPanel>
                             </StackPanel>
-                        </StackPanel>
-                    </TreeDataTemplate>
-                </TreeView.ItemTemplate>
-            </TreeView>
-        </Grid>
+                        </TreeDataTemplate>
+                    </TreeView.ItemTemplate>
+                </TreeView>
+            </TabItem>
+        </TabControl>
     </Grid>
 </UserControl>
