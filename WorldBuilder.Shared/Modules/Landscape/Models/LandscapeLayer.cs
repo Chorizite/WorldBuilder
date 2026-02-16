@@ -1,6 +1,8 @@
 ﻿using MemoryPack;
 using System.Collections.Generic;
 
+using WorldBuilder.Shared.Modules.Landscape.Models;
+
 namespace WorldBuilder.Shared.Models {
     /// <summary>
     /// Represents a single terrain layer within a landscape document.

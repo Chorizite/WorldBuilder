@@ -641,6 +641,8 @@ namespace WorldBuilder.Shared.Models {
         }
 
         public uint GetGlobalVertexIndex(ushort chunkId, ushort localIndex) {
+            if (Region == null) return 0;
+
             uint chunkX = (uint)(chunkId >> 8);
             uint chunkY = (uint)(chunkId & 0xFF);
             int localY = localIndex / LandscapeChunk.ChunkVertexStride;
@@ -648,11 +650,13 @@ namespace WorldBuilder.Shared.Models {
 
             int globalX = (int)chunkX * (LandscapeChunk.ChunkVertexStride - 1) + localX;
             int globalY = (int)chunkY * (LandscapeChunk.ChunkVertexStride - 1) + localY;
-            return (uint)(globalY * (Region?.MapWidthInVertices ?? 0) + globalX);
+            return (uint)(globalY * Region.MapWidthInVertices + globalX);
         }
 
         public (ushort chunkId, ushort localIndex) GetLocalVertexIndex(uint globalVertexIndex) {
-            int mapWidth = Region?.MapWidthInVertices ?? 0;
+            if (Region == null || Region.MapWidthInVertices == 0) return (0, 0);
+
+            int mapWidth = Region.MapWidthInVertices;
             int globalY = (int)(globalVertexIndex / (uint)mapWidth);
             int globalX = (int)(globalVertexIndex % (uint)mapWidth);
 

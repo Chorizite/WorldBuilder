@@ -1,7 +1,6 @@
-using System.Collections.Concurrent;
-using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Models;
 
-namespace WorldBuilder.Shared.Models
+namespace WorldBuilder.Shared.Modules.Landscape.Models
 {
     /// <summary>
     /// Represents a loaded chunk of merged terrain data.

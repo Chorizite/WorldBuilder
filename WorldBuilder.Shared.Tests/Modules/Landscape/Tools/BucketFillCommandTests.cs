@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
@@ -14,90 +15,77 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         public void Execute_Contiguous_ShouldFloodFillOnlyConnectedAreas() {
             // Arrange
             var context = CreateContext(9, 9);
-            var cache = context.Document.TerrainCache;
-            var baseCache = context.Document.BaseTerrainCache;
-            // Initialize cache with a pattern
-            // 0 0 0
-            // 0 1 0
-            // 0 0 0
-            for (int i = 0; i < cache.Length; i++) {
-                var entry = new TerrainEntry() { Type = 0 };
-                cache[i] = entry;
-                baseCache[i] = entry;
-            }
+            var activeLayer = context.ActiveLayer!;
 
-            // Set 10 to Type 1 in base cache so fill can find it
-            var t1 = new TerrainEntry() { Type = 1 };
-            cache[10] = t1;
-            baseCache[10] = t1;
+            for (int i = 0; i < 81; i++) {
+                activeLayer.SetVertex((uint)i, context.Document, new TerrainEntry() { Type = 0 });
+            }
+            context.Document.RecalculateTerrainCache();
+
+            // Set 10 to Type 1 in active layer
+            activeLayer.SetVertex(10u, context.Document, new TerrainEntry() { Type = 1 });
+            context.Document.RecalculateTerrainCache(new[] { 10u });
 
             var startPos = new Vector3(24, 24, 0); // Vertex (1,1) -> Index 10
-            var cmd = new BucketFillCommand(context, startPos, 2, null, true); // Fill Type 1 with Type 2
+            var cmd = new BucketFillCommand(context, startPos, 2, null, true, false); // Fill Type 1 with Type 2
 
             // Act
             cmd.Execute();
 
             // Assert
-            Assert.Equal((byte?)2, cache[10].Type);
-            Assert.Equal((byte?)0, cache[0].Type); // Neighbor should NOT be filled
+            Assert.Equal((byte?)2, context.Document.GetCachedEntry(10).Type);
+            Assert.Equal((byte?)0, context.Document.GetCachedEntry(0).Type); // Neighbor should NOT be filled
         }
 
         [Fact]
         public void Execute_Global_ShouldReplaceAllInstances() {
             // Arrange
             var context = CreateContext(9, 9);
-            var cache = context.Document.TerrainCache;
-            var baseCache = context.Document.BaseTerrainCache;
-            for (int i = 0; i < cache.Length; i++) {
-                var entry = new TerrainEntry() { Type = 0 };
-                cache[i] = entry;
-                baseCache[i] = entry;
+            var activeLayer = context.ActiveLayer!;
+            for (int i = 0; i < 81; i++) {
+                activeLayer.SetVertex((uint)i, context.Document, new TerrainEntry() { Type = 0 });
             }
 
             var t1 = new TerrainEntry() { Type = 1 };
-            cache[0] = t1;
-            baseCache[0] = t1;
-            cache[80] = t1;
-            baseCache[80] = t1;
+            activeLayer.SetVertex(0u, context.Document, t1);
+            activeLayer.SetVertex(80u, context.Document, t1);
+            context.Document.RecalculateTerrainCache();
 
             var startPos = new Vector3(0, 0, 0); // Vertex (0,0) -> Index 0
-            var cmd = new BucketFillCommand(context, startPos, 2, null, false); // Global replace Type 1 with Type 2
+            var cmd = new BucketFillCommand(context, startPos, 2, null, false, false); // Global replace Type 1 with Type 2
 
             // Act
             cmd.Execute();
 
             // Assert
-            Assert.Equal((byte?)2, cache[0].Type);
-            Assert.Equal((byte?)2, cache[80].Type);
+            Assert.Equal((byte?)2, context.Document.GetCachedEntry(0).Type);
+            Assert.Equal((byte?)2, context.Document.GetCachedEntry(80).Type);
         }
 
         [Fact]
         public void Undo_ShouldRevertChanges() {
             // Arrange
             var context = CreateContext(9, 9);
-            var cache = context.Document.TerrainCache;
-            var baseCache = context.Document.BaseTerrainCache;
-            for (int i = 0; i < cache.Length; i++) {
-                var entry = new TerrainEntry() { Type = 0 };
-                cache[i] = entry;
-                baseCache[i] = entry;
+            var activeLayer = context.ActiveLayer!;
+            for (int i = 0; i < 81; i++) {
+                activeLayer.SetVertex((uint)i, context.Document, new TerrainEntry() { Type = 0 });
             }
 
             var t1 = new TerrainEntry() { Type = 1 };
-            cache[10] = t1;
-            baseCache[10] = t1;
+            activeLayer.SetVertex(10u, context.Document, t1);
+            context.Document.RecalculateTerrainCache();
 
             var startPos = new Vector3(24, 24, 0);
-            var cmd = new BucketFillCommand(context, startPos, 2, null, true);
+            var cmd = new BucketFillCommand(context, startPos, 2, null, true, false);
 
             // Act
             cmd.Execute();
-            Assert.Equal((byte?)2, cache[10].Type);
+            Assert.Equal((byte?)2, context.Document.GetCachedEntry(10).Type);
 
             cmd.Undo();
 
             // Assert
-            Assert.Equal((byte?)1, cache[10].Type);
+            Assert.Equal((byte?)1, context.Document.GetCachedEntry(10).Type);
         }
 
         [Fact]
@@ -108,23 +96,21 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             int width = 256;
             int height = 256;
             var context = CreateContext(width, height);
-            var cache = context.Document.TerrainCache;
-            var baseCache = context.Document.BaseTerrainCache;
-            for (int i = 0; i < cache.Length; i++) {
-                var entry = new TerrainEntry() { Type = 1 };
-                cache[i] = entry;
-                baseCache[i] = entry;
+            var activeLayer = context.ActiveLayer!;
+            for (int i = 0; i < width * height; i++) {
+                activeLayer.SetVertex((uint)i, context.Document, new TerrainEntry() { Type = 1 });
             }
+            context.Document.RecalculateTerrainCache();
 
             var startPos = new Vector3(24, 24, 0);
-            var cmd = new BucketFillCommand(context, startPos, 5, null, true);
+            var cmd = new BucketFillCommand(context, startPos, 5, null, true, false);
 
             // Act
             cmd.Execute();
 
             // Assert
             // Just checking one to ensure it ran
-            Assert.Equal((byte?)5, cache[0].Type);
+            Assert.Equal((byte?)5, context.Document.GetCachedEntry(0).Type);
         }
 
         private LandscapeToolContext CreateContext(int width, int height) {
@@ -133,31 +119,31 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             // Bypass dats loading
             typeof(LandscapeDocument).GetField("_didLoadRegionData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
             typeof(LandscapeDocument).GetField("_didLoadLayers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
-            typeof(LandscapeDocument).GetField("_didLoadCacheFromDats", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
 
             // Mock ITerrainInfo
             var regionMock = new Mock<ITerrainInfo>();
             regionMock.Setup(r => r.CellSizeInUnits).Returns(24f);
             regionMock.Setup(r => r.MapWidthInVertices).Returns(width);
             regionMock.Setup(r => r.MapHeightInVertices).Returns(height);
-            regionMock.Setup(r => r.LandblockVerticeLength).Returns(9); // Doesn't matter much for this test, but keeps stride consistent
+            regionMock.Setup(r => r.LandblockVerticeLength).Returns(9);
+            regionMock.Setup(r => r.MapOffset).Returns(Vector2.Zero);
             regionMock.Setup(r => r.GetVertexIndex(It.IsAny<int>(), It.IsAny<int>()))
                 .Returns<int, int>((x, y) => y * width + x);
             regionMock.Setup(r => r.GetVertexCoordinates(It.IsAny<uint>()))
-                .Returns<uint>((delegate (uint idx) { return ((int)(idx % width), (int)(idx / width)); }));
+                .Returns<uint>(idx => ((int)(idx % width), (int)(idx / width)));
             regionMock.Setup(r => r.GetSceneryId(It.IsAny<int>(), It.IsAny<int>())).Returns(0x120000A5u);
 
-            var regionProp = typeof(LandscapeDocument).GetProperty("Region");
-            regionProp?.SetValue(doc, regionMock.Object);
+            doc.Region = regionMock.Object;
 
-            var cache = new TerrainEntry[width * height];
-            var baseCache = new TerrainEntry[width * height];
-
-            var cacheProp = typeof(LandscapeDocument).GetProperty("TerrainCache");
-            cacheProp?.SetValue(doc, cache);
-
-            var baseCacheProp = typeof(LandscapeDocument).GetProperty("BaseTerrainCache");
-            baseCacheProp?.SetValue(doc, baseCache);
+            // Initialize LoadedChunks
+            uint numChunksX = (uint)Math.Ceiling(width / (double)LandscapeChunk.ChunkVertexStride);
+            uint numChunksY = (uint)Math.Ceiling(height / (double)LandscapeChunk.ChunkVertexStride);
+            for (uint y = 0; y < numChunksY; y++) {
+                for (uint x = 0; x < numChunksX; x++) {
+                    ushort id = LandscapeChunk.GetId(x, y);
+                    doc.LoadedChunks[id] = new LandscapeChunk(id);
+                }
+            }
 
             var layerId = Guid.NewGuid().ToString();
             doc.AddLayer([], "Active Layer", true, layerId);
