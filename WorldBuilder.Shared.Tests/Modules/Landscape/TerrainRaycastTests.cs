@@ -4,6 +4,7 @@ using Moq;
 using System.Numerics;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape;
+using WorldBuilder.Shared.Modules.Landscape.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using Xunit;
 
