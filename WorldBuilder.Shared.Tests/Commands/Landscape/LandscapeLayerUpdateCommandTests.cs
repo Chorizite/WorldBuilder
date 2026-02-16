@@ -2,6 +2,7 @@ using Moq;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
+using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Shared.Tests.Commands.Landscape {
@@ -25,6 +26,18 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             // Bypass dats loading
             typeof(LandscapeDocument).GetField("_didLoadRegionData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(terrainDoc, true);
             typeof(LandscapeDocument).GetField("_didLoadLayers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(terrainDoc, true);
+
+            var regionMock = new Mock<ITerrainInfo>();
+            regionMock.Setup(r => r.MapWidthInVertices).Returns(1024);
+            regionMock.Setup(r => r.MapHeightInVertices).Returns(1024);
+            regionMock.Setup(r => r.LandblockVerticeLength).Returns(9);
+            regionMock.Setup(r => r.MapWidthInLandblocks).Returns(128);
+            regionMock.Setup(r => r.MapHeightInLandblocks).Returns(128);
+            terrainDoc.Region = regionMock.Object;
+
+            // Pre-load chunk for index 100
+            var (chunkId, _) = terrainDoc.GetLocalVertexIndex(100u);
+            terrainDoc.LoadedChunks[chunkId] = new LandscapeChunk(chunkId);
 
             var rental = new DocumentRental<LandscapeDocument>(terrainDoc, () => { });
             return (terrainDoc, rental);
@@ -58,8 +71,8 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Assert
             Assert.True(result.IsSuccess);
-            Assert.True(layer!.Terrain.ContainsKey(100u));
-            Assert.Equal((byte)10, layer.Terrain[100u].Height);
+            Assert.True(layer.TryGetVertex(100u, terrainDoc, out var entry));
+            Assert.Equal((byte)10, entry.Height);
         }
 
         [Fact]
@@ -124,7 +137,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             terrainDoc.AddLayer([], "Test Layer", false, layerId);
             var layer = terrainDoc.FindItem(layerId) as LandscapeLayer;
             // Initial state
-            layer!.Terrain[100u] = new TerrainEntry { Height = 5 };
+            layer.SetVertex(100u, terrainDoc, new TerrainEntry { Height = 5 });
 
             var changes = new Dictionary<uint, TerrainEntry?> { { 100u, new TerrainEntry { Height = 10 } } };
             var previous = new Dictionary<uint, TerrainEntry?> { { 100u, new TerrainEntry { Height = 5 } } };
@@ -146,7 +159,8 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             var forwardResult =
                 await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
 
-            Assert.Equal((byte)10, layer.Terrain[100u].Height); // Verify forward
+            layer.TryGetVertex(100u, terrainDoc, out var forwardEntry);
+            Assert.Equal((byte)10, forwardEntry.Height); // Verify forward
 
             var inverse = (LandscapeLayerUpdateCommand)command.CreateInverse();
             var backwardResult =
@@ -155,7 +169,8 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             // Assert
             Assert.True(forwardResult.IsSuccess);
             Assert.True(backwardResult.IsSuccess);
-            Assert.Equal((byte)5, layer.Terrain[100u].Height); // Verify backward
+            layer.TryGetVertex(100u, terrainDoc, out var backwardEntry);
+            Assert.Equal((byte)5, backwardEntry.Height); // Verify backward
         }
 
         [Fact]
@@ -193,7 +208,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             var (terrainDoc, terrainRental) = CreateMockTerrainRental();
             terrainDoc.AddLayer([], "Test Layer", false, layerId);
             var layer = terrainDoc.FindItem(layerId) as LandscapeLayer;
-            layer!.Terrain[100] = new TerrainEntry { Height = 10 };
+            layer.SetVertex(100, terrainDoc, new TerrainEntry { Height = 10 });
 
             var changes = new Dictionary<uint, TerrainEntry?> { { 100u, null } };
             var command = new LandscapeLayerUpdateCommand {
@@ -215,7 +230,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Assert
             Assert.True(result.IsSuccess);
-            Assert.False(layer.Terrain.ContainsKey(100u));
+            Assert.False(layer.TryGetVertex(100u, terrainDoc, out _));
         }
 
         [Fact]

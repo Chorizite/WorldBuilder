@@ -57,16 +57,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             List<uint> affectedVertices = new List<uint>();
 
             foreach (var kvp in _previousState) {
-                int index = kvp.Key;
+                uint index = (uint)kvp.Key;
                 if (kvp.Value.HasValue) {
-                    _activeLayer.Terrain[(uint)index] = kvp.Value.Value;
+                    _activeLayer.SetVertex(index, _document, kvp.Value.Value);
                 }
                 else {
-                    _activeLayer.Terrain.Remove((uint)index);
+                    _activeLayer.RemoveVertex(index, _document);
                 }
 
-                affectedVertices.Add((uint)index);
-                var (vx, vy) = region.GetVertexCoordinates((uint)index);
+                affectedVertices.Add(index);
+                var (vx, vy) = region.GetVertexCoordinates(index);
                 _context.AddAffectedLandblocks(vx, vy, modifiedLandblocks);
             }
 
@@ -84,7 +84,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private void ApplyChanges(bool record = false) {
             if (_document.Region == null || _activeLayer == null) return;
             var region = _document.Region;
-            var cache = _document.TerrainCache;
             float cellSize = region.CellSizeInUnits;
             var offset = region.MapOffset;
 
@@ -97,8 +96,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
             int startIndex = region.GetVertexIndex(startX, startY);
 
-            byte targetTextureId = cache[startIndex].Type ?? 0;
-            byte targetSceneryId = cache[startIndex].Scenery ?? 0;
+            var startEntry = _document.GetCachedEntry((uint)startIndex);
+            byte targetTextureId = startEntry.Type ?? 0;
+            byte targetSceneryId = startEntry.Scenery ?? 0;
 
             // If we are filling with the same texture, we only proceed if we are also updating the scenery.
             if (targetTextureId == _fillTextureId && !_fillSceneryId.HasValue) {
@@ -129,7 +129,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         private void PerformFloodFill(int startX, int startY, byte targetTextureId, byte targetSceneryId, bool record, HashSet<(int x, int y)> modifiedLandblocks, List<uint> affectedVertices) {
             var region = _document.Region!;
-            var cache = _document.TerrainCache;
             int width = region.MapWidthInVertices;
             int height = region.MapHeightInVertices;
 
@@ -147,7 +146,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 int index = region.GetVertexIndex(x, y);
 
                 if (record && !_previousState.ContainsKey(index)) {
-                    if (_activeLayer!.Terrain.TryGetValue((uint)index, out var prev)) {
+                    if (_activeLayer!.TryGetVertex((uint)index, _document, out var prev)) {
                         _previousState[index] = prev;
                     }
                     else {
@@ -155,12 +154,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                     }
                 }
 
-                var entry = _activeLayer!.Terrain.GetValueOrDefault((uint)index);
+                _activeLayer!.TryGetVertex((uint)index, _document, out var entry);
                 entry.Type = (byte)_fillTextureId;
                 if (_fillSceneryId.HasValue) {
                     entry.Scenery = _fillSceneryId.Value;
                 }
-                _activeLayer.Terrain[(uint)index] = entry;
+                _activeLayer.SetVertex((uint)index, _document, entry);
 
                 affectedVertices.Add((uint)index);
                 _context.AddAffectedLandblocks(x, y, modifiedLandblocks);
@@ -172,7 +171,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                     if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
                         int nIndex = region.GetVertexIndex(nx, ny);
                         if (!visited.Contains(nIndex)) {
-                            var neighborEntry = cache[nIndex];
+                            var neighborEntry = _document.GetCachedEntry((uint)nIndex);
                             bool isTextureMatch = (neighborEntry.Type ?? 0) == targetTextureId;
                             bool isSceneryMatch = !_onlyFillSameScenery || (neighborEntry.Scenery ?? 0) == targetSceneryId;
 
@@ -188,20 +187,19 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         private void PerformGlobalReplace(byte targetTextureId, byte targetSceneryId, bool record, HashSet<(int x, int y)> modifiedLandblocks, List<uint> affectedVertices) {
             var region = _document.Region!;
-            var cache = _document.TerrainCache;
             int width = region.MapWidthInVertices;
             int height = region.MapHeightInVertices;
 
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
                     int index = region.GetVertexIndex(x, y);
-                    var entryCheck = cache[index];
+                    var entryCheck = _document.GetCachedEntry((uint)index);
                     bool isTextureMatch = (entryCheck.Type ?? 0) == targetTextureId;
                     bool isSceneryMatch = !_onlyFillSameScenery || (entryCheck.Scenery ?? 0) == targetSceneryId;
 
                     if (isTextureMatch && isSceneryMatch) {
                         if (record && !_previousState.ContainsKey(index)) {
-                            if (_activeLayer!.Terrain.TryGetValue((uint)index, out var prev)) {
+                            if (_activeLayer!.TryGetVertex((uint)index, _document, out var prev)) {
                                 _previousState[index] = prev;
                             }
                             else {
@@ -209,12 +207,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                             }
                         }
 
-                        var entry = _activeLayer!.Terrain.GetValueOrDefault((uint)index);
+                        _activeLayer!.TryGetVertex((uint)index, _document, out var entry);
                         entry.Type = (byte)_fillTextureId;
                         if (_fillSceneryId.HasValue) {
                             entry.Scenery = _fillSceneryId.Value;
                         }
-                        _activeLayer.Terrain[(uint)index] = entry;
+                        _activeLayer.SetVertex((uint)index, _document, entry);
 
                         affectedVertices.Add((uint)index);
                         _context.AddAffectedLandblocks(x, y, modifiedLandblocks);

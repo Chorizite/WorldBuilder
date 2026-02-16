@@ -41,7 +41,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
         }
 
-        private TerrainTextureType _texture = TerrainTextureType.MudRichDirt; 
+        private TerrainTextureType _texture = TerrainTextureType.MudRichDirt;
         /// <summary>Gets or sets the texture to paint.</summary>
         public TerrainTextureType Texture {
             get => _texture;
@@ -162,7 +162,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             if (_context == null || _context.Document.Region == null) return new TerrainRaycastHit();
 
             // Use ViewportSize from context
-            return TerrainRaycast.Raycast((float)x, (float)y, (int)_context.ViewportSize.X, (int)_context.ViewportSize.Y, _context.Camera, _context.Document.Region, _context.Document.TerrainCache, _context.Logger);
+            return TerrainRaycast.Raycast((float)x, (float)y, (int)_context.ViewportSize.X, (int)_context.ViewportSize.Y, _context.Camera, _context.Document.Region, _context.Document, _context.Logger);
         }
 
         private void ApplyPaint(TerrainRaycastHit hit) {

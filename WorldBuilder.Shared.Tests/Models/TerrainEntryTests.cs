@@ -117,8 +117,36 @@ namespace WorldBuilder.Shared.Tests.Models {
             Assert.False(unpacked.Flags.HasFlag(TerrainEntryFlags.Road));
             Assert.Equal((byte)200, unpacked.Height);
             Assert.Equal((byte)2, unpacked.Type);
-            Assert.Equal((byte)3, unpacked.Scenery);
-            Assert.Null(unpacked.Road);
-        }
-    }
-}
+                        Assert.Equal((byte)3, unpacked.Scenery);
+                        Assert.Null(unpacked.Road);
+                    }
+            
+                    [Fact]
+                    public void Merge_OverlaysNonNullValues() {
+                        // Arrange
+                        var baseEntry = new TerrainEntry {
+                            Height = 10,
+                            Type = 1,
+                            Scenery = 2,
+                            Road = 3
+                        };
+                        var overlay = new TerrainEntry {
+                            Height = 20,
+                            Type = null, // Should not overwrite
+                            Scenery = 5,
+                            Road = null  // Should not overwrite
+                        };
+            
+                        // Act
+                        baseEntry.Merge(overlay);
+            
+                        // Assert
+                        Assert.Equal((byte)20, baseEntry.Height);
+                        Assert.Equal((byte)1, baseEntry.Type);
+                        Assert.Equal((byte)5, baseEntry.Scenery);
+                        Assert.Equal((byte)3, baseEntry.Road);
+                        Assert.Equal(TerrainEntryFlags.Height | TerrainEntryFlags.Texture | TerrainEntryFlags.Scenery | TerrainEntryFlags.Road, baseEntry.Flags);
+                    }
+                }
+            }
+            

@@ -269,12 +269,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                     var landblockID = _landscapeDoc.Region.GetLandblockId((int)landblockX, (int)landblockY);
 
+                    if (!_landscapeDoc.LoadedChunks.TryGetValue(chunk.GetChunkId(), out var landscapeChunk)) continue;
+
                     var (lbMinZ, lbMaxZ) = TerrainGeometryGenerator.GenerateLandblockGeometry(
                         landblockX, landblockY, landblockID,
                         _landscapeDoc.Region, _surfaceManager!,
-                        _landscapeDoc.TerrainCache.AsSpan(),
+                        landscapeChunk.MergedEntries.AsSpan(),
                         0, 0,
-                        tempVertices, tempIndices
+                        tempVertices, tempIndices,
+                        chunk.LandblockStartX, chunk.LandblockStartY
                     );
 
                     var update = new PendingPartialUpdate {
@@ -353,19 +356,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        private void GenerateChunk(TerrainChunk chunk) {
+        private async void GenerateChunk(TerrainChunk chunk) {
             try {
+                var landscapeChunk = await _landscapeDoc!.GetOrLoadChunkAsync(chunk.GetChunkId(), _dats!, default);
+
                 var vertices = new VertexLandscape[MaxVertices];
                 var indices = new uint[MaxIndices];
                 int vCount = 0;
                 int iCount = 0;
 
-                if (_landscapeDoc.Region != null) {
+                if (_landscapeDoc?.Region != null) {
                     TerrainGeometryGenerator.GenerateChunkGeometry(
                         chunk,
                         _landscapeDoc.Region,
                         _surfaceManager!,
-                        _landscapeDoc.TerrainCache,
+                        landscapeChunk.MergedEntries,
                         vertices,
                         indices,
                         out vCount,

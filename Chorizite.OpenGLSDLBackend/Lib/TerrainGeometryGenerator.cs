@@ -6,12 +6,9 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Lib;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
-    public enum CellSplitDirection {
-        SWtoNE,
-        SEtoNW
-    }
 
     /// <summary>
     /// Stateless geometry generation
@@ -80,7 +77,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     block.lx, block.ly, landblockID,
                     localRegion!, surfaceManager, terrainCache.Span,
                     block.vOffset, block.iOffset,
-                    vertices.Span, indices.Span
+                    vertices.Span, indices.Span,
+                    chunk.LandblockStartX, chunk.LandblockStartY
                 );
 
                 int localIdx = (int)((block.ly - chunk.LandblockStartY) * 8 + (block.lx - chunk.LandblockStartX));
@@ -113,7 +111,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             uint currentVertexIndex,
             uint currentIndexPosition,
             Span<VertexLandscape> vertices,
-            Span<uint> indices) {
+            Span<uint> indices,
+            uint chunkLbStartX,
+            uint chunkLbStartY) {
             float baseLandblockX = landblockX * 192f + region.MapOffset.X; // 24 * 8
             float baseLandblockY = landblockY * 192f + region.MapOffset.Y;
             float minZ = float.MaxValue;
@@ -126,7 +126,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         landblockX, landblockY, landblockID,
                         region, surfaceManager, terrainCache,
                         currentVertexIndex, currentIndexPosition,
-                        vertices, indices
+                        vertices, indices,
+                        chunkLbStartX, chunkLbStartY
                     );
 
                     minZ = Math.Min(minZ, cellMinZ);
@@ -147,12 +148,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             LandSurfaceManager surfaceManager,
             ReadOnlySpan<TerrainEntry> terrainCache,
             uint currentVertexIndex, uint currentIndexPosition,
-            Span<VertexLandscape> vertices, Span<uint> indices) {
+            Span<VertexLandscape> vertices, Span<uint> indices,
+            uint chunkLbStartX, uint chunkLbStartY) {
             // Get terrain entries from document cache
-            var bottomLeft = GetTerrainEntry(region, terrainCache, landblockX, landblockY, cellX, cellY);
-            var bottomRight = GetTerrainEntry(region, terrainCache, landblockX, landblockY, cellX + 1, cellY);
-            var topRight = GetTerrainEntry(region, terrainCache, landblockX, landblockY, cellX + 1, cellY + 1);
-            var topLeft = GetTerrainEntry(region, terrainCache, landblockX, landblockY, cellX, cellY + 1);
+            var bottomLeft = GetTerrainEntry(region, terrainCache, landblockX, landblockY, cellX, cellY, chunkLbStartX, chunkLbStartY);
+            var bottomRight = GetTerrainEntry(region, terrainCache, landblockX, landblockY, cellX + 1, cellY, chunkLbStartX, chunkLbStartY);
+            var topRight = GetTerrainEntry(region, terrainCache, landblockX, landblockY, cellX + 1, cellY + 1, chunkLbStartX, chunkLbStartY);
+            var topLeft = GetTerrainEntry(region, terrainCache, landblockX, landblockY, cellX, cellY + 1, chunkLbStartX, chunkLbStartY);
 
             float cellSize = 24f;
             float x0 = baseLandblockX + cellX * cellSize;
@@ -218,7 +220,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
-            var splitDirection = CalculateSplitDirection(landblockX, cellX, landblockY, cellY);
+            var splitDirection = TerrainUtils.CalculateSplitDirection(landblockX, cellX, landblockY, cellY);
             CalculateVertexNormals(splitDirection, ref v0, ref v1, ref v2, ref v3);
 
             ref uint indexRef = ref indices[(int)currentIndexPosition];
@@ -253,8 +255,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static TerrainEntry GetTerrainEntry(ITerrainInfo region, ReadOnlySpan<TerrainEntry> terrainCache,
-            uint lbX, uint lbY, uint cellX, uint cellY) {
+        private static TerrainEntry GetTerrainEntry(ITerrainInfo region, ReadOnlySpan<TerrainEntry> chunkCache,
+            uint lbX, uint lbY, uint cellX, uint cellY, uint chunkLbStartX, uint chunkLbStartY) {
             // Adjust for cell overflow (neighbors)
             if (cellX >= 8) {
                 lbX++;
@@ -266,14 +268,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 cellY -= 8;
             }
 
-            int mapWidth = region.MapWidthInVertices;
-            int globalX = (int)lbX * 8 + (int)cellX;
-            int globalY = (int)lbY * 8 + (int)cellY;
+            int localLbX = (int)(lbX - chunkLbStartX);
+            int localLbY = (int)(lbY - chunkLbStartY);
 
-            int globalIndex = globalY * mapWidth + globalX;
+            int localX = localLbX * 8 + (int)cellX;
+            int localY = localLbY * 8 + (int)cellY;
 
-            if (globalIndex >= 0 && globalIndex < terrainCache.Length) {
-                return terrainCache[globalIndex];
+            int localIndex = localY * LandscapeChunk.ChunkVertexStride + localX;
+
+            if (localIndex >= 0 && localIndex < chunkCache.Length) {
+                return chunkCache[localIndex];
             }
 
             return new TerrainEntry(0, 0, 0, 0, 0);
@@ -330,18 +334,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             v.PackedRoad1 = VertexLandscape.PackTexCoord(0, 0, 255, 255);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static CellSplitDirection CalculateSplitDirection(uint landblockX, uint cellX, uint landblockY,
-            uint cellY) {
-            uint seedA = (landblockX * 8 + cellX) * 214614067u;
-            uint seedB = (landblockY * 8 + cellY) * 1109124029u;
-            uint magicA = seedA + 1813693831u;
-            uint magicB = seedB;
-            float splitDir = magicA - magicB - 1369149221u;
-
-            return splitDir * 2.3283064e-10f >= 0.5f ? CellSplitDirection.SEtoNW : CellSplitDirection.SWtoNE;
-        }
-
         #region Scenery Terrain Helpers
 
         /// <summary>
@@ -349,176 +341,24 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Uses barycentric interpolation on the cell's triangle pair.
         /// </summary>
         public static float GetHeight(DatReaderWriter.DBObjs.Region region, TerrainEntry[] lbTerrainEntries,
-            uint landblockX, uint landblockY, Vector3 localPos) {
-            uint cellX = (uint)(localPos.X / 24f);
-            uint cellY = (uint)(localPos.Y / 24f);
-            if (cellX >= 8 || cellY >= 8) return 0f;
-
-            var splitDirection = CalculateSplitDirection(landblockX, cellX, landblockY, cellY);
-
-            var bottomLeft = GetTerrainEntryForCell(lbTerrainEntries, cellX, cellY);
-            var bottomRight = GetTerrainEntryForCell(lbTerrainEntries, cellX + 1, cellY);
-            var topRight = GetTerrainEntryForCell(lbTerrainEntries, cellX + 1, cellY + 1);
-            var topLeft = GetTerrainEntryForCell(lbTerrainEntries, cellX, cellY + 1);
-
-            float h0 = region.LandDefs.LandHeightTable[bottomLeft.Height ?? 0];
-            float h1 = region.LandDefs.LandHeightTable[bottomRight.Height ?? 0];
-            float h2 = region.LandDefs.LandHeightTable[topRight.Height ?? 0];
-            float h3 = region.LandDefs.LandHeightTable[topLeft.Height ?? 0];
-
-            float lx = localPos.X - cellX * 24f;
-            float ly = localPos.Y - cellY * 24f;
-            float s = lx / 24f;
-            float t = ly / 24f;
-
-            if (splitDirection == CellSplitDirection.SWtoNE) {
-                if (s + t <= 1f) {
-                    return h0 * (1f - s - t) + h1 * s + h3 * t;
-                }
-                else {
-                    float u = s + t - 1f;
-                    float v = 1f - s;
-                    float w = 1f - u - v;
-                    return h1 * w + h2 * u + h3 * v;
-                }
-            }
-            else {
-                if (s >= t) {
-                    return h0 * (1f - s) + h1 * (s - t) + h2 * t;
-                }
-                else {
-                    return h0 * (1f - t) + h2 * s + h3 * (t - s);
-                }
-            }
-        }
+            uint landblockX, uint landblockY, Vector3 localPos) => TerrainUtils.GetHeight(region, lbTerrainEntries, landblockX, landblockY, localPos);
 
         /// <summary>
         /// Gets the terrain surface normal at a local position within a landblock.
         /// </summary>
         public static Vector3 GetNormal(DatReaderWriter.DBObjs.Region region, TerrainEntry[] lbTerrainEntries,
-            uint landblockX, uint landblockY, Vector3 localPos) {
-            uint cellX = (uint)(localPos.X / 24f);
-            uint cellY = (uint)(localPos.Y / 24f);
-            if (cellX >= 8 || cellY >= 8) return new Vector3(0, 0, 1);
-
-            var splitDirection = CalculateSplitDirection(landblockX, cellX, landblockY, cellY);
-
-            var bottomLeft = GetTerrainEntryForCell(lbTerrainEntries, cellX, cellY);
-            var bottomRight = GetTerrainEntryForCell(lbTerrainEntries, cellX + 1, cellY);
-            var topRight = GetTerrainEntryForCell(lbTerrainEntries, cellX + 1, cellY + 1);
-            var topLeft = GetTerrainEntryForCell(lbTerrainEntries, cellX, cellY + 1);
-
-            float h0 = region.LandDefs.LandHeightTable[bottomLeft.Height ?? 0];
-            float h1 = region.LandDefs.LandHeightTable[bottomRight.Height ?? 0];
-            float h2 = region.LandDefs.LandHeightTable[topRight.Height ?? 0];
-            float h3 = region.LandDefs.LandHeightTable[topLeft.Height ?? 0];
-
-            float lx = localPos.X - cellX * 24f;
-            float ly = localPos.Y - cellY * 24f;
-
-            Vector3 p0 = new Vector3(0, 0, h0);
-            Vector3 p1 = new Vector3(24, 0, h1);
-            Vector3 p2 = new Vector3(24, 24, h2);
-            Vector3 p3 = new Vector3(0, 24, h3);
-
-            if (splitDirection == CellSplitDirection.SWtoNE) {
-                Vector3 normal1 = Vector3.Normalize(Vector3.Cross(p1 - p0, p3 - p0));
-                Vector3 normal2 = Vector3.Normalize(Vector3.Cross(p2 - p1, p3 - p1));
-                bool inTri1 = (lx + ly <= 24f);
-                return inTri1 ? normal1 : normal2;
-            }
-            else {
-                Vector3 normal1 = Vector3.Normalize(Vector3.Cross(p1 - p0, p2 - p0));
-                Vector3 normal2 = Vector3.Normalize(Vector3.Cross(p2 - p0, p3 - p0));
-                bool inTri1 = (lx >= ly);
-                return inTri1 ? normal1 : normal2;
-            }
-        }
+            uint landblockX, uint landblockY, Vector3 localPos) => TerrainUtils.GetNormal(region, lbTerrainEntries, landblockX, landblockY, localPos);
 
         /// <summary>
         /// Checks if a local position within a landblock is on a road.
         /// Uses per-vertex road flags and proximity testing.
         /// </summary>
-        public static bool OnRoad(Vector3 obj, TerrainEntry[] entries) {
-            int x = (int)(obj.X / 24f);
-            int y = (int)(obj.Y / 24f);
-
-            float rMin = RoadWidth;
-            float rMax = 24f - RoadWidth;
-
-            uint r0 = GetRoad(entries, x, y);
-            uint r1 = GetRoad(entries, x, y + 1);
-            uint r2 = GetRoad(entries, x + 1, y);
-            uint r3 = GetRoad(entries, x + 1, y + 1);
-
-            if (r0 == 0 && r1 == 0 && r2 == 0 && r3 == 0)
-                return false;
-
-            float dx = obj.X - x * 24f;
-            float dy = obj.Y - y * 24f;
-
-            if (r0 > 0) {
-                if (r1 > 0) {
-                    if (r2 > 0) {
-                        if (r3 > 0) return true;
-                        else return (dx < rMin || dy < rMin);
-                    }
-                    else {
-                        if (r3 > 0) return (dx < rMin || dy > rMax);
-                        else return (dx < rMin);
-                    }
-                }
-                else {
-                    if (r2 > 0) {
-                        if (r3 > 0) return (dx > rMax || dy < rMin);
-                        else return (dy < rMin);
-                    }
-                    else {
-                        if (r3 > 0) return (Math.Abs(dx - dy) < rMin);
-                        else return (dx + dy < rMin);
-                    }
-                }
-            }
-            else {
-                if (r1 > 0) {
-                    if (r2 > 0) {
-                        if (r3 > 0) return (dx > rMax || dy > rMax);
-                        else return (Math.Abs(dx + dy - 24f) < rMin);
-                    }
-                    else {
-                        if (r3 > 0) return (dy > rMax);
-                        else return (24f + dx - dy < rMin);
-                    }
-                }
-                else {
-                    if (r2 > 0) {
-                        if (r3 > 0) return (dx > rMax);
-                        else return (24f - dx + dy < rMin);
-                    }
-                    else {
-                        if (r3 > 0) return (24f * 2f - dx - dy < rMin);
-                        else return false;
-                    }
-                }
-            }
-        }
+        public static bool OnRoad(Vector3 obj, TerrainEntry[] entries) => TerrainUtils.OnRoad(obj, entries);
 
         /// <summary>
         /// Gets the road value for a specific vertex in the 9x9 terrain entry grid.
         /// </summary>
-        public static uint GetRoad(TerrainEntry[] entries, int x, int y) {
-            if (x < 0 || y < 0 || x >= 9 || y >= 9) return 0;
-            var idx = x * 9 + y;
-            if (idx >= entries.Length) return 0;
-            var road = entries[idx].Road ?? 0;
-            return (uint)(road & 0x3);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static TerrainEntry GetTerrainEntryForCell(TerrainEntry[] data, uint cellX, uint cellY) {
-            var idx = (int)(cellX * 9 + cellY);
-            return data != null && idx < data.Length ? data[idx] : new TerrainEntry();
-        }
+        public static uint GetRoad(TerrainEntry[] entries, int x, int y) => TerrainUtils.GetRoad(entries, x, y);
 
         #endregion
     }

@@ -54,10 +54,10 @@ public partial class LandscapeLayerUpdateCommand : BaseCommand<bool> {
 
             foreach (var change in Changes) {
                 if (change.Value == null) {
-                    layer.Terrain.Remove(change.Key);
+                    layer.RemoveVertex(change.Key, terrainRental.Document);
                 }
                 else {
-                    layer.Terrain[change.Key] = change.Value.Value;
+                    layer.SetVertex(change.Key, terrainRental.Document, change.Value.Value);
                 }
             }
 

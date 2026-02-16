@@ -71,7 +71,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private TerrainRaycastHit Raycast(double x, double y) {
             if (_context == null || _context.Document.Region == null) return new TerrainRaycastHit();
 
-            return TerrainRaycast.Raycast((float)x, (float)y, (int)_context.ViewportSize.X, (int)_context.ViewportSize.Y, _context.Camera, _context.Document.Region, _context.Document.TerrainCache);
+            return TerrainRaycast.Raycast((float)x, (float)y, (int)_context.ViewportSize.X, (int)_context.ViewportSize.Y, _context.Camera, _context.Document.Region, _context.Document);
         }
 
         private void ApplyPaint(TerrainRaycastHit hit) {

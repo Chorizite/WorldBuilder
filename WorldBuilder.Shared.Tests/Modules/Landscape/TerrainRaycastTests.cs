@@ -41,13 +41,15 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             var heights = regionMock.Object.LandHeights;
             heights[10] = 50f;
 
-            var terrainCache = new TerrainEntry[9 * 9];
-            for (int i = 0; i < terrainCache.Length; i++) {
-                terrainCache[i] = new TerrainEntry { Height = 10 };
+            var doc = new LandscapeDocument(1) { Region = regionMock.Object };
+            var chunk = new LandscapeChunk(0);
+            for (int i = 0; i < chunk.MergedEntries.Length; i++) {
+                chunk.MergedEntries[i] = new TerrainEntry { Height = 10 };
             }
+            doc.LoadedChunks[0] = chunk;
 
             // Act
-            var result = TerrainRaycast.Raycast(50, 50, 100, 100, cameraMock.Object, regionMock.Object, terrainCache);
+            var result = TerrainRaycast.Raycast(50, 50, 100, 100, cameraMock.Object, regionMock.Object, doc);
 
             // Assert
             Assert.True(result.Hit);
@@ -64,10 +66,10 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             cameraMock.Setup(c => c.ViewMatrix).Returns(Matrix4x4.CreateLookAt(new Vector3(-100, -100, 100), new Vector3(-200, -200, 0), Vector3.UnitY));
 
             var regionMock = CreateRegionMock();
-            var terrainCache = new TerrainEntry[81];
+            var doc = new LandscapeDocument(1) { Region = regionMock.Object };
 
             // Act
-            var result = TerrainRaycast.Raycast(50, 50, 100, 100, cameraMock.Object, regionMock.Object, terrainCache);
+            var result = TerrainRaycast.Raycast(50, 50, 100, 100, cameraMock.Object, regionMock.Object, doc);
 
             // Assert
             Assert.False(result.Hit);
@@ -79,23 +81,21 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             cameraMock.Setup(c => c.ProjectionMatrix).Returns(Matrix4x4.CreatePerspectiveFieldOfView(1f, 1f, 0.1f, 1000f));
             cameraMock.Setup(c => c.ViewMatrix).Returns(Matrix4x4.CreateLookAt(new Vector3(100, 100, 100), new Vector3(100, 100, 0), Vector3.UnitY));
             var regionMock = CreateRegionMock(100, 100);
-            var terrainCache = new TerrainEntry[801 * 801];
+            var doc = new LandscapeDocument(1) { Region = regionMock.Object };
+            doc.LoadedChunks[0] = new LandscapeChunk(0);
 
             // Act
             // Viewport 100x100
             // Mouse at Top-ish (25) 
-            var hitTop = TerrainRaycast.Raycast(50, 25, 100, 100, cameraMock.Object, regionMock.Object, terrainCache);
+            var hitTop = TerrainRaycast.Raycast(50, 25, 100, 100, cameraMock.Object, regionMock.Object, doc);
 
             // Mouse at Bottom-ish (75)
-            var hitBottom = TerrainRaycast.Raycast(50, 75, 100, 100, cameraMock.Object, regionMock.Object, terrainCache);
+            var hitBottom = TerrainRaycast.Raycast(50, 75, 100, 100, cameraMock.Object, regionMock.Object, doc);
 
             // Assert
             Assert.True(hitTop.Hit);
             Assert.True(hitBottom.Hit);
 
-            // With a normal camera looking down at (100, 100) with Up=+Y:
-            // Top of screen should hit Y > 100
-            // Bottom of screen should hit Y < 100
             Assert.True(hitTop.HitPosition.Y > 100f, $"Top click hit at {hitTop.HitPosition.Y}, expected > 100");
             Assert.True(hitBottom.HitPosition.Y < 100f, $"Bottom click hit at {hitBottom.HitPosition.Y}, expected < 100");
         }
@@ -113,10 +113,14 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
 
             var regionMock = CreateRegionMock(255, 255);
             regionMock.Setup(r => r.GetLandblockId(250, 250)).Returns(0xFAFA);
-            var terrainCache = new TerrainEntry[2041 * 2041];
+
+            var doc = new LandscapeDocument(1) { Region = regionMock.Object };
+            // Landblock (250, 250) is in chunk (250/8, 250/8) = (31, 31)
+            var chunkId = LandscapeChunk.GetId(31, 31);
+            doc.LoadedChunks[chunkId] = new LandscapeChunk(chunkId);
 
             // Act
-            var result = TerrainRaycast.Raycast(50, 50, 100, 100, cameraMock.Object, regionMock.Object, terrainCache);
+            var result = TerrainRaycast.Raycast(50, 50, 100, 100, cameraMock.Object, regionMock.Object, doc);
 
             // Assert
             Assert.True(result.Hit);
@@ -140,10 +144,11 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             cameraMock.Setup(c => c.ViewMatrix).Returns(Matrix4x4.CreateLookAt(new Vector3(100, 100, 100), new Vector3(100, 100, 0), Vector3.UnitY));
 
             var regionMock = CreateRegionMock();
-            var terrainCache = new TerrainEntry[81];
+            var doc = new LandscapeDocument(1) { Region = regionMock.Object };
+            doc.LoadedChunks[0] = new LandscapeChunk(0);
 
             // Act
-            var result = TerrainRaycast.Raycast(100, 50, vpWidth, vpHeight, cameraMock.Object, regionMock.Object, terrainCache);
+            var result = TerrainRaycast.Raycast(100, 50, vpWidth, vpHeight, cameraMock.Object, regionMock.Object, doc);
 
             // Assert
             Assert.True(result.Hit);
@@ -162,10 +167,11 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             cameraMock.Setup(c => c.ViewMatrix).Returns(Matrix4x4.CreateLookAt(new Vector3(20, 20, 100), new Vector3(20, 20, 0), Vector3.UnitY));
 
             var regionMock = CreateRegionMock();
-            var terrainCache = new TerrainEntry[81];
+            var doc = new LandscapeDocument(1) { Region = regionMock.Object };
+            doc.LoadedChunks[0] = new LandscapeChunk(0);
 
             // Act 1: 20.0f / 24.0f = 0.8333 -> Should round to 1
-            var result1 = TerrainRaycast.Raycast(50, 50, vpWidth, vpHeight, cameraMock.Object, regionMock.Object, terrainCache);
+            var result1 = TerrainRaycast.Raycast(50, 50, vpWidth, vpHeight, cameraMock.Object, regionMock.Object, doc);
 
             // Assert 1
             Assert.True(result1.Hit);
@@ -174,7 +180,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
 
             // Act 2: boundary condition at 12.0f (0.5)
             cameraMock.Setup(c => c.ViewMatrix).Returns(Matrix4x4.CreateLookAt(new Vector3(12, 12, 100), new Vector3(12, 12, 0), Vector3.UnitY));
-            var result2 = TerrainRaycast.Raycast(50, 50, vpWidth, vpHeight, cameraMock.Object, regionMock.Object, terrainCache);
+            var result2 = TerrainRaycast.Raycast(50, 50, vpWidth, vpHeight, cameraMock.Object, regionMock.Object, doc);
 
             // Assert 2
             Assert.True(result2.Hit);
@@ -191,12 +197,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
 
             for (uint y = 0; y < 8; y++) {
                 for (uint x = 0; x < 8; x++) {
-                    uint seedA = (0 * 8 + x) * 214614067u;
-                    uint seedB = (0 * 8 + y) * 1109124029u;
-                    uint magicA = seedA + 1813693831u;
-                    uint magicB = seedB;
-                    float splitDir = magicA - magicB - 1369149221u;
-                    if (splitDir * 2.3283064e-10f < 0.5f) {
+                    if (TerrainUtils.CalculateSplitDirection(0, x, 0, y) == CellSplitDirection.SWtoNE) {
                         targetCellX = x; targetCellY = y;
                         found = true; break;
                     }
@@ -217,18 +218,26 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             cameraMock.Setup(c => c.ProjectionMatrix).Returns(Matrix4x4.CreateOrthographic(100, 100, 0.1f, 1000f));
             cameraMock.Setup(c => c.ViewMatrix).Returns(Matrix4x4.CreateLookAt(new Vector3(lookX, lookY, 100), new Vector3(lookX, lookY, 0), Vector3.UnitY));
 
-            var terrainCache = new TerrainEntry[81];
-            terrainCache[blIdx] = new TerrainEntry { Height = 0 };
-            terrainCache[brIdx] = new TerrainEntry { Height = 1 };
-            terrainCache[tlIdx] = new TerrainEntry { Height = 1 };
-            terrainCache[trIdx] = new TerrainEntry { Height = 0 };
+            var doc = new LandscapeDocument(1) { Region = regionMock.Object };
+            var chunk = new LandscapeChunk(0);
+            int cStride = LandscapeChunk.ChunkVertexStride;
+            int cBlIdx = (int)(targetCellY * cStride + targetCellX);
+            int cBrIdx = (int)(targetCellY * cStride + targetCellX + 1);
+            int cTlIdx = (int)((targetCellY + 1) * cStride + targetCellX);
+            int cTrIdx = (int)((targetCellY + 1) * cStride + targetCellX + 1);
+
+            chunk.MergedEntries[cBlIdx] = new TerrainEntry { Height = 0 };
+            chunk.MergedEntries[cBrIdx] = new TerrainEntry { Height = 1 };
+            chunk.MergedEntries[cTlIdx] = new TerrainEntry { Height = 1 };
+            chunk.MergedEntries[cTrIdx] = new TerrainEntry { Height = 0 };
+            doc.LoadedChunks[0] = chunk;
 
             var heights = regionMock.Object.LandHeights;
             heights[0] = 0f;
             heights[1] = 10f;
 
             // Act
-            var result = TerrainRaycast.Raycast(50, 50, 100, 100, cameraMock.Object, regionMock.Object, terrainCache);
+            var result = TerrainRaycast.Raycast(50, 50, 100, 100, cameraMock.Object, regionMock.Object, doc);
 
             // Assert
             Assert.True(result.Hit);
@@ -265,9 +274,12 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             cameraMock.Setup(c => c.Position).Returns(camPos);
 
             var regionMock = CreateRegionMock(2000, 2000);
-            var terrainCache = new TerrainEntry[1];
+            var doc = new LandscapeDocument(1) { Region = regionMock.Object };
+            // Landblock (1000, 1000) is in chunk (1000/8, 1000/8) = (125, 125)
+            var chunkId = LandscapeChunk.GetId(125, 125);
+            doc.LoadedChunks[chunkId] = new LandscapeChunk(chunkId);
 
-            var result = TerrainRaycast.Raycast(50, 50, 100, 100, cameraMock.Object, regionMock.Object, terrainCache, loggerMock.Object);
+            var result = TerrainRaycast.Raycast(50, 50, 100, 100, cameraMock.Object, regionMock.Object, doc, loggerMock.Object);
 
             // Assert
             Assert.True(result.Hit);
@@ -277,7 +289,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             cameraMock.Setup(c => c.ViewMatrix).Returns(Matrix4x4.CreateLookAt(camPos, targetPos, Vector3.UnitY));
             cameraMock.Setup(c => c.Position).Returns(camPos);
 
-            result = TerrainRaycast.Raycast(50, 50, 100, 100, cameraMock.Object, regionMock.Object, terrainCache);
+            result = TerrainRaycast.Raycast(50, 50, 100, 100, cameraMock.Object, regionMock.Object, doc);
 
             Assert.True(result.Hit);
             var expectedVertX = baseX + 96f;
@@ -296,7 +308,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             regionMock.Setup(r => r.MapOffset).Returns(new Vector2(offset, offset));
             regionMock.Setup(r => r.GetLandblockId(It.IsAny<int>(), It.IsAny<int>()))
                 .Returns((int x, int y) => (ushort)((x << 8) + y));
-            
+
             // Look at center of map (offset + mapWidth/2)
             // MapWidth = 10 landblocks * 192 = 1920
             // Center = -1000 + 1920/2 = -1000 + 960 = -40
@@ -308,20 +320,24 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             cameraMock.Setup(c => c.ProjectionMatrix).Returns(Matrix4x4.CreatePerspectiveFieldOfView(1f, 1f, 0.1f, 1000f));
             cameraMock.Setup(c => c.ViewMatrix).Returns(Matrix4x4.CreateLookAt(position, target, Vector3.UnitY));
 
-            var terrainCache = new TerrainEntry[81 * 81];
+            var doc = new LandscapeDocument(1) { Region = regionMock.Object };
+            // Center is -40, -40. Offset is -1000.
+            // (-40 - (-1000)) = 960. 960 / 24 = 40 vertices. 40 / 8 = 5 landblocks.
+            // 5 landblocks is in chunk (0,0) since chunk is 8x8 landblocks.
+            doc.LoadedChunks[0] = new LandscapeChunk(0);
 
             // Act
-            var result = TerrainRaycast.Raycast(50, 50, 100, 100, cameraMock.Object, regionMock.Object, terrainCache);
+            var result = TerrainRaycast.Raycast(50, 50, 100, 100, cameraMock.Object, regionMock.Object, doc);
 
             // Assert
             Assert.True(result.Hit);
             Assert.InRange(result.HitPosition.X, centerX - 1f, centerX + 1f);
             Assert.InRange(result.HitPosition.Y, centerY - 1f, centerY + 1f);
-            
+
             // Landblock index for center should be 5 (if 10 landblocks)
             Assert.Equal(5u, result.LandblockX);
             Assert.Equal(5u, result.LandblockY);
-            
+
             // Nearest vertex should also account for offset
             // Vertex X for center is 5 * 8 = 40
             // World X = 40 * 24 + (-1000) = 960 - 1000 = -40

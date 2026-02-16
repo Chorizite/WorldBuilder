@@ -423,9 +423,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 var region = regionInfo.Region;
-                var terrainCache = _landscapeDoc.TerrainCache;
-                if (terrainCache == null || terrainCache.Length == 0) return;
-
                 var cellLength = regionInfo.LandblockCellLength; // 8
                 var vertLength = regionInfo.LandblockVerticeLength; // 9
 
@@ -437,9 +434,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         var globalVy = (int)(lbGlobalY * cellLength + vy);
                         if (globalVx < regionInfo.MapWidthInVertices && globalVy < regionInfo.MapHeightInVertices) {
                             var idx = globalVy * regionInfo.MapWidthInVertices + globalVx;
-                            if (idx < terrainCache.Length) {
-                                lbTerrainEntries[vx * vertLength + vy] = terrainCache[idx];
-                            }
+                            lbTerrainEntries[vx * vertLength + vy] = _landscapeDoc.GetCachedEntry((uint)idx);
                         }
                     }
                 }

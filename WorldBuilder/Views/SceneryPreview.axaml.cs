@@ -64,12 +64,12 @@ public partial class SceneryPreview : Base3DViewport {
         _gl = gl;
         var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>();
         var log = loggerFactory?.CreateLogger("SceneryPreviewScene") ?? new ColorConsoleLogger("SceneryPreviewScene", () => new ColorConsoleLoggerConfiguration());
-        
+
         _gameScene = new GameScene(gl, Renderer!.GraphicsDevice, log);
         _gameScene.Initialize();
         _gameScene.Resize(canvasSize.Width, canvasSize.Height);
         _gameScene.SetCameraMode(true);
-        
+
         // Increase render distances to ensure the preview landblock is always loaded
         _gameScene.SetTerrainRenderDistance(5);
         _gameScene.SetSceneryRenderDistance(5);
@@ -99,23 +99,30 @@ public partial class SceneryPreview : Base3DViewport {
                         _previewDoc = new LandscapeDocument(regionId) {
                             Region = _previewRegion,
                             CellDatabase = _cachedDats.CellRegions.TryGetValue(regionId, out var cellDb) ? cellDb : null,
-                            TerrainCache = new TerrainEntry[_previewRegion.MapWidthInVertices * _previewRegion.MapHeightInVertices],
-                            BaseTerrainCache = new TerrainEntry[_previewRegion.MapWidthInVertices * _previewRegion.MapHeightInVertices]
                         };
+                        var layer = new LandscapeLayer("Preview", true);
+                        _previewDoc.LayerTree.Add(layer);
                     }
                 }
             }
         }
 
         if (_previewDoc != null && _previewRegion != null) {
-            // Fill with desired texture and scenery
-            for (int i = 0; i < _previewDoc.TerrainCache.Length; i++) {
-                _previewDoc.TerrainCache[i] = new TerrainEntry {
-                    Type = (byte)_cachedTexture,
-                    Scenery = (_cachedSceneryIndex == 255) ? (byte?)null : _cachedSceneryIndex,
-                    Height = 0,
-                    Road = 0
-                };
+            var layer = _previewDoc.GetAllLayers().FirstOrDefault() as LandscapeLayer;
+            if (layer != null) {
+                // Fill with desired texture and scenery
+                for (uint vx = 0; vx < 9; vx++) {
+                    for (uint vy = 0; vy < 9; vy++) {
+                        uint idx = vy * (uint)_previewRegion.MapWidthInVertices + vx;
+                        layer.SetVertex(idx, _previewDoc, new TerrainEntry {
+                            Type = (byte)_cachedTexture,
+                            Scenery = (_cachedSceneryIndex == 255) ? (byte?)null : _cachedSceneryIndex,
+                            Height = 0,
+                            Road = 0
+                        });
+                    }
+                }
+                _previewDoc.RecalculateTerrainCache();
             }
 
             var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
@@ -140,18 +147,18 @@ public partial class SceneryPreview : Base3DViewport {
             float speed = 40f; // degrees per second
             float angleDegrees = (float)(_totalTime * speed) % 360f;
             float angleRad = angleDegrees * MathF.PI / 180f;
-            
+
             float baseRadius = 130f;
             float radiusAmplitude = 100f;
             float radius = baseRadius + MathF.Sin((float)_totalTime * 0.5f) * radiusAmplitude;
-            
+
             float baseHeight = 90f;
             float heightAmplitude = 70f;
             float height = baseHeight + MathF.Cos((float)_totalTime * 0.3f) * heightAmplitude;
 
             // Rotate around origin (0,0,0)
             cam3d.Position = new Vector3(MathF.Sin(angleRad) * radius, -MathF.Cos(angleRad) * radius, height);
-            
+
             // Point back to origin
             cam3d.LookAt(Vector3.Zero);
         }

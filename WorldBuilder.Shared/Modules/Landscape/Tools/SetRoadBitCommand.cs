@@ -45,16 +45,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             var region = _document.Region;
 
             foreach (var kvp in _previousState) {
-                int index = kvp.Key;
+                uint index = (uint)kvp.Key;
                 if (kvp.Value.HasValue) {
-                    _activeLayer.Terrain[(uint)index] = kvp.Value.Value;
+                    _activeLayer.SetVertex(index, _document, kvp.Value.Value);
                 }
                 else {
-                    _activeLayer.Terrain.Remove((uint)index);
+                    _activeLayer.RemoveVertex(index, _document);
                 }
 
-                _document.RecalculateTerrainCache(new[] { (uint)index });
-                var (vx, vy) = region.GetVertexCoordinates((uint)index);
+                _document.RecalculateTerrainCache(new[] { index });
+                var (vx, vy) = region.GetVertexCoordinates(index);
                 _context.InvalidateLandblocksForVertex(vx, vy);
             }
 
@@ -64,7 +64,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private void ApplyChange(bool record = false) {
             if (_document.Region == null || _activeLayer == null) return;
             var region = _document.Region;
-            var cache = _document.TerrainCache;
             float cellSize = region.CellSizeInUnits;
             var offset = region.MapOffset;
 
@@ -77,7 +76,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             int index = region.GetVertexIndex(vx, vy);
 
             if (record && !_previousState.ContainsKey(index)) {
-                if (_activeLayer.Terrain.TryGetValue((uint)index, out var prev)) {
+                if (_activeLayer.TryGetVertex((uint)index, _document, out var prev)) {
                     _previousState[index] = prev;
                 }
                 else {
@@ -85,10 +84,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 }
             }
 
-            var entry = _activeLayer.Terrain.GetValueOrDefault((uint)index);
+            _activeLayer.TryGetVertex((uint)index, _document, out var entry);
             if (entry.Road != (byte)_roadBits) {
                 entry.Road = (byte)_roadBits;
-                _activeLayer.Terrain[(uint)index] = entry;
+                _activeLayer.SetVertex((uint)index, _document, entry);
 
                 _document.RecalculateTerrainCache(new[] { (uint)index });
 

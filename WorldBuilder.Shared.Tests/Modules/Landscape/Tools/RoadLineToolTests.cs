@@ -55,7 +55,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             // Assert
             Assert.True(handled);
             // Verify terrain at preview position is modified (Vertex (2,1) -> Index 11)
-            Assert.Equal((byte)1, context.Document.TerrainCache[11].Road);
+            Assert.Equal((byte)1, context.Document.GetCachedEntry(11).Road);
         }
 
         [Fact]
@@ -76,33 +76,15 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             // Assert
             Assert.True(handled);
             Assert.Single(context.CommandHistory.History);
-            Assert.Equal((byte)1, context.Document.TerrainCache[11].Road);
+            Assert.Equal((byte)1, context.Document.GetCachedEntry(11).Road);
         }
 
         private LandscapeToolContext CreateContext() {
-            var doc = new LandscapeDocument("LandscapeDocument_1");
+            var doc = new LandscapeDocument((uint)0xABCD);
 
             // Bypass dats loading
             typeof(LandscapeDocument).GetField("_didLoadRegionData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
             typeof(LandscapeDocument).GetField("_didLoadLayers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
-            typeof(LandscapeDocument).GetField("_didLoadCacheFromDats", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(doc, true);
-
-            var cache = new TerrainEntry[81];
-            var baseCache = new TerrainEntry[81];
-            for (int i = 0; i < cache.Length; i++) {
-                cache[i] = new TerrainEntry();
-                baseCache[i] = new TerrainEntry();
-            }
-
-            var cacheProp = typeof(LandscapeDocument).GetProperty("TerrainCache");
-            cacheProp?.SetValue(doc, cache);
-
-            var baseCacheProp = typeof(LandscapeDocument).GetProperty("BaseTerrainCache");
-            baseCacheProp?.SetValue(doc, baseCache);
-
-            var layerId = Guid.NewGuid().ToString();
-            doc.AddLayer([], "Active Layer", true, layerId);
-            var activeLayer = (LandscapeLayer)doc.FindItem(layerId)!;
 
             var regionMock = new Mock<ITerrainInfo>();
             regionMock.Setup(r => r.CellSizeInUnits).Returns(24f);
@@ -113,15 +95,22 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             regionMock.Setup(r => r.MapHeightInVertices).Returns(9);
             regionMock.Setup(r => r.LandblockVerticeLength).Returns(9);
             regionMock.Setup(r => r.LandHeights).Returns(new float[256]);
+            regionMock.Setup(r => r.MapOffset).Returns(Vector2.Zero);
             regionMock.Setup(r => r.GetVertexIndex(It.IsAny<int>(), It.IsAny<int>()))
                 .Returns<int, int>((x, y) => y * 9 + x);
             regionMock.Setup(r => r.GetVertexCoordinates(It.IsAny<uint>()))
-                .Returns<uint>((delegate (uint idx) { return ((int)(idx % 9), (int)(idx / 9)); }));
+                .Returns<uint>(idx => ((int)(idx % 9), (int)(idx / 9)));
             regionMock.Setup(r => r.GetLandblockId(It.IsAny<int>(), It.IsAny<int>()))
                 .Returns<int, int>((x, y) => (ushort)((x << 8) + y));
 
-            var regionProp = typeof(LandscapeDocument).GetProperty("Region");
-            regionProp?.SetValue(doc, regionMock.Object);
+            doc.Region = regionMock.Object;
+
+            // Initialize LoadedChunks
+            doc.LoadedChunks[0] = new LandscapeChunk(0);
+
+            var layerId = Guid.NewGuid().ToString();
+            doc.AddLayer([], "Active Layer", true, layerId);
+            var activeLayer = (LandscapeLayer)doc.FindItem(layerId)!;
 
             var cameraMock = new Mock<ICamera>();
             var projection = Matrix4x4.CreateOrthographicOffCenter(0, 500, 500, 0, 0.1f, 1000f);

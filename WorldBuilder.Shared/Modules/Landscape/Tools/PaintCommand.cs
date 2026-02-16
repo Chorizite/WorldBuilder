@@ -64,16 +64,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             List<uint> affectedVertices = new List<uint>();
 
             foreach (var kvp in _previousState) {
-                int index = kvp.Key;
+                uint index = (uint)kvp.Key;
                 if (kvp.Value.HasValue) {
-                    _activeLayer.Terrain[(uint)index] = kvp.Value.Value;
+                    _activeLayer.SetVertex(index, _document, kvp.Value.Value);
                 }
                 else {
-                    _activeLayer.Terrain.Remove((uint)index);
+                    _activeLayer.RemoveVertex(index, _document);
                 }
 
-                affectedVertices.Add((uint)index);
-                var (vx, vy) = region.GetVertexCoordinates((uint)index);
+                affectedVertices.Add(index);
+                var (vx, vy) = region.GetVertexCoordinates(index);
                 _context.AddAffectedLandblocks(vx, vy, modifiedLandblocks);
             }
 
@@ -91,7 +91,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private void ApplyChanges(bool record = false) {
             if (_document.Region == null || _activeLayer == null) return;
             var region = _document.Region;
-            var cache = _document.TerrainCache;
 
             float cellSize = region.CellSizeInUnits; // 24
             var offset = region.MapOffset;
@@ -124,7 +123,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
                     if (distSq <= _radius * _radius) {
                         if (record && !_previousState.ContainsKey(index)) {
-                            if (_activeLayer.Terrain.TryGetValue((uint)index, out var prevEntry)) {
+                            if (_activeLayer.TryGetVertex((uint)index, _document, out var prevEntry)) {
                                 _previousState[index] = prevEntry;
                             }
                             else {
@@ -133,12 +132,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                         }
 
                         // Apply Texture to layer
-                        var entry = _activeLayer.Terrain.GetValueOrDefault((uint)index);
+                        _activeLayer.TryGetVertex((uint)index, _document, out var entry);
                         entry.Type = (byte)_textureId;
                         if (_sceneryId.HasValue) {
                             entry.Scenery = _sceneryId.Value;
                         }
-                        _activeLayer.Terrain[(uint)index] = entry;
+                        _activeLayer.SetVertex((uint)index, _document, entry);
 
                         affectedVertices.Add((uint)index);
 
