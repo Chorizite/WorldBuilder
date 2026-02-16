@@ -197,12 +197,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
 
             for (uint y = 0; y < 8; y++) {
                 for (uint x = 0; x < 8; x++) {
-                    uint seedA = (0 * 8 + x) * 214614067u;
-                    uint seedB = (0 * 8 + y) * 1109124029u;
-                    uint magicA = seedA + 1813693831u;
-                    uint magicB = seedB;
-                    float splitDir = magicA - magicB - 1369149221u;
-                    if (splitDir * 2.3283064e-10f < 0.5f) {
+                    if (TerrainUtils.CalculateSplitDirection(0, x, 0, y) == CellSplitDirection.SWtoNE) {
                         targetCellX = x; targetCellY = y;
                         found = true; break;
                     }

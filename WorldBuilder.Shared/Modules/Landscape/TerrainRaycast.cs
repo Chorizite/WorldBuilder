@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Lib;
 using WorldBuilder.Shared.Numerics;
 
 namespace WorldBuilder.Shared.Modules.Landscape {
@@ -11,10 +12,6 @@ namespace WorldBuilder.Shared.Modules.Landscape {
     /// Provides utility methods for raycasting against terrain.
     /// </summary>
     public static class TerrainRaycast {
-        private enum CellSplitDirection {
-            SWtoNE,
-            SEtoNW
-        }
 
         /// <summary>
         /// Performs a raycast against the terrain from a screen position.
@@ -170,7 +167,7 @@ namespace WorldBuilder.Shared.Modules.Landscape {
 
                 if (cellTMin > closestDistance) continue;
 
-                var splitDirection = CalculateSplitDirection(landblockX, cellX, landblockY, cellY);
+                var splitDirection = TerrainUtils.CalculateSplitDirection(landblockX, cellX, landblockY, cellY);
                 Vector3d[] triangle1;
                 Vector3d[] triangle2;
 
@@ -387,16 +384,12 @@ namespace WorldBuilder.Shared.Modules.Landscape {
                 return true;
             }
 
-            return false;
-        }
-        private static CellSplitDirection CalculateSplitDirection(uint landblockX, uint cellX, uint landblockY, uint cellY) {
-            uint seedA = (landblockX * 8 + cellX) * 214614067u;
-            uint seedB = (landblockY * 8 + cellY) * 1109124029u;
-            uint magicA = seedA + 1813693831u;
-            uint magicB = seedB;
-            float splitDir = magicA - magicB - 1369149221u;
+                        return false;
 
-            return splitDir * 2.3283064e-10f >= 0.5f ? CellSplitDirection.SEtoNW : CellSplitDirection.SWtoNE;
-        }
-    }
-}
+                    }
+
+                }
+
+            }
+
+            

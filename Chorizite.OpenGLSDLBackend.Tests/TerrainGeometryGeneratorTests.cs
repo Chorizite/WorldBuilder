@@ -4,6 +4,7 @@ using System.Buffers;
 using System.Numerics;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Lib;
 using Xunit;
 
 namespace Chorizite.OpenGLSDLBackend.Tests {
@@ -15,8 +16,8 @@ namespace Chorizite.OpenGLSDLBackend.Tests {
         [InlineData(100, 1, 100, 1, CellSplitDirection.SWtoNE)]
         public void CalculateSplitDirection_IsDeterministic(uint lbX, uint cellX, uint lbY, uint cellY, CellSplitDirection expected) {
             // Act
-            var result1 = TerrainGeometryGenerator.CalculateSplitDirection(lbX, cellX, lbY, cellY);
-            var result2 = TerrainGeometryGenerator.CalculateSplitDirection(lbX, cellX, lbY, cellY);
+            var result1 = TerrainUtils.CalculateSplitDirection(lbX, cellX, lbY, cellY);
+            var result2 = TerrainUtils.CalculateSplitDirection(lbX, cellX, lbY, cellY);
 
             // Assert
             Assert.Equal(expected, result1);
