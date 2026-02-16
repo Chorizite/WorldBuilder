@@ -355,14 +355,10 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     }
 
     [RelayCommand]
-    public void PrintCameraPosition() {
-        if (Camera != null) {
-            var pos = Camera.Position;
-            string extra = "";
-            if (_gameScene?.CurrentCamera is Camera3D cam3d) {
-                extra = $", Pitch: {cam3d.Pitch:F2}, Yaw: {cam3d.Yaw:F2}";
-            }
-            _log.LogInformation("Camera Position: X: {X:F2}, Y: {Y:F2}, Z: {Z:F2}{Extra}", pos.X, pos.Y, pos.Z, extra);
+    public void ResetCamera() {
+        if (_gameScene?.CurrentCamera is Camera3D cam3d) {
+            cam3d.Yaw = 0;
+            cam3d.Pitch = 0;
         }
     }
 

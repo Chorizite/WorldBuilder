@@ -73,7 +73,7 @@
         <ToggleButton IsChecked="{Binding IsGridEnabled}" ToolTip.Tip="Toggle Grid">
           <TextBlock Text="📏" />
         </ToggleButton>
-        <Button Command="{Binding PrintCameraPosition}" ToolTip.Tip="Print Camera Position">
+        <Button Command="{Binding ResetCamera}" ToolTip.Tip="Reset Camera">
           <TextBlock Text="🎯" />
         </Button>
       </StackPanel>
