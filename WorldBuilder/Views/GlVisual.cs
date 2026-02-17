@@ -21,6 +21,7 @@ private class GlVisual : CompositionCustomVisualHandler {
             private double _scaling = 1.0;
             private int _surfaceHeight;
             private PixelSize _controlSize;
+            private PixelRect _clip;
 
             public DateTime LastRenderTime { get; private set; } = DateTime.MinValue;
             public GL? SilkGl { get; private set; }
@@ -194,6 +195,18 @@ private class GlVisual : CompositionCustomVisualHandler {
                 var destW = controlSize.Width;
                 var destH = controlSize.Height;
 
+                // Apply manual scissor if we have a clip
+                gl.Enable(EnableCap.ScissorTest);
+                int scissorX = _position.X + _clip.X;
+                int scissorY = 0;
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+                    scissorY = _position.Y + _clip.Y;
+                }
+                else {
+                    scissorY = _surfaceHeight - (_position.Y + _clip.Y + _clip.Height);
+                }
+                gl.Scissor(scissorX, scissorY, (uint)Math.Max(0, _clip.Width), (uint)Math.Max(0, _clip.Height));
+
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
                     destY = _position.Y;
                     gl.BlitFramebuffer(
@@ -233,6 +246,7 @@ private class GlVisual : CompositionCustomVisualHandler {
                     _scaling = pos.Scaling;
                     _surfaceHeight = pos.SurfaceHeight;
                     _controlSize = pos.Size;
+                    _clip = pos.Clip;
                 }
                 base.OnMessage(message);
             }
