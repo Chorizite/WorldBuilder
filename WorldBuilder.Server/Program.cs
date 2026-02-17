@@ -1,5 +1,6 @@
 using System.Net;
 using WorldBuilder.Server.Hubs;
+using WorldBuilder.Server.Services;
 
 namespace WorldBuilder.Server {
     /// <summary>
@@ -13,6 +14,7 @@ namespace WorldBuilder.Server {
         public static void Main(string[] args) {
             var builder = WebApplication.CreateBuilder(args);
             builder.Services.AddSignalR();
+            builder.Services.AddSingleton<IWorldEventStore, InMemoryWorldEventStore>();
 
             // Only configure Kestrel if we're not in a test environment
             if (builder.Environment.EnvironmentName != "Testing") {

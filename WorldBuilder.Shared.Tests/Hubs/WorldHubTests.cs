@@ -1,4 +1,5 @@
 using WorldBuilder.Server.Hubs;
+using WorldBuilder.Server.Services;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 
@@ -8,7 +9,7 @@ public class WorldHubTests {
     [Fact]
     public async Task GetServerTime_ReturnsMonotonicTimestamp() {
         // Arrange
-        var hub = new WorldHub();
+        var hub = new WorldHub(new InMemoryWorldEventStore());
 
         // Act
         var time1 = await hub.GetServerTime();
@@ -23,7 +24,7 @@ public class WorldHubTests {
     [Fact]
     public async Task GetEventsSince_ReturnsEmptyForNewServer() {
         // Arrange
-        var hub = new WorldHub();
+        var hub = new WorldHub(new InMemoryWorldEventStore());
 
         // Act
         var events = await hub.GetEventsSince(0);
@@ -36,7 +37,7 @@ public class WorldHubTests {
     public async Task GetEventsSince_ReturnsCorrectType() {
         // This test would require mocking the hub context for full testing
         // For now, just verify the method returns an array
-        var hub = new WorldHub();
+        var hub = new WorldHub(new InMemoryWorldEventStore());
 
         var events = await hub.GetEventsSince(50);
 

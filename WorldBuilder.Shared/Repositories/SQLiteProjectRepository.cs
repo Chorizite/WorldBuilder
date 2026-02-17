@@ -56,7 +56,6 @@ namespace WorldBuilder.Shared.Repositories {
                     .AddSQLite()
                     .WithGlobalConnectionString(Connection.ConnectionString)
                     .ScanIn(typeof(Migration_001_InitialSchema).Assembly).For.Migrations())
-                .AddLogging(lb => lb.AddFluentMigratorConsole())
                 .BuildServiceProvider(false);
         }
 

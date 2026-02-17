@@ -37,8 +37,6 @@ namespace WorldBuilder.Shared.Migrations {
 
             CREATE INDEX idx_events_userid ON Events(UserId);
         ");
-
-            Console.WriteLine("Created initial schema");
         }
 
         public override void Down() {
