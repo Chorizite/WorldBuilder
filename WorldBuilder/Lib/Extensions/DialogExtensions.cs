@@ -8,7 +8,7 @@ namespace WorldBuilder.Lib.Extensions;
 public static class DialogExtensions {
     public static SettingsWindowViewModel ShowSettingsWindow(this IDialogService dialog, INotifyPropertyChanged ownerViewModel) {
         var viewModel = dialog.CreateViewModel<SettingsWindowViewModel>();
-        dialog.Show(ownerViewModel, viewModel);
+        dialog.Show(null, viewModel);
         return viewModel;
     }
 }

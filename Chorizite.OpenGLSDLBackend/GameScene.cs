@@ -296,6 +296,14 @@ public class GameScene : IDisposable {
     }
 
     /// <summary>
+    /// Sets the mouse sensitivity for the 3D camera.
+    /// </summary>
+    /// <param name="sensitivity">The sensitivity multiplier.</param>
+    public void SetMouseSensitivity(float sensitivity) {
+        _camera3D.LookSensitivity = sensitivity;
+    }
+
+    /// <summary>
     /// Sets the terrain render distance in chunks.
     /// </summary>
     /// <param name="distance">The number of chunks to render around the camera.</param>
@@ -315,6 +323,22 @@ public class GameScene : IDisposable {
         }
         if (_staticObjectManager != null) {
             _staticObjectManager.RenderDistance = distance;
+        }
+    }
+
+    /// <summary>
+    /// Sets the light intensity for the scene.
+    /// </summary>
+    /// <param name="intensity">The light intensity (ambient).</param>
+    public void SetLightIntensity(float intensity) {
+        if (_terrainManager != null) {
+            _terrainManager.LightIntensity = intensity;
+        }
+        if (_sceneryManager != null) {
+            _sceneryManager.LightIntensity = intensity;
+        }
+        if (_staticObjectManager != null) {
+            _staticObjectManager.LightIntensity = intensity;
         }
     }
 

@@ -93,6 +93,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public int QueuedUploads => _uploadQueue.Count;
         public int QueuedGenerations => _pendingGeneration.Count;
         public int ActiveLandblocks => _landblocks.Count;
+        public float LightIntensity { get; set; } = 0.3f;
 
         /// <summary>
         /// Gets the instances for a landblock.
@@ -274,7 +275,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("uViewProjection", camera.ViewProjectionMatrix);
             _shader.SetUniform("uCameraPosition", camera.Position);
             _shader.SetUniform("uLightDirection", Vector3.Normalize(new Vector3(0.3f, 0.3f, -1.0f)));
-            _shader.SetUniform("uAmbientIntensity", 0.3f);
+            _shader.SetUniform("uAmbientIntensity", LightIntensity);
             _shader.SetUniform("uSpecularPower", 32.0f);
 
             _frustum.Update(camera.ViewProjectionMatrix);

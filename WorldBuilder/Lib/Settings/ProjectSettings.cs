@@ -13,9 +13,11 @@ namespace WorldBuilder.Lib.Settings {
         private double _windowHeight = 720;
         public double WindowHeight { get => _windowHeight; set => SetProperty(ref _windowHeight, value); }
 
+        [SettingHidden]
         private Dictionary<string, bool> _layerVisibility = new();
         public Dictionary<string, bool> LayerVisibility { get => _layerVisibility; set => SetProperty(ref _layerVisibility, value); }
 
+        [SettingHidden]
         private Dictionary<string, bool> _layerExpanded = new();
         public Dictionary<string, bool> LayerExpanded { get => _layerExpanded; set => SetProperty(ref _layerExpanded, value); }
 
@@ -24,7 +26,17 @@ namespace WorldBuilder.Lib.Settings {
         private bool _overwriteDatFiles = true;
         public bool OverwriteDatFiles { get => _overwriteDatFiles; set => SetProperty(ref _overwriteDatFiles, value); }
 
+        [SettingDescription("Last directory used for DAT export")]
+        [SettingPath(PathType.Folder, DialogTitle = "Select Last DAT Export Directory")]
+        private string _lastDatExportDirectory = string.Empty;
+        public string LastDatExportDirectory { get => _lastDatExportDirectory; set => SetProperty(ref _lastDatExportDirectory, value); }
+
+        [SettingDescription("Last portal iteration used for DAT export")]
+        private int _lastDatExportPortalIteration = 0;
+        public int LastDatExportPortalIteration { get => _lastDatExportPortalIteration; set => SetProperty(ref _lastDatExportPortalIteration, value); }
+
         [JsonIgnore]
+        [SettingHidden]
         public string? FilePath { get; set; }
 
         public void Save() {

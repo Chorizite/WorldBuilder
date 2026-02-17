@@ -44,9 +44,10 @@ namespace WorldBuilder.Views {
             var contentPanels = _uiGenerator.GenerateContentPanels();
             ContentContainer.Children.Add(contentPanels);
 
-            // Select first item by default
-            if (_navigationList.Items.Count > 0) {
-                _navigationList.SelectedIndex = 0;
+            // Select first enabled item by default
+            var firstEnabled = _navigationList.Items.OfType<ListBoxItem>().FirstOrDefault(i => i.IsEnabled);
+            if (firstEnabled != null) {
+                _navigationList.SelectedItem = firstEnabled;
             }
         }
 
@@ -99,6 +100,7 @@ namespace WorldBuilder.Views {
         private void Save_Click(object? sender, RoutedEventArgs e) {
             if (Settings != null) {
                 Settings.Save();
+                Settings.Project?.Save();
             }
 
             Close();

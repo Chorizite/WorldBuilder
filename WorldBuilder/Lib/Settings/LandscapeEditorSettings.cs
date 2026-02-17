@@ -5,6 +5,7 @@ using System.Numerics;
 namespace WorldBuilder.Lib.Settings {
     [SettingCategory("Landscape Editor", Order = 1)]
     public partial class LandscapeEditorSettings : ObservableObject {
+        [SettingHidden]
         private CameraSettings _camera = new();
         public CameraSettings Camera {
             get => _camera;
@@ -16,6 +17,7 @@ namespace WorldBuilder.Lib.Settings {
             }
         }
 
+        [SettingHidden]
         private RenderingSettings _rendering = new();
         public RenderingSettings Rendering {
             get => _rendering;
@@ -27,6 +29,7 @@ namespace WorldBuilder.Lib.Settings {
             }
         }
 
+        [SettingHidden]
         private GridSettings _grid = new();
         public GridSettings Grid {
             get => _grid;

@@ -24,15 +24,28 @@ namespace WorldBuilder.Lib.Settings {
             var fieldName = "_" + char.ToLowerInvariant(property.Name[0]) + property.Name[1..];
             var field = property.DeclaringType?.GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
 
-            var displayNameAttr = field?.GetCustomAttribute<SettingDisplayNameAttribute>();
-            DisplayName = displayNameAttr?.DisplayName ?? SplitCamelCase(property.Name);
+            DisplayName = property.GetCustomAttribute<SettingDisplayNameAttribute>()?.DisplayName 
+                ?? field?.GetCustomAttribute<SettingDisplayNameAttribute>()?.DisplayName 
+                ?? SplitCamelCase(property.Name);
 
-            Description = field?.GetCustomAttribute<SettingDescriptionAttribute>()?.Description;
-            Range = field?.GetCustomAttribute<SettingRangeAttribute>();
-            Path = field?.GetCustomAttribute<SettingPathAttribute>();
-            Format = field?.GetCustomAttribute<SettingFormatAttribute>()?.Format;
-            Order = field?.GetCustomAttribute<SettingOrderAttribute>()?.Order ?? 0;
-            IsHidden = field?.GetCustomAttribute<SettingHiddenAttribute>() != null;
+            Description = property.GetCustomAttribute<SettingDescriptionAttribute>()?.Description
+                ?? field?.GetCustomAttribute<SettingDescriptionAttribute>()?.Description;
+            
+            Range = property.GetCustomAttribute<SettingRangeAttribute>()
+                ?? field?.GetCustomAttribute<SettingRangeAttribute>();
+            
+            Path = property.GetCustomAttribute<SettingPathAttribute>()
+                ?? field?.GetCustomAttribute<SettingPathAttribute>();
+            
+            Format = property.GetCustomAttribute<SettingFormatAttribute>()?.Format
+                ?? field?.GetCustomAttribute<SettingFormatAttribute>()?.Format;
+            
+            Order = property.GetCustomAttribute<SettingOrderAttribute>()?.Order 
+                ?? field?.GetCustomAttribute<SettingOrderAttribute>()?.Order 
+                ?? 0;
+            
+            IsHidden = property.GetCustomAttribute<SettingHiddenAttribute>() != null || 
+                       field?.GetCustomAttribute<SettingHiddenAttribute>() != null;
         }
 
         private static string SplitCamelCase(string str) {

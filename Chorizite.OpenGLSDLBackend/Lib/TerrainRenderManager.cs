@@ -64,6 +64,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public float GridOpacity { get; set; } = 1.0f;
         public float ScreenHeight { get; set; } = 1080.0f;
         public bool ShowUnwalkableSlopes { get; set; }
+        public float LightIntensity { get; set; } = 0.5f;
 
         private readonly Frustum _frustum = new();
         private readonly IDatReaderWriter _dats;
@@ -527,7 +528,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("xProjection", camera.ProjectionMatrix);
             _shader.SetUniform("xWorld", Matrix4x4.Identity); // Chunks are already in world space coordinates
             _shader.SetUniform("uAlpha", 1.0f);
-            _shader.SetUniform("xAmbient", 0.5f); // 0.5 ambient
+            _shader.SetUniform("xAmbient", LightIntensity); // Ambient lighting
 
             // Brush uniforms
             _shader.SetUniform("uBrushPos", BrushPosition);
