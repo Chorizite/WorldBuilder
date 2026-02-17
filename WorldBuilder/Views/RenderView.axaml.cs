@@ -161,6 +161,7 @@ public partial class RenderView : Base3DViewport {
         _gameScene.SetDrawDistance(_cameraSettings.MaxDrawDistance);
         _gameScene.SetMovementSpeed(_cameraSettings.MovementSpeed);
         _gameScene.SetFieldOfView(_cameraSettings.FieldOfView);
+        _gameScene.SetMouseSensitivity(_cameraSettings.MouseSensitivity);
 
         if (_renderingSettings != null) {
             _renderingSettings.PropertyChanged -= OnRenderingSettingsChanged;
@@ -169,6 +170,7 @@ public partial class RenderView : Base3DViewport {
         _renderingSettings.PropertyChanged += OnRenderingSettingsChanged;
         _gameScene.SetTerrainRenderDistance(_renderingSettings.TerrainRenderDistance);
         _gameScene.SetSceneryRenderDistance(_renderingSettings.SceneryRenderDistance);
+        _gameScene.SetLightIntensity(_renderingSettings.LightIntensity);
         _gameScene.ShowScenery = _renderingSettings.ShowScenery;
         _gameScene.ShowStaticObjects = _renderingSettings.ShowStaticObjects;
         _gameScene.ShowUnwalkableSlopes = _renderingSettings.ShowUnwalkableSlopes;
@@ -200,6 +202,9 @@ public partial class RenderView : Base3DViewport {
         else if (e.PropertyName == nameof(CameraSettings.FieldOfView)) {
             _gameScene.SetFieldOfView(_cameraSettings.FieldOfView);
         }
+        else if (e.PropertyName == nameof(CameraSettings.MouseSensitivity)) {
+            _gameScene.SetMouseSensitivity(_cameraSettings.MouseSensitivity);
+        }
     }
 
     private void OnRenderingSettingsChanged(object? sender, PropertyChangedEventArgs e) {
@@ -210,6 +215,9 @@ public partial class RenderView : Base3DViewport {
         }
         else if (e.PropertyName == nameof(RenderingSettings.SceneryRenderDistance)) {
             _gameScene.SetSceneryRenderDistance(_renderingSettings.SceneryRenderDistance);
+        }
+        else if (e.PropertyName == nameof(RenderingSettings.LightIntensity)) {
+            _gameScene.SetLightIntensity(_renderingSettings.LightIntensity);
         }
         else if (e.PropertyName == nameof(RenderingSettings.ShowScenery)) {
             _gameScene.ShowScenery = _renderingSettings.ShowScenery;

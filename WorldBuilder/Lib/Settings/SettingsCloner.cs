@@ -14,8 +14,18 @@ namespace WorldBuilder.Lib.Settings {
             if (source == null) throw new ArgumentNullException(nameof(source));
 
             var json = JsonSerializer.Serialize(source, SourceGenerationContext.Default.WorldBuilderSettings);
-            return JsonSerializer.Deserialize(json, SourceGenerationContext.Default.WorldBuilderSettings)
+            var clone = JsonSerializer.Deserialize(json, SourceGenerationContext.Default.WorldBuilderSettings)
                    ?? throw new InvalidOperationException("Failed to deserialize settings clone");
+
+            if (source.Project != null) {
+                var projectJson = JsonSerializer.Serialize(source.Project, SourceGenerationContext.Default.ProjectSettings);
+                clone.Project = JsonSerializer.Deserialize(projectJson, SourceGenerationContext.Default.ProjectSettings);
+                if (clone.Project != null) {
+                    clone.Project.FilePath = source.Project.FilePath;
+                }
+            }
+
+            return clone;
         }
 
         /// <summary>
@@ -28,6 +38,9 @@ namespace WorldBuilder.Lib.Settings {
             var clone = Clone(source);
             target.App = clone.App;
             target.Landscape = clone.Landscape;
+            if (clone.Project != null && target.Project != null) {
+                target.Project = clone.Project;
+            }
         }
 
         /// <summary>
@@ -40,6 +53,11 @@ namespace WorldBuilder.Lib.Settings {
             var defaults = factory();
             target.App = defaults.App;
             target.Landscape = defaults.Landscape;
+
+            if (target.Project != null) {
+                var filePath = target.Project.FilePath;
+                target.Project = new ProjectSettings { FilePath = filePath };
+            }
         }
     }
 }

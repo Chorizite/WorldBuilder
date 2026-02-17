@@ -19,7 +19,7 @@ namespace WorldBuilder.Lib.Settings {
     /// <summary>
     /// Provides description text for a setting
     /// </summary>
-    [AttributeUsage(AttributeTargets.Field)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class SettingDescriptionAttribute : Attribute {
         public string Description { get; set; }
 
@@ -31,7 +31,7 @@ namespace WorldBuilder.Lib.Settings {
     /// <summary>
     /// Defines range constraints for numeric settings
     /// </summary>
-    [AttributeUsage(AttributeTargets.Field)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class SettingRangeAttribute : Attribute {
         public double Minimum { get; set; }
         public double Maximum { get; set; }
@@ -49,7 +49,7 @@ namespace WorldBuilder.Lib.Settings {
     /// <summary>
     /// Specifies display name for a setting (if different from property name)
     /// </summary>
-    [AttributeUsage(AttributeTargets.Field)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class SettingDisplayNameAttribute : Attribute {
         public string DisplayName { get; set; }
 
@@ -61,14 +61,14 @@ namespace WorldBuilder.Lib.Settings {
     /// <summary>
     /// Marks a property as hidden from the settings UI
     /// </summary>
-    [AttributeUsage(AttributeTargets.Field)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class SettingHiddenAttribute : Attribute {
     }
 
     /// <summary>
     /// Defines the order of settings within a category
     /// </summary>
-    [AttributeUsage(AttributeTargets.Field)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class SettingOrderAttribute : Attribute {
         public int Order { get; set; }
 
@@ -80,7 +80,7 @@ namespace WorldBuilder.Lib.Settings {
     /// <summary>
     /// Specifies which control type to use for file/folder paths
     /// </summary>
-    [AttributeUsage(AttributeTargets.Field)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class SettingPathAttribute : Attribute {
         public PathType Type { get; set; }
         public string? DialogTitle { get; set; }
@@ -99,7 +99,7 @@ namespace WorldBuilder.Lib.Settings {
     /// <summary>
     /// Provides format string for displaying values
     /// </summary>
-    [AttributeUsage(AttributeTargets.Field)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class SettingFormatAttribute : Attribute {
         public string Format { get; set; }
 

@@ -114,6 +114,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         _settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
 
         if (_settings != null) {
+            CommandHistory.MaxHistoryDepth = _settings.App.HistoryLimit;
             IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
             IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
             IsUnwalkableSlopeHighlightEnabled = _settings.Landscape.Rendering.ShowUnwalkableSlopes;

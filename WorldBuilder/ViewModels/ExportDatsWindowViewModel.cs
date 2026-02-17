@@ -70,8 +70,8 @@ namespace WorldBuilder.ViewModels {
             _dats = dats;
             _datExportService = datExportService;
 
-            ExportDirectory = !string.IsNullOrEmpty(_settings.App.LastDatExportDirectory) ? _settings.App.LastDatExportDirectory : _settings.App.ProjectsDirectory;
-            PortalIteration = _settings.App.LastDatExportPortalIteration > 0 ? _settings.App.LastDatExportPortalIteration : _dats.PortalIteration;
+            ExportDirectory = !string.IsNullOrEmpty(_settings.Project?.LastDatExportDirectory) ? _settings.Project.LastDatExportDirectory : _settings.App.ProjectsDirectory;
+            PortalIteration = (_settings.Project?.LastDatExportPortalIteration ?? 0) > 0 ? _settings.Project!.LastDatExportPortalIteration : _dats.PortalIteration;
             OverwriteFiles = _settings.Project?.OverwriteDatFiles ?? true;
 
             Validate();
@@ -110,14 +110,13 @@ namespace WorldBuilder.ViewModels {
 
                 var success = await _datExportService.ExportDatsAsync(ExportDirectory, PortalIteration, OverwriteFiles, progressHandler);
                 if (success) {
-                    _settings.App.LastDatExportDirectory = ExportDirectory;
-                    _settings.App.LastDatExportPortalIteration = PortalIteration;
-                    _settings.Save();
-
                     if (_settings.Project is not null) {
+                        _settings.Project.LastDatExportDirectory = ExportDirectory;
+                        _settings.Project.LastDatExportPortalIteration = PortalIteration;
                         _settings.Project.OverwriteDatFiles = OverwriteFiles;
                         _settings.Project.Save();
                     }
+                    _settings.Save();
 
                     DialogResult = true; 
                     return true;

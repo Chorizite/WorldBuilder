@@ -8,6 +8,8 @@ public class UndoStack : IUndoStack {
     private readonly Stack<List<BaseCommand>> _redoStack = new();
     private readonly object _lock = new();
 
+    public int HistoryLimit { get; set; } = 50;
+
     public UndoStack(IDocumentManager docManager) {
         _docManager = docManager;
     }
@@ -19,6 +21,16 @@ public class UndoStack : IUndoStack {
         lock (_lock) {
             _undoStack.Push([.. events]);
             _redoStack.Clear();
+
+            while (_undoStack.Count > HistoryLimit) {
+                // Remove the oldest item from the bottom of the stack
+                var list = _undoStack.ToList();
+                list.RemoveAt(0);
+                _undoStack.Clear();
+                foreach (var item in list.AsEnumerable().Reverse()) {
+                    _undoStack.Push(item);
+                }
+            }
         }
     }
 

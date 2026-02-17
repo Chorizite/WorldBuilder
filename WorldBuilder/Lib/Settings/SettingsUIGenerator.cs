@@ -65,7 +65,8 @@ namespace WorldBuilder.Lib.Settings {
             var item = new ListBoxItem {
                 Content = category.Name,
                 Tag = tag,
-                Classes = { isRoot ? "NavSection" : "NavSubSection" }
+                Classes = { isRoot ? "NavSection" : "NavSubSection" },
+                IsEnabled = category.Properties.Any()
             };
 
             listBox.Items.Add(item);
@@ -248,6 +249,10 @@ namespace WorldBuilder.Lib.Settings {
                 textBox.Bind(TextBox.TextProperty,
                     new Binding { Source = instance, Path = bindingPath, Mode = BindingMode.TwoWay });
                 dockPanel.Children.Add(textBox);
+
+                if (_handlers != null && metadata.Path != null) {
+                    _handlers.AttachBrowseHandler(button, metadata.Path, textBox);
+                }
 
                 return dockPanel;
             }
