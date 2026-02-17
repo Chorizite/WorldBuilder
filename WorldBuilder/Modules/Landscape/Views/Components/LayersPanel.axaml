@@ -77,6 +77,7 @@
                             <!-- Visibility Toggle -->
                             <ToggleButton Grid.Column="2" IsChecked="{Binding IsVisible}" 
                                           IsVisible="{Binding CanToggleVisibility}"
+                                          ToolTip.Tip="Toggle visibility"
                                           Margin="4,0" Padding="4,2" Background="Transparent" BorderThickness="0">
                                 <icons:MaterialIcon Kind="{Binding IsVisible, Converter={StaticResource BoolToIconConverter}, ConverterParameter='Eye,EyeOff'}" Width="16" Height="16" />
                             </ToggleButton>
@@ -84,8 +85,9 @@
                             <!-- Export Toggle -->
                             <ToggleButton Grid.Column="3" IsChecked="{Binding IsExported, Mode=OneWay}" 
                                           IsVisible="{Binding CanToggleExport}"
+                                          ToolTip.Tip="Toggle data export"
                                           Command="{Binding ToggleExportCommand}" Padding="4,2" Background="Transparent" BorderThickness="0">
-                                <icons:MaterialIcon Kind="Package" Width="16" Height="16" />
+                                <icons:MaterialIcon Kind="{Binding IsExported, Converter={StaticResource BoolToIconConverter}, ConverterParameter='Pen,PenOff'}" Width="16" Height="16" />
                             </ToggleButton>
 
                             <!-- Drop Indicators -->

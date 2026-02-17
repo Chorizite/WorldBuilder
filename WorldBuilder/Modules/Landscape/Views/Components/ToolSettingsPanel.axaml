@@ -151,8 +151,10 @@
               <StackPanel Orientation="Horizontal">
                 <HeaderedContentControl Header="Fill Options" Template="{StaticResource RibbonGroupTemplate}">
                   <StackPanel Orientation="Horizontal" Spacing="12">
-                    <CheckBox Content="Contiguous" IsChecked="{Binding IsContiguous}" FontSize="12" />
-                    <CheckBox Content="Match Scenery" IsChecked="{Binding OnlyFillSameScenery}" FontSize="12" />
+                    <CheckBox Content="Contiguous" IsChecked="{Binding IsContiguous}" FontSize="12" 
+                              ToolTip.Tip="Only fill connected areas with the same texture" />
+                    <CheckBox Content="Match Scenery" IsChecked="{Binding OnlyFillSameScenery}" FontSize="12" 
+                              ToolTip.Tip="Only fill areas with the same scenery" />
                   </StackPanel>
                 </HeaderedContentControl>
                 
