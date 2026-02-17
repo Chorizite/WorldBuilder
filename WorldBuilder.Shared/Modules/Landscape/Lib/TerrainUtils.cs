@@ -17,6 +17,21 @@ namespace WorldBuilder.Shared.Modules.Landscape.Lib
         public const float RoadWidth = 5f;
 
         /// <summary>
+        /// The minimum Z component of a surface normal for it to be considered walkable.
+        /// </summary>
+        public const float FloorZ = 0.66417414618662751f;
+
+        /// <summary>
+        /// Determines if a surface with the given normal is walkable.
+        /// </summary>
+        /// <param name="normal">The surface normal.</param>
+        /// <returns>True if the surface is walkable, false otherwise.</returns>
+        public static bool IsValidWalkable(Vector3 normal)
+        {
+            return normal.Z >= FloorZ;
+        }
+
+        /// <summary>
         /// Calculates the split direction for a terrain cell based on its coordinates.
         /// This is deterministic and used to ensure consistency between the renderer and physics/logic.
         /// </summary>

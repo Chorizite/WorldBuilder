@@ -15,7 +15,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     /// </summary>
     public static class TerrainGeometryGenerator {
         public const int CellsPerLandblock = 64; // 8x8
-        public const int VerticesPerLandblock = CellsPerLandblock * 4;
+        public const int VerticesPerLandblock = CellsPerLandblock * 6;
         public const int IndicesPerLandblock = CellsPerLandblock * 6;
         public const float RoadWidth = 5f;
 
@@ -133,7 +133,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     minZ = Math.Min(minZ, cellMinZ);
                     maxZ = Math.Max(maxZ, cellMaxZ);
 
-                    currentVertexIndex += 4;
+                    currentVertexIndex += 6;
                     currentIndexPosition += 6;
                 }
             }
@@ -174,19 +174,45 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             ref VertexLandscape v1 = ref vertices[(int)currentVertexIndex + 1];
             ref VertexLandscape v2 = ref vertices[(int)currentVertexIndex + 2];
             ref VertexLandscape v3 = ref vertices[(int)currentVertexIndex + 3];
+            ref VertexLandscape v4 = ref vertices[(int)currentVertexIndex + 4];
+            ref VertexLandscape v5 = ref vertices[(int)currentVertexIndex + 5];
 
             // Initialize vertices
             v0 = new VertexLandscape();
             v1 = new VertexLandscape();
             v2 = new VertexLandscape();
             v3 = new VertexLandscape();
+            v4 = new VertexLandscape();
+            v5 = new VertexLandscape();
 
-            // Vertices are X, Y, Z (Z is Up to match GameScene logic for cube)
-            // But verify: GameScene used 0,0,0 with Z up? Yes.
-            v0.Position = new Vector3(x0, y0, h0);
-            v1.Position = new Vector3(x1, y0, h1);
-            v2.Position = new Vector3(x1, y1, h2);
-            v3.Position = new Vector3(x0, y1, h3);
+            // Positions for the 4 corners
+            Vector3 pBL = new Vector3(x0, y0, h0);
+            Vector3 pBR = new Vector3(x1, y0, h1);
+            Vector3 pTR = new Vector3(x1, y1, h2);
+            Vector3 pTL = new Vector3(x0, y1, h3);
+
+            var splitDirection = TerrainUtils.CalculateSplitDirection(landblockX, cellX, landblockY, cellY);
+
+            if (splitDirection == CellSplitDirection.SWtoNE) {
+                // Triangle 1: BL, TL, BR
+                v0.Position = pBL;
+                v1.Position = pTL;
+                v2.Position = pBR;
+                // Triangle 2: BR, TL, TR
+                v3.Position = pBR;
+                v4.Position = pTL;
+                v5.Position = pTR;
+            }
+            else {
+                // Triangle 1: BL, TR, BR
+                v0.Position = pBL;
+                v1.Position = pTR;
+                v2.Position = pBR;
+                // Triangle 2: BL, TL, TR
+                v3.Position = pBL;
+                v4.Position = pTL;
+                v5.Position = pTR;
+            }
 
             // Texture Logic
             if (surfaceManager != null) {
@@ -206,50 +232,48 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var surfInfo = surfaceManager.GetLandSurface(surfNum);
 
                 if (surfInfo != null) {
-                    surfaceManager.FillVertexData(landblockID, cellX, cellY, baseLandblockX, baseLandblockY, ref v0, bottomLeft.Height ?? 0, surfInfo, 0);
-                    surfaceManager.FillVertexData(landblockID, cellX + 1, cellY, baseLandblockX, baseLandblockY, ref v1, bottomRight.Height ?? 0, surfInfo, 1);
-                    surfaceManager.FillVertexData(landblockID, cellX + 1, cellY + 1, baseLandblockX, baseLandblockY, ref v2, topRight.Height ?? 0, surfInfo, 2);
-                    surfaceManager.FillVertexData(landblockID, cellX, cellY + 1, baseLandblockX, baseLandblockY, ref v3, topLeft.Height ?? 0, surfInfo, 3);
+                    if (splitDirection == CellSplitDirection.SWtoNE) {
+                        // Triangle 1: BL, TL, BR (Corners 0, 3, 1)
+                        surfaceManager.FillVertexData(landblockID, cellX, cellY, baseLandblockX, baseLandblockY, ref v0, bottomLeft.Height ?? 0, surfInfo, 0);
+                        surfaceManager.FillVertexData(landblockID, cellX, cellY + 1, baseLandblockX, baseLandblockY, ref v1, topLeft.Height ?? 0, surfInfo, 3);
+                        surfaceManager.FillVertexData(landblockID, cellX + 1, cellY, baseLandblockX, baseLandblockY, ref v2, bottomRight.Height ?? 0, surfInfo, 1);
+
+                        // Triangle 2: BR, TL, TR (Corners 1, 3, 2)
+                        surfaceManager.FillVertexData(landblockID, cellX + 1, cellY, baseLandblockX, baseLandblockY, ref v3, bottomRight.Height ?? 0, surfInfo, 1);
+                        surfaceManager.FillVertexData(landblockID, cellX, cellY + 1, baseLandblockX, baseLandblockY, ref v4, topLeft.Height ?? 0, surfInfo, 3);
+                        surfaceManager.FillVertexData(landblockID, cellX + 1, cellY + 1, baseLandblockX, baseLandblockY, ref v5, topRight.Height ?? 0, surfInfo, 2);
+                    }
+                    else {
+                        // Triangle 1: BL, TR, BR (Corners 0, 2, 1)
+                        surfaceManager.FillVertexData(landblockID, cellX, cellY, baseLandblockX, baseLandblockY, ref v0, bottomLeft.Height ?? 0, surfInfo, 0);
+                        surfaceManager.FillVertexData(landblockID, cellX + 1, cellY + 1, baseLandblockX, baseLandblockY, ref v1, topRight.Height ?? 0, surfInfo, 2);
+                        surfaceManager.FillVertexData(landblockID, cellX + 1, cellY, baseLandblockX, baseLandblockY, ref v2, bottomRight.Height ?? 0, surfInfo, 1);
+
+                        // Triangle 2: BL, TL, TR (Corners 0, 3, 2)
+                        surfaceManager.FillVertexData(landblockID, cellX, cellY, baseLandblockX, baseLandblockY, ref v3, bottomLeft.Height ?? 0, surfInfo, 0);
+                        surfaceManager.FillVertexData(landblockID, cellX, cellY + 1, baseLandblockX, baseLandblockY, ref v4, topLeft.Height ?? 0, surfInfo, 3);
+                        surfaceManager.FillVertexData(landblockID, cellX + 1, cellY + 1, baseLandblockX, baseLandblockY, ref v5, topRight.Height ?? 0, surfInfo, 2);
+                    }
                 }
                 else {
-                    // Set safe defaults to avoid black terrain
                     InitVertexTextureDefaults(ref v0);
                     InitVertexTextureDefaults(ref v1);
                     InitVertexTextureDefaults(ref v2);
                     InitVertexTextureDefaults(ref v3);
+                    InitVertexTextureDefaults(ref v4);
+                    InitVertexTextureDefaults(ref v5);
                 }
             }
 
-            var splitDirection = TerrainUtils.CalculateSplitDirection(landblockX, cellX, landblockY, cellY);
-            CalculateVertexNormals(splitDirection, ref v0, ref v1, ref v2, ref v3);
+            CalculateTriangleNormals(ref v0, ref v1, ref v2, ref v3, ref v4, ref v5);
 
             ref uint indexRef = ref indices[(int)currentIndexPosition];
-
-            if (splitDirection == CellSplitDirection.SWtoNE) {
-                // Diagonal from bottom-left to top-right
-                // Tri 1: BL, TL, BR (0, 3, 1) - CW
-                Unsafe.Add(ref indexRef, 0) = currentVertexIndex + 0;
-                Unsafe.Add(ref indexRef, 1) = currentVertexIndex + 3;
-                Unsafe.Add(ref indexRef, 2) = currentVertexIndex + 1;
-
-                // Tri 2: BR, TL, TR (1, 3, 2) - CW
-                Unsafe.Add(ref indexRef, 3) = currentVertexIndex + 1;
-                Unsafe.Add(ref indexRef, 4) = currentVertexIndex + 3;
-                Unsafe.Add(ref indexRef, 5) = currentVertexIndex + 2;
-            }
-            else {
-                // SEtoNW
-                // Diagonal from bottom-right to top-left
-                // Tri 1: BL, TR, BR (0, 2, 1) - CW
-                Unsafe.Add(ref indexRef, 0) = currentVertexIndex + 0;
-                Unsafe.Add(ref indexRef, 1) = currentVertexIndex + 2;
-                Unsafe.Add(ref indexRef, 2) = currentVertexIndex + 1;
-
-                // Tri 2: BL, TL, TR (0, 3, 2) - CW
-                Unsafe.Add(ref indexRef, 3) = currentVertexIndex + 0;
-                Unsafe.Add(ref indexRef, 4) = currentVertexIndex + 3;
-                Unsafe.Add(ref indexRef, 5) = currentVertexIndex + 2;
-            }
+            Unsafe.Add(ref indexRef, 0) = currentVertexIndex + 0;
+            Unsafe.Add(ref indexRef, 1) = currentVertexIndex + 1;
+            Unsafe.Add(ref indexRef, 2) = currentVertexIndex + 2;
+            Unsafe.Add(ref indexRef, 3) = currentVertexIndex + 3;
+            Unsafe.Add(ref indexRef, 4) = currentVertexIndex + 4;
+            Unsafe.Add(ref indexRef, 5) = currentVertexIndex + 5;
 
             return (minZ, maxZ);
         }
@@ -284,41 +308,23 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void CalculateVertexNormals(CellSplitDirection splitDirection, ref VertexLandscape v0,
-            ref VertexLandscape v1, ref VertexLandscape v2, ref VertexLandscape v3) {
-            Vector3 p0 = v0.Position;
-            Vector3 p1 = v1.Position;
-            Vector3 p2 = v2.Position;
-            Vector3 p3 = v3.Position;
+        private static void CalculateTriangleNormals(ref VertexLandscape v0, ref VertexLandscape v1, ref VertexLandscape v2,
+            ref VertexLandscape v3, ref VertexLandscape v4, ref VertexLandscape v5) {
+            // Triangle 1
+            Vector3 edge1_t1 = v1.Position - v0.Position;
+            Vector3 edge2_t1 = v2.Position - v0.Position;
+            Vector3 normal1 = Vector3.Normalize(Vector3.Cross(edge2_t1, edge1_t1));
+            v0.Normal = normal1;
+            v1.Normal = normal1;
+            v2.Normal = normal1;
 
-            if (splitDirection == CellSplitDirection.SWtoNE) {
-                Vector3 edge1_t1 = p3 - p0;
-                Vector3 edge2_t1 = p1 - p0;
-                Vector3 normal1 = Vector3.Normalize(Vector3.Cross(edge1_t1, edge2_t1));
-
-                Vector3 edge1_t2 = p3 - p1;
-                Vector3 edge2_t2 = p2 - p1;
-                Vector3 normal2 = Vector3.Normalize(Vector3.Cross(edge1_t2, edge2_t2));
-
-                v0.Normal = normal1;
-                v1.Normal = Vector3.Normalize(normal1 + normal2);
-                v2.Normal = normal2;
-                v3.Normal = Vector3.Normalize(normal1 + normal2);
-            }
-            else {
-                Vector3 edge1_t1 = p2 - p0;
-                Vector3 edge2_t1 = p1 - p0;
-                Vector3 normal1 = Vector3.Normalize(Vector3.Cross(edge1_t1, edge2_t1));
-
-                Vector3 edge1_t2 = p3 - p0;
-                Vector3 edge2_t2 = p2 - p0;
-                Vector3 normal2 = Vector3.Normalize(Vector3.Cross(edge1_t2, edge2_t2));
-
-                v0.Normal = Vector3.Normalize(normal1 + normal2);
-                v1.Normal = normal1;
-                v2.Normal = Vector3.Normalize(normal1 + normal2);
-                v3.Normal = normal2;
-            }
+            // Triangle 2
+            Vector3 edge1_t2 = v4.Position - v3.Position;
+            Vector3 edge2_t2 = v5.Position - v3.Position;
+            Vector3 normal2 = Vector3.Normalize(Vector3.Cross(edge2_t2, edge1_t2));
+            v3.Normal = normal2;
+            v4.Normal = normal2;
+            v5.Normal = normal2;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
