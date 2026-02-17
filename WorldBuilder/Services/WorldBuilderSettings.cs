@@ -78,7 +78,7 @@ namespace WorldBuilder.Services {
                     var json = File.ReadAllText(SettingsFilePath);
                     var settings = JsonSerializer.Deserialize<WorldBuilderSettings>(json, SourceGenerationContext.Default.WorldBuilderSettings);
                     if (settings != null) {
-                        foreach (var property in settings.GetType().GetProperties()) {
+                        foreach (var property in typeof(WorldBuilderSettings).GetProperties()) {
                             if (property.CanWrite) {
                                 property.SetValue(this, property.GetValue(settings));
                             }

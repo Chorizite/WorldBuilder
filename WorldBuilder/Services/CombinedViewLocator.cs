@@ -3,6 +3,7 @@ using Avalonia.Controls.Templates;
 using HanumanInstitute.MvvmDialogs.Avalonia;
 using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using WorldBuilder.Lib;
 using WorldBuilder.ViewModels;
 
@@ -60,6 +61,7 @@ public class CombinedViewLocator : ViewLocatorBase, IDataTemplate {
     }
 
     /// <inheritdoc />
+    [UnconditionalSuppressMessage("Trimming", "IL2026:Reflection is used to locate views", Justification = "View resolution by name is a standard pattern in this app")]
     protected override string GetViewName(object viewModel) {
         var viewModelType = viewModel.GetType();
         var viewModelName = viewModelType.FullName!;

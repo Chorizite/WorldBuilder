@@ -675,9 +675,7 @@ namespace WorldBuilder.Shared.Models {
 
                 if (Rotation.HasValue != other.Rotation.HasValue) return false;
 
-                if (Rotation.HasValue) {
-                    var q1 = Rotation.Value;
-                    var q2 = other.Rotation.Value;
+                if (Rotation is { } q1 && other.Rotation is { } q2) {
                     return Math.Abs(q1.X - q2.X) < 0.001f &&
                            Math.Abs(q1.Y - q2.Y) < 0.001f &&
                            Math.Abs(q1.Z - q2.Z) < 0.001f &&

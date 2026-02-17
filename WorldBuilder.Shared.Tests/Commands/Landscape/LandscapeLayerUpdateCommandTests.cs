@@ -50,6 +50,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             var (terrainDoc, terrainRental) = CreateMockTerrainRental();
             terrainDoc.AddLayer([], "Test Layer", false, layerId);
             var layer = terrainDoc.FindItem(layerId) as LandscapeLayer;
+            Assert.NotNull(layer);
 
             var changes = new Dictionary<uint, TerrainEntry?> { { 100u, new TerrainEntry { Height = 10 } } };
             var command = new LandscapeLayerUpdateCommand {
@@ -136,6 +137,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             var (terrainDoc, terrainRental) = CreateMockTerrainRental();
             terrainDoc.AddLayer([], "Test Layer", false, layerId);
             var layer = terrainDoc.FindItem(layerId) as LandscapeLayer;
+            Assert.NotNull(layer);
             // Initial state
             layer.SetVertex(100u, terrainDoc, new TerrainEntry { Height = 5 });
 
@@ -208,6 +210,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             var (terrainDoc, terrainRental) = CreateMockTerrainRental();
             terrainDoc.AddLayer([], "Test Layer", false, layerId);
             var layer = terrainDoc.FindItem(layerId) as LandscapeLayer;
+            Assert.NotNull(layer);
             layer.SetVertex(100, terrainDoc, new TerrainEntry { Height = 10 });
 
             var changes = new Dictionary<uint, TerrainEntry?> { { 100u, null } };

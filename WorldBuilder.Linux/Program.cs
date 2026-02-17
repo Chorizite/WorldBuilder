@@ -10,7 +10,7 @@ namespace WorldBuilder.Linux;
 
 sealed class Program {
     [STAThread]
-    [RequiresAssemblyFiles("Calls System.Reflection.Assembly.Location")]
+    [UnconditionalSuppressMessage("SingleFile", "IL3002:Calls SetAppVersion which requires assembly files", Justification = "Versioning is non-critical and handled with try-catch")]
     public static void Main(string[] args) {
         VelopackApp.Build().Run();
 
@@ -22,16 +22,7 @@ sealed class Program {
                 Console.WriteLine(e.ExceptionObject);
             };
 
-            try {
-                Assembly currentAssembly = Assembly.GetExecutingAssembly();
-                string currentAssemblyPath = currentAssembly.Location;
-
-                FileVersionInfo currentFvi = FileVersionInfo.GetVersionInfo(currentAssemblyPath);
-
-                App.Version = currentFvi?.ProductVersion ?? "0.0.0";
-                Console.WriteLine($"Version: {App.Version}");
-            }
-            catch { }
+            SetAppVersion();
 
             BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
@@ -39,6 +30,20 @@ sealed class Program {
         catch (Exception e) {
             Console.WriteLine(e);
         }
+    }
+
+    [RequiresAssemblyFiles("Calls System.Reflection.Assembly.Location")]
+    private static void SetAppVersion() {
+        try {
+            Assembly currentAssembly = Assembly.GetExecutingAssembly();
+            string currentAssemblyPath = currentAssembly.Location;
+
+            FileVersionInfo currentFvi = FileVersionInfo.GetVersionInfo(currentAssemblyPath);
+
+            App.Version = currentFvi?.ProductVersion ?? "0.0.0";
+            Console.WriteLine($"Version: {App.Version}");
+        }
+        catch { }
     }
 
     public static AppBuilder BuildAvaloniaApp()
