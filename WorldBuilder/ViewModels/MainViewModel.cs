@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using WorldBuilder.Lib;
+using WorldBuilder.Lib.Settings;
 
 namespace WorldBuilder.ViewModels;
 
@@ -29,6 +30,7 @@ namespace WorldBuilder.ViewModels;
 /// </summary>
 public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<OpenQualifiedDataIdMessage> {
     private readonly WorldBuilderSettings _settings;
+    private readonly ThemeService _themeService;
     private readonly IDialogService _dialogService;
     private readonly IServiceProvider _serviceProvider;
     private readonly Project _project;
@@ -36,6 +38,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     private readonly PerformanceService _performanceService;
     private readonly CancellationTokenSource _cts = new();
     private bool _settingsOpen;
+
+    /// <summary>
+    /// Gets a value indicating whether the application is in dark mode.
+    /// </summary>
+    public bool IsDarkMode => _themeService.IsDarkMode;
 
     /// <summary>
     /// Gets a value indicating whether the current project is read-only.
@@ -68,6 +75,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     [Obsolete("Designer use only")]
     internal MainViewModel() {
         _settings = new WorldBuilderSettings();
+        _themeService = null!;
         _dialogService = null!;
         _serviceProvider = null!;
         _project = null!;
@@ -78,9 +86,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
     [UnconditionalSuppressMessage("Trimming", "IL2026")]
     [UnconditionalSuppressMessage("AOT", "IL3050")]
-    public MainViewModel(WorldBuilderSettings settings, IDialogService dialogService, IServiceProvider serviceProvider, Project project,
+    public MainViewModel(WorldBuilderSettings settings, ThemeService themeService, IDialogService dialogService, IServiceProvider serviceProvider, Project project,
         IEnumerable<IToolModule> toolModules, PerformanceService performanceService, IDatReaderWriter dats) {
         _settings = settings;
+        _themeService = themeService;
         _dialogService = dialogService;
         _serviceProvider = serviceProvider;
         _project = project;
@@ -94,6 +103,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
         if (ToolTabs.Count > 0) {
             ToolTabs[0].IsSelected = true;
         }
+
+        _themeService.PropertyChanged += OnThemeServicePropertyChanged;
 
         WeakReferenceMessenger.Default.RegisterAll(this);
 
@@ -169,9 +180,16 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
 
     /// <inheritdoc />
     public void Dispose() {
+        _themeService.PropertyChanged -= OnThemeServicePropertyChanged;
         WeakReferenceMessenger.Default.UnregisterAll(this);
         _cts.Cancel();
         _cts.Dispose();
+    }
+
+    private void OnThemeServicePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
+        if (e.PropertyName == nameof(ThemeService.IsDarkMode)) {
+            OnPropertyChanged(nameof(IsDarkMode));
+        }
     }
 
     private string FormatBytes(long bytes) {
@@ -203,5 +221,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
         if (desktop?.MainWindow is Views.MainWindow mainWindow) {
             mainWindow.OpenDebugWindow();
         }
+    }
+
+    [RelayCommand]
+    private void ToggleTheme() {
+        _themeService.ToggleTheme();
     }
 }

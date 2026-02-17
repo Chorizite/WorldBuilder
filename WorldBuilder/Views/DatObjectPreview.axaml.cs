@@ -36,6 +36,14 @@ namespace WorldBuilder.Views {
             set => SetValue(IsTooltipProperty, value);
         }
 
+        public static readonly StyledProperty<IBrush?> ClearColorProperty =
+            AvaloniaProperty.Register<DatObjectPreview, IBrush?>(nameof(ClearColor));
+
+        public IBrush? ClearColor {
+            get => GetValue(ClearColorProperty);
+            set => SetValue(ClearColorProperty, value);
+        }
+
         public static readonly StyledProperty<bool> Is3DProperty =
             AvaloniaProperty.Register<DatObjectPreview, bool>(nameof(Is3D));
 

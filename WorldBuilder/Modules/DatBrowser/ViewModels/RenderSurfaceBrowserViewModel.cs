@@ -13,7 +13,7 @@ using DatReaderWriter;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
     public partial class RenderSurfaceBrowserViewModel : BaseDatBrowserViewModel<DatReaderWriter.DBObjs.RenderSurface> {
-        public RenderSurfaceBrowserViewModel(IDatReaderWriter dats) : base(DBObjType.RenderSurface, dats) {
+        public RenderSurfaceBrowserViewModel(IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService) : base(DBObjType.RenderSurface, dats, settings, themeService) {
         }
     }
 }

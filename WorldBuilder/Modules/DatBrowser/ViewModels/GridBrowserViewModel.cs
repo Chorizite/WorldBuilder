@@ -10,6 +10,8 @@ using System;
 using WorldBuilder.Shared.Services;
 using CommunityToolkit.Mvvm.Messaging;
 using DatReaderWriter.Enums;
+using WorldBuilder.Services;
+using WorldBuilder.Lib.Settings;
 
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
@@ -17,6 +19,8 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private readonly IDatReaderWriter _dats;
         private readonly DBObjType _type;
         private readonly Action<uint> _onSelected;
+        private readonly WorldBuilderSettings _settings;
+        private readonly ThemeService _themeService;
 
         [ObservableProperty]
         private uint _selectedFileId;
@@ -27,15 +31,25 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         [ObservableProperty]
         private double _itemSize = 160;
 
+        public bool IsDarkMode => _themeService.IsDarkMode;
+
         public ObservableCollection<uint> FileIds { get; } = new();
 
         public IDatReaderWriter Dats => _dats;
 
-        public GridBrowserViewModel(DBObjType type, IDatReaderWriter dats, Action<uint> onSelected) {
+        public GridBrowserViewModel(DBObjType type, IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService, Action<uint> onSelected) {
             _type = type;
             _dats = dats;
+            _settings = settings;
+            _themeService = themeService;
             _onSelected = onSelected;
             _title = $"Browsing {type}";
+
+            _themeService.PropertyChanged += (s, e) => {
+                if (e.PropertyName == nameof(ThemeService.IsDarkMode)) {
+                    OnPropertyChanged(nameof(IsDarkMode));
+                }
+            };
 
             LoadIds();
         }

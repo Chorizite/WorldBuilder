@@ -39,6 +39,8 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public ICamera Camera => _camera;
 
+        public Vector4 BackgroundColor { get; set; } = new Vector4(0.15f, 0.15f, 0.2f, 1.0f);
+
         public bool IsAutoCamera {
             get => _isAutoCamera;
             set {
@@ -193,7 +195,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 _gl.ClearDepth(1.0f);
                 _gl.Disable(EnableCap.CullFace);
 
-                _gl.ClearColor(0.15f, 0.15f, 0.2f, 1.0f);
+                _gl.ClearColor(BackgroundColor.X, BackgroundColor.Y, BackgroundColor.Z, BackgroundColor.W);
                 _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
                 // Check if we need to swap objects

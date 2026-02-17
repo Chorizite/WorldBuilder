@@ -13,7 +13,7 @@ using DatReaderWriter;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
     public partial class SurfaceBrowserViewModel : BaseDatBrowserViewModel<DatReaderWriter.DBObjs.Surface> {
-        public SurfaceBrowserViewModel(IDatReaderWriter dats) : base(DBObjType.Surface, dats) {
+        public SurfaceBrowserViewModel(IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService) : base(DBObjType.Surface, dats, settings, themeService) {
         }
 
         protected override void OnObjectLoaded(DatReaderWriter.DBObjs.Surface? obj) {

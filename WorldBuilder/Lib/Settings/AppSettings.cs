@@ -4,6 +4,12 @@ using System;
 using System.IO;
 
 namespace WorldBuilder.Lib.Settings {
+    public enum AppTheme {
+        Default,
+        Light,
+        Dark
+    }
+
     [SettingCategory("Application", Order = 0)]
     public partial class AppSettings : ObservableObject {
         [SettingDescription("Directory where all WorldBuilder projects are stored")]
@@ -38,5 +44,10 @@ namespace WorldBuilder.Lib.Settings {
         [SettingOrder(6)]
         private string _lastBaseDatDirectory = string.Empty;
         public string LastBaseDatDirectory { get => _lastBaseDatDirectory; set => SetProperty(ref _lastBaseDatDirectory, value); }
+
+        [SettingDescription("Application Theme")]
+        [SettingOrder(7)]
+        private AppTheme _theme = AppTheme.Default;
+        public AppTheme Theme { get => _theme; set => SetProperty(ref _theme, value); }
     }
 }

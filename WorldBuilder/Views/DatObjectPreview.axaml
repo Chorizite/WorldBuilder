@@ -17,6 +17,7 @@
             IsSetup="{Binding IsSetup, ElementName=Root}"
             Dats="{Binding Dats, ElementName=Root}"
             IsTooltip="{Binding IsTooltip, ElementName=Root}"
+            ClearColor="{Binding ClearColor, ElementName=Root}"
             HorizontalAlignment="Stretch" 
             VerticalAlignment="Stretch"/>
 
@@ -68,7 +69,7 @@
                    VerticalAlignment="Center" 
                    Foreground="{DynamicResource SemiColorText2}"/>
 
-        <Border Background="{DynamicResource SemiColorFill0}" 
+        <Border Background="{DynamicResource SemiColorFill2}" 
                 VerticalAlignment="Bottom" 
                 HorizontalAlignment="Stretch"
                 IsVisible="{Binding IsTooltip, ElementName=Root}"
@@ -76,18 +77,18 @@
             <StackPanel Orientation="Horizontal" Spacing="5" IsVisible="{Binding HasData, ElementName=Root}">
                 <TextBlock Text="{Binding DataId, ElementName=Root, StringFormat='0x{0:X8}'}" 
                            Foreground="{DynamicResource SemiColorText0}" 
-                           FontSize="10"
+                           FontSize="11"
                            FontFamily="Cascadia Code,Consolas,Monospace"/>
-                <TextBlock Text="|" Foreground="{DynamicResource SemiColorText2}" FontSize="10" />
+                <TextBlock Text="|" Foreground="{DynamicResource SemiColorText2}" FontSize="11" />
                 <TextBlock Text="{Binding DataObjectType, ElementName=Root}" 
                            Foreground="{DynamicResource SemiColorText0}" 
-                           FontSize="10"
+                           FontSize="11"
                            FontFamily="Cascadia Code,Consolas,Monospace"/>
                 <StackPanel Orientation="Horizontal" IsVisible="{Binding PreviewDetails, ElementName=Root, Converter={x:Static ObjectConverters.IsNotNull}}">
-                    <TextBlock Text="|" Foreground="{DynamicResource SemiColorText2}" FontSize="10" Margin="5,0" />
+                    <TextBlock Text="|" Foreground="{DynamicResource SemiColorText2}" FontSize="11" Margin="5,0" />
                     <TextBlock Text="{Binding PreviewDetails, ElementName=Root}" 
                                Foreground="{DynamicResource SemiColorText2}" 
-                               FontSize="10"
+                               FontSize="11"
                                FontFamily="Cascadia Code,Consolas,Monospace"/>
                 </StackPanel>
             </StackPanel>

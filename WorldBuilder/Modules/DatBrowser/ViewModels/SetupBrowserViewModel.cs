@@ -8,10 +8,11 @@ using DatReaderWriter.Enums;
 using DatReaderWriter.Lib.IO;
 using DatReaderWriter.Types;
 using DatReaderWriter;
+using WorldBuilder.Services;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
     public partial class SetupBrowserViewModel : BaseDatBrowserViewModel<DatReaderWriter.DBObjs.Setup> {
-        public SetupBrowserViewModel(IDatReaderWriter dats) : base(DBObjType.Setup, dats) {
+        public SetupBrowserViewModel(IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService) : base(DBObjType.Setup, dats, settings, themeService) {
         }
     }
 }

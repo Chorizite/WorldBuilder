@@ -3,8 +3,8 @@
              xmlns:vm="clr-namespace:WorldBuilder.ViewModels"
              x:DataType="vm:MainViewModel"
              x:Class="WorldBuilder.Views.Components.StatusBar">
-    <Border Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
-            BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"
+    <Border Background="{DynamicResource SemiColorBackground0}"
+            BorderBrush="{DynamicResource SemiColorBorder}"
             BorderThickness="0,1,0,0"
             Padding="8,2">
         <Grid ColumnDefinitions="*, Auto, Auto">

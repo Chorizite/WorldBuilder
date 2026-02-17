@@ -7,8 +7,8 @@
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="450"
              x:Class="WorldBuilder.Modules.Landscape.Views.Components.LayersPanel"
              x:DataType="vm:LayersPanelViewModel">
-    <Border Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
-            BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"
+    <Border Background="{DynamicResource SemiColorBackground0}"
+            BorderBrush="{DynamicResource SemiColorBorder}"
             BorderThickness="1"
             CornerRadius="4" Padding="4">
         <Grid RowDefinitions="Auto, Auto, *">

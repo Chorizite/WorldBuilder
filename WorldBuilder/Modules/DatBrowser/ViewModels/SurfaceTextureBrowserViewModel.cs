@@ -20,7 +20,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         [ObservableProperty]
         private IReadOnlyList<uint> _textures = Array.Empty<uint>();
 
-        public SurfaceTextureBrowserViewModel(IDatReaderWriter dats) : base(DBObjType.SurfaceTexture, dats) {
+        public SurfaceTextureBrowserViewModel(IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService) : base(DBObjType.SurfaceTexture, dats, settings, themeService) {
         }
 
         protected override void OnObjectLoaded(DatReaderWriter.DBObjs.SurfaceTexture? obj) {
