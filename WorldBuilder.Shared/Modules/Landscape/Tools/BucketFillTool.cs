@@ -16,7 +16,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <inheritdoc/>
         public string Name => "Paint Bucket";
         /// <inheritdoc/>
-        public string IconGlyph => "🪣";
+        public string IconGlyph => "FormatColorFill";
         /// <inheritdoc/>
         public bool IsActive { get; private set; }
 

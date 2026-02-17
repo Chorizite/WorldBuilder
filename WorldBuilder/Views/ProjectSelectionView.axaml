@@ -6,6 +6,7 @@
     xmlns:lib="clr-namespace:WorldBuilder.Lib"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:WorldBuilder.ViewModels"
+    xmlns:icons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
     d:DesignHeight="600"
     d:DesignWidth="1000"
     x:CompileBindings="True"
@@ -89,21 +90,20 @@
                                         </Button.Styles>
                                         <StackPanel Margin="0,0,22,0">
                                             <DockPanel LastChildFill="True">
-                                                <TextBlock
-                                                    Width="18"
-                                                    Height="18"
-                                                    Margin="0,0,4,0"
-                                                    VerticalAlignment="Center"
-                                                    Text="!"
-                                                    DockPanel.Dock="Left"
-                                                    Foreground="{DynamicResource ErrorBrush}"
-                                                    IsVisible="{Binding HasError}" />
-                                                <TextBlock
-                                                    Margin="0,0,8,0"
-                                                    VerticalAlignment="Center"
-                                                    FontSize="16"
-                                                    Text="{Binding IconGlyph}"
-                                                    DockPanel.Dock="Left" />
+                                                <icons:MaterialIcon Kind="AlertCircle"
+                                                                    Width="18"
+                                                                    Height="18"
+                                                                    Margin="0,0,4,0"
+                                                                    VerticalAlignment="Center"
+                                                                    DockPanel.Dock="Left"
+                                                                    Foreground="{DynamicResource ErrorBrush}"
+                                                                    IsVisible="{Binding HasError}" />
+                                                <icons:MaterialIcon Kind="{Binding IconGlyph}"
+                                                                    Width="18"
+                                                                    Height="18"
+                                                                    Margin="0,0,8,0"
+                                                                    VerticalAlignment="Center"
+                                                                    DockPanel.Dock="Left" />
                                                 <TextBlock
                                                     FontSize="16"
                                                     Text="{Binding Name}"

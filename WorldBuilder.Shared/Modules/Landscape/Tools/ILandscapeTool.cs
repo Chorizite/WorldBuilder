@@ -9,7 +9,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     public interface ILandscapeTool {
         /// <summary>The display name of the tool.</summary>
         string Name { get; }
-        /// <summary>The icon glyph representing the tool in the UI.</summary>
+        /// <summary>The Material Design Icon name representing the tool in the UI.</summary>
         string IconGlyph { get; }
         /// <summary>Whether the tool is currently active.</summary>
         bool IsActive { get; }

@@ -4,58 +4,77 @@
              xmlns:tools="clr-namespace:WorldBuilder.Shared.Modules.Landscape.Tools;assembly=WorldBuilder.Shared"
              xmlns:converters="clr-namespace:WorldBuilder.Converters"
              xmlns:views="clr-namespace:WorldBuilder.Views"
+             xmlns:icons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              x:Class="WorldBuilder.Modules.Landscape.Views.Components.ToolSettingsPanel"
              x:Name="SettingsRoot"
              x:DataType="vm:LandscapeViewModel">
     <UserControl.Resources>
       <converters:TextureToViewModelConverter x:Key="TextureConverter" />
-      <DataTemplate x:Key="TextureGridTemplate" x:DataType="tools:ITexturePaintingTool">
-        <StackPanel Spacing="4">
-          <TextBlock Text="Texture" FontWeight="SemiBold" FontSize="12" Margin="0,4,0,0"/>
-          <ComboBox ItemsSource="{Binding AllTextures}" 
-                    SelectedItem="{Binding Texture}"
-                    HorizontalAlignment="Stretch">
-            <ComboBox.ItemTemplate>
-              <DataTemplate>
-                <StackPanel Orientation="Horizontal" Spacing="8" Background="Transparent"
-                            ToolTip.Placement="Right">
-                  <ToolTip.Tip>
-                    <Border Width="512" Height="512">
-                      <StackPanel Spacing="4" DataContext="{Binding Converter={StaticResource TextureConverter}}" x:DataType="converters:TextureLoader">
-                        <TextBlock Text="{Binding Type}" FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center"/>
-                        <Border Width="512" Height="512" Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="4" ClipToBounds="True">
-                          <Image Stretch="UniformToFill" Source="{Binding Image}"/>
-                        </Border>
-                      </StackPanel>
-                    </Border>
-                  </ToolTip.Tip>
-                  <Border Width="24" Height="24" 
-                          Background="{DynamicResource ControlFillColorDefaultBrush}"
-                          BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                          BorderThickness="1"
-                          CornerRadius="4">
-                    <Panel>
-                    <Panel.DataContext>
-                        <MultiBinding Converter="{StaticResource TextureConverter}" x:CompileBindings="False">
-                          <Binding Path="$parent[Border].DataContext" />
-                          <Binding RelativeSource="{RelativeSource AncestorType=ComboBox}" Path="DataContext" />
-                          <Binding RelativeSource="{RelativeSource AncestorType=ComboBox}" Path="DataContext.ActiveDocument" />
-                        </MultiBinding>
-                    </Panel.DataContext>
-                      <Image Width="20" Height="20" Stretch="UniformToFill" Source="{Binding Image, DataType=converters:TextureLoader}"/>
-                    </Panel>
-                  </Border>
-                  <TextBlock Text="{Binding}" VerticalAlignment="Center" />
-                </StackPanel>
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
+      
+      <ControlTemplate x:Key="RibbonGroupTemplate" TargetType="HeaderedContentControl">
+        <Border BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"
+                BorderThickness="0,0,1,0"
+                Padding="8,4"
+                Margin="0,0,4,0">
+          <Grid RowDefinitions="*,Auto">
+            <ContentPresenter Content="{TemplateBinding Content}" />
+            <TextBlock Grid.Row="1" 
+                       Text="{TemplateBinding Header}" 
+                       HorizontalAlignment="Center" 
+                       FontSize="10" 
+                       Opacity="0.6"
+                       Margin="0,2,0,0"/>
+          </Grid>
+        </Border>
+      </ControlTemplate>
 
-          <StackPanel Spacing="4">
-            <TextBlock Text="Scenery" FontWeight="SemiBold" FontSize="12" Margin="0,4,0,0"/>
+      <DataTemplate x:Key="TextureRibbonTemplate" x:DataType="tools:ITexturePaintingTool">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <HeaderedContentControl Header="Texture" Template="{StaticResource RibbonGroupTemplate}">
+            <ComboBox ItemsSource="{Binding AllTextures}" 
+                      SelectedItem="{Binding Texture}"
+                      Width="180">
+              <ComboBox.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal" Spacing="8" Background="Transparent"
+                              ToolTip.Placement="Right">
+                    <ToolTip.Tip>
+                      <Border Width="512" Height="512">
+                        <StackPanel Spacing="4" DataContext="{Binding Converter={StaticResource TextureConverter}}" x:DataType="converters:TextureLoader">
+                          <TextBlock Text="{Binding Type}" FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center"/>
+                          <Border Width="512" Height="512" Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="4" ClipToBounds="True">
+                            <Image Stretch="UniformToFill" Source="{Binding Image}"/>
+                          </Border>
+                        </StackPanel>
+                      </Border>
+                    </ToolTip.Tip>
+                    <Border Width="20" Height="20" 
+                            Background="{DynamicResource ControlFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="2">
+                      <Panel>
+                        <Panel.DataContext>
+                          <MultiBinding Converter="{StaticResource TextureConverter}" x:CompileBindings="False">
+                            <Binding Path="$parent[Border].DataContext" />
+                            <Binding RelativeSource="{RelativeSource AncestorType=ComboBox}" Path="DataContext" />
+                            <Binding RelativeSource="{RelativeSource AncestorType=ComboBox}" Path="DataContext.ActiveDocument" />
+                          </MultiBinding>
+                        </Panel.DataContext>
+                        <Image Width="18" Height="18" Stretch="UniformToFill" Source="{Binding Image, DataType=converters:TextureLoader}"/>
+                      </Panel>
+                    </Border>
+                    <TextBlock Text="{Binding}" VerticalAlignment="Center" FontSize="12" />
+                  </StackPanel>
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </HeaderedContentControl>
+
+          <HeaderedContentControl Header="Scenery" Template="{StaticResource RibbonGroupTemplate}">
             <ComboBox ItemsSource="{Binding AllSceneries}" 
                       SelectedItem="{Binding SelectedScenery}"
-                      HorizontalAlignment="Stretch">
+                      Width="180">
               <ComboBox.ItemTemplate>
                 <DataTemplate x:DataType="tools:SceneryItem">
                   <StackPanel Orientation="Horizontal" Spacing="8" Background="Transparent"
@@ -69,58 +88,75 @@
                                               Dats="{Binding #SettingsRoot.((vm:LandscapeViewModel)DataContext).Dats}" />
                       </Border>
                     </ToolTip.Tip>
-                    <TextBlock Text="{Binding DisplayIndex}" Opacity="0.5" Width="24" />
-                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding DisplayIndex}" Opacity="0.5" Width="24" FontSize="12" />
+                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="12" />
                   </StackPanel>
                 </DataTemplate>
               </ComboBox.ItemTemplate>
             </ComboBox>
-          </StackPanel>
+          </HeaderedContentControl>
         </StackPanel>
       </DataTemplate>
     </UserControl.Resources>
 
-    <Border Background="{DynamicResource SolidBackgroundFillColorBase}" 
-            BorderBrush="{DynamicResource SurfaceStrokeColorDefault}"
-            BorderThickness="1"
-            CornerRadius="4" Padding="12"
-            IsVisible="{Binding ActiveTool, Converter={x:Static ObjectConverters.IsNotNull}}">
-      <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Spacing="10">
-          <TextBlock Text="Tool Settings" FontWeight="SemiBold" FontSize="14" />
+    <Border Background="{DynamicResource SolidBackgroundFillColorBaseBrush}" 
+            BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"
+            BorderThickness="0,0,0,1"
+            Height="60">
+      <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
+        <HeaderedContentControl Header="Active Tool" Template="{StaticResource RibbonGroupTemplate}">
+          <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <icons:MaterialIcon Kind="{Binding ActiveTool.IconGlyph, FallbackValue=CursorDefault}" Width="24" Height="24" />
+            <TextBlock Text="{Binding ActiveTool.Name, FallbackValue='None'}" 
+                       FontWeight="SemiBold" 
+                       VerticalAlignment="Center" />
+          </StackPanel>
+        </HeaderedContentControl>
 
-          <ContentControl Content="{Binding ActiveTool}">
-            <ContentControl.DataTemplates>
-              <DataTemplate DataType="{x:Type tools:BrushTool}">
-                <StackPanel Spacing="8">
-                  <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Text="Size" VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="1" Text="{Binding BrushSize}" VerticalAlignment="Center"/>
-                  </Grid>
-                  <Slider Value="{Binding BrushSize}" Minimum="1" Maximum="10" IsSnapToTickEnabled="True" TickFrequency="1" />
+        <ContentControl Content="{Binding ActiveTool}">
+          <ContentControl.DataTemplates>
+            <DataTemplate DataType="{x:Type tools:BrushTool}">
+              <StackPanel Orientation="Horizontal">
+                <HeaderedContentControl Header="Brush" Template="{StaticResource RibbonGroupTemplate}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Size" VerticalAlignment="Center" FontSize="12"/>
+                    <Slider Value="{Binding BrushSize}" Minimum="1" Maximum="10" 
+                            IsSnapToTickEnabled="True" TickFrequency="1" 
+                            Width="100" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding BrushSize}" VerticalAlignment="Center" Width="20" FontSize="12"/>
+                  </StackPanel>
+                </HeaderedContentControl>
 
-                  <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource TextureGridTemplate}"/>
-                </StackPanel>
-              </DataTemplate>
+                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource TextureRibbonTemplate}"/>
+              </StackPanel>
+            </DataTemplate>
 
-              <DataTemplate DataType="{x:Type tools:BucketFillTool}">
-                <StackPanel Spacing="8">
-                  <CheckBox Content="Contiguous Fill" IsChecked="{Binding IsContiguous}" />
-                  <CheckBox Content="Only fill same scenery" IsChecked="{Binding OnlyFillSameScenery}" />
-                  
-                  <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource TextureGridTemplate}"/>
+            <DataTemplate DataType="{x:Type tools:BucketFillTool}">
+              <StackPanel Orientation="Horizontal">
+                <HeaderedContentControl Header="Fill Options" Template="{StaticResource RibbonGroupTemplate}">
+                  <StackPanel Orientation="Horizontal" Spacing="12">
+                    <CheckBox Content="Contiguous" IsChecked="{Binding IsContiguous}" FontSize="12" />
+                    <CheckBox Content="Match Scenery" IsChecked="{Binding OnlyFillSameScenery}" FontSize="12" />
+                  </StackPanel>
+                </HeaderedContentControl>
+                
+                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource TextureRibbonTemplate}"/>
+              </StackPanel>
+            </DataTemplate>
 
-                  <TextBlock Text="Fills connected areas of the same texture." 
-                             IsVisible="{Binding IsContiguous}"
-                             FontStyle="Italic" FontSize="11" TextWrapping="Wrap" />
-                  <TextBlock Text="replaces all instances of the clicked texture globally." 
-                             IsVisible="{Binding !IsContiguous}"
-                             FontStyle="Italic" FontSize="11" TextWrapping="Wrap" />
-                </StackPanel>
-              </DataTemplate>
-            </ContentControl.DataTemplates>
-          </ContentControl>
-        </StackPanel>
-      </ScrollViewer>
+            <DataTemplate DataType="{x:Type tools:RoadLineTool}">
+                <HeaderedContentControl Header="Options" Template="{StaticResource RibbonGroupTemplate}">
+                  <TextBlock Text="No settings available" FontSize="12" Opacity="0.6" VerticalAlignment="Center"/>
+                </HeaderedContentControl>
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type tools:RoadVertexTool}">
+                <HeaderedContentControl Header="Options" Template="{StaticResource RibbonGroupTemplate}">
+                  <TextBlock Text="No settings available" FontSize="12" Opacity="0.6" VerticalAlignment="Center"/>
+                </HeaderedContentControl>
+            </DataTemplate>
+          </ContentControl.DataTemplates>
+        </ContentControl>
+      </StackPanel>
     </Border>
 </UserControl>

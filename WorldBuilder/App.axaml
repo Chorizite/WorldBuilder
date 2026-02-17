@@ -4,10 +4,12 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:dialog="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
     xmlns:services="clr-namespace:WorldBuilder.Services"
+    xmlns:converters="clr-namespace:WorldBuilder.Converters"
     RequestedThemeVariant="Default">
     <!--  "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options.  -->
     <Application.Resources>
         <ResourceDictionary>
+            <converters:BoolToIconConverter x:Key="BoolToIconConverter" />
             <SolidColorBrush x:Key="ErrorBrush" Color="Red" />
             <SolidColorBrush x:Key="AccentPurple" Color="#A855F7" />
             <SolidColorBrush x:Key="AccentPurpleLight" Color="#BE82F9" />
@@ -18,6 +20,7 @@
         <FluentTheme />
         <dialog:DialogHostStyles />
         <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
+        <StyleInclude Source="avares://Material.Icons.Avalonia/MaterialIconStyles.axaml" />
 
         <!-- Selection Highlights -->
         <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot">

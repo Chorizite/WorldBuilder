@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:WorldBuilder.Modules.Landscape.ViewModels"
+             xmlns:icons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="450"
              x:Class="WorldBuilder.Modules.Landscape.Views.Components.LayersPanel"
              x:DataType="vm:LayersPanelViewModel">
@@ -18,22 +19,22 @@
             <!-- Toolbar -->
             <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="4" Margin="4">
                 <Button Command="{Binding AddLayerCommand}" ToolTip.Tip="Add New Layer">
-                    <TextBlock Text="+" />
+                    <icons:MaterialIcon Kind="Plus" Width="16" Height="16" />
                 </Button>
                 <Button Command="{Binding AddGroupCommand}" ToolTip.Tip="Add New Group">
-                    <TextBlock Text="📁" />
+                    <icons:MaterialIcon Kind="FolderPlus" Width="16" Height="16" />
                 </Button>
                 <Button Command="{Binding SelectedItem.DeleteCommand}" ToolTip.Tip="Delete Selected"
                         IsVisible="{Binding SelectedItem.CanDelete, FallbackValue=False}"
                         IsEnabled="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}, FallbackValue=False}">
-                    <TextBlock Text="🗑️" />
+                    <icons:MaterialIcon Kind="Delete" Width="16" Height="16" />
                 </Button>
                 <Separator Width="10" IsVisible="False" />
                 <Button Command="{Binding MoveLayerUpCommand}" ToolTip.Tip="Move Up">
-                    <TextBlock Text="⬆️" />
+                    <icons:MaterialIcon Kind="ArrowUp" Width="16" Height="16" />
                 </Button>
                 <Button Command="{Binding MoveLayerDownCommand}" ToolTip.Tip="Move Down">
-                    <TextBlock Text="⬇️" />
+                    <icons:MaterialIcon Kind="ArrowDown" Width="16" Height="16" />
                 </Button>
             </StackPanel>
 
@@ -58,8 +59,8 @@
                               PointerMoved="OnPointerMoved">
                             <!-- Icon -->
                             <StackPanel Grid.Column="0" Orientation="Horizontal">
-                                <TextBlock Text="📁" IsVisible="{Binding IsGroup}" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                <TextBlock Text="📄" IsVisible="{Binding IsNotGroup}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <icons:MaterialIcon Kind="Folder" IsVisible="{Binding IsGroup}" Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <icons:MaterialIcon Kind="FileOutline" IsVisible="{Binding IsNotGroup}" Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,4,0"/>
                             </StackPanel>
 
                             <!-- Name -->
@@ -77,14 +78,14 @@
                             <ToggleButton Grid.Column="2" IsChecked="{Binding IsVisible}" 
                                           IsVisible="{Binding CanToggleVisibility}"
                                           Margin="4,0" Padding="4,2" Background="Transparent" BorderThickness="0">
-                                <TextBlock Text="👁️" />
+                                <icons:MaterialIcon Kind="{Binding IsVisible, Converter={StaticResource BoolToIconConverter}, ConverterParameter='Eye,EyeOff'}" Width="16" Height="16" />
                             </ToggleButton>
                             
                             <!-- Export Toggle -->
                             <ToggleButton Grid.Column="3" IsChecked="{Binding IsExported, Mode=OneWay}" 
                                           IsVisible="{Binding CanToggleExport}"
                                           Command="{Binding ToggleExportCommand}" Padding="4,2" Background="Transparent" BorderThickness="0">
-                                <TextBlock Text="📦" />
+                                <icons:MaterialIcon Kind="Package" Width="16" Height="16" />
                             </ToggleButton>
 
                             <!-- Drop Indicators -->

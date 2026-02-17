@@ -67,7 +67,7 @@ namespace WorldBuilder.ViewModels {
         /// Gets the icon glyph for the project.
         /// </summary>
         [JsonIgnore]
-        public string IconGlyph => IsReadOnly ? "📂" : "📚";
+        public string IconGlyph => IsReadOnly ? "FolderOpen" : "Library";
 
         /// <summary>
         /// Gets or sets the error message if the project has one.

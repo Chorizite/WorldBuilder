@@ -26,6 +26,7 @@
 		<PackageReference Include="CommunityToolkit.Mvvm" />
 		<PackageReference Include="Avalonia.Controls.ColorPicker" />
 		<PackageReference Include="DialogHost.Avalonia" />
+		<PackageReference Include="Material.Icons.Avalonia" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
 		<PackageReference Include="HanumanInstitute.MvvmDialogs.Avalonia" />

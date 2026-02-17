@@ -28,6 +28,7 @@
     <PackageVersion Include="FluentMigrator" Version="8.0.1" />
     <PackageVersion Include="FluentMigrator.Runner.Core" Version="8.0.1" />
     <PackageVersion Include="FluentMigrator.Runner.SQLite" Version="8.0.1" />
+    <PackageVersion Include="Material.Icons.Avalonia" Version="2.4.1" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.3" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Common" Version="10.0.3" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Core" Version="1.2.9" />
