@@ -37,6 +37,7 @@ namespace WorldBuilder.Views {
 
         protected Base3DViewport() {
             this.AttachedToVisualTree += OnAttachedToVisualTree;
+            this.EffectiveViewportChanged += (s, e) => UpdateScreenPosition();
         }
 
         private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e) {
@@ -73,11 +74,26 @@ namespace WorldBuilder.Views {
                             InputScale = new Vector2((float)scaling, (float)scaling);
                         }
 
+                        // Calculate effective clip
+                        var clipRect = new Rect(0, 0, bounds.Width, bounds.Height);
+                        var current = _viewport.Parent;
+                        while (current != null) {
+                            if (current is Control control && control.ClipToBounds) {
+                                var offset = _viewport.TranslatePoint(new Point(0, 0), control);
+                                if (offset.HasValue) {
+                                    var relativeClip = new Rect(-offset.Value.X, -offset.Value.Y, control.Bounds.Width, control.Bounds.Height);
+                                    clipRect = clipRect.Intersect(relativeClip);
+                                }
+                            }
+                            current = current.Parent;
+                        }
+
                         _visual.SendHandlerMessage(new PositionMessage {
                             Position = new PixelPoint((int)(point.Value.X * scaling), (int)(point.Value.Y * scaling)),
                             Size = new PixelSize((int)(bounds.Width * scaling), (int)(bounds.Height * scaling)),
                             Scaling = scaling,
-                            SurfaceHeight = (int)(topLevel.ClientSize.Height * scaling)
+                            SurfaceHeight = (int)(topLevel.ClientSize.Height * scaling),
+                            Clip = new PixelRect((int)(clipRect.X * scaling), (int)(clipRect.Y * scaling), (int)(clipRect.Width * scaling), (int)(clipRect.Height * scaling))
                         });
                     }
                 }
@@ -273,6 +289,7 @@ namespace WorldBuilder.Views {
             public PixelSize Size { get; set; }
             public double Scaling { get; set; }
             public int SurfaceHeight { get; set; }
+            public PixelRect Clip { get; set; }
         }
     }
 }
