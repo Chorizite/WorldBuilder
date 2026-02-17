@@ -121,6 +121,10 @@ namespace WorldBuilder.Services {
             var settingsPath = Path.Combine(project.ProjectDirectory, "project_settings.json");
             _settings.Project = WorldBuilder.Lib.Settings.ProjectSettings.Load(settingsPath);
 
+            if (project.IsReadOnly) {
+                _settings.Project.FilePath = null;
+            }
+
             CurrentProject = project;
 
             var cacheDir = Path.Combine(_settings.AppDataDirectory, "cache", project.Name);
