@@ -27,7 +27,6 @@ The project includes a comprehensive test suite:
 - **WorldBuilder.Windows**: Windows-specific application entry point.
 - **WorldBuilder.Linux**: Linux-specific application entry point.
 - **WorldBuilder.Mac**: Mac-specific application entry point.
-- **WorldBuilder.Browser**: WebAssembly version for browsers.
 - **WorldBuilder.Server**: Server components for collaborative features.
 - **WorldBuilder.Shared**: Core data models, .dat parsers, rendering logic, and shared utilities.
 - **WorldBuilder.Shared.Tests**: Unit tests for the shared library components.

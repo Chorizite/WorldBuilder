@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net8.0</TargetFramework>
+		<TargetFramework>net10.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -28,11 +28,5 @@
 		<PackageReference Include="SQLitePCLRaw.bundle_green" />
 		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
         <PackageReference Include="CommunityToolkit.Mvvm" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <Reference Include="CommunityToolkit.Mvvm">
-	    <HintPath>..\..\..\home\trevis\.nuget\packages\communitytoolkit.mvvm\8.4.0\lib\net8.0\CommunityToolkit.Mvvm.dll</HintPath>
-	  </Reference>
 	</ItemGroup>
 </Project>

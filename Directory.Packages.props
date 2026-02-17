@@ -6,34 +6,34 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Avalonia" Version="11.3.11" />
+    <PackageVersion Include="Avalonia" Version="11.3.12" />
     <PackageVersion Include="Avalonia.Controls.ItemsRepeater" Version="11.1.5" />
-    <PackageVersion Include="Avalonia.Headless.XUnit" Version="11.3.11" />
-    <PackageVersion Include="Avalonia.Skia" Version="11.3.11" />
-    <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.11" />
-    <PackageVersion Include="Avalonia.Fonts.Inter" Version="11.3.11" />
+    <PackageVersion Include="Avalonia.Headless.XUnit" Version="11.3.12" />
+    <PackageVersion Include="Avalonia.Skia" Version="11.3.12" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.12" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="11.3.12" />
     <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.11" />
-    <PackageVersion Include="Avalonia.Desktop" Version="11.3.9" />
-    <PackageVersion Include="Avalonia.Controls.ColorPicker" Version="11.3.11" />
+    <PackageVersion Include="Avalonia.Desktop" Version="11.3.12" />
+    <PackageVersion Include="Avalonia.Controls.ColorPicker" Version="11.3.12" />
     <PackageVersion Include="Avalonia.ReactiveUI" Version="11.3.11" />
     <PackageVersion Include="BCnEncoder.Net" Version="2.2.1" />
     <PackageVersion Include="BCnEncoder.Net.ImageSharp" Version="1.1.2" />
     <PackageVersion Include="Chorizite.DatReaderWriter.Extensions" Version="1.1.1" />
     <PackageVersion Include="DialogHost.Avalonia" Version="0.10.4" />
     <PackageVersion Include="Avalonia.Browser" Version="11.3.8" />
-    <PackageVersion Include="BenchmarkDotNet" Version="0.15.4" />
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="Chorizite.DatReaderWriter" Version="2.1.2" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageVersion Include="Chorizite.Core" Version="0.0.17" />
     <PackageVersion Include="FluentMigrator" Version="8.0.1" />
     <PackageVersion Include="FluentMigrator.Runner.Core" Version="8.0.1" />
     <PackageVersion Include="FluentMigrator.Runner.SQLite" Version="8.0.1" />
-    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.21" />
-    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Common" Version="10.0.2" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Common" Version="10.0.3" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Core" Version="1.2.9" />
-    <PackageVersion Include="Microsoft.Data.Sqlite.Core" Version="10.0.2" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.2" />
+    <PackageVersion Include="Microsoft.Data.Sqlite.Core" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.3" />
     <PackageVersion Include="Moq" Version="4.20.72" />
     <PackageVersion Include="SixLabors.Fonts" Version="2.1.3" />
     <PackageVersion Include="SixLabors.ImageSharp.Drawing" Version="2.1.7" />
@@ -41,11 +41,11 @@
     <PackageVersion Include="NAudio" Version="2.2.1" />
     <PackageVersion Include="Silk.NET.OpenGL" Version="2.23.0" />
     <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.2" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.3" />
     <PackageVersion Include="MemoryPack" Version="1.21.4" />
-    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.2" />
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.3" />
     <!-- Testing packages -->
-    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <PackageVersion Include="coverlet.collector" Version="8.0.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
     <PackageVersion Include="Velopack" Version="0.0.1298" />
     <PackageVersion Include="xunit" Version="2.9.3" />

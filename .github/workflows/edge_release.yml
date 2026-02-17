@@ -93,8 +93,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: |
-            8.0.x
-            9.0.x
+            10.0.x
       
       - name: Install dependencies
         run: dotnet tool restore
@@ -114,7 +113,7 @@ jobs:
         run: dotnet publish WorldBuilder.Windows/WorldBuilder.Windows.csproj -c Release -r win-x64 -o publish -p:SelfContained=true -p:DebugType=None -p:DebugSymbols=false -p:GenerateDocumentationFile=false -p:InformationalVersion=${{ steps.gitversion.outputs.informationalVersion }} -p:Version=${{ steps.gitversion.outputs.semVer }} -p:AssemblyVersion=${{ steps.gitversion.outputs.assemblySemVer }}
 
       - name: Pack
-        run: dotnet vpk pack -u WorldBuilder -v ${{ steps.gitversion.outputs.semVer }} -p publish -e WorldBuilder.Windows.exe --framework net8.0-x64-desktop --channel windows-edge
+        run: dotnet vpk pack -u WorldBuilder -v ${{ steps.gitversion.outputs.semVer }} -p publish -e WorldBuilder.Windows.exe --framework net10.0-x64-desktop --channel windows-edge
 
       - name: List Releases
         run: ls -la Releases/
@@ -147,6 +146,7 @@ jobs:
           dotnet-version: |
             8.0.x
             9.0.x
+            10.0.x
       
       - name: Install dependencies
         run: dotnet tool restore
