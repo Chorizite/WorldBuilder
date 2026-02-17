@@ -3,47 +3,39 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using WorldBuilder.Shared.Hubs;
 using WorldBuilder.Shared.Lib;
+using WorldBuilder.Server.Services;
 
 namespace WorldBuilder.Server.Hubs {
     public class WorldHub : Hub<IWorldHubClient>, IWorldHub {
-        // In-memory event store with server timestamps
-        // In production, this should be replaced with a persistent store
-        private static readonly ConcurrentDictionary<ulong, byte[]> _eventStore = new();
-        private static ulong _nextTimestamp = 1;
-        private static readonly object _timestampLock = new();
+        private readonly IWorldEventStore _eventStore;
+
+        public WorldHub(IWorldEventStore eventStore) {
+            _eventStore = eventStore;
+        }
 
         public async Task ReceiveDocumentEvent(byte[] data) {
             var evt = BaseCommand.Deserialize(data);
             if (evt == null) return;
 
             // Assign server timestamp
-            ulong serverTimestamp;
-            lock (_timestampLock) {
-                serverTimestamp = _nextTimestamp++;
-            }
+            ulong serverTimestamp = _eventStore.IncrementNextTimestamp();
 
             evt.ServerTimestamp = serverTimestamp;
 
             // Store the event
             var serialized = evt.Serialize();
-            _eventStore[serverTimestamp] = serialized;
+            _eventStore.StoreEvent(serverTimestamp, serialized);
 
             // Broadcast to all other clients
             await Clients.AllExcept(Context.ConnectionId).DocumentEventReceived(serialized);
         }
 
         public Task<ulong> GetServerTime() {
-            lock (_timestampLock) {
-                return Task.FromResult(_nextTimestamp);
-            }
+            return Task.FromResult(_eventStore.GetNextTimestamp());
         }
 
         public Task<byte[][]> GetEventsSince(ulong lastServerTimestamp) {
-            var events = _eventStore
-                .Where(kv => kv.Key > lastServerTimestamp)
-                .OrderBy(kv => kv.Key)
-                .Select(kv => kv.Value)
-                .ToArray();
+            var events = _eventStore.GetEventsSince(lastServerTimestamp);
             return Task.FromResult(events);
         }
     }

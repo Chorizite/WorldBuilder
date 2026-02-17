@@ -7,6 +7,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using WorldBuilder.Server.Hubs;
+using WorldBuilder.Server.Services;
 
 namespace WorldBuilder.Shared.Tests {
     public class TestServer : IAsyncDisposable {
@@ -17,11 +18,12 @@ namespace WorldBuilder.Shared.Tests {
             _port = GetAvailablePort();
 
             var options = new WebApplicationOptions {
-                EnvironmentName = Environments.Development // or "Testing"
+                EnvironmentName = "Testing"
             };
 
             var builder = WebApplication.CreateBuilder(options);
             builder.Services.AddSignalR();
+            builder.Services.AddSingleton<IWorldEventStore, InMemoryWorldEventStore>();
 
             builder.WebHost.ConfigureKestrel(kestrelOptions => {
                 kestrelOptions.Listen(IPAddress.Loopback, _port, listenOptions => {

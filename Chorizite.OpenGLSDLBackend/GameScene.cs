@@ -175,8 +175,6 @@ public class GameScene : IDisposable {
         if (_staticObjectManager != null && _sceneryShader != null) {
             _staticObjectManager.Initialize(_sceneryShader);
         }
-
-        _log.LogInformation("GameScene initialized");
     }
 
     public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats, ObjectMeshManager? meshManager = null) {
