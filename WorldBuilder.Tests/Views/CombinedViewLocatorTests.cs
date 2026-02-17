@@ -117,12 +117,17 @@ public class CombinedViewLocatorTests {
         mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.SurfaceTexture>()).Returns(Enumerable.Empty<uint>());
         mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.RenderSurface>()).Returns(Enumerable.Empty<uint>());
         mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.Surface>()).Returns(Enumerable.Empty<uint>());
+
+        var settings = new WorldBuilder.Services.WorldBuilderSettings(
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<WorldBuilder.Services.WorldBuilderSettings>.Instance
+        );
+        var themeService = new WorldBuilder.Services.ThemeService(settings);
         
-        var mockSetup = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SetupBrowserViewModel>(mockDats.Object);
-        var mockGfx = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.GfxObjBrowserViewModel>(mockDats.Object);
-        var mockTex = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SurfaceTextureBrowserViewModel>(mockDats.Object);
-        var mockRenderTex = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.RenderSurfaceBrowserViewModel>(mockDats.Object);
-        var mockSurface = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SurfaceBrowserViewModel>(mockDats.Object);
+        var mockSetup = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SetupBrowserViewModel>(mockDats.Object, settings, themeService);
+        var mockGfx = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.GfxObjBrowserViewModel>(mockDats.Object, settings, themeService);
+        var mockTex = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SurfaceTextureBrowserViewModel>(mockDats.Object, settings, themeService);
+        var mockRenderTex = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.RenderSurfaceBrowserViewModel>(mockDats.Object, settings, themeService);
+        var mockSurface = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SurfaceBrowserViewModel>(mockDats.Object, settings, themeService);
         var mockDialog = new Moq.Mock<HanumanInstitute.MvvmDialogs.IDialogService>();
         var mockServiceProvider = new Moq.Mock<IServiceProvider>();
 
