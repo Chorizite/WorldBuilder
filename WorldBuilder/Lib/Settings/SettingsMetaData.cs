@@ -18,6 +18,7 @@ namespace WorldBuilder.Lib.Settings {
         public int Order { get; }
         public bool IsHidden { get; }
 
+        [UnconditionalSuppressMessage("Trimming", "IL2075:Selectively keep fields for settings", Justification = "Settings classes are preserved by SourceGenerationContext")]
         public SettingPropertyMetadata(PropertyInfo property) {
             Property = property;
 

@@ -131,6 +131,7 @@ namespace WorldBuilder.Lib.Settings {
             return FindInstance(categoryType, _settingsRoot);
         }
 
+        [UnconditionalSuppressMessage("Trimming", "IL2075:Selectively keep properties for settings", Justification = "Settings classes are preserved by SourceGenerationContext")]
         private object? FindInstance(Type targetType, object current) {
             if (current.GetType() == targetType) return current;
 

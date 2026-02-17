@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using WorldBuilder.ViewModels;
@@ -60,6 +61,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             }
         }
 
+        [UnconditionalSuppressMessage("Trimming", "IL2075:Reflection is used for debugging/browsing", Justification = "This is a developer tool for browsing object graphs")]
         public static ReflectionNodeViewModel Create(string name, object? obj, IDatReaderWriter dats, HashSet<object>? visited = null, int depth = 0) {
             if (obj == null) {
                 return new ReflectionNodeViewModel(name, "null", "object");
