@@ -84,6 +84,11 @@ public interface ICamera : WorldBuilder.Shared.Models.ICamera {
     /// Points the camera at a target position.
     /// </summary>
     void LookAt(Vector3 target);
+
+    /// <summary>
+    /// Gets the field of view in degrees.
+    /// </summary>
+    float FieldOfView { get; }
 }
 
     

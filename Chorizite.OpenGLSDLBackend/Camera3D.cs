@@ -78,7 +78,7 @@ public class Camera3D : CameraBase {
     /// <summary>
     /// Gets or sets the field of view in degrees.
     /// </summary>
-    public float FieldOfView {
+    public override float FieldOfView {
         get => _fov;
         set {
             _fov = Math.Clamp(value, 1.0f, 179.0f);

@@ -1,0 +1,22 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dialog="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
+        xmlns:converters="clr-namespace:WorldBuilder.Converters"
+        xmlns:semi="https://irihi.tech/semi">
+    <Styles.Resources>
+        <ResourceDictionary>
+            <converters:BoolToIconConverter x:Key="BoolToIconConverter" />
+            <SolidColorBrush x:Key="ErrorBrush" Color="{DynamicResource SemiColorDanger}" />
+        </ResourceDictionary>
+    </Styles.Resources>
+
+    <semi:SemiTheme />
+    <semi:ColorPickerSemiTheme />
+    <dialog:DialogHostStyles />
+    <StyleInclude Source="avares://Material.Icons.Avalonia/MaterialIconStyles.axaml" />
+
+    <Style Selector="ToolTip">
+      <Setter Property="MaxWidth" Value="1000" />
+      <Setter Property="MaxHeight" Value="1000" />
+    </Style>
+</Styles>

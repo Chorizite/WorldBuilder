@@ -13,7 +13,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         public string Name => "Road Line";
         public string Description => "Draws contiguous road lines between vertices (Snaps to Grid)";
-        public string IconGlyph => "\uE712";
+        public string IconGlyph => "VectorLine";
         public bool IsActive { get; private set; }
 
         public int RoadBits { get; set; } = 1;

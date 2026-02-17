@@ -18,7 +18,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <inheritdoc/>
         public string Name => "Brush";
         /// <inheritdoc/>
-        public string IconGlyph => "🖌️";
+        public string IconGlyph => "Brush";
         /// <inheritdoc/>
         public bool IsActive { get; private set; }
 

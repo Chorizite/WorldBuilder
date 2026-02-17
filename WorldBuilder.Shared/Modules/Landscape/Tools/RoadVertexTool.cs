@@ -14,7 +14,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         public string Name => "Road Vertex";
         public string Description => "Sets road bits on individual vertices (Snaps to Grid)";
-        public string IconGlyph => "\uE712";
+        public string IconGlyph => "Road";
         public bool IsActive { get; private set; }
 
         public int RoadBits { get; set; } = 1;

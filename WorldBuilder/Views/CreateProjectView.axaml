@@ -5,6 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:WorldBuilder.ViewModels"
+    xmlns:icons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
     d:DesignHeight="450"
     d:DesignWidth="800"
     x:CompileBindings="True"
@@ -13,11 +14,11 @@
 
     <UserControl.Styles>
         <Style Selector="TextBox.error">
-            <Setter Property="BorderBrush" Value="Red" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorDanger}" />
             <Setter Property="BorderThickness" Value="2" />
         </Style>
         <Style Selector="TextBlock.error">
-            <Setter Property="Foreground" Value="Red" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiColorDanger}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Margin" Value="0,2,0,2" />
         </Style>
@@ -91,7 +92,7 @@
                     </Grid>
                     <Border
                         Padding="10"
-                        Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                        Background="{DynamicResource SemiColorFill1}"
                         CornerRadius="3">
                         <TextBlock
                             FontFamily="Consolas,Courier New,monospace"
@@ -123,18 +124,26 @@
             <Button
                 Grid.Column="0"
                 MinWidth="100"
-                Padding="20,10"
+                Padding="16,10"
                 HorizontalContentAlignment="Center"
-                Command="{Binding GoBackCommand}"
-                Content="← Back" />
+                Command="{Binding GoBackCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <icons:MaterialIcon Kind="ArrowLeft" Width="18" Height="18" />
+                    <TextBlock Text="Back" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
 
             <Button
                 Grid.Column="2"
                 MinWidth="100"
-                Padding="20,10"
+                Padding="16,10"
                 HorizontalContentAlignment="Center"
-                Command="{Binding GoNextCommand}"
-                Content="Next →" />
+                Command="{Binding GoNextCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Next" VerticalAlignment="Center" />
+                    <icons:MaterialIcon Kind="ArrowRight" Width="18" Height="18" />
+                </StackPanel>
+            </Button>
         </Grid>
     </Grid>
 </UserControl>

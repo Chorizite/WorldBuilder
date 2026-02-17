@@ -109,6 +109,9 @@ public abstract class CameraBase : ICamera {
 
     /// <inheritdoc/>
     public abstract void LookAt(Vector3 target);
+
+    /// <inheritdoc/>
+    public virtual float FieldOfView { get => 60.0f; set { } }
 }
 
     

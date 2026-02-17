@@ -10,7 +10,8 @@
     <PackageVersion Include="Avalonia.Controls.ItemsRepeater" Version="11.1.5" />
     <PackageVersion Include="Avalonia.Headless.XUnit" Version="11.3.12" />
     <PackageVersion Include="Avalonia.Skia" Version="11.3.12" />
-    <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.12" />
+    <PackageVersion Include="Semi.Avalonia" Version="11.3.7.2" />
+    <PackageVersion Include="Semi.Avalonia.ColorPicker" Version="11.3.7.2" />
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="11.3.12" />
     <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.11" />
     <PackageVersion Include="Avalonia.Desktop" Version="11.3.12" />
@@ -28,6 +29,7 @@
     <PackageVersion Include="FluentMigrator" Version="8.0.1" />
     <PackageVersion Include="FluentMigrator.Runner.Core" Version="8.0.1" />
     <PackageVersion Include="FluentMigrator.Runner.SQLite" Version="8.0.1" />
+    <PackageVersion Include="Material.Icons.Avalonia" Version="2.4.1" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.3" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Common" Version="10.0.3" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Core" Version="1.2.9" />

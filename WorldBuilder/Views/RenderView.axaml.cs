@@ -160,6 +160,7 @@ public partial class RenderView : Base3DViewport {
         _cameraSettings.PropertyChanged += OnCameraSettingsChanged;
         _gameScene.SetDrawDistance(_cameraSettings.MaxDrawDistance);
         _gameScene.SetMovementSpeed(_cameraSettings.MovementSpeed);
+        _gameScene.SetFieldOfView(_cameraSettings.FieldOfView);
 
         if (_renderingSettings != null) {
             _renderingSettings.PropertyChanged -= OnRenderingSettingsChanged;
@@ -195,6 +196,9 @@ public partial class RenderView : Base3DViewport {
         }
         else if (e.PropertyName == nameof(CameraSettings.MovementSpeed)) {
             _gameScene.SetMovementSpeed(_cameraSettings.MovementSpeed);
+        }
+        else if (e.PropertyName == nameof(CameraSettings.FieldOfView)) {
+            _gameScene.SetFieldOfView(_cameraSettings.FieldOfView);
         }
     }
 
@@ -232,13 +236,12 @@ public partial class RenderView : Base3DViewport {
                 _gridSettings.LandblockColor,
                 _gridSettings.CellColor,
                 _gridSettings.LineWidth,
-                _gridSettings.Opacity,
-                (float)Bounds.Height
+                _gridSettings.Opacity
             );
         }
         else if (_gameScene != null) {
             // Default if settings missing
-            _gameScene.SetGridSettings(true, true, new Vector3(1, 0, 1), new Vector3(0, 1, 1), 1f, 0.4f, (float)Bounds.Height);
+            _gameScene.SetGridSettings(true, true, new Vector3(1, 0, 1), new Vector3(0, 1, 1), 1f, 0.4f);
         }
     }
 

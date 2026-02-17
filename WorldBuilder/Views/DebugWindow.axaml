@@ -12,6 +12,6 @@
     ShowInTaskbar="True"
     Topmost="False">
     <Grid>
-        <views:RenderView x:Name="DebugRenderView" Margin="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Orange" />
+        <views:RenderView x:Name="DebugRenderView" Margin="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" />
     </Grid>
 </Window>

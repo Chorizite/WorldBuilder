@@ -17,7 +17,8 @@
 		<PackageReference Include="Avalonia" />
 		<PackageReference Include="Avalonia.Controls.ItemsRepeater" />
 		<PackageReference Include="Avalonia.Skia" />
-		<PackageReference Include="Avalonia.Themes.Fluent" />
+		<PackageReference Include="Semi.Avalonia" />
+		<PackageReference Include="Semi.Avalonia.ColorPicker" />
 		<PackageReference Include="Avalonia.Fonts.Inter" />
 		<PackageReference Include="BCnEncoder.Net" />
 		<PackageReference Include="BCnEncoder.Net.ImageSharp" />
@@ -26,6 +27,7 @@
 		<PackageReference Include="CommunityToolkit.Mvvm" />
 		<PackageReference Include="Avalonia.Controls.ColorPicker" />
 		<PackageReference Include="DialogHost.Avalonia" />
+		<PackageReference Include="Material.Icons.Avalonia" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
 		<PackageReference Include="HanumanInstitute.MvvmDialogs.Avalonia" />

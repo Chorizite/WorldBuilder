@@ -8,46 +8,28 @@
              x:DataType="landscape:HistoryPanelViewModel">
 
   <Grid RowDefinitions="Auto,*">
-    <Border Grid.Row="0" BorderBrush="{DynamicResource AccentPurple}" BorderThickness="0,0,0,2" Margin="4,4,4,8" Padding="0,0,0,4">
+    <Border Grid.Row="0" BorderBrush="{DynamicResource SemiColorPrimary}" BorderThickness="0,0,0,2" Margin="4,4,4,8" Padding="0,0,0,4">
       <TextBlock Text="History" FontWeight="Bold" FontSize="14" />
     </Border>
     
     <ScrollViewer Grid.Row="1" x:Name="HistoryScrollViewer">
-      <ItemsControl ItemsSource="{Binding Items}">
-        <ItemsControl.Styles>
-          <Style Selector="Button">
-            <Setter Property="Background" Value="Transparent" />
-          </Style>
-        </ItemsControl.Styles>
-        <ItemsControl.ItemTemplate>
+      <ListBox ItemsSource="{Binding Items}"
+               SelectedItem="{Binding SelectedItem}"
+               Background="Transparent">
+        <ListBox.ItemTemplate>
           <DataTemplate x:DataType="landscape:HistoryItemViewModel">
-            <Button Command="{Binding ((landscape:HistoryPanelViewModel)DataContext).JumpToCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                    CommandParameter="{Binding}"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Left"
-                    Padding="8,4"
-                    BorderThickness="0"
-                    Classes.active="{Binding IsActive}">
-              <TextBlock Text="{Binding Name}"
-                         Classes.active="{Binding IsActive}"
-                         Classes.future="{Binding IsFuture}">
-                <TextBlock.Styles>
-                  <Style Selector="TextBlock">
-                    <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
-                  </Style>
-                  <Style Selector="TextBlock.active">
-                    <!-- FontWeight is handled globally for Button.active TextBlock -->
-                    <Setter Property="Foreground" Value="White"/>
-                  </Style>
-                  <Style Selector="TextBlock.future">
-                    <Setter Property="Opacity" Value="0.5"/>
-                  </Style>
-                </TextBlock.Styles>
-              </TextBlock>
-            </Button>
+            <TextBlock Text="{Binding Name}"
+                       Padding="8,4"
+                       Classes.future="{Binding IsFuture}">
+              <TextBlock.Styles>
+                <Style Selector="TextBlock.future">
+                  <Setter Property="Opacity" Value="0.5"/>
+                </Style>
+              </TextBlock.Styles>
+            </TextBlock>
           </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+        </ListBox.ItemTemplate>
+      </ListBox>
     </ScrollViewer>
   </Grid>
 </UserControl>

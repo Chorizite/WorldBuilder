@@ -28,7 +28,7 @@
                                     CommandParameter="{Binding}"
                                     PointerPressed="OnItemPointerPressed"
                                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                    Background="#333333" Padding="0">
+                                    Background="{DynamicResource SemiColorFill0}" Padding="0">
                                 <Grid RowDefinitions="*, Auto">
                                     <views:DatObjectPreview 
                                         Grid.Row="0"
@@ -45,9 +45,9 @@
                                     HorizontalAlignment="Right" 
                                     VerticalAlignment="Top"
                                     Margin="5"
-                                    Background="#80000000" 
+                                    Background="{DynamicResource SemiColorFill1}" 
                                     BorderThickness="0">
-                                <TextBlock Text="↗" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource AccentPurple}"/>
+                                <TextBlock Text="↗" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource SemiColorPrimary}"/>
                             </Button>
                         </Panel>
                     </DataTemplate>
