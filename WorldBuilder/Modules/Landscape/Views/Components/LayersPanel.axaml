@@ -12,7 +12,7 @@
             BorderThickness="1"
             CornerRadius="4" Padding="4">
         <Grid RowDefinitions="Auto, Auto, *">
-            <Border Grid.Row="0" BorderBrush="{DynamicResource AccentPurple}" BorderThickness="0,0,0,2" Margin="4,4,4,8" Padding="0,0,0,4">
+            <Border Grid.Row="0" BorderBrush="{DynamicResource SemiColorPrimary}" BorderThickness="0,0,0,2" Margin="4,4,4,8" Padding="0,0,0,4">
                 <TextBlock Text="Layers" FontWeight="Bold" FontSize="14" />
             </Border>
             
@@ -89,7 +89,7 @@
                             </ToggleButton>
 
                             <!-- Drop Indicators -->
-                            <Border Grid.ColumnSpan="4" Height="2" Background="{DynamicResource AccentPurple}" 
+                            <Border Grid.ColumnSpan="4" Height="2" Background="{DynamicResource SemiColorPrimary}" 
                                     VerticalAlignment="Top" Margin="0,-2,0,0" IsHitTestVisible="False">
                                 <Border.IsVisible>
                                     <MultiBinding Converter="{x:Static BoolConverters.And}">
@@ -101,7 +101,7 @@
                                     </MultiBinding>
                                 </Border.IsVisible>
                             </Border>
-                            <Border Grid.ColumnSpan="4" Height="2" Background="{DynamicResource AccentPurple}" 
+                            <Border Grid.ColumnSpan="4" Height="2" Background="{DynamicResource SemiColorPrimary}" 
                                     VerticalAlignment="Bottom" Margin="0,0,0,-2" IsHitTestVisible="False">
                                 <Border.IsVisible>
                                     <MultiBinding Converter="{x:Static BoolConverters.And}">
@@ -113,7 +113,7 @@
                                     </MultiBinding>
                                 </Border.IsVisible>
                             </Border>
-                            <Border Grid.ColumnSpan="4" BorderBrush="{DynamicResource AccentPurple}" 
+                            <Border Grid.ColumnSpan="4" BorderBrush="{DynamicResource SemiColorPrimary}" 
                                     BorderThickness="2" Margin="-2" IsHitTestVisible="False">
                                 <Border.IsVisible>
                                     <MultiBinding Converter="{x:Static BoolConverters.And}">

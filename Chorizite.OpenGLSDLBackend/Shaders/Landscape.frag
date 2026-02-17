@@ -18,6 +18,7 @@ uniform vec3 uCellGridColor;      // Color for cell grid lines (RGB)
 uniform float uGridLineWidth;     // Base width of grid lines in pixels
 uniform float uGridOpacity;       // Opacity of grid lines (0.0 - 1.0)
 uniform float uCameraDistance;    // Distance from camera to terrain
+uniform float uCameraFov;         // Camera field of view in degrees
 uniform float uScreenHeight;      // Screen height in pixels for scaling
 uniform vec2 uGridOffset;         // Offset for grid alignment (MapOffset)
 
@@ -136,7 +137,8 @@ vec4 calculateGrid(vec2 worldPos, vec3 terrainColor) {
     float landblockLineWidthFactor = 2.0; // Double the thickness for landblock lines
 
     // Calculate pixel size in world units
-    float worldUnitsPerPixel = uCameraDistance * tan(0.785398) * 2.0 / uScreenHeight; // Assuming 45-degree FOV
+    float fovRad = uCameraFov * 0.0174532925; // degrees to radians
+    float worldUnitsPerPixel = uCameraDistance * tan(fovRad / 2.0) * 2.0 / uScreenHeight;
     float scaledLineWidth = uGridLineWidth * worldUnitsPerPixel;
     // float scaledGlowWidth = scaledLineWidth * glowWidthFactor;
     // float scaledLandblockGlowWidth = scaledGlowWidth * landblockLineWidthFactor; // Thicker glow for landblock lines
@@ -213,7 +215,8 @@ vec4 calculateBrush(vec2 worldPos) {
     }
     
     // Calculate outline
-    float pixelSize = (uCameraDistance * tan(0.785398) * 2.0 / uScreenHeight);
+    float fovRad = uCameraFov * 0.0174532925; // degrees to radians
+    float pixelSize = (uCameraDistance * tan(fovRad / 2.0) * 2.0 / uScreenHeight);
     float lineWidth = 2.0 * pixelSize;
     float feather = 1.0 * pixelSize;
     float outline = 1.0 - smoothstep(lineWidth - feather, lineWidth, abs(dist));

@@ -45,12 +45,12 @@
                         <Setter Property="Height" Value="32" />
                         <Setter Property="HorizontalContentAlignment" Value="Center" />
                         <Setter Property="VerticalContentAlignment" Value="Center" />
-                        <Setter Property="Background" Value="#80000000" />
-                        <Setter Property="BorderBrush" Value="#40FFFFFF" />
+                        <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
                         <Setter Property="BorderThickness" Value="1" />
                     </Style>
                     <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                        <Setter Property="Background" Value="#A0000000" />
+                        <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
                     </Style>
                 </StackPanel.Styles>
                 <Button Click="On1To1Click" ToolTip.Tip="Original Size">
@@ -66,27 +66,27 @@
                    IsVisible="{Binding !IsPreviewable, ElementName=Root}"
                    HorizontalAlignment="Center" 
                    VerticalAlignment="Center" 
-                   Foreground="Gray"/>
+                   Foreground="{DynamicResource SemiColorText2}"/>
 
-        <Border Background="#80000000" 
+        <Border Background="{DynamicResource SemiColorFill0}" 
                 VerticalAlignment="Bottom" 
                 HorizontalAlignment="Stretch"
                 IsVisible="{Binding IsTooltip, ElementName=Root}"
                 Padding="5,2">
             <StackPanel Orientation="Horizontal" Spacing="5" IsVisible="{Binding HasData, ElementName=Root}">
                 <TextBlock Text="{Binding DataId, ElementName=Root, StringFormat='0x{0:X8}'}" 
-                           Foreground="White" 
+                           Foreground="{DynamicResource SemiColorText0}" 
                            FontSize="10"
                            FontFamily="Cascadia Code,Consolas,Monospace"/>
-                <TextBlock Text="|" Foreground="Gray" FontSize="10" />
+                <TextBlock Text="|" Foreground="{DynamicResource SemiColorText2}" FontSize="10" />
                 <TextBlock Text="{Binding DataObjectType, ElementName=Root}" 
-                           Foreground="White" 
+                           Foreground="{DynamicResource SemiColorText0}" 
                            FontSize="10"
                            FontFamily="Cascadia Code,Consolas,Monospace"/>
                 <StackPanel Orientation="Horizontal" IsVisible="{Binding PreviewDetails, ElementName=Root, Converter={x:Static ObjectConverters.IsNotNull}}">
-                    <TextBlock Text="|" Foreground="Gray" FontSize="10" Margin="5,0" />
+                    <TextBlock Text="|" Foreground="{DynamicResource SemiColorText2}" FontSize="10" Margin="5,0" />
                     <TextBlock Text="{Binding PreviewDetails, ElementName=Root}" 
-                               Foreground="#AAA" 
+                               Foreground="{DynamicResource SemiColorText2}" 
                                FontSize="10"
                                FontFamily="Cascadia Code,Consolas,Monospace"/>
                 </StackPanel>

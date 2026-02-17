@@ -18,20 +18,23 @@
                     <Setter Property="Height" Value="32" />
                     <Setter Property="HorizontalContentAlignment" Value="Center" />
                     <Setter Property="VerticalContentAlignment" Value="Center" />
-                    <Setter Property="Background" Value="#80000000" />
-                    <Setter Property="BorderBrush" Value="#40FFFFFF" />
+                    <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
                     <Setter Property="BorderThickness" Value="1" />
                 </Style>
                 <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
-                    <Setter Property="Background" Value="{DynamicResource SystemAccentColor}" />
+                    <Setter Property="Background" Value="{DynamicResource SemiColorPrimary}" />
                     <Setter Property="Opacity" Value="0.8" />
-                    <Setter Property="BorderBrush" Value="#FFFFFF" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}" />
+                </Style>
+                <Style Selector="ToggleButton:checked">
+                    <Setter Property="Foreground" Value="White" />
                 </Style>
                 <Style Selector="ToggleButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                    <Setter Property="Background" Value="#A0000000" />
+                    <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
                 </Style>
                 <Style Selector="ToggleButton:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                    <Setter Property="Background" Value="{DynamicResource SystemAccentColor}" />
+                    <Setter Property="Background" Value="{DynamicResource SemiColorPrimary}" />
                     <Setter Property="Opacity" Value="1.0" />
                 </Style>
             </StackPanel.Styles>

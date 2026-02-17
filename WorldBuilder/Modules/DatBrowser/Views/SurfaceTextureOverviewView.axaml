@@ -14,12 +14,12 @@
             <Setter Property="Background" Value="Transparent"/>
         </Style>
         <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
-            <Setter Property="Background" Value="#44ffffff"/>
+            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}"/>
         </Style>
         <Style Selector="ListBoxItem:selected Border#ItemBorder">
-            <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}"/>
             <Setter Property="BorderThickness" Value="3"/>
-            <Setter Property="Background" Value="#22ffffff"/>
+            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}"/>
         </Style>
     </UserControl.Styles>
 
@@ -41,7 +41,7 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Panel>
-                                <Border x:Name="ItemBorder" BorderBrush="#444" BorderThickness="1" Margin="2" Height="300">
+                                <Border x:Name="ItemBorder" BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1" Margin="2" Height="300">
                                     <views:DatObjectPreview DataId="{Binding DataId}" Dats="{Binding Dats}" IsTooltip="True" />
                                 </Border>
                                 <Button Command="{Binding OpenInNewWindowCommand}" 
@@ -49,9 +49,9 @@
                                         HorizontalAlignment="Right" 
                                         VerticalAlignment="Top"
                                         Margin="5"
-                                        Background="#80000000" 
+                                        Background="{DynamicResource SemiColorFill1}" 
                                         BorderThickness="0">
-                                    <TextBlock Text="↗" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource AccentPurple}"/>
+                                    <TextBlock Text="↗" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource SemiColorPrimary}"/>
                                 </Button>
                             </Panel>
                         </DataTemplate>

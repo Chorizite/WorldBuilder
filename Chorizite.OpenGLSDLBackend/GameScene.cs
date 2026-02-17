@@ -47,6 +47,14 @@ public class GameScene : IDisposable {
     private int _width;
     private int _height;
 
+    // Grid settings persistence
+    private bool _showLandblockGrid = true;
+    private bool _showCellGrid = true;
+    private Vector3 _landblockGridColor = new Vector3(1, 0, 1);
+    private Vector3 _cellGridColor = new Vector3(0, 1, 1);
+    private float _gridLineWidth = 1.0f;
+    private float _gridOpacity = 0.4f;
+
     // Terrain
     private TerrainRenderManager? _terrainManager;
 
@@ -197,6 +205,16 @@ public class GameScene : IDisposable {
 
         _terrainManager = new TerrainRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice);
         _terrainManager.ShowUnwalkableSlopes = _showUnwalkableSlopes;
+        _terrainManager.ScreenHeight = _height;
+        
+        // Reapply grid settings
+        _terrainManager.ShowLandblockGrid = _showLandblockGrid;
+        _terrainManager.ShowCellGrid = _showCellGrid;
+        _terrainManager.LandblockGridColor = _landblockGridColor;
+        _terrainManager.CellGridColor = _cellGridColor;
+        _terrainManager.GridLineWidth = _gridLineWidth;
+        _terrainManager.GridOpacity = _gridOpacity;
+
         if (_initialized && _terrainShader != null) {
             _terrainManager.Initialize(_terrainShader);
         }
@@ -308,6 +326,16 @@ public class GameScene : IDisposable {
         _camera3D.MoveSpeed = speed;
     }
 
+    /// <summary>
+    /// Sets the field of view for the cameras.
+    /// </summary>
+    /// <param name="fov">The field of view in degrees.</param>
+    public void SetFieldOfView(float fov) {
+        _camera2D.FieldOfView = fov;
+        _camera3D.FieldOfView = fov;
+        SyncCameraZ();
+    }
+
     public void SetBrush(Vector3 position, float radius, Vector4 color, bool show) {
         if (_terrainManager != null) {
             _terrainManager.BrushPosition = position;
@@ -317,7 +345,14 @@ public class GameScene : IDisposable {
         }
     }
 
-    public void SetGridSettings(bool showLandblockGrid, bool showCellGrid, Vector3 landblockGridColor, Vector3 cellGridColor, float gridLineWidth, float gridOpacity, float screenHeight) {
+    public void SetGridSettings(bool showLandblockGrid, bool showCellGrid, Vector3 landblockGridColor, Vector3 cellGridColor, float gridLineWidth, float gridOpacity) {
+        _showLandblockGrid = showLandblockGrid;
+        _showCellGrid = showCellGrid;
+        _landblockGridColor = landblockGridColor;
+        _cellGridColor = cellGridColor;
+        _gridLineWidth = gridLineWidth;
+        _gridOpacity = gridOpacity;
+
         if (_terrainManager != null) {
             _terrainManager.ShowLandblockGrid = showLandblockGrid;
             _terrainManager.ShowCellGrid = showCellGrid;
@@ -325,7 +360,6 @@ public class GameScene : IDisposable {
             _terrainManager.CellGridColor = cellGridColor;
             _terrainManager.GridLineWidth = gridLineWidth;
             _terrainManager.GridOpacity = gridOpacity;
-            _terrainManager.ScreenHeight = screenHeight;
         }
     }
 
@@ -363,6 +397,9 @@ public class GameScene : IDisposable {
         _height = height;
         _camera2D.Resize(width, height);
         _camera3D.Resize(width, height);
+        if (_terrainManager != null) {
+            _terrainManager.ScreenHeight = height;
+        }
     }
 
     public void InvalidateLandblock(int lbX, int lbY) {

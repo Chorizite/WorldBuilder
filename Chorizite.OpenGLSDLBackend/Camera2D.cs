@@ -10,6 +10,7 @@ public class Camera2D : CameraBase {
     private const int RightMouseButton = 1;
 
     private float _zoom = 1.0f;
+    private float _fov = 60.0f;
     private float _minZoom = 0.0001f;
     private float _maxZoom = 100.0f;
     private float _zoomSpeed = 0.1f;
@@ -24,6 +25,17 @@ public class Camera2D : CameraBase {
             var newZoom = Math.Clamp(value, _minZoom, _maxZoom);
             if (Math.Abs(_zoom - newZoom) > float.Epsilon) {
                 _zoom = newZoom;
+                InvalidateMatrices();
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public override float FieldOfView {
+        get => _fov;
+        set {
+            if (Math.Abs(_fov - value) > float.Epsilon) {
+                _fov = value;
                 InvalidateMatrices();
             }
         }

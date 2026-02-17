@@ -14,8 +14,8 @@
             </Border>
         </ToolTip.Tip>
         <TextBlock Text="{Binding Value}" VerticalAlignment="Center" FontFamily="Cascadia Code,Consolas,Monospace" />
-        <Border Background="#444" CornerRadius="4" Padding="4,1" VerticalAlignment="Center" IsVisible="{Binding DbType, Converter={x:Static ObjectConverters.IsNotNull}}">
-            <TextBlock Text="{Binding DbType}" FontSize="10" Foreground="White" VerticalAlignment="Center"/>
+        <Border Background="{DynamicResource SemiColorFill0}" CornerRadius="4" Padding="4,1" VerticalAlignment="Center" IsVisible="{Binding DbType, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <TextBlock Text="{Binding DbType}" FontSize="10" Foreground="{DynamicResource SemiColorText0}" VerticalAlignment="Center"/>
         </Border>
         <Button Command="{Binding OpenInNewWindowCommand}" 
                 ToolTip.Tip="Open in new window" 
@@ -23,7 +23,7 @@
                 Background="Transparent" 
                 BorderThickness="0"
                 VerticalAlignment="Center">
-            <TextBlock Text="↗" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource AccentPurple}"/>
+            <TextBlock Text="↗" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource SemiColorPrimary}"/>
         </Button>
     </StackPanel>
 </UserControl>

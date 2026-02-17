@@ -550,6 +550,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             float camDist = Math.Abs(camera.Position.Z);
             _shader.SetUniform("uCameraDistance", camDist < 1f ? 1f : camDist);
+            _shader.SetUniform("uCameraFov", camera.FieldOfView);
 
             if (_surfaceManager != null) {
                 _surfaceManager.TerrainAtlas.Bind(0);

@@ -11,8 +11,12 @@ namespace WorldBuilder.Modules.Landscape;
 
 public partial class HistoryPanelViewModel : ViewModelBase {
     private readonly CommandHistory _history;
+    private bool _isUpdating;
 
     public ObservableCollection<HistoryItemViewModel> Items { get; } = new();
+
+    [ObservableProperty]
+    private HistoryItemViewModel? _selectedItem;
 
     public HistoryPanelViewModel(CommandHistory history) {
         _history = history;
@@ -21,14 +25,26 @@ public partial class HistoryPanelViewModel : ViewModelBase {
     }
 
     private void UpdateItems() {
+        _isUpdating = true;
         Items.Clear();
         var historicalCommands = _history.History.ToList();
 
         string baseName = _history.IsTruncated ? "Oldest Undo State (Truncated)" : "Original Document (Opened)";
-        Items.Add(new HistoryItemViewModel(-1, baseName, _history.CurrentIndex == -1));
+        var baseItem = new HistoryItemViewModel(-1, baseName, _history.CurrentIndex == -1);
+        Items.Add(baseItem);
+        if (baseItem.IsActive) SelectedItem = baseItem;
 
         for (int i = 0; i < historicalCommands.Count; i++) {
-            Items.Add(new HistoryItemViewModel(i, historicalCommands[i].Name, _history.CurrentIndex == i, i > _history.CurrentIndex));
+            var item = new HistoryItemViewModel(i, historicalCommands[i].Name, _history.CurrentIndex == i, i > _history.CurrentIndex);
+            Items.Add(item);
+            if (item.IsActive) SelectedItem = item;
+        }
+        _isUpdating = false;
+    }
+
+    partial void OnSelectedItemChanged(HistoryItemViewModel? value) {
+        if (value != null && !_isUpdating) {
+            JumpTo(value);
         }
     }
 

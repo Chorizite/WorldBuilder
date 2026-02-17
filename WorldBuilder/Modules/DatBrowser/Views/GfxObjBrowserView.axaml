@@ -19,10 +19,10 @@
             </ListBox.ItemTemplate>
         </ListBox>
 
-        <GridSplitter Grid.Column="1" Background="Gray" ResizeDirection="Columns"/>
+        <GridSplitter Grid.Column="1" Background="{DynamicResource SurfaceStrokeColorDefaultBrush}" ResizeDirection="Columns"/>
 
         <!-- Preview Area -->
-        <Panel Grid.Column="2" Background="#202020">
+        <Panel Grid.Column="2" Background="{DynamicResource SolidBackgroundFillColorBaseBrush}">
             <views:DatObjectPreview 
                 IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsNotZero}}"
                 DataId="{Binding SelectedFileId}"

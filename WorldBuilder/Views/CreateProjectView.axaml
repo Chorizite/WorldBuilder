@@ -14,11 +14,11 @@
 
     <UserControl.Styles>
         <Style Selector="TextBox.error">
-            <Setter Property="BorderBrush" Value="Red" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorDanger}" />
             <Setter Property="BorderThickness" Value="2" />
         </Style>
         <Style Selector="TextBlock.error">
-            <Setter Property="Foreground" Value="Red" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiColorDanger}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Margin" Value="0,2,0,2" />
         </Style>
@@ -92,7 +92,7 @@
                     </Grid>
                     <Border
                         Padding="10"
-                        Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                        Background="{DynamicResource SemiColorFill1}"
                         CornerRadius="3">
                         <TextBlock
                             FontFamily="Consolas,Courier New,monospace"
