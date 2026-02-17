@@ -327,6 +327,13 @@ public class GameScene : IDisposable {
         float remainingTime = MAX_GPU_UPDATE_TIME_PER_FRAME;
         _currentCamera.Update(deltaTime);
 
+        if (_is3DMode && _terrainManager != null) {
+            var terrainHeight = _terrainManager.GetHeight(_currentCamera.Position.X, _currentCamera.Position.Y);
+            if (_currentCamera.Position.Z < terrainHeight + 1f) {
+                _currentCamera.Position = new Vector3(_currentCamera.Position.X, _currentCamera.Position.Y, terrainHeight + 1f);
+            }
+        }
+
         _terrainManager?.Update(deltaTime, _currentCamera);
         _lastTerrainUploadTime = _terrainManager?.ProcessUploads(remainingTime) ?? 0;
         remainingTime = Math.Max(0, remainingTime - _lastTerrainUploadTime);

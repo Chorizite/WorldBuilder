@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using System;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
@@ -9,15 +10,48 @@ using WorldBuilder.Views;
 namespace WorldBuilder.Modules.Landscape;
 
 public partial class LandscapeView : UserControl {
+    private DispatcherTimer? _updateTimer;
+    private TextBlock? _locationText;
+    private RenderView? _renderView;
+
     public LandscapeView() {
         InitializeComponent();
 
         // Wait for control to load to access the visual tree
         this.AttachedToVisualTree += OnAttachedToVisualTree;
+        this.DetachedFromVisualTree += OnDetachedFromVisualTree;
     }
 
     private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e) {
+        _locationText = this.FindControl<TextBlock>("LocationText");
+        _renderView = this.FindControl<RenderView>("RenderView");
         TryInitializeToolContext();
+        StartUpdateTimer();
+    }
+
+    private void OnDetachedFromVisualTree(object? sender, VisualTreeAttachmentEventArgs e) {
+        StopUpdateTimer();
+    }
+
+    private void StartUpdateTimer() {
+        if (_updateTimer == null) {
+            _updateTimer = new DispatcherTimer {
+                Interval = TimeSpan.FromMilliseconds(50)
+            };
+            _updateTimer.Tick += OnUpdateTick;
+        }
+        _updateTimer.Start();
+    }
+
+    private void StopUpdateTimer() {
+        _updateTimer?.Stop();
+    }
+
+    private void OnUpdateTick(object? sender, EventArgs e) {
+        if (_locationText == null || _renderView?.Camera == null || _renderView.LandscapeDocument?.Region == null) return;
+
+        var loc = Position.FromGlobal(_renderView.Camera.Position, _renderView.LandscapeDocument.Region);
+        _locationText.Text = loc.ToString();
     }
 
     protected override void OnDataContextChanged(EventArgs e) {

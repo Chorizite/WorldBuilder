@@ -250,6 +250,10 @@ public class Camera3D : CameraBase {
             case "Q":
                 _moveDown = true;
                 break;
+            case "R":
+                Yaw = 0;
+                Pitch = 0;
+                break;
         }
     }
 

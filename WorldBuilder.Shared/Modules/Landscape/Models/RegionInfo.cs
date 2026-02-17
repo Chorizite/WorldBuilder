@@ -1,4 +1,4 @@
-﻿using DatReaderWriter.DBObjs;
+using DatReaderWriter.DBObjs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -90,10 +90,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         /// <summary>
         /// Global map offset to center the map at (0,0).
         /// </summary>
-        public Vector2 MapOffset => new Vector2(
-            -(MapWidthInLandblocks * LandblockSizeInUnits) / 2f,
-            -(MapHeightInLandblocks * LandblockSizeInUnits) / 2f
-        );
+        public Vector2 MapOffset {
+            get {
+                return new Vector2(-24468f, -24468f);
+            }
+        }
 
         public RegionInfo(Region region) {
             _region = region;
