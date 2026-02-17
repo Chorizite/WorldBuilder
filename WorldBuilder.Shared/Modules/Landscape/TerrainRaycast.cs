@@ -206,7 +206,7 @@ namespace WorldBuilder.Shared.Modules.Landscape {
             if (hit.Hit) {
                 hit.HitPosition = hitPosition.ToVector3();
                 hit.Distance = (float)closestDistance;
-                hit.LandcellId = (landblockID << 16) + hitCellX * 8 + hitCellY;
+                hit.LandcellId = (uint)((landblockID << 16) + hitCellX * 8 + hitCellY + 1);
                 hit.MapOffset = region.MapOffset;
                 hit.CellSize = region.CellSizeInUnits;
                 hit.LandblockCellLength = region.LandblockCellLength;

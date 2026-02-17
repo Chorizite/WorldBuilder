@@ -77,6 +77,17 @@
           <TextBlock Text="🎯" />
         </Button>
       </StackPanel>
+      
+      <!-- Location Overlay -->
+      <Border HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="10" 
+              Background="#80000000" BorderBrush="#40FFFFFF" BorderThickness="1"
+              CornerRadius="4" Padding="6,4">
+        <TextBlock x:Name="LocationText"
+                   Foreground="White"
+                   FontFamily="Consolas, Monospace"
+                   FontSize="12"
+                   Text="0x00000000 (0.0, 0.0, 0.0)" />
+      </Border>
     </Panel>
 
     <!-- Right Sidebar: Layers & History -->
