@@ -5,8 +5,8 @@
              xmlns:icons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              x:Class="WorldBuilder.Modules.Landscape.Views.Components.ToolPanel"
              x:DataType="vm:LandscapeViewModel">
-    <Border Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
-            BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"
+    <Border Background="{DynamicResource SemiColorBackground0}"
+            BorderBrush="{DynamicResource SemiColorBorder}"
             BorderThickness="0,0,1,0">
         <StackPanel Spacing="4" Margin="4">
             <ListBox ItemsSource="{Binding Tools}" 

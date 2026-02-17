@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Rendering.Composition;
 using Chorizite.Core.Render;
 using Chorizite.OpenGLSDLBackend;
@@ -31,6 +32,14 @@ namespace WorldBuilder.Views {
         public bool IsTooltip {
             get => GetValue(IsTooltipProperty);
             set => SetValue(IsTooltipProperty, value);
+        }
+
+        public static readonly StyledProperty<IBrush?> ClearColorProperty =
+            AvaloniaProperty.Register<Base3DViewport, IBrush?>(nameof(ClearColor), new SolidColorBrush(Color.FromRgb(38, 38, 51)));
+
+        public IBrush? ClearColor {
+            get => GetValue(ClearColorProperty);
+            set => SetValue(ClearColorProperty, value);
         }
 
         public Vector2 InputScale { get; private set; }

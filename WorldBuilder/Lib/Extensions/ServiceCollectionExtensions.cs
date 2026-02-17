@@ -31,6 +31,7 @@ namespace WorldBuilder.Lib.Extensions {
             });
 
             collection.AddSingleton<WorldBuilderSettings>();
+            collection.AddSingleton<ThemeService>();
             collection.AddSingleton<RecentProjectsManager>();
             collection.AddSingleton<ProjectManager>();
             collection.AddSingleton<SplashPageFactory>();
@@ -88,6 +89,7 @@ namespace WorldBuilder.Lib.Extensions {
 
             collection.AddSingleton(rootProvider.GetRequiredService<WorldBuilderSettings>());
             collection.AddSingleton(rootProvider.GetRequiredService<RecentProjectsManager>());
+            collection.AddSingleton(rootProvider.GetRequiredService<ThemeService>());
             collection.AddSingleton(rootProvider.GetRequiredService<ProjectManager>());
             collection.AddSingleton(rootProvider.GetRequiredService<IDialogService>());
             collection.AddSingleton(rootProvider.GetRequiredService<PerformanceService>());

@@ -38,7 +38,6 @@ namespace WorldBuilder.Lib.Settings {
                 { typeof(short), CreateNumericControl },
                 { typeof(byte), CreateNumericControl },
                 { typeof(string), CreateStringControl },
-                { typeof(LogLevel), CreateEnumControl },
                 { typeof(Vector3), CreateVector3Control }
             };
         }
@@ -207,6 +206,10 @@ namespace WorldBuilder.Lib.Settings {
 
             if (_controlFactories.TryGetValue(propType, out var factory)) {
                 return factory(metadata, instance, bindingPath);
+            }
+
+            if (propType.IsEnum) {
+                return CreateEnumControl(metadata, instance, bindingPath);
             }
 
             return CreateDefaultControl(metadata, instance, bindingPath);

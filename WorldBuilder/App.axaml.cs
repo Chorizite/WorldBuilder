@@ -57,6 +57,24 @@ public partial class App : Application {
     public override void Initialize() {
         AvaloniaXamlLoader.Load(this);
         this.Resources[typeof(IServiceProvider)] = Services;
+
+        var settings = Services?.GetService<WorldBuilderSettings>();
+        if (settings != null) {
+            ApplyTheme(settings.App.Theme);
+            settings.App.PropertyChanged += (s, e) => {
+                if (e.PropertyName == nameof(AppSettings.Theme)) {
+                    ApplyTheme(settings.App.Theme);
+                }
+            };
+        }
+    }
+
+    private void ApplyTheme(AppTheme theme) {
+        RequestedThemeVariant = theme switch {
+            AppTheme.Light => Avalonia.Styling.ThemeVariant.Light,
+            AppTheme.Dark => Avalonia.Styling.ThemeVariant.Dark,
+            _ => Avalonia.Styling.ThemeVariant.Default,
+        };
     }
 
     /// <summary>

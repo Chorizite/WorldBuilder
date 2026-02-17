@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Chorizite.OpenGLSDLBackend;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,6 +25,7 @@ namespace WorldBuilder.Views {
         private uint _renderFileId;
         private bool _renderIsSetup;
         private bool _renderIsAutoCamera = true;
+        private Vector4 _renderBackgroundColor = new Vector4(0.15f, 0.15f, 0.2f, 1.0f);
 
         public static readonly StyledProperty<uint> FileIdProperty =
             AvaloniaProperty.Register<DatObjectViewer, uint>(nameof(FileId));
@@ -60,6 +62,7 @@ namespace WorldBuilder.Views {
         public DatObjectViewer() {
             InitializeComponent();
             InitializeBase3DView();
+            _renderBackgroundColor = ExtractColor(ClearColor);
         }
 
         protected override void OnGlInit(GL gl, PixelSize canvasSize) {
@@ -73,6 +76,7 @@ namespace WorldBuilder.Views {
                 var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _renderDats);
 
                 _scene = new SingleObjectScene(gl, Renderer!.GraphicsDevice, log, _renderDats, meshManager);
+                _scene.BackgroundColor = _renderBackgroundColor;
                 _scene.IsAutoCamera = _renderIsAutoCamera;
                 _scene.Initialize();
                 _scene.Resize(canvasSize.Width, canvasSize.Height);
@@ -80,6 +84,14 @@ namespace WorldBuilder.Views {
                     _scene.SetObject(_renderFileId, _renderIsSetup);
                 }
             }
+        }
+
+        private static Vector4 ExtractColor(IBrush? brush) {
+            if (brush is SolidColorBrush scb) {
+                var color = scb.Color;
+                return new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
+            }
+            return new Vector4(0.15f, 0.15f, 0.2f, 1.0f);
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
@@ -102,6 +114,13 @@ namespace WorldBuilder.Views {
             if (change.Property == IsAutoCameraProperty) {
                 if (_scene != null) {
                     _scene.IsAutoCamera = _renderIsAutoCamera;
+                }
+            }
+
+            if (change.Property == ClearColorProperty) {
+                _renderBackgroundColor = ExtractColor(ClearColor);
+                if (_scene != null) {
+                    _scene.BackgroundColor = _renderBackgroundColor;
                 }
             }
         }

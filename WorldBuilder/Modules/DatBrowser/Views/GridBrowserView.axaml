@@ -28,13 +28,14 @@
                                     CommandParameter="{Binding}"
                                     PointerPressed="OnItemPointerPressed"
                                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                    Background="{DynamicResource SemiColorFill0}" Padding="0">
+                                    Background="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).IsDarkMode, Converter={StaticResource ThemeToViewportBrushConverter}}" Padding="0">
                                 <Grid RowDefinitions="*, Auto">
                                     <views:DatObjectPreview 
                                         Grid.Row="0"
                                         DataId="{Binding}"
                                         Dats="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).Dats}"
                                         IsTooltip="True"
+                                        ClearColor="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).IsDarkMode, Converter={StaticResource ThemeToViewportBrushConverter}}"
                                         Height="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).ItemSize}" />
 
                                 </Grid>

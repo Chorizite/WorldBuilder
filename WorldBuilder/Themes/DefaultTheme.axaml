@@ -6,6 +6,7 @@
     <Styles.Resources>
         <ResourceDictionary>
             <converters:BoolToIconConverter x:Key="BoolToIconConverter" />
+            <converters:ThemeToViewportBrushConverter x:Key="ThemeToViewportBrushConverter" />
             <SolidColorBrush x:Key="ErrorBrush" Color="{DynamicResource SemiColorDanger}" />
         </ResourceDictionary>
     </Styles.Resources>
