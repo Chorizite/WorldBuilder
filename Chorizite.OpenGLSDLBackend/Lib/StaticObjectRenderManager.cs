@@ -126,7 +126,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader = shader;
             _initialized = true;
             _gl.GenBuffers(1, out _instanceVBO);
-            _log.LogInformation("StaticObjectRenderManager initialized");
         }
 
         public void Update(float deltaTime, Vector3 cameraPosition, Matrix4x4 viewProjectionMatrix) {

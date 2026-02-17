@@ -106,7 +106,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader = shader;
             _initialized = true;
             _gl.GenBuffers(1, out _instanceVBO);
-            _log.LogInformation("SceneryRenderManager initialized");
         }
 
         public void Update(float deltaTime, Vector3 cameraPosition, Matrix4x4 viewProjectionMatrix) {
@@ -386,6 +385,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 var lbGlobalX = (uint)lb.GridX;
                 var lbGlobalY = (uint)lb.GridY;
+
+                // Ensure the landscape chunk is loaded and merged before we try to generate scenery from it
+                var chunkX = (uint)(lbGlobalX / LandscapeChunk.LandblocksPerChunk);
+                var chunkY = (uint)(lbGlobalY / LandscapeChunk.LandblocksPerChunk);
+                var chunkId = LandscapeChunk.GetId(chunkX, chunkY);
+                await _landscapeDoc.GetOrLoadChunkAsync(chunkId, _dats, ct);
 
                 // Wait for static objects to be ready for this landblock
                 using (var cts = CancellationTokenSource.CreateLinkedTokenSource(ct)) {

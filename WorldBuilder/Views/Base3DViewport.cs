@@ -226,7 +226,6 @@ namespace WorldBuilder.Views {
             _glVisual = new GlVisual(this);
             _visual = visual.Compositor.CreateCustomVisual(_glVisual);
             ElementComposition.SetElementChildVisual(_viewport, _visual);
-            _logger.LogInformation("Attached to visual tree");
             // Update size immediately
             UpdateSize(_viewport.Bounds.Size);
             UpdateScreenPosition();
