@@ -40,7 +40,7 @@ echo "Publishing for Linux (linux-x64)..."
 dotnet publish WorldBuilder.Linux/WorldBuilder.Linux.csproj -r linux-x64 -o publish/linux-x64 $PUBLISH_FLAGS
 
 echo "Packing Windows release..."
-dotnet vpk [win] pack -u WorldBuilder -v "$SEMVER" -p publish/win-x64 -e WorldBuilder.Windows.exe --channel windows -o Releases
+dotnet vpk [win] pack -u WorldBuilder -v "$SEMVER" -p publish/win-x64 -e WorldBuilder.Windows.exe --framework net10.0-x64-desktop --channel windows -o Releases
 
 echo "Packing Linux release..."
 dotnet vpk pack -u WorldBuilder -v "$SEMVER" -p publish/linux-x64 -e WorldBuilder.Linux --channel linux -o Releases
