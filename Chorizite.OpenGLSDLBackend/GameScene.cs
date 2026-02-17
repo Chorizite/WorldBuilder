@@ -34,6 +34,16 @@ public class GameScene : IDisposable {
     private bool _initialized;
     public bool ShowScenery { get; set; } = true;
     public bool ShowStaticObjects { get; set; } = true;
+    private bool _showUnwalkableSlopes;
+    public bool ShowUnwalkableSlopes {
+        get => _showUnwalkableSlopes;
+        set {
+            _showUnwalkableSlopes = value;
+            if (_terrainManager != null) {
+                _terrainManager.ShowUnwalkableSlopes = value;
+            }
+        }
+    }
     private int _width;
     private int _height;
 
@@ -188,6 +198,7 @@ public class GameScene : IDisposable {
         _meshManager = meshManager ?? new ObjectMeshManager(_graphicsDevice, dats);
 
         _terrainManager = new TerrainRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice);
+        _terrainManager.ShowUnwalkableSlopes = _showUnwalkableSlopes;
         if (_initialized && _terrainShader != null) {
             _terrainManager.Initialize(_terrainShader);
         }

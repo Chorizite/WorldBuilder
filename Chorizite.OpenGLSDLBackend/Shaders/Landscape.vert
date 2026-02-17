@@ -26,6 +26,7 @@ out vec4 vRoad0;
 out vec4 vRoad1;
 out float vLightingFactor;
 out vec2 vWorldPos;
+out vec3 vNormal;
 
 vec4 unpackTexCoord(uvec4 packedCoords) {
     // packed.x contains the UV bits in the low byte
@@ -67,4 +68,5 @@ void main() {
     vRoad1 = unpackTexCoord(inPackedRoad1);
     
     vLightingFactor = 1.0;
+    vNormal = inNormal;
 }

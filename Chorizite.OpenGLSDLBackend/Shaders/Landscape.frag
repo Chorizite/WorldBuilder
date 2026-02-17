@@ -19,6 +19,7 @@ uniform float uGridLineWidth;     // Base width of grid lines in pixels
 uniform float uGridOpacity;       // Opacity of grid lines (0.0 - 1.0)
 uniform float uCameraDistance;    // Distance from camera to terrain
 uniform float uScreenHeight;      // Screen height in pixels for scaling
+uniform vec2 uGridOffset;         // Offset for grid alignment (MapOffset)
 
 // Brush uniforms
 uniform vec3 uBrushPos;       // World position of the brush center
@@ -26,6 +27,9 @@ uniform float uBrushRadius;   // Radius of the brush in world units
 uniform vec4 uBrushColor;     // Color of the brush overlay (RGBA)
 uniform bool uShowBrush;      // Toggle brush visibility
 uniform int uBrushShape;      // 0 = Circle, 1 = Square (for future use)
+
+uniform bool uShowUnwalkableSlopes;
+uniform float uFloorZ;
 
 in vec3 vTexUV;
 in vec4 vOverlay0;
@@ -35,6 +39,7 @@ in vec4 vRoad0;
 in vec4 vRoad1;
 in float vLightingFactor;
 in vec2 vWorldPos;
+in vec3 vNormal;
 
 out vec4 FragColor;
 
@@ -149,10 +154,10 @@ vec4 calculateGrid(vec2 worldPos, vec3 terrainColor) {
     
     // Calculate distances to nearest grid boundaries using round() for better stability at boundaries
     // The previous mod() collection had issues at 0 and multiples of the size due to precision.
-    vec2 nearbyLandblockLine = round(worldPos / lw) * lw;
+    vec2 nearbyLandblockLine = round((worldPos - uGridOffset) / lw) * lw + uGridOffset;
     vec2 landblockDist = abs(worldPos - nearbyLandblockLine);
     
-    vec2 nearbyCellLine = round(worldPos / cw) * cw;
+    vec2 nearbyCellLine = round((worldPos - uGridOffset) / cw) * cw + uGridOffset;
     vec2 cellDist = abs(worldPos - nearbyCellLine);
     
     // Create lines at boundaries using smoothstep for anti-aliasing
@@ -253,6 +258,11 @@ void main() {
     // Apply Brush Overlay
     vec4 brushColor = calculateBrush(worldPos);
     finalColor = mix(finalColor, brushColor.rgb, brushColor.a);
+    
+    // Highlight unwalkable slopes
+    if (uShowUnwalkableSlopes && normalize(vNormal).z < uFloorZ) {
+        finalColor = mix(finalColor, vec3(1.0, 0.0, 0.0), 0.5);
+    }
     
     // Lighting
     vec3 litColor = finalColor * (saturate(vLightingFactor) + xAmbient);

@@ -32,7 +32,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private int _activePartialUpdates = 0;
 
         // Constants
-        private const int MaxVertices = 16384;
+        private const int MaxVertices = 24576;
         private const int MaxIndices = 24576;
         private const int LandblocksPerChunk = 8;
         private float _chunkSizeInUnits;
@@ -63,6 +63,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public float GridLineWidth { get; set; } = 1.0f;
         public float GridOpacity { get; set; } = 1.0f;
         public float ScreenHeight { get; set; } = 1080.0f;
+        public bool ShowUnwalkableSlopes { get; set; }
 
         private readonly Frustum _frustum = new();
         private readonly IDatReaderWriter _dats;
@@ -543,6 +544,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("uGridLineWidth", GridLineWidth);
             _shader.SetUniform("uGridOpacity", GridOpacity);
             _shader.SetUniform("uScreenHeight", ScreenHeight);
+            _shader.SetUniform("uGridOffset", _landscapeDoc.Region?.MapOffset ?? Vector2.Zero);
+            _shader.SetUniform("uShowUnwalkableSlopes", ShowUnwalkableSlopes ? 1 : 0);
+            _shader.SetUniform("uFloorZ", TerrainUtils.FloorZ);
 
             float camDist = Math.Abs(camera.Position.Z);
             _shader.SetUniform("uCameraDistance", camDist < 1f ? 1f : camDist);

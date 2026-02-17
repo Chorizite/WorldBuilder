@@ -170,6 +170,7 @@ public partial class RenderView : Base3DViewport {
         _gameScene.SetSceneryRenderDistance(_renderingSettings.SceneryRenderDistance);
         _gameScene.ShowScenery = _renderingSettings.ShowScenery;
         _gameScene.ShowStaticObjects = _renderingSettings.ShowStaticObjects;
+        _gameScene.ShowUnwalkableSlopes = _renderingSettings.ShowUnwalkableSlopes;
 
         if (_gridSettings != null) {
             _gridSettings.PropertyChanged -= OnGridSettingsChanged;
@@ -211,6 +212,9 @@ public partial class RenderView : Base3DViewport {
         }
         else if (e.PropertyName == nameof(RenderingSettings.ShowStaticObjects)) {
             _gameScene.ShowStaticObjects = _renderingSettings.ShowStaticObjects;
+        }
+        else if (e.PropertyName == nameof(RenderingSettings.ShowUnwalkableSlopes)) {
+            _gameScene.ShowUnwalkableSlopes = _renderingSettings.ShowUnwalkableSlopes;
         }
     }
 
@@ -424,6 +428,14 @@ public partial class RenderView : Base3DViewport {
         set => SetValue(Is3DCameraProperty, value);
     }
 
+    public static readonly StyledProperty<bool> ShowUnwalkableSlopesProperty =
+        AvaloniaProperty.Register<RenderView, bool>(nameof(ShowUnwalkableSlopes));
+
+    public bool ShowUnwalkableSlopes {
+        get => GetValue(ShowUnwalkableSlopesProperty);
+        set => SetValue(ShowUnwalkableSlopesProperty, value);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
         base.OnPropertyChanged(change);
 
@@ -451,6 +463,11 @@ public partial class RenderView : Base3DViewport {
         else if (change.Property == ShowStaticObjectsProperty) {
             if (_gameScene != null) {
                 _gameScene.ShowStaticObjects = ShowStaticObjects;
+            }
+        }
+        else if (change.Property == ShowUnwalkableSlopesProperty) {
+            if (_gameScene != null) {
+                _gameScene.ShowUnwalkableSlopes = ShowUnwalkableSlopes;
             }
         }
         else if (change.Property == Is3DCameraProperty) {

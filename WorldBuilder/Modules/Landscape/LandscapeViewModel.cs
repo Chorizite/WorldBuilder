@@ -58,6 +58,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
     [ObservableProperty] private bool _isSceneryEnabled = true;
     [ObservableProperty] private bool _isStaticObjectsEnabled = true;
+    [ObservableProperty] private bool _isUnwalkableSlopeHighlightEnabled;
     [ObservableProperty] private bool _isGridEnabled;
     [ObservableProperty] private bool _is3DCameraEnabled = true;
 
@@ -70,6 +71,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     partial void OnIsStaticObjectsEnabledChanged(bool value) {
         if (_settings != null) {
             _settings.Landscape.Rendering.ShowStaticObjects = value;
+        }
+    }
+
+    partial void OnIsUnwalkableSlopeHighlightEnabledChanged(bool value) {
+        if (_settings != null) {
+            _settings.Landscape.Rendering.ShowUnwalkableSlopes = value;
         }
     }
 
@@ -109,6 +116,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         if (_settings != null) {
             IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
             IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
+            IsUnwalkableSlopeHighlightEnabled = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
             IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
 
             _settings.PropertyChanged += OnSettingsPropertyChanged;
@@ -388,6 +396,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 _settings.Landscape.Rendering.PropertyChanged += OnRenderingSettingsPropertyChanged;
                 IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
                 IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
+                IsUnwalkableSlopeHighlightEnabled = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
             }
         }
         else if (e.PropertyName == nameof(LandscapeEditorSettings.Grid)) {
@@ -408,6 +417,11 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         else if (e.PropertyName == nameof(RenderingSettings.ShowStaticObjects)) {
             if (_settings != null) {
                 IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
+            }
+        }
+        else if (e.PropertyName == nameof(RenderingSettings.ShowUnwalkableSlopes)) {
+            if (_settings != null) {
+                IsUnwalkableSlopeHighlightEnabled = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
             }
         }
     }

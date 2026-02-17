@@ -32,6 +32,7 @@
                         ShowBrush="{Binding ShowBrush}"
                         ShowScenery="{Binding IsSceneryEnabled}"
                         ShowStaticObjects="{Binding IsStaticObjectsEnabled}"
+                        ShowUnwalkableSlopes="{Binding IsUnwalkableSlopeHighlightEnabled}"
                         Is3DCamera="{Binding Is3DCameraEnabled}" />
 
       <!-- Overlay Buttons -->
@@ -72,6 +73,9 @@
         </ToggleButton>
         <ToggleButton IsChecked="{Binding IsGridEnabled}" ToolTip.Tip="Toggle Grid">
           <TextBlock Text="📏" />
+        </ToggleButton>
+        <ToggleButton IsChecked="{Binding IsUnwalkableSlopeHighlightEnabled}" ToolTip.Tip="Toggle Unwalkable Slopes">
+          <TextBlock Text="🏔️" />
         </ToggleButton>
         <Button Command="{Binding ResetCamera}" ToolTip.Tip="Reset Camera">
           <TextBlock Text="🎯" />
