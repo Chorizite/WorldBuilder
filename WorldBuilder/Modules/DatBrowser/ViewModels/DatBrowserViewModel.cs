@@ -20,8 +20,12 @@ using WorldBuilder.Lib;
 
 using CommunityToolkit.Mvvm.Input;
 
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input;
+
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
-    public partial class DatBrowserViewModel : ViewModelBase, IToolModule {
+    public partial class DatBrowserViewModel : ViewModelBase, IToolModule, IHotkeyHandler {
         public string Name => "Dat Browser";
         public ViewModelBase ViewModel => this;
 
@@ -195,6 +199,52 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                         }
                     });
                 });
+            }
+        }
+
+        public bool HandleHotkey(KeyEventArgs e) {
+            if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.G) {
+                _ = ShowGoToFileIdPrompt();
+                return true;
+            }
+            return false;
+        }
+
+        private async Task ShowGoToFileIdPrompt() {
+            var vm = _dialogService.CreateViewModel<TextInputWindowViewModel>();
+            vm.Title = "Go To File ID";
+            vm.Message = "Enter File ID (hex or decimal):";
+
+            var owner = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow?.DataContext as INotifyPropertyChanged;
+            if (owner != null) {
+                await _dialogService.ShowDialogAsync(owner, vm);
+            }
+            else {
+                await _dialogService.ShowDialogAsync(null!, vm);
+            }
+
+            if (vm.Result) {
+                uint fileId = 0;
+                var input = vm.InputText.Trim();
+                if (input.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) {
+                    uint.TryParse(input.Substring(2), System.Globalization.NumberStyles.HexNumber, null, out fileId);
+                }
+                else {
+                    uint.TryParse(input, out fileId);
+                }
+
+                if (fileId != 0) {
+                    NavigateToFileId(fileId);
+                }
+            }
+        }
+
+        private void NavigateToFileId(uint fileId) {
+            if (_dats.Portal.TryGet<IDBObj>(fileId, out var obj)) {
+                SelectedObject = obj;
+            }
+            else if (_dats.HighRes.TryGet<IDBObj>(fileId, out var obj2)) {
+                SelectedObject = obj2;
             }
         }
 
