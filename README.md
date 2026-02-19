@@ -1,5 +1,7 @@
 # AC WorldBuilder
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Chorizite/WorldBuilder)
+
 AC WorldBuilder is a cross-platform, standalone desktop application designed for creating and editing dat content for Asheron's Call emulator servers / clients.
 
 ## Installation
