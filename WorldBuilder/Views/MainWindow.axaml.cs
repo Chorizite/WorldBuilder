@@ -8,6 +8,10 @@ using WorldBuilder.Services;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Services;
 
+using Avalonia.Input;
+using WorldBuilder.ViewModels;
+using WorldBuilder.Lib;
+
 namespace WorldBuilder.Views;
 
 public partial class MainWindow : Window {
@@ -30,6 +34,19 @@ public partial class MainWindow : Window {
                 settings.Project.Save();
             }
         };
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e) {
+        if (DataContext is MainViewModel vm) {
+            var activeTab = vm.ToolTabs.FirstOrDefault(t => t.IsSelected);
+            if (activeTab?.ViewModel is IHotkeyHandler handler) {
+                if (handler.HandleHotkey(e)) {
+                    e.Handled = true;
+                    return;
+                }
+            }
+        }
+        base.OnKeyDown(e);
     }
 
     /// <summary>

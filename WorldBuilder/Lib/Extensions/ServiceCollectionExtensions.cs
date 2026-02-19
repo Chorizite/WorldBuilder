@@ -63,11 +63,13 @@ namespace WorldBuilder.Lib.Extensions {
             // ViewModels - main app
             collection.AddTransient<SettingsWindowViewModel>();
             collection.AddTransient<ErrorDetailsWindowViewModel>();
+            collection.AddTransient<TextInputWindowViewModel>();
 
             // Windows
             collection.AddTransient<SettingsWindow>();
             collection.AddTransient<ExportDatsWindow>();
             collection.AddTransient<ErrorDetailsWindow>();
+            collection.AddTransient<TextInputWindow>();
             collection.AddTransient<WorldBuilder.Modules.DatBrowser.Views.DatBrowserWindow>();
 
             return collection;

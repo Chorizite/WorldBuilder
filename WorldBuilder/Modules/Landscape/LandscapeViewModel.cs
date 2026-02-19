@@ -1,3 +1,5 @@
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Chorizite.OpenGLSDLBackend;
@@ -5,10 +7,12 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using HanumanInstitute.MvvmDialogs;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Numerics;
 using System.Threading;
@@ -27,10 +31,11 @@ using ICamera = WorldBuilder.Shared.Models.ICamera;
 
 namespace WorldBuilder.Modules.Landscape;
 
-public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModule {
+public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModule, IHotkeyHandler {
     private readonly Project _project;
     private readonly IDatReaderWriter _dats;
     private readonly ILogger<LandscapeViewModel> _log;
+    private readonly IDialogService _dialogService;
     private DocumentRental<LandscapeDocument>? _landscapeRental;
 
     public string Name => "Landscape";
@@ -106,11 +111,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         set => _camera = value;
     }
 
-    public LandscapeViewModel(Project project, IDatReaderWriter dats, IDocumentManager documentManager, ILogger<LandscapeViewModel> log) {
+    public LandscapeViewModel(Project project, IDatReaderWriter dats, IDocumentManager documentManager, ILogger<LandscapeViewModel> log, IDialogService dialogService) {
         _project = project;
         _dats = dats;
         _documentManager = documentManager;
         _log = log;
+        _dialogService = dialogService;
         _settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
 
         if (_settings != null) {
@@ -431,6 +437,42 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         if (e.PropertyName == nameof(GridSettings.ShowGrid)) {
             if (_settings != null) {
                 IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
+            }
+        }
+    }
+
+    public bool HandleHotkey(KeyEventArgs e) {
+        if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.G) {
+            _ = ShowGoToLocationPrompt();
+            return true;
+        }
+        if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.Z) {
+            CommandHistory.Undo();
+            return true;
+        }
+        if (e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift) && e.Key == Key.Z) {
+            CommandHistory.Redo();
+            return true;
+        }
+        return false;
+    }
+
+    private async Task ShowGoToLocationPrompt() {
+        var vm = _dialogService.CreateViewModel<TextInputWindowViewModel>();
+        vm.Title = "Go To Location";
+        vm.Message = "Enter location (e.g. 12.3N, 45.6E or 0x12340001 [0 0 0]):";
+
+        var owner = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow?.DataContext as INotifyPropertyChanged;
+        if (owner != null) {
+            await _dialogService.ShowDialogAsync(owner, vm);
+        }
+        else {
+            await _dialogService.ShowDialogAsync(null!, vm);
+        }
+
+        if (vm.Result && Position.TryParse(vm.InputText, out var pos, ActiveDocument?.Region)) {
+            if (Camera is Chorizite.OpenGLSDLBackend.ICamera choriziteCamera) {
+                choriziteCamera.Position = pos!.GlobalPosition;
             }
         }
     }
