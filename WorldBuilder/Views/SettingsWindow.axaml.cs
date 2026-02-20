@@ -100,7 +100,6 @@ namespace WorldBuilder.Views {
         private void Save_Click(object? sender, RoutedEventArgs e) {
             if (Settings != null) {
                 Settings.Save();
-                Settings.Project?.Save();
             }
 
             Close();

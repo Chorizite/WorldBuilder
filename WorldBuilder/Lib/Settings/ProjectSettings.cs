@@ -1,7 +1,10 @@
+using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace WorldBuilder.Lib.Settings {
     [SettingCategory("Project", Order = -1)]
@@ -9,6 +12,12 @@ namespace WorldBuilder.Lib.Settings {
         [SettingHidden]
         private double _windowWidth = 1280;
         public double WindowWidth { get => _windowWidth; set => SetProperty(ref _windowWidth, value); }
+
+        private CancellationTokenSource? _saveCts;
+
+        public ProjectSettings() {
+            PropertyChanged += (s, e) => RequestSave();
+        }
 
         [SettingHidden]
         private double _windowHeight = 720;
@@ -63,8 +72,29 @@ namespace WorldBuilder.Lib.Settings {
         public void Save() {
             if (string.IsNullOrEmpty(FilePath)) return;
 
+            _saveCts?.Cancel();
+            _saveCts?.Dispose();
+            _saveCts = null;
+
             var json = System.Text.Json.JsonSerializer.Serialize(this, SourceGenerationContext.Default.ProjectSettings);
             System.IO.File.WriteAllText(FilePath, json);
+        }
+
+        public void RequestSave() {
+            if (string.IsNullOrEmpty(FilePath)) return;
+
+            _saveCts?.Cancel();
+            _saveCts?.Dispose();
+            _saveCts = new CancellationTokenSource();
+
+            var token = _saveCts.Token;
+            Task.Run(async () => {
+                try {
+                    await Task.Delay(2000, token);
+                    Save();
+                }
+                catch (OperationCanceledException) { }
+            }, token);
         }
 
         public static ProjectSettings Load(string filePath) {

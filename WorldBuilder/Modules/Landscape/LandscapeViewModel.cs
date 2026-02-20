@@ -334,36 +334,8 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         projectSettings.LandscapeCameraYaw = _gameScene.Camera3D.Yaw;
         projectSettings.LandscapeCameraPitch = _gameScene.Camera3D.Pitch;
         projectSettings.LandscapeCameraZoom = _gameScene.Camera2D.Zoom;
-
-        RequestSaveProjectSettings();
     }
 
-    public void RequestSaveProjectSettings() {
-        if (_project.IsReadOnly) return;
-
-        const string key = "project_settings";
-        if (_saveDebounceTokens.TryGetValue(key, out var existingCts)) {
-            existingCts.Cancel();
-            existingCts.Dispose();
-        }
-
-        var cts = new CancellationTokenSource();
-        _saveDebounceTokens[key] = cts;
-
-        var token = cts.Token;
-        _ = Task.Run(async () => {
-            try {
-                await Task.Delay(2000, token);
-                _settings?.Project?.Save();
-            }
-            catch (OperationCanceledException) {
-                // Ignore
-            }
-            catch (Exception ex) {
-                _log.LogError(ex, "Error during debounced project settings save");
-            }
-        });
-    }
 
     private void OnCameraChanged(bool is3d) {
         Dispatcher.UIThread.Post(() => {

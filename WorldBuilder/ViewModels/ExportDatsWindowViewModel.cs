@@ -114,11 +114,10 @@ namespace WorldBuilder.ViewModels {
                         _settings.Project.LastDatExportDirectory = ExportDirectory;
                         _settings.Project.LastDatExportPortalIteration = PortalIteration;
                         _settings.Project.OverwriteDatFiles = OverwriteFiles;
-                        _settings.Project.Save();
                     }
                     _settings.Save();
 
-                    DialogResult = true; 
+                    DialogResult = true;
                     return true;
                 }
                 else {
