@@ -19,10 +19,10 @@ void main() {
     
     if (uRenderPass == 0) {
         // Opaque pass
-        if (color.a < 0.98) discard;
+        if (color.a < 0.95) discard;
     } else {
         // Transparent pass
-        if (color.a > 0.98) discard;
+        if (color.a > 0.95) discard;
     }
     
     color.rgb *= LightingFactor;

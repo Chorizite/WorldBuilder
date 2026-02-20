@@ -230,42 +230,67 @@ namespace Chorizite.OpenGLSDLBackend {
                 }
 
                 _shader.Bind();
-                _shader.SetUniform("uViewProjection", _camera.ViewProjectionMatrix);
-                _shader.SetUniform("uCameraPosition", _camera.Position);
+                var snapshotVP = _camera.ViewProjectionMatrix;
+                var snapshotPos = _camera.Position;
+
+                _shader.SetUniform("uViewProjection", snapshotVP);
+                _shader.SetUniform("uCameraPosition", snapshotPos);
                 _shader.SetUniform("uLightDirection", Vector3.Normalize(new Vector3(0.5f, 1.0f, 0.5f)));
                 _shader.SetUniform("uAmbientIntensity", 0.4f);
                 _shader.SetUniform("uSpecularPower", 16.0f);
 
-                var transform = Matrix4x4.CreateRotationZ(_rotation);
-                // Update instance buffer
-                _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVBO);
-                unsafe {
-                    _gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)sizeof(Matrix4x4), &transform);
-                }
+                // Disable alpha channel writes so we don't punch holes in the window's alpha
+                // where transparent 3D objects are drawn.
+                _gl.ColorMask(true, true, true, false);
 
-                if (data.IsSetup) {
-                    foreach (var part in data.SetupParts) {
-                        var partData = _meshManager.GetRenderData(part.GfxObjId);
-                        if (partData != null) {
-                            var finalTransform = part.Transform * transform;
-                            unsafe {
-                                _gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)sizeof(Matrix4x4), &finalTransform);
-                            }
-                            RenderObject(partData);
-                        }
-                    }
-                }
-                else {
-                    RenderObject(data);
-                }
+                var transform = Matrix4x4.CreateRotationZ(_rotation);
+
+                // Pass 1: Opaque
+                _shader.SetUniform("uRenderPass", 0);
+                _gl.DepthMask(true);
+                _gl.Enable(EnableCap.Blend);
+                _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                RenderCurrentObject(data, transform);
+
+                // Pass 2: Transparent
+                _shader.SetUniform("uRenderPass", 1);
+                _gl.DepthMask(false);
+                RenderCurrentObject(data, transform);
+
+                _gl.DepthMask(true);
             }
             finally {
                 // Restore for Avalonia
+                _gl.ColorMask(true, true, true, true);
                 if (wasScissorEnabled) _gl.Enable(EnableCap.ScissorTest);
                 _gl.Enable(EnableCap.DepthTest);
                 _gl.Enable(EnableCap.Blend);
                 _gl.Viewport(currentViewport[0], currentViewport[1],
                              (uint)currentViewport[2], (uint)currentViewport[3]);
+            }
+        }
+
+        private void RenderCurrentObject(ObjectRenderData data, Matrix4x4 transform) {
+            // Update instance buffer
+            _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVBO);
+            unsafe {
+                _gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)sizeof(Matrix4x4), &transform);
+            }
+
+            if (data.IsSetup) {
+                foreach (var part in data.SetupParts) {
+                    var partData = _meshManager.GetRenderData(part.GfxObjId);
+                    if (partData != null) {
+                        var finalTransform = part.Transform * transform;
+                        unsafe {
+                            _gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)sizeof(Matrix4x4), &finalTransform);
+                        }
+                        RenderObject(partData);
+                    }
+                }
+            }
+            else {
+                RenderObject(data);
             }
         }
 
