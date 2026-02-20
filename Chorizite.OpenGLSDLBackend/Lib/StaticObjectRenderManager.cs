@@ -538,9 +538,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 .ToList();
 
             foreach (var objectId in uniqueObjects) {
-                UploadPreparedMesh(objectId);
+                var renderData = UploadPreparedMesh(objectId);
 
-                var renderData = _meshManager.TryGetRenderData(objectId);
                 if (renderData is { IsSetup: true }) {
                     foreach (var (partId, _) in renderData.SetupParts) {
                         UploadPreparedMesh(partId);
@@ -561,12 +560,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             lb.GpuReady = true;
         }
 
-        private void UploadPreparedMesh(uint objectId) {
-            if (_meshManager.HasRenderData(objectId)) return;
+        private ObjectRenderData? UploadPreparedMesh(uint objectId) {
+            if (_meshManager.HasRenderData(objectId))
+                return _meshManager.TryGetRenderData(objectId);
 
             if (_preparedMeshes.TryRemove(objectId, out var meshData)) {
-                _meshManager.UploadMeshData(meshData);
+                return _meshManager.UploadMeshData(meshData);
             }
+            return null;
         }
 
         #endregion
