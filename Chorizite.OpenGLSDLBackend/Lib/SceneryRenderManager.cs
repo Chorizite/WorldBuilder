@@ -480,9 +480,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     }
                     if (scene.Objects.Count == 0) continue;
 
-                    // Skip road cells
-                    if ((entry.Road ?? 0) != 0) continue;
-
                     var cellXMat = -1109124029 * (int)globalCellX;
                     var cellYMat = 1813693831 * (int)globalCellY;
                     var cellMat2 = unchecked(1360117743u * globalCellX * globalCellY + 1888038839u);
