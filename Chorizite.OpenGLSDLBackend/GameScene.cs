@@ -485,9 +485,20 @@ public class GameScene : IDisposable {
         // where transparent 3D objects are drawn.
         _gl.ColorMask(true, true, true, false);
 
+        // Snapshot camera state once to prevent cross-thread race conditions.
+        // Mouse input events can modify _currentCamera on the UI thread while we're
+        // rendering on the compositor thread. Without this snapshot, the opaque and
+        // transparent passes could use different ViewProjectionMatrix values, causing
+        // depth buffer mismatches that make semi-transparent pixels disappear.
+        var snapshotVP = _currentCamera.ViewProjectionMatrix;
+        var snapshotView = _currentCamera.ViewMatrix;
+        var snapshotProj = _currentCamera.ProjectionMatrix;
+        var snapshotPos = _currentCamera.Position;
+        var snapshotFov = _currentCamera.FieldOfView;
+
         // Render Terrain
         if (_terrainManager != null) {
-            _terrainManager.Render(_currentCamera);
+            _terrainManager.Render(snapshotView, snapshotProj, snapshotVP, snapshotPos, snapshotFov);
         }
 
         // Pass 1: Opaque Scenery & Static Objects
@@ -496,11 +507,11 @@ public class GameScene : IDisposable {
         _gl.DepthMask(true);
 
         if (ShowScenery) {
-            _sceneryManager?.Render(_currentCamera);
+            _sceneryManager?.Render(snapshotVP, snapshotPos);
         }
 
         if (ShowStaticObjects) {
-            _staticObjectManager?.Render(_currentCamera);
+            _staticObjectManager?.Render(snapshotVP, snapshotPos);
         }
 
         // Pass 2: Transparent Scenery & Static Objects
@@ -509,11 +520,11 @@ public class GameScene : IDisposable {
         _gl.DepthMask(false);
 
         if (ShowScenery) {
-            _sceneryManager?.Render(_currentCamera);
+            _sceneryManager?.Render(snapshotVP, snapshotPos);
         }
 
         if (ShowStaticObjects) {
-            _staticObjectManager?.Render(_currentCamera);
+            _staticObjectManager?.Render(snapshotVP, snapshotPos);
         }
 
         // Restore depth mask for subsequent renders if needed

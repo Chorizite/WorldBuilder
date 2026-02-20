@@ -268,17 +268,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return (float)sw.Elapsed.TotalMilliseconds;
         }
 
-        public unsafe void Render(ICamera camera) {
-            if (!_initialized || _shader is null || camera.Position.Z > 4000) return;
+        public unsafe void Render(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
+            if (!_initialized || _shader is null || cameraPosition.Z > 4000) return;
 
             _shader.Bind();
-            _shader.SetUniform("uViewProjection", camera.ViewProjectionMatrix);
-            _shader.SetUniform("uCameraPosition", camera.Position);
+            _shader.SetUniform("uViewProjection", viewProjectionMatrix);
+            _shader.SetUniform("uCameraPosition", cameraPosition);
             _shader.SetUniform("uLightDirection", Vector3.Normalize(new Vector3(0.3f, 0.3f, -1.0f)));
             _shader.SetUniform("uAmbientIntensity", LightIntensity);
             _shader.SetUniform("uSpecularPower", 32.0f);
 
-            _frustum.Update(camera.ViewProjectionMatrix);
+            _frustum.Update(viewProjectionMatrix);
 
             // Group all GfxObj parts by their ID across all instances
             var groupedGfxObjs = new Dictionary<uint, List<Matrix4x4>>();
