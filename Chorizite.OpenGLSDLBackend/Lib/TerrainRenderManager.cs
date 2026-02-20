@@ -518,14 +518,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _gl.BindVertexArray(0);
         }
 
-        public unsafe void Render(ICamera camera) {
+        public unsafe void Render(Matrix4x4 viewMatrix, Matrix4x4 projectionMatrix, Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, float fieldOfView) {
             if (!_initialized || _shader is null) return;
 
             _shader.Bind();
 
             // Set uniforms
-            _shader.SetUniform("xView", camera.ViewMatrix);
-            _shader.SetUniform("xProjection", camera.ProjectionMatrix);
+            _shader.SetUniform("xView", viewMatrix);
+            _shader.SetUniform("xProjection", projectionMatrix);
             _shader.SetUniform("xWorld", Matrix4x4.Identity); // Chunks are already in world space coordinates
             _shader.SetUniform("uAlpha", 1.0f);
             _shader.SetUniform("xAmbient", LightIntensity); // Ambient lighting
@@ -549,9 +549,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("uShowUnwalkableSlopes", ShowUnwalkableSlopes ? 1 : 0);
             _shader.SetUniform("uFloorZ", TerrainUtils.FloorZ);
 
-            float camDist = Math.Abs(camera.Position.Z);
+            float camDist = Math.Abs(cameraPosition.Z);
             _shader.SetUniform("uCameraDistance", camDist < 1f ? 1f : camDist);
-            _shader.SetUniform("uCameraFov", camera.FieldOfView);
+            _shader.SetUniform("uCameraFov", fieldOfView);
 
             if (_surfaceManager != null) {
                 _surfaceManager.TerrainAtlas.Bind(0);
@@ -561,7 +561,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _shader.SetUniform("xAlphas", 1);
             }
 
-            _frustum.Update(camera.ViewProjectionMatrix);
+            _frustum.Update(viewProjectionMatrix);
 
             foreach (var chunk in _chunks.Values) {
                 if (!chunk.IsGenerated || chunk.IndexCount == 0) continue;

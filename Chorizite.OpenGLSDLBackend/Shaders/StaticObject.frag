@@ -22,7 +22,7 @@ void main() {
         if (color.a < 0.95) discard;
     } else {
         // Transparent pass
-        if (color.a >= 0.95 || color.a <= 0.05) discard;
+        if (color.a > 0.95) discard;
     }
     
     color.rgb *= LightingFactor;
