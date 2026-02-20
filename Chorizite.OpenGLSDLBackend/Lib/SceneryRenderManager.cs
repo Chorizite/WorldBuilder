@@ -485,7 +485,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                     var cellXMat = -1109124029 * (int)globalCellX;
                     var cellYMat = 1813693831 * (int)globalCellY;
-                    var cellMat2 = 1360117743 * globalCellX * globalCellY + 1888038839;
+                    var cellMat2 = unchecked(1360117743u * globalCellX * globalCellY + 1888038839u);
 
                     for (uint j = 0; j < scene.Objects.Count; j++) {
                         var obj = scene.Objects[(int)j];
@@ -637,10 +637,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 .ToList();
 
             foreach (var objectId in uniqueObjects) {
-                UploadPreparedMesh(objectId);
+                var renderData = UploadPreparedMesh(objectId);
 
                 // Also upload Setup parts
-                var renderData = _meshManager.TryGetRenderData(objectId);
                 if (renderData is { IsSetup: true }) {
                     foreach (var (partId, _) in renderData.SetupParts) {
                         UploadPreparedMesh(partId);
@@ -666,12 +665,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             lb.GpuReady = true;
         }
 
-        private void UploadPreparedMesh(uint objectId) {
-            if (_meshManager.HasRenderData(objectId)) return;
+        private ObjectRenderData? UploadPreparedMesh(uint objectId) {
+            if (_meshManager.HasRenderData(objectId))
+                return _meshManager.TryGetRenderData(objectId);
 
             if (_preparedMeshes.TryRemove(objectId, out var meshData)) {
-                _meshManager.UploadMeshData(meshData);
+                return _meshManager.UploadMeshData(meshData);
             }
+            return null;
         }
 
         #endregion

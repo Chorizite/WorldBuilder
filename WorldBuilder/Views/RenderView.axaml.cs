@@ -345,7 +345,7 @@ public partial class RenderView : Base3DViewport {
             var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
             var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _pendingDatReader);
             
-            _gameScene.SetLandscape(_pendingLandscapeDocument, _pendingDatReader, meshManager);
+            _gameScene.SetLandscape(_pendingLandscapeDocument, _pendingDatReader, meshManager, centerCamera: false);
             _pendingLandscapeDocument = null;
             _pendingDatReader = null;
         }

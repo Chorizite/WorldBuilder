@@ -119,6 +119,16 @@ public class GameScene : IDisposable {
     public float LastStaticObjectUploadTime => _lastStaticObjectUploadTime;
 
     /// <summary>
+    /// Gets the 2D camera.
+    /// </summary>
+    public Camera2D Camera2D => _camera2D;
+
+    /// <summary>
+    /// Gets the 3D camera.
+    /// </summary>
+    public Camera3D Camera3D => _camera3D;
+
+    /// <summary>
     /// Gets the current active camera.
     /// </summary>
     public ICamera Camera => _currentCamera;
@@ -185,7 +195,7 @@ public class GameScene : IDisposable {
         }
     }
 
-    public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats, ObjectMeshManager? meshManager = null) {
+    public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats, ObjectMeshManager? meshManager = null, bool centerCamera = true) {
         if (_terrainManager != null) {
             _terrainManager.Dispose();
         }
@@ -206,7 +216,7 @@ public class GameScene : IDisposable {
         _terrainManager = new TerrainRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice);
         _terrainManager.ShowUnwalkableSlopes = _showUnwalkableSlopes;
         _terrainManager.ScreenHeight = _height;
-        
+
         // Reapply grid settings
         _terrainManager.ShowLandblockGrid = _showLandblockGrid;
         _terrainManager.ShowCellGrid = _showCellGrid;
@@ -229,7 +239,7 @@ public class GameScene : IDisposable {
             _sceneryManager.Initialize(_sceneryShader);
         }
 
-        if (landscapeDoc.Region != null) {
+        if (centerCamera && landscapeDoc.Region != null) {
             CenterCameraOnLandscape(landscapeDoc.Region);
         }
     }
@@ -443,6 +453,8 @@ public class GameScene : IDisposable {
         _gl.GetInteger(GetPName.Viewport, currentViewport);
         bool wasScissorEnabled = _gl.IsEnabled(EnableCap.ScissorTest);
 
+        // Ensure we can clear the alpha channel to 1.0f (fully opaque)
+        _gl.ColorMask(true, true, true, true);
         _gl.ClearColor(0.2f, 0.2f, 0.3f, 1.0f);
         _gl.DepthMask(true);
         _gl.Disable(EnableCap.ScissorTest); // Ensure clear affects full FBO
@@ -466,24 +478,49 @@ public class GameScene : IDisposable {
         _gl.CullFace(GLEnum.Back);
         _gl.FrontFace(GLEnum.CW);
         _gl.Disable(EnableCap.ScissorTest);
-        _gl.Disable(EnableCap.Blend);
+        _gl.Enable(EnableCap.Blend);
+        _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+        // Disable alpha channel writes so we don't punch holes in the window's alpha
+        // where transparent 3D objects are drawn.
+        _gl.ColorMask(true, true, true, false);
 
         // Render Terrain
         if (_terrainManager != null) {
             _terrainManager.Render(_currentCamera);
         }
 
-        // Render Scenery
+        // Pass 1: Opaque Scenery & Static Objects
+        _sceneryShader?.Bind();
+        _sceneryShader?.SetUniform("uRenderPass", 0);
+        _gl.DepthMask(true);
+
         if (ShowScenery) {
             _sceneryManager?.Render(_currentCamera);
         }
 
-        // Render Static Objects
         if (ShowStaticObjects) {
             _staticObjectManager?.Render(_currentCamera);
         }
 
+        // Pass 2: Transparent Scenery & Static Objects
+        _sceneryShader?.Bind();
+        _sceneryShader?.SetUniform("uRenderPass", 1);
+        _gl.DepthMask(false);
+
+        if (ShowScenery) {
+            _sceneryManager?.Render(_currentCamera);
+        }
+
+        if (ShowStaticObjects) {
+            _staticObjectManager?.Render(_currentCamera);
+        }
+
+        // Restore depth mask for subsequent renders if needed
+        _gl.DepthMask(true);
+
         // Restore for Avalonia
+        _gl.ColorMask(true, true, true, true);
         if (wasScissorEnabled) _gl.Enable(EnableCap.ScissorTest);
         _gl.Enable(EnableCap.DepthTest);
         _gl.Enable(EnableCap.Blend);

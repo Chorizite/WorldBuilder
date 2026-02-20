@@ -74,7 +74,7 @@ namespace WorldBuilder.Lib.Settings {
         [SettingRange(0.1, 5.0, 0.1, 0.5)]
         [SettingFormat("{0:F2}")]
         [SettingOrder(2)]
-        private float _mouseSensitivity = 0.35f;
+        private float _mouseSensitivity = 0.2f;
         public float MouseSensitivity { get => _mouseSensitivity; set => SetProperty(ref _mouseSensitivity, value); }
 
         [SettingDescription("Camera movement speed in units per second")]

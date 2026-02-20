@@ -26,6 +26,7 @@ public class Camera2D : CameraBase {
             if (Math.Abs(_zoom - newZoom) > float.Epsilon) {
                 _zoom = newZoom;
                 InvalidateMatrices();
+                NotifyChanged();
             }
         }
     }

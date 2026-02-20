@@ -231,14 +231,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         public Task<ObjectMeshData?> PrepareMeshDataAsync(uint id, bool isSetup, CancellationToken ct = default) {
             if (HasRenderData(id)) return Task.FromResult<ObjectMeshData?>(null);
+
+            // Clean up stale cancelled/faulted tasks that may have been left behind
+            if (_preparationTasks.TryGetValue(id, out var existing) && (existing.IsCanceled || existing.IsFaulted)) {
+                _preparationTasks.TryRemove(id, out _);
+            }
+
             return _preparationTasks.GetOrAdd(id, k => Task.Run(() => {
                 try {
-                    return PrepareMeshData(id, isSetup, ct);
+                    return PrepareMeshData(id, isSetup, CancellationToken.None);
                 }
                 finally {
                     _preparationTasks.TryRemove(k, out _);
                 }
-            }, ct));
+            }));
         }
 
         /// <summary>

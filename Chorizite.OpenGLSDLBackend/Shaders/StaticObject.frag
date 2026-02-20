@@ -10,12 +10,21 @@ in float TextureIndex;
 in float LightingFactor;
 
 uniform sampler2DArray uTextureArray;
+uniform int uRenderPass;
 
 out vec4 FragColor;
 
 void main() {
     vec4 color = texture(uTextureArray, vec3(TexCoord, TextureIndex));
-    if (color.a < 0.5) discard; // Handle transparency
+    
+    if (uRenderPass == 0) {
+        // Opaque pass
+        if (color.a < 0.95) discard;
+    } else {
+        // Transparent pass
+        if (color.a >= 0.95 || color.a <= 0.05) discard;
+    }
+    
     color.rgb *= LightingFactor;
     FragColor = color;
 }

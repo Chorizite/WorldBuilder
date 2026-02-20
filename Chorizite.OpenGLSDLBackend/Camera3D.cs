@@ -21,6 +21,7 @@ public class Camera3D : CameraBase {
         set {
             _yaw = value % 360.0f;
             InvalidateMatrices();
+            NotifyChanged();
         }
     }
 
@@ -32,6 +33,7 @@ public class Camera3D : CameraBase {
         set {
             _pitch = Math.Clamp(value, -89.9f, 89.9f);
             InvalidateMatrices();
+            NotifyChanged();
         }
     }
     private float _nearPlane = 0.1f;

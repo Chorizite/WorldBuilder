@@ -102,7 +102,7 @@ public partial class LayersPanelViewModel : ViewModelBase {
         foreach (var item in Items.SelectMany(GetRangeRecursive)) {
             _settings.Project.LayerExpanded[item.Model.Id] = item.IsExpanded;
         }
-        _settings.Project.Save();
+        // Save() is no longer needed here as RequestSave() is triggered by PropertyChanged on ProjectSettings
     }
 
     private LayerItemViewModel CreateVM(LandscapeLayerBase model, LayerItemViewModel? parent, Dictionary<string, bool> expansionState) {
@@ -139,13 +139,13 @@ public partial class LayersPanelViewModel : ViewModelBase {
     }
 
     private void OnItemChanged(LayerItemViewModel item, LayerChangeType type) {
-        if (type == LayerChangeType.VisibilityChange && _settings?.Project != null) {
-            _settings.Project.LayerVisibility[item.Model.Id] = item.IsVisible;
-            _settings.Project.Save();
-        }
-        if (type == LayerChangeType.ExpansionChange && _settings?.Project != null) {
-            _settings.Project.LayerExpanded[item.Model.Id] = item.IsExpanded;
-            _settings.Project.Save();
+        if (_settings?.Project != null) {
+            if (type == LayerChangeType.VisibilityChange) {
+                _settings.Project.LayerVisibility[item.Model.Id] = item.IsVisible;
+            }
+            else if (type == LayerChangeType.ExpansionChange) {
+                _settings.Project.LayerExpanded[item.Model.Id] = item.IsExpanded;
+            }
         }
         _onLayersChanged?.Invoke(item, type);
     }

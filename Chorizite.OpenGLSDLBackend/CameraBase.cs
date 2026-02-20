@@ -15,12 +15,16 @@ public abstract class CameraBase : ICamera {
     protected Matrix4x4 _viewProjectionMatrix = Matrix4x4.Identity;
 
     /// <inheritdoc/>
+    public event Action? OnChanged;
+
+    /// <inheritdoc/>
     public Vector3 Position {
         get => _position;
         set {
             if (_position != value) {
                 _position = value;
                 _matricesDirty = true;
+                NotifyChanged();
             }
         }
     }
@@ -105,6 +109,13 @@ public abstract class CameraBase : ICamera {
     /// </summary>
     protected void InvalidateMatrices() {
         _matricesDirty = true;
+    }
+
+    /// <summary>
+    /// Triggers the OnChanged event.
+    /// </summary>
+    protected void NotifyChanged() {
+        OnChanged?.Invoke();
     }
 
     /// <inheritdoc/>

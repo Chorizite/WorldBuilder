@@ -1,6 +1,10 @@
+using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.Generic;
+using System.Numerics;
 using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace WorldBuilder.Lib.Settings {
     [SettingCategory("Project", Order = -1)]
@@ -8,6 +12,12 @@ namespace WorldBuilder.Lib.Settings {
         [SettingHidden]
         private double _windowWidth = 1280;
         public double WindowWidth { get => _windowWidth; set => SetProperty(ref _windowWidth, value); }
+
+        private CancellationTokenSource? _saveCts;
+
+        public ProjectSettings() {
+            PropertyChanged += (s, e) => RequestSave();
+        }
 
         [SettingHidden]
         private double _windowHeight = 720;
@@ -20,6 +30,26 @@ namespace WorldBuilder.Lib.Settings {
         [SettingHidden]
         private Dictionary<string, bool> _layerExpanded = new();
         public Dictionary<string, bool> LayerExpanded { get => _layerExpanded; set => SetProperty(ref _layerExpanded, value); }
+
+        [SettingHidden]
+        private Vector3 _landscapeCameraPosition = new Vector3(-701.20f, -5347.16f, 2000f);
+        public Vector3 LandscapeCameraPosition { get => _landscapeCameraPosition; set => SetProperty(ref _landscapeCameraPosition, value); }
+
+        [SettingHidden]
+        private float _landscapeCameraYaw = 0;
+        public float LandscapeCameraYaw { get => _landscapeCameraYaw; set => SetProperty(ref _landscapeCameraYaw, value); }
+
+        [SettingHidden]
+        private float _landscapeCameraPitch = -89.9f;
+        public float LandscapeCameraPitch { get => _landscapeCameraPitch; set => SetProperty(ref _landscapeCameraPitch, value); }
+
+        [SettingHidden]
+        private bool _landscapeCameraIs3D = true;
+        public bool LandscapeCameraIs3D { get => _landscapeCameraIs3D; set => SetProperty(ref _landscapeCameraIs3D, value); }
+
+        [SettingHidden]
+        private float _landscapeCameraZoom = 1.0f;
+        public float LandscapeCameraZoom { get => _landscapeCameraZoom; set => SetProperty(ref _landscapeCameraZoom, value); }
 
         [SettingDisplayName("Overwrite DAT Files")]
         [SettingDescription("Whether to overwrite existing DAT files when exporting.")]
@@ -42,8 +72,29 @@ namespace WorldBuilder.Lib.Settings {
         public void Save() {
             if (string.IsNullOrEmpty(FilePath)) return;
 
+            _saveCts?.Cancel();
+            _saveCts?.Dispose();
+            _saveCts = null;
+
             var json = System.Text.Json.JsonSerializer.Serialize(this, SourceGenerationContext.Default.ProjectSettings);
             System.IO.File.WriteAllText(FilePath, json);
+        }
+
+        public void RequestSave() {
+            if (string.IsNullOrEmpty(FilePath)) return;
+
+            _saveCts?.Cancel();
+            _saveCts?.Dispose();
+            _saveCts = new CancellationTokenSource();
+
+            var token = _saveCts.Token;
+            Task.Run(async () => {
+                try {
+                    await Task.Delay(2000, token);
+                    Save();
+                }
+                catch (OperationCanceledException) { }
+            }, token);
         }
 
         public static ProjectSettings Load(string filePath) {
