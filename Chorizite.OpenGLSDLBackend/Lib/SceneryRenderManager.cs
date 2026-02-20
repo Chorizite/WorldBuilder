@@ -485,7 +485,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                     var cellXMat = -1109124029 * (int)globalCellX;
                     var cellYMat = 1813693831 * (int)globalCellY;
-                    var cellMat2 = 1360117743 * globalCellX * globalCellY + 1888038839;
+                    var cellMat2 = unchecked(1360117743u * globalCellX * globalCellY + 1888038839u);
 
                     for (uint j = 0; j < scene.Objects.Count; j++) {
                         var obj = scene.Objects[(int)j];
