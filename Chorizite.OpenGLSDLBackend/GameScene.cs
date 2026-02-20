@@ -119,6 +119,16 @@ public class GameScene : IDisposable {
     public float LastStaticObjectUploadTime => _lastStaticObjectUploadTime;
 
     /// <summary>
+    /// Gets the 2D camera.
+    /// </summary>
+    public Camera2D Camera2D => _camera2D;
+
+    /// <summary>
+    /// Gets the 3D camera.
+    /// </summary>
+    public Camera3D Camera3D => _camera3D;
+
+    /// <summary>
     /// Gets the current active camera.
     /// </summary>
     public ICamera Camera => _currentCamera;
@@ -185,7 +195,7 @@ public class GameScene : IDisposable {
         }
     }
 
-    public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats, ObjectMeshManager? meshManager = null) {
+    public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats, ObjectMeshManager? meshManager = null, bool centerCamera = true) {
         if (_terrainManager != null) {
             _terrainManager.Dispose();
         }
@@ -229,7 +239,7 @@ public class GameScene : IDisposable {
             _sceneryManager.Initialize(_sceneryShader);
         }
 
-        if (landscapeDoc.Region != null) {
+        if (centerCamera && landscapeDoc.Region != null) {
             CenterCameraOnLandscape(landscapeDoc.Region);
         }
     }

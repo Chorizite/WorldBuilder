@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.Generic;
+using System.Numerics;
 using System.Text.Json.Serialization;
 
 namespace WorldBuilder.Lib.Settings {
@@ -20,6 +21,26 @@ namespace WorldBuilder.Lib.Settings {
         [SettingHidden]
         private Dictionary<string, bool> _layerExpanded = new();
         public Dictionary<string, bool> LayerExpanded { get => _layerExpanded; set => SetProperty(ref _layerExpanded, value); }
+
+        [SettingHidden]
+        private Vector3 _landscapeCameraPosition = new Vector3(-701.20f, -5347.16f, 2000f);
+        public Vector3 LandscapeCameraPosition { get => _landscapeCameraPosition; set => SetProperty(ref _landscapeCameraPosition, value); }
+
+        [SettingHidden]
+        private float _landscapeCameraYaw = 0;
+        public float LandscapeCameraYaw { get => _landscapeCameraYaw; set => SetProperty(ref _landscapeCameraYaw, value); }
+
+        [SettingHidden]
+        private float _landscapeCameraPitch = -89.9f;
+        public float LandscapeCameraPitch { get => _landscapeCameraPitch; set => SetProperty(ref _landscapeCameraPitch, value); }
+
+        [SettingHidden]
+        private bool _landscapeCameraIs3D = true;
+        public bool LandscapeCameraIs3D { get => _landscapeCameraIs3D; set => SetProperty(ref _landscapeCameraIs3D, value); }
+
+        [SettingHidden]
+        private float _landscapeCameraZoom = 1.0f;
+        public float LandscapeCameraZoom { get => _landscapeCameraZoom; set => SetProperty(ref _landscapeCameraZoom, value); }
 
         [SettingDisplayName("Overwrite DAT Files")]
         [SettingDescription("Whether to overwrite existing DAT files when exporting.")]

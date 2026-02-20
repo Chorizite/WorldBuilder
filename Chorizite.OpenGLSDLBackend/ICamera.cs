@@ -9,6 +9,11 @@ namespace Chorizite.OpenGLSDLBackend;
 /// </summary>
 public interface ICamera : WorldBuilder.Shared.Models.ICamera {
     /// <summary>
+    /// Event triggered when the camera state (position, rotation, zoom, etc.) changes.
+    /// </summary>
+    event Action OnChanged;
+
+    /// <summary>
     /// Gets the view matrix for transforming world coordinates to camera space.
     /// </summary>
     new Matrix4x4 ViewMatrix { get; }

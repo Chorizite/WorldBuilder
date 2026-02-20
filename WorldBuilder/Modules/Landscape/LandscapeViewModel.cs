@@ -191,6 +191,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         if (newValue != null && Camera != null) {
             _log.LogTrace("LandscapeViewModel.OnActiveDocumentChanged: Re-initializing context");
             UpdateToolContext();
+            RestoreCameraState();
         }
     }
 
@@ -281,6 +282,8 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _gameScene.OnPointerMoved -= OnPointerMoved;
             _gameScene.OnPointerReleased -= OnPointerReleased;
             _gameScene.OnCameraChanged -= OnCameraChanged;
+            _gameScene.Camera2D.OnChanged -= OnCameraStateChanged;
+            _gameScene.Camera3D.OnChanged -= OnCameraStateChanged;
         }
 
         _gameScene = scene;
@@ -290,13 +293,83 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _gameScene.OnPointerMoved += OnPointerMoved;
             _gameScene.OnPointerReleased += OnPointerReleased;
             _gameScene.OnCameraChanged += OnCameraChanged;
+            _gameScene.Camera2D.OnChanged += OnCameraStateChanged;
+            _gameScene.Camera3D.OnChanged += OnCameraStateChanged;
+
+            if (ActiveDocument != null) {
+                RestoreCameraState();
+            }
         }
+    }
+
+    private bool _isRestoringCamera;
+
+    private void RestoreCameraState() {
+        if (_settings?.Project == null || _gameScene == null) return;
+
+        _log.LogInformation("Restoring camera state from project settings");
+        _isRestoringCamera = true;
+        try {
+            var projectSettings = _settings.Project;
+            _gameScene.Camera3D.Position = projectSettings.LandscapeCameraPosition;
+            _gameScene.Camera3D.Yaw = projectSettings.LandscapeCameraYaw;
+            _gameScene.Camera3D.Pitch = projectSettings.LandscapeCameraPitch;
+
+            _gameScene.Camera2D.Position = projectSettings.LandscapeCameraPosition;
+            _gameScene.Camera2D.Zoom = projectSettings.LandscapeCameraZoom;
+
+            _gameScene.SetCameraMode(projectSettings.LandscapeCameraIs3D);
+        }
+        finally {
+            _isRestoringCamera = false;
+        }
+    }
+
+    private void OnCameraStateChanged() {
+        if (_isRestoringCamera || _settings?.Project == null || _gameScene == null) return;
+
+        var projectSettings = _settings.Project;
+        projectSettings.LandscapeCameraPosition = _gameScene.Camera.Position;
+        projectSettings.LandscapeCameraIs3D = _gameScene.Is3DMode;
+        projectSettings.LandscapeCameraYaw = _gameScene.Camera3D.Yaw;
+        projectSettings.LandscapeCameraPitch = _gameScene.Camera3D.Pitch;
+        projectSettings.LandscapeCameraZoom = _gameScene.Camera2D.Zoom;
+
+        RequestSaveProjectSettings();
+    }
+
+    public void RequestSaveProjectSettings() {
+        if (_project.IsReadOnly) return;
+
+        const string key = "project_settings";
+        if (_saveDebounceTokens.TryGetValue(key, out var existingCts)) {
+            existingCts.Cancel();
+            existingCts.Dispose();
+        }
+
+        var cts = new CancellationTokenSource();
+        _saveDebounceTokens[key] = cts;
+
+        var token = cts.Token;
+        _ = Task.Run(async () => {
+            try {
+                await Task.Delay(2000, token);
+                _settings?.Project?.Save();
+            }
+            catch (OperationCanceledException) {
+                // Ignore
+            }
+            catch (Exception ex) {
+                _log.LogError(ex, "Error during debounced project settings save");
+            }
+        });
     }
 
     private void OnCameraChanged(bool is3d) {
         Dispatcher.UIThread.Post(() => {
             Is3DCameraEnabled = is3d;
             UpdateToolContext();
+            OnCameraStateChanged();
         });
     }
 
