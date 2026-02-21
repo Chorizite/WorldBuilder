@@ -3,34 +3,93 @@ using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using WorldBuilder.Lib.Settings;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Services;
-
 using Avalonia.Input;
 using WorldBuilder.ViewModels;
 using WorldBuilder.Lib;
+using Avalonia;
 
 namespace WorldBuilder.Views;
 
 public partial class MainWindow : Window {
     private DebugWindow? _debugWindow;
     private RenderView? _mainRenderView;
+    private double _unmaximizedWidth;
+    private double _unmaximizedHeight;
+    private double _unmaximizedX;
+    private double _unmaximizedY;
 
     public MainWindow() {
         InitializeComponent();
 
         var settings = App.Services?.GetService<WorldBuilderSettings>();
         if (settings?.Project != null) {
-            Width = settings.Project.WindowWidth;
-            Height = settings.Project.WindowHeight;
+            // Load unmaximized fields from settings
+            _unmaximizedWidth = settings.Project.WindowWidth;
+            _unmaximizedHeight = settings.Project.WindowHeight;
+            _unmaximizedX = settings.Project.WindowX;
+            _unmaximizedY = settings.Project.WindowY;
+
+            if (double.IsNaN(_unmaximizedX) || double.IsNaN(_unmaximizedY)) {
+                // No saved position - center the window manually
+                _unmaximizedX = (int)((Screens.Primary.WorkingArea.Width - _unmaximizedWidth) / 2);
+                _unmaximizedY = (int)((Screens.Primary.WorkingArea.Height - _unmaximizedHeight) / 2);
+            }
+
+            // Restore window position / dimensions
+            Width = _unmaximizedWidth;
+            Height = _unmaximizedHeight;
+            Position = new PixelPoint((int)_unmaximizedX, (int)_unmaximizedY);
+            
+            // Restore maximized state after window is shown
+            if (settings.Project.IsMaximized) {
+                Loaded += (s, e) => {
+                    WindowState = WindowState.Maximized;
+                };
+            }
         }
+
+        // Track window size/position changes when not maximized
+        SizeChanged += (s, e) => {
+            // Delay needed to allow WindowState to update
+            Task.Delay(50).ContinueWith(_ => {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                    if (WindowState == WindowState.Normal) {
+                        // Window resized - update unmaximized dimensions
+                        _unmaximizedWidth = Width;
+                        _unmaximizedHeight = Height;
+                    }
+                });
+            });
+        };
+
+        PositionChanged += (s, e) => {
+            // Delay needed to allow WindowState to update
+            Task.Delay(50).ContinueWith(_ => {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                    if (WindowState == WindowState.Normal) {
+                        // Window moved - update unmaximized position
+                        _unmaximizedX = Position.X;
+                        _unmaximizedY = Position.Y;
+                    }
+                });
+            });
+        };
 
         Closing += (s, e) => {
             if (settings?.Project != null) {
-                settings.Project.WindowWidth = Width;
-                settings.Project.WindowHeight = Height;
+                // Always save from unmaximized backing stores
+                settings.Project.WindowWidth = _unmaximizedWidth;
+                settings.Project.WindowHeight = _unmaximizedHeight;
+                settings.Project.WindowX = _unmaximizedX;
+                settings.Project.WindowY = _unmaximizedY;
+                
+                // Save maximized state
+                settings.Project.IsMaximized = WindowState == WindowState.Maximized;
                 settings.Project.Save();
             }
         };
