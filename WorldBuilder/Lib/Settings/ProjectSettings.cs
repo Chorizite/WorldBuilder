@@ -13,15 +13,27 @@ namespace WorldBuilder.Lib.Settings {
         private double _windowWidth = 1280;
         public double WindowWidth { get => _windowWidth; set => SetProperty(ref _windowWidth, value); }
 
+        [SettingHidden]
+        private double _windowHeight = 720;
+        public double WindowHeight { get => _windowHeight; set => SetProperty(ref _windowHeight, value); }
+
+        [SettingHidden]
+        private double _windowX = double.NaN;
+        public double WindowX { get => _windowX; set => SetProperty(ref _windowX, value); }
+
+        [SettingHidden]
+        private double _windowY = double.NaN;
+        public double WindowY { get => _windowY; set => SetProperty(ref _windowY, value); }
+
+        [SettingHidden]
+        private bool _isMaximized = false;
+        public bool IsMaximized { get => _isMaximized; set => SetProperty(ref _isMaximized, value); }
+
         private CancellationTokenSource? _saveCts;
 
         public ProjectSettings() {
             PropertyChanged += (s, e) => RequestSave();
         }
-
-        [SettingHidden]
-        private double _windowHeight = 720;
-        public double WindowHeight { get => _windowHeight; set => SetProperty(ref _windowHeight, value); }
 
         [SettingHidden]
         private Dictionary<string, bool> _layerVisibility = new();
