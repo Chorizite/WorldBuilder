@@ -16,6 +16,7 @@ using DatReaderWriter;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Lib.IO;
 using System.Diagnostics.CodeAnalysis;
+using Avalonia.Controls;
 
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -37,7 +38,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     private readonly IDatReaderWriter _dats;
     private readonly PerformanceService _performanceService;
     private readonly CancellationTokenSource _cts = new();
-    private bool _settingsOpen;
+    private Window? _settingsWindow;
 
     /// <summary>
     /// Gets a value indicating whether the application is in dark mode.
@@ -214,11 +215,17 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
 
     [RelayCommand]
     private void OpenSettingsWindow() {
-        if (_settingsOpen) return;
-        _settingsOpen = true;
-
-        var viewModel = _dialogService.ShowSettingsWindow(this);
-        viewModel.Closed += (s, e) => _settingsOpen = false;
+        if (_settingsWindow != null) {
+            _settingsWindow.Activate();
+            return;
+        }
+        var viewModel = _dialogService.CreateViewModel<SettingsWindowViewModel>();
+        _settingsWindow = new Views.SettingsWindow {
+            DataContext = viewModel
+        };
+        _settingsWindow.Show();
+        
+        viewModel.Closed += (s, e) => _settingsWindow = null;
     }
 
     [RelayCommand]
