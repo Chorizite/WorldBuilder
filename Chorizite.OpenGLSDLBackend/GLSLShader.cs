@@ -16,6 +16,7 @@ namespace Chorizite.OpenGLSDLBackend {
     public unsafe class GLSLShader : BaseShader {
         private OpenGLGraphicsDevice _device;
         private Dictionary<string, int> _uniformLocations = [];
+        private Dictionary<int, object> _uniformValues = [];
         private GL GL => _device.GL;
         public uint Program { get; protected set; }
 
@@ -40,48 +41,94 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public override void SetUniform(string location, Matrix4x4 m) {
-            var m2 = new float[] {
-                    m.M11, m.M12, m.M13, m.M14,
-                    m.M21, m.M22, m.M23, m.M24,
-                    m.M31, m.M32, m.M33, m.M34,
-                    m.M41, m.M42, m.M43, m.M44
-                };
-            fixed (float* transform = (float[])m2) {
-                GL.UniformMatrix4(GetUniformLocation(Program, location), 1, false, transform);
-                GLHelpers.CheckErrors();
+            int loc = GetUniformLocation(Program, location);
+            if (loc == -1) return;
+
+            // Matrix comparison is a bit more expensive, but avoids the array allocation and GL call
+            if (_uniformValues.TryGetValue(loc, out var val) && val is Matrix4x4 mCached && mCached == m) {
+                return;
             }
+            _uniformValues[loc] = m;
+
+            // Use the matrix directly without creating a new float array
+            GL.UniformMatrix4(loc, 1, false, (float*)&m);
+            GLHelpers.CheckErrors();
         }
 
         public override void SetUniform(string location, int v) {
-            GL.Uniform1(GetUniformLocation((uint)Program, location), v);
+            int loc = GetUniformLocation((uint)Program, location);
+            if (loc == -1) return;
+
+            if (_uniformValues.TryGetValue(loc, out var val) && val is int vCached && vCached == v) {
+                return;
+            }
+            _uniformValues[loc] = v;
+
+            GL.Uniform1(loc, v);
             GLHelpers.CheckErrors();
         }
 
         public override void SetUniform(string location, Vector2 vec) {
-            GL.Uniform2(GetUniformLocation((uint)Program, location), vec);
+            int loc = GetUniformLocation((uint)Program, location);
+            if (loc == -1) return;
+
+            if (_uniformValues.TryGetValue(loc, out var val) && val is Vector2 vCached && vCached == vec) {
+                return;
+            }
+            _uniformValues[loc] = vec;
+
+            GL.Uniform2(loc, vec);
             GLHelpers.CheckErrors();
         }
 
         public override void SetUniform(string location, Vector3 vec) {
-            GL.Uniform3(GetUniformLocation((uint)Program, location), vec);
+            int loc = GetUniformLocation((uint)Program, location);
+            if (loc == -1) return;
+
+            if (_uniformValues.TryGetValue(loc, out var val) && val is Vector3 vCached && vCached == vec) {
+                return;
+            }
+            _uniformValues[loc] = vec;
+
+            GL.Uniform3(loc, vec);
             GLHelpers.CheckErrors();
         }
 
 
         public override void SetUniform(string location, Vector3[] vecs) {
+            int loc = GetUniformLocation((uint)Program, location);
+            if (loc == -1) return;
+
+            // Arrays are trickier to cache, for now we skip caching them
             fixed (float* v = &vecs[0].X) {
-                GL.Uniform3(GetUniformLocation((uint)Program, location), 3, v);
+                GL.Uniform3(loc, (uint)vecs.Length, v);
                 GLHelpers.CheckErrors();
             }
         }
 
         public override void SetUniform(string location, Vector4 vec) {
-            GL.Uniform4(GetUniformLocation((uint)Program, location), vec);
+            int loc = GetUniformLocation((uint)Program, location);
+            if (loc == -1) return;
+
+            if (_uniformValues.TryGetValue(loc, out var val) && val is Vector4 vCached && vCached == vec) {
+                return;
+            }
+            _uniformValues[loc] = vec;
+
+            GL.Uniform4(loc, vec);
             GLHelpers.CheckErrors();
         }
 
         public override void SetUniform(string location, float v) {
-            GL.Uniform1(GetUniformLocation((uint)Program, location), v);
+            int loc = GetUniformLocation((uint)Program, location);
+            if (loc == -1) return;
+
+            if (_uniformValues.TryGetValue(loc, out var val) && val is float vCached && vCached == v) {
+                return;
+            }
+            _uniformValues[loc] = v;
+
+            GL.Uniform1(loc, v);
             GLHelpers.CheckErrors();
         }
 
@@ -131,6 +178,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 Unload();
             }
             _uniformLocations.Clear();
+            _uniformValues.Clear();
 
             Program = prog;
             NeedsLoad = false;

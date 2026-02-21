@@ -132,6 +132,11 @@ namespace WorldBuilder.Lib.Settings {
         [SettingOrder(7)]
         private int _sceneryRenderDistance = 12;
         public int SceneryRenderDistance { get => _sceneryRenderDistance; set => SetProperty(ref _sceneryRenderDistance, value); }
+
+        [SettingDescription("Enable secondary render pass for transparency. Disabling this may improve performance but will cause transparency issues.")]
+        [SettingOrder(8)]
+        private bool _enableTransparencyPass = true;
+        public bool EnableTransparencyPass { get => _enableTransparencyPass; set => SetProperty(ref _enableTransparencyPass, value); }
     }
 
     [SettingCategory("Grid", ParentCategory = "Landscape Editor", Order = 2)]

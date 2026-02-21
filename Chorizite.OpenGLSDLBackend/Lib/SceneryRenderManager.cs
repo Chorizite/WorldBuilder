@@ -60,9 +60,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private IShader? _shader;
         private bool _initialized;
 
+        // Grouped instances for rendering
+        private readonly Dictionary<uint, List<Matrix4x4>> _visibleGroups = new();
+        private readonly List<uint> _visibleGfxObjIds = new();
+
         // Instance buffer (reused each frame)
         private uint _instanceVBO;
         private int _instanceBufferCapacity = 0;
+
+        // Render state tracking
+        private uint _currentVAO;
+        private uint _currentIBO;
+        private uint _currentAtlas;
+        private CullMode? _currentCullMode;
 
         // Per-instance data: mat4 (64 bytes) + textureIndex (4 bytes) = 68 bytes
         private const int InstanceStride = 64 + 4;
@@ -133,7 +143,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         continue;
 
                     // Skip landblocks outside the camera frustum
-                    if (!IsLandblockInFrustum(x, y))
+                    if (GetLandblockFrustumResult(x, y) == FrustumTestResult.Outside)
                         continue;
 
                     var key = PackKey(x, y);
@@ -155,7 +165,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             // Clean up landblocks that are no longer in frustum and not yet loaded
             foreach (var (key, lb) in _landblocks) {
-                if (!lb.GpuReady && !IsLandblockInFrustum(lb.GridX, lb.GridY)) {
+                if (!lb.GpuReady && GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) {
                     if (_landblocks.TryRemove(key, out _)) {
                         _pendingGeneration.TryRemove(key, out _);
                         if (_generationCTS.TryRemove(key, out var cts)) {
@@ -211,7 +221,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     break;
 
                 // Skip if now out of range or not in frustum
-                if (bestDist > RenderDistance || !IsLandblockInFrustum(lbToGenerate.GridX, lbToGenerate.GridY)) {
+                if (bestDist > RenderDistance || GetLandblockFrustumResult(lbToGenerate.GridX, lbToGenerate.GridY) == FrustumTestResult.Outside) {
                     if (_landblocks.TryRemove(bestKey, out _)) {
                         UnloadLandblockResources(lbToGenerate);
                     }
@@ -246,7 +256,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 // Skip if this landblock is no longer within render distance or no longer in frustum
-                if (!IsWithinRenderDistance(lb) || !IsLandblockInFrustum(lb.GridX, lb.GridY)) {
+                if (!IsWithinRenderDistance(lb) || GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) {
                     if (_landblocks.TryRemove(key, out _)) {
                         UnloadLandblockResources(lb);
                     }
@@ -256,6 +266,79 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             return (float)sw.Elapsed.TotalMilliseconds;
+        }
+
+        private readonly List<List<Matrix4x4>> _listPool = new();
+        private int _poolIndex = 0;
+
+        private List<Matrix4x4> GetPooledList() {
+            if (_poolIndex < _listPool.Count) {
+                var list = _listPool[_poolIndex++];
+                list.Clear();
+                return list;
+            }
+            var newList = new List<Matrix4x4>();
+            _listPool.Add(newList);
+            _poolIndex++;
+            return newList;
+        }
+
+        public void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
+            if (!_initialized || cameraPosition.Z > 4000) return;
+
+            _frustum.Update(viewProjectionMatrix);
+
+            // Clear previous frame data
+            _visibleGroups.Clear();
+            _visibleGfxObjIds.Clear();
+            _poolIndex = 0;
+
+            foreach (var lb in _landblocks.Values) {
+                if (!lb.GpuReady || lb.Instances.Count == 0 || !IsWithinRenderDistance(lb)) continue;
+
+                var testResult = GetLandblockFrustumResult(lb.GridX, lb.GridY);
+                if (testResult == FrustumTestResult.Outside) continue;
+
+                if (testResult == FrustumTestResult.Inside) {
+                    // Fast path: All instances in this landblock are visible
+                    foreach (var (gfxObjId, transforms) in lb.PartGroups) {
+                        if (!_visibleGroups.TryGetValue(gfxObjId, out var list)) {
+                            list = GetPooledList();
+                            _visibleGroups[gfxObjId] = list;
+                            _visibleGfxObjIds.Add(gfxObjId);
+                        }
+                        list.AddRange(transforms);
+                    }
+                }
+                else {
+                    // Slow path: Test each instance individually
+                    foreach (var instance in lb.Instances) {
+                        if (_frustum.Intersects(instance.BoundingBox)) {
+                            if (instance.IsSetup) {
+                                var renderData = _meshManager.TryGetRenderData(instance.ObjectId);
+                                if (renderData is { IsSetup: true }) {
+                                    foreach (var (partId, partTransform) in renderData.SetupParts) {
+                                        if (!_visibleGroups.TryGetValue(partId, out var list)) {
+                                            list = GetPooledList();
+                                            _visibleGroups[partId] = list;
+                                            _visibleGfxObjIds.Add(partId);
+                                        }
+                                        list.Add(partTransform * instance.Transform);
+                                    }
+                                }
+                            }
+                            else {
+                                if (!_visibleGroups.TryGetValue(instance.ObjectId, out var list)) {
+                                    list = GetPooledList();
+                                    _visibleGroups[instance.ObjectId] = list;
+                                    _visibleGfxObjIds.Add(instance.ObjectId);
+                                }
+                                list.Add(instance.Transform);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         public unsafe void Render(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
@@ -270,44 +353,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("uAmbientColor", (region?.AmbientColor ?? AmbientColor) * LightIntensity);
             _shader.SetUniform("uSpecularPower", 32.0f);
 
-            _frustum.Update(viewProjectionMatrix);
+            if (_visibleGfxObjIds.Count == 0) return;
 
-            // Group all GfxObj parts by their ID across all instances
-            var groupedGfxObjs = new Dictionary<uint, List<Matrix4x4>>();
+            _currentVAO = 0;
+            _currentIBO = 0;
+            _currentAtlas = 0;
+            _currentCullMode = null;
 
-            foreach (var lb in _landblocks.Values) {
-                if (!lb.GpuReady || lb.Instances.Count == 0 || !IsWithinRenderDistance(lb)) continue;
-                if (!IsLandblockInFrustum(lb.GridX, lb.GridY)) continue;
-
-                foreach (var instance in lb.Instances) {
-                    if (instance.IsSetup) {
-                        var renderData = _meshManager.TryGetRenderData(instance.ObjectId);
-                        if (renderData is { IsSetup: true }) {
-                            foreach (var (partId, partTransform) in renderData.SetupParts) {
-                                if (!groupedGfxObjs.TryGetValue(partId, out var list)) {
-                                    list = new List<Matrix4x4>();
-                                    groupedGfxObjs[partId] = list;
-                                }
-                                list.Add(partTransform * instance.Transform);
-                            }
-                        }
+            foreach (var gfxObjId in _visibleGfxObjIds) {
+                if (_visibleGroups.TryGetValue(gfxObjId, out var transforms)) {
+                    var renderData = _meshManager.TryGetRenderData(gfxObjId);
+                    if (renderData != null && !renderData.IsSetup) {
+                        RenderObjectBatches(renderData, transforms);
                     }
-                    else {
-                        if (!groupedGfxObjs.TryGetValue(instance.ObjectId, out var list)) {
-                            list = new List<Matrix4x4>();
-                            groupedGfxObjs[instance.ObjectId] = list;
-                        }
-                        list.Add(instance.Transform);
-                    }
-                }
-            }
-
-            if (groupedGfxObjs.Count == 0) return;
-
-            foreach (var (gfxObjId, transforms) in groupedGfxObjs) {
-                var renderData = _meshManager.TryGetRenderData(gfxObjId);
-                if (renderData != null && !renderData.IsSetup) {
-                    RenderObjectBatches(renderData, transforms.ToArray());
                 }
             }
 
@@ -325,16 +383,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Private: Distance Helpers
 
-        private bool IsWithinRenderDistance(ObjectLandblock lb) {
-            return Math.Abs(lb.GridX - _cameraLbX) <= RenderDistance
-                && Math.Abs(lb.GridY - _cameraLbY) <= RenderDistance;
-        }
-
         /// <summary>
         /// Tests whether a landblock's bounding box intersects the camera frustum.
         /// Uses a generous Z range to avoid missing objects on hills/valleys.
         /// </summary>
-        private bool IsLandblockInFrustum(int gridX, int gridY) {
+        private FrustumTestResult GetLandblockFrustumResult(int gridX, int gridY) {
             var offset = _landscapeDoc.Region?.MapOffset ?? Vector2.Zero;
             var minX = gridX * _lbSizeInUnits + offset.X;
             var minY = gridY * _lbSizeInUnits + offset.Y;
@@ -345,7 +398,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 new Vector3(minX, minY, -1000f),
                 new Vector3(maxX, maxY, 5000f)
             );
-            return _frustum.Intersects(box);
+            return _frustum.TestBox(box);
+        }
+
+        private bool IsWithinRenderDistance(ObjectLandblock lb) {
+            return Math.Abs(lb.GridX - _cameraLbX) <= RenderDistance
+                && Math.Abs(lb.GridY - _cameraLbY) <= RenderDistance;
         }
 
         /// <summary>
@@ -649,6 +707,30 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
+            // Populate PartGroups for efficient rendering
+            lb.PartGroups.Clear();
+            foreach (var instance in instancesToUpload) {
+                if (instance.IsSetup) {
+                    var renderData = _meshManager.TryGetRenderData(instance.ObjectId);
+                    if (renderData is { IsSetup: true }) {
+                        foreach (var (partId, partTransform) in renderData.SetupParts) {
+                            if (!lb.PartGroups.TryGetValue(partId, out var list)) {
+                                list = new List<Matrix4x4>();
+                                lb.PartGroups[partId] = list;
+                            }
+                            list.Add(partTransform * instance.Transform);
+                        }
+                    }
+                }
+                else {
+                    if (!lb.PartGroups.TryGetValue(instance.ObjectId, out var list)) {
+                        list = new List<Matrix4x4>();
+                        lb.PartGroups[instance.ObjectId] = list;
+                    }
+                    list.Add(instance.Transform);
+                }
+            }
+
             if (lb.PendingInstances != null) {
                 // Decrement ref counts for OLD instances
                 DecrementInstanceRefCounts(lb.Instances);
@@ -681,18 +763,22 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Private: Rendering
 
-        private unsafe void RenderObjectBatches(ObjectRenderData renderData, Matrix4x4[] instanceTransforms) {
-            if (renderData.Batches.Count == 0 || instanceTransforms.Length == 0) return;
+        private unsafe void RenderObjectBatches(ObjectRenderData renderData, List<Matrix4x4> instanceTransforms) {
+            if (renderData.Batches.Count == 0 || instanceTransforms.Count == 0) return;
 
-            _gl.BindVertexArray(renderData.VAO);
+            if (_currentVAO != renderData.VAO) {
+                _gl.BindVertexArray(renderData.VAO);
+                _currentVAO = renderData.VAO;
+            }
 
             // Bind the instance VBO and upload per-instance data
-            EnsureInstanceBufferCapacity(instanceTransforms.Length);
+            EnsureInstanceBufferCapacity(instanceTransforms.Count);
             _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVBO);
 
             // Upload instance data: mat4 transform + float textureIndex (per batch - set to 0 for now)
-            fixed (Matrix4x4* ptr = instanceTransforms) {
-                _gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(instanceTransforms.Length * sizeof(Matrix4x4)), ptr);
+            var transformsSpan = CollectionsMarshal.AsSpan(instanceTransforms);
+            fixed (Matrix4x4* ptr = transformsSpan) {
+                _gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(instanceTransforms.Count * sizeof(Matrix4x4)), ptr);
             }
 
             // Setup instance matrix attributes (mat4 = 4 vec4s at locations 3-6)
@@ -702,23 +788,31 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _gl.VertexAttribPointer(loc, 4, GLEnum.Float, false, (uint)sizeof(Matrix4x4), (void*)(i * 16));
                 _gl.VertexAttribDivisor(loc, 1);
             }
-            GLHelpers.CheckErrors();
 
             foreach (var batch in renderData.Batches) {
-                SetCullMode(batch.CullMode);
+                if (_currentCullMode != batch.CullMode) {
+                    SetCullMode(batch.CullMode);
+                    _currentCullMode = batch.CullMode;
+                }
 
                 // Set texture index as a vertex attribute constant (location 7)
                 _gl.DisableVertexAttribArray(7);
                 _gl.VertexAttrib1((uint)7, (float)batch.TextureIndex);
 
                 // Bind texture array
-                batch.Atlas.TextureArray.Bind(0);
-                _shader!.SetUniform("uTextureArray", 0);
+                if (_currentAtlas != (uint)batch.Atlas.TextureArray.NativePtr) {
+                    batch.Atlas.TextureArray.Bind(0);
+                    _shader!.SetUniform("uTextureArray", 0);
+                    _currentAtlas = (uint)batch.Atlas.TextureArray.NativePtr;
+                }
 
                 // Draw instanced
-                _gl.BindBuffer(GLEnum.ElementArrayBuffer, batch.IBO);
+                if (_currentIBO != batch.IBO) {
+                    _gl.BindBuffer(GLEnum.ElementArrayBuffer, batch.IBO);
+                    _currentIBO = batch.IBO;
+                }
                 _gl.DrawElementsInstanced(PrimitiveType.Triangles, (uint)batch.IndexCount,
-                    DrawElementsType.UnsignedShort, (void*)0, (uint)instanceTransforms.Length);
+                    DrawElementsType.UnsignedShort, (void*)0, (uint)instanceTransforms.Count);
             }
 
             // Clean up instance attributes

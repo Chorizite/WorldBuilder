@@ -65,6 +65,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     [ObservableProperty] private string _vramUsage = "0 MB";
 
     /// <summary>
+    /// Gets the current frame render time in milliseconds.
+    /// </summary>
+    [ObservableProperty] private string _renderTime = "0.00 ms";
+
+    /// <summary>
     /// Gets or sets the greeting message displayed in the main view.
     /// </summary>
     [ObservableProperty] private string _greeting = "Welcome to Avalonia!";
@@ -152,6 +157,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
                 var freeVram = _performanceService.GetFreeVram();
                 var totalVram = _performanceService.GetTotalVram();
 
+                RenderTime = $"{_performanceService.RenderTime:0.00} ms";
                 RamUsage = FormatBytes(ram);
                 if (vram > 0) {
                     var vramStr = FormatBytes(vram);

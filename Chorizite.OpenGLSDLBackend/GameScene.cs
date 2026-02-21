@@ -16,7 +16,7 @@ namespace Chorizite.OpenGLSDLBackend;
 /// Manages the 3D scene including camera, objects, and rendering.
 /// </summary>
 public class GameScene : IDisposable {
-    private const uint MAX_GPU_UPDATE_TIME_PER_FRAME = 60; // max gpu time spent doing uploads per frame, in ms
+    private const uint MAX_GPU_UPDATE_TIME_PER_FRAME = 5; // max gpu time spent doing uploads per frame, in ms
     private readonly GL _gl;
     private readonly OpenGLGraphicsDevice _graphicsDevice;
     private readonly ILogger _log;
@@ -35,6 +35,7 @@ public class GameScene : IDisposable {
     public bool ShowScenery { get; set; } = true;
     public bool ShowStaticObjects { get; set; } = true;
     public bool ShowSkybox { get; set; } = true;
+    public bool EnableTransparencyPass { get; set; } = true;
     private bool _showUnwalkableSlopes;
     public bool ShowUnwalkableSlopes {
         get => _showUnwalkableSlopes;
@@ -56,6 +57,8 @@ public class GameScene : IDisposable {
     private float _gridLineWidth = 1.0f;
     private float _gridOpacity = 0.4f;
     private float _timeOfDay = 0.5f;
+    private int _terrainRenderDistance = 12;
+    private int _sceneryRenderDistance = 25;
 
     // Terrain
     private TerrainRenderManager? _terrainManager;
@@ -228,6 +231,7 @@ public class GameScene : IDisposable {
         _terrainManager = new TerrainRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice);
         _terrainManager.ShowUnwalkableSlopes = _showUnwalkableSlopes;
         _terrainManager.ScreenHeight = _height;
+        _terrainManager.RenderDistance = _terrainRenderDistance;
 
         // Reapply grid settings
         _terrainManager.ShowLandblockGrid = _showLandblockGrid;
@@ -243,11 +247,13 @@ public class GameScene : IDisposable {
         _terrainManager.TimeOfDay = _timeOfDay;
 
         _staticObjectManager = new StaticObjectRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager);
+        _staticObjectManager.RenderDistance = _sceneryRenderDistance;
         if (_initialized && _sceneryShader != null) {
             _staticObjectManager.Initialize(_sceneryShader);
         }
 
         _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager, _staticObjectManager);
+        _sceneryManager.RenderDistance = _sceneryRenderDistance;
         if (_initialized && _sceneryShader != null) {
             _sceneryManager.Initialize(_sceneryShader);
         }
@@ -340,6 +346,7 @@ public class GameScene : IDisposable {
     /// </summary>
     /// <param name="distance">The number of chunks to render around the camera.</param>
     public void SetTerrainRenderDistance(int distance) {
+        _terrainRenderDistance = distance;
         if (_terrainManager != null) {
             _terrainManager.RenderDistance = distance;
         }
@@ -350,6 +357,7 @@ public class GameScene : IDisposable {
     /// </summary>
     /// <param name="distance">The number of landblocks to render around the camera.</param>
     public void SetSceneryRenderDistance(int distance) {
+        _sceneryRenderDistance = distance;
         if (_sceneryManager != null) {
             _sceneryManager.RenderDistance = distance;
         }
@@ -541,6 +549,14 @@ public class GameScene : IDisposable {
         var snapshotPos = _currentCamera.Position;
         var snapshotFov = _currentCamera.FieldOfView;
 
+        if (ShowScenery) {
+            _sceneryManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
+        }
+
+        if (ShowStaticObjects) {
+            _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
+        }
+
         if (ShowSkybox) {
             // Draw skybox before everything else
             //_skyboxManager?.Render(snapshotView, snapshotProj, snapshotPos, snapshotFov, (float)_width / _height);
@@ -553,7 +569,7 @@ public class GameScene : IDisposable {
 
         // Pass 1: Opaque Scenery & Static Objects
         _sceneryShader?.Bind();
-        _sceneryShader?.SetUniform("uRenderPass", 0);
+        _sceneryShader?.SetUniform("uRenderPass", EnableTransparencyPass ? 0 : 2);
         _gl.DepthMask(true);
 
         if (ShowScenery) {
@@ -565,20 +581,18 @@ public class GameScene : IDisposable {
         }
 
         // Pass 2: Transparent Scenery & Static Objects
-        _sceneryShader?.Bind();
-        _sceneryShader?.SetUniform("uRenderPass", 1);
-        _gl.DepthMask(false);
+        if (EnableTransparencyPass) {
+            _sceneryShader?.Bind();
+            _sceneryShader?.SetUniform("uRenderPass", 1);
+            _gl.DepthMask(false);
 
-        if (ShowScenery) {
-            _sceneryManager?.Render(snapshotVP, snapshotPos);
-        }
+            if (ShowScenery) {
+                _sceneryManager?.Render(snapshotVP, snapshotPos);
+            }
 
-        if (ShowStaticObjects) {
-            _staticObjectManager?.Render(snapshotVP, snapshotPos);
-        }
-
-        if (ShowStaticObjects) {
-            _staticObjectManager?.Render(snapshotVP, snapshotPos);
+            if (ShowStaticObjects) {
+                _staticObjectManager?.Render(snapshotVP, snapshotPos);
+            }
         }
 
         // Restore depth mask for subsequent renders if needed

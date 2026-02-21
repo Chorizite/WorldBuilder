@@ -175,6 +175,7 @@ public partial class RenderView : Base3DViewport {
         _gameScene.ShowStaticObjects = _renderingSettings.ShowStaticObjects;
         _gameScene.ShowSkybox = _renderingSettings.ShowSkybox;
         _gameScene.ShowUnwalkableSlopes = _renderingSettings.ShowUnwalkableSlopes;
+        _gameScene.EnableTransparencyPass = _renderingSettings.EnableTransparencyPass;
 
         if (_gridSettings != null) {
             _gridSettings.PropertyChanged -= OnGridSettingsChanged;
@@ -234,6 +235,9 @@ public partial class RenderView : Base3DViewport {
         }
         else if (e.PropertyName == nameof(RenderingSettings.TimeOfDay)) {
             _gameScene.SetTimeOfDay(_renderingSettings.TimeOfDay);
+        }
+        else if (e.PropertyName == nameof(RenderingSettings.EnableTransparencyPass)) {
+            _gameScene.EnableTransparencyPass = _renderingSettings.EnableTransparencyPass;
         }
     }
 

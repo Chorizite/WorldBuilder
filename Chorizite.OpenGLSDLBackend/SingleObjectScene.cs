@@ -41,6 +41,8 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public Vector4 BackgroundColor { get; set; } = new Vector4(0.15f, 0.15f, 0.2f, 1.0f);
 
+        public bool EnableTransparencyPass { get; set; } = true;
+
         public bool IsAutoCamera {
             get => _isAutoCamera;
             set {
@@ -247,16 +249,18 @@ namespace Chorizite.OpenGLSDLBackend {
                 var transform = Matrix4x4.CreateRotationZ(_rotation);
 
                 // Pass 1: Opaque
-                _shader.SetUniform("uRenderPass", 0);
+                _shader.SetUniform("uRenderPass", EnableTransparencyPass ? 0 : 2);
                 _gl.DepthMask(true);
                 _gl.Enable(EnableCap.Blend);
                 _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
                 RenderCurrentObject(data, transform);
 
                 // Pass 2: Transparent
-                _shader.SetUniform("uRenderPass", 1);
-                _gl.DepthMask(false);
-                RenderCurrentObject(data, transform);
+                if (EnableTransparencyPass) {
+                    _shader.SetUniform("uRenderPass", 1);
+                    _gl.DepthMask(false);
+                    RenderCurrentObject(data, transform);
+                }
 
                 _gl.DepthMask(true);
             }

@@ -130,4 +130,17 @@ public class GameSceneTests {
         float expectedHeight = 10.0f / (2.0f * MathF.Tan(fovRad / 2.0f));
         Assert.Equal(expectedHeight, _gameScene.CurrentCamera.Position.Z, 4);
     }
+
+    [Fact]
+    public void EnableTransparencyPass_DefaultsToTrue() {
+        Assert.True(_gameScene.EnableTransparencyPass);
+    }
+
+    [Fact]
+    public void EnableTransparencyPass_CanBeToggled() {
+        _gameScene.EnableTransparencyPass = false;
+        Assert.False(_gameScene.EnableTransparencyPass);
+        _gameScene.EnableTransparencyPass = true;
+        Assert.True(_gameScene.EnableTransparencyPass);
+    }
 }

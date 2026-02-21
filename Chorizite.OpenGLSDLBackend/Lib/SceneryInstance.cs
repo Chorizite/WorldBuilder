@@ -1,4 +1,5 @@
 using Chorizite.Core.Lib;
+using System.Collections.Generic;
 using System.Numerics;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
@@ -42,6 +43,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public List<SceneryInstance> Instances { get; set; } = new();
 
         public List<SceneryInstance>? PendingInstances { get; set; }
+
+        /// <summary>
+        /// Grouped transforms for each GfxObj part, for efficient instanced rendering.
+        /// Key: GfxObjId, Value: List of transforms
+        /// </summary>
+        public Dictionary<uint, List<Matrix4x4>> PartGroups { get; set; } = new();
 
         /// <summary>
         /// Whether instances (positions/bounding boxes) have been generated.
