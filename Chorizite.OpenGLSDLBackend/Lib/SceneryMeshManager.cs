@@ -464,10 +464,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         textureFormat = TextureFormat.RGBA8;
                         uploadPixelFormat = PixelFormat.Rgba;
                     }
-                    else if (_dats.Portal.TryGet<SurfaceTexture>(surface.OrigTextureId, out var surfaceTexture) &&
-                             surfaceTexture.Textures?.Any() == true) {
-                        var renderSurfaceId = surfaceTexture.Textures.Last();
-                        if (!_dats.Portal.TryGet<RenderSurface>(renderSurfaceId, out var renderSurface)) return;
+                    else if (_dats.Portal.TryGet<SurfaceTexture>(surface.OrigTextureId, out var surfaceTexture)) {
+                        var renderSurfaceId = surfaceTexture.Textures.First();
+                        if (!_dats.Portal.TryGet<RenderSurface>(renderSurfaceId, out var renderSurface)) {
+                            // check highres
+                            if (!_dats.HighRes.TryGet<RenderSurface>(renderSurfaceId, out var hrRenderSurface)) {
+                                throw new Exception($"Unable to load RenderSurface: 0x{renderSurfaceId:X8}");
+                            }
+
+                            renderSurface = hrRenderSurface;
+                        }
 
                         texWidth = renderSurface.Width;
                         texHeight = renderSurface.Height;
@@ -487,6 +493,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             textureData = renderSurface.SourceData;
                             switch (renderSurface.Format) {
                                 case DatReaderWriter.Enums.PixelFormat.PFID_A8R8G8B8:
+                                    textureData = new byte[texWidth * texHeight * 4];
+                                    TextureHelpers.FillA8R8G8B8(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
                                     uploadPixelFormat = PixelFormat.Rgba;
                                     break;
                                 case DatReaderWriter.Enums.PixelFormat.PFID_R8G8B8:
