@@ -34,6 +34,7 @@ public class GameScene : IDisposable {
     private bool _initialized;
     public bool ShowScenery { get; set; } = true;
     public bool ShowStaticObjects { get; set; } = true;
+    public bool ShowSkybox { get; set; } = true;
     private bool _showUnwalkableSlopes;
     public bool ShowUnwalkableSlopes {
         get => _showUnwalkableSlopes;
@@ -64,6 +65,7 @@ public class GameScene : IDisposable {
     private bool _ownsMeshManager;
     private SceneryRenderManager? _sceneryManager;
     private StaticObjectRenderManager? _staticObjectManager;
+    private SkyboxRenderManager? _skyboxManager;
 
     private float _lastTerrainUploadTime;
     private float _lastSceneryUploadTime;
@@ -194,6 +196,10 @@ public class GameScene : IDisposable {
         if (_staticObjectManager != null && _sceneryShader != null) {
             _staticObjectManager.Initialize(_sceneryShader);
         }
+
+        if (_skyboxManager != null && _sceneryShader != null) {
+            _skyboxManager.Initialize(_sceneryShader);
+        }
     }
 
     public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats, ObjectMeshManager? meshManager = null, bool centerCamera = true) {
@@ -207,6 +213,11 @@ public class GameScene : IDisposable {
         if (_staticObjectManager != null) {
             _staticObjectManager.Dispose();
         }
+
+        if (_skyboxManager != null) {
+            _skyboxManager.Dispose();
+        }
+
         if (_meshManager != null && _ownsMeshManager) {
             _meshManager.Dispose();
         }
@@ -240,6 +251,12 @@ public class GameScene : IDisposable {
         if (_initialized && _sceneryShader != null) {
             _sceneryManager.Initialize(_sceneryShader);
         }
+
+        _skyboxManager = new SkyboxRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager);
+        if (_initialized && _sceneryShader != null) {
+            _skyboxManager.Initialize(_sceneryShader);
+        }
+        _skyboxManager.TimeOfDay = _timeOfDay;
 
         if (centerCamera && landscapeDoc.Region != null) {
             CenterCameraOnLandscape(landscapeDoc.Region);
@@ -352,6 +369,9 @@ public class GameScene : IDisposable {
         if (_staticObjectManager != null) {
             _staticObjectManager.LightIntensity = intensity;
         }
+        if (_skyboxManager != null) {
+            _skyboxManager.LightIntensity = intensity;
+        }
     }
 
     /// <summary>
@@ -379,6 +399,9 @@ public class GameScene : IDisposable {
         _timeOfDay = time;
         if (_terrainManager != null) {
             _terrainManager.TimeOfDay = time;
+        }
+        if (_skyboxManager != null) {
+            _skyboxManager.TimeOfDay = time;
         }
 
         var region = _terrainManager?.LandscapeDocument?.Region;
@@ -438,6 +461,8 @@ public class GameScene : IDisposable {
 
         _staticObjectManager?.Update(deltaTime, _currentCamera.Position, _currentCamera.ViewProjectionMatrix);
         _lastStaticObjectUploadTime = _staticObjectManager?.ProcessUploads(remainingTime) ?? 0;
+
+        _skyboxManager?.Update(deltaTime);
     }
 
     /// <summary>
@@ -513,6 +538,12 @@ public class GameScene : IDisposable {
         var snapshotPos = _currentCamera.Position;
         var snapshotFov = _currentCamera.FieldOfView;
 
+        if (ShowSkybox) {
+            // Draw skybox before everything else
+            // Depth mask will be handled by the SkyboxRenderManager so it renders behind terrestrial objects
+            _skyboxManager?.Render(snapshotView, snapshotProj, snapshotPos, snapshotFov, (float)_width / _height);
+        }
+
         // Render Terrain
         if (_terrainManager != null) {
             _terrainManager.Render(snapshotView, snapshotProj, snapshotVP, snapshotPos, snapshotFov);
@@ -538,6 +569,10 @@ public class GameScene : IDisposable {
 
         if (ShowScenery) {
             _sceneryManager?.Render(snapshotVP, snapshotPos);
+        }
+
+        if (ShowStaticObjects) {
+            _staticObjectManager?.Render(snapshotVP, snapshotPos);
         }
 
         if (ShowStaticObjects) {
@@ -611,6 +646,7 @@ public class GameScene : IDisposable {
         _terrainManager?.Dispose();
         _sceneryManager?.Dispose();
         _staticObjectManager?.Dispose();
+        _skyboxManager?.Dispose();
         if (_ownsMeshManager) {
             _meshManager?.Dispose();
         }

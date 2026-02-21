@@ -20,10 +20,11 @@ void main() {
     if (uRenderPass == 0) {
         // Opaque pass
         if (color.a < 0.95) discard;
-    } else {
+    } else if (uRenderPass == 1) {
         // Transparent pass
         if (color.a > 0.95) discard;
     }
+    // If uRenderPass == 2, do not discard (render everything)
     
     color.rgb *= LightingColor;
     FragColor = color;

@@ -173,6 +173,7 @@ public partial class RenderView : Base3DViewport {
         _gameScene.SetLightIntensity(_renderingSettings.LightIntensity);
         _gameScene.ShowScenery = _renderingSettings.ShowScenery;
         _gameScene.ShowStaticObjects = _renderingSettings.ShowStaticObjects;
+        _gameScene.ShowSkybox = _renderingSettings.ShowSkybox;
         _gameScene.ShowUnwalkableSlopes = _renderingSettings.ShowUnwalkableSlopes;
 
         if (_gridSettings != null) {
@@ -224,6 +225,9 @@ public partial class RenderView : Base3DViewport {
         }
         else if (e.PropertyName == nameof(RenderingSettings.ShowStaticObjects)) {
             _gameScene.ShowStaticObjects = _renderingSettings.ShowStaticObjects;
+        }
+        else if (e.PropertyName == nameof(RenderingSettings.ShowSkybox)) {
+            _gameScene.ShowSkybox = _renderingSettings.ShowSkybox;
         }
         else if (e.PropertyName == nameof(RenderingSettings.ShowUnwalkableSlopes)) {
             _gameScene.ShowUnwalkableSlopes = _renderingSettings.ShowUnwalkableSlopes;
@@ -434,6 +438,14 @@ public partial class RenderView : Base3DViewport {
         set => SetValue(ShowStaticObjectsProperty, value);
     }
 
+    public static readonly StyledProperty<bool> ShowSkyboxProperty =
+        AvaloniaProperty.Register<RenderView, bool>(nameof(ShowSkybox), defaultValue: true);
+
+    public bool ShowSkybox {
+        get => GetValue(ShowSkyboxProperty);
+        set => SetValue(ShowSkyboxProperty, value);
+    }
+
     public static readonly StyledProperty<bool> Is3DCameraProperty =
         AvaloniaProperty.Register<RenderView, bool>(nameof(Is3DCamera), defaultValue: true);
 
@@ -485,6 +497,11 @@ public partial class RenderView : Base3DViewport {
         else if (change.Property == ShowStaticObjectsProperty) {
             if (_gameScene != null) {
                 _gameScene.ShowStaticObjects = ShowStaticObjects;
+            }
+        }
+        else if (change.Property == ShowSkyboxProperty) {
+            if (_gameScene != null) {
+                _gameScene.ShowSkybox = ShowSkybox;
             }
         }
         else if (change.Property == ShowUnwalkableSlopesProperty) {

@@ -34,7 +34,7 @@ namespace Chorizite.OpenGLSDLBackend.Tests {
             region.LandHeights[3] = 15f; // TL
 
             var entries = CreateMockEntries(0, 1, 2, 3);
-            
+
             // For (0,0,0,0) Split is SWtoNE. 
             // Tri 1: (0,0) [10], (24,0) [20], (0,24) [15]
             // Middle point (6, 6) should be 0.25*20 + 0.25*15 + 0.5*10 = 5 + 3.75 + 5 = 13.75
@@ -57,7 +57,7 @@ namespace Chorizite.OpenGLSDLBackend.Tests {
             region.LandHeights[3] = 15f; // TL
 
             var entries = CreateMockEntries(0, 1, 2, 3);
-            
+
             // Middle point (18, 18) in upper triangle
             // Tri 2: (24,0) [20], (24,24) [30], (0,24) [15]
             // (18, 18) is closer to TR.
@@ -88,7 +88,7 @@ namespace Chorizite.OpenGLSDLBackend.Tests {
         private TerrainEntry[] CreateMockEntries(byte h0, byte h1, byte h2, byte h3) {
             var entries = new TerrainEntry[81]; // 9x9
             for (int i = 0; i < 81; i++) entries[i] = new TerrainEntry { Height = 0 };
-            
+
             entries[0 * 9 + 0] = new TerrainEntry { Height = h0 }; // BL
             entries[1 * 9 + 0] = new TerrainEntry { Height = h1 }; // BR
             entries[1 * 9 + 1] = new TerrainEntry { Height = h2 }; // TR
@@ -109,6 +109,11 @@ namespace Chorizite.OpenGLSDLBackend.Tests {
             public float RoadWidthInUnits => 5f;
             public float[] LandHeights { get; } = new float[256];
             public Vector2 MapOffset => Vector2.Zero;
+
+            public Vector3 SunlightColor => Vector3.One;
+            public Vector3 AmbientColor => Vector3.Zero;
+            public Vector3 LightDirection => Vector3.UnitZ;
+            public float TimeOfDay { get; set; } = 0.5f;
 
             public MockRegion() {
                 Region.LandDefs = new DatReaderWriter.Types.LandDefs {

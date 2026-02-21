@@ -63,6 +63,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
     [ObservableProperty] private bool _isSceneryEnabled = true;
     [ObservableProperty] private bool _isStaticObjectsEnabled = true;
+    [ObservableProperty] private bool _isSkyboxEnabled = true;
     [ObservableProperty] private bool _isUnwalkableSlopeHighlightEnabled;
     [ObservableProperty] private bool _isGridEnabled;
     [ObservableProperty] private bool _is3DCameraEnabled = true;
@@ -77,6 +78,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     partial void OnIsStaticObjectsEnabledChanged(bool value) {
         if (_settings != null) {
             _settings.Landscape.Rendering.ShowStaticObjects = value;
+        }
+    }
+
+    partial void OnIsSkyboxEnabledChanged(bool value) {
+        if (_settings != null) {
+            _settings.Landscape.Rendering.ShowSkybox = value;
         }
     }
 
@@ -130,6 +137,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             CommandHistory.MaxHistoryDepth = _settings.App.HistoryLimit;
             IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
             IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
+            IsSkyboxEnabled = _settings.Landscape.Rendering.ShowSkybox;
             IsUnwalkableSlopeHighlightEnabled = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
             IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
             TimeOfDay = _settings.Landscape.Rendering.TimeOfDay;
@@ -444,6 +452,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
                 IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
                 IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
+                IsSkyboxEnabled = _settings.Landscape.Rendering.ShowSkybox;
                 IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
             }
         }
@@ -456,6 +465,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 _settings.Landscape.Rendering.PropertyChanged += OnRenderingSettingsPropertyChanged;
                 IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
                 IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
+                IsSkyboxEnabled = _settings.Landscape.Rendering.ShowSkybox;
                 IsUnwalkableSlopeHighlightEnabled = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
             }
         }
@@ -477,6 +487,11 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         else if (e.PropertyName == nameof(RenderingSettings.ShowStaticObjects)) {
             if (_settings != null) {
                 IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
+            }
+        }
+        else if (e.PropertyName == nameof(RenderingSettings.ShowSkybox)) {
+            if (_settings != null) {
+                IsSkyboxEnabled = _settings.Landscape.Rendering.ShowSkybox;
             }
         }
         else if (e.PropertyName == nameof(RenderingSettings.ShowUnwalkableSlopes)) {

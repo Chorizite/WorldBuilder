@@ -111,8 +111,13 @@ namespace WorldBuilder.Lib.Settings {
         private bool _showStaticObjects = true;
         public bool ShowStaticObjects { get => _showStaticObjects; set => SetProperty(ref _showStaticObjects, value); }
 
-        [SettingDescription("Highlight unwalkable slopes red")]
+        [SettingDescription("Render skybox")]
         [SettingOrder(5)]
+        private bool _showSkybox = true;
+        public bool ShowSkybox { get => _showSkybox; set => SetProperty(ref _showSkybox, value); }
+
+        [SettingDescription("Highlight unwalkable slopes red")]
+        [SettingOrder(6)]
         private bool _showUnwalkableSlopes = false;
         public bool ShowUnwalkableSlopes { get => _showUnwalkableSlopes; set => SetProperty(ref _showUnwalkableSlopes, value); }
 

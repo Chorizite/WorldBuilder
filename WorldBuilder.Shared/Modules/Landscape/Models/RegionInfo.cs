@@ -234,14 +234,21 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
             var amb1 = GetAmbColor(t1!);
             var amb2 = GetAmbColor(t2!);
 
-            float pitch = t1!.DirPitch + (t2!.DirPitch - t1!.DirPitch) * t;
-            float heading = t1!.DirHeading + (t2!.DirHeading - t1!.DirHeading) * t;
+            float pitch = LerpAngleDegrees(t1!.DirPitch, t2!.DirPitch, t);
+            float heading = LerpAngleDegrees(t1!.DirHeading, t2!.DirHeading, t);
 
             return (
                 Vector3.Lerp(sun1, sun2, t),
                 Vector3.Lerp(amb1, amb2, t),
                 GetDirection(pitch, heading)
             );
+        }
+
+        private float LerpAngleDegrees(float start, float end, float t) {
+            float difference = end - start;
+            while (difference < -180f) difference += 360f;
+            while (difference > 180f) difference -= 360f;
+            return start + difference * t;
         }
 
         private Vector3 GetSunColor(DatReaderWriter.Types.SkyTimeOfDay s) {
