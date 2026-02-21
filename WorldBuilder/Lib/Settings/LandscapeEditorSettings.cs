@@ -91,8 +91,15 @@ namespace WorldBuilder.Lib.Settings {
         [SettingRange(0.0, 2.0, 0.05, 0.2)]
         [SettingFormat("{0:F2}")]
         [SettingOrder(1)]
-        private float _lightIntensity = 0.45f;
+        private float _lightIntensity = 1.0f;
         public float LightIntensity { get => _lightIntensity; set => SetProperty(ref _lightIntensity, value); }
+
+        [SettingDescription("Current time of day (0.0 to 1.0)")]
+        [SettingRange(0.0, 1.0, 0.01, 0.1)]
+        [SettingFormat("{0:F2}")]
+        [SettingOrder(2)]
+        private float _timeOfDay = 0.5f;
+        public float TimeOfDay { get => _timeOfDay; set => SetProperty(ref _timeOfDay, value); }
 
         [SettingDescription("Render scenery objects (trees, buildings, etc)")]
         [SettingOrder(3)]
@@ -104,8 +111,13 @@ namespace WorldBuilder.Lib.Settings {
         private bool _showStaticObjects = true;
         public bool ShowStaticObjects { get => _showStaticObjects; set => SetProperty(ref _showStaticObjects, value); }
 
-        [SettingDescription("Highlight unwalkable slopes red")]
+        [SettingDescription("Render skybox")]
         [SettingOrder(5)]
+        private bool _showSkybox = true;
+        public bool ShowSkybox { get => _showSkybox; set => SetProperty(ref _showSkybox, value); }
+
+        [SettingDescription("Highlight unwalkable slopes red")]
+        [SettingOrder(6)]
         private bool _showUnwalkableSlopes = false;
         public bool ShowUnwalkableSlopes { get => _showUnwalkableSlopes; set => SetProperty(ref _showUnwalkableSlopes, value); }
 

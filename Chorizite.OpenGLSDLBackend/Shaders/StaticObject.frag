@@ -7,7 +7,7 @@ precision highp sampler2DArray;
 in vec3 Normal;
 in vec2 TexCoord;
 in float TextureIndex;
-in float LightingFactor;
+in vec3 LightingColor;
 
 uniform sampler2DArray uTextureArray;
 uniform int uRenderPass;
@@ -20,11 +20,12 @@ void main() {
     if (uRenderPass == 0) {
         // Opaque pass
         if (color.a < 0.95) discard;
-    } else {
+    } else if (uRenderPass == 1) {
         // Transparent pass
         if (color.a > 0.95) discard;
     }
+    // If uRenderPass == 2, do not discard (render everything)
     
-    color.rgb *= LightingFactor;
+    color.rgb *= LightingColor;
     FragColor = color;
 }

@@ -72,7 +72,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public int QueuedUploads => _uploadQueue.Count;
         public int QueuedGenerations => _pendingGeneration.Count;
         public int ActiveLandblocks => _landblocks.Count;
-        public float LightIntensity { get; set; } = 0.3f;
+        public float LightIntensity { get; set; } = 1.0f;
+        public Vector3 SunlightColor { get; set; } = Vector3.One;
+        public Vector3 AmbientColor { get; set; } = new Vector3(0.4f, 0.4f, 0.4f);
+        public Vector3 LightDirection { get; set; } = Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f));
 
         public SceneryRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
             IDatReaderWriter dats, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager,
@@ -261,8 +264,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.Bind();
             _shader.SetUniform("uViewProjection", viewProjectionMatrix);
             _shader.SetUniform("uCameraPosition", cameraPosition);
-            _shader.SetUniform("uLightDirection", Vector3.Normalize(new Vector3(0.3f, 0.3f, -1.0f)));
-            _shader.SetUniform("uAmbientIntensity", LightIntensity);
+            var region = _landscapeDoc.Region;
+            _shader.SetUniform("uLightDirection", region?.LightDirection ?? LightDirection);
+            _shader.SetUniform("uSunlightColor", region?.SunlightColor ?? SunlightColor);
+            _shader.SetUniform("uAmbientColor", (region?.AmbientColor ?? AmbientColor) * LightIntensity);
             _shader.SetUniform("uSpecularPower", 32.0f);
 
             _frustum.Update(viewProjectionMatrix);

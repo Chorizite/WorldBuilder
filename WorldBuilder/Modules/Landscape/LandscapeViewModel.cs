@@ -63,9 +63,11 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
     [ObservableProperty] private bool _isSceneryEnabled = true;
     [ObservableProperty] private bool _isStaticObjectsEnabled = true;
+    [ObservableProperty] private bool _isSkyboxEnabled = true;
     [ObservableProperty] private bool _isUnwalkableSlopeHighlightEnabled;
     [ObservableProperty] private bool _isGridEnabled;
     [ObservableProperty] private bool _is3DCameraEnabled = true;
+    [ObservableProperty] private float _timeOfDay = 0.5f;
 
     partial void OnIsSceneryEnabledChanged(bool value) {
         if (_settings != null) {
@@ -76,6 +78,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     partial void OnIsStaticObjectsEnabledChanged(bool value) {
         if (_settings != null) {
             _settings.Landscape.Rendering.ShowStaticObjects = value;
+        }
+    }
+
+    partial void OnIsSkyboxEnabledChanged(bool value) {
+        if (_settings != null) {
+            _settings.Landscape.Rendering.ShowSkybox = value;
         }
     }
 
@@ -93,6 +101,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
     partial void OnIs3DCameraEnabledChanged(bool value) {
         UpdateToolContext();
+    }
+
+    partial void OnTimeOfDayChanged(float value) {
+        if (_settings != null) {
+            _settings.Landscape.Rendering.TimeOfDay = value;
+        }
     }
 
     private readonly WorldBuilderSettings? _settings;
@@ -123,8 +137,10 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             CommandHistory.MaxHistoryDepth = _settings.App.HistoryLimit;
             IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
             IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
+            IsSkyboxEnabled = _settings.Landscape.Rendering.ShowSkybox;
             IsUnwalkableSlopeHighlightEnabled = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
             IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
+            TimeOfDay = _settings.Landscape.Rendering.TimeOfDay;
 
             _settings.PropertyChanged += OnSettingsPropertyChanged;
             _settings.Landscape.PropertyChanged += OnLandscapeSettingsPropertyChanged;
@@ -436,6 +452,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
                 IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
                 IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
+                IsSkyboxEnabled = _settings.Landscape.Rendering.ShowSkybox;
                 IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
             }
         }
@@ -448,6 +465,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 _settings.Landscape.Rendering.PropertyChanged += OnRenderingSettingsPropertyChanged;
                 IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
                 IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
+                IsSkyboxEnabled = _settings.Landscape.Rendering.ShowSkybox;
                 IsUnwalkableSlopeHighlightEnabled = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
             }
         }
@@ -471,9 +489,19 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
             }
         }
+        else if (e.PropertyName == nameof(RenderingSettings.ShowSkybox)) {
+            if (_settings != null) {
+                IsSkyboxEnabled = _settings.Landscape.Rendering.ShowSkybox;
+            }
+        }
         else if (e.PropertyName == nameof(RenderingSettings.ShowUnwalkableSlopes)) {
             if (_settings != null) {
                 IsUnwalkableSlopeHighlightEnabled = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
+            }
+        }
+        else if (e.PropertyName == nameof(RenderingSettings.TimeOfDay)) {
+            if (_settings != null) {
+                TimeOfDay = _settings.Landscape.Rendering.TimeOfDay;
             }
         }
     }

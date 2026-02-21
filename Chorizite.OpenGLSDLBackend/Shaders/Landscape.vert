@@ -67,6 +67,5 @@ void main() {
     vRoad0 = unpackTexCoord(inPackedRoad0);
     vRoad1 = unpackTexCoord(inPackedRoad1);
     
-    vLightingFactor = 1.0;
     vNormal = inNormal;
 }

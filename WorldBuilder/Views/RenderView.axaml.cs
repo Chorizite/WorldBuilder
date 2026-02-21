@@ -173,6 +173,7 @@ public partial class RenderView : Base3DViewport {
         _gameScene.SetLightIntensity(_renderingSettings.LightIntensity);
         _gameScene.ShowScenery = _renderingSettings.ShowScenery;
         _gameScene.ShowStaticObjects = _renderingSettings.ShowStaticObjects;
+        _gameScene.ShowSkybox = _renderingSettings.ShowSkybox;
         _gameScene.ShowUnwalkableSlopes = _renderingSettings.ShowUnwalkableSlopes;
 
         if (_gridSettings != null) {
@@ -225,8 +226,14 @@ public partial class RenderView : Base3DViewport {
         else if (e.PropertyName == nameof(RenderingSettings.ShowStaticObjects)) {
             _gameScene.ShowStaticObjects = _renderingSettings.ShowStaticObjects;
         }
+        else if (e.PropertyName == nameof(RenderingSettings.ShowSkybox)) {
+            _gameScene.ShowSkybox = _renderingSettings.ShowSkybox;
+        }
         else if (e.PropertyName == nameof(RenderingSettings.ShowUnwalkableSlopes)) {
             _gameScene.ShowUnwalkableSlopes = _renderingSettings.ShowUnwalkableSlopes;
+        }
+        else if (e.PropertyName == nameof(RenderingSettings.TimeOfDay)) {
+            _gameScene.SetTimeOfDay(_renderingSettings.TimeOfDay);
         }
     }
 
@@ -344,7 +351,7 @@ public partial class RenderView : Base3DViewport {
             var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
             var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
             var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _pendingDatReader);
-            
+
             _gameScene.SetLandscape(_pendingLandscapeDocument, _pendingDatReader, meshManager, centerCamera: false);
             _pendingLandscapeDocument = null;
             _pendingDatReader = null;
@@ -431,6 +438,14 @@ public partial class RenderView : Base3DViewport {
         set => SetValue(ShowStaticObjectsProperty, value);
     }
 
+    public static readonly StyledProperty<bool> ShowSkyboxProperty =
+        AvaloniaProperty.Register<RenderView, bool>(nameof(ShowSkybox), defaultValue: true);
+
+    public bool ShowSkybox {
+        get => GetValue(ShowSkyboxProperty);
+        set => SetValue(ShowSkyboxProperty, value);
+    }
+
     public static readonly StyledProperty<bool> Is3DCameraProperty =
         AvaloniaProperty.Register<RenderView, bool>(nameof(Is3DCamera), defaultValue: true);
 
@@ -445,6 +460,14 @@ public partial class RenderView : Base3DViewport {
     public bool ShowUnwalkableSlopes {
         get => GetValue(ShowUnwalkableSlopesProperty);
         set => SetValue(ShowUnwalkableSlopesProperty, value);
+    }
+
+    public static readonly StyledProperty<float> TimeOfDayProperty =
+        AvaloniaProperty.Register<RenderView, float>(nameof(TimeOfDay), defaultValue: 0.5f);
+
+    public float TimeOfDay {
+        get => GetValue(TimeOfDayProperty);
+        set => SetValue(TimeOfDayProperty, value);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
@@ -476,10 +499,18 @@ public partial class RenderView : Base3DViewport {
                 _gameScene.ShowStaticObjects = ShowStaticObjects;
             }
         }
+        else if (change.Property == ShowSkyboxProperty) {
+            if (_gameScene != null) {
+                _gameScene.ShowSkybox = ShowSkybox;
+            }
+        }
         else if (change.Property == ShowUnwalkableSlopesProperty) {
             if (_gameScene != null) {
                 _gameScene.ShowUnwalkableSlopes = ShowUnwalkableSlopes;
             }
+        }
+        else if (change.Property == TimeOfDayProperty) {
+            _gameScene?.SetTimeOfDay(TimeOfDay);
         }
         else if (change.Property == Is3DCameraProperty) {
             _gameScene?.SetCameraMode(Is3DCamera);

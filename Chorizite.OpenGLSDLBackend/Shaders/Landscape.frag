@@ -7,7 +7,9 @@ precision highp sampler2DArray;
 
 uniform sampler2DArray xOverlays;
 uniform sampler2DArray xAlphas;
-uniform float xAmbient;
+uniform vec3 uSunlightColor;
+uniform vec3 uAmbientColor;
+uniform vec3 uLightDirection;
 uniform float uAlpha;
 
 // Grid uniforms
@@ -268,6 +270,8 @@ void main() {
     }
     
     // Lighting
-    vec3 litColor = finalColor * (saturate(vLightingFactor) + xAmbient);
+    float diff = max(dot(normalize(vNormal), normalize(uLightDirection)), 0.0);
+    vec3 lighting = clamp(uAmbientColor + uSunlightColor * diff, 0.0, 1.0);
+    vec3 litColor = finalColor * lighting;
     FragColor = vec4(litColor, uAlpha);
 }

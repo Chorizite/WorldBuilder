@@ -1,4 +1,5 @@
 using DatReaderWriter.DBObjs;
+using DatReaderWriter.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,10 +26,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         (int x, int y) GetVertexCoordinates(uint index);
         ushort GetLandblockId(int x, int y);
         uint? GetSceneryId(int terrainType, int sceneryIndex);
+
+        Vector3 SunlightColor { get; }
+        Vector3 AmbientColor { get; }
+        Vector3 LightDirection { get; }
+        float TimeOfDay { get; set; }
     }
 
     public class RegionInfo : ITerrainInfo {
         public readonly Region _region;
+        public float TimeOfDay { get; set; } = 0.5f;
 
         public Region Region => _region;
 
@@ -171,6 +178,95 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
                 }
             }
             return null;
+        }
+
+        public Vector3 SunlightColor => GetInterpolatedLighting().sunlight;
+        public Vector3 AmbientColor => GetInterpolatedLighting().ambient;
+        public Vector3 LightDirection => GetInterpolatedLighting().direction;
+
+        private (Vector3 sunlight, Vector3 ambient, Vector3 direction) GetInterpolatedLighting() {
+            if (!_region.PartsMask.HasFlag(PartsMask.HasSkyInfo) || _region.SkyInfo?.DayGroups.Count == 0) {
+                return (Vector3.One, new Vector3(0.4f, 0.4f, 0.4f), Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f)));
+            }
+
+            var dayGroup = _region.SkyInfo!.DayGroups[0];
+            if (dayGroup.SkyTime.Count == 0) {
+                return (Vector3.One, new Vector3(0.4f, 0.4f, 0.4f), Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f)));
+            }
+
+            // Find the two entries to interpolate between
+            var skyTimes = dayGroup.SkyTime.OrderBy(s => s.Begin).ToList();
+            DatReaderWriter.Types.SkyTimeOfDay? t1 = null;
+            DatReaderWriter.Types.SkyTimeOfDay? t2 = null;
+
+            for (int i = 0; i < skyTimes.Count; i++) {
+                if (skyTimes[i].Begin <= TimeOfDay) {
+                    t1 = skyTimes[i];
+                    t2 = skyTimes[(i + 1) % skyTimes.Count];
+                }
+            }
+
+            // If TimeOfDay is before the first entry, interpolate between last and first
+            if (t1 == null) {
+                t1 = skyTimes[^1];
+                t2 = skyTimes[0];
+            }
+
+            float duration;
+            if (t2!.Begin > t1!.Begin) {
+                duration = t2.Begin - t1.Begin;
+            }
+            else {
+                // Wraparound case (e.g. 0.9 to 0.1)
+                duration = (1.0f - t1.Begin) + t2.Begin;
+            }
+
+            float t;
+            if (TimeOfDay >= t1.Begin) {
+                t = (TimeOfDay - t1.Begin) / duration;
+            }
+            else {
+                t = (TimeOfDay + (1.0f - t1.Begin)) / duration;
+            }
+
+            var sun1 = GetSunColor(t1!);
+            var sun2 = GetSunColor(t2!);
+            var amb1 = GetAmbColor(t1!);
+            var amb2 = GetAmbColor(t2!);
+
+            float pitch = LerpAngleDegrees(t1!.DirPitch, t2!.DirPitch, t);
+            float heading = LerpAngleDegrees(t1!.DirHeading, t2!.DirHeading, t);
+
+            return (
+                Vector3.Lerp(sun1, sun2, t),
+                Vector3.Lerp(amb1, amb2, t),
+                GetDirection(pitch, heading)
+            );
+        }
+
+        private float LerpAngleDegrees(float start, float end, float t) {
+            float difference = end - start;
+            while (difference < -180f) difference += 360f;
+            while (difference > 180f) difference -= 360f;
+            return start + difference * t;
+        }
+
+        private Vector3 GetSunColor(DatReaderWriter.Types.SkyTimeOfDay s) {
+            return new Vector3(s.DirColor.Red / 255f, s.DirColor.Green / 255f, s.DirColor.Blue / 255f) * s.DirBright;
+        }
+
+        private Vector3 GetAmbColor(DatReaderWriter.Types.SkyTimeOfDay s) {
+            return new Vector3(s.AmbColor.Red / 255f, s.AmbColor.Green / 255f, s.AmbColor.Blue / 255f) * s.AmbBright;
+        }
+
+        private Vector3 GetDirection(float pitchDegrees, float headingDegrees) {
+            float pitch = pitchDegrees * (float)(Math.PI / 180.0);
+            float heading = headingDegrees * (float)(Math.PI / 180.0);
+            return Vector3.Normalize(new Vector3(
+                (float)(Math.Cos(pitch) * Math.Cos(heading)),
+                (float)(Math.Cos(pitch) * Math.Sin(heading)),
+                (float)Math.Sin(pitch)
+            ));
         }
     }
 }

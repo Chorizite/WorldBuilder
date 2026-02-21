@@ -13,13 +13,14 @@ layout(location = 7) in float aTextureIndex;
 uniform mat4 uViewProjection;
 uniform vec3 uCameraPosition;
 uniform vec3 uLightDirection;
-uniform float uAmbientIntensity;
+uniform vec3 uSunlightColor;
+uniform vec3 uAmbientColor;
 uniform float uSpecularPower;
 
 out vec3 Normal;
 out vec2 TexCoord;
 out float TextureIndex;
-out float LightingFactor;
+out vec3 LightingColor;
 
 void main() {
     vec4 worldPos = aInstanceMatrix * vec4(aPosition, 1.0);
@@ -27,5 +28,7 @@ void main() {
     Normal = normalize(mat3(aInstanceMatrix) * aNormal);
     TexCoord = aTexCoord;
     TextureIndex = aTextureIndex;
-    LightingFactor = max(dot(Normal, -uLightDirection), 0.0) + uAmbientIntensity;
+    
+    float diff = max(dot(Normal, normalize(uLightDirection)), 0.0);
+    LightingColor = clamp(uAmbientColor + uSunlightColor * diff, 0.0, 1.0);
 }

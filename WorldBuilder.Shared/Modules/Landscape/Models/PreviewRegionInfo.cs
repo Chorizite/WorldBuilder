@@ -25,6 +25,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         public float[] LandHeights => _zeroHeights;
         public Vector2 MapOffset => new Vector2(-LandblockSizeInUnits / 2f, -LandblockSizeInUnits / 2f);
 
+        public Vector3 SunlightColor => _baseRegion.SunlightColor;
+        public Vector3 AmbientColor => _baseRegion.AmbientColor;
+        public Vector3 LightDirection => _baseRegion.LightDirection;
+        public float TimeOfDay { get => _baseRegion.TimeOfDay; set => _baseRegion.TimeOfDay = value; }
+
         public int GetVertexIndex(int x, int y) => y * 9 + x;
 
         public (int x, int y) GetVertexCoordinates(uint index) => ((int)(index % 9), (int)(index / 9));

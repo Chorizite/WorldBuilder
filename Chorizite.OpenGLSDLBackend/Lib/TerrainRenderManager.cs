@@ -55,6 +55,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public bool ShowBrush { get; set; }
         public int BrushShape { get; set; }
 
+        public LandscapeDocument LandscapeDocument => _landscapeDoc;
+
         // Grid settings
         public bool ShowLandblockGrid { get; set; }
         public bool ShowCellGrid { get; set; }
@@ -64,7 +66,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public float GridOpacity { get; set; } = 1.0f;
         public float ScreenHeight { get; set; } = 1080.0f;
         public bool ShowUnwalkableSlopes { get; set; }
-        public float LightIntensity { get; set; } = 0.5f;
+        public float LightIntensity { get; set; } = 1.0f;
+        public float TimeOfDay { get; set; } = 0.5f;
+        public Vector3 SunlightColor { get; set; } = Vector3.One;
+        public Vector3 AmbientColor { get; set; } = new Vector3(0.4f, 0.4f, 0.4f);
+        public Vector3 LightDirection { get; set; } = Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f));
 
         private readonly Frustum _frustum = new();
         private readonly IDatReaderWriter _dats;
@@ -528,7 +534,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("xProjection", projectionMatrix);
             _shader.SetUniform("xWorld", Matrix4x4.Identity); // Chunks are already in world space coordinates
             _shader.SetUniform("uAlpha", 1.0f);
-            _shader.SetUniform("xAmbient", LightIntensity); // Ambient lighting
+            var region = _landscapeDoc.Region;
+            if (region != null) {
+                region.TimeOfDay = TimeOfDay;
+            }
+            _shader.SetUniform("uSunlightColor", region?.SunlightColor ?? SunlightColor);
+            _shader.SetUniform("uAmbientColor", (region?.AmbientColor ?? AmbientColor) * LightIntensity);
+            _shader.SetUniform("uLightDirection", region?.LightDirection ?? LightDirection);
 
             // Brush uniforms
             _shader.SetUniform("uBrushPos", BrushPosition);
