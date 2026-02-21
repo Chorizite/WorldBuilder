@@ -252,11 +252,14 @@ public class GameScene : IDisposable {
             _sceneryManager.Initialize(_sceneryShader);
         }
 
-        _skyboxManager = new SkyboxRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager);
+        //_skyboxManager = new SkyboxRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager);
         if (_initialized && _sceneryShader != null) {
-            _skyboxManager.Initialize(_sceneryShader);
+            _skyboxManager?.Initialize(_sceneryShader);
         }
-        _skyboxManager.TimeOfDay = _timeOfDay;
+
+        if (_skyboxManager != null) {
+            _skyboxManager.TimeOfDay = _timeOfDay;
+        }
 
         if (centerCamera && landscapeDoc.Region != null) {
             CenterCameraOnLandscape(landscapeDoc.Region);
@@ -540,8 +543,7 @@ public class GameScene : IDisposable {
 
         if (ShowSkybox) {
             // Draw skybox before everything else
-            // Depth mask will be handled by the SkyboxRenderManager so it renders behind terrestrial objects
-            _skyboxManager?.Render(snapshotView, snapshotProj, snapshotPos, snapshotFov, (float)_width / _height);
+            //_skyboxManager?.Render(snapshotView, snapshotProj, snapshotPos, snapshotFov, (float)_width / _height);
         }
 
         // Render Terrain
