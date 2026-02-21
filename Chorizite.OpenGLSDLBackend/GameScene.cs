@@ -54,6 +54,7 @@ public class GameScene : IDisposable {
     private Vector3 _cellGridColor = new Vector3(0, 1, 1);
     private float _gridLineWidth = 1.0f;
     private float _gridOpacity = 0.4f;
+    private float _timeOfDay = 0.5f;
 
     // Terrain
     private TerrainRenderManager? _terrainManager;
@@ -228,6 +229,7 @@ public class GameScene : IDisposable {
         if (_initialized && _terrainShader != null) {
             _terrainManager.Initialize(_terrainShader);
         }
+        _terrainManager.TimeOfDay = _timeOfDay;
 
         _staticObjectManager = new StaticObjectRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager);
         if (_initialized && _sceneryShader != null) {
@@ -368,6 +370,21 @@ public class GameScene : IDisposable {
         _camera2D.FieldOfView = fov;
         _camera3D.FieldOfView = fov;
         SyncCameraZ();
+    }
+
+    /// <summary>
+    /// Sets the current time of day (0.0 to 1.0).
+    /// </summary>
+    public void SetTimeOfDay(float time) {
+        _timeOfDay = time;
+        if (_terrainManager != null) {
+            _terrainManager.TimeOfDay = time;
+        }
+
+        var region = _terrainManager?.LandscapeDocument?.Region;
+        if (region != null) {
+            region.TimeOfDay = time;
+        }
     }
 
     public void SetBrush(Vector3 position, float radius, Vector4 color, bool show) {

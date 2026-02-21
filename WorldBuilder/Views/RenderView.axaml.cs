@@ -228,6 +228,9 @@ public partial class RenderView : Base3DViewport {
         else if (e.PropertyName == nameof(RenderingSettings.ShowUnwalkableSlopes)) {
             _gameScene.ShowUnwalkableSlopes = _renderingSettings.ShowUnwalkableSlopes;
         }
+        else if (e.PropertyName == nameof(RenderingSettings.TimeOfDay)) {
+            _gameScene.SetTimeOfDay(_renderingSettings.TimeOfDay);
+        }
     }
 
     private GridSettings? _gridSettings;
@@ -344,7 +347,7 @@ public partial class RenderView : Base3DViewport {
             var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
             var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
             var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _pendingDatReader);
-            
+
             _gameScene.SetLandscape(_pendingLandscapeDocument, _pendingDatReader, meshManager, centerCamera: false);
             _pendingLandscapeDocument = null;
             _pendingDatReader = null;
@@ -447,6 +450,14 @@ public partial class RenderView : Base3DViewport {
         set => SetValue(ShowUnwalkableSlopesProperty, value);
     }
 
+    public static readonly StyledProperty<float> TimeOfDayProperty =
+        AvaloniaProperty.Register<RenderView, float>(nameof(TimeOfDay), defaultValue: 0.5f);
+
+    public float TimeOfDay {
+        get => GetValue(TimeOfDayProperty);
+        set => SetValue(TimeOfDayProperty, value);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
         base.OnPropertyChanged(change);
 
@@ -480,6 +491,9 @@ public partial class RenderView : Base3DViewport {
             if (_gameScene != null) {
                 _gameScene.ShowUnwalkableSlopes = ShowUnwalkableSlopes;
             }
+        }
+        else if (change.Property == TimeOfDayProperty) {
+            _gameScene?.SetTimeOfDay(TimeOfDay);
         }
         else if (change.Property == Is3DCameraProperty) {
             _gameScene?.SetCameraMode(Is3DCamera);

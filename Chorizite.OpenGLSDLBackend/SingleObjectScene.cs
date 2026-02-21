@@ -235,8 +235,9 @@ namespace Chorizite.OpenGLSDLBackend {
 
                 _shader.SetUniform("uViewProjection", snapshotVP);
                 _shader.SetUniform("uCameraPosition", snapshotPos);
-                _shader.SetUniform("uLightDirection", Vector3.Normalize(new Vector3(0.5f, 1.0f, 0.5f)));
-                _shader.SetUniform("uAmbientIntensity", 0.4f);
+                _shader.SetUniform("uLightDirection", Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f)));
+                _shader.SetUniform("uSunlightColor", Vector3.One);
+                _shader.SetUniform("uAmbientColor", new Vector3(0.4f, 0.4f, 0.4f));
                 _shader.SetUniform("uSpecularPower", 16.0f);
 
                 // Disable alpha channel writes so we don't punch holes in the window's alpha

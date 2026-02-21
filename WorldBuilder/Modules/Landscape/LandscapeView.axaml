@@ -36,7 +36,8 @@
                           ShowScenery="{Binding IsSceneryEnabled}"
                           ShowStaticObjects="{Binding IsStaticObjectsEnabled}"
                           ShowUnwalkableSlopes="{Binding IsUnwalkableSlopeHighlightEnabled}"
-                          Is3DCamera="{Binding Is3DCameraEnabled}" />
+                          Is3DCamera="{Binding Is3DCameraEnabled}"
+                          TimeOfDay="{Binding TimeOfDay}" />
 
         <!-- Overlay Buttons -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" Spacing="4">
@@ -87,6 +88,17 @@
             <icons:MaterialIcon Kind="Target" />
           </Button>
         </StackPanel>
+
+        <!-- Time of Day Overlay -->
+        <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8,48,8,8"
+                Background="{DynamicResource SemiColorFill0}" BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1"
+                CornerRadius="4" Padding="8,4" Width="200">
+          <Grid ColumnDefinitions="Auto, *">
+            <icons:MaterialIcon Kind="WeatherSunny" Margin="0,0,8,0" Foreground="{DynamicResource SemiColorText0}" />
+            <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding TimeOfDay}" 
+                    ToolTip.Tip="Time of Day" />
+          </Grid>
+        </Border>
         
         <!-- Location Overlay -->
         <Border HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="10" 

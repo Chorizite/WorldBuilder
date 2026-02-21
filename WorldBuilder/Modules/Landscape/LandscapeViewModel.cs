@@ -66,6 +66,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     [ObservableProperty] private bool _isUnwalkableSlopeHighlightEnabled;
     [ObservableProperty] private bool _isGridEnabled;
     [ObservableProperty] private bool _is3DCameraEnabled = true;
+    [ObservableProperty] private float _timeOfDay = 0.5f;
 
     partial void OnIsSceneryEnabledChanged(bool value) {
         if (_settings != null) {
@@ -93,6 +94,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
     partial void OnIs3DCameraEnabledChanged(bool value) {
         UpdateToolContext();
+    }
+
+    partial void OnTimeOfDayChanged(float value) {
+        if (_settings != null) {
+            _settings.Landscape.Rendering.TimeOfDay = value;
+        }
     }
 
     private readonly WorldBuilderSettings? _settings;
@@ -125,6 +132,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
             IsUnwalkableSlopeHighlightEnabled = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
             IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
+            TimeOfDay = _settings.Landscape.Rendering.TimeOfDay;
 
             _settings.PropertyChanged += OnSettingsPropertyChanged;
             _settings.Landscape.PropertyChanged += OnLandscapeSettingsPropertyChanged;
@@ -474,6 +482,11 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         else if (e.PropertyName == nameof(RenderingSettings.ShowUnwalkableSlopes)) {
             if (_settings != null) {
                 IsUnwalkableSlopeHighlightEnabled = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
+            }
+        }
+        else if (e.PropertyName == nameof(RenderingSettings.TimeOfDay)) {
+            if (_settings != null) {
+                TimeOfDay = _settings.Landscape.Rendering.TimeOfDay;
             }
         }
     }

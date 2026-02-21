@@ -91,8 +91,15 @@ namespace WorldBuilder.Lib.Settings {
         [SettingRange(0.0, 2.0, 0.05, 0.2)]
         [SettingFormat("{0:F2}")]
         [SettingOrder(1)]
-        private float _lightIntensity = 0.45f;
+        private float _lightIntensity = 1.0f;
         public float LightIntensity { get => _lightIntensity; set => SetProperty(ref _lightIntensity, value); }
+
+        [SettingDescription("Current time of day (0.0 to 1.0)")]
+        [SettingRange(0.0, 1.0, 0.01, 0.1)]
+        [SettingFormat("{0:F2}")]
+        [SettingOrder(2)]
+        private float _timeOfDay = 0.5f;
+        public float TimeOfDay { get => _timeOfDay; set => SetProperty(ref _timeOfDay, value); }
 
         [SettingDescription("Render scenery objects (trees, buildings, etc)")]
         [SettingOrder(3)]
