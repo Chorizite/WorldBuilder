@@ -19,6 +19,12 @@ namespace Chorizite.OpenGLSDLBackend {
         }
     }
 
+    public enum FrustumTestResult {
+        Outside,
+        Inside,
+        Intersecting
+    }
+
     public class Frustum {
         private readonly Plane[] _planes = new Plane[6];
 
@@ -49,6 +55,34 @@ namespace Chorizite.OpenGLSDLBackend {
                 }
             }
             return true;
+        }
+
+        public FrustumTestResult TestBox(BoundingBox box) {
+            var result = FrustumTestResult.Inside;
+            for (int i = 0; i < 6; i++) {
+                Vector3 positive = box.Min;
+                Vector3 negative = box.Max;
+                if (_planes[i].Normal.X >= 0) {
+                    positive.X = box.Max.X;
+                    negative.X = box.Min.X;
+                }
+                if (_planes[i].Normal.Y >= 0) {
+                    positive.Y = box.Max.Y;
+                    negative.Y = box.Min.Y;
+                }
+                if (_planes[i].Normal.Z >= 0) {
+                    positive.Z = box.Max.Z;
+                    negative.Z = box.Min.Z;
+                }
+
+                if (_planes[i].Dot(positive) < 0) {
+                    return FrustumTestResult.Outside;
+                }
+                if (_planes[i].Dot(negative) < 0) {
+                    result = FrustumTestResult.Intersecting;
+                }
+            }
+            return result;
         }
     }
 }

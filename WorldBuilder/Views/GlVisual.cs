@@ -6,6 +6,8 @@ using Avalonia.Platform;
 using Avalonia.Rendering.Composition;
 using Avalonia.Skia;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
+using WorldBuilder.Services;
 using Silk.NET.OpenGL;
 using System;
 using System.Runtime.InteropServices;
@@ -34,6 +36,11 @@ private class GlVisual : CompositionCustomVisualHandler {
                 try {
                     var frameTime = CalculateFrameTime();
                     RegisterForNextAnimationFrameUpdate();
+                    
+                    var perfService = WorldBuilder.App.Services?.GetService<PerformanceService>();
+                    if (perfService != null) {
+                        perfService.FrameTime = frameTime * 1000.0;
+                    }
 
                     if (!drawingContext.TryGetFeature<ISkiaSharpApiLeaseFeature>(out var skiaFeature)) {
                         throw new Exception("Unable to get ISkiaSharpApiLeaseFeature");
@@ -79,7 +86,14 @@ private class GlVisual : CompositionCustomVisualHandler {
 
                         // Render to FBO (with scissor disabled to avoid clipping our internal render)
                         SilkGl.Disable(EnableCap.ScissorTest);
+                        
+                        var sw = System.Diagnostics.Stopwatch.StartNew();
                         _parent.OnGlRenderInternal(frameTime);
+                        sw.Stop();
+                        
+                        if (perfService != null) {
+                            perfService.RenderTime = sw.Elapsed.TotalMilliseconds;
+                        }
 
                         // Restore scissor before blitting to prevent drawing outside our bounds
                         RestoreScissorState(SilkGl, state);

@@ -23,8 +23,10 @@ void main() {
     } else if (uRenderPass == 1) {
         // Transparent pass
         if (color.a > 0.95) discard;
+    } else {
+        // Single pass mode (or fallback)
+        if (color.a < 0.5) discard;
     }
-    // If uRenderPass == 2, do not discard (render everything)
     
     color.rgb *= LightingColor;
     FragColor = color;

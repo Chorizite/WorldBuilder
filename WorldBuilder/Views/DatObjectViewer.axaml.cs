@@ -78,6 +78,12 @@ namespace WorldBuilder.Views {
                 _scene = new SingleObjectScene(gl, Renderer!.GraphicsDevice, log, _renderDats, meshManager);
                 _scene.BackgroundColor = _renderBackgroundColor;
                 _scene.IsAutoCamera = _renderIsAutoCamera;
+
+                var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
+                if (settings != null) {
+                    _scene.EnableTransparencyPass = settings.Landscape.Rendering.EnableTransparencyPass;
+                }
+
                 _scene.Initialize();
                 _scene.Resize(canvasSize.Width, canvasSize.Height);
                 if (_renderFileId != 0) {
@@ -135,6 +141,12 @@ namespace WorldBuilder.Views {
                 var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _renderDats);
 
                 _scene = new SingleObjectScene(_gl, Renderer!.GraphicsDevice, log, _renderDats, meshManager);
+
+                var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
+                if (settings != null) {
+                    _scene.EnableTransparencyPass = settings.Landscape.Rendering.EnableTransparencyPass;
+                }
+
                 _scene.Initialize();
                 _scene.Resize((int)Bounds.Width, (int)Bounds.Height);
             }

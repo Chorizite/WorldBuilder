@@ -16,6 +16,16 @@ namespace WorldBuilder.Services {
         }
 
         /// <summary>
+        /// Gets the current frame time in milliseconds.
+        /// </summary>
+        public double FrameTime { get; set; }
+
+        /// <summary>
+        /// Gets the current render time in milliseconds.
+        /// </summary>
+        public double RenderTime { get; set; }
+
+        /// <summary>
         /// Gets the current process RAM usage in bytes.
         /// </summary>
         /// <returns>RAM usage in bytes.</returns>

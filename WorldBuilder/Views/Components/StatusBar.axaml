@@ -19,6 +19,10 @@
                     <TextBlock Text="VRAM:" VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
                     <TextBlock Text="{Binding VramUsage}" VerticalAlignment="Center" FontSize="11" Opacity="0.8" />
                 </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <TextBlock Text="Render:" VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
+                    <TextBlock Text="{Binding RenderTime}" VerticalAlignment="Center" FontSize="11" Opacity="0.8" />
+                </StackPanel>
             </StackPanel>
             
             <TextBlock Grid.Column="2" Text="v1.0.0-alpha" VerticalAlignment="Center" FontSize="11" Opacity="0.5" />

@@ -77,6 +77,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private LandSurfaceManager? _surfaceManager;
 
+        private uint _currentVAO;
+
         public TerrainRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc, IDatReaderWriter dats,
             OpenGLGraphicsDevice graphicsDevice) {
             _gl = gl;
@@ -181,7 +183,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (x < 0 || y < 0) continue;
 
                     // Skip chunks outside the camera frustum (using estimated bounds)
-                    if (!IsChunkInFrustum(x, y)) continue;
+                    if (IsChunkInFrustum(x, y) == FrustumTestResult.Outside) continue;
 
                     var uX = (uint)x;
                     var uY = (uint)y;
@@ -198,7 +200,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             // Clean up chunks that are no longer in frustum and not yet loaded
             foreach (var (key, chunk) in _chunks) {
-                if (!chunk.IsGenerated && !IsChunkInFrustum((int)chunk.ChunkX, (int)chunk.ChunkY)) {
+                if (!chunk.IsGenerated && IsChunkInFrustum((int)chunk.ChunkX, (int)chunk.ChunkY) == FrustumTestResult.Outside) {
                     if (_chunks.TryRemove(key, out _)) {
                         _pendingGeneration.TryRemove(key, out _);
                         chunk.Dispose();
@@ -225,7 +227,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     break;
 
                 // Skip if now out of range or not in frustum
-                if (bestDist > RenderDistance || !IsChunkInFrustum((int)chunkToGenerate.ChunkX, (int)chunkToGenerate.ChunkY)) {
+                if (bestDist > RenderDistance || IsChunkInFrustum((int)chunkToGenerate.ChunkX, (int)chunkToGenerate.ChunkY) == FrustumTestResult.Outside) {
                     if (_chunks.TryRemove(bestKey, out _)) {
                         chunkToGenerate.Dispose();
                     }
@@ -244,7 +246,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        private bool IsChunkInFrustum(int chunkX, int chunkY) {
+        private FrustumTestResult IsChunkInFrustum(int chunkX, int chunkY) {
             var offset = _landscapeDoc.Region?.MapOffset ?? Vector2.Zero;
             var minX = chunkX * _chunkSizeInUnits + offset.X;
             var minY = chunkY * _chunkSizeInUnits + offset.Y;
@@ -255,7 +257,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 new Vector3(minX, minY, -1000f),
                 new Vector3(maxX, maxY, 5000f)
             );
-            return _frustum.Intersects(box);
+            return _frustum.TestBox(box);
         }
 
         private bool IsWithinRenderDistance(TerrainChunk chunk, int cameraChunkX, int cameraChunkY) {
@@ -281,7 +283,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 if (_uploadQueue.TryDequeue(out chunk)) {
                     // Skip if this chunk is no longer in frustum
-                    if (!IsChunkInFrustum((int)chunk.ChunkX, (int)chunk.ChunkY)) {
+                    if (IsChunkInFrustum((int)chunk.ChunkX, (int)chunk.ChunkY) == FrustumTestResult.Outside) {
                         var chunkId = (ushort)((chunk.ChunkX << 8) | chunk.ChunkY);
                         if (_chunks.TryRemove(chunkId, out _)) {
                             chunk.Dispose();
@@ -575,12 +577,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             _frustum.Update(viewProjectionMatrix);
 
+            _currentVAO = 0;
             foreach (var chunk in _chunks.Values) {
                 if (!chunk.IsGenerated || chunk.IndexCount == 0) continue;
 
-                if (!_frustum.Intersects(chunk.Bounds)) continue;
+                if (_frustum.TestBox(chunk.Bounds) == FrustumTestResult.Outside) continue;
 
-                _gl.BindVertexArray(chunk.VAO);
+                if (_currentVAO != chunk.VAO) {
+                    _gl.BindVertexArray(chunk.VAO);
+                    _currentVAO = chunk.VAO;
+                }
                 _gl.DrawElements(PrimitiveType.Triangles, (uint)chunk.IndexCount, DrawElementsType.UnsignedInt,
                     (void*)0);
             }

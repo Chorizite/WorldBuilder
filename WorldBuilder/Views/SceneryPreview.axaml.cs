@@ -74,6 +74,11 @@ public partial class SceneryPreview : Base3DViewport {
         _gameScene.SetTerrainRenderDistance(5);
         _gameScene.SetSceneryRenderDistance(5);
 
+        var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
+        if (settings != null) {
+            _gameScene.EnableTransparencyPass = settings.Landscape.Rendering.EnableTransparencyPass;
+        }
+
         _needsUpdate = true;
     }
 
