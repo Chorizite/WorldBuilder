@@ -41,6 +41,9 @@
         <Style Selector="ListBoxItem.NavSubSection:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
         </Style>
+        <Style Selector=".action-buttons Button">
+            <Setter Property="Padding" Value="16,10" />
+        </Style>
     </Window.Styles>
 
     <DockPanel>
@@ -50,18 +53,15 @@
             HorizontalAlignment="Right"
             DockPanel.Dock="Bottom"
             Orientation="Horizontal"
-            Spacing="8">
+            Spacing="8"
+            Classes="action-buttons">
             <Button
-                Width="130"
                 Click="ResetToDefaults_Click"
                 Content="Reset to Defaults" />
             <Button
-                Width="80"
-                Classes="accent"
                 Click="Save_Click"
                 Content="Save" />
             <Button
-                Width="80"
                 Click="Cancel_Click"
                 Content="Cancel" />
         </StackPanel>

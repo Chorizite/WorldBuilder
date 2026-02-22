@@ -26,6 +26,7 @@ using WorldBuilder.Lib.Settings;
 using System.Runtime.InteropServices;
 using Avalonia.Platform.Storage;
 using WorldBuilder.Messages;
+using Avalonia;
 
 namespace WorldBuilder.ViewModels;
 
@@ -240,8 +241,27 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
         _settingsWindow = new Views.SettingsWindow {
             DataContext = viewModel
         };
-        _settingsWindow.Show();
-        
+
+        // Manually anchor relative to main window in case of multiple monitors with different DPIs
+        var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+        if (desktop?.MainWindow != null) {
+            var mainWindow = desktop.MainWindow;
+            var screen = mainWindow.Screens.ScreenFromWindow(mainWindow);
+            var scaling = screen?.Scaling ?? 1.0;
+
+            var offsetX = (int)(80 * scaling);
+            var offsetY = (int)(180 * scaling);
+
+            _settingsWindow.Position = new PixelPoint(
+                mainWindow.Position.X + offsetX,
+                mainWindow.Position.Y + offsetY
+            );
+            _settingsWindow.Show(mainWindow);
+        }
+        else {
+            _settingsWindow.Show();
+        }
+
         viewModel.Closed += (s, e) => _settingsWindow = null;
     }
 
