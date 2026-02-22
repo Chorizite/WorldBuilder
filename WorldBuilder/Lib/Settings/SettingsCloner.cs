@@ -49,8 +49,11 @@ namespace WorldBuilder.Lib.Settings {
         /// <summary>
         /// Resets settings to default values
         /// </summary>
-        public static void ResetToDefaults(WorldBuilderSettings target) {
-            DeepCopy(new WorldBuilderSettings(), target);
+        public static void ResetToDefaults(WorldBuilderSettings target, ProjectSettings? proj) {
+            if (target != null) {
+                var defaults = new WorldBuilderSettings { Project = proj };
+                DeepCopy(defaults, target);
+            }
         }
 
         /// <summary>
