@@ -35,14 +35,8 @@ namespace WorldBuilder.Lib.Settings {
         /// Restores settings from a backup copy
         /// </summary>
         public static void Restore(WorldBuilderSettings source, WorldBuilderSettings target) {
-            if (source == null) throw new ArgumentNullException(nameof(source));
-            if (target == null) throw new ArgumentNullException(nameof(target));
-
-            var clone = Clone(source);
-            target.App = clone.App;
-            target.Landscape = clone.Landscape;
-            if (clone.Project != null && target.Project != null) {
-                target.Project = clone.Project;
+            if (source != null && target != null) {
+                DeepCopy(source, target);
             }
         }
 
