@@ -1,4 +1,4 @@
-﻿using MemoryPack;
+using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Lib.Extensions;
@@ -109,9 +109,10 @@ public class Project : IProject, IAsyncDisposable {
     /// <param name="projectName">The name for the new project</param>
     /// <param name="projectDirectory">The directory where the project should be created</param>
     /// <param name="baseDatDirectory">The directory containing the base dat files</param>
+    /// <param name="progress">Optional progress reporter</param>
     /// <param name="ct">A cancellation token to cancel the operation</param>
     /// <returns>A Result containing a Project instance if successful, or an error</returns>
-    public static async Task<Result<Project>> Create(string projectName, string projectDirectory, string baseDatDirectory, CancellationToken ct) {
+    public static async Task<Result<Project>> Create(string projectName, string projectDirectory, string baseDatDirectory, IProgress<(string message, float progress)>? progress, CancellationToken ct) {
         if (!Directory.Exists(baseDatDirectory)) {
             return Result<Project>.Failure($"Base dat directory does not exist: {baseDatDirectory}", "BASE_DAT_DIRECTORY_NOT_FOUND");
         }
@@ -153,9 +154,32 @@ public class Project : IProject, IAsyncDisposable {
         if (!Directory.Exists(baseDatDirectoryCopy)) {
             Directory.CreateDirectory(baseDatDirectoryCopy);
         }
+
+        long totalBytesToCopy = 0;
         foreach (var datFile in foundDatFiles) {
-            File.Copy(datFile, Path.Combine(baseDatDirectoryCopy, Path.GetFileName(datFile)), true);
+            totalBytesToCopy += new FileInfo(datFile).Length;
         }
+
+        long totalBytesCopied = 0;
+        var buffer = new byte[81920]; // 80KB buffer
+
+        foreach (var datFile in foundDatFiles) {
+            var fileName = Path.GetFileName(datFile);
+            progress?.Report(($"Copying {fileName}...", (float)totalBytesCopied / totalBytesToCopy));
+
+            var destinationPath = Path.Combine(baseDatDirectoryCopy, fileName);
+            await using var sourceStream = new FileStream(datFile, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 81920, useAsync: true);
+            await using var destinationStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
+
+            int bytesRead;
+            while ((bytesRead = await sourceStream.ReadAsync(buffer, 0, buffer.Length, ct)) > 0) {
+                await destinationStream.WriteAsync(buffer, 0, bytesRead, ct);
+                totalBytesCopied += bytesRead;
+                progress?.Report(($"Copying {fileName}...", (float)totalBytesCopied / totalBytesToCopy));
+            }
+        }
+
+        progress?.Report(("Initializing database...", 1.0f));
 
         var projectPath = Path.Combine(projectDirectory, $"{projectName}.wbproj");
         return await Open(projectPath, ct);

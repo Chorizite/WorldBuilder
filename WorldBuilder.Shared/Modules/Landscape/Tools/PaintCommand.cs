@@ -60,31 +60,28 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             if (_document.Region == null || _activeLayer == null) return;
             var region = _document.Region;
 
-            HashSet<(int x, int y)> modifiedLandblocks = new HashSet<(int x, int y)>();
             List<uint> affectedVertices = new List<uint>();
 
             foreach (var kvp in _previousState) {
                 uint index = (uint)kvp.Key;
                 if (kvp.Value.HasValue) {
-                    _activeLayer.SetVertex(index, _document, kvp.Value.Value);
+                    _document.SetVertex(_activeLayer.Id, index, kvp.Value.Value);
                 }
                 else {
-                    _activeLayer.RemoveVertex(index, _document);
+                    _document.RemoveVertex(_activeLayer.Id, index);
                 }
 
                 affectedVertices.Add(index);
-                var (vx, vy) = region.GetVertexCoordinates(index);
-                _context.AddAffectedLandblocks(vx, vy, modifiedLandblocks);
             }
 
             if (affectedVertices.Count > 0) {
                 _document.RecalculateTerrainCache(affectedVertices);
-            }
 
-            _context.RequestSave?.Invoke(_document.Id);
+                _context.RequestSave?.Invoke(_document.Id, _document.GetAffectedChunks(affectedVertices));
 
-            foreach (var lb in modifiedLandblocks) {
-                _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
+                foreach (var lb in _document.GetAffectedLandblocks(affectedVertices)) {
+                    _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
+                }
             }
         }
 
@@ -102,12 +99,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             int maxY = (int)Math.Ceiling((_center.Y - offset.Y + _radius) / cellSize);
 
             // Clamp to map bounds
-            minX = Math.Max(0, minX);
-            maxX = Math.Min(region.MapWidthInVertices - 1, maxX);
             minY = Math.Max(0, minY);
             maxY = Math.Min(region.MapHeightInVertices - 1, maxY);
 
-            HashSet<(int x, int y)> modifiedLandblocks = new HashSet<(int x, int y)>();
             List<uint> affectedVertices = new List<uint>();
 
             for (int y = minY; y <= maxY; y++) {
@@ -123,7 +117,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
                     if (distSq <= _radius * _radius) {
                         if (record && !_previousState.ContainsKey(index)) {
-                            if (_activeLayer.TryGetVertex((uint)index, _document, out var prevEntry)) {
+                            if (_document.TryGetVertex(_activeLayer.Id, (uint)index, out var prevEntry)) {
                                 _previousState[index] = prevEntry;
                             }
                             else {
@@ -132,29 +126,26 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                         }
 
                         // Apply Texture to layer
-                        _activeLayer.TryGetVertex((uint)index, _document, out var entry);
+                        _document.TryGetVertex(_activeLayer.Id, (uint)index, out var entry);
                         entry.Type = (byte)_textureId;
                         if (_sceneryId.HasValue) {
                             entry.Scenery = _sceneryId.Value;
                         }
-                        _activeLayer.SetVertex((uint)index, _document, entry);
+                        _document.SetVertex(_activeLayer.Id, (uint)index, entry);
 
                         affectedVertices.Add((uint)index);
-
-                        // Track modified landblocks
-                        _context.AddAffectedLandblocks(x, y, modifiedLandblocks);
                     }
                 }
             }
 
             if (affectedVertices.Count > 0) {
                 _document.RecalculateTerrainCache(affectedVertices);
-            }
 
-            _context.RequestSave?.Invoke(_document.Id);
+                _context.RequestSave?.Invoke(_document.Id, _document.GetAffectedChunks(affectedVertices));
 
-            foreach (var lb in modifiedLandblocks) {
-                _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
+                foreach (var lb in _document.GetAffectedLandblocks(affectedVertices)) {
+                    _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
+                }
             }
         }
     }

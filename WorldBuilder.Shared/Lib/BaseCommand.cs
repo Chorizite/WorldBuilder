@@ -17,6 +17,9 @@ namespace WorldBuilder.Shared.Lib {
     [MemoryPackUnion(6, typeof(CreateLandscapeLayerGroupCommand))]
     [MemoryPackUnion(7, typeof(RestoreLandscapeItemCommand))]
     [MemoryPackUnion(8, typeof(MoveLandscapeLayerCommand))]
+    [MemoryPackUnion(9, typeof(AddStaticObjectCommand))]
+    [MemoryPackUnion(10, typeof(DeleteStaticObjectCommand))]
+    [MemoryPackUnion(11, typeof(UpdateStaticObjectCommand))]
     public abstract partial class BaseCommand {
         /// <summary>The unique identifier for the command.</summary>
         [MemoryPackOrder(0)] public string Id { get; set; } = Guid.NewGuid().ToString();

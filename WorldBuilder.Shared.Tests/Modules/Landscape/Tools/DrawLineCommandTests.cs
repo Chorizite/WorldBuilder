@@ -6,6 +6,7 @@ using System.Numerics;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Shared.Services;
 using Xunit;
 
 namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
@@ -36,8 +37,8 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var activeLayer = context.ActiveLayer!;
 
             var r1 = new TerrainEntry { Road = 1 };
-            activeLayer.SetVertex(10u, doc, r1);
-            activeLayer.SetVertex(11u, doc, r1);
+            doc.SetVertex(activeLayer.Id, 10u, r1);
+            doc.SetVertex(activeLayer.Id, 11u, r1);
             doc.RecalculateTerrainCache();
 
             var start = new Vector3(24, 24, 0);
@@ -90,7 +91,9 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             doc.Region = regionMock.Object;
 
             // Initialize LoadedChunks
-            doc.LoadedChunks[0] = new LandscapeChunk(0);
+            var chunk = new LandscapeChunk(0);
+            chunk.EditsRental = new DocumentRental<LandscapeChunkDocument>(new LandscapeChunkDocument("LandscapeChunkDocument_0"), () => { });
+            doc.LoadedChunks[0] = chunk;
 
             return doc;
         }

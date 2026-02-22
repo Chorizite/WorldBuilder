@@ -47,10 +47,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             foreach (var kvp in _previousState) {
                 uint index = (uint)kvp.Key;
                 if (kvp.Value.HasValue) {
-                    _activeLayer.SetVertex(index, _document, kvp.Value.Value);
+                    _document.SetVertex(_activeLayer.Id, index, kvp.Value.Value);
                 }
                 else {
-                    _activeLayer.RemoveVertex(index, _document);
+                    _document.RemoveVertex(_activeLayer.Id, index);
                 }
 
                 _document.RecalculateTerrainCache(new[] { index });
@@ -58,7 +58,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 _context.InvalidateLandblocksForVertex(vx, vy);
             }
 
-            _context.RequestSave?.Invoke(_document.Id);
+            _context.RequestSave?.Invoke(_document.Id, _document.GetAffectedChunks(_previousState.Keys.Select(k => (uint)k)));
         }
 
         private void ApplyChange(bool record = false) {
@@ -76,7 +76,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             int index = region.GetVertexIndex(vx, vy);
 
             if (record && !_previousState.ContainsKey(index)) {
-                if (_activeLayer.TryGetVertex((uint)index, _document, out var prev)) {
+                if (_document.TryGetVertex(_activeLayer.Id, (uint)index, out var prev)) {
                     _previousState[index] = prev;
                 }
                 else {
@@ -84,16 +84,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 }
             }
 
-            _activeLayer.TryGetVertex((uint)index, _document, out var entry);
+            _document.TryGetVertex(_activeLayer.Id, (uint)index, out var entry);
             if (entry.Road != (byte)_roadBits) {
                 entry.Road = (byte)_roadBits;
-                _activeLayer.SetVertex((uint)index, _document, entry);
+                _document.SetVertex(_activeLayer.Id, (uint)index, entry);
 
                 _document.RecalculateTerrainCache(new[] { (uint)index });
 
                 _context.InvalidateLandblocksForVertex(vx, vy);
 
-                _context.RequestSave?.Invoke(_document.Id);
+                _context.RequestSave?.Invoke(_document.Id, _document.GetAffectedChunks(new[] { (uint)index }));
             }
         }
     }

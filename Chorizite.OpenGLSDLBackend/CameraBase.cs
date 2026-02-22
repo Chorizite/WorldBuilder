@@ -123,6 +123,8 @@ public abstract class CameraBase : ICamera {
 
     /// <inheritdoc/>
     public virtual float FieldOfView { get => 60.0f; set { } }
+
+    /// <inheritdoc/>
+    public abstract Vector3 Forward { get; }
 }
 
-    

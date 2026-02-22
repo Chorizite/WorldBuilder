@@ -26,16 +26,19 @@ namespace WorldBuilder.Shared.Models {
 
             // Merge changes from all exported layers into a single sparse map
             var mergedChanges = new Dictionary<uint, TerrainEntry>();
-            foreach (var layer in exportedLayers) {
-                foreach (var chunkKvp in layer.Chunks) {
-                    foreach (var vertexKvp in chunkKvp.Value.Vertices) {
-                        var globalIndex = GetGlobalVertexIndex(chunkKvp.Key, vertexKvp.Key);
-                        if (mergedChanges.TryGetValue(globalIndex, out var existing)) {
-                            existing.Merge(vertexKvp.Value);
-                            mergedChanges[globalIndex] = existing;
-                        }
-                        else {
-                            mergedChanges[globalIndex] = vertexKvp.Value;
+            foreach (var chunk in LoadedChunks.Values) {
+                if (chunk.Edits == null) continue;
+                foreach (var layer in exportedLayers) {
+                    if (chunk.Edits.LayerEdits.TryGetValue(layer.Id, out var layerEdits)) {
+                        foreach (var vertexKvp in layerEdits.Vertices) {
+                            var globalIndex = GetGlobalVertexIndex(chunk.Id, vertexKvp.Key);
+                            if (mergedChanges.TryGetValue(globalIndex, out var existing)) {
+                                existing.Merge(vertexKvp.Value);
+                                mergedChanges[globalIndex] = existing;
+                            }
+                            else {
+                                mergedChanges[globalIndex] = vertexKvp.Value;
+                            }
                         }
                     }
                 }

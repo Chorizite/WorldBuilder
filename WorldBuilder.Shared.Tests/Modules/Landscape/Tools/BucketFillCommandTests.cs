@@ -7,6 +7,7 @@ using System.Numerics;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Shared.Services;
 using Xunit;
 
 namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
@@ -18,12 +19,12 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var activeLayer = context.ActiveLayer!;
 
             for (int i = 0; i < 81; i++) {
-                activeLayer.SetVertex((uint)i, context.Document, new TerrainEntry() { Type = 0 });
+                context.Document.SetVertex(activeLayer.Id, (uint)i, new TerrainEntry() { Type = 0 });
             }
             context.Document.RecalculateTerrainCache();
 
             // Set 10 to Type 1 in active layer
-            activeLayer.SetVertex(10u, context.Document, new TerrainEntry() { Type = 1 });
+            context.Document.SetVertex(activeLayer.Id, 10u, new TerrainEntry() { Type = 1 });
             context.Document.RecalculateTerrainCache(new[] { 10u });
 
             var startPos = new Vector3(24, 24, 0); // Vertex (1,1) -> Index 10
@@ -43,12 +44,12 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var context = CreateContext(9, 9);
             var activeLayer = context.ActiveLayer!;
             for (int i = 0; i < 81; i++) {
-                activeLayer.SetVertex((uint)i, context.Document, new TerrainEntry() { Type = 0 });
+                context.Document.SetVertex(activeLayer.Id, (uint)i, new TerrainEntry() { Type = 0 });
             }
 
             var t1 = new TerrainEntry() { Type = 1 };
-            activeLayer.SetVertex(0u, context.Document, t1);
-            activeLayer.SetVertex(80u, context.Document, t1);
+            context.Document.SetVertex(activeLayer.Id, 0u, t1);
+            context.Document.SetVertex(activeLayer.Id, 80u, t1);
             context.Document.RecalculateTerrainCache();
 
             var startPos = new Vector3(0, 0, 0); // Vertex (0,0) -> Index 0
@@ -68,11 +69,11 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var context = CreateContext(9, 9);
             var activeLayer = context.ActiveLayer!;
             for (int i = 0; i < 81; i++) {
-                activeLayer.SetVertex((uint)i, context.Document, new TerrainEntry() { Type = 0 });
+                context.Document.SetVertex(activeLayer.Id, (uint)i, new TerrainEntry() { Type = 0 });
             }
 
             var t1 = new TerrainEntry() { Type = 1 };
-            activeLayer.SetVertex(10u, context.Document, t1);
+            context.Document.SetVertex(activeLayer.Id, 10u, t1);
             context.Document.RecalculateTerrainCache();
 
             var startPos = new Vector3(24, 24, 0);
@@ -98,7 +99,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var context = CreateContext(width, height);
             var activeLayer = context.ActiveLayer!;
             for (int i = 0; i < width * height; i++) {
-                activeLayer.SetVertex((uint)i, context.Document, new TerrainEntry() { Type = 1 });
+                context.Document.SetVertex(activeLayer.Id, (uint)i, new TerrainEntry() { Type = 1 });
             }
             context.Document.RecalculateTerrainCache();
 
@@ -141,7 +142,9 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             for (uint y = 0; y < numChunksY; y++) {
                 for (uint x = 0; x < numChunksX; x++) {
                     ushort id = LandscapeChunk.GetId(x, y);
-                    doc.LoadedChunks[id] = new LandscapeChunk(id);
+                    var chunk = new LandscapeChunk(id);
+                    chunk.EditsRental = new DocumentRental<LandscapeChunkDocument>(new LandscapeChunkDocument($"LandscapeChunkDocument_{id}"), () => { });
+                    doc.LoadedChunks[id] = chunk;
                 }
             }
 

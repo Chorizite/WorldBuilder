@@ -6,6 +6,7 @@ using System.Numerics;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Shared.Services;
 using Xunit;
 
 namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
@@ -42,7 +43,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var context = CreateContext();
             var activeLayer = context.ActiveLayer!;
             for (int i = 0; i < 81; i++) {
-                activeLayer.SetVertex((uint)i, context.Document, new TerrainEntry());
+                context.Document.SetVertex(activeLayer.Id, (uint)i, new TerrainEntry());
             }
 
             var center = new Vector3(24, 24, 0); // Vertex (1,1) -> Index 10
@@ -64,7 +65,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var context = CreateContext();
             var activeLayer = context.ActiveLayer!;
             for (int i = 0; i < 81; i++) {
-                activeLayer.SetVertex((uint)i, context.Document, new TerrainEntry() { Type = 1 });
+                context.Document.SetVertex(activeLayer.Id, (uint)i, new TerrainEntry() { Type = 1 });
             }
             context.Document.RecalculateTerrainCache();
 
@@ -96,7 +97,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             cmd.Execute();
 
             // Assert
-            Assert.True(layer!.TryGetVertex(10u, context.Document, out var entry));
+            Assert.True(context.Document.TryGetVertex(layer!.Id, 10u, out var entry));
             Assert.Equal((byte)5, entry.Type);
         }
 
@@ -108,7 +109,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             bool saveRequested = false;
             var context = CreateContext();
-            context.RequestSave = (id) => saveRequested = true;
+            context.RequestSave = (id, chunks) => saveRequested = true;
             var center = new Vector3(24, 24, 0);
             var cmd = new PaintCommand(context, center, tool.BrushRadius, 5);
 
@@ -135,7 +136,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             cmd.Undo();
 
             // Assert
-            Assert.False(layer!.TryGetVertex(10u, context.Document, out _));
+            Assert.False(context.Document.TryGetVertex(layer!.Id, 10u, out _));
         }
 
         [Fact]
@@ -152,7 +153,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             var activeLayer = context.ActiveLayer!;
             for (int i = 0; i < 81; i++) {
-                activeLayer.SetVertex((uint)i, context.Document, new TerrainEntry());
+                context.Document.SetVertex(activeLayer.Id, (uint)i, new TerrainEntry());
             }
 
             var center = new Vector3(24f + offset, 24f + offset, 0);
@@ -188,7 +189,9 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             doc.Region = regionMock.Object;
 
             // Initialize LoadedChunks
-            doc.LoadedChunks[0] = new LandscapeChunk(0);
+            var chunk = new LandscapeChunk(0);
+            chunk.EditsRental = new DocumentRental<LandscapeChunkDocument>(new LandscapeChunkDocument("LandscapeChunkDocument_0"), () => { });
+            doc.LoadedChunks[0] = chunk;
 
             var layerId = Guid.NewGuid().ToString();
             doc.AddLayer([], "Active Layer", true, layerId);

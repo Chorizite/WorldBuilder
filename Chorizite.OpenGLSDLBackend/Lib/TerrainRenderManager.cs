@@ -20,6 +20,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly GL _gl;
         private readonly ILogger _log;
         private readonly LandscapeDocument _landscapeDoc;
+        private readonly IDocumentManager _documentManager;
         private readonly ConcurrentDictionary<ushort, TerrainChunk> _chunks = new();
 
         // Job queues
@@ -80,12 +81,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private uint _currentVAO;
 
         public TerrainRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc, IDatReaderWriter dats,
-            OpenGLGraphicsDevice graphicsDevice) {
+            OpenGLGraphicsDevice graphicsDevice, IDocumentManager documentManager) {
             _gl = gl;
             _log = log;
             _landscapeDoc = landscapeDoc;
             _dats = dats;
             _graphicsDevice = graphicsDevice;
+            _documentManager = documentManager;
             log.LogTrace($"Initialized TerrainRenderManager");
 
             _landscapeDoc.LandblockChanged += OnLandblockChanged;
@@ -209,15 +211,34 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             while (_activeGenerations < 12 && !_pendingGeneration.IsEmpty) {
-                // Pick the nearest pending chunk (Chebyshev distance)
+                // Pick the nearest pending chunk (Euclidean distance with view direction bias)
                 TerrainChunk? nearest = null;
-                int bestDist = int.MaxValue;
+                float bestPriority = float.MaxValue;
                 ushort bestKey = 0;
 
+                Vector3 camDir3 = camera.Forward;
+                Vector2 camDir2D = new Vector2(camDir3.X, camDir3.Y);
+                if (camDir2D.LengthSquared() > 0.001f) {
+                    camDir2D = Vector2.Normalize(camDir2D);
+                }
+                else {
+                    camDir2D = Vector2.Zero;
+                }
+
                 foreach (var (key, chunk) in _pendingGeneration) {
-                    var dist = Math.Max(Math.Abs((int)chunk.ChunkX - chunkX), Math.Abs((int)chunk.ChunkY - chunkY));
-                    if (dist < bestDist) {
-                        bestDist = dist;
+                    float dx = (int)chunk.ChunkX - chunkX;
+                    float dy = (int)chunk.ChunkY - chunkY;
+                    float dist = MathF.Sqrt(dx * dx + dy * dy);
+
+                    float priority = dist;
+                    if (dist > 0.1f && camDir2D != Vector2.Zero) {
+                        Vector2 dirToChunk = Vector2.Normalize(new Vector2(dx, dy));
+                        float dot = Vector2.Dot(camDir2D, dirToChunk);
+                        priority -= dot * 1.5f;
+                    }
+
+                    if (priority < bestPriority) {
+                        bestPriority = priority;
                         nearest = chunk;
                         bestKey = key;
                     }
@@ -226,8 +247,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (nearest == null || !_pendingGeneration.TryRemove(bestKey, out var chunkToGenerate))
                     break;
 
+                int chosenDist = Math.Max(Math.Abs((int)chunkToGenerate.ChunkX - chunkX), Math.Abs((int)chunkToGenerate.ChunkY - chunkY));
+
                 // Skip if now out of range or not in frustum
-                if (bestDist > RenderDistance || IsChunkInFrustum((int)chunkToGenerate.ChunkX, (int)chunkToGenerate.ChunkY) == FrustumTestResult.Outside) {
+                if (chosenDist > RenderDistance || IsChunkInFrustum((int)chunkToGenerate.ChunkX, (int)chunkToGenerate.ChunkY) == FrustumTestResult.Outside) {
                     if (_chunks.TryRemove(bestKey, out _)) {
                         chunkToGenerate.Dispose();
                     }
@@ -417,7 +440,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private async void GenerateChunk(TerrainChunk chunk) {
             try {
-                var landscapeChunk = await _landscapeDoc!.GetOrLoadChunkAsync(chunk.GetChunkId(), _dats!, default);
+                var landscapeChunk = await _landscapeDoc!.GetOrLoadChunkAsync(chunk.GetChunkId(), _dats!, _documentManager, default);
 
                 var vertices = new VertexLandscape[MaxVertices];
                 var indices = new uint[MaxIndices];

@@ -235,8 +235,17 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         }
     }
 
-    public void RequestSave(string docId) {
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<ushort, byte>> _dirtyChunks = new();
+
+    public void RequestSave(string docId, IEnumerable<ushort>? affectedChunks = null) {
         if (_project.IsReadOnly) return;
+
+        if (affectedChunks != null) {
+            var dirty = _dirtyChunks.GetOrAdd(docId, _ => new ConcurrentDictionary<ushort, byte>());
+            foreach (var chunkId in affectedChunks) {
+                dirty.TryAdd(chunkId, 0);
+            }
+        }
 
         if (_saveDebounceTokens.TryGetValue(docId, out var existingCts)) {
             existingCts.Cancel();
@@ -267,6 +276,29 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         if (docId == ActiveDocument.Id) {
             _log.LogDebug("Persisting landscape document {DocId} to database", docId);
             await _documentManager.PersistDocumentAsync(_landscapeRental!, null!, ct);
+
+            // Persist dirty chunks
+            if (_dirtyChunks.TryRemove(docId, out var dirtyChunks)) {
+                foreach (var chunkId in dirtyChunks.Keys) {
+                    if (ActiveDocument.LoadedChunks.TryGetValue(chunkId, out var chunk)) {
+                        if (chunk.EditsRental != null) {
+                            _log.LogTrace("Persisting chunk {ChunkId} for document {DocId}", chunkId, docId);
+                            await _documentManager.PersistDocumentAsync(chunk.EditsRental, null!, ct);
+                        }
+                        else if (chunk.EditsDetached != null) {
+                            _log.LogTrace("Creating chunk document {ChunkId} for document {DocId}", chunkId, docId);
+                            var createResult = await _documentManager.CreateDocumentAsync(chunk.EditsDetached, null!, ct);
+                            if (createResult.IsSuccess) {
+                                chunk.EditsRental = createResult.Value;
+                                chunk.EditsDetached = null;
+                            }
+                            else {
+                                _log.LogError("Failed to create chunk document: {Error}", createResult.Error);
+                            }
+                        }
+                    }
+                }
+            }
             return;
         }
 

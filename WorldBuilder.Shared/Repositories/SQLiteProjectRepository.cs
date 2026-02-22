@@ -33,6 +33,13 @@ namespace WorldBuilder.Shared.Repositories {
         public SQLiteProjectRepository(string connectionString, ILogger<SQLiteProjectRepository>? logger = null) {
             Connection = new SqliteConnection(connectionString);
             Connection.Open();
+
+            // Enable WAL mode for better performance and concurrency
+            using (var cmd = Connection.CreateCommand()) {
+                cmd.CommandText = "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA busy_timeout=5000;";
+                cmd.ExecuteNonQuery();
+            }
+
             _logger = logger ?? NullLogger<SQLiteProjectRepository>.Instance;
         }
 
