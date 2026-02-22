@@ -11,7 +11,7 @@ using WorldBuilder.Services;
 using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Lib {
-    [JsonSourceGenerationOptions(WriteIndented = true, Converters = new[] { typeof(Vector3Converter) })]
+    [JsonSourceGenerationOptions(WriteIndented = true, Converters = new[] { typeof(Vector3Converter) }, NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals)]
     [JsonSerializable(typeof(WorldBuilderSettings))]
     [JsonSerializable(typeof(List<RecentProject>))]
     [JsonSerializable(typeof(RecentProject))]
