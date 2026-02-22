@@ -94,7 +94,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             var lbi = new LandBlockInfo();
             lbi.Objects.Add(new Stab { Id = 0x1234, Frame = new Frame() });
             
-            byte[] dummyBytes = new byte[1];
+            byte[]? dummyBytes = new byte[1];
             _mockCellDatabase.Setup(db => db.TryGetFileBytes(lbFileId, out dummyBytes)).Returns(true);
             _mockCellDatabase.Setup(db => db.TryGet<LandBlockInfo>(lbFileId, out lbi)).Returns(true);
 

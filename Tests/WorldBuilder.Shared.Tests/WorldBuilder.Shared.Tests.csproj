@@ -1,9 +1,6 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
@@ -11,11 +8,14 @@
   <ItemGroup>
     <PackageReference Include="BCnEncoder.Net" />
     <PackageReference Include="BCnEncoder.Net.ImageSharp" />
+    <PackageReference Include="Chorizite.DatReaderWriter" />
     <PackageReference Include="Chorizite.DatReaderWriter.Extensions" />
     <PackageReference Include="coverlet.collector">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Moq" />
     <PackageReference Include="xunit" />
@@ -26,8 +26,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Chorizite.OpenGLSDLBackend\Chorizite.OpenGLSDLBackend.csproj" />
-    <ProjectReference Include="..\WorldBuilder.Shared\WorldBuilder.Shared.csproj" />
+    <ProjectReference Include="..\..\WorldBuilder.Server\WorldBuilder.Server.csproj" />
+    <ProjectReference Include="..\..\WorldBuilder.Shared\WorldBuilder.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>
