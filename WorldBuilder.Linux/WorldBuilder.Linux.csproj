@@ -4,6 +4,7 @@
 		<BuiltInComInteropSupport>true</BuiltInComInteropSupport>
 		<PublishTrimmed>true</PublishTrimmed>
 		<PublishSingleFile>true</PublishSingleFile>
+		<SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
 	</PropertyGroup>
 
 	<ItemGroup>

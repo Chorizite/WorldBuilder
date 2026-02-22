@@ -12,6 +12,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		GitVersion.yml = GitVersion.yml
 		README.md = README.md
 		Directory.Build.props = Directory.Build.props
+		.github\workflows\edge_release.yml = .github\workflows\edge_release.yml
+		.github\workflows\stable_release.yml = .github\workflows\stable_release.yml
+		.github\workflows\pull_request.yml = .github\workflows\pull_request.yml
+		.github\changelog-config.json = .github\changelog-config.json
+		build-release.sh = build-release.sh
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chorizite.OpenGLSDLBackend", "Chorizite.OpenGLSDLBackend\Chorizite.OpenGLSDLBackend.csproj", "{4EA62E31-A125-58C2-4979-6015F9111225}"
