@@ -7,7 +7,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models
     /// EnvCell.
     /// </summary>
     [MemoryPackable]
-    public partial class EngineCellProperties
+    public partial class Cell
     {
         /// <summary>
         /// Environment file id

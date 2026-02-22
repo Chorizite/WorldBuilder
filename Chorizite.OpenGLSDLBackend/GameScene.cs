@@ -68,7 +68,7 @@ public class GameScene : IDisposable {
     private bool _ownsMeshManager;
     private SceneryRenderManager? _sceneryManager;
     private StaticObjectRenderManager? _staticObjectManager;
-    private SkyboxRenderManager? _skyboxManager;
+    private SkyboxRenderManager? _skyboxManager = null;
 
     private float _lastTerrainUploadTime;
     private float _lastSceneryUploadTime;

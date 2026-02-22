@@ -25,6 +25,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models
         /// Global topology overrides for the cell (Portals, Surfaces, etc).
         /// If this is non-null, the standard dat-cell geometry definitions are ignored.
         /// </summary>
-        [MemoryPackOrder(2)] public EngineCellProperties? StructureOverrides { get; set; }
+        [MemoryPackOrder(2)] public Cell? StructureOverrides { get; set; }
     }
 }

@@ -505,11 +505,11 @@ namespace WorldBuilder.Shared.Models {
             return merged;
         }
 
-        public EngineCellProperties GetMergedEnvCell(uint cellId) {
-            var properties = new EngineCellProperties();
+        public Cell GetMergedEnvCell(uint cellId) {
+            var properties = new Cell();
 
             if (CellDatabase != null && CellDatabase.TryGet<EnvCell>(cellId, out var cell)) {
-                properties = new EngineCellProperties {
+                properties = new Cell {
                     EnvironmentId = cell.EnvironmentId,
                     CellStructure = cell.CellStructure,
                     Position = [cell.Position.Origin.X, cell.Position.Origin.Y, cell.Position.Origin.Z, cell.Position.Orientation.W, cell.Position.Orientation.X, cell.Position.Orientation.Y, cell.Position.Orientation.Z],

@@ -38,7 +38,7 @@ namespace WorldBuilder.Shared.Models {
         /// </summary>
         [MemoryPackInclude]
         [MemoryPackOrder(4)]
-        public Dictionary<uint, EngineCellProperties> Cells { get; init; } = [];
+        public Dictionary<uint, Cell> Cells { get; init; } = [];
 
         /// <summary>
         /// InstanceIds of static objects (from the base dat or lower layers)
