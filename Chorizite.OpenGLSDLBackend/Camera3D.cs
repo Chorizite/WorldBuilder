@@ -113,7 +113,7 @@ public class Camera3D : CameraBase {
     /// <summary>
     /// Gets the forward direction vector.
     /// </summary>
-    public Vector3 Forward {
+    public override Vector3 Forward {
         get {
             float yawRad = MathF.PI * _yaw / 180.0f;
             float pitchRad = MathF.PI * _pitch / 180.0f;

@@ -27,6 +27,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly GL _gl;
         private readonly ILogger _log;
         private readonly LandscapeDocument _landscapeDoc;
+        private readonly IDocumentManager _documentManager;
         private readonly IDatReaderWriter _dats;
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private readonly ObjectMeshManager _meshManager;
@@ -89,7 +90,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public SceneryRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
             IDatReaderWriter dats, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager,
-            StaticObjectRenderManager staticObjectManager) {
+            StaticObjectRenderManager staticObjectManager, IDocumentManager documentManager) {
             _gl = gl;
             _log = log;
             _landscapeDoc = landscapeDoc;
@@ -97,6 +98,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _graphicsDevice = graphicsDevice;
             _meshManager = meshManager;
             _staticObjectManager = staticObjectManager;
+            _documentManager = documentManager;
 
             _landscapeDoc.LandblockChanged += OnLandblockChanged;
         }
@@ -122,7 +124,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _gl.GenBuffers(1, out _instanceVBO);
         }
 
-        public void Update(float deltaTime, Vector3 cameraPosition, Matrix4x4 viewProjectionMatrix) {
+        public void Update(float deltaTime, ICamera camera) {
+            var cameraPosition = camera.Position;
+            var viewProjectionMatrix = camera.ViewProjectionMatrix;
             if (!_initialized || _landscapeDoc.Region == null || cameraPosition.Z > 4000) return;
 
             var region = _landscapeDoc.Region;
@@ -203,15 +207,33 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             // Start background generation tasks — prioritize nearest landblocks
             while (_activeGenerations < 12 && !_pendingGeneration.IsEmpty) {
-                // Pick the nearest pending landblock (Chebyshev distance)
                 ObjectLandblock? nearest = null;
-                int bestDist = int.MaxValue;
+                float bestPriority = float.MaxValue;
                 ushort bestKey = 0;
 
+                Vector3 camDir3 = camera.Forward;
+                Vector2 camDir2D = new Vector2(camDir3.X, camDir3.Y);
+                if (camDir2D.LengthSquared() > 0.001f) {
+                    camDir2D = Vector2.Normalize(camDir2D);
+                }
+                else {
+                    camDir2D = Vector2.Zero;
+                }
+
                 foreach (var (key, lb) in _pendingGeneration) {
-                    var dist = Math.Max(Math.Abs(lb.GridX - _cameraLbX), Math.Abs(lb.GridY - _cameraLbY));
-                    if (dist < bestDist) {
-                        bestDist = dist;
+                    float dx = lb.GridX - _cameraLbX;
+                    float dy = lb.GridY - _cameraLbY;
+                    float dist = MathF.Sqrt(dx * dx + dy * dy);
+
+                    float priority = dist;
+                    if (dist > 0.1f && camDir2D != Vector2.Zero) {
+                        Vector2 dirToChunk = Vector2.Normalize(new Vector2(dx, dy));
+                        float dot = Vector2.Dot(camDir2D, dirToChunk);
+                        priority -= dot * 1.5f;
+                    }
+
+                    if (priority < bestPriority) {
+                        bestPriority = priority;
                         nearest = lb;
                         bestKey = key;
                     }
@@ -220,8 +242,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (nearest == null || !_pendingGeneration.TryRemove(bestKey, out var lbToGenerate))
                     break;
 
+                int chosenDist = Math.Max(Math.Abs(lbToGenerate.GridX - _cameraLbX), Math.Abs(lbToGenerate.GridY - _cameraLbY));
+
                 // Skip if now out of range or not in frustum
-                if (bestDist > RenderDistance || GetLandblockFrustumResult(lbToGenerate.GridX, lbToGenerate.GridY) == FrustumTestResult.Outside) {
+                if (chosenDist > RenderDistance || GetLandblockFrustumResult(lbToGenerate.GridX, lbToGenerate.GridY) == FrustumTestResult.Outside) {
                     if (_landblocks.TryRemove(bestKey, out _)) {
                         UnloadLandblockResources(lbToGenerate);
                     }
@@ -454,11 +478,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var chunkX = (uint)(lbGlobalX / LandscapeChunk.LandblocksPerChunk);
                 var chunkY = (uint)(lbGlobalY / LandscapeChunk.LandblocksPerChunk);
                 var chunkId = LandscapeChunk.GetId(chunkX, chunkY);
-                await _landscapeDoc.GetOrLoadChunkAsync(chunkId, _dats, ct);
+                await _landscapeDoc.GetOrLoadChunkAsync(chunkId, _dats, _documentManager, ct);
 
                 // Wait for static objects to be ready for this landblock
                 using (var cts = CancellationTokenSource.CreateLinkedTokenSource(ct)) {
-                    cts.CancelAfter(5000);
+                    cts.CancelAfter(15000);
                     try {
                         await _staticObjectManager.WaitForInstancesAsync(key, cts.Token);
                     }

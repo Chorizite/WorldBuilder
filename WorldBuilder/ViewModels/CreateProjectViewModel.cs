@@ -54,6 +54,26 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
     private bool _canProceed;
 
     /// <summary>
+    /// Gets or sets a value indicating whether the project is currently being created.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanProceed))]
+    [NotifyCanExecuteChangedFor(nameof(GoNextCommand))]
+    private bool _isLoading;
+
+    /// <summary>
+    /// Gets or sets the current loading status message.
+    /// </summary>
+    [ObservableProperty]
+    private string _loadingStatus = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the current loading progress (0.0 to 1.0).
+    /// </summary>
+    [ObservableProperty]
+    private float _loadingProgress;
+
+    /// <summary>
     /// Gets or sets the errors related to the base DAT directory field.
     /// </summary>
     [ObservableProperty]
@@ -129,6 +149,9 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
                     break;
                 case nameof(Location):
                     ValidateLocation();
+                    UpdateCanProceed();
+                    break;
+                case nameof(IsLoading):
                     UpdateCanProceed();
                     break;
             }
@@ -264,6 +287,7 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
 
     private void UpdateCanProceed() {
         CanProceed = !HasErrors &&
+                     !IsLoading &&
                      !string.IsNullOrWhiteSpace(BaseDatDirectory) &&
                      !string.IsNullOrWhiteSpace(ProjectName) &&
                      !string.IsNullOrWhiteSpace(Location);

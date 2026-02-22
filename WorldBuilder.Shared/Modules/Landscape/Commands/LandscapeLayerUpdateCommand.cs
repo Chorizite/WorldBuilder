@@ -1,6 +1,7 @@
 ﻿using MemoryPack;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Commands;
@@ -52,12 +53,32 @@ public partial class LandscapeLayerUpdateCommand : BaseCommand<bool> {
                 return Result<bool>.Failure(Error.NotFound($"Layer not found: {LayerId}"));
             }
 
+            var affectedChunks = new HashSet<ushort>();
+            foreach (var vertexIndex in Changes.Keys) {
+                var (chunkId, localIndex) = terrainRental.Document.GetLocalVertexIndex(vertexIndex);
+                affectedChunks.Add(chunkId);
+
+                // Handle boundaries
+                int localX = localIndex % LandscapeChunk.ChunkVertexStride;
+                int localY = localIndex / LandscapeChunk.ChunkVertexStride;
+                uint chunkX = (uint)(chunkId >> 8);
+                uint chunkY = (uint)(chunkId & 0xFF);
+
+                if (localX == 0 && chunkX > 0) affectedChunks.Add(LandscapeChunk.GetId(chunkX - 1, chunkY));
+                if (localY == 0 && chunkY > 0) affectedChunks.Add(LandscapeChunk.GetId(chunkX, chunkY - 1));
+                if (localX == 0 && localY == 0 && chunkX > 0 && chunkY > 0) affectedChunks.Add(LandscapeChunk.GetId(chunkX - 1, chunkY - 1));
+            }
+
+            foreach (var chunkId in affectedChunks) {
+                await terrainRental.Document.GetOrLoadChunkAsync(chunkId, dats, documentManager, ct);
+            }
+
             foreach (var change in Changes) {
                 if (change.Value == null) {
-                    layer.RemoveVertex(change.Key, terrainRental.Document);
+                    terrainRental.Document.RemoveVertex(LayerId, change.Key);
                 }
                 else {
-                    layer.SetVertex(change.Key, terrainRental.Document, change.Value.Value);
+                    terrainRental.Document.SetVertex(LayerId, change.Key, change.Value.Value);
                 }
             }
 
@@ -68,6 +89,16 @@ public partial class LandscapeLayerUpdateCommand : BaseCommand<bool> {
 
             var affectedLandblocks = terrainRental.Document.GetAffectedLandblocks(Changes.Keys);
             terrainRental.Document.NotifyLandblockChanged(affectedLandblocks);
+
+            // Persist modified chunk documents
+            foreach (var chunkId in affectedChunks) {
+                if (terrainRental.Document.LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.EditsRental != null) {
+                    var chunkPersistResult = await documentManager.PersistDocumentAsync(chunk.EditsRental, tx, ct);
+                    if (chunkPersistResult.IsFailure) {
+                        return Result<bool>.Failure(chunkPersistResult.Error);
+                    }
+                }
+            }
 
             var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);
             if (persistResult.IsFailure) {

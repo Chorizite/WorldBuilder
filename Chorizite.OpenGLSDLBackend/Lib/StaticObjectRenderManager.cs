@@ -134,6 +134,23 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _dats = dats;
             _graphicsDevice = graphicsDevice;
             _meshManager = meshManager;
+
+            _landscapeDoc.LandblockChanged += OnLandblockChanged;
+        }
+
+        private void OnLandblockChanged(object? sender, LandblockChangedEventArgs e) {
+            if (e.AffectedLandblocks == null) {
+                foreach (var lb in _landblocks.Values) {
+                    lb.MeshDataReady = false;
+                    var key = PackKey(lb.GridX, lb.GridY);
+                    _pendingGeneration[key] = lb;
+                }
+            }
+            else {
+                foreach (var (lbX, lbY) in e.AffectedLandblocks) {
+                    InvalidateLandblock(lbX, lbY);
+                }
+            }
         }
 
         public void Initialize(IShader shader) {
@@ -142,7 +159,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _gl.GenBuffers(1, out _instanceVBO);
         }
 
-        public void Update(float deltaTime, Vector3 cameraPosition, Matrix4x4 viewProjectionMatrix) {
+        public void Update(float deltaTime, ICamera camera) {
+            var cameraPosition = camera.Position;
+            var viewProjectionMatrix = camera.ViewProjectionMatrix;
             if (!_initialized || _landscapeDoc.Region == null || cameraPosition.Z > 4000) return;
 
             var region = _landscapeDoc.Region;
@@ -220,13 +239,32 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Start background generation tasks — prioritize nearest landblocks
             while (_activeGenerations < 21 && !_pendingGeneration.IsEmpty) {
                 ObjectLandblock? nearest = null;
-                int bestDist = int.MaxValue;
+                float bestPriority = float.MaxValue;
                 ushort bestKey = 0;
 
+                Vector3 camDir3 = camera.Forward;
+                Vector2 camDir2D = new Vector2(camDir3.X, camDir3.Y);
+                if (camDir2D.LengthSquared() > 0.001f) {
+                    camDir2D = Vector2.Normalize(camDir2D);
+                }
+                else {
+                    camDir2D = Vector2.Zero;
+                }
+
                 foreach (var (key, lb) in _pendingGeneration) {
-                    var dist = Math.Max(Math.Abs(lb.GridX - _cameraLbX), Math.Abs(lb.GridY - _cameraLbY));
-                    if (dist < bestDist) {
-                        bestDist = dist;
+                    float dx = lb.GridX - _cameraLbX;
+                    float dy = lb.GridY - _cameraLbY;
+                    float dist = MathF.Sqrt(dx * dx + dy * dy);
+
+                    float priority = dist;
+                    if (dist > 0.1f && camDir2D != Vector2.Zero) {
+                        Vector2 dirToChunk = Vector2.Normalize(new Vector2(dx, dy));
+                        float dot = Vector2.Dot(camDir2D, dirToChunk);
+                        priority -= dot * 1.5f;
+                    }
+
+                    if (priority < bestPriority) {
+                        bestPriority = priority;
                         nearest = lb;
                         bestKey = key;
                     }
@@ -235,7 +273,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (nearest == null || !_pendingGeneration.TryRemove(bestKey, out var lbToGenerate))
                     break;
 
-                if (bestDist > RenderDistance || GetLandblockFrustumResult(lbToGenerate.GridX, lbToGenerate.GridY) == FrustumTestResult.Outside) {
+                int chosenDist = Math.Max(Math.Abs(lbToGenerate.GridX - _cameraLbX), Math.Abs(lbToGenerate.GridY - _cameraLbY));
+
+                if (chosenDist > RenderDistance || GetLandblockFrustumResult(lbToGenerate.GridX, lbToGenerate.GridY) == FrustumTestResult.Outside) {
                     if (_landblocks.TryRemove(bestKey, out _)) {
                         UnloadLandblockResources(lbToGenerate);
                     }
@@ -475,60 +515,64 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var staticObjects = new List<SceneryInstance>();
                 var lbSizeUnits = regionInfo.LandblockSizeInUnits; // 192
 
-                if (_landscapeDoc.CellDatabase != null && _landscapeDoc.CellDatabase.TryGet<LandBlockInfo>(lbId, out var lbi)) {
-                    // Placed objects
-                    foreach (var obj in lbi.Objects) {
-                        if (obj.Id == 0) continue;
+                var mergedLb = _landscapeDoc.GetMergedLandblock(lbId);
 
-                        var isSetup = (obj.Id >> 24) == 0x02;
-                        var worldPos = new Vector3(
-                            new Vector2(lbGlobalX * lbSizeUnits + obj.Frame.Origin.X, lbGlobalY * lbSizeUnits + obj.Frame.Origin.Y) + regionInfo.MapOffset,
-                            obj.Frame.Origin.Z
-                        );
+                // Placed objects
+                foreach (var obj in mergedLb.StaticObjects) {
+                    if (obj.SetupId == 0) continue;
 
-                        var transform = Matrix4x4.CreateFromQuaternion(obj.Frame.Orientation)
-                            * Matrix4x4.CreateTranslation(worldPos);
+                    var isSetup = (obj.SetupId >> 24) == 0x02;
+                    var worldPos = new Vector3(
+                        new Vector2(lbGlobalX * lbSizeUnits + obj.Position[0], lbGlobalY * lbSizeUnits + obj.Position[1]) + regionInfo.MapOffset,
+                        obj.Position[2]
+                    );
 
-                        var bounds = _meshManager.GetBounds(obj.Id, isSetup);
-                        var bbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max).Transform(transform) : default;
+                    var rotation = new Quaternion(obj.Position[4], obj.Position[5], obj.Position[6], obj.Position[3]);
 
-                        staticObjects.Add(new SceneryInstance {
-                            ObjectId = obj.Id,
-                            IsSetup = isSetup,
-                            WorldPosition = worldPos,
-                            Rotation = obj.Frame.Orientation,
-                            Scale = Vector3.One,
-                            Transform = transform,
-                            BoundingBox = bbox
-                        });
-                    }
+                    var transform = Matrix4x4.CreateFromQuaternion(rotation)
+                        * Matrix4x4.CreateTranslation(worldPos);
 
-                    // Buildings
-                    foreach (var building in lbi.Buildings) {
-                        if (building.ModelId == 0) continue;
+                    var bounds = _meshManager.GetBounds(obj.SetupId, isSetup);
+                    var bbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max).Transform(transform) : default;
 
-                        var isSetup = (building.ModelId >> 24) == 0x02;
-                        var worldPos = new Vector3(
-                            new Vector2(lbGlobalX * lbSizeUnits + building.Frame.Origin.X, lbGlobalY * lbSizeUnits + building.Frame.Origin.Y) + regionInfo.MapOffset,
-                            building.Frame.Origin.Z
-                        );
+                    staticObjects.Add(new SceneryInstance {
+                        ObjectId = obj.SetupId,
+                        IsSetup = isSetup,
+                        WorldPosition = worldPos,
+                        Rotation = rotation,
+                        Scale = Vector3.One,
+                        Transform = transform,
+                        BoundingBox = bbox
+                    });
+                }
 
-                        var transform = Matrix4x4.CreateFromQuaternion(building.Frame.Orientation)
-                            * Matrix4x4.CreateTranslation(worldPos);
+                // Buildings
+                foreach (var building in mergedLb.Buildings) {
+                    if (building.ModelId == 0) continue;
 
-                        var bounds = _meshManager.GetBounds(building.ModelId, isSetup);
-                        var bbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max).Transform(transform) : default;
+                    var isSetup = (building.ModelId >> 24) == 0x02;
+                    var worldPos = new Vector3(
+                        new Vector2(lbGlobalX * lbSizeUnits + building.Position[0], lbGlobalY * lbSizeUnits + building.Position[1]) + regionInfo.MapOffset,
+                        building.Position[2]
+                    );
 
-                        staticObjects.Add(new SceneryInstance {
-                            ObjectId = building.ModelId,
-                            IsSetup = isSetup,
-                            WorldPosition = worldPos,
-                            Rotation = building.Frame.Orientation,
-                            Scale = Vector3.One,
-                            Transform = transform,
-                            BoundingBox = bbox
-                        });
-                    }
+                    var rotation = new Quaternion(building.Position[4], building.Position[5], building.Position[6], building.Position[3]);
+
+                    var transform = Matrix4x4.CreateFromQuaternion(rotation)
+                        * Matrix4x4.CreateTranslation(worldPos);
+
+                    var bounds = _meshManager.GetBounds(building.ModelId, isSetup);
+                    var bbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max).Transform(transform) : default;
+
+                    staticObjects.Add(new SceneryInstance {
+                        ObjectId = building.ModelId,
+                        IsSetup = isSetup,
+                        WorldPosition = worldPos,
+                        Rotation = rotation,
+                        Scale = Vector3.One,
+                        Transform = transform,
+                        BoundingBox = bbox
+                    });
                 }
 
                 lb.PendingInstances = staticObjects;
@@ -760,6 +804,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private static ushort PackKey(int x, int y) => (ushort)((x << 8) | y);
 
         public void Dispose() {
+            _landscapeDoc.LandblockChanged -= OnLandblockChanged;
             if (_instanceVBO != 0) {
                 _gl.DeleteBuffer(_instanceVBO);
                 GpuMemoryTracker.TrackDeallocation(_instanceBufferCapacity * Marshal.SizeOf<Matrix4x4>());

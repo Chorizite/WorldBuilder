@@ -53,10 +53,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             foreach (var kvp in _previousState) {
                 uint index = (uint)kvp.Key;
                 if (kvp.Value.HasValue) {
-                    _activeLayer.SetVertex(index, _document, kvp.Value.Value);
+                    _document.SetVertex(_activeLayer.Id, index, kvp.Value.Value);
                 }
                 else {
-                    _activeLayer.RemoveVertex(index, _document);
+                    _document.RemoveVertex(_activeLayer.Id, index);
                 }
 
                 affectedVertices.Add(index);
@@ -103,7 +103,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                     int index = region.GetVertexIndex(x1, y1);
 
                     if (record && !_previousState.ContainsKey(index)) {
-                        if (_activeLayer.TryGetVertex((uint)index, _document, out var prev)) {
+                        if (_document.TryGetVertex(_activeLayer.Id, (uint)index, out var prev)) {
                             _previousState[index] = prev;
                         }
                         else {
@@ -111,10 +111,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                         }
                     }
 
-                    _activeLayer.TryGetVertex((uint)index, _document, out var entry);
+                    _document.TryGetVertex(_activeLayer.Id, (uint)index, out var entry);
                     if (entry.Road != (byte)_roadBits) {
                         entry.Road = (byte)_roadBits;
-                        _activeLayer.SetVertex((uint)index, _document, entry);
+                        _document.SetVertex(_activeLayer.Id, (uint)index, entry);
 
                         affectedVertices.Add((uint)index);
                         _context.AddAffectedLandblocks(x1, y1, modifiedLandblocks);

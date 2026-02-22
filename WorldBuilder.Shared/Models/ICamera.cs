@@ -11,5 +11,9 @@ namespace WorldBuilder.Shared.Models {
         Matrix4x4 ViewMatrix { get; }
         /// <summary>The projection matrix of the camera.</summary>
         Matrix4x4 ProjectionMatrix { get; }
+        /// <summary>The view-projection matrix of the camera.</summary>
+        Matrix4x4 ViewProjectionMatrix { get; }
+        /// <summary>The forward direction vector of the camera.</summary>
+        Vector3 Forward { get; }
     }
 }

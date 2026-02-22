@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -90,9 +90,18 @@ namespace WorldBuilder.Services {
         /// <param name="message">The message containing the project creation parameters</param>
         public async void Receive(CreateProjectMessage message) {
             _log.LogInformation($"CreateProjectMessage: {message.CreateProjectViewModel.ProjectLocation}");
+            var model = message.CreateProjectViewModel;
             try {
-                var model = message.CreateProjectViewModel;
-                var projectResult = await Project.Create(model.ProjectName, model.ProjectLocation, model.BaseDatDirectory, default);
+                model.IsLoading = true;
+                model.LoadingProgress = 0f;
+                model.LoadingStatus = "Starting project creation...";
+
+                var progress = new Progress<(string message, float progress)>(p => {
+                    model.LoadingStatus = p.message;
+                    model.LoadingProgress = p.progress * 100f;
+                });
+
+                var projectResult = await Project.Create(model.ProjectName, model.ProjectLocation, model.BaseDatDirectory, progress, default);
 
                 if (projectResult.IsSuccess) {
                     _settings.App.LastBaseDatDirectory = model.BaseDatDirectory;
@@ -101,7 +110,10 @@ namespace WorldBuilder.Services {
                 }
             }
             catch (Exception ex) {
-                _log.LogError(ex, $"Failed to create project: {message.CreateProjectViewModel.ProjectLocation}");
+                _log.LogError(ex, $"Failed to create project: {model.ProjectLocation}");
+            }
+            finally {
+                model.IsLoading = false;
             }
         }
 

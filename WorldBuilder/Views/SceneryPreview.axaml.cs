@@ -119,7 +119,7 @@ public partial class SceneryPreview : Base3DViewport {
                 for (uint vx = 0; vx < 9; vx++) {
                     for (uint vy = 0; vy < 9; vy++) {
                         uint idx = vy * (uint)_previewRegion.MapWidthInVertices + vx;
-                        layer.SetVertex(idx, _previewDoc, new TerrainEntry {
+                        _previewDoc.SetVertex(layer.Id, idx, new TerrainEntry {
                             Type = (byte)_cachedTexture,
                             Scenery = (_cachedSceneryIndex == 255) ? (byte?)null : _cachedSceneryIndex,
                             Height = 0,
@@ -134,7 +134,8 @@ public partial class SceneryPreview : Base3DViewport {
             var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
             var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _cachedDats);
 
-            _gameScene.SetLandscape(_previewDoc, _cachedDats, meshManager);
+            var documentManager = projectManager?.GetProjectService<IDocumentManager>();
+            _gameScene.SetLandscape(_previewDoc, _cachedDats, documentManager!, meshManager);
             _gameScene.InvalidateLandblock(0, 0);
         }
         _needsUpdate = false;

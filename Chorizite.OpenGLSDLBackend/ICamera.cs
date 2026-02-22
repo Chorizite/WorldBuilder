@@ -26,7 +26,12 @@ public interface ICamera : WorldBuilder.Shared.Models.ICamera {
     /// <summary>
     /// Gets the combined view-projection matrix.
     /// </summary>
-    Matrix4x4 ViewProjectionMatrix { get; }
+    new Matrix4x4 ViewProjectionMatrix { get; }
+
+    /// <summary>
+    /// Gets the forward vector.
+    /// </summary>
+    new Vector3 Forward { get; }
 
     /// <summary>
     /// Gets or sets the camera position in world space.
@@ -96,4 +101,3 @@ public interface ICamera : WorldBuilder.Shared.Models.ICamera {
     float FieldOfView { get; }
 }
 
-    

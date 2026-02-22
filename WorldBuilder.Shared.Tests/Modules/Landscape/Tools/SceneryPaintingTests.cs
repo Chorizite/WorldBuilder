@@ -4,6 +4,7 @@ using System.Numerics;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Shared.Services;
 using Xunit;
 
 namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
@@ -14,7 +15,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var context = CreateContext(9, 9);
             var activeLayer = context.ActiveLayer!;
             for (int i = 0; i < 81; i++) {
-                activeLayer.SetVertex((uint)i, context.Document, new TerrainEntry());
+                context.Document.SetVertex(activeLayer.Id, (uint)i, new TerrainEntry());
             }
 
             var center = new Vector3(24, 24, 0); // Vertex (1,1) -> Index 10
@@ -37,7 +38,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var context = CreateContext(9, 9);
             var activeLayer = context.ActiveLayer!;
             for (int i = 0; i < 81; i++) {
-                activeLayer.SetVertex((uint)i, context.Document, new TerrainEntry() { Type = 1 });
+                context.Document.SetVertex(activeLayer.Id, (uint)i, new TerrainEntry() { Type = 1 });
             }
             context.Document.RecalculateTerrainCache();
 
@@ -60,7 +61,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var context = CreateContext(9, 9);
             var activeLayer = context.ActiveLayer!;
             for (int i = 0; i < 81; i++) {
-                activeLayer.SetVertex((uint)i, context.Document, new TerrainEntry() { Type = 5, Scenery = 0 });
+                context.Document.SetVertex(activeLayer.Id, (uint)i, new TerrainEntry() { Type = 5, Scenery = 0 });
             }
             context.Document.RecalculateTerrainCache();
 
@@ -99,7 +100,9 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             doc.Region = regionMock.Object;
 
             // Initialize LoadedChunks
-            doc.LoadedChunks[0] = new LandscapeChunk(0);
+            var chunk = new LandscapeChunk(0);
+            chunk.EditsRental = new DocumentRental<LandscapeChunkDocument>(new LandscapeChunkDocument("LandscapeChunkDocument_0"), () => { });
+            doc.LoadedChunks[0] = chunk;
 
             var layerId = Guid.NewGuid().ToString();
             doc.AddLayer([], "Active Layer", true, layerId);

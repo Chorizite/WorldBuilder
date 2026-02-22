@@ -16,7 +16,7 @@ namespace Chorizite.OpenGLSDLBackend;
 /// Manages the 3D scene including camera, objects, and rendering.
 /// </summary>
 public class GameScene : IDisposable {
-    private const uint MAX_GPU_UPDATE_TIME_PER_FRAME = 5; // max gpu time spent doing uploads per frame, in ms
+    private const uint MAX_GPU_UPDATE_TIME_PER_FRAME = 33; // max gpu time spent doing uploads per frame, in ms
     private readonly GL _gl;
     private readonly OpenGLGraphicsDevice _graphicsDevice;
     private readonly ILogger _log;
@@ -205,7 +205,7 @@ public class GameScene : IDisposable {
         }
     }
 
-    public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats, ObjectMeshManager? meshManager = null, bool centerCamera = true) {
+    public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats, IDocumentManager documentManager, ObjectMeshManager? meshManager = null, bool centerCamera = true) {
         if (_terrainManager != null) {
             _terrainManager.Dispose();
         }
@@ -228,7 +228,7 @@ public class GameScene : IDisposable {
         _ownsMeshManager = meshManager == null;
         _meshManager = meshManager ?? new ObjectMeshManager(_graphicsDevice, dats);
 
-        _terrainManager = new TerrainRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice);
+        _terrainManager = new TerrainRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, documentManager);
         _terrainManager.ShowUnwalkableSlopes = _showUnwalkableSlopes;
         _terrainManager.ScreenHeight = _height;
         _terrainManager.RenderDistance = _terrainRenderDistance;
@@ -252,7 +252,7 @@ public class GameScene : IDisposable {
             _staticObjectManager.Initialize(_sceneryShader);
         }
 
-        _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager, _staticObjectManager);
+        _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager, _staticObjectManager, documentManager);
         _sceneryManager.RenderDistance = _sceneryRenderDistance;
         if (_initialized && _sceneryShader != null) {
             _sceneryManager.Initialize(_sceneryShader);
@@ -466,11 +466,11 @@ public class GameScene : IDisposable {
         _lastTerrainUploadTime = _terrainManager?.ProcessUploads(remainingTime) ?? 0;
         remainingTime = Math.Max(0, remainingTime - _lastTerrainUploadTime);
 
-        _sceneryManager?.Update(deltaTime, _currentCamera.Position, _currentCamera.ViewProjectionMatrix);
+        _sceneryManager?.Update(deltaTime, _currentCamera);
         _lastSceneryUploadTime = _sceneryManager?.ProcessUploads(remainingTime) ?? 0;
         remainingTime = Math.Max(0, remainingTime - _lastSceneryUploadTime);
 
-        _staticObjectManager?.Update(deltaTime, _currentCamera.Position, _currentCamera.ViewProjectionMatrix);
+        _staticObjectManager?.Update(deltaTime, _currentCamera);
         _lastStaticObjectUploadTime = _staticObjectManager?.ProcessUploads(remainingTime) ?? 0;
 
         _skyboxManager?.Update(deltaTime);

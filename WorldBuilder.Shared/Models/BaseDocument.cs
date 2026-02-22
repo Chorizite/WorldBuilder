@@ -9,6 +9,7 @@ namespace WorldBuilder.Shared.Models;
 /// </summary>
 [MemoryPackable]
 [MemoryPackUnion(0, typeof(LandscapeDocument))]
+[MemoryPackUnion(1, typeof(LandscapeChunkDocument))]
 public abstract partial class BaseDocument : IDisposable {
     /// <summary>The unique identifier for the document.</summary>
     [MemoryPackOrder(0)]

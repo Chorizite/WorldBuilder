@@ -147,4 +147,7 @@ public class Camera2D : CameraBase {
     public override void HandleKeyUp(string key) {
         // No key controls for 2D camera
     }
+
+    /// <inheritdoc/>
+    public override Vector3 Forward => new Vector3(0, 0, -1);
 }

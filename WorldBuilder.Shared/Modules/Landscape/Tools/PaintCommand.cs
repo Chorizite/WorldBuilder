@@ -66,10 +66,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             foreach (var kvp in _previousState) {
                 uint index = (uint)kvp.Key;
                 if (kvp.Value.HasValue) {
-                    _activeLayer.SetVertex(index, _document, kvp.Value.Value);
+                    _document.SetVertex(_activeLayer.Id, index, kvp.Value.Value);
                 }
                 else {
-                    _activeLayer.RemoveVertex(index, _document);
+                    _document.RemoveVertex(_activeLayer.Id, index);
                 }
 
                 affectedVertices.Add(index);
@@ -123,7 +123,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
                     if (distSq <= _radius * _radius) {
                         if (record && !_previousState.ContainsKey(index)) {
-                            if (_activeLayer.TryGetVertex((uint)index, _document, out var prevEntry)) {
+                            if (_document.TryGetVertex(_activeLayer.Id, (uint)index, out var prevEntry)) {
                                 _previousState[index] = prevEntry;
                             }
                             else {
@@ -132,12 +132,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                         }
 
                         // Apply Texture to layer
-                        _activeLayer.TryGetVertex((uint)index, _document, out var entry);
+                        _document.TryGetVertex(_activeLayer.Id, (uint)index, out var entry);
                         entry.Type = (byte)_textureId;
                         if (_sceneryId.HasValue) {
                             entry.Scenery = _sceneryId.Value;
                         }
-                        _activeLayer.SetVertex((uint)index, _document, entry);
+                        _document.SetVertex(_activeLayer.Id, (uint)index, entry);
 
                         affectedVertices.Add((uint)index);
 
