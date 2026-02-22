@@ -93,6 +93,9 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             regionMock.Setup(r => r.LandblockVerticeLength).Returns(9); // stride 8
             regionMock.Setup(r => r.MapWidthInLandblocks).Returns(2);
             regionMock.Setup(r => r.MapHeightInLandblocks).Returns(2);
+            regionMock.Setup(r => r.MapWidthInVertices).Returns(17);
+            regionMock.Setup(r => r.MapHeightInVertices).Returns(17);
+            regionMock.Setup(r => r.GetVertexIndex(It.IsAny<int>(), It.IsAny<int>())).Returns<int, int>((x, y) => y * 17 + x);
 
             var regionProp = typeof(LandscapeDocument).GetProperty("Region");
             regionProp?.SetValue(doc, regionMock.Object);

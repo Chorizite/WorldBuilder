@@ -41,55 +41,20 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             ActiveLayer = activeLayer;
         }
 
-        /// <summary>
-        /// Invalidates all landblocks that share the specified vertex.
-        /// Handles boundary vertices (invalidating 2 landblocks) and corner vertices (invalidating 4 landblocks).
-        /// </summary>
-        /// <param name="vx">Vertex X coordinate.</param>
-        /// <param name="vy">Vertex Y coordinate.</param>
-        public void InvalidateLandblocksForVertex(int vx, int vy) {
-            if (InvalidateLandblock == null || Document.Region == null) return;
-
-            var landblocks = new HashSet<(int x, int y)>();
-            AddAffectedLandblocks(vx, vy, landblocks);
-            foreach (var (lbX, lbY) in landblocks) {
-                InvalidateLandblock(lbX, lbY);
+                /// <summary>
+                /// Invalidates all landblocks that share the specified vertex.
+                /// Handles boundary vertices (invalidating 2 landblocks) and corner vertices (invalidating 4 landblocks).
+                /// </summary>
+                /// <param name="vx">Vertex X coordinate.</param>
+                /// <param name="vy">Vertex Y coordinate.</param>
+                public void InvalidateLandblocksForVertex(int vx, int vy) {
+                    if (InvalidateLandblock == null || Document.Region == null) return;
+        
+                    uint vertexIndex = (uint)Document.Region.GetVertexIndex(vx, vy);
+                    foreach (var (lbX, lbY) in Document.GetAffectedLandblocks(new[] { vertexIndex })) {
+                        InvalidateLandblock(lbX, lbY);
+                    }
+                }
             }
         }
-
-        /// <summary>
-        /// Adds all landblocks sharing the specified vertex to the provided HashSet.
-        /// </summary>
-        /// <param name="vx">Vertex X coordinate.</param>
-        /// <param name="vy">Vertex Y coordinate.</param>
-        /// <param name="landblocks">The collection to add landblock coordinates to.</param>
-        public void AddAffectedLandblocks(int vx, int vy, HashSet<(int x, int y)> landblocks) {
-            if (Document.Region == null) return;
-
-            var region = Document.Region;
-            int stride = region.LandblockVerticeLength - 1;
-
-            int lbX = vx / stride;
-            int lbY = vy / stride;
-
-            // Primary landblock
-            if (lbX < region.MapWidthInLandblocks && lbY < region.MapHeightInLandblocks) {
-                landblocks.Add((lbX, lbY));
-            }
-
-            // Edge/Corner cases
-            bool onEdgeX = vx % stride == 0 && vx > 0;
-            bool onEdgeY = vy % stride == 0 && vy > 0;
-
-            if (onEdgeX && lbX - 1 >= 0 && lbY < region.MapHeightInLandblocks) {
-                landblocks.Add((lbX - 1, lbY));
-            }
-            if (onEdgeY && lbY - 1 >= 0 && lbX < region.MapWidthInLandblocks) {
-                landblocks.Add((lbX, lbY - 1));
-            }
-            if (onEdgeX && onEdgeY && lbX - 1 >= 0 && lbY - 1 >= 0) {
-                landblocks.Add((lbX - 1, lbY - 1));
-            }
-        }
-    }
-}
+        

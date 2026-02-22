@@ -48,56 +48,9 @@ public partial class LandscapeLayerUpdateCommand : BaseCommand<bool> {
             using var terrainRental = rentResult.Value;
             await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
-            var layer = terrainRental.Document.FindItem(LayerId) as LandscapeLayer;
-            if (layer == null) {
-                return Result<bool>.Failure(Error.NotFound($"Layer not found: {LayerId}"));
-            }
-
-            var affectedChunks = new HashSet<ushort>();
-            foreach (var vertexIndex in Changes.Keys) {
-                var (chunkId, localIndex) = terrainRental.Document.GetLocalVertexIndex(vertexIndex);
-                affectedChunks.Add(chunkId);
-
-                // Handle boundaries
-                int localX = localIndex % LandscapeChunk.ChunkVertexStride;
-                int localY = localIndex / LandscapeChunk.ChunkVertexStride;
-                uint chunkX = (uint)(chunkId >> 8);
-                uint chunkY = (uint)(chunkId & 0xFF);
-
-                if (localX == 0 && chunkX > 0) affectedChunks.Add(LandscapeChunk.GetId(chunkX - 1, chunkY));
-                if (localY == 0 && chunkY > 0) affectedChunks.Add(LandscapeChunk.GetId(chunkX, chunkY - 1));
-                if (localX == 0 && localY == 0 && chunkX > 0 && chunkY > 0) affectedChunks.Add(LandscapeChunk.GetId(chunkX - 1, chunkY - 1));
-            }
-
-            foreach (var chunkId in affectedChunks) {
-                await terrainRental.Document.GetOrLoadChunkAsync(chunkId, dats, documentManager, ct);
-            }
-
-            foreach (var change in Changes) {
-                if (change.Value == null) {
-                    terrainRental.Document.RemoveVertex(LayerId, change.Key);
-                }
-                else {
-                    terrainRental.Document.SetVertex(LayerId, change.Key, change.Value.Value);
-                }
-            }
-
-            await terrainRental.Document.RecalculateTerrainCacheAsync(Changes.Keys);
-
-            // We increment version on the document itself since it owns the data now
-            terrainRental.Document.Version++;
-
-            var affectedLandblocks = terrainRental.Document.GetAffectedLandblocks(Changes.Keys);
-            terrainRental.Document.NotifyLandblockChanged(affectedLandblocks);
-
-            // Persist modified chunk documents
-            foreach (var chunkId in affectedChunks) {
-                if (terrainRental.Document.LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.EditsRental != null) {
-                    var chunkPersistResult = await documentManager.PersistDocumentAsync(chunk.EditsRental, tx, ct);
-                    if (chunkPersistResult.IsFailure) {
-                        return Result<bool>.Failure(chunkPersistResult.Error);
-                    }
-                }
+            var result = await terrainRental.Document.ApplyVertexUpdatesAsync(LayerId, Changes, dats, documentManager, tx, ct);
+            if (result.IsFailure) {
+                return result;
             }
 
             var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);

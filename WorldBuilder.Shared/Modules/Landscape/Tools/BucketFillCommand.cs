@@ -53,7 +53,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             if (_document.Region == null || _activeLayer == null) return;
             var region = _document.Region;
 
-            HashSet<(int x, int y)> modifiedLandblocks = new HashSet<(int x, int y)>();
             List<uint> affectedVertices = new List<uint>();
 
             foreach (var kvp in _previousState) {
@@ -66,18 +65,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 }
 
                 affectedVertices.Add(index);
-                var (vx, vy) = region.GetVertexCoordinates(index);
-                _context.AddAffectedLandblocks(vx, vy, modifiedLandblocks);
             }
 
             if (affectedVertices.Count > 0) {
                 _document.RecalculateTerrainCache(affectedVertices);
-            }
 
-            _context.RequestSave?.Invoke(_document.Id);
+                _context.RequestSave?.Invoke(_document.Id);
 
-            foreach (var lb in modifiedLandblocks) {
-                _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
+                foreach (var lb in _document.GetAffectedLandblocks(affectedVertices)) {
+                    _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
+                }
             }
         }
 
@@ -106,28 +103,28 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 return;
             }
 
-            HashSet<(int x, int y)> modifiedLandblocks = new HashSet<(int x, int y)>();
             List<uint> affectedVertices = new List<uint>();
 
             if (_contiguous) {
-                PerformFloodFill(startX, startY, targetTextureId, targetSceneryId, record, modifiedLandblocks, affectedVertices);
+                PerformFloodFill(startX, startY, targetTextureId, targetSceneryId, record, affectedVertices);
             }
             else {
-                PerformGlobalReplace(targetTextureId, targetSceneryId, record, modifiedLandblocks, affectedVertices);
+                PerformGlobalReplace(targetTextureId, targetSceneryId, record, affectedVertices);
             }
 
             if (affectedVertices.Count > 0) {
                 _document.RecalculateTerrainCache(affectedVertices);
-            }
 
-            _context.RequestSave?.Invoke(_document.Id);
+                _context.RequestSave?.Invoke(_document.Id);
 
-            foreach (var lb in modifiedLandblocks) {
-                _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
+                foreach (var lb in _document.GetAffectedLandblocks(affectedVertices)) {
+                    _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
+                }
             }
         }
 
-        private void PerformFloodFill(int startX, int startY, byte targetTextureId, byte targetSceneryId, bool record, HashSet<(int x, int y)> modifiedLandblocks, List<uint> affectedVertices) {
+        private void PerformFloodFill(int startX, int startY, byte targetTextureId, byte targetSceneryId, bool record, List<uint> affectedVertices) {
+            if (_activeLayer == null) return;
             var region = _document.Region!;
             int width = region.MapWidthInVertices;
             int height = region.MapHeightInVertices;
@@ -162,7 +159,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 _document.SetVertex(_activeLayer.Id, (uint)index, entry);
 
                 affectedVertices.Add((uint)index);
-                _context.AddAffectedLandblocks(x, y, modifiedLandblocks);
 
                 foreach (var (dx, dy) in neighbors) {
                     int nx = x + dx;
@@ -185,7 +181,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
         }
 
-        private void PerformGlobalReplace(byte targetTextureId, byte targetSceneryId, bool record, HashSet<(int x, int y)> modifiedLandblocks, List<uint> affectedVertices) {
+        private void PerformGlobalReplace(byte targetTextureId, byte targetSceneryId, bool record, List<uint> affectedVertices) {
+            if (_activeLayer == null) return;
             var region = _document.Region!;
             int width = region.MapWidthInVertices;
             int height = region.MapHeightInVertices;
@@ -215,7 +212,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                         _document.SetVertex(_activeLayer.Id, (uint)index, entry);
 
                         affectedVertices.Add((uint)index);
-                        _context.AddAffectedLandblocks(x, y, modifiedLandblocks);
                     }
                 }
             }

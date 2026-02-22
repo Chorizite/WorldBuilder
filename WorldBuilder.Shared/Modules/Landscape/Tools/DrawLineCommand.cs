@@ -47,7 +47,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             if (_document.Region == null || _activeLayer == null) return;
             var region = _document.Region;
 
-            HashSet<(int x, int y)> modifiedLandblocks = new HashSet<(int x, int y)>();
             List<uint> affectedVertices = new List<uint>();
 
             foreach (var kvp in _previousState) {
@@ -60,18 +59,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 }
 
                 affectedVertices.Add(index);
-                var (vx, vy) = region.GetVertexCoordinates(index);
-                _context.AddAffectedLandblocks(vx, vy, modifiedLandblocks);
             }
 
             if (affectedVertices.Count > 0) {
                 _document.RecalculateTerrainCache(affectedVertices);
-            }
 
-            _context.RequestSave?.Invoke(_document.Id);
+                _context.RequestSave?.Invoke(_document.Id);
 
-            foreach (var lb in modifiedLandblocks) {
-                _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
+                foreach (var lb in _document.GetAffectedLandblocks(affectedVertices)) {
+                    _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
+                }
             }
         }
 
@@ -94,7 +91,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             int sy = y1 < y2 ? 1 : -1;
             int err = dx - dy;
 
-            HashSet<(int x, int y)> modifiedLandblocks = new HashSet<(int x, int y)>();
             List<uint> affectedVertices = new List<uint>();
 
             while (true) {
@@ -117,7 +113,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                         _document.SetVertex(_activeLayer.Id, (uint)index, entry);
 
                         affectedVertices.Add((uint)index);
-                        _context.AddAffectedLandblocks(x1, y1, modifiedLandblocks);
                     }
                 }
 
@@ -136,14 +131,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
             if (affectedVertices.Count > 0) {
                 _document.RecalculateTerrainCache(affectedVertices);
-            }
 
-            if (_activeLayer != null && (record || modifiedLandblocks.Count > 0)) {
                 _context.RequestSave?.Invoke(_document.Id);
-            }
 
-            foreach (var lb in modifiedLandblocks) {
-                _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
+                foreach (var lb in _document.GetAffectedLandblocks(affectedVertices)) {
+                    _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
+                }
             }
         }
     }
