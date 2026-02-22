@@ -1,9 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
@@ -26,8 +23,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Chorizite.OpenGLSDLBackend\Chorizite.OpenGLSDLBackend.csproj" />
-    <ProjectReference Include="..\WorldBuilder.Shared\WorldBuilder.Shared.csproj" />
+    <ProjectReference Include="..\..\Chorizite.OpenGLSDLBackend\Chorizite.OpenGLSDLBackend.csproj" />
+    <ProjectReference Include="..\..\WorldBuilder.Shared\WorldBuilder.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>
