@@ -12,7 +12,13 @@ jobs:
   build-and-test:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            project: WorldBuilder.Linux/WorldBuilder.Linux.csproj
+            runtime: linux-x64
+          - os: windows-latest
+            project: WorldBuilder.Windows/WorldBuilder.Windows.csproj
+            runtime: win-x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -25,6 +31,17 @@ jobs:
       - name: Restore tools
         run: dotnet tool restore
 
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v0.10.2
+        with:
+          versionSpec: '6.0.x'
+
+      - name: Determine Version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v0.10.2
+        with:
+          useConfigFile: true
+
       - name: Restore dependencies
         run: dotnet restore
 
@@ -33,3 +50,6 @@ jobs:
 
       - name: Test
         run: dotnet test --no-build --configuration Release --verbosity normal
+
+      - name: Publish
+        run: dotnet publish ${{ matrix.project }} -c Release -r ${{ matrix.runtime }} -o publish -p:SelfContained=true -p:DebugType=None -p:DebugSymbols=false -p:GenerateDocumentationFile=false -p:InformationalVersion=${{ steps.gitversion.outputs.informationalVersion }} -p:Version=${{ steps.gitversion.outputs.semVer }} -p:AssemblyVersion=${{ steps.gitversion.outputs.assemblySemVer }}

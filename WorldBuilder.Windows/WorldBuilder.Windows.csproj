@@ -5,6 +5,7 @@
 		<ApplicationManifest>app.manifest</ApplicationManifest>
 		<PublishTrimmed>true</PublishTrimmed>
 		<PublishSingleFile>true</PublishSingleFile>
+		<SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
 	</PropertyGroup>
 
 	<ItemGroup>
