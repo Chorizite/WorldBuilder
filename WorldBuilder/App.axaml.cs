@@ -84,36 +84,49 @@ public partial class App : Application {
     public override void OnFrameworkInitializationCompleted() {
         DisableAvaloniaDataAnnotationValidation();
 
-        if (_projectManager is not null) {
-            _projectManager.CurrentProjectChanged += (s, e) => {
-                var project = _projectManager.CurrentProject;
+        if (ProjectManager is not null) {
+            ProjectManager.CurrentProjectChanged += (s, e) => {
+                var project = ProjectManager.CurrentProject;
 
                 var log = Services?.GetService<ILogger<App>>();
                 log?.LogInformation("Current project changed: {ProjectName}", project?.Name);
 
-                if (project == null) return;
-                try {
-                    var mainVM = _projectManager.GetProjectService<MainViewModel>();
-                    if (mainVM == null) {
-                        log?.LogError("Failed to resolve MainViewModel!");
-                        return;
-                    }
-
-                    var mainView = new MainView();
-
-                    if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) {
+                if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) {
+                    if (project == null) {
+                        // Show splash window when project is closed
+                        var projectSelectionVM = Services?.GetService<SplashPageViewModel>();
                         var old = desktop.MainWindow;
-                        desktop.MainWindow = new MainWindow { DataContext = mainVM };
-                        desktop.MainWindow.Content = mainView;
+                        desktop.MainWindow = new SplashPageWindow { DataContext = projectSelectionVM };
                         desktop.MainWindow.Show();
                         old?.Close();
-                    }
-                    else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform) {
-                        throw new NotSupportedException();
+                    } else {
+                        // Show main window when project is opened
+                        try {
+                            var mainVM = ProjectManager?.GetProjectService<MainViewModel>();
+                            if (mainVM == null) {
+                                log?.LogError("Failed to resolve MainViewModel!");
+                                return;
+                            }
+
+                            var mainView = new MainView();
+                            var old = desktop.MainWindow;
+                            desktop.MainWindow = new MainWindow { DataContext = mainVM };
+                            desktop.MainWindow.Content = mainView;
+                            desktop.MainWindow.Show();
+                            old?.Close();
+                        }
+                        catch (Exception ex) {
+                            log?.LogCritical(ex, "Failed to initialize MainView after project change");
+                        }
                     }
                 }
-                catch (Exception ex) {
-                    log?.LogCritical(ex, "Failed to initialize MainView after project change");
+                else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform) {
+                    if (project == null) {
+                        var projectSelectionVM = Services?.GetService<SplashPageViewModel>();
+                        singleViewPlatform.MainView = new ProjectSelectionView { DataContext = projectSelectionVM };
+                    } else {
+                        throw new NotSupportedException();
+                    }
                 }
             };
         }

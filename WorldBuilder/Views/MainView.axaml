@@ -9,6 +9,7 @@
     xmlns:vm="clr-namespace:WorldBuilder.ViewModels"
     xmlns:landscape="clr-namespace:WorldBuilder.Modules.Landscape"
     xmlns:icons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+    xmlns:converters="clr-namespace:WorldBuilder.Converters"
     d:DesignHeight="450"
     d:DesignWidth="800"
     x:CompileBindings="True"
@@ -17,12 +18,18 @@
     <Design.DataContext>
         <vm:MainViewModel />
     </Design.DataContext>
+    <UserControl.Resources>
+        <converters:StringToKeyGestureConverter x:Key="StringToKeyGestureConverter" />
+    </UserControl.Resources>
     <DockPanel>
         <!--  Menu Bar at the top  -->
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*, Auto">
             <Menu Grid.Column="0">
                 <MenuItem Header="File" IsVisible="{Binding !IsReadOnly}">
+                    <MenuItem Command="{Binding OpenCommand}" Header="Open" />
                     <MenuItem Command="{Binding OpenExportDatsWindowCommand}" Header="Export Dats" />
+                    <MenuItem Command="{Binding CloseProjectCommand}" Header="Close" />
+                    <MenuItem Command="{Binding ExitApplicationCommand}" Header="Exit" InputGesture="{Binding ExitHotkeyText, Converter={StaticResource StringToKeyGestureConverter}}" />
                 </MenuItem>
                 <!--
                 <MenuItem Header="Debug">

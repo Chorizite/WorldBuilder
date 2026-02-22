@@ -23,6 +23,9 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using WorldBuilder.Lib;
 using WorldBuilder.Lib.Settings;
+using System.Runtime.InteropServices;
+using Avalonia.Platform.Storage;
+using WorldBuilder.Messages;
 
 namespace WorldBuilder.ViewModels;
 
@@ -76,6 +79,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     [ObservableProperty] private string _greeting = "Welcome to Avalonia!";
 
     public ObservableCollection<ToolTabViewModel> ToolTabs { get; } = new();
+
+    public string ExitHotkeyText => RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "Cmd+Q" : "Alt+F4";
 
     // for designer use only
     [Obsolete("Designer use only")]
@@ -214,6 +219,18 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     }
 
     [RelayCommand]
+    private async Task Open() {
+        var localPath = await ProjectSelectionViewModel.OpenProjectFileDialog(_settings, TopLevel);
+        
+        if (localPath == null) {
+            return;
+        }
+        
+        // Send message to open the project
+        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(localPath));
+    }
+
+    [RelayCommand]
     private void OpenSettingsWindow() {
         if (_settingsWindow != null) {
             _settingsWindow.Activate();
@@ -233,6 +250,20 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
         var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
         if (desktop?.MainWindow is Views.MainWindow mainWindow) {
             mainWindow.OpenDebugWindow();
+        }
+    }
+
+    [RelayCommand]
+    private async Task CloseProject() {
+        if (App.ProjectManager != null) {
+            await App.ProjectManager.CloseProject();
+        }
+    }
+
+    [RelayCommand]
+    private void ExitApplication() {
+        if (App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop) {
+            desktop.Shutdown();
         }
     }
 

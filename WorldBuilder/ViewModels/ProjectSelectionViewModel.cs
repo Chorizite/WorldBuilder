@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -76,10 +77,25 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
     /// <returns>A task representing the asynchronous operation</returns>
     [RelayCommand]
     private async Task OpenExistingProject() {
-        var files = await TopLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions() {
+        var localPath = await OpenProjectFileDialog(_settings, TopLevel);
+        
+        if (localPath == null) {
+            _log.LogWarning("No project selected");
+            return;
+        }
+        
+        LoadProject(localPath);
+    }
+
+    /// <summary>
+    /// Opens a file dialog to select a project file and returns the selected file path.
+    /// </summary>
+    /// <returns>The selected file path, or null if no file was selected</returns>
+    public static async Task<string?> OpenProjectFileDialog(WorldBuilderSettings settings, TopLevel topLevel) {
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions() {
             Title = "Open existing project",
             AllowMultiple = false,
-            SuggestedStartLocation = await TopLevel.StorageProvider.TryGetFolderFromPathAsync(_settings.App.ProjectsDirectory),
+            SuggestedStartLocation = await topLevel.StorageProvider.TryGetFolderFromPathAsync(settings.App.ProjectsDirectory),
             FileTypeFilter = new[] {
                 new FilePickerFileType("WorldBuilder Project") {
                     Patterns = new[] { "*.wbproj" }
@@ -91,14 +107,10 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
         });
 
         if (files.Count == 0) {
-            _log.LogWarning("No project selected");
-            return;
+            return null;
         }
 
-        var localPath = files[0].TryGetLocalPath() ?? throw new Exception("Unable to get local path of project file");
-        LoadProject(localPath);
-
-        await Task.CompletedTask;
+        return files[0].TryGetLocalPath() ?? throw new Exception("Unable to get local path of project file");
     }
 
     /// <summary>
