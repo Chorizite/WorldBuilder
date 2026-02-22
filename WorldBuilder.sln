@@ -19,7 +19,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldBuilder.Shared", "Worl
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldBuilder.Shared.Tests", "WorldBuilder.Shared.Tests\WorldBuilder.Shared.Tests.csproj", "{FC58B036-D271-48FB-9B3C-5F6F028ED476}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldBuilder.Shared.Tests", "Tests\WorldBuilder.Shared.Tests\WorldBuilder.Shared.Tests.csproj", "{FC58B036-D271-48FB-9B3C-5F6F028ED476}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldBuilder.Server", "WorldBuilder.Server\WorldBuilder.Server.csproj", "{F48EAF67-D7C0-4C1B-95F7-D33EB438F05F}"
 EndProject
@@ -27,9 +27,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Benchmarks", "Benchmarks", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldBuilder.Shared.Benchmarks", "WorldBuilder.Shared.Benchmarks\WorldBuilder.Shared.Benchmarks.csproj", "{2BB51125-9F2E-4715-BA3B-9E7BC348B152}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldBuilder.Tests", "WorldBuilder.Tests\WorldBuilder.Tests.csproj", "{36C2D352-C044-4D92-A209-48A4A37161EF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldBuilder.Tests", "Tests\WorldBuilder.Tests\WorldBuilder.Tests.csproj", "{36C2D352-C044-4D92-A209-48A4A37161EF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chorizite.OpenGLSDLBackend.Tests", "Chorizite.OpenGLSDLBackend.Tests\Chorizite.OpenGLSDLBackend.Tests.csproj", "{A06FBB7F-90B3-42DD-B3E9-DA9297DCA161}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chorizite.OpenGLSDLBackend.Tests", "Tests\Chorizite.OpenGLSDLBackend.Tests\Chorizite.OpenGLSDLBackend.Tests.csproj", "{A06FBB7F-90B3-42DD-B3E9-DA9297DCA161}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldBuilder.Windows", "WorldBuilder.Windows\WorldBuilder.Windows.csproj", "{8C477A25-00E2-4F53-867E-E4B18E0E2D8C}"
 EndProject
