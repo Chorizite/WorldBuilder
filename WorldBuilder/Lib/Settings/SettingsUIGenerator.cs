@@ -245,7 +245,7 @@ namespace WorldBuilder.Lib.Settings {
             if (metadata.Path != null) {
                 var dockPanel = new DockPanel();
 
-                var button = new Button { Width = 80, Content = "Browse...", Margin = new Thickness(8, 0, 0, 0) };
+                var button = new Button { Content = "Browse...", Margin = new Thickness(8, 0, 0, 0) };
                 DockPanel.SetDock(button, Dock.Right);
                 dockPanel.Children.Add(button);
 

@@ -122,9 +122,7 @@ namespace WorldBuilder.Views {
         private void ResetToDefaults_Click(object? sender, RoutedEventArgs e) {
             // Reset to default values
             if (Settings != null) {
-                SettingsCloner.ResetToDefaults(Settings, () => new WorldBuilderSettings(
-                    Microsoft.Extensions.Logging.Abstractions.NullLogger<WorldBuilderSettings>.Instance
-                ));
+                SettingsCloner.ResetToDefaults(Settings, _originalSettings?.Project);
             }
         }
     }
