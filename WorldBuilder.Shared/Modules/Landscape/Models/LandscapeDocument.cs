@@ -17,6 +17,8 @@ namespace WorldBuilder.Shared.Models {
     /// </summary>
     [MemoryPackable]
     public partial class LandscapeDocument : BaseDocument {
+        private static readonly IWorldCoordinateService _coords = new WorldCoordinateService();
+
         public event EventHandler<LandblockChangedEventArgs>? LandblockChanged;
 
         public void NotifyLandblockChanged(IEnumerable<(int x, int y)>? affectedLandblocks) {
@@ -114,23 +116,10 @@ namespace WorldBuilder.Shared.Models {
         }
 
         public void SetVertex(string layerId, uint vertexIndex, TerrainEntry entry) {
-            var (chunkId, localIndex) = GetLocalVertexIndex(vertexIndex);
-            SetVertexInternal(layerId, chunkId, localIndex, entry);
+            if (Region == null) return;
 
-            // Handle boundaries
-            int localX = localIndex % LandscapeChunk.ChunkVertexStride;
-            int localY = localIndex / LandscapeChunk.ChunkVertexStride;
-            uint chunkX = (uint)(chunkId >> 8);
-            uint chunkY = (uint)(chunkId & 0xFF);
-
-            if (localX == 0 && chunkX > 0) {
-                SetVertexInternal(layerId, LandscapeChunk.GetId(chunkX - 1, chunkY), (ushort)(localY * LandscapeChunk.ChunkVertexStride + (LandscapeChunk.ChunkVertexStride - 1)), entry);
-            }
-            if (localY == 0 && chunkY > 0) {
-                SetVertexInternal(layerId, LandscapeChunk.GetId(chunkX, chunkY - 1), (ushort)((LandscapeChunk.ChunkVertexStride - 1) * LandscapeChunk.ChunkVertexStride + localX), entry);
-            }
-            if (localX == 0 && localY == 0 && chunkX > 0 && chunkY > 0) {
-                SetVertexInternal(layerId, LandscapeChunk.GetId(chunkX - 1, chunkY - 1), (ushort)((LandscapeChunk.ChunkVertexStride - 1) * LandscapeChunk.ChunkVertexStride + (LandscapeChunk.ChunkVertexStride - 1)), entry);
+            foreach (var (chunkId, localIndex) in _coords.GetAffectedChunksWithBoundaries(vertexIndex, Region)) {
+                SetVertexInternal(layerId, chunkId, localIndex, entry);
             }
         }
 
@@ -146,23 +135,10 @@ namespace WorldBuilder.Shared.Models {
         }
 
         public void RemoveVertex(string layerId, uint vertexIndex) {
-            var (chunkId, localIndex) = GetLocalVertexIndex(vertexIndex);
-            RemoveVertexInternal(layerId, chunkId, localIndex);
+            if (Region == null) return;
 
-            // Handle boundaries
-            int localX = localIndex % LandscapeChunk.ChunkVertexStride;
-            int localY = localIndex / LandscapeChunk.ChunkVertexStride;
-            uint chunkX = (uint)(chunkId >> 8);
-            uint chunkY = (uint)(chunkId & 0xFF);
-
-            if (localX == 0 && chunkX > 0) {
-                RemoveVertexInternal(layerId, LandscapeChunk.GetId(chunkX - 1, chunkY), (ushort)(localY * LandscapeChunk.ChunkVertexStride + (LandscapeChunk.ChunkVertexStride - 1)));
-            }
-            if (localY == 0 && chunkY > 0) {
-                RemoveVertexInternal(layerId, LandscapeChunk.GetId(chunkX, chunkY - 1), (ushort)((LandscapeChunk.ChunkVertexStride - 1) * LandscapeChunk.ChunkVertexStride + localX));
-            }
-            if (localX == 0 && localY == 0 && chunkX > 0 && chunkY > 0) {
-                RemoveVertexInternal(layerId, LandscapeChunk.GetId(chunkX - 1, chunkY - 1), (ushort)((LandscapeChunk.ChunkVertexStride - 1) * LandscapeChunk.ChunkVertexStride + (LandscapeChunk.ChunkVertexStride - 1)));
+            foreach (var (chunkId, localIndex) in _coords.GetAffectedChunksWithBoundaries(vertexIndex, Region)) {
+                RemoveVertexInternal(layerId, chunkId, localIndex);
             }
         }
 
@@ -187,8 +163,7 @@ namespace WorldBuilder.Shared.Models {
         }
 
         public void AddStaticObject(string layerId, uint landblockId, StaticObject obj) {
-            var lbId = (ushort)(landblockId >> 16);
-            ushort chunkId = LandscapeChunk.GetId((uint)(lbId >> 8) / 8, (uint)(lbId & 0xFF) / 8);
+            ushort chunkId = _coords.GetChunkIdForLandblock(landblockId);
             if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
                 if (!chunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
                     layerEdits = new LandscapeChunkEdits();
@@ -358,20 +333,12 @@ namespace WorldBuilder.Shared.Models {
         /// Gets the chunk IDs affected by a set of vertex indices, including boundary chunks.
         /// </summary>
         public IEnumerable<ushort> GetAffectedChunks(IEnumerable<uint> vertexIndices) {
+            if (Region == null) return [];
             var affectedChunks = new HashSet<ushort>();
             foreach (var vertexIndex in vertexIndices) {
-                var (chunkId, localIndex) = GetLocalVertexIndex(vertexIndex);
-                affectedChunks.Add(chunkId);
-
-                // Handle boundaries
-                int localX = localIndex % LandscapeChunk.ChunkVertexStride;
-                int localY = localIndex / LandscapeChunk.ChunkVertexStride;
-                uint chunkX = (uint)(chunkId >> 8);
-                uint chunkY = (uint)(chunkId & 0xFF);
-
-                if (localX == 0 && chunkX > 0) affectedChunks.Add(LandscapeChunk.GetId(chunkX - 1, chunkY));
-                if (localY == 0 && chunkY > 0) affectedChunks.Add(LandscapeChunk.GetId(chunkX, chunkY - 1));
-                if (localX == 0 && localY == 0 && chunkX > 0 && chunkY > 0) affectedChunks.Add(LandscapeChunk.GetId(chunkX - 1, chunkY - 1));
+                foreach (var (chunkId, _) in _coords.GetAffectedChunksWithBoundaries(vertexIndex, Region)) {
+                    affectedChunks.Add(chunkId);
+                }
             }
             return affectedChunks;
         }
@@ -392,39 +359,7 @@ namespace WorldBuilder.Shared.Models {
         /// Gets the landblock coordinates affected by a set of vertex indices.
         /// </summary>
         public IEnumerable<(int x, int y)> GetAffectedLandblocks(IEnumerable<uint> vertexIndices) {
-            if (Region == null) {
-                return Enumerable.Empty<(int x, int y)>();
-            }
-
-            var affectedBlocks = new HashSet<(int x, int y)>();
-            var stride = Region.LandblockVerticeLength - 1;
-
-            foreach (var vertexIndex in vertexIndices) {
-                int globalY = (int)(vertexIndex / (uint)Region.MapWidthInVertices);
-                int globalX = (int)(vertexIndex % (uint)Region.MapWidthInVertices);
-
-                int lbX = globalX / stride;
-                int lbY = globalY / stride;
-
-                bool isXBoundary = globalX > 0 && globalX % stride == 0;
-                bool isYBoundary = globalY > 0 && globalY % stride == 0;
-
-                if (lbX < Region.MapWidthInLandblocks && lbY < Region.MapHeightInLandblocks) {
-                    affectedBlocks.Add((lbX, lbY));
-                }
-
-                if (isXBoundary && lbX > 0 && lbY < Region.MapHeightInLandblocks) {
-                    affectedBlocks.Add((lbX - 1, lbY));
-                }
-                if (isYBoundary && lbY > 0 && lbX < Region.MapWidthInLandblocks) {
-                    affectedBlocks.Add((lbX, lbY - 1));
-                }
-                if (isXBoundary && isYBoundary && lbX > 0 && lbY > 0) {
-                    affectedBlocks.Add((lbX - 1, lbY - 1));
-                }
-            }
-
-            return affectedBlocks;
+            return Region == null ? [] : _coords.GetAffectedLandblocks(vertexIndices, Region);
         }
 
         private Task LoadRegionDataAsync(IDatReaderWriter dats) {
@@ -464,34 +399,11 @@ namespace WorldBuilder.Shared.Models {
         }
 
         public uint GetGlobalVertexIndex(ushort chunkId, ushort localIndex) {
-            if (Region == null) return 0;
-
-            uint chunkX = (uint)(chunkId >> 8);
-            uint chunkY = (uint)(chunkId & 0xFF);
-            int localY = localIndex / LandscapeChunk.ChunkVertexStride;
-            int localX = localIndex % LandscapeChunk.ChunkVertexStride;
-
-            int globalX = (int)chunkX * (LandscapeChunk.ChunkVertexStride - 1) + localX;
-            int globalY = (int)chunkY * (LandscapeChunk.ChunkVertexStride - 1) + localY;
-            return (uint)(globalY * Region.MapWidthInVertices + globalX);
+            return Region == null ? 0 : _coords.GetGlobalVertexIndex(chunkId, localIndex, Region);
         }
 
         public (ushort chunkId, ushort localIndex) GetLocalVertexIndex(uint globalVertexIndex) {
-            if (Region == null || Region.MapWidthInVertices == 0) return (0, 0);
-
-            int mapWidth = Region.MapWidthInVertices;
-            int globalY = (int)(globalVertexIndex / (uint)mapWidth);
-            int globalX = (int)(globalVertexIndex % (uint)mapWidth);
-
-            int chunkX = globalX / (LandscapeChunk.ChunkVertexStride - 1);
-            int chunkY = globalY / (LandscapeChunk.ChunkVertexStride - 1);
-
-            int localX = globalX % (LandscapeChunk.ChunkVertexStride - 1);
-            int localY = globalY % (LandscapeChunk.ChunkVertexStride - 1);
-
-            ushort chunkId = LandscapeChunk.GetId((uint)chunkX, (uint)chunkY);
-            ushort localIndex = (ushort)(localY * LandscapeChunk.ChunkVertexStride + localX);
-            return (chunkId, localIndex);
+            return Region == null ? (ushort)0 : _coords.GetLocalVertexIndex(globalVertexIndex, Region);
         }
 
         public MergedLandblock GetMergedLandblock(uint landblockId) {
@@ -524,10 +436,7 @@ namespace WorldBuilder.Shared.Models {
                     }
 
                     // Apply Base Edits from the "Base" layer in the chunk's document
-                    ushort lbId = (ushort)(landblockId >> 16);
-                    int lbX = lbId >> 8;
-                    int lbY = lbId & 0xFF;
-                    ushort chunkId = LandscapeChunk.GetId((uint)lbX / 8, (uint)lbY / 8);
+                    ushort chunkId = _coords.GetChunkIdForLandblock(landblockId);
 
                     if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
                         if (chunk.Edits.LayerEdits.TryGetValue("Base", out var baseEdits)) {
@@ -558,7 +467,7 @@ namespace WorldBuilder.Shared.Models {
             }
 
             // Apply active layers
-            ushort chunkIdForLayers = LandscapeChunk.GetId((uint)((landblockId >> 24) & 0xFF) / 8, (uint)((landblockId >> 16) & 0xFF) / 8);
+            ushort chunkIdForLayers = _coords.GetChunkIdForLandblock(landblockId);
             if (LoadedChunks.TryGetValue(chunkIdForLayers, out var chunkDoc)) {
                 foreach (var layer in GetAllLayers()) {
                     if (!IsItemVisible(layer) || layer.Id == "Base") continue;
@@ -611,10 +520,7 @@ namespace WorldBuilder.Shared.Models {
                 }
 
                 // Apply Base Edits
-                ushort lbId = (ushort)(cellId >> 16);
-                int lbX = lbId >> 8;
-                int lbY = lbId & 0xFF;
-                ushort chunkId = LandscapeChunk.GetId((uint)lbX / 8, (uint)lbY / 8);
+                ushort chunkId = _coords.GetChunkIdForLandblock(cellId);
 
                 if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
                     if (chunk.Edits.LayerEdits.TryGetValue("Base", out var baseEdits)) {
@@ -639,7 +545,7 @@ namespace WorldBuilder.Shared.Models {
             }
 
             // Apply active layers
-            ushort chunkIdForLayers = LandscapeChunk.GetId((uint)((cellId >> 24) & 0xFF) / 8, (uint)((cellId >> 16) & 0xFF) / 8);
+            ushort chunkIdForLayers = _coords.GetChunkIdForLandblock(cellId);
             if (LoadedChunks.TryGetValue(chunkIdForLayers, out var chunkRef)) {
                 foreach (var layer in GetAllLayers()) {
                     if (!IsItemVisible(layer) || layer.Id == "Base") continue;
