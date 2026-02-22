@@ -58,7 +58,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 _context.InvalidateLandblocksForVertex(vx, vy);
             }
 
-            _context.RequestSave?.Invoke(_document.Id);
+            _context.RequestSave?.Invoke(_document.Id, _document.GetAffectedChunks(_previousState.Keys.Select(k => (uint)k)));
         }
 
         private void ApplyChange(bool record = false) {
@@ -93,7 +93,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
                 _context.InvalidateLandblocksForVertex(vx, vy);
 
-                _context.RequestSave?.Invoke(_document.Id);
+                _context.RequestSave?.Invoke(_document.Id, _document.GetAffectedChunks(new[] { (uint)index }));
             }
         }
     }

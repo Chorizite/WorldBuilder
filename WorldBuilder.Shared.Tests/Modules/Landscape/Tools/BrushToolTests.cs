@@ -109,7 +109,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             bool saveRequested = false;
             var context = CreateContext();
-            context.RequestSave = (id) => saveRequested = true;
+            context.RequestSave = (id, chunks) => saveRequested = true;
             var center = new Vector3(24, 24, 0);
             var cmd = new PaintCommand(context, center, tool.BrushRadius, 5);
 
