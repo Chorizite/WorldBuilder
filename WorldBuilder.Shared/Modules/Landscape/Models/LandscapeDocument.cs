@@ -403,7 +403,7 @@ namespace WorldBuilder.Shared.Models {
         }
 
         public (ushort chunkId, ushort localIndex) GetLocalVertexIndex(uint globalVertexIndex) {
-            return Region == null ? (ushort)0 : _coords.GetLocalVertexIndex(globalVertexIndex, Region);
+            return Region == null ? ((ushort)0, (ushort)0) : _coords.GetLocalVertexIndex(globalVertexIndex, Region);
         }
 
         public MergedLandblock GetMergedLandblock(uint landblockId) {
