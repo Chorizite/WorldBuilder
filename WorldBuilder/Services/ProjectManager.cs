@@ -194,6 +194,33 @@ namespace WorldBuilder.Services {
         }
 
         /// <summary>
+        /// Closes the current project and returns to the project selection screen.
+        /// </summary>
+        public async Task CloseProject() {
+            if (CurrentProject == null) return;
+            
+            // Save project settings
+            _settings.Project?.Save();
+
+            // Dispose current project and provider asynchronously
+            if (CurrentProject != null) {
+                await CurrentProject.DisposeAsync();
+            }
+            if (_projectProvider is IAsyncDisposable asyncDisposableProvider) {
+                await asyncDisposableProvider.DisposeAsync();
+            }
+           
+            // Clear references
+            CurrentProject = null;
+            _projectProvider = null;
+            CompositeProvider = null;
+            _settings.Project = null;
+            
+            // Trigger the change event to return to splash screen
+            CurrentProjectChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>
         /// Gets the collection of recently opened projects from the recent projects manager.
         /// </summary>
         public System.Collections.ObjectModel.ObservableCollection<RecentProject> RecentProjects => _recentProjectsManager.RecentProjects;

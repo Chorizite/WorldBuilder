@@ -13,7 +13,7 @@ namespace WorldBuilder.Shared.Models;
 /// <summary>
 /// Represents a WorldBuilder project, which contains all the data and services needed for a world-building session.
 /// </summary>
-public class Project : IProject {
+public class Project : IProject, IAsyncDisposable {
     private readonly IDatReaderWriter _dats;
     private readonly IDocumentManager _documentManager;
     private bool _disposed;
@@ -185,10 +185,24 @@ public class Project : IProject {
         return await Open(projectPath, ct);
     }
 
-    /// <inheritdoc/>
     public void Dispose() {
         if (_disposed) return;
         _disposed = true;
-        Services?.Dispose();
+
+        if (Services is IAsyncDisposable asyncDisposableServices)
+            asyncDisposableServices.DisposeAsync().AsTask().Wait();
+        else
+            Services?.Dispose();
+    }
+
+    public async ValueTask DisposeAsync() {
+        if (_disposed) return;
+        _disposed = true;
+        
+        if (Services is IAsyncDisposable asyncDisposableServices) {
+            await asyncDisposableServices.DisposeAsync();
+        } else {
+            Services?.Dispose();
+        }
     }
 }

@@ -188,49 +188,32 @@
 
             <StackPanel Spacing="15">
                 <!--  Create New Project  -->
-                <Border
-                    Padding="20"
-                    Background="{DynamicResource SemiColorFill1}"
-                    CornerRadius="8">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-
-                        <StackPanel Grid.Column="0">
+                <Button Command="{Binding NewProjectCommand}" Padding="0" Background="Transparent" BorderThickness="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <Border
+                        Padding="20"
+                        Background="{DynamicResource SemiColorFill1}"
+                        CornerRadius="8"
+                        Cursor="Hand"
+                        HorizontalAlignment="Stretch">
+                        <StackPanel>
                             <TextBlock Text="New Project" />
                             <TextBlock
                                 Margin="0,4,0,0"
                                 FontSize="12"
                                 Foreground="{DynamicResource SemiColorText2}"
-                                Text="Open a new blank project." />
+                                Text="Create a new blank project." />
                         </StackPanel>
-
-                        <Button
-                            Grid.Column="1"
-                            Width="80"
-                            Padding="15,8"
-                            HorizontalContentAlignment="Center"
-                            Command="{Binding NewProjectCommand}"
-                            Content="Create"
-                            Cursor="Hand" />
-                    </Grid>
-                </Border>
-
+                    </Border>
+                </Button>
                 <!--  Open Existing Project  -->
-                <Border
-                    Padding="20"
-                    Background="{DynamicResource SemiColorFill1}"
-                    CornerRadius="8">
-
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-
-                        <StackPanel Grid.Column="0">
+                <Button Command="{Binding OpenExistingProjectCommand}" Padding="0" Background="Transparent" BorderThickness="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <Border
+                        Padding="20"
+                        Background="{DynamicResource SemiColorFill1}"
+                        CornerRadius="8"
+                        Cursor="Hand"
+                        HorizontalAlignment="Stretch">
+                        <StackPanel>
                             <TextBlock Text="Open Existing" />
                             <TextBlock
                                 Margin="0,4,0,0"
@@ -238,18 +221,8 @@
                                 Foreground="{DynamicResource SemiColorText2}"
                                 Text="Open an existing project or DAT from the filesystem." />
                         </StackPanel>
-
-                        <Button
-                            Grid.Column="1"
-                            Width="80"
-                            Padding="15,8"
-                            HorizontalContentAlignment="Center"
-                            Command="{Binding OpenExistingProjectCommand}"
-                            Content="Open"
-                            Cursor="Hand" />
-                    </Grid>
-                </Border>
-
+                    </Border>
+                </Button>
             </StackPanel>
         </StackPanel>
     </Grid>

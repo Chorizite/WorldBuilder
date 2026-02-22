@@ -16,12 +16,16 @@ using DatReaderWriter;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Lib.IO;
 using System.Diagnostics.CodeAnalysis;
+using Avalonia.Controls;
 
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using WorldBuilder.Lib;
 using WorldBuilder.Lib.Settings;
+using System.Runtime.InteropServices;
+using Avalonia.Platform.Storage;
+using WorldBuilder.Messages;
 
 namespace WorldBuilder.ViewModels;
 
@@ -37,7 +41,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     private readonly IDatReaderWriter _dats;
     private readonly PerformanceService _performanceService;
     private readonly CancellationTokenSource _cts = new();
-    private bool _settingsOpen;
+    private Window? _settingsWindow;
 
     /// <summary>
     /// Gets a value indicating whether the application is in dark mode.
@@ -75,6 +79,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     [ObservableProperty] private string _greeting = "Welcome to Avalonia!";
 
     public ObservableCollection<ToolTabViewModel> ToolTabs { get; } = new();
+
+    public string ExitHotkeyText => RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "Cmd+Q" : "Alt+F4";
 
     // for designer use only
     [Obsolete("Designer use only")]
@@ -213,12 +219,30 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     }
 
     [RelayCommand]
-    private void OpenSettingsWindow() {
-        if (_settingsOpen) return;
-        _settingsOpen = true;
+    private async Task Open() {
+        var localPath = await ProjectSelectionViewModel.OpenProjectFileDialog(_settings, TopLevel);
+        
+        if (localPath == null) {
+            return;
+        }
+        
+        // Send message to open the project
+        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(localPath));
+    }
 
-        var viewModel = _dialogService.ShowSettingsWindow(this);
-        viewModel.Closed += (s, e) => _settingsOpen = false;
+    [RelayCommand]
+    private void OpenSettingsWindow() {
+        if (_settingsWindow != null) {
+            _settingsWindow.Activate();
+            return;
+        }
+        var viewModel = _dialogService.CreateViewModel<SettingsWindowViewModel>();
+        _settingsWindow = new Views.SettingsWindow {
+            DataContext = viewModel
+        };
+        _settingsWindow.Show();
+        
+        viewModel.Closed += (s, e) => _settingsWindow = null;
     }
 
     [RelayCommand]
@@ -226,6 +250,20 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
         var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
         if (desktop?.MainWindow is Views.MainWindow mainWindow) {
             mainWindow.OpenDebugWindow();
+        }
+    }
+
+    [RelayCommand]
+    private async Task CloseProject() {
+        if (App.ProjectManager != null) {
+            await App.ProjectManager.CloseProject();
+        }
+    }
+
+    [RelayCommand]
+    private void ExitApplication() {
+        if (App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop) {
+            desktop.Shutdown();
         }
     }
 

@@ -1,16 +1,13 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
-using System;
 using System.Linq;
-using WorldBuilder.Lib.Settings;
-using WorldBuilder.Services;
-using WorldBuilder.Shared.Models;
-using WorldBuilder.Shared.Services;
-
-using Avalonia.Input;
-using WorldBuilder.ViewModels;
+using System.Threading.Tasks;
 using WorldBuilder.Lib;
+using WorldBuilder.Services;
+using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Views;
 
@@ -23,16 +20,68 @@ public partial class MainWindow : Window {
 
         var settings = App.Services?.GetService<WorldBuilderSettings>();
         if (settings?.Project != null) {
-            Width = settings.Project.WindowWidth;
-            Height = settings.Project.WindowHeight;
+            double _unmaximizedWidth = settings.Project.WindowWidth;
+            double _unmaximizedHeight = settings.Project.WindowHeight;
+            double _unmaximizedX = settings.Project.WindowX;
+            double _unmaximizedY = settings.Project.WindowY;
+
+            if (double.IsNaN(_unmaximizedX) || double.IsNaN(_unmaximizedY)) {
+                if (Screens.Primary != null) {
+                    _unmaximizedX = (Screens.Primary.WorkingArea.Width - _unmaximizedWidth) / 2;
+                    _unmaximizedY = (Screens.Primary.WorkingArea.Height - _unmaximizedHeight) / 2;
+                }
+                else {
+                    _unmaximizedX = 0;
+                    _unmaximizedY = 0;
+                }
+            }
+            Width = _unmaximizedWidth;
+            Height = _unmaximizedHeight;
+            Position = new PixelPoint((int)_unmaximizedX, (int)_unmaximizedY);
+            
+            if (settings.Project.IsMaximized) {
+                Loaded += (s, e) => {
+                    WindowState = WindowState.Maximized;
+                };
+            }
         }
 
-        Closing += (s, e) => {
-            if (settings?.Project != null) {
-                settings.Project.WindowWidth = Width;
-                settings.Project.WindowHeight = Height;
-                settings.Project.Save();
+        SizeChanged += (s, e) => {
+            // Delay needed to allow WindowState to update
+            Task.Delay(50).ContinueWith(_ => {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                    if (settings?.Project != null && WindowState == WindowState.Normal) {
+                        settings.Project.WindowWidth = Width;
+                        settings.Project.WindowHeight = Height;
+                    }
+                });
+            });
+        };
+
+        PositionChanged += (s, e) => {
+            // Delay needed to allow WindowState to update
+            Task.Delay(50).ContinueWith(_ => {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                    if (settings?.Project != null && WindowState == WindowState.Normal) {
+                        settings.Project.WindowX = Position.X;
+                        settings.Project.WindowY = Position.Y;
+                    }
+                });
+            });
+        };
+
+        PropertyChanged += (s, e) => {
+            if (settings?.Project != null && e.Property == WindowStateProperty) {
+                if (WindowState == WindowState.Maximized)
+                    settings.Project.IsMaximized = true;
+                else if (WindowState == WindowState.Normal)
+                    settings.Project.IsMaximized = false;
             }
+        };
+
+        Closing += (s, e) => {
+            if (settings?.Project != null)
+                settings.Project.Save();
         };
     }
 
