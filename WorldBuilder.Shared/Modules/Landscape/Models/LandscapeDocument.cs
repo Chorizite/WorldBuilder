@@ -278,10 +278,22 @@ namespace WorldBuilder.Shared.Models {
 
                 // Persist modified chunk documents
                 foreach (var chunkId in affectedChunks) {
-                    if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.EditsRental != null) {
-                        var chunkPersistResult = await documentManager.PersistDocumentAsync(chunk.EditsRental, tx, ct);
-                        if (chunkPersistResult.IsFailure) {
-                            return Result<bool>.Failure(chunkPersistResult.Error);
+                    if (LoadedChunks.TryGetValue(chunkId, out var chunk)) {
+                        if (chunk.EditsRental != null) {
+                            var chunkPersistResult = await documentManager.PersistDocumentAsync(chunk.EditsRental, tx, ct);
+                            if (chunkPersistResult.IsFailure) {
+                                return Result<bool>.Failure(chunkPersistResult.Error);
+                            }
+                        }
+                        else if (chunk.EditsDetached != null) {
+                            // Materialize the detached document now that it's being edited
+                            var createResult = await documentManager.CreateDocumentAsync(chunk.EditsDetached, tx, ct);
+                            if (createResult.IsFailure) {
+                                return Result<bool>.Failure(createResult.Error);
+                            }
+                            // Convert to a rental
+                            chunk.EditsRental = createResult.Value;
+                            chunk.EditsDetached = null;
                         }
                     }
                 }

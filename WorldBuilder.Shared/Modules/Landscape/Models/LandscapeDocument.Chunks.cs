@@ -17,30 +17,17 @@ namespace WorldBuilder.Shared.Models {
 
                 chunk = new LandscapeChunk(chunkId);
 
-                await _dbLock.WaitAsync(ct);
-                try {
-                    // Rent the chunk document for edits
-                    var chunkDocId = LandscapeChunkDocument.GetId(RegionId, chunk.ChunkX, chunk.ChunkY);
-                    var rentResult = await documentManager.RentDocumentAsync<LandscapeChunkDocument>(chunkDocId, ct);
-                    if (rentResult.IsSuccess) {
-                        chunk.EditsRental = rentResult.Value;
-                    }
-                    else {
-                        // Create it if it doesn't exist
-                        var newDoc = new LandscapeChunkDocument(chunkDocId);
-                        await using var tx = await documentManager.CreateTransactionAsync(ct);
-                        var createResult = await documentManager.CreateDocumentAsync(newDoc, tx, ct);
-                        if (createResult.IsSuccess) {
-                            await tx.CommitAsync(ct);
-                            chunk.EditsRental = createResult.Value;
-                        }
-                        else {
-                            throw new InvalidOperationException($"Failed to create chunk document: {createResult.Error}");
-                        }
-                    }
+                // Rent the chunk document for edits if it exists
+                var chunkDocId = LandscapeChunkDocument.GetId(RegionId, chunk.ChunkX, chunk.ChunkY);
+                var rentResult = await documentManager.RentDocumentAsync<LandscapeChunkDocument>(chunkDocId, ct);
+                if (rentResult.IsSuccess) {
+                    chunk.EditsRental = rentResult.Value;
                 }
-                finally {
-                    _dbLock.Release();
+                else {
+                    // It doesn't exist in the database yet. 
+                    // use a detached document and only persist it
+                    // if an edit is actually made to this chunk.
+                    chunk.EditsDetached = new LandscapeChunkDocument(chunkDocId);
                 }
 
                 await LoadBaseDataForChunkAsync(chunk, ct);

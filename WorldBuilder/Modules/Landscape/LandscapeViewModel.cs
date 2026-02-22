@@ -280,9 +280,22 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             // Persist dirty chunks
             if (_dirtyChunks.TryRemove(docId, out var dirtyChunks)) {
                 foreach (var chunkId in dirtyChunks.Keys) {
-                    if (ActiveDocument.LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.EditsRental != null) {
-                        _log.LogDebug("Persisting chunk {ChunkId} for document {DocId}", chunkId, docId);
-                        await _documentManager.PersistDocumentAsync(chunk.EditsRental, null!, ct);
+                    if (ActiveDocument.LoadedChunks.TryGetValue(chunkId, out var chunk)) {
+                        if (chunk.EditsRental != null) {
+                            _log.LogTrace("Persisting chunk {ChunkId} for document {DocId}", chunkId, docId);
+                            await _documentManager.PersistDocumentAsync(chunk.EditsRental, null!, ct);
+                        }
+                        else if (chunk.EditsDetached != null) {
+                            _log.LogTrace("Creating chunk document {ChunkId} for document {DocId}", chunkId, docId);
+                            var createResult = await _documentManager.CreateDocumentAsync(chunk.EditsDetached, null!, ct);
+                            if (createResult.IsSuccess) {
+                                chunk.EditsRental = createResult.Value;
+                                chunk.EditsDetached = null;
+                            }
+                            else {
+                                _log.LogError("Failed to create chunk document: {Error}", createResult.Error);
+                            }
+                        }
                     }
                 }
             }
