@@ -2,6 +2,7 @@ using System;
 using System.Numerics;
 using System.Linq;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -23,10 +24,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         [ObservableProperty] private bool _showBoundingBoxes = true;
 
-        public Vector4 VertexColor { get; } = new Vector4(1.0f, 1.0f, 0.0f, 1.0f); // Yellow
-        public Vector4 BuildingColor { get; } = new Vector4(1.0f, 0.0f, 1.0f, 1.0f); // Blue
-        public Vector4 StaticObjectColor { get; } = new Vector4(0.3f, 0.5f, 0.9f, 1.0f); // Red
-        public Vector4 SceneryColor { get; } = new Vector4(0.0f, 0.8f, 0.0f, 1.0f); // Green
+        public Vector4 VertexColor { get; } = RenderColors.Vertex; // Yellow
+        public Vector4 BuildingColor { get; } = RenderColors.Building; // Magenta
+        public Vector4 StaticObjectColor { get; } = RenderColors.StaticObject; // Light Blue
+        public Vector4 SceneryColor { get; } = RenderColors.Scenery; // Green
 
         public void Activate(LandscapeToolContext context) {
             _context = context;

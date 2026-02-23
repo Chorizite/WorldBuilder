@@ -7,6 +7,7 @@ using Silk.NET.OpenGL;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Services;
@@ -739,7 +740,6 @@ public class GameScene : IDisposable {
                 debugSettings.SelectBuildings = _inspectorTool.SelectBuildings;
                 debugSettings.SelectStaticObjects = _inspectorTool.SelectStaticObjects;
                 debugSettings.SelectScenery = _inspectorTool.SelectScenery;
-                // debugSettings.VertexColor = _inspectorTool.VertexColor; // Assuming these are still properties on InspectorTool
             }
 
             _sceneryManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
@@ -747,10 +747,10 @@ public class GameScene : IDisposable {
 
             if (_inspectorTool == null || (_inspectorTool.ShowBoundingBoxes && _inspectorTool.SelectVertices)) {
                 if (_hoveredVertex.HasValue) {
-                    DrawVertexDebug(_hoveredVertex.Value.x, _hoveredVertex.Value.y, new Vector4(1.0f, 1.0f, 0.0f, 1.0f));
+                    DrawVertexDebug(_hoveredVertex.Value.x, _hoveredVertex.Value.y, RenderColors.Hover);
                 }
                 if (_selectedVertex.HasValue) {
-                    DrawVertexDebug(_selectedVertex.Value.x, _selectedVertex.Value.y, new Vector4(1.0f, 0.5f, 0.0f, 1.0f));
+                    DrawVertexDebug(_selectedVertex.Value.x, _selectedVertex.Value.y, RenderColors.Selection);
                 }
             }
 

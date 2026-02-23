@@ -15,6 +15,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Numerics;
@@ -384,13 +385,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("uHighlightColor", Vector4.Zero);
 
             if (_visibleGfxObjIds.Count == 0) {
-                // We still want to draw selected/hovered instances even if no other scenery is visible
                 _gl.DepthFunc(GLEnum.Lequal);
                 if (SelectedInstance.HasValue) {
-                    RenderSelectedInstance(SelectedInstance.Value, new Vector4(1.0f, 0.5f, 0.0f, 0.8f)); // Very Strong Orange
+                    RenderSelectedInstance(SelectedInstance.Value, RenderColors.Selection.WithAlpha(0.8f));
                 }
                 if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
-                    RenderSelectedInstance(HoveredInstance.Value, new Vector4(1.0f, 1.0f, 0.0f, 0.6f)); // Stronger Yellow
+                    RenderSelectedInstance(HoveredInstance.Value, RenderColors.Hover.WithAlpha(0.6f));
                 }
                 _gl.DepthFunc(GLEnum.Less);
                 _shader.SetUniform("uHighlightColor", Vector4.Zero);
@@ -415,10 +415,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Draw highlighted / selected objects on top
             _gl.DepthFunc(GLEnum.Lequal);
             if (SelectedInstance.HasValue) {
-                RenderSelectedInstance(SelectedInstance.Value, new Vector4(1.0f, 0.5f, 0.0f, 0.8f)); // Very Strong Orange
+                RenderSelectedInstance(SelectedInstance.Value, RenderColors.Selection.WithAlpha(0.8f));
             }
             if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
-                RenderSelectedInstance(HoveredInstance.Value, new Vector4(1.0f, 1.0f, 0.0f, 0.6f)); // Stronger Yellow
+                RenderSelectedInstance(HoveredInstance.Value, RenderColors.Hover.WithAlpha(0.6f)); 
             }
             _gl.DepthFunc(GLEnum.Less);
 
@@ -442,8 +442,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     var isHovered = HoveredInstance.HasValue && HoveredInstance.Value.LandblockKey == PackKey(lb.GridX, lb.GridY) && HoveredInstance.Value.InstanceId == instance.InstanceId;
 
                     Vector4 color;
-                    if (isSelected) color = new Vector4(1.0f, 0.5f, 0.0f, 1.0f); // Bright Orange
-                    else if (isHovered) color = new Vector4(1.0f, 1.0f, 0.0f, 1.0f); // Bright Yellow
+                    if (isSelected) color = RenderColors.Selection;
+                    else if (isHovered) color = RenderColors.Hover;
                     else color = settings.SceneryColor;
 
                     debug.DrawBox(instance.LocalBoundingBox, instance.Transform, color);

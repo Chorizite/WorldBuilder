@@ -500,7 +500,7 @@ public partial class RenderView : Base3DViewport {
         else if (change.Property == BrushPositionProperty ||
                  change.Property == BrushRadiusProperty ||
                  change.Property == ShowBrushProperty) {
-            _gameScene?.SetBrush(BrushPosition, BrushRadius, new Vector4(0, 1, 0, 0.4f), ShowBrush);
+            _gameScene?.SetBrush(BrushPosition, BrushRadius, RenderColors.Brush, ShowBrush);
         }
         else if (change.Property == ShowSceneryProperty) {
             if (_gameScene != null) {

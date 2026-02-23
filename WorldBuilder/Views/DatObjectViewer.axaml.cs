@@ -25,7 +25,7 @@ namespace WorldBuilder.Views {
         private uint _renderFileId;
         private bool _renderIsSetup;
         private bool _renderIsAutoCamera = true;
-        private Vector4 _renderBackgroundColor = new Vector4(0.15f, 0.15f, 0.2f, 1.0f);
+        private Vector4 _renderBackgroundColor = RenderColors.Background;
 
         public static readonly StyledProperty<uint> FileIdProperty =
             AvaloniaProperty.Register<DatObjectViewer, uint>(nameof(FileId));
@@ -97,7 +97,7 @@ namespace WorldBuilder.Views {
                 var color = scb.Color;
                 return new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
             }
-            return new Vector4(0.15f, 0.15f, 0.2f, 1.0f);
+            return RenderColors.Background;
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {

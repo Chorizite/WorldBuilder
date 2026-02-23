@@ -9,6 +9,7 @@ using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Services;
 
 namespace Chorizite.OpenGLSDLBackend {
@@ -39,7 +40,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public ICamera Camera => _camera;
 
-        public Vector4 BackgroundColor { get; set; } = new Vector4(0.15f, 0.15f, 0.2f, 1.0f);
+        public Vector4 BackgroundColor { get; set; } = RenderColors.Background;
 
         public bool EnableTransparencyPass { get; set; } = true;
 

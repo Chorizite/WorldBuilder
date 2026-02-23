@@ -11,6 +11,7 @@ using System.Linq;
 using System.Numerics;
 using System.Threading.Tasks;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Lib;
 using WorldBuilder.Shared.Services;
@@ -52,7 +53,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Brush settings
         public Vector3 BrushPosition { get; set; }
         public float BrushRadius { get; set; } = 30f;
-        public Vector4 BrushColor { get; set; } = new Vector4(0.0f, 1.0f, 0.0f, 0.4f);
+        public Vector4 BrushColor { get; set; } = RenderColors.Brush;
         public bool ShowBrush { get; set; }
         public int BrushShape { get; set; }
 
