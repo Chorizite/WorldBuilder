@@ -3,6 +3,8 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
 
+using WorldBuilder.Shared.Lib.Settings;
+
 namespace WorldBuilder.Lib.Settings {
     public enum AppTheme {
         Default,

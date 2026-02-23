@@ -4,6 +4,8 @@ using Avalonia.Platform.Storage;
 using System;
 using System.Threading.Tasks;
 
+using WorldBuilder.Shared.Lib.Settings;
+
 namespace WorldBuilder.Lib.Settings {
     /// <summary>
     /// Provides dynamic event handlers for settings UI controls

@@ -6,6 +6,8 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
+using WorldBuilder.Shared.Lib.Settings;
+
 namespace WorldBuilder.Lib.Settings {
     [SettingCategory("Project", Order = -1)]
     public partial class ProjectSettings : ObservableObject {
@@ -62,6 +64,14 @@ namespace WorldBuilder.Lib.Settings {
         [SettingHidden]
         private float _landscapeCameraZoom = 1.0f;
         public float LandscapeCameraZoom { get => _landscapeCameraZoom; set => SetProperty(ref _landscapeCameraZoom, value); }
+
+        [SettingHidden]
+        private float _landscapeCameraMovementSpeed = 1000f;
+        public float LandscapeCameraMovementSpeed { get => _landscapeCameraMovementSpeed; set => SetProperty(ref _landscapeCameraMovementSpeed, value); }
+
+        [SettingHidden]
+        private int _landscapeCameraFieldOfView = 60;
+        public int LandscapeCameraFieldOfView { get => _landscapeCameraFieldOfView; set => SetProperty(ref _landscapeCameraFieldOfView, value); }
 
         [SettingDisplayName("Overwrite DAT Files")]
         [SettingDescription("Whether to overwrite existing DAT files when exporting.")]

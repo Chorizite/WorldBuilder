@@ -12,17 +12,19 @@ namespace WorldBuilder.Services {
     /// Provides shared ObjectMeshManager instances per dat reader to allow resource reuse.
     /// </summary>
     public class MeshManagerService : IDisposable {
+        private readonly ILoggerFactory _loggerFactory;
         private readonly ILogger<MeshManagerService> _logger;
         private readonly ConcurrentDictionary<IDatReaderWriter, ObjectMeshManager> _managers = new();
 
-        public MeshManagerService(ILogger<MeshManagerService> logger) {
-            _logger = logger;
+        public MeshManagerService(ILoggerFactory loggerFactory) {
+            _loggerFactory = loggerFactory;
+            _logger = loggerFactory.CreateLogger<MeshManagerService>();
         }
 
         public ObjectMeshManager GetMeshManager(OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats) {
             return _managers.GetOrAdd(dats, _ => {
                 _logger.LogInformation("Creating new shared ObjectMeshManager for dats");
-                return new ObjectMeshManager(graphicsDevice, dats);
+                return new ObjectMeshManager(graphicsDevice, dats, _loggerFactory.CreateLogger<ObjectMeshManager>());
             });
         }
 

@@ -1,0 +1,156 @@
+using Chorizite.Core.Render;
+using DatReaderWriter.Enums;
+using Silk.NET.OpenGL;
+using System;
+using System.Collections.Generic;
+using System.Numerics;
+using System.Runtime.InteropServices;
+using WorldBuilder.Shared.Lib;
+using WorldBuilder.Shared.Models;
+
+namespace Chorizite.OpenGLSDLBackend.Lib {
+    /// <summary>
+    /// Shared base for managers that handle instanced 3D object rendering.
+    /// Encapsulates GPU buffer management and common instanced drawing logic.
+    /// </summary>
+    public abstract class BaseObjectRenderManager : IDisposable {
+        protected readonly GL Gl;
+        protected readonly OpenGLGraphicsDevice GraphicsDevice;
+        protected readonly ObjectMeshManager MeshManager;
+
+        // Instance buffer (reused each frame)
+        protected uint InstanceVBO;
+        protected int InstanceBufferCapacity = 0;
+
+        // Render state tracking
+        protected uint CurrentVAO;
+        protected uint CurrentIBO;
+        protected uint CurrentAtlas;
+        protected CullMode? CurrentCullMode;
+
+        protected BaseObjectRenderManager(GL gl, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager) {
+            Gl = gl;
+            GraphicsDevice = graphicsDevice;
+            MeshManager = meshManager;
+            Gl.GenBuffers(1, out InstanceVBO);
+        }
+
+        protected unsafe void RenderObjectBatches(IShader shader, ObjectRenderData renderData, List<Matrix4x4> instanceTransforms) {
+            if (renderData.Batches.Count == 0 || instanceTransforms.Count == 0) return;
+
+            if (CurrentVAO != renderData.VAO) {
+                Gl.BindVertexArray(renderData.VAO);
+                CurrentVAO = renderData.VAO;
+            }
+
+            // Bind the instance VBO and upload per-instance data
+            EnsureInstanceBufferCapacity(instanceTransforms.Count);
+            Gl.BindBuffer(GLEnum.ArrayBuffer, InstanceVBO);
+
+            // Upload instance data: mat4 transform
+            var transformsSpan = CollectionsMarshal.AsSpan(instanceTransforms);
+            fixed (Matrix4x4* ptr = transformsSpan) {
+                Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(instanceTransforms.Count * sizeof(Matrix4x4)), ptr);
+            }
+
+            // Setup instance matrix attributes (mat4 = 4 vec4s at locations 3-6)
+            for (uint i = 0; i < 4; i++) {
+                var loc = 3 + i;
+                Gl.EnableVertexAttribArray(loc);
+                Gl.VertexAttribPointer(loc, 4, GLEnum.Float, false, (uint)sizeof(Matrix4x4), (void*)(i * 16));
+                Gl.VertexAttribDivisor(loc, 1);
+            }
+
+            foreach (var batch in renderData.Batches) {
+                if (CurrentCullMode != batch.CullMode) {
+                    SetCullMode(batch.CullMode);
+                    CurrentCullMode = batch.CullMode;
+                }
+
+                // Set texture index as a vertex attribute constant (location 7)
+                Gl.DisableVertexAttribArray(7);
+                Gl.VertexAttrib1(7, (float)batch.TextureIndex);
+
+                // Bind texture array
+                if (CurrentAtlas != (uint)batch.Atlas.TextureArray.NativePtr) {
+                    batch.Atlas.TextureArray.Bind(0);
+                    shader.SetUniform("uTextureArray", 0);
+                    CurrentAtlas = (uint)batch.Atlas.TextureArray.NativePtr;
+                }
+
+                // Draw instanced
+                if (CurrentIBO != batch.IBO) {
+                    Gl.BindBuffer(GLEnum.ElementArrayBuffer, batch.IBO);
+                    CurrentIBO = batch.IBO;
+                }
+                Gl.DrawElementsInstanced(PrimitiveType.Triangles, (uint)batch.IndexCount,
+                    DrawElementsType.UnsignedShort, (void*)0, (uint)instanceTransforms.Count);
+            }
+
+            // Clean up instance attributes
+            for (uint i = 0; i < 4; i++) {
+                Gl.DisableVertexAttribArray(3 + i);
+                Gl.VertexAttribDivisor(3 + i, 0);
+            }
+        }
+
+        protected void SetCullMode(CullMode mode) {
+            switch (mode) {
+                case CullMode.None:
+                    Gl.Disable(EnableCap.CullFace);
+                    break;
+                case CullMode.Clockwise:
+                    Gl.Enable(EnableCap.CullFace);
+                    Gl.CullFace(GLEnum.Front);
+                    break;
+                case CullMode.CounterClockwise:
+                case CullMode.Landblock:
+                    Gl.Enable(EnableCap.CullFace);
+                    Gl.CullFace(GLEnum.Back);
+                    break;
+            }
+        }
+
+        protected unsafe void EnsureInstanceBufferCapacity(int count) {
+            if (count <= InstanceBufferCapacity) return;
+
+            if (InstanceBufferCapacity > 0) {
+                GpuMemoryTracker.TrackDeallocation(InstanceBufferCapacity * sizeof(Matrix4x4));
+            }
+
+            InstanceBufferCapacity = Math.Max(count, 256);
+            Gl.BindBuffer(GLEnum.ArrayBuffer, InstanceVBO);
+            Gl.BufferData(GLEnum.ArrayBuffer, (nuint)(InstanceBufferCapacity * sizeof(Matrix4x4)),
+                (void*)null, GLEnum.DynamicDraw);
+            GpuMemoryTracker.TrackAllocation(InstanceBufferCapacity * sizeof(Matrix4x4));
+        }
+
+        protected void IncrementInstanceRefCounts(List<SceneryInstance> instances) {
+            var uniqueObjectIds = new HashSet<uint>();
+            foreach (var instance in instances) {
+                uniqueObjectIds.Add(instance.ObjectId);
+            }
+            foreach (var objectId in uniqueObjectIds) {
+                MeshManager.IncrementRefCount(objectId);
+            }
+        }
+
+        protected void DecrementInstanceRefCounts(List<SceneryInstance> instances) {
+            var uniqueObjectIds = new HashSet<uint>();
+            foreach (var instance in instances) {
+                uniqueObjectIds.Add(instance.ObjectId);
+            }
+            foreach (var objectId in uniqueObjectIds) {
+                MeshManager.DecrementRefCount(objectId);
+            }
+        }
+
+        public virtual void Dispose() {
+            if (InstanceVBO != 0) {
+                Gl.DeleteBuffer(InstanceVBO);
+                GpuMemoryTracker.TrackDeallocation(InstanceBufferCapacity * Marshal.SizeOf<Matrix4x4>());
+                InstanceVBO = 0;
+            }
+        }
+    }
+}

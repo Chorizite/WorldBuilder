@@ -102,7 +102,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var layerId = Guid.NewGuid().ToString();
             doc.AddLayer([], "Active Layer", true, layerId);
             var activeLayer = (LandscapeLayer)doc.FindItem(layerId)!;
-            return new LandscapeToolContext(doc, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer);
+            return new LandscapeToolContext(doc, new Mock<IDatReaderWriter>().Object, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer);
         }
     }
 }

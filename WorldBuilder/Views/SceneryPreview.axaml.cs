@@ -62,21 +62,23 @@ public partial class SceneryPreview : Base3DViewport {
 
     protected override void OnGlInit(GL gl, PixelSize canvasSize) {
         _gl = gl;
-        var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>();
-        var log = loggerFactory?.CreateLogger("SceneryPreviewScene") ?? new ColorConsoleLogger("SceneryPreviewScene", () => new ColorConsoleLoggerConfiguration());
+        var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>() ?? LoggerFactory.Create(builder => {
+            builder.AddProvider(new ColorConsoleLoggerProvider());
+            builder.SetMinimumLevel(LogLevel.Debug);
+        });
 
-        _gameScene = new GameScene(gl, Renderer!.GraphicsDevice, log);
+        _gameScene = new GameScene(gl, Renderer!.GraphicsDevice, loggerFactory);
         _gameScene.Initialize();
         _gameScene.Resize(canvasSize.Width, canvasSize.Height);
         _gameScene.SetCameraMode(true);
 
         // Increase render distances to ensure the preview landblock is always loaded
-        _gameScene.SetTerrainRenderDistance(5);
-        _gameScene.SetSceneryRenderDistance(5);
+        _gameScene.State.MaxDrawDistance = 10000f;
+        _gameScene.State.ObjectRenderDistance = 5;
 
         var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
         if (settings != null) {
-            _gameScene.EnableTransparencyPass = settings.Landscape.Rendering.EnableTransparencyPass;
+            _gameScene.State.EnableTransparencyPass = settings.Landscape.Rendering.EnableTransparencyPass;
         }
 
         _needsUpdate = true;

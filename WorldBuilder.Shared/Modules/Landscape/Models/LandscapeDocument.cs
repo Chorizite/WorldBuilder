@@ -153,6 +153,22 @@ namespace WorldBuilder.Shared.Models {
             return false;
         }
 
+        /// <summary>
+        /// Returns the height of the vertex at the given global vertex coordinates.
+        /// </summary>
+        public float GetHeight(int vx, int vy) {
+            if (Region == null) return 0f;
+
+            int mapWidth = Region.MapWidthInVertices;
+            int mapHeight = Region.MapHeightInVertices;
+            vx = Math.Clamp(vx, 0, mapWidth - 1);
+            vy = Math.Clamp(vy, 0, mapHeight - 1);
+
+            uint index = (uint)(vy * mapWidth + vx);
+            var entry = GetCachedEntry(index);
+            return Region.LandHeights[entry.Height ?? 0];
+        }
+
         private void RemoveVertexInternal(string layerId, ushort chunkId, ushort localIndex) {
             if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
                 if (chunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
@@ -427,7 +443,7 @@ namespace WorldBuilder.Shared.Models {
                 if (CellDatabase.TryGet<LandBlockInfo>(lbFileId, out var lbi)) {
                     Dictionary<uint, StaticObject> baseStatics = new();
                     for (int i = 0; i < lbi.Objects.Count; i++) {
-                        uint instanceId = (uint)i;
+                        uint instanceId = (uint)i | 0x40000000;
                         baseStatics[instanceId] = new StaticObject {
                             SetupId = lbi.Objects[i].Id,
                             Position = [lbi.Objects[i].Frame.Origin.X, lbi.Objects[i].Frame.Origin.Y, lbi.Objects[i].Frame.Origin.Z, lbi.Objects[i].Frame.Orientation.W, lbi.Objects[i].Frame.Orientation.X, lbi.Objects[i].Frame.Orientation.Y, lbi.Objects[i].Frame.Orientation.Z],
@@ -438,7 +454,7 @@ namespace WorldBuilder.Shared.Models {
 
                     Dictionary<uint, BuildingObject> baseBuildings = new();
                     for (int i = 0; i < lbi.Buildings.Count; i++) {
-                        uint instanceId = (uint)i;
+                        uint instanceId = (uint)i | 0x80000000;
                         baseBuildings[instanceId] = new BuildingObject {
                             ModelId = lbi.Buildings[i].ModelId,
                             Position = [lbi.Buildings[i].Frame.Origin.X, lbi.Buildings[i].Frame.Origin.Y, lbi.Buildings[i].Frame.Origin.Z, lbi.Buildings[i].Frame.Orientation.W, lbi.Buildings[i].Frame.Orientation.X, lbi.Buildings[i].Frame.Orientation.Y, lbi.Buildings[i].Frame.Orientation.Z],
@@ -521,7 +537,7 @@ namespace WorldBuilder.Shared.Models {
                 Dictionary<uint, StaticObject> baseStatics = new();
                 if (cell.StaticObjects != null) {
                     for (int i = 0; i < cell.StaticObjects.Count; i++) {
-                        uint instanceId = (uint)i;
+                        uint instanceId = (uint)i | 0x40000000;
                         baseStatics[instanceId] = new StaticObject {
                             SetupId = cell.StaticObjects[i].Id,
                             Position = [cell.StaticObjects[i].Frame.Origin.X, cell.StaticObjects[i].Frame.Origin.Y, cell.StaticObjects[i].Frame.Origin.Z, cell.StaticObjects[i].Frame.Orientation.W, cell.StaticObjects[i].Frame.Orientation.X, cell.StaticObjects[i].Frame.Orientation.Y, cell.StaticObjects[i].Frame.Orientation.Z],

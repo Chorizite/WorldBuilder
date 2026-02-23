@@ -10,8 +10,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>GfxObj or Setup ID from DAT.</summary>
         public uint ObjectId;
 
+        /// <summary>Unique instance ID within the landblock.</summary>
+        public uint InstanceId;
+
         /// <summary>True for multi-part Setup objects, false for simple GfxObj.</summary>
         public bool IsSetup;
+
+        /// <summary>True if this instance is a building.</summary>
+        public bool IsBuilding;
 
         /// <summary>World-space position.</summary>
         public Vector3 WorldPosition;
@@ -24,6 +30,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         /// <summary>Pre-computed world transform matrix.</summary>
         public Matrix4x4 Transform;
+
+        /// <summary>Local-space bounding box.</summary>
+        public BoundingBox LocalBoundingBox;
 
         /// <summary>World-space bounding box.</summary>
         public BoundingBox BoundingBox;
@@ -39,6 +48,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         /// <summary>Grid Y coordinate of this landblock.</summary>
         public int GridY { get; set; }
+
+        public object Lock { get; } = new();
 
         public List<SceneryInstance> Instances { get; set; } = new();
 

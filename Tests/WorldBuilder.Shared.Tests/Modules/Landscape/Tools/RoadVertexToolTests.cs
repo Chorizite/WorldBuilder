@@ -73,7 +73,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             cameraMock.Setup(c => c.ProjectionMatrix).Returns(projection);
             cameraMock.Setup(c => c.ViewMatrix).Returns(view);
 
-            return new LandscapeToolContext(doc, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object, activeLayer) {
+            return new LandscapeToolContext(doc, new Mock<IDatReaderWriter>().Object, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object, activeLayer) {
                 ViewportSize = new Vector2(500, 500)
             };
         }

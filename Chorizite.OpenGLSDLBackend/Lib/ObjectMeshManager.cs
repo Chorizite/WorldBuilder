@@ -5,6 +5,7 @@ using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
 using CullMode = DatReaderWriter.Enums.CullMode;
 using DatReaderWriter.Types;
+using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
 using System;
 using System.Collections.Concurrent;
@@ -14,6 +15,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using WorldBuilder.Shared.Numerics;
 using WorldBuilder.Shared.Services;
 using PixelFormat = Silk.NET.OpenGL.PixelFormat;
 
@@ -54,6 +56,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         /// <summary>Local bounding box.</summary>
         public BoundingBox BoundingBox { get; set; }
+
+        /// <summary>Sphere used for mouse selection.</summary>
+        public Sphere? SelectionSphere { get; set; }
     }
 
     /// <summary>
@@ -93,8 +98,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public bool IsSetup { get; set; }
         public List<(uint GfxObjId, Matrix4x4 Transform)> SetupParts { get; set; } = new();
 
+        /// <summary>CPU-side vertex positions for raycasting.</summary>
+        public Vector3[] CPUPositions { get; set; } = Array.Empty<Vector3>();
+
+        /// <summary>CPU-side indices for raycasting.</summary>
+        public ushort[] CPUIndices { get; set; } = Array.Empty<ushort>();
+
         /// <summary>Local bounding box.</summary>
         public BoundingBox BoundingBox { get; set; }
+
+        /// <summary>Sphere used for mouse selection.</summary>
+        public Sphere? SelectionSphere { get; set; }
 
         /// <summary>Estimated GPU memory usage in bytes.</summary>
         public long MemorySize { get; set; }
@@ -123,6 +137,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     public class ObjectMeshManager : IDisposable {
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private readonly IDatReaderWriter _dats;
+        private readonly ILogger<ObjectMeshManager> _logger;
         private readonly Dictionary<uint, ObjectRenderData> _renderData = new();
         private readonly ConcurrentDictionary<uint, int> _usageCount = new();
         private readonly ConcurrentDictionary<uint, (Vector3 Min, Vector3 Max)?> _boundsCache = new();
@@ -136,9 +151,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Shared atlases grouped by (Width, Height, Format)
         private readonly Dictionary<(int Width, int Height, TextureFormat Format), List<TextureAtlasManager>> _globalAtlases = new();
 
-        public ObjectMeshManager(OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats) {
+        public ObjectMeshManager(OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats, ILogger<ObjectMeshManager> logger) {
             _graphicsDevice = graphicsDevice;
             _dats = dats;
+            _logger = logger;
         }
 
         /// <summary>
@@ -270,7 +286,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 return null;
             }
             catch (Exception ex) {
-                Console.WriteLine($"Error preparing mesh data for 0x{id:X8}: {ex}");
+                _logger.LogError(ex, "Error preparing mesh data for 0x{Id:X8}", id);
                 return null;
             }
         }
@@ -293,6 +309,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         SetupParts = meshData.SetupParts,
                         Batches = new List<ObjectRenderBatch>(),
                         BoundingBox = meshData.BoundingBox,
+                        SelectionSphere = meshData.SelectionSphere,
                         MemorySize = 1024 // Small overhead for the setup itself
                     };
                     _renderData[meshData.ObjectId] = data;
@@ -310,6 +327,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var renderData = UploadGfxObjMeshData(meshData);
                 if (renderData != null) {
                     renderData.BoundingBox = meshData.BoundingBox;
+                    renderData.SelectionSphere = meshData.SelectionSphere;
                     _renderData[meshData.ObjectId] = renderData;
                     _usageCount.TryAdd(meshData.ObjectId, 1);
                     _currentGpuMemory += renderData.MemorySize;
@@ -317,7 +335,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 return renderData;
             }
             catch (Exception ex) {
-                Console.WriteLine($"Error uploading mesh data for 0x{meshData.ObjectId:X8}: {ex}");
+                _logger.LogError(ex, "Error uploading mesh data for 0x{Id:X8}", meshData.ObjectId);
                 return null;
             }
         }
@@ -350,7 +368,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 return result;
             }
             catch (Exception ex) {
-                Console.WriteLine($"Error computing bounds for 0x{id:X8}: {ex}");
+                _logger.LogError(ex, "Error computing bounds for 0x{Id:X8}", id);
                 return null;
             }
         }
@@ -369,7 +387,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 ObjectId = id,
                 IsSetup = true,
                 SetupParts = parts,
-                BoundingBox = hasBounds ? new BoundingBox(min, max) : default
+                BoundingBox = hasBounds ? new BoundingBox(min, max) : default,
+                SelectionSphere = setup.SelectionSphere
             };
         }
 
@@ -568,7 +587,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 IsSetup = false,
                 Vertices = vertices.ToArray(),
                 TextureBatches = batchesByFormat,
-                BoundingBox = boundingBox
+                BoundingBox = boundingBox,
+                SelectionSphere = new Sphere { Origin = boundingBox.Center, Radius = Vector3.Distance(boundingBox.Max, boundingBox.Min) / 2.0f }
             };
         }
 
@@ -707,6 +727,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 VBO = vbo,
                 VertexCount = meshData.Vertices.Length,
                 Batches = renderBatches,
+                CPUPositions = meshData.Vertices.Select(v => v.Position).ToArray(),
+                CPUIndices = meshData.TextureBatches.Values.SelectMany(l => l).SelectMany(b => b.Indices).ToArray(),
                 MemorySize = (meshData.Vertices.Length * VertexPositionNormalTexture.Size) +
                              renderBatches.Sum(b => (long)b.IndexCount * sizeof(ushort))
             };
@@ -718,6 +740,66 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #endregion
 
         #region Private: Utilities
+
+        #region Raycasting
+
+        public bool IntersectMesh(ObjectRenderData renderData, Matrix4x4 transform, Vector3 rayOrigin, Vector3 rayDirection, out float distance) {
+            distance = float.MaxValue;
+            bool hit = false;
+
+            if (renderData.IsSetup) {
+                foreach (var part in renderData.SetupParts) {
+                    var partData = TryGetRenderData(part.GfxObjId);
+                    if (partData != null) {
+                        if (IntersectMesh(partData, part.Transform * transform, rayOrigin, rayDirection, out float d)) {
+                            if (d < distance) {
+                                distance = d;
+                                hit = true;
+                            }
+                        }
+                    }
+                }
+                return hit;
+            }
+
+            if (renderData.CPUPositions.Length == 0 || renderData.CPUIndices.Length == 0) {
+                // Fallback to sphere if no CPU mesh data
+                if (renderData.SelectionSphere != null && renderData.SelectionSphere.Radius > 0.001f) {
+                    var worldOrigin = Vector3.Transform(renderData.SelectionSphere.Origin, transform);
+                    float radius = renderData.SelectionSphere.Radius * transform.Translation.Length(); // Rough scale
+                    return GeometryUtils.RayIntersectsSphere(rayOrigin, rayDirection, worldOrigin, radius, out distance);
+                }
+                return false;
+            }
+
+            // Transform ray to local space
+            if (!Matrix4x4.Invert(transform, out var invTransform)) return false;
+            Vector3 localOrigin = Vector3.Transform(rayOrigin, invTransform);
+            Vector3 localDirection = Vector3.Normalize(Vector3.TransformNormal(rayDirection, invTransform));
+
+            // Iterate through triangles
+            for (int i = 0; i < renderData.CPUIndices.Length; i += 3) {
+                Vector3 v0 = renderData.CPUPositions[renderData.CPUIndices[i]];
+                Vector3 v1 = renderData.CPUPositions[renderData.CPUIndices[i + 1]];
+                Vector3 v2 = renderData.CPUPositions[renderData.CPUIndices[i + 2]];
+
+                if (GeometryUtils.RayIntersectsTriangle(localOrigin, localDirection, v0, v1, v2, out float t)) {
+                    // Convert t back to world space distance
+                    Vector3 hitPointLocal = localOrigin + localDirection * t;
+                    Vector3 hitPointWorld = Vector3.Transform(hitPointLocal, transform);
+                    float worldDist = Vector3.Distance(rayOrigin, hitPointWorld);
+
+                    if (worldDist < distance) {
+                        distance = worldDist;
+                        hit = true;
+                    }
+                }
+            }
+
+            return hit;
+        }
+
+        #endregion
 
         private (Vector3 Min, Vector3 Max) ComputeBounds(GfxObj gfxObj, Vector3 scale) {
             var min = new Vector3(float.MaxValue);

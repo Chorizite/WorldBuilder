@@ -1,3 +1,4 @@
+using Chorizite.Core.Lib;
 using Chorizite.Core.Render;
 using Chorizite.OpenGLSDLBackend.Lib;
 using DatReaderWriter;
@@ -6,7 +7,9 @@ using Silk.NET.OpenGL;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Services;
 
 
@@ -19,6 +22,7 @@ public class GameScene : IDisposable {
     private const uint MAX_GPU_UPDATE_TIME_PER_FRAME = 33; // max gpu time spent doing uploads per frame, in ms
     private readonly GL _gl;
     private readonly OpenGLGraphicsDevice _graphicsDevice;
+    private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger _log;
 
     // Camera system
@@ -32,33 +36,58 @@ public class GameScene : IDisposable {
     private IShader? _terrainShader;
     private IShader? _sceneryShader;
     private bool _initialized;
-    public bool ShowScenery { get; set; } = true;
-    public bool ShowStaticObjects { get; set; } = true;
-    public bool ShowSkybox { get; set; } = true;
-    public bool EnableTransparencyPass { get; set; } = true;
-    private bool _showUnwalkableSlopes;
-    public bool ShowUnwalkableSlopes {
-        get => _showUnwalkableSlopes;
-        set {
-            _showUnwalkableSlopes = value;
-            if (_terrainManager != null) {
-                _terrainManager.ShowUnwalkableSlopes = value;
-            }
-        }
-    }
     private int _width;
     private int _height;
 
-    // Grid settings persistence
-    private bool _showLandblockGrid = true;
-    private bool _showCellGrid = true;
-    private Vector3 _landblockGridColor = new Vector3(1, 0, 1);
-    private Vector3 _cellGridColor = new Vector3(0, 1, 1);
-    private float _gridLineWidth = 1.0f;
-    private float _gridOpacity = 0.4f;
-    private float _timeOfDay = 0.5f;
-    private int _terrainRenderDistance = 12;
-    private int _sceneryRenderDistance = 25;
+    private EditorState _state = new();
+    public EditorState State {
+        get => _state;
+        set {
+            if (_state != null) _state.PropertyChanged -= OnStatePropertyChanged;
+            _state = value;
+            if (_state != null) {
+                _state.PropertyChanged += OnStatePropertyChanged;
+            }
+            SyncState();
+        }
+    }
+
+    private void OnStatePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
+        SyncState();
+    }
+
+    private void SyncState() {
+        if (_terrainManager != null) {
+            _terrainManager.ShowUnwalkableSlopes = _state.ShowUnwalkableSlopes;
+            // A landscape chunk is 8x8 landblocks. 8 * 192 = 1536 units.
+            _terrainManager.RenderDistance = (int)Math.Ceiling(_state.MaxDrawDistance / 1536f);
+            _terrainManager.ShowLandblockGrid = _state.ShowLandblockGrid && _state.ShowGrid;
+            _terrainManager.ShowCellGrid = _state.ShowCellGrid && _state.ShowGrid;
+            _terrainManager.LandblockGridColor = _state.LandblockGridColor;
+            _terrainManager.CellGridColor = _state.CellGridColor;
+            _terrainManager.GridLineWidth = _state.GridLineWidth;
+            _terrainManager.GridOpacity = _state.GridOpacity;
+            _terrainManager.TimeOfDay = _state.TimeOfDay;
+            _terrainManager.LightIntensity = _state.LightIntensity;
+        }
+
+        if (_sceneryManager != null) {
+            _sceneryManager.RenderDistance = _state.ObjectRenderDistance;
+            _sceneryManager.LightIntensity = _state.LightIntensity;
+        }
+
+        if (_staticObjectManager != null) {
+            _staticObjectManager.RenderDistance = _state.ObjectRenderDistance;
+            _staticObjectManager.LightIntensity = _state.LightIntensity;
+        }
+
+        if (_skyboxManager != null) {
+            _skyboxManager.TimeOfDay = _state.TimeOfDay;
+            _skyboxManager.LightIntensity = _state.LightIntensity;
+        }
+
+        _camera3D.FarPlane = _state.MaxDrawDistance;
+    }
 
     // Terrain
     private TerrainRenderManager? _terrainManager;
@@ -69,6 +98,13 @@ public class GameScene : IDisposable {
     private SceneryRenderManager? _sceneryManager;
     private StaticObjectRenderManager? _staticObjectManager;
     private SkyboxRenderManager? _skyboxManager = null;
+    private DebugRenderer? _debugRenderer;
+    private LandscapeDocument? _landscapeDoc;
+
+    private (int x, int y)? _hoveredVertex;
+    private (int x, int y)? _selectedVertex;
+
+    private InspectorTool? _inspectorTool;
 
     private float _lastTerrainUploadTime;
     private float _lastSceneryUploadTime;
@@ -152,10 +188,11 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Creates a new GameScene.
     /// </summary>
-    public GameScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILogger log) {
+    public GameScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILoggerFactory loggerFactory) {
         _gl = gl;
         _graphicsDevice = graphicsDevice;
-        _log = log;
+        _loggerFactory = loggerFactory;
+        _log = loggerFactory.CreateLogger<GameScene>();
 
         // Initialize cameras
         _camera2D = new Camera2D(new Vector3(0, 0, 0));
@@ -171,10 +208,13 @@ public class GameScene : IDisposable {
     public void Initialize() {
         if (_initialized) return;
 
+        _debugRenderer = new DebugRenderer(_gl, _graphicsDevice);
+
         // Create shader
-        var vertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Simple3D.vert");
-        var fragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Simple3D.frag");
-        _shader = _graphicsDevice.CreateShader("Simple3D", vertSource, fragSource);
+        var vertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.InstancedLine.vert");
+        var fragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.InstancedLine.frag");
+        _shader = _graphicsDevice.CreateShader("InstancedLine", vertSource, fragSource);
+        _debugRenderer?.SetShader(_shader);
 
         // Create terrain shader
         var tVertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Landscape.vert");
@@ -206,6 +246,7 @@ public class GameScene : IDisposable {
     }
 
     public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats, IDocumentManager documentManager, ObjectMeshManager? meshManager = null, bool centerCamera = true) {
+        _landscapeDoc = landscapeDoc;
         if (_terrainManager != null) {
             _terrainManager.Dispose();
         }
@@ -226,34 +267,37 @@ public class GameScene : IDisposable {
         }
 
         _ownsMeshManager = meshManager == null;
-        _meshManager = meshManager ?? new ObjectMeshManager(_graphicsDevice, dats);
+        _meshManager = meshManager ?? new ObjectMeshManager(_graphicsDevice, dats, _loggerFactory.CreateLogger<ObjectMeshManager>());
 
         _terrainManager = new TerrainRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, documentManager);
-        _terrainManager.ShowUnwalkableSlopes = _showUnwalkableSlopes;
+        _terrainManager.ShowUnwalkableSlopes = _state.ShowUnwalkableSlopes;
         _terrainManager.ScreenHeight = _height;
-        _terrainManager.RenderDistance = _terrainRenderDistance;
+        _terrainManager.RenderDistance = (int)Math.Ceiling(_state.MaxDrawDistance / 1536f);
 
         // Reapply grid settings
-        _terrainManager.ShowLandblockGrid = _showLandblockGrid;
-        _terrainManager.ShowCellGrid = _showCellGrid;
-        _terrainManager.LandblockGridColor = _landblockGridColor;
-        _terrainManager.CellGridColor = _cellGridColor;
-        _terrainManager.GridLineWidth = _gridLineWidth;
-        _terrainManager.GridOpacity = _gridOpacity;
+        _terrainManager.ShowLandblockGrid = _state.ShowLandblockGrid && _state.ShowGrid;
+        _terrainManager.ShowCellGrid = _state.ShowCellGrid && _state.ShowGrid;
+        _terrainManager.LandblockGridColor = _state.LandblockGridColor;
+        _terrainManager.CellGridColor = _state.CellGridColor;
+        _terrainManager.GridLineWidth = _state.GridLineWidth;
+        _terrainManager.GridOpacity = _state.GridOpacity;
 
         if (_initialized && _terrainShader != null) {
             _terrainManager.Initialize(_terrainShader);
         }
-        _terrainManager.TimeOfDay = _timeOfDay;
+        _terrainManager.TimeOfDay = _state.TimeOfDay;
+        _terrainManager.LightIntensity = _state.LightIntensity;
 
         _staticObjectManager = new StaticObjectRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager);
-        _staticObjectManager.RenderDistance = _sceneryRenderDistance;
+        _staticObjectManager.RenderDistance = _state.ObjectRenderDistance;
+        _staticObjectManager.LightIntensity = _state.LightIntensity;
         if (_initialized && _sceneryShader != null) {
             _staticObjectManager.Initialize(_sceneryShader);
         }
 
         _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager, _staticObjectManager, documentManager);
-        _sceneryManager.RenderDistance = _sceneryRenderDistance;
+        _sceneryManager.RenderDistance = _state.ObjectRenderDistance;
+        _sceneryManager.LightIntensity = _state.LightIntensity;
         if (_initialized && _sceneryShader != null) {
             _sceneryManager.Initialize(_sceneryShader);
         }
@@ -264,7 +308,8 @@ public class GameScene : IDisposable {
         }
 
         if (_skyboxManager != null) {
-            _skyboxManager.TimeOfDay = _timeOfDay;
+            _skyboxManager.TimeOfDay = _state.TimeOfDay;
+            _skyboxManager.LightIntensity = _state.LightIntensity;
         }
 
         if (centerCamera && landscapeDoc.Region != null) {
@@ -342,50 +387,6 @@ public class GameScene : IDisposable {
     }
 
     /// <summary>
-    /// Sets the terrain render distance in chunks.
-    /// </summary>
-    /// <param name="distance">The number of chunks to render around the camera.</param>
-    public void SetTerrainRenderDistance(int distance) {
-        _terrainRenderDistance = distance;
-        if (_terrainManager != null) {
-            _terrainManager.RenderDistance = distance;
-        }
-    }
-
-    /// <summary>
-    /// Sets the scenery render distance in landblocks.
-    /// </summary>
-    /// <param name="distance">The number of landblocks to render around the camera.</param>
-    public void SetSceneryRenderDistance(int distance) {
-        _sceneryRenderDistance = distance;
-        if (_sceneryManager != null) {
-            _sceneryManager.RenderDistance = distance;
-        }
-        if (_staticObjectManager != null) {
-            _staticObjectManager.RenderDistance = distance;
-        }
-    }
-
-    /// <summary>
-    /// Sets the light intensity for the scene.
-    /// </summary>
-    /// <param name="intensity">The light intensity (ambient).</param>
-    public void SetLightIntensity(float intensity) {
-        if (_terrainManager != null) {
-            _terrainManager.LightIntensity = intensity;
-        }
-        if (_sceneryManager != null) {
-            _sceneryManager.LightIntensity = intensity;
-        }
-        if (_staticObjectManager != null) {
-            _staticObjectManager.LightIntensity = intensity;
-        }
-        if (_skyboxManager != null) {
-            _skyboxManager.LightIntensity = intensity;
-        }
-    }
-
-    /// <summary>
     /// Sets the movement speed for the 3D camera.
     /// </summary>
     /// <param name="speed">The movement speed in units per second.</param>
@@ -403,24 +404,6 @@ public class GameScene : IDisposable {
         SyncCameraZ();
     }
 
-    /// <summary>
-    /// Sets the current time of day (0.0 to 1.0).
-    /// </summary>
-    public void SetTimeOfDay(float time) {
-        _timeOfDay = time;
-        if (_terrainManager != null) {
-            _terrainManager.TimeOfDay = time;
-        }
-        if (_skyboxManager != null) {
-            _skyboxManager.TimeOfDay = time;
-        }
-
-        var region = _terrainManager?.LandscapeDocument?.Region;
-        if (region != null) {
-            region.TimeOfDay = time;
-        }
-    }
-
     public void SetBrush(Vector3 position, float radius, Vector4 color, bool show) {
         if (_terrainManager != null) {
             _terrainManager.BrushPosition = position;
@@ -431,21 +414,12 @@ public class GameScene : IDisposable {
     }
 
     public void SetGridSettings(bool showLandblockGrid, bool showCellGrid, Vector3 landblockGridColor, Vector3 cellGridColor, float gridLineWidth, float gridOpacity) {
-        _showLandblockGrid = showLandblockGrid;
-        _showCellGrid = showCellGrid;
-        _landblockGridColor = landblockGridColor;
-        _cellGridColor = cellGridColor;
-        _gridLineWidth = gridLineWidth;
-        _gridOpacity = gridOpacity;
-
-        if (_terrainManager != null) {
-            _terrainManager.ShowLandblockGrid = showLandblockGrid;
-            _terrainManager.ShowCellGrid = showCellGrid;
-            _terrainManager.LandblockGridColor = landblockGridColor;
-            _terrainManager.CellGridColor = cellGridColor;
-            _terrainManager.GridLineWidth = gridLineWidth;
-            _terrainManager.GridOpacity = gridOpacity;
-        }
+        _state.ShowLandblockGrid = showLandblockGrid;
+        _state.ShowCellGrid = showCellGrid;
+        _state.LandblockGridColor = landblockGridColor;
+        _state.CellGridColor = cellGridColor;
+        _state.GridLineWidth = gridLineWidth;
+        _state.GridOpacity = gridOpacity;
     }
 
     /// <summary>
@@ -493,6 +467,109 @@ public class GameScene : IDisposable {
         _terrainManager?.InvalidateLandblock(lbX, lbY);
         _sceneryManager?.InvalidateLandblock(lbX, lbY);
         _staticObjectManager?.InvalidateLandblock(lbX, lbY);
+    }
+
+    public void SetInspectorTool(InspectorTool? tool) {
+        _inspectorTool = tool;
+    }
+
+    private void DrawVertexDebug(int vx, int vy, Vector4 color) {
+        if (_landscapeDoc?.Region == null || _debugRenderer == null) return;
+
+        var region = _landscapeDoc.Region;
+        if (vx < 0 || vx >= region.MapWidthInVertices || vy < 0 || vy >= region.MapHeightInVertices) return;
+
+        float cellSize = region.CellSizeInUnits;
+        int lbCellLen = region.LandblockCellLength;
+        Vector2 mapOffset = region.MapOffset;
+
+        int lbX = vx / lbCellLen;
+        int lbY = vy / lbCellLen;
+        int localVx = vx % lbCellLen;
+        int localVy = vy % lbCellLen;
+
+        float x = lbX * (cellSize * lbCellLen) + localVx * cellSize + mapOffset.X;
+        float y = lbY * (cellSize * lbCellLen) + localVy * cellSize + mapOffset.Y;
+        float z = _landscapeDoc.GetHeight(vx, vy);
+
+        var pos = new Vector3(x, y, z);
+        _debugRenderer.DrawSphere(pos, 1.5f, color);
+    }
+
+    public void SetHoveredObject(InspectorSelectionType type, uint landblockId, uint instanceId, int vx = 0, int vy = 0) {
+        if (type == InspectorSelectionType.Vertex) {
+            _hoveredVertex = (vx == 0 && vy == 0) ? null : (vx, vy);
+            if (_sceneryManager != null) _sceneryManager.HoveredInstance = null;
+            if (_staticObjectManager != null) _staticObjectManager.HoveredInstance = null;
+        }
+        else if (type == InspectorSelectionType.Scenery) {
+            if (_sceneryManager != null) {
+                _sceneryManager.HoveredInstance = (landblockId == 0) ? null : new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId };
+            }
+            if (_staticObjectManager != null) _staticObjectManager.HoveredInstance = null;
+            _hoveredVertex = null;
+        }
+        else if (type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) {
+            if (_staticObjectManager != null) {
+                _staticObjectManager.HoveredInstance = (landblockId == 0) ? null : new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId };
+            }
+            if (_sceneryManager != null) _sceneryManager.HoveredInstance = null;
+            _hoveredVertex = null;
+        }
+        else {
+            if (_sceneryManager != null) _sceneryManager.HoveredInstance = null;
+            if (_staticObjectManager != null) _staticObjectManager.HoveredInstance = null;
+            _hoveredVertex = null;
+        }
+    }
+
+    public void SetSelectedObject(InspectorSelectionType type, uint landblockId, uint instanceId, int vx = 0, int vy = 0) {
+        if (type == InspectorSelectionType.Vertex) {
+            _selectedVertex = (vx == 0 && vy == 0) ? null : (vx, vy);
+            if (_sceneryManager != null) _sceneryManager.SelectedInstance = null;
+            if (_staticObjectManager != null) _staticObjectManager.SelectedInstance = null;
+        }
+        else if (type == InspectorSelectionType.Scenery) {
+            if (_sceneryManager != null) {
+                _sceneryManager.SelectedInstance = (landblockId == 0) ? null : new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId };
+            }
+            if (_staticObjectManager != null) _staticObjectManager.SelectedInstance = null;
+            _selectedVertex = null;
+        }
+        else if (type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) {
+            if (_staticObjectManager != null) {
+                _staticObjectManager.SelectedInstance = (landblockId == 0) ? null : new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId };
+            }
+            if (_sceneryManager != null) _sceneryManager.SelectedInstance = null;
+            _selectedVertex = null;
+        }
+        else {
+            if (_sceneryManager != null) _sceneryManager.SelectedInstance = null;
+            if (_staticObjectManager != null) _staticObjectManager.SelectedInstance = null;
+            _selectedVertex = null;
+        }
+    }
+
+    public bool RaycastStaticObjects(Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit) {
+        hit = SceneRaycastHit.NoHit;
+
+        var targets = StaticObjectRenderManager.RaycastTarget.None;
+        if (includeBuildings) targets |= StaticObjectRenderManager.RaycastTarget.Buildings;
+        if (includeStaticObjects) targets |= StaticObjectRenderManager.RaycastTarget.StaticObjects;
+
+        if (_staticObjectManager != null && _staticObjectManager.Raycast(origin, direction, targets, out hit)) {
+            return true;
+        }
+        return false;
+    }
+
+    public bool RaycastScenery(Vector3 origin, Vector3 direction, out SceneRaycastHit hit) {
+        hit = SceneRaycastHit.NoHit;
+
+        if (_sceneryManager != null && _sceneryManager.Raycast(origin, direction, out hit)) {
+            return true;
+        }
+        return false;
     }
 
     /// <summary>
@@ -549,15 +626,15 @@ public class GameScene : IDisposable {
         var snapshotPos = _currentCamera.Position;
         var snapshotFov = _currentCamera.FieldOfView;
 
-        if (ShowScenery) {
+        if (_state.ShowScenery) {
             _sceneryManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
         }
 
-        if (ShowStaticObjects) {
+        if (_state.ShowStaticObjects) {
             _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
         }
 
-        if (ShowSkybox) {
+        if (_state.ShowSkybox) {
             // Draw skybox before everything else
             //_skyboxManager?.Render(snapshotView, snapshotProj, snapshotPos, snapshotFov, (float)_width / _height);
         }
@@ -569,30 +646,81 @@ public class GameScene : IDisposable {
 
         // Pass 1: Opaque Scenery & Static Objects
         _sceneryShader?.Bind();
-        _sceneryShader?.SetUniform("uRenderPass", EnableTransparencyPass ? 0 : 2);
+        _sceneryShader?.SetUniform("uRenderPass", _state.EnableTransparencyPass ? 0 : 2);
         _gl.DepthMask(true);
 
-        if (ShowScenery) {
+        if (_state.ShowScenery) {
             _sceneryManager?.Render(snapshotVP, snapshotPos);
         }
 
-        if (ShowStaticObjects) {
+        if (_state.ShowStaticObjects) {
             _staticObjectManager?.Render(snapshotVP, snapshotPos);
         }
 
         // Pass 2: Transparent Scenery & Static Objects
-        if (EnableTransparencyPass) {
+        if (_state.EnableTransparencyPass) {
             _sceneryShader?.Bind();
             _sceneryShader?.SetUniform("uRenderPass", 1);
             _gl.DepthMask(false);
 
-            if (ShowScenery) {
+            if (_state.ShowScenery) {
                 _sceneryManager?.Render(snapshotVP, snapshotPos);
             }
 
-            if (ShowStaticObjects) {
+            if (_state.ShowStaticObjects) {
                 _staticObjectManager?.Render(snapshotVP, snapshotPos);
             }
+        }
+
+        if (_state.ShowDebugShapes) {
+            var debugSettings = new DebugRenderSettings();
+            if (_inspectorTool != null) {
+                debugSettings.ShowBoundingBoxes = _inspectorTool.ShowBoundingBoxes;
+                debugSettings.SelectVertices = _inspectorTool.SelectVertices;
+                debugSettings.SelectBuildings = _inspectorTool.SelectBuildings;
+                debugSettings.SelectStaticObjects = _inspectorTool.SelectStaticObjects;
+                debugSettings.SelectScenery = _inspectorTool.SelectScenery;
+            }
+
+            _sceneryManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
+            _staticObjectManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
+
+            if (_inspectorTool != null && _inspectorTool.SelectVertices && _landscapeDoc?.Region != null) {
+                var region = _landscapeDoc.Region;
+                var lbSize = region.CellSizeInUnits * region.LandblockCellLength;
+                var pos = new Vector2(_currentCamera.Position.X, _currentCamera.Position.Y) - region.MapOffset;
+                int camLbX = (int)Math.Floor(pos.X / lbSize);
+                int camLbY = (int)Math.Floor(pos.Y / lbSize);
+
+                int range = _state.ObjectRenderDistance;
+                for (int lbX = camLbX - range; lbX <= camLbX + range; lbX++) {
+                    for (int lbY = camLbY - range; lbY <= camLbY + range; lbY++) {
+                        if (lbX < 0 || lbX >= region.MapWidthInLandblocks || lbY < 0 || lbY >= region.MapHeightInLandblocks) continue;
+
+                        for (int vx = 0; vx < 8; vx++) {
+                            for (int vy = 0; vy < 8; vy++) {
+                                int gvx = lbX * 8 + vx;
+                                int gvy = lbY * 8 + vy;
+                                if (_hoveredVertex.HasValue && _hoveredVertex.Value.x == gvx && _hoveredVertex.Value.y == gvy) continue;
+                                if (_selectedVertex.HasValue && _selectedVertex.Value.x == gvx && _selectedVertex.Value.y == gvy) continue;
+
+                                DrawVertexDebug(gvx, gvy, _inspectorTool.VertexColor);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (_inspectorTool == null || (_inspectorTool.ShowBoundingBoxes && _inspectorTool.SelectVertices)) {
+                if (_hoveredVertex.HasValue) {
+                    DrawVertexDebug(_hoveredVertex.Value.x, _hoveredVertex.Value.y, LandscapeColorsSettings.Instance.Hover);
+                }
+                if (_selectedVertex.HasValue) {
+                    DrawVertexDebug(_selectedVertex.Value.x, _selectedVertex.Value.y, LandscapeColorsSettings.Instance.Selection);
+                }
+            }
+
+            _debugRenderer?.Render(snapshotView, snapshotProj);
         }
 
         // Restore depth mask for subsequent renders if needed
@@ -663,6 +791,7 @@ public class GameScene : IDisposable {
         _sceneryManager?.Dispose();
         _staticObjectManager?.Dispose();
         _skyboxManager?.Dispose();
+        _debugRenderer?.Dispose();
         if (_ownsMeshManager) {
             _meshManager?.Dispose();
         }

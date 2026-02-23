@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Silk.NET.OpenGL;
 using System.Numerics;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using Xunit;
 
@@ -13,9 +14,11 @@ public class GameSceneTests {
     public GameSceneTests() {
         var mockGl = new Mock<GL>(MockBehavior.Loose, new object[] { null! });
         var mockGraphicsDevice = new Mock<OpenGLGraphicsDevice>(MockBehavior.Loose, new object[] { null!, null! });
+        var mockLoggerFactory = new Mock<ILoggerFactory>();
         var mockLogger = new Mock<ILogger>();
+        mockLoggerFactory.Setup(x => x.CreateLogger(It.IsAny<string>())).Returns(mockLogger.Object);
 
-        _gameScene = new GameScene(mockGl.Object, mockGraphicsDevice.Object, mockLogger.Object);
+        _gameScene = new GameScene(mockGl.Object, mockGraphicsDevice.Object, mockLoggerFactory.Object);
     }
 
     [Fact]
@@ -133,14 +136,19 @@ public class GameSceneTests {
 
     [Fact]
     public void EnableTransparencyPass_DefaultsToTrue() {
-        Assert.True(_gameScene.EnableTransparencyPass);
+        Assert.True(_gameScene.State.EnableTransparencyPass);
     }
 
     [Fact]
-    public void EnableTransparencyPass_CanBeToggled() {
-        _gameScene.EnableTransparencyPass = false;
-        Assert.False(_gameScene.EnableTransparencyPass);
-        _gameScene.EnableTransparencyPass = true;
-        Assert.True(_gameScene.EnableTransparencyPass);
+    public void ShowDebugShapes_DefaultsToTrue() {
+        Assert.True(_gameScene.State.ShowDebugShapes);
+    }
+
+    [Fact]
+    public void ShowDebugShapes_CanBeToggled() {
+        _gameScene.State.ShowDebugShapes = false;
+        Assert.False(_gameScene.State.ShowDebugShapes);
+        _gameScene.State.ShowDebugShapes = true;
+        Assert.True(_gameScene.State.ShowDebugShapes);
     }
 }

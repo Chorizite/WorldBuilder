@@ -13,6 +13,8 @@ using System.Numerics;
 using System.Reflection;
 using WorldBuilder.Lib.Converters;
 
+using WorldBuilder.Shared.Lib.Settings;
+
 namespace WorldBuilder.Lib.Settings {
     /// <summary>
     /// Generates Avalonia UI controls dynamically from settings metadata
@@ -38,7 +40,8 @@ namespace WorldBuilder.Lib.Settings {
                 { typeof(short), CreateNumericControl },
                 { typeof(byte), CreateNumericControl },
                 { typeof(string), CreateStringControl },
-                { typeof(Vector3), CreateVector3Control }
+                { typeof(Vector3), CreateVector3Control },
+                { typeof(Vector4), CreateVector4Control }
             };
         }
 
@@ -281,6 +284,21 @@ namespace WorldBuilder.Lib.Settings {
             var colorPicker = new Avalonia.Controls.ColorPicker { HorizontalAlignment = HorizontalAlignment.Left };
 
             var converter = new Vector3ToColorConverter();
+            colorPicker.Bind(Avalonia.Controls.ColorPicker.ColorProperty,
+                new Binding {
+                    Source = instance,
+                    Path = bindingPath,
+                    Mode = BindingMode.TwoWay,
+                    Converter = converter
+                });
+            return colorPicker;
+        }
+
+        [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "<Pending>")]
+        private Control? CreateVector4Control(SettingPropertyMetadata metadata, object instance, string bindingPath) {
+            var colorPicker = new Avalonia.Controls.ColorPicker { HorizontalAlignment = HorizontalAlignment.Left };
+
+            var converter = new Vector4ToColorConverter();
             colorPicker.Bind(Avalonia.Controls.ColorPicker.ColorProperty,
                 new Binding {
                     Source = instance,

@@ -1,3 +1,4 @@
+using WorldBuilder.Shared.Services;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System;
@@ -67,7 +68,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var layerId = Guid.NewGuid().ToString();
             var activeLayer = new LandscapeLayer(layerId, true);
 
-            return new LandscapeToolContext(doc, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer);
+            return new LandscapeToolContext(doc, new Mock<IDatReaderWriter>().Object, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer);
         }
     }
 }

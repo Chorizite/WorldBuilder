@@ -1,6 +1,8 @@
 ﻿using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Numerics;
+using WorldBuilder.Shared.Lib;
+using WorldBuilder.Shared.Lib.Settings;
 
 namespace WorldBuilder.Lib.Settings {
     [SettingCategory("Landscape Editor", Order = 1)]
@@ -41,16 +43,30 @@ namespace WorldBuilder.Lib.Settings {
             }
         }
 
+        [SettingHidden]
+        private LandscapeColorsSettings _colors = new();
+        public LandscapeColorsSettings Colors {
+            get => _colors;
+            set {
+                if (_colors != null) _colors.PropertyChanged -= OnSubSettingsPropertyChanged;
+                if (SetProperty(ref _colors, value) && _colors != null) {
+                    _colors.PropertyChanged += OnSubSettingsPropertyChanged;
+                }
+            }
+        }
+
         public LandscapeEditorSettings() {
             if (_camera != null) _camera.PropertyChanged += OnSubSettingsPropertyChanged;
             if (_rendering != null) _rendering.PropertyChanged += OnSubSettingsPropertyChanged;
             if (_grid != null) _grid.PropertyChanged += OnSubSettingsPropertyChanged;
+            if (_colors != null) _colors.PropertyChanged += OnSubSettingsPropertyChanged;
         }
 
         private void OnSubSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
             if (sender == _camera) OnPropertyChanged(nameof(Camera));
             else if (sender == _rendering) OnPropertyChanged(nameof(Rendering));
             else if (sender == _grid) OnPropertyChanged(nameof(Grid));
+            else if (sender == _colors) OnPropertyChanged(nameof(Colors));
         }
     }
 
@@ -60,7 +76,7 @@ namespace WorldBuilder.Lib.Settings {
         [SettingRange(100, 100000, 100, 500)]
         [SettingFormat("{0:F0}")]
         [SettingOrder(0)]
-        private float _maxDrawDistance = 4000f;
+        private float _maxDrawDistance = 40000f;
         public float MaxDrawDistance { get => _maxDrawDistance; set => SetProperty(ref _maxDrawDistance, value); }
 
         [SettingDescription("Camera field of view in degrees")]
@@ -121,17 +137,11 @@ namespace WorldBuilder.Lib.Settings {
         private bool _showUnwalkableSlopes = false;
         public bool ShowUnwalkableSlopes { get => _showUnwalkableSlopes; set => SetProperty(ref _showUnwalkableSlopes, value); }
 
-        [SettingDescription("Number of terrain chunks to render around the camera")]
-        [SettingRange(1, 64, 1, 4)]
-        [SettingOrder(6)]
-        private int _terrainRenderDistance = 18;
-        public int TerrainRenderDistance { get => _terrainRenderDistance; set => SetProperty(ref _terrainRenderDistance, value); }
-
-        [SettingDescription("Number of landblocks to render scenery around the camera")]
+        [SettingDescription("Number of landblocks to render objects (scenery, buildings, etc) around the camera")]
         [SettingRange(1, 64, 1, 4)]
         [SettingOrder(7)]
-        private int _sceneryRenderDistance = 12;
-        public int SceneryRenderDistance { get => _sceneryRenderDistance; set => SetProperty(ref _sceneryRenderDistance, value); }
+        private int _objectRenderDistance = 12;
+        public int ObjectRenderDistance { get => _objectRenderDistance; set => SetProperty(ref _objectRenderDistance, value); }
 
         [SettingDescription("Enable secondary render pass for transparency. Disabling this may improve performance but will cause transparency issues.")]
         [SettingOrder(8)]

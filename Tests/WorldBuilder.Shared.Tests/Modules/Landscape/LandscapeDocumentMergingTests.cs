@@ -106,8 +106,8 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             chunk.EditsDetached = new LandscapeChunkDocument(LandscapeChunkDocument.GetId(_regionId, chunk.ChunkX, chunk.ChunkY));
             _doc.LoadedChunks[chunkId] = chunk;
 
-            // Delete base object (InstanceId 0)
-            _doc.RemoveInstance(layerId, chunkId, 0);
+            // Delete base object (InstanceId 0 | 0x40000000)
+            _doc.RemoveInstance(layerId, chunkId, 0x40000000);
 
             // Act
             var merged = _doc.GetMergedLandblock(landblockId);

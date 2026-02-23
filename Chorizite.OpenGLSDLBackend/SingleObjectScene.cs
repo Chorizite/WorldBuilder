@@ -9,26 +9,23 @@ using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Services;
 
 namespace Chorizite.OpenGLSDLBackend {
-    public class SingleObjectScene : IDisposable {
-        private readonly GL _gl;
-        private readonly OpenGLGraphicsDevice _graphicsDevice;
+    public class SingleObjectScene : BaseObjectRenderManager {
+        private readonly ILoggerFactory _loggerFactory;
         private readonly ILogger _log;
         private readonly IDatReaderWriter _dats;
 
         private Camera3D _camera;
         private IShader? _shader;
-        private ObjectMeshManager _meshManager;
         private readonly bool _ownsMeshManager;
 
         private uint _currentFileId;
         private bool _isSetup;
         private bool _initialized;
 
-        // Instance buffer for the single object
-        private uint _instanceVBO;
         private float _rotation;
         private bool _isAutoCamera = true;
 
@@ -39,7 +36,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public ICamera Camera => _camera;
 
-        public Vector4 BackgroundColor { get; set; } = new Vector4(0.15f, 0.15f, 0.2f, 1.0f);
+        public Vector4 BackgroundColor { get; set; } = new Vector4(0.15f, 0.15f, 0.2f, 1.0f); // Dark Blue-Grey
 
         public bool EnableTransparencyPass { get; set; } = true;
 
@@ -58,13 +55,12 @@ namespace Chorizite.OpenGLSDLBackend {
             }
         }
 
-        public SingleObjectScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILogger log, IDatReaderWriter dats, ObjectMeshManager? meshManager = null) {
-            _gl = gl;
-            _graphicsDevice = graphicsDevice;
-            _log = log;
+        public SingleObjectScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILoggerFactory loggerFactory, IDatReaderWriter dats, ObjectMeshManager? meshManager = null)
+            : base(gl, graphicsDevice, meshManager ?? new ObjectMeshManager(graphicsDevice, dats, loggerFactory.CreateLogger<ObjectMeshManager>())) {
+            _loggerFactory = loggerFactory;
+            _log = loggerFactory.CreateLogger<SingleObjectScene>();
             _dats = dats;
             _ownsMeshManager = meshManager == null;
-            _meshManager = meshManager ?? new ObjectMeshManager(graphicsDevice, dats);
 
             _camera = new Camera3D(new Vector3(0, -5, 2), 0, 0);
             _camera.MoveSpeed = 0.5f;
@@ -75,16 +71,14 @@ namespace Chorizite.OpenGLSDLBackend {
 
             var vertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.StaticObject.vert");
             var fragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.StaticObject.frag");
-            _shader = _graphicsDevice.CreateShader("StaticObject", vertSource, fragSource);
-
-            _gl.GenBuffers(1, out _instanceVBO);
+            _shader = GraphicsDevice.CreateShader("StaticObject", vertSource, fragSource);
 
             // Initialize instance buffer with identity matrix
-            _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVBO);
+            Gl.BindBuffer(GLEnum.ArrayBuffer, InstanceVBO);
             unsafe {
-                _gl.BufferData(GLEnum.ArrayBuffer, (nuint)sizeof(Matrix4x4), (void*)null, GLEnum.DynamicDraw);
+                Gl.BufferData(GLEnum.ArrayBuffer, (nuint)sizeof(Matrix4x4), (void*)null, GLEnum.DynamicDraw);
                 var identity = Matrix4x4.Identity;
-                _gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)sizeof(Matrix4x4), &identity);
+                Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)sizeof(Matrix4x4), &identity);
             }
 
             _initialized = true;
@@ -100,7 +94,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
             try {
                 // Prepare mesh data on background thread
-                var meshData = await _meshManager.PrepareMeshDataAsync(fileId, isSetup, ct);
+                var meshData = await MeshManager.PrepareMeshDataAsync(fileId, isSetup, ct);
                 if (meshData != null && !ct.IsCancellationRequested) {
                     _stagedMeshData.Enqueue(meshData);
 
@@ -108,8 +102,8 @@ namespace Chorizite.OpenGLSDLBackend {
                     if (meshData.IsSetup && meshData.SetupParts.Count > 0) {
                         foreach (var (partId, _) in meshData.SetupParts) {
                             if (ct.IsCancellationRequested) break;
-                            if (!_meshManager.HasRenderData(partId)) {
-                                var partData = await _meshManager.PrepareMeshDataAsync(partId, false, ct);
+                            if (!MeshManager.HasRenderData(partId)) {
+                                var partData = await MeshManager.PrepareMeshDataAsync(partId, false, ct);
                                 if (partData != null) {
                                     _stagedMeshData.Enqueue(partData);
                                 }
@@ -132,13 +126,13 @@ namespace Chorizite.OpenGLSDLBackend {
 
         private void ReleaseCurrentObject() {
             if (_currentFileId != 0) {
-                var data = _meshManager.TryGetRenderData(_currentFileId);
+                var data = MeshManager.TryGetRenderData(_currentFileId);
                 if (data != null && data.IsSetup) {
                     foreach (var (partId, _) in data.SetupParts) {
-                        _meshManager.ReleaseRenderData(partId);
+                        MeshManager.ReleaseRenderData(partId);
                     }
                 }
-                _meshManager.ReleaseRenderData(_currentFileId);
+                MeshManager.ReleaseRenderData(_currentFileId);
                 _currentFileId = 0;
             }
         }
@@ -185,20 +179,20 @@ namespace Chorizite.OpenGLSDLBackend {
 
             // Preserve the current viewport and scissor state
             Span<int> currentViewport = stackalloc int[4];
-            _gl.GetInteger(GetPName.Viewport, currentViewport);
-            bool wasScissorEnabled = _gl.IsEnabled(EnableCap.ScissorTest);
+            Gl.GetInteger(GetPName.Viewport, currentViewport);
+            bool wasScissorEnabled = Gl.IsEnabled(EnableCap.ScissorTest);
 
             try {
-                _gl.Disable(EnableCap.ScissorTest);
-                _gl.Disable(EnableCap.Blend);
-                _gl.Enable(EnableCap.DepthTest);
-                _gl.DepthFunc(DepthFunction.Less);
-                _gl.DepthMask(true);
-                _gl.ClearDepth(1.0f);
-                _gl.Disable(EnableCap.CullFace);
+                Gl.Disable(EnableCap.ScissorTest);
+                Gl.Disable(EnableCap.Blend);
+                Gl.Enable(EnableCap.DepthTest);
+                Gl.DepthFunc(DepthFunction.Less);
+                Gl.DepthMask(true);
+                Gl.ClearDepth(1.0f);
+                Gl.Disable(EnableCap.CullFace);
 
-                _gl.ClearColor(BackgroundColor.X, BackgroundColor.Y, BackgroundColor.Z, BackgroundColor.W);
-                _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+                Gl.ClearColor(BackgroundColor.X, BackgroundColor.Y, BackgroundColor.Z, BackgroundColor.W);
+                Gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
                 // Check if we need to swap objects
                 if (_loadingFileId != 0 && _loadingFileId != _currentFileId) {
@@ -208,7 +202,7 @@ namespace Chorizite.OpenGLSDLBackend {
                     _loadingFileId = 0;
 
                     // If the object is already loaded, center the camera immediately
-                    var existingData = _meshManager.TryGetRenderData(_currentFileId);
+                    var existingData = MeshManager.TryGetRenderData(_currentFileId);
                     if (existingData != null) {
                         CenterCameraOnObject(existingData);
                     }
@@ -216,7 +210,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
                 // Handle staged mesh data
                 while (_stagedMeshData.TryDequeue(out var meshData)) {
-                    var renderData = _meshManager.UploadMeshData(meshData);
+                    var renderData = MeshManager.UploadMeshData(meshData);
 
                     if (renderData != null && meshData.ObjectId == _currentFileId) {
                         CenterCameraOnObject(renderData);
@@ -225,7 +219,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
                 if (_currentFileId == 0) return;
 
-                var data = _meshManager.GetRenderData(_currentFileId);
+                var data = MeshManager.GetRenderData(_currentFileId);
                 if (data == null) {
                     // _log.LogWarning($"No RenderData for 0x{_currentFileId:X8}"); // Spammy
                     return;
@@ -244,58 +238,48 @@ namespace Chorizite.OpenGLSDLBackend {
 
                 // Disable alpha channel writes so we don't punch holes in the window's alpha
                 // where transparent 3D objects are drawn.
-                _gl.ColorMask(true, true, true, false);
+                Gl.ColorMask(true, true, true, false);
 
                 var transform = Matrix4x4.CreateRotationZ(_rotation);
 
                 // Pass 1: Opaque
                 _shader.SetUniform("uRenderPass", EnableTransparencyPass ? 0 : 2);
-                _gl.DepthMask(true);
-                _gl.Enable(EnableCap.Blend);
-                _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                Gl.DepthMask(true);
+                Gl.Enable(EnableCap.Blend);
+                Gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
                 RenderCurrentObject(data, transform);
 
                 // Pass 2: Transparent
                 if (EnableTransparencyPass) {
                     _shader.SetUniform("uRenderPass", 1);
-                    _gl.DepthMask(false);
+                    Gl.DepthMask(false);
                     RenderCurrentObject(data, transform);
                 }
 
-                _gl.DepthMask(true);
+                Gl.DepthMask(true);
             }
             finally {
                 // Restore for Avalonia
-                _gl.ColorMask(true, true, true, true);
-                if (wasScissorEnabled) _gl.Enable(EnableCap.ScissorTest);
-                _gl.Enable(EnableCap.DepthTest);
-                _gl.Enable(EnableCap.Blend);
-                _gl.Viewport(currentViewport[0], currentViewport[1],
+                Gl.ColorMask(true, true, true, true);
+                if (wasScissorEnabled) Gl.Enable(EnableCap.ScissorTest);
+                Gl.Enable(EnableCap.DepthTest);
+                Gl.Enable(EnableCap.Blend);
+                Gl.Viewport(currentViewport[0], currentViewport[1],
                              (uint)currentViewport[2], (uint)currentViewport[3]);
             }
         }
 
         private void RenderCurrentObject(ObjectRenderData data, Matrix4x4 transform) {
-            // Update instance buffer
-            _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVBO);
-            unsafe {
-                _gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)sizeof(Matrix4x4), &transform);
-            }
-
             if (data.IsSetup) {
                 foreach (var part in data.SetupParts) {
-                    var partData = _meshManager.GetRenderData(part.GfxObjId);
+                    var partData = MeshManager.GetRenderData(part.GfxObjId);
                     if (partData != null) {
-                        var finalTransform = part.Transform * transform;
-                        unsafe {
-                            _gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)sizeof(Matrix4x4), &finalTransform);
-                        }
-                        RenderObject(partData);
+                        RenderObjectBatches(_shader!, partData, new List<Matrix4x4> { part.Transform * transform });
                     }
                 }
             }
             else {
-                RenderObject(data);
+                RenderObjectBatches(_shader!, data, new List<Matrix4x4> { transform });
             }
         }
 
@@ -316,62 +300,13 @@ namespace Chorizite.OpenGLSDLBackend {
             }
         }
 
-        private unsafe void RenderObject(ObjectRenderData renderData) {
-            _gl.BindVertexArray(renderData.VAO);
-
-            // Setup instance attributes (locations 3-6)
-            _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVBO);
-            for (uint i = 0; i < 4; i++) {
-                var loc = 3 + i;
-                _gl.EnableVertexAttribArray(loc);
-                _gl.VertexAttribPointer(loc, 4, GLEnum.Float, false, (uint)sizeof(Matrix4x4), (void*)(i * 16));
-                _gl.VertexAttribDivisor(loc, 1);
-            }
-
-            foreach (var batch in renderData.Batches) {
-                SetCullMode(batch.CullMode);
-
-                _gl.DisableVertexAttribArray(7);
-                _gl.VertexAttrib1((uint)7, (float)batch.TextureIndex);
-
-                batch.Atlas.TextureArray.Bind(0);
-                _shader!.SetUniform("uTextureArray", 0);
-
-                _gl.BindBuffer(GLEnum.ElementArrayBuffer, batch.IBO);
-                _gl.DrawElementsInstanced(PrimitiveType.Triangles, (uint)batch.IndexCount, DrawElementsType.UnsignedShort, (void*)0, 1);
-            }
-
-            // Cleanup
-            for (uint i = 0; i < 4; i++) {
-                _gl.DisableVertexAttribArray(3 + i);
-                _gl.VertexAttribDivisor(3 + i, 0);
-            }
-        }
-
-        private void SetCullMode(CullMode mode) {
-            switch (mode) {
-                case CullMode.None:
-                    _gl.Disable(EnableCap.CullFace);
-                    break;
-                case CullMode.Clockwise:
-                    _gl.Enable(EnableCap.CullFace);
-                    _gl.CullFace(GLEnum.Front);
-                    break;
-                case CullMode.CounterClockwise:
-                case CullMode.Landblock:
-                    _gl.Enable(EnableCap.CullFace);
-                    _gl.CullFace(GLEnum.Back);
-                    break;
-            }
-        }
-
-        public void Dispose() {
+        public override void Dispose() {
+            base.Dispose();
             _loadCts?.Cancel();
             _loadCts?.Dispose();
             ReleaseCurrentObject();
-            _gl.DeleteBuffer(_instanceVBO);
             if (_ownsMeshManager) {
-                _meshManager.Dispose();
+                MeshManager.Dispose();
             }
         }
     }

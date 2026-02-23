@@ -220,9 +220,15 @@ namespace WorldBuilder.Services {
             CurrentProjectChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        /// <summary>
-        /// Gets the collection of recently opened projects from the recent projects manager.
-        /// </summary>
-        public System.Collections.ObjectModel.ObservableCollection<RecentProject> RecentProjects => _recentProjectsManager.RecentProjects;
-    }
-}
+                /// <summary>
+                /// Gets the collection of recently opened projects from the recent projects manager.
+                /// </summary>
+                public System.Collections.ObjectModel.ObservableCollection<RecentProject> RecentProjects => _recentProjectsManager.RecentProjects;
+        
+                /// <summary>
+                /// Gets a task that completes when the recent projects have been loaded.
+                /// </summary>
+                public Task InitializationTask => _recentProjectsManager.InitializationTask;
+            }
+        }
+        

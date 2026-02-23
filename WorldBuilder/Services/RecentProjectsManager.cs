@@ -15,6 +15,12 @@ namespace WorldBuilder.Services {
     public class RecentProjectsManager {
         private readonly ILogger<RecentProjectsManager> _log;
         private readonly WorldBuilderSettings _settings;
+        private readonly TaskCompletionSource<bool> _loadTask = new();
+
+        /// <summary>
+        /// Gets a task that completes when the recent projects have been loaded.
+        /// </summary>
+        public Task InitializationTask => _loadTask.Task;
 
         /// <summary>
         /// Gets the collection of recently opened projects.
@@ -98,8 +104,10 @@ namespace WorldBuilder.Services {
         /// </summary>
         private async Task LoadRecentProjects() {
             try {
-                if (!File.Exists(RecentProjectsFilePath))
+                if (!File.Exists(RecentProjectsFilePath)) {
+                    _loadTask.TrySetResult(true);
                     return;
+                }
 
                 var json = await File.ReadAllTextAsync(RecentProjectsFilePath);
                 var projects = JsonSerializer.Deserialize<System.Collections.Generic.List<RecentProject>>(json, SourceGenerationContext.Default.ListRecentProject);
@@ -118,6 +126,9 @@ namespace WorldBuilder.Services {
             catch (Exception ex) {
                 _log.LogError(ex, "Failed to load recent projects");
                 RecentProjects.Clear();
+            }
+            finally {
+                _loadTask.TrySetResult(true);
             }
         }
 

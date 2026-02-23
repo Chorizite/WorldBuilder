@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:WorldBuilder.Views"
+             x:Class="WorldBuilder.Views.Components.DataIdControl"
+             x:Name="Root">
+    <StackPanel Orientation="Horizontal" Spacing="5" Background="Transparent">
+        <ToolTip.Tip>
+            <Border Width="300" Height="300">
+                <views:DataIdPreview DataId="{Binding DataId, ElementName=Root}" Dats="{Binding Dats, ElementName=Root}" IsTooltip="True" />
+            </Border>
+        </ToolTip.Tip>
+        <TextBlock Text="{Binding DataId, ElementName=Root, StringFormat='0x{0:X8}'}" VerticalAlignment="Center" FontFamily="Cascadia Code,Consolas,Monospace" />
+        <Border Background="{DynamicResource SemiColorFill1}" CornerRadius="4" Padding="4,1" VerticalAlignment="Center" IsVisible="{Binding DbType, ElementName=Root, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <TextBlock Text="{Binding DbType, ElementName=Root}" FontSize="10" Foreground="{DynamicResource SemiColorText0}" VerticalAlignment="Center"/>
+        </Border>
+        <Button Command="{Binding OpenInNewWindowCommand, ElementName=Root}" 
+                ToolTip.Tip="Open in new window" 
+                Padding="4,2" 
+                Background="Transparent" 
+                BorderThickness="0"
+                VerticalAlignment="Center">
+            <TextBlock Text="↗" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource SemiColorPrimary}"/>
+        </Button>
+    </StackPanel>
+</UserControl>

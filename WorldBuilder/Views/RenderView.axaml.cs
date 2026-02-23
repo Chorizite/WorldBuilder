@@ -5,6 +5,7 @@ using Chorizite.OpenGLSDLBackend;
 using DatReaderWriter;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Silk.NET.OpenGL;
 using System;
 using System.ComponentModel;
@@ -26,8 +27,8 @@ public partial class RenderView : Base3DViewport {
     private GameScene? _gameScene;
     private Vector2 _lastPointerPosition;
     private LandscapeDocument? _cachedLandscapeDocument;
-    private CameraSettings? _cameraSettings;
-    private RenderingSettings? _renderingSettings;
+    private EditorState? _cachedEditorState;
+    private bool _cachedIs3DCamera = true;
 
     public WorldBuilder.Shared.Models.ICamera? Camera => _gameScene?.Camera;
 
@@ -36,6 +37,8 @@ public partial class RenderView : Base3DViewport {
     // Pending landscape update to be processed on the render thread
     private LandscapeDocument? _pendingLandscapeDocument;
     private WorldBuilder.Shared.Services.IDatReaderWriter? _pendingDatReader;
+    private EditorState? _pendingEditorState;
+    private bool? _pendingIs3DCamera;
 
     // Static shared context manager for all RenderViews
     private static SharedOpenGLContextManager? _sharedContextManager;
@@ -58,42 +61,22 @@ public partial class RenderView : Base3DViewport {
     }
 
     protected override void OnGlDestroy() {
-        if (_settings != null) {
-            _settings.PropertyChanged -= OnSettingsPropertyChanged;
-            _settings.Landscape.PropertyChanged -= OnLandscapeSettingsPropertyChanged;
-        }
-        if (_cameraSettings != null) {
-            _cameraSettings.PropertyChanged -= OnCameraSettingsChanged;
-            _cameraSettings = null;
-        }
-        if (_renderingSettings != null) {
-            _renderingSettings.PropertyChanged -= OnRenderingSettingsChanged;
-            _renderingSettings = null;
-        }
-        if (_gridSettings != null) {
-            _gridSettings.PropertyChanged -= OnGridSettingsChanged;
-            _gridSettings = null;
-        }
         _gameScene?.Dispose();
         _gameScene = null;
     }
-
-    private WorldBuilderSettings? _settings;
 
     protected override void OnGlInit(GL gl, PixelSize canvasSize) {
         GL = gl;
 
         if (Renderer != null) {
-            var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>();
-            var log = loggerFactory?.CreateLogger("GameScene") ?? new ColorConsoleLogger("GameScene", () => new ColorConsoleLoggerConfiguration());
-            _gameScene = new GameScene(gl, Renderer.GraphicsDevice, log);
+            var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>() ?? LoggerFactory.Create(builder => {
+                builder.AddProvider(new ColorConsoleLoggerProvider());
+                builder.SetMinimumLevel(LogLevel.Debug);
+            });
+            _gameScene = new GameScene(gl, Renderer.GraphicsDevice, loggerFactory);
 
-            _settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
-            if (_settings != null) {
-                _settings.PropertyChanged += OnSettingsPropertyChanged;
-                _settings.Landscape.PropertyChanged += OnLandscapeSettingsPropertyChanged;
-
-                UpdateSettingsRefs();
+            if (_cachedEditorState != null) {
+                _gameScene.State = _cachedEditorState;
             }
 
             _gameScene.Initialize();
@@ -104,17 +87,6 @@ public partial class RenderView : Base3DViewport {
                     Is3DCamera = is3d;
                 });
             };
-
-            _gameScene.OnMoveSpeedChanged += (speed) => {
-                Dispatcher.UIThread.Post(() => {
-                    if (_cameraSettings != null) {
-                        _cameraSettings.MovementSpeed = speed;
-                    }
-                });
-            };
-
-            // Initial grid update
-            UpdateGridSettings();
 
             // Use the cached values directly since they were stored when the properties changed
             if (_cachedLandscapeDocument != null && _pendingDatReader != null) {
@@ -134,133 +106,10 @@ public partial class RenderView : Base3DViewport {
         }
     }
 
-    private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e) {
-        if (e.PropertyName == nameof(WorldBuilderSettings.Landscape)) {
-            if (_settings != null) {
-                _settings.Landscape.PropertyChanged -= OnLandscapeSettingsPropertyChanged;
-                _settings.Landscape.PropertyChanged += OnLandscapeSettingsPropertyChanged;
-                UpdateSettingsRefs();
-            }
-        }
-    }
-
-    private void OnLandscapeSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e) {
-        if (e.PropertyName == nameof(LandscapeEditorSettings.Camera) || e.PropertyName == nameof(LandscapeEditorSettings.Grid) || e.PropertyName == nameof(LandscapeEditorSettings.Rendering)) {
-            UpdateSettingsRefs();
-        }
-    }
-
-    private void UpdateSettingsRefs() {
-        if (_settings == null || _gameScene == null) return;
-
-        if (_cameraSettings != null) {
-            _cameraSettings.PropertyChanged -= OnCameraSettingsChanged;
-        }
-        _cameraSettings = _settings.Landscape.Camera;
-        _cameraSettings.PropertyChanged += OnCameraSettingsChanged;
-        _gameScene.SetDrawDistance(_cameraSettings.MaxDrawDistance);
-        _gameScene.SetMovementSpeed(_cameraSettings.MovementSpeed);
-        _gameScene.SetFieldOfView(_cameraSettings.FieldOfView);
-        _gameScene.SetMouseSensitivity(_cameraSettings.MouseSensitivity);
-
-        if (_renderingSettings != null) {
-            _renderingSettings.PropertyChanged -= OnRenderingSettingsChanged;
-        }
-        _renderingSettings = _settings.Landscape.Rendering;
-        _renderingSettings.PropertyChanged += OnRenderingSettingsChanged;
-        _gameScene.SetTerrainRenderDistance(_renderingSettings.TerrainRenderDistance);
-        _gameScene.SetSceneryRenderDistance(_renderingSettings.SceneryRenderDistance);
-        _gameScene.SetLightIntensity(_renderingSettings.LightIntensity);
-        _gameScene.ShowScenery = _renderingSettings.ShowScenery;
-        _gameScene.ShowStaticObjects = _renderingSettings.ShowStaticObjects;
-        _gameScene.ShowSkybox = _renderingSettings.ShowSkybox;
-        _gameScene.ShowUnwalkableSlopes = _renderingSettings.ShowUnwalkableSlopes;
-        _gameScene.EnableTransparencyPass = _renderingSettings.EnableTransparencyPass;
-
-        if (_gridSettings != null) {
-            _gridSettings.PropertyChanged -= OnGridSettingsChanged;
-        }
-        _gridSettings = _settings.Landscape.Grid;
-        _gridSettings.PropertyChanged += OnGridSettingsChanged;
-        UpdateGridSettings();
-    }
-
     protected override void OnDataContextChanged(EventArgs e) {
         base.OnDataContextChanged(e);
         if (DataContext is LandscapeViewModel vm && _gameScene != null) {
             vm.SetGameScene(_gameScene);
-        }
-    }
-
-    private void OnCameraSettingsChanged(object? sender, PropertyChangedEventArgs e) {
-        if (_gameScene == null || _cameraSettings == null) return;
-
-        if (e.PropertyName == nameof(CameraSettings.MaxDrawDistance)) {
-            _gameScene.SetDrawDistance(_cameraSettings.MaxDrawDistance);
-        }
-        else if (e.PropertyName == nameof(CameraSettings.MovementSpeed)) {
-            _gameScene.SetMovementSpeed(_cameraSettings.MovementSpeed);
-        }
-        else if (e.PropertyName == nameof(CameraSettings.FieldOfView)) {
-            _gameScene.SetFieldOfView(_cameraSettings.FieldOfView);
-        }
-        else if (e.PropertyName == nameof(CameraSettings.MouseSensitivity)) {
-            _gameScene.SetMouseSensitivity(_cameraSettings.MouseSensitivity);
-        }
-    }
-
-    private void OnRenderingSettingsChanged(object? sender, PropertyChangedEventArgs e) {
-        if (_gameScene == null || _renderingSettings == null) return;
-
-        if (e.PropertyName == nameof(RenderingSettings.TerrainRenderDistance)) {
-            _gameScene.SetTerrainRenderDistance(_renderingSettings.TerrainRenderDistance);
-        }
-        else if (e.PropertyName == nameof(RenderingSettings.SceneryRenderDistance)) {
-            _gameScene.SetSceneryRenderDistance(_renderingSettings.SceneryRenderDistance);
-        }
-        else if (e.PropertyName == nameof(RenderingSettings.LightIntensity)) {
-            _gameScene.SetLightIntensity(_renderingSettings.LightIntensity);
-        }
-        else if (e.PropertyName == nameof(RenderingSettings.ShowScenery)) {
-            _gameScene.ShowScenery = _renderingSettings.ShowScenery;
-        }
-        else if (e.PropertyName == nameof(RenderingSettings.ShowStaticObjects)) {
-            _gameScene.ShowStaticObjects = _renderingSettings.ShowStaticObjects;
-        }
-        else if (e.PropertyName == nameof(RenderingSettings.ShowSkybox)) {
-            _gameScene.ShowSkybox = _renderingSettings.ShowSkybox;
-        }
-        else if (e.PropertyName == nameof(RenderingSettings.ShowUnwalkableSlopes)) {
-            _gameScene.ShowUnwalkableSlopes = _renderingSettings.ShowUnwalkableSlopes;
-        }
-        else if (e.PropertyName == nameof(RenderingSettings.TimeOfDay)) {
-            _gameScene.SetTimeOfDay(_renderingSettings.TimeOfDay);
-        }
-        else if (e.PropertyName == nameof(RenderingSettings.EnableTransparencyPass)) {
-            _gameScene.EnableTransparencyPass = _renderingSettings.EnableTransparencyPass;
-        }
-    }
-
-    private GridSettings? _gridSettings;
-
-    private void OnGridSettingsChanged(object? sender, PropertyChangedEventArgs e) {
-        UpdateGridSettings();
-    }
-
-    private void UpdateGridSettings() {
-        if (_gameScene != null && _gridSettings != null) {
-            _gameScene.SetGridSettings(
-                _gridSettings.ShowGrid,
-                _gridSettings.ShowGrid,
-                _gridSettings.LandblockColor,
-                _gridSettings.CellColor,
-                _gridSettings.LineWidth,
-                _gridSettings.Opacity
-            );
-        }
-        else if (_gameScene != null) {
-            // Default if settings missing
-            _gameScene.SetGridSettings(true, true, new Vector3(1, 0, 1), new Vector3(0, 1, 1), 1f, 0.4f);
         }
     }
 
@@ -357,9 +206,19 @@ public partial class RenderView : Base3DViewport {
             var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
             var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _pendingDatReader);
 
-            _gameScene.SetLandscape(_pendingLandscapeDocument, _pendingDatReader, documentManager!, meshManager, centerCamera: true);
+            _gameScene.SetLandscape(_pendingLandscapeDocument, _pendingDatReader, documentManager!, meshManager, centerCamera: false);
             _pendingLandscapeDocument = null;
             _pendingDatReader = null;
+        }
+
+        if (_pendingEditorState != null && _gameScene != null) {
+            _gameScene.State = _pendingEditorState;
+            _pendingEditorState = null;
+        }
+
+        if (_pendingIs3DCamera.HasValue && _gameScene != null) {
+            _gameScene.SetCameraMode(_pendingIs3DCamera.Value);
+            _pendingIs3DCamera = null;
         }
 
         if (_gameScene is null) {
@@ -427,28 +286,12 @@ public partial class RenderView : Base3DViewport {
         set => SetValue(ShowBrushProperty, value);
     }
 
-    public static readonly StyledProperty<bool> ShowSceneryProperty =
-        AvaloniaProperty.Register<RenderView, bool>(nameof(ShowScenery), defaultValue: true);
+    public static readonly StyledProperty<EditorState?> EditorStateProperty =
+        AvaloniaProperty.Register<RenderView, EditorState?>(nameof(EditorState));
 
-    public bool ShowScenery {
-        get => GetValue(ShowSceneryProperty);
-        set => SetValue(ShowSceneryProperty, value);
-    }
-
-    public static readonly StyledProperty<bool> ShowStaticObjectsProperty =
-        AvaloniaProperty.Register<RenderView, bool>(nameof(ShowStaticObjects), defaultValue: true);
-
-    public bool ShowStaticObjects {
-        get => GetValue(ShowStaticObjectsProperty);
-        set => SetValue(ShowStaticObjectsProperty, value);
-    }
-
-    public static readonly StyledProperty<bool> ShowSkyboxProperty =
-        AvaloniaProperty.Register<RenderView, bool>(nameof(ShowSkybox), defaultValue: true);
-
-    public bool ShowSkybox {
-        get => GetValue(ShowSkyboxProperty);
-        set => SetValue(ShowSkyboxProperty, value);
+    public EditorState? EditorState {
+        get => GetValue(EditorStateProperty);
+        set => SetValue(EditorStateProperty, value);
     }
 
     public static readonly StyledProperty<bool> Is3DCameraProperty =
@@ -457,22 +300,6 @@ public partial class RenderView : Base3DViewport {
     public bool Is3DCamera {
         get => GetValue(Is3DCameraProperty);
         set => SetValue(Is3DCameraProperty, value);
-    }
-
-    public static readonly StyledProperty<bool> ShowUnwalkableSlopesProperty =
-        AvaloniaProperty.Register<RenderView, bool>(nameof(ShowUnwalkableSlopes));
-
-    public bool ShowUnwalkableSlopes {
-        get => GetValue(ShowUnwalkableSlopesProperty);
-        set => SetValue(ShowUnwalkableSlopesProperty, value);
-    }
-
-    public static readonly StyledProperty<float> TimeOfDayProperty =
-        AvaloniaProperty.Register<RenderView, float>(nameof(TimeOfDay), defaultValue: 0.5f);
-
-    public float TimeOfDay {
-        get => GetValue(TimeOfDayProperty);
-        set => SetValue(TimeOfDayProperty, value);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
@@ -492,39 +319,20 @@ public partial class RenderView : Base3DViewport {
         else if (change.Property == BrushPositionProperty ||
                  change.Property == BrushRadiusProperty ||
                  change.Property == ShowBrushProperty) {
-            _gameScene?.SetBrush(BrushPosition, BrushRadius, new Vector4(0, 1, 0, 0.4f), ShowBrush);
+            _gameScene?.SetBrush(BrushPosition, BrushRadius, LandscapeColorsSettings.Instance.Brush, ShowBrush);
         }
-        else if (change.Property == ShowSceneryProperty) {
-            if (_gameScene != null) {
-                _gameScene.ShowScenery = ShowScenery;
-            }
-        }
-        else if (change.Property == ShowStaticObjectsProperty) {
-            if (_gameScene != null) {
-                _gameScene.ShowStaticObjects = ShowStaticObjects;
-            }
-        }
-        else if (change.Property == ShowSkyboxProperty) {
-            if (_gameScene != null) {
-                _gameScene.ShowSkybox = ShowSkybox;
-            }
-        }
-        else if (change.Property == ShowUnwalkableSlopesProperty) {
-            if (_gameScene != null) {
-                _gameScene.ShowUnwalkableSlopes = ShowUnwalkableSlopes;
-            }
-        }
-        else if (change.Property == TimeOfDayProperty) {
-            _gameScene?.SetTimeOfDay(TimeOfDay);
+        else if (change.Property == EditorStateProperty) {
+            _cachedEditorState = EditorState;
+            _pendingEditorState = _cachedEditorState;
         }
         else if (change.Property == Is3DCameraProperty) {
-            _gameScene?.SetCameraMode(Is3DCamera);
+            _cachedIs3DCamera = Is3DCamera;
+            _pendingIs3DCamera = _cachedIs3DCamera;
         }
     }
 
     protected override void OnGlResize(PixelSize canvasSize) {
         _gameScene?.Resize(canvasSize.Width, canvasSize.Height);
-        UpdateGridSettings();
     }
 
     public void InvalidateLandblock(int x, int y) {
