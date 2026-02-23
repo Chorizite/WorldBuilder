@@ -117,29 +117,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         private (Vector3 Origin, Vector3 Direction) GetRay(ViewportInputEvent e, ICamera camera) {
-            // Convert to NDC
-            double ndcX = 2.0 * e.Position.X / e.ViewportSize.X - 1.0;
-            double ndcY = 1.0 - 2.0 * e.Position.Y / e.ViewportSize.Y;
-
-            // Create ray in world space
-            WorldBuilder.Shared.Numerics.Matrix4x4d projection = new WorldBuilder.Shared.Numerics.Matrix4x4d(camera.ProjectionMatrix);
-            WorldBuilder.Shared.Numerics.Matrix4x4d view = new WorldBuilder.Shared.Numerics.Matrix4x4d(camera.ViewMatrix);
-            WorldBuilder.Shared.Numerics.Matrix4x4d viewProjection = view * projection;
-
-            if (!WorldBuilder.Shared.Numerics.Matrix4x4d.Invert(viewProjection, out WorldBuilder.Shared.Numerics.Matrix4x4d viewProjectionInverse)) {
-                return (Vector3.Zero, Vector3.UnitZ);
-            }
-
-            WorldBuilder.Shared.Numerics.Vector4d nearPoint = new WorldBuilder.Shared.Numerics.Vector4d(ndcX, ndcY, -1.0, 1.0);
-            WorldBuilder.Shared.Numerics.Vector4d farPoint = new WorldBuilder.Shared.Numerics.Vector4d(ndcX, ndcY, 1.0, 1.0);
-
-            WorldBuilder.Shared.Numerics.Vector3d nearWorld = WorldBuilder.Shared.Numerics.Vector3d.Transform(nearPoint, viewProjectionInverse);
-            WorldBuilder.Shared.Numerics.Vector3d farWorld = WorldBuilder.Shared.Numerics.Vector3d.Transform(farPoint, viewProjectionInverse);
-
-            var rayOrigin = new Vector3((float)nearWorld.X, (float)nearWorld.Y, (float)nearWorld.Z);
-            var rayDirection = Vector3.Normalize(new Vector3((float)(farWorld.X - nearWorld.X), (float)(farWorld.Y - nearWorld.Y), (float)(farWorld.Z - nearWorld.Z)));
+            var ray = WorldBuilder.Shared.Numerics.RaycastingUtils.GetRayFromScreen(
+                camera, 
+                e.Position.X, 
+                e.Position.Y, 
+                e.ViewportSize.X, 
+                e.ViewportSize.Y);
             
-            return (rayOrigin, rayDirection);
+            return (ray.Origin.ToVector3(), ray.Direction.ToVector3());
         }
 
         public bool OnPointerReleased(ViewportInputEvent e) {

@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Shared.Numerics;
 using WorldBuilder.Shared.Services;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
@@ -56,8 +57,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         // Prepared mesh data waiting for GPU upload (thread-safe buffer between background and main thread)
         private readonly ConcurrentDictionary<uint, ObjectMeshData> _preparedMeshes = new();
-
-        public InspectorTool? InspectorTool { get; set; }
 
         private readonly ConcurrentDictionary<ushort, TaskCompletionSource> _instanceReadyTcs = new();
         private readonly object _tcsLock = new();
@@ -166,7 +165,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                         // Broad phase: Bounding Box
                         if (instance.BoundingBox.Max != instance.BoundingBox.Min) {
-                            if (!ObjectMeshManager.RayIntersectsBox(rayOrigin, rayDirection, instance.BoundingBox, out _)) {
+                            if (!GeometryUtils.RayIntersectsBox(rayOrigin, rayDirection, instance.BoundingBox.Min, instance.BoundingBox.Max, out _)) {
                                 continue;
                             }
                         }
@@ -503,16 +502,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _gl.BindVertexArray(0);
         }
 
-        public void SubmitDebugShapes(DebugRenderer? debug) {
-            if (debug == null || _landscapeDoc.Region == null || InspectorTool == null || !InspectorTool.ShowBoundingBoxes) return;
+        public void SubmitDebugShapes(DebugRenderer? debug, DebugRenderSettings settings) {
+            if (debug == null || _landscapeDoc.Region == null || !settings.ShowBoundingBoxes) return;
 
             foreach (var lb in _landblocks.Values) {
                 if (!lb.InstancesReady || !IsWithinRenderDistance(lb)) continue;
                 if (GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) continue;
 
                 foreach (var instance in lb.Instances) {
-                    if (instance.IsBuilding && !InspectorTool.SelectBuildings) continue;
-                    if (!instance.IsBuilding && !InspectorTool.SelectStaticObjects) continue;
+                    if (instance.IsBuilding && !settings.SelectBuildings) continue;
+                    if (!instance.IsBuilding && !settings.SelectStaticObjects) continue;
 
                     // Skip if instance is outside frustum
                     if (!_frustum.Intersects(instance.BoundingBox)) continue;
@@ -523,8 +522,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     Vector4 color;
                     if (isSelected) color = new Vector4(1.0f, 0.5f, 0.0f, 1.0f); // Bright Orange
                     else if (isHovered) color = new Vector4(1.0f, 1.0f, 0.0f, 1.0f); // Bright Yellow
-                    else if (instance.IsBuilding) color = InspectorTool.BuildingColor;
-                    else color = InspectorTool.StaticObjectColor;
+                    else if (instance.IsBuilding) color = settings.BuildingColor;
+                    else color = settings.StaticObjectColor;
 
                     debug.DrawBox(instance.LocalBoundingBox, instance.Transform, color);
                 }

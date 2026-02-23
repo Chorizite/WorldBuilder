@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Shared.Numerics;
 using WorldBuilder.Shared.Services;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
@@ -47,7 +48,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Prepared mesh data waiting for GPU upload (thread-safe buffer between background and main thread)
         private readonly ConcurrentDictionary<uint, ObjectMeshData> _preparedMeshes = new();
 
-        public InspectorTool? InspectorTool { get; set; }
         public SelectedStaticObject? HoveredInstance { get; set; }
         public SelectedStaticObject? SelectedInstance { get; set; }
 
@@ -427,17 +427,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _gl.BindVertexArray(0);
         }
 
-        public void InvalidateLandblock(int lbX, int lbY) {
-            if (lbX < 0 || lbY < 0) return;
-            var key = PackKey(lbX, lbY);
-            if (_landblocks.TryGetValue(key, out var lb)) {
-                lb.MeshDataReady = false;
-                _pendingGeneration[key] = lb;
-            }
-        }
-
-        public void SubmitDebugShapes(DebugRenderer? debug) {
-            if (debug == null || _landscapeDoc.Region == null || InspectorTool == null || !InspectorTool.ShowBoundingBoxes || !InspectorTool.SelectScenery) return;
+        public void SubmitDebugShapes(DebugRenderer? debug, DebugRenderSettings settings) {
+            if (debug == null || _landscapeDoc.Region == null || !settings.ShowBoundingBoxes || !settings.SelectScenery) return;
 
             foreach (var lb in _landblocks.Values) {
                 if (!lb.GpuReady || !IsWithinRenderDistance(lb)) continue;
@@ -453,7 +444,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     Vector4 color;
                     if (isSelected) color = new Vector4(1.0f, 0.5f, 0.0f, 1.0f); // Bright Orange
                     else if (isHovered) color = new Vector4(1.0f, 1.0f, 0.0f, 1.0f); // Bright Yellow
-                    else color = InspectorTool.SceneryColor;
+                    else color = settings.SceneryColor;
 
                     debug.DrawBox(instance.LocalBoundingBox, instance.Transform, color);
                 }
@@ -472,7 +463,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         if (renderData == null) continue;
 
                         // Broad phase: Bounding Box
-                        if (!ObjectMeshManager.RayIntersectsBox(origin, direction, inst.BoundingBox, out _)) {
+                        if (!GeometryUtils.RayIntersectsBox(origin, direction, inst.BoundingBox.Min, inst.BoundingBox.Max, out _)) {
                             continue;
                         }
 
@@ -521,6 +512,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 else {
                     RenderObjectBatches(renderData, new List<Matrix4x4> { instance.Transform });
                 }
+            }
+        }
+
+        public void InvalidateLandblock(int lbX, int lbY) {
+            if (lbX < 0 || lbY < 0) return;
+            var key = PackKey(lbX, lbY);
+            if (_landblocks.TryGetValue(key, out var lb)) {
+                lb.MeshDataReady = false;
+                _pendingGeneration[key] = lb;
             }
         }
 

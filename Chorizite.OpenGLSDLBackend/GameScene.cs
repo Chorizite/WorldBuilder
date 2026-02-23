@@ -553,14 +553,8 @@ public class GameScene : IDisposable {
         }
     }
 
-    public void SetInspectorTool(InspectorTool? tool) {
+        public void SetInspectorTool(InspectorTool? tool) {
         _inspectorTool = tool;
-        if (_staticObjectManager != null) {
-            _staticObjectManager.InspectorTool = tool;
-        }
-        if (_sceneryManager != null) {
-            _sceneryManager.InspectorTool = tool;
-        }
     }
 
     private void DrawVertexDebug(int vx, int vy, Vector4 color) {
@@ -738,8 +732,18 @@ public class GameScene : IDisposable {
         }
 
         if (ShowDebugShapes) {
-            _sceneryManager?.SubmitDebugShapes(_debugRenderer);
-            _staticObjectManager?.SubmitDebugShapes(_debugRenderer);
+            var debugSettings = new DebugRenderSettings();
+            if (_inspectorTool != null) {
+                debugSettings.ShowBoundingBoxes = _inspectorTool.ShowBoundingBoxes;
+                debugSettings.SelectVertices = _inspectorTool.SelectVertices;
+                debugSettings.SelectBuildings = _inspectorTool.SelectBuildings;
+                debugSettings.SelectStaticObjects = _inspectorTool.SelectStaticObjects;
+                debugSettings.SelectScenery = _inspectorTool.SelectScenery;
+                // debugSettings.VertexColor = _inspectorTool.VertexColor; // Assuming these are still properties on InspectorTool
+            }
+
+            _sceneryManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
+            _staticObjectManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
 
             if (_inspectorTool == null || (_inspectorTool.ShowBoundingBoxes && _inspectorTool.SelectVertices)) {
                 if (_hoveredVertex.HasValue) {

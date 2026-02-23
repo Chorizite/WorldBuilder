@@ -27,31 +27,9 @@ namespace WorldBuilder.Shared.Modules.Landscape {
 
             if (region == null) return hit;
 
-            // Convert to NDC - use Double
-            double ndcX = 2.0 * mouseX / viewportWidth - 1.0;
-            double ndcY = 1.0 - 2.0 * mouseY / viewportHeight;
+            var ray = RaycastingUtils.GetRayFromScreen(camera, mouseX, mouseY, viewportWidth, viewportHeight);
 
-            // Create ray in world space using Double Precision Matrices
-            Matrix4x4d projection = new Matrix4x4d(camera.ProjectionMatrix);
-            Matrix4x4d view = new Matrix4x4d(camera.ViewMatrix);
-
-            // Perform unprojection using double precision to maintain accuracy at large distances from origin.
-            Matrix4x4d viewProjection = view * projection;
-
-            if (!Matrix4x4d.Invert(viewProjection, out Matrix4x4d viewProjectionInverse)) {
-                return hit;
-            }
-
-            Vector4d nearPoint = new Vector4d(ndcX, ndcY, -1.0, 1.0);
-            Vector4d farPoint = new Vector4d(ndcX, ndcY, 1.0, 1.0);
-
-            Vector3d nearWorld = Vector3d.Transform(nearPoint, viewProjectionInverse);
-            Vector3d farWorld = Vector3d.Transform(farPoint, viewProjectionInverse);
-
-            Vector3d rayOrigin = new Vector3d(nearWorld.X, nearWorld.Y, nearWorld.Z);
-            Vector3d rayDirection = Vector3d.Normalize(farWorld - rayOrigin);
-
-            return TraverseLandblocks(rayOrigin, rayDirection, region, doc, logger);
+            return TraverseLandblocks(ray.Origin, ray.Direction, region, doc, logger);
         }
 
         private static TerrainRaycastHit TraverseLandblocks(
@@ -138,12 +116,11 @@ namespace WorldBuilder.Shared.Modules.Landscape {
             double baseLandblockX = landblockX * landblockSize + region.MapOffset.X;
             double baseLandblockY = landblockY * landblockSize + region.MapOffset.Y;
 
-            BoundingBoxd landblockBounds = new BoundingBoxd(
-                new Vector3d(baseLandblockX, baseLandblockY, -2000.0),
-                new Vector3d(baseLandblockX + landblockSize, baseLandblockY + landblockSize, 2000.0)
-            );
+            // Using double-precision logic
+            Vector3d min = new Vector3d(baseLandblockX, baseLandblockY, -2000.0);
+            Vector3d max = new Vector3d(baseLandblockX + landblockSize, baseLandblockY + landblockSize, 2000.0);
 
-            if (!RayIntersectsBox(rayOrigin, rayDirection, landblockBounds, out double tMin, out double tMax)) {
+            if (!GeometryUtils.RayIntersectsBox(rayOrigin, rayDirection, min, max, out double tMin, out double tMax)) {
                 return hit;
             }
 
@@ -161,7 +138,7 @@ namespace WorldBuilder.Shared.Modules.Landscape {
                     region, doc);
 
                 BoundingBoxd cellBounds = CalculateCellBounds(vertices);
-                if (!RayIntersectsBox(rayOrigin, rayDirection, cellBounds, out double cellTMin, out double cellTMax)) {
+                if (!GeometryUtils.RayIntersectsBox(rayOrigin, rayDirection, cellBounds.Min, cellBounds.Max, out double cellTMin, out double cellTMax)) {
                     continue;
                 }
 
@@ -186,7 +163,7 @@ namespace WorldBuilder.Shared.Modules.Landscape {
                     triangle2 = new[] { vertices[0], vertices[2], vertices[3] };
                 }
 
-                if (RayIntersectsTriangle(rayOrigin, rayDirection, triangle1, out double t1, out Vector3d p1) && t1 < closestDistance) {
+                if (GeometryUtils.RayIntersectsTriangle(rayOrigin, rayDirection, triangle1[0], triangle1[1], triangle1[2], out double t1, out Vector3d p1) && t1 < closestDistance) {
                     closestDistance = t1;
                     hitPosition = p1;
                     hitCellX = cellX;
@@ -194,7 +171,7 @@ namespace WorldBuilder.Shared.Modules.Landscape {
                     hit.Hit = true;
                 }
 
-                if (RayIntersectsTriangle(rayOrigin, rayDirection, triangle2, out double t2, out Vector3d p2) && t2 < closestDistance) {
+                if (GeometryUtils.RayIntersectsTriangle(rayOrigin, rayDirection, triangle2[0], triangle2[1], triangle2[2], out double t2, out Vector3d p2) && t2 < closestDistance) {
                     closestDistance = t2;
                     hitPosition = p2;
                     hitCellX = cellX;
@@ -303,93 +280,7 @@ namespace WorldBuilder.Shared.Modules.Landscape {
             return new BoundingBoxd(min, max);
         }
 
-        private static bool RayIntersectsBox(Vector3d origin, Vector3d direction, BoundingBoxd box, out double tMin, out double tMax) {
-            tMin = 0.0;
-            tMax = double.MaxValue;
-            Vector3d min = box.Min;
-            Vector3d max = box.Max;
-
-            if (Math.Abs(direction.X) < 1e-12) {
-                if (origin.X < min.X || origin.X > max.X) return false;
-            }
-            else {
-                double invD = 1.0 / direction.X;
-                double t0 = (min.X - origin.X) * invD;
-                double t1 = (max.X - origin.X) * invD;
-                if (t0 > t1) { double temp = t0; t0 = t1; t1 = temp; }
-                tMin = Math.Max(tMin, t0);
-                tMax = Math.Min(tMax, t1);
-                if (tMin > tMax) return false;
-            }
-
-            if (Math.Abs(direction.Y) < 1e-12) {
-                if (origin.Y < min.Y || origin.Y > max.Y) return false;
-            }
-            else {
-                double invD = 1.0 / direction.Y;
-                double t0 = (min.Y - origin.Y) * invD;
-                double t1 = (max.Y - origin.Y) * invD;
-                if (t0 > t1) { double temp = t0; t0 = t1; t1 = temp; }
-                tMin = Math.Max(tMin, t0);
-                tMax = Math.Min(tMax, t1);
-                if (tMin > tMax) return false;
-            }
-
-            if (Math.Abs(direction.Z) < 1e-12) {
-                if (origin.Z < min.Z || origin.Z > max.Z) return false;
-            }
-            else {
-                double invD = 1.0 / direction.Z;
-                double t0 = (min.Z - origin.Z) * invD;
-                double t1 = (max.Z - origin.Z) * invD;
-                if (t0 > t1) { double temp = t0; t0 = t1; t1 = temp; }
-                tMin = Math.Max(tMin, t0);
-                tMax = Math.Min(tMax, t1);
-                if (tMin > tMax) return false;
-            }
-
-            return true;
-        }
-
-        private static bool RayIntersectsTriangle(Vector3d origin, Vector3d direction, Vector3d[] vertices, out double t, out Vector3d intersectionPoint) {
-            t = 0;
-            intersectionPoint = new Vector3d();
-
-            Vector3d v0 = vertices[0];
-            Vector3d v1 = vertices[1];
-            Vector3d v2 = vertices[2];
-
-            Vector3d edge1 = v1 - v0;
-            Vector3d edge2 = v2 - v0;
-            Vector3d h = Vector3d.Cross(direction, edge2);
-            double a = Vector3d.Dot(edge1, h);
-
-            if (Math.Abs(a) < 1e-12) return false;
-
-            double f = 1.0 / a;
-            Vector3d s = origin - v0;
-            double u = f * Vector3d.Dot(s, h);
-
-            if (u < 0.0 || u > 1.0) return false;
-
-            Vector3d q = Vector3d.Cross(s, edge1);
-            double v = f * Vector3d.Dot(direction, q);
-
-            if (v < 0.0 || u + v > 1.0) return false;
-
-            t = f * Vector3d.Dot(edge2, q);
-
-            if (t > 1e-12) {
-                intersectionPoint = origin + direction * t;
-                return true;
-            }
-
-                        return false;
-
-                    }
-
-                }
-
-            }
+    }
+}
 
             
