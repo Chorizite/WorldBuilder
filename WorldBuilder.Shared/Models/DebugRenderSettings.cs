@@ -9,9 +9,9 @@ namespace WorldBuilder.Shared.Models {
         public bool SelectStaticObjects { get; set; } = true;
         public bool SelectScenery { get; set; } = false;
 
-        public Vector4 VertexColor { get; set; } = RenderColors.Vertex; // Yellow
-        public Vector4 BuildingColor { get; set; } = RenderColors.Building; // Magenta
-        public Vector4 StaticObjectColor { get; set; } = RenderColors.StaticObject; // Light Blue
-        public Vector4 SceneryColor { get; set; } = RenderColors.Scenery; // Green
+        public Vector4 VertexColor { get; set; } = LandscapeColorsSettings.Instance.Vertex; // Yellow
+        public Vector4 BuildingColor { get; set; } = LandscapeColorsSettings.Instance.Building; // Magenta
+        public Vector4 StaticObjectColor { get; set; } = LandscapeColorsSettings.Instance.StaticObject; // Light Blue
+        public Vector4 SceneryColor { get; set; } = LandscapeColorsSettings.Instance.Scenery; // Green
     }
 }

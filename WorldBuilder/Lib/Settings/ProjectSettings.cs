@@ -6,6 +6,8 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
+using WorldBuilder.Shared.Lib.Settings;
+
 namespace WorldBuilder.Lib.Settings {
     [SettingCategory("Project", Order = -1)]
     public partial class ProjectSettings : ObservableObject {

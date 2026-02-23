@@ -22,6 +22,7 @@ public class GameScene : IDisposable {
     private const uint MAX_GPU_UPDATE_TIME_PER_FRAME = 33; // max gpu time spent doing uploads per frame, in ms
     private readonly GL _gl;
     private readonly OpenGLGraphicsDevice _graphicsDevice;
+    private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger _log;
 
     // Camera system
@@ -164,10 +165,11 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Creates a new GameScene.
     /// </summary>
-    public GameScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILogger log) {
+    public GameScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILoggerFactory loggerFactory) {
         _gl = gl;
         _graphicsDevice = graphicsDevice;
-        _log = log;
+        _loggerFactory = loggerFactory;
+        _log = loggerFactory.CreateLogger<GameScene>();
 
         // Initialize cameras
         _camera2D = new Camera2D(new Vector3(0, 0, 0));
@@ -242,7 +244,7 @@ public class GameScene : IDisposable {
         }
 
         _ownsMeshManager = meshManager == null;
-        _meshManager = meshManager ?? new ObjectMeshManager(_graphicsDevice, dats);
+        _meshManager = meshManager ?? new ObjectMeshManager(_graphicsDevice, dats, _loggerFactory.CreateLogger<ObjectMeshManager>());
 
         _terrainManager = new TerrainRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, documentManager);
         _terrainManager.ShowUnwalkableSlopes = _showUnwalkableSlopes;
@@ -747,10 +749,10 @@ public class GameScene : IDisposable {
 
             if (_inspectorTool == null || (_inspectorTool.ShowBoundingBoxes && _inspectorTool.SelectVertices)) {
                 if (_hoveredVertex.HasValue) {
-                    DrawVertexDebug(_hoveredVertex.Value.x, _hoveredVertex.Value.y, RenderColors.Hover);
+                    DrawVertexDebug(_hoveredVertex.Value.x, _hoveredVertex.Value.y, LandscapeColorsSettings.Instance.Hover);
                 }
                 if (_selectedVertex.HasValue) {
-                    DrawVertexDebug(_selectedVertex.Value.x, _selectedVertex.Value.y, RenderColors.Selection);
+                    DrawVertexDebug(_selectedVertex.Value.x, _selectedVertex.Value.y, LandscapeColorsSettings.Instance.Selection);
                 }
             }
 

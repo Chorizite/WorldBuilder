@@ -12,21 +12,12 @@ namespace WorldBuilder.Lib.Converters {
                 byte g = (byte)(Math.Clamp(vec.Y, 0f, 1f) * 255);
                 byte b = (byte)(Math.Clamp(vec.Z, 0f, 1f) * 255);
                 byte a = (byte)(Math.Clamp(vec.W, 0f, 1f) * 255);
-                return new SolidColorBrush(Color.FromArgb(a, r, g, b));
+                return Color.FromArgb(a, r, g, b);
             }
-            return Brushes.White;
+            return Colors.White;
         }
 
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) {
-            if (value is ISolidColorBrush brush) {
-                var c = brush.Color;
-                return new Vector4(
-                    c.R / 255f,
-                    c.G / 255f,
-                    c.B / 255f,
-                    c.A / 255f
-                );
-            }
             if (value is Color color) {
                 return new Vector4(
                     color.R / 255f,

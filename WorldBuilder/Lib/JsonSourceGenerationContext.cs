@@ -8,14 +8,16 @@ using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using WorldBuilder.Lib.Settings;
 using WorldBuilder.Services;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Lib {
-    [JsonSourceGenerationOptions(WriteIndented = true, Converters = new[] { typeof(Vector3Converter) }, NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals)]
+    [JsonSourceGenerationOptions(WriteIndented = true, Converters = new[] { typeof(Vector3Converter), typeof(Vector4Converter) }, NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals)]
     [JsonSerializable(typeof(WorldBuilderSettings))]
     [JsonSerializable(typeof(List<RecentProject>))]
     [JsonSerializable(typeof(RecentProject))]
     [JsonSerializable(typeof(LandscapeEditorSettings))]
+    [JsonSerializable(typeof(LandscapeColorsSettings))]
     [JsonSerializable(typeof(ProjectSettings))]
     [JsonSerializable(typeof(AppSettings))]
     [JsonSerializable(typeof(AppTheme))]
@@ -24,6 +26,7 @@ namespace WorldBuilder.Lib {
     [JsonSerializable(typeof(RenderingSettings))]
     [JsonSerializable(typeof(GridSettings))]
     [JsonSerializable(typeof(Vector3))]
+    [JsonSerializable(typeof(Vector4))]
     [JsonSerializable(typeof(DateTime))]
     [JsonSerializable(typeof(string))]
     [JsonSerializable(typeof(float))]
@@ -62,6 +65,42 @@ namespace WorldBuilder.Lib {
             writer.WriteNumberValue(value.X);
             writer.WriteNumberValue(value.Y);
             writer.WriteNumberValue(value.Z);
+            writer.WriteEndArray();
+        }
+    }
+
+    public class Vector4Converter : JsonConverter<Vector4> {
+        public override Vector4 Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+            if (reader.TokenType != JsonTokenType.StartArray) {
+                throw new JsonException("Expected start of array for Vector4.");
+            }
+
+            reader.Read();
+            var x = reader.GetSingle();
+
+            reader.Read();
+            var y = reader.GetSingle();
+
+            reader.Read();
+            var z = reader.GetSingle();
+
+            reader.Read();
+            var w = reader.GetSingle();
+
+            reader.Read();
+            if (reader.TokenType != JsonTokenType.EndArray) {
+                throw new JsonException("Expected end of array for Vector4.");
+            }
+
+            return new Vector4(x, y, z, w);
+        }
+
+        public override void Write(Utf8JsonWriter writer, Vector4 value, JsonSerializerOptions options) {
+            writer.WriteStartArray();
+            writer.WriteNumberValue(value.X);
+            writer.WriteNumberValue(value.Y);
+            writer.WriteNumberValue(value.Z);
+            writer.WriteNumberValue(value.W);
             writer.WriteEndArray();
         }
     }

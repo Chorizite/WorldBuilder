@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using WorldBuilder.Lib;
 using WorldBuilder.Lib.Settings;
+using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Services {
     public partial class WorldBuilderSettings : ObservableObject {
@@ -37,6 +38,7 @@ namespace WorldBuilder.Services {
                 if (_landscape != null) _landscape.PropertyChanged -= OnSubSettingsPropertyChanged;
                 if (SetProperty(ref _landscape, value) && _landscape != null) {
                     _landscape.PropertyChanged += OnSubSettingsPropertyChanged;
+                    LandscapeColorsSettings.Initialize(_landscape.Colors);
                 }
             }
         }
@@ -65,10 +67,16 @@ namespace WorldBuilder.Services {
 
         private void SetupListeners() {
             if (_app != null) _app.PropertyChanged += OnSubSettingsPropertyChanged;
-            if (_landscape != null) _landscape.PropertyChanged += OnSubSettingsPropertyChanged;
+            if (_landscape != null) {
+                _landscape.PropertyChanged += OnSubSettingsPropertyChanged;
+                LandscapeColorsSettings.Initialize(_landscape.Colors);
+            }
         }
 
         private void OnSubSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
+            if (sender == _landscape && e.PropertyName == nameof(LandscapeEditorSettings.Colors)) {
+                LandscapeColorsSettings.Initialize(_landscape.Colors);
+            }
             Save();
         }
 

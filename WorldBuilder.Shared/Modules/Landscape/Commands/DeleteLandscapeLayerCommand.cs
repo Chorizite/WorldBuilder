@@ -102,7 +102,6 @@ public partial class DeleteLandscapeLayerCommand : BaseCommand<bool> {
 
             terrainRental.Document.Version++;
             var affectedLandblocks = affectedVertices.Any() ? terrainRental.Document.GetAffectedLandblocks(affectedVertices).ToList() : new List<(int, int)>();
-            Console.WriteLine($"[DEBUG] DeleteLandscapeLayerCommand: LayerId={LayerId}, AffectedVertices={affectedVertices.Count}, AffectedLandblocks={affectedLandblocks.Count}");
             terrainRental.Document.NotifyLandblockChanged(affectedLandblocks);
 
             var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);

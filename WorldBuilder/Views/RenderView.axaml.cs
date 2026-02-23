@@ -5,6 +5,7 @@ using Chorizite.OpenGLSDLBackend;
 using DatReaderWriter;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Silk.NET.OpenGL;
 using System;
 using System.ComponentModel;
@@ -84,9 +85,11 @@ public partial class RenderView : Base3DViewport {
         GL = gl;
 
         if (Renderer != null) {
-            var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>();
-            var log = loggerFactory?.CreateLogger("GameScene") ?? new ColorConsoleLogger("GameScene", () => new ColorConsoleLoggerConfiguration());
-            _gameScene = new GameScene(gl, Renderer.GraphicsDevice, log);
+            var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>() ?? LoggerFactory.Create(builder => {
+                builder.AddProvider(new ColorConsoleLoggerProvider());
+                builder.SetMinimumLevel(LogLevel.Debug);
+            });
+            _gameScene = new GameScene(gl, Renderer.GraphicsDevice, loggerFactory);
 
             _settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
             if (_settings != null) {
@@ -500,7 +503,7 @@ public partial class RenderView : Base3DViewport {
         else if (change.Property == BrushPositionProperty ||
                  change.Property == BrushRadiusProperty ||
                  change.Property == ShowBrushProperty) {
-            _gameScene?.SetBrush(BrushPosition, BrushRadius, RenderColors.Brush, ShowBrush);
+            _gameScene?.SetBrush(BrushPosition, BrushRadius, LandscapeColorsSettings.Instance.Brush, ShowBrush);
         }
         else if (change.Property == ShowSceneryProperty) {
             if (_gameScene != null) {

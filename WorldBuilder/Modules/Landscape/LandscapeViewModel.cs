@@ -32,7 +32,7 @@ using ICamera = WorldBuilder.Shared.Models.ICamera;
 namespace WorldBuilder.Modules.Landscape;
 
 public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModule, IHotkeyHandler {
-    private readonly Project _project;
+    private readonly IProject _project;
     private readonly IDatReaderWriter _dats;
     private readonly ILogger<LandscapeViewModel> _log;
     private readonly IDialogService _dialogService;
@@ -136,7 +136,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         set => _camera = value;
     }
 
-    public LandscapeViewModel(Project project, IDatReaderWriter dats, IDocumentManager documentManager, ILogger<LandscapeViewModel> log, IDialogService dialogService) {
+    public LandscapeViewModel(IProject project, IDatReaderWriter dats, IDocumentManager documentManager, ILogger<LandscapeViewModel> log, IDialogService dialogService) {
         _project = project;
         _dats = dats;
         _documentManager = documentManager;
@@ -204,18 +204,17 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         }
 
         oldValue?.Deactivate();
-        if (newValue != null && _toolContext != null) {
-            newValue.Activate(_toolContext);
-            if (newValue is InspectorTool newInspector) {
-                newInspector.PropertyChanged += OnInspectorToolPropertyChanged;
-                IsDebugShapesEnabled = newInspector.ShowBoundingBoxes;
-            }
-            else {
-                IsDebugShapesEnabled = false;
-            }
+
+        if (newValue is InspectorTool newInspector) {
+            newInspector.PropertyChanged += OnInspectorToolPropertyChanged;
+            IsDebugShapesEnabled = newInspector.ShowBoundingBoxes;
         }
         else {
             IsDebugShapesEnabled = false;
+        }
+
+        if (newValue != null && _toolContext != null) {
+            newValue.Activate(_toolContext);
         }
 
         _gameScene?.SetInspectorTool(newValue as InspectorTool);
@@ -464,6 +463,9 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _gameScene.OnCameraChanged += OnCameraChanged;
             _gameScene.Camera2D.OnChanged += OnCameraStateChanged;
             _gameScene.Camera3D.OnChanged += OnCameraStateChanged;
+
+            _gameScene.ShowDebugShapes = IsDebugShapesEnabled;
+            _gameScene.SetInspectorTool(ActiveTool as InspectorTool);
 
             if (ActiveDocument != null) {
                 RestoreCameraState();

@@ -53,7 +53,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Brush settings
         public Vector3 BrushPosition { get; set; }
         public float BrushRadius { get; set; } = 30f;
-        public Vector4 BrushColor { get; set; } = RenderColors.Brush;
+        public Vector4 BrushColor { get; set; } = LandscapeColorsSettings.Instance.Brush;
         public bool ShowBrush { get; set; }
         public int BrushShape { get; set; }
 

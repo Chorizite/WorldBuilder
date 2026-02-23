@@ -5,6 +5,8 @@ using System.Reflection;
 using System.Text.Json;
 using WorldBuilder.Services;
 
+using WorldBuilder.Shared.Lib.Settings;
+
 namespace WorldBuilder.Lib.Settings {
     /// <summary>
     /// Provides automatic cloning and restoration of settings objects using JSON serialization

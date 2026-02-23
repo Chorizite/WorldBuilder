@@ -5,6 +5,7 @@ using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
 using CullMode = DatReaderWriter.Enums.CullMode;
 using DatReaderWriter.Types;
+using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
 using System;
 using System.Collections.Concurrent;
@@ -136,6 +137,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     public class ObjectMeshManager : IDisposable {
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private readonly IDatReaderWriter _dats;
+        private readonly ILogger<ObjectMeshManager> _logger;
         private readonly Dictionary<uint, ObjectRenderData> _renderData = new();
         private readonly ConcurrentDictionary<uint, int> _usageCount = new();
         private readonly ConcurrentDictionary<uint, (Vector3 Min, Vector3 Max)?> _boundsCache = new();
@@ -149,9 +151,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Shared atlases grouped by (Width, Height, Format)
         private readonly Dictionary<(int Width, int Height, TextureFormat Format), List<TextureAtlasManager>> _globalAtlases = new();
 
-        public ObjectMeshManager(OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats) {
+        public ObjectMeshManager(OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats, ILogger<ObjectMeshManager> logger) {
             _graphicsDevice = graphicsDevice;
             _dats = dats;
+            _logger = logger;
         }
 
         /// <summary>
@@ -283,7 +286,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 return null;
             }
             catch (Exception ex) {
-                Console.WriteLine($"Error preparing mesh data for 0x{id:X8}: {ex}");
+                _logger.LogError(ex, "Error preparing mesh data for 0x{Id:X8}", id);
                 return null;
             }
         }
@@ -332,7 +335,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 return renderData;
             }
             catch (Exception ex) {
-                Console.WriteLine($"Error uploading mesh data for 0x{meshData.ObjectId:X8}: {ex}");
+                _logger.LogError(ex, "Error uploading mesh data for 0x{Id:X8}", meshData.ObjectId);
                 return null;
             }
         }
@@ -365,7 +368,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 return result;
             }
             catch (Exception ex) {
-                Console.WriteLine($"Error computing bounds for 0x{id:X8}: {ex}");
+                _logger.LogError(ex, "Error computing bounds for 0x{Id:X8}", id);
                 return null;
             }
         }

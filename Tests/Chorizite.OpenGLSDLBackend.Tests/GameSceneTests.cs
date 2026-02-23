@@ -13,9 +13,11 @@ public class GameSceneTests {
     public GameSceneTests() {
         var mockGl = new Mock<GL>(MockBehavior.Loose, new object[] { null! });
         var mockGraphicsDevice = new Mock<OpenGLGraphicsDevice>(MockBehavior.Loose, new object[] { null!, null! });
+        var mockLoggerFactory = new Mock<ILoggerFactory>();
         var mockLogger = new Mock<ILogger>();
+        mockLoggerFactory.Setup(x => x.CreateLogger(It.IsAny<string>())).Returns(mockLogger.Object);
 
-        _gameScene = new GameScene(mockGl.Object, mockGraphicsDevice.Object, mockLogger.Object);
+        _gameScene = new GameScene(mockGl.Object, mockGraphicsDevice.Object, mockLoggerFactory.Object);
     }
 
     [Fact]
@@ -137,10 +139,15 @@ public class GameSceneTests {
     }
 
     [Fact]
-    public void EnableTransparencyPass_CanBeToggled() {
-        _gameScene.EnableTransparencyPass = false;
-        Assert.False(_gameScene.EnableTransparencyPass);
-        _gameScene.EnableTransparencyPass = true;
-        Assert.True(_gameScene.EnableTransparencyPass);
+    public void ShowDebugShapes_DefaultsToTrue() {
+        Assert.True(_gameScene.ShowDebugShapes);
+    }
+
+    [Fact]
+    public void ShowDebugShapes_CanBeToggled() {
+        _gameScene.ShowDebugShapes = false;
+        Assert.False(_gameScene.ShowDebugShapes);
+        _gameScene.ShowDebugShapes = true;
+        Assert.True(_gameScene.ShowDebugShapes);
     }
 }

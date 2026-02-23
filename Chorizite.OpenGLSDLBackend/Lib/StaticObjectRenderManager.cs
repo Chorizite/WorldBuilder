@@ -21,16 +21,6 @@ using WorldBuilder.Shared.Numerics;
 using WorldBuilder.Shared.Services;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
-    public struct SelectedStaticObject {
-        public ushort LandblockKey;
-        public uint InstanceId;
-
-        public override bool Equals(object? obj) => obj is SelectedStaticObject other && LandblockKey == other.LandblockKey && InstanceId == other.InstanceId;
-        public override int GetHashCode() => HashCode.Combine(LandblockKey, InstanceId);
-        public static bool operator ==(SelectedStaticObject left, SelectedStaticObject right) => left.Equals(right);
-        public static bool operator !=(SelectedStaticObject left, SelectedStaticObject right) => !(left == right);
-    }
-
     /// <summary>
     /// Manages static object rendering (buildings, placed objects from LandBlockInfo).
     /// Background generation, time-sliced GPU uploads, instanced drawing.
@@ -207,7 +197,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (e.AffectedLandblocks == null) {
                 foreach (var lb in _landblocks.Values) {
                     lb.MeshDataReady = false;
-                    var key = PackKey(lb.GridX, lb.GridY);
+                    var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
                     _pendingGeneration[key] = lb;
                 }
             }
@@ -249,7 +239,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (GetLandblockFrustumResult(x, y) == FrustumTestResult.Outside)
                         continue;
 
-                    var key = PackKey(x, y);
+                    var key = GeometryUtils.PackKey(x, y);
                     _outOfRangeTimers.TryRemove(key, out _);
 
                     if (!_landblocks.ContainsKey(key)) {
@@ -369,7 +359,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             var sw = Stopwatch.StartNew();
             while (sw.Elapsed.TotalMilliseconds < timeBudgetMs && _uploadQueue.TryDequeue(out var lb)) {
-                var key = PackKey(lb.GridX, lb.GridY);
+                var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
                 if (!_landblocks.TryGetValue(key, out var currentLb) || currentLb != lb) {
                     continue;
                 }
@@ -491,10 +481,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Draw highlighted / selected objects on top
             _gl.DepthFunc(GLEnum.Lequal);
             if (SelectedInstance.HasValue) {
-                RenderSelectedInstance(SelectedInstance.Value, RenderColors.Selection.WithAlpha(0.8f));
+                RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection);
             }
             if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
-                RenderSelectedInstance(HoveredInstance.Value, RenderColors.Hover.WithAlpha(0.6f));
+                RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover);
             }
             _gl.DepthFunc(GLEnum.Less);
 
@@ -517,12 +507,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     // Skip if instance is outside frustum
                     if (!_frustum.Intersects(instance.BoundingBox)) continue;
 
-                    var isSelected = SelectedInstance.HasValue && SelectedInstance.Value.LandblockKey == PackKey(lb.GridX, lb.GridY) && SelectedInstance.Value.InstanceId == instance.InstanceId;
-                    var isHovered = HoveredInstance.HasValue && HoveredInstance.Value.LandblockKey == PackKey(lb.GridX, lb.GridY) && HoveredInstance.Value.InstanceId == instance.InstanceId;
+                    var isSelected = SelectedInstance.HasValue && SelectedInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && SelectedInstance.Value.InstanceId == instance.InstanceId;
+                    var isHovered = HoveredInstance.HasValue && HoveredInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && HoveredInstance.Value.InstanceId == instance.InstanceId;
 
                     Vector4 color;
-                    if (isSelected) color = RenderColors.Selection;
-                    else if (isHovered) color = RenderColors.Hover;
+                    if (isSelected) color = LandscapeColorsSettings.Instance.Selection;
+                    else if (isHovered) color = LandscapeColorsSettings.Instance.Hover;
                     else if (instance.IsBuilding) color = settings.BuildingColor;
                     else color = settings.StaticObjectColor;
 
@@ -557,7 +547,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public void InvalidateLandblock(int lbX, int lbY) {
             if (lbX < 0 || lbY < 0) return;
-            var key = PackKey(lbX, lbY);
+            var key = GeometryUtils.PackKey(lbX, lbY);
             lock (_tcsLock) {
                 _instanceReadyTcs.TryRemove(key, out _);
                 if (_landblocks.TryGetValue(key, out var lb)) {
@@ -594,7 +584,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         private void UnloadLandblockResources(ObjectLandblock lb) {
-            var key = PackKey(lb.GridX, lb.GridY);
+            var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
             lock (_tcsLock) {
                 _instanceReadyTcs.TryRemove(key, out _);
                 lb.InstancesReady = false;
@@ -632,7 +622,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         private async Task GenerateStaticObjectsForLandblock(ObjectLandblock lb, CancellationToken ct) {
             try {
-                var key = PackKey(lb.GridX, lb.GridY);
+                var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
                 if (!IsWithinRenderDistance(lb) || !_landblocks.ContainsKey(key)) return;
                 ct.ThrowIfCancellationRequested();
 
@@ -940,8 +930,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         #endregion
-
-        private static ushort PackKey(int x, int y) => (ushort)((x << 8) | y);
 
         public void Dispose() {
             _landscapeDoc.LandblockChanged -= OnLandblockChanged;

@@ -24,10 +24,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         [ObservableProperty] private bool _showBoundingBoxes = true;
 
-        public Vector4 VertexColor { get; } = RenderColors.Vertex; // Yellow
-        public Vector4 BuildingColor { get; } = RenderColors.Building; // Magenta
-        public Vector4 StaticObjectColor { get; } = RenderColors.StaticObject; // Light Blue
-        public Vector4 SceneryColor { get; } = RenderColors.Scenery; // Green
+        public Vector4 VertexColor { get; } = LandscapeColorsSettings.Instance.Vertex; // Yellow
+        public Vector4 BuildingColor { get; } = LandscapeColorsSettings.Instance.Building; // Magenta
+        public Vector4 StaticObjectColor { get; } = LandscapeColorsSettings.Instance.StaticObject; // Light Blue
+        public Vector4 SceneryColor { get; } = LandscapeColorsSettings.Instance.Scenery; // Green
 
         public void Activate(LandscapeToolContext context) {
             _context = context;

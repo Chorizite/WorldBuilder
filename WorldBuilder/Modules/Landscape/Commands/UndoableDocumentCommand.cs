@@ -50,11 +50,9 @@ namespace WorldBuilder.Modules.Landscape.Commands {
                     await _refreshCallback();
                 }
                 else {
-                    Console.WriteLine($"[UndoableDocumentCommand] Failed to apply {cmd.GetType().Name}: {result.Error}");
                 }
             }
-            catch (Exception ex) {
-                Console.WriteLine($"[UndoableDocumentCommand] Exception applying {cmd.GetType().Name}: {ex}");
+            catch (Exception) {
             }
         }
     }

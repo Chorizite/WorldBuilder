@@ -149,5 +149,7 @@ namespace WorldBuilder.Shared.Numerics {
             distance = tca - thc;
             return true;
         }
+
+        public static ushort PackKey(int x, int y) => (ushort)((x << 8) | y);
     }
 }

@@ -113,7 +113,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (e.AffectedLandblocks == null) {
                 foreach (var lb in _landblocks.Values) {
                     lb.MeshDataReady = false;
-                    var key = PackKey(lb.GridX, lb.GridY);
+                    var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
                     _pendingGeneration[key] = lb;
                 }
             }
@@ -156,7 +156,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (GetLandblockFrustumResult(x, y) == FrustumTestResult.Outside)
                         continue;
 
-                    var key = PackKey(x, y);
+                    var key = GeometryUtils.PackKey(x, y);
 
                     // Clear out-of-range timer if this landblock is back in range
                     _outOfRangeTimers.TryRemove(key, out _);
@@ -280,7 +280,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             var sw = Stopwatch.StartNew();
             while (sw.Elapsed.TotalMilliseconds < timeBudgetMs && _uploadQueue.TryDequeue(out var lb)) {
-                var key = PackKey(lb.GridX, lb.GridY);
+                var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
                 if (!_landblocks.TryGetValue(key, out var currentLb) || currentLb != lb) {
                     continue;
                 }
@@ -387,10 +387,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (_visibleGfxObjIds.Count == 0) {
                 _gl.DepthFunc(GLEnum.Lequal);
                 if (SelectedInstance.HasValue) {
-                    RenderSelectedInstance(SelectedInstance.Value, RenderColors.Selection.WithAlpha(0.8f));
+                    RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection);
                 }
                 if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
-                    RenderSelectedInstance(HoveredInstance.Value, RenderColors.Hover.WithAlpha(0.6f));
+                    RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover);
                 }
                 _gl.DepthFunc(GLEnum.Less);
                 _shader.SetUniform("uHighlightColor", Vector4.Zero);
@@ -415,10 +415,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Draw highlighted / selected objects on top
             _gl.DepthFunc(GLEnum.Lequal);
             if (SelectedInstance.HasValue) {
-                RenderSelectedInstance(SelectedInstance.Value, RenderColors.Selection.WithAlpha(0.8f));
+                RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection);
             }
             if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
-                RenderSelectedInstance(HoveredInstance.Value, RenderColors.Hover.WithAlpha(0.6f)); 
+                RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover);
             }
             _gl.DepthFunc(GLEnum.Less);
 
@@ -438,12 +438,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     // Skip if instance is outside frustum
                     if (!_frustum.Intersects(instance.BoundingBox)) continue;
 
-                    var isSelected = SelectedInstance.HasValue && SelectedInstance.Value.LandblockKey == PackKey(lb.GridX, lb.GridY) && SelectedInstance.Value.InstanceId == instance.InstanceId;
-                    var isHovered = HoveredInstance.HasValue && HoveredInstance.Value.LandblockKey == PackKey(lb.GridX, lb.GridY) && HoveredInstance.Value.InstanceId == instance.InstanceId;
+                    var isSelected = SelectedInstance.HasValue && SelectedInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && SelectedInstance.Value.InstanceId == instance.InstanceId;
+                    var isHovered = HoveredInstance.HasValue && HoveredInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && HoveredInstance.Value.InstanceId == instance.InstanceId;
 
                     Vector4 color;
-                    if (isSelected) color = RenderColors.Selection;
-                    else if (isHovered) color = RenderColors.Hover;
+                    if (isSelected) color = LandscapeColorsSettings.Instance.Selection;
+                    else if (isHovered) color = LandscapeColorsSettings.Instance.Hover;
                     else color = settings.SceneryColor;
 
                     debug.DrawBox(instance.LocalBoundingBox, instance.Transform, color);
@@ -517,7 +517,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public void InvalidateLandblock(int lbX, int lbY) {
             if (lbX < 0 || lbY < 0) return;
-            var key = PackKey(lbX, lbY);
+            var key = GeometryUtils.PackKey(lbX, lbY);
             if (_landblocks.TryGetValue(key, out var lb)) {
                 lb.MeshDataReady = false;
                 _pendingGeneration[key] = lb;
@@ -584,7 +584,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private async Task GenerateSceneryForLandblock(ObjectLandblock lb, CancellationToken ct) {
             try {
-                var key = PackKey(lb.GridX, lb.GridY);
+                var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
 
                 // Early-out if no longer within render distance or no longer tracked
                 if (!IsWithinRenderDistance(lb) || !_landblocks.ContainsKey(key)) return;
@@ -1003,7 +1003,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #endregion
 
-        private static ushort PackKey(int x, int y) => (ushort)((x << 8) | y);
 
         public void Dispose() {
             _landscapeDoc.LandblockChanged -= OnLandblockChanged;

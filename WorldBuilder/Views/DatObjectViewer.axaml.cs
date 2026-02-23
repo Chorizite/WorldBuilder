@@ -5,6 +5,7 @@ using Avalonia.Threading;
 using Chorizite.OpenGLSDLBackend;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Silk.NET.OpenGL;
 using System;
 using System.Numerics;
@@ -25,7 +26,7 @@ namespace WorldBuilder.Views {
         private uint _renderFileId;
         private bool _renderIsSetup;
         private bool _renderIsAutoCamera = true;
-        private Vector4 _renderBackgroundColor = RenderColors.Background;
+        private Vector4 _renderBackgroundColor = new Vector4(0.15f, 0.15f, 0.2f, 1.0f);
 
         public static readonly StyledProperty<uint> FileIdProperty =
             AvaloniaProperty.Register<DatObjectViewer, uint>(nameof(FileId));
@@ -67,15 +68,17 @@ namespace WorldBuilder.Views {
 
         protected override void OnGlInit(GL gl, PixelSize canvasSize) {
             _gl = gl;
-            var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>();
-            var log = loggerFactory?.CreateLogger("DatObjectViewer") ?? new ColorConsoleLogger("DatObjectViewer", () => new ColorConsoleLoggerConfiguration());
+            var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>() ?? LoggerFactory.Create(builder => {
+                builder.AddProvider(new ColorConsoleLoggerProvider());
+                builder.SetMinimumLevel(LogLevel.Debug);
+            });
 
             if (_renderDats != null) {
                 var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
                 var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
                 var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _renderDats);
 
-                _scene = new SingleObjectScene(gl, Renderer!.GraphicsDevice, log, _renderDats, meshManager);
+                _scene = new SingleObjectScene(gl, Renderer!.GraphicsDevice, loggerFactory, _renderDats, meshManager);
                 _scene.BackgroundColor = _renderBackgroundColor;
                 _scene.IsAutoCamera = _renderIsAutoCamera;
 
@@ -97,7 +100,7 @@ namespace WorldBuilder.Views {
                 var color = scb.Color;
                 return new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
             }
-            return RenderColors.Background;
+            return new Vector4(0.15f, 0.15f, 0.2f, 1.0f);
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
@@ -133,14 +136,16 @@ namespace WorldBuilder.Views {
 
         private void UpdateObject() {
             if (_scene == null && _gl != null && _renderDats != null) {
-                var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>();
-                var log = loggerFactory?.CreateLogger("DatObjectViewer") ?? new ColorConsoleLogger("DatObjectViewer", () => new ColorConsoleLoggerConfiguration());
+                var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>() ?? LoggerFactory.Create(builder => {
+                    builder.AddProvider(new ColorConsoleLoggerProvider());
+                    builder.SetMinimumLevel(LogLevel.Debug);
+                });
 
                 var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
                 var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
                 var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _renderDats);
 
-                _scene = new SingleObjectScene(_gl, Renderer!.GraphicsDevice, log, _renderDats, meshManager);
+                _scene = new SingleObjectScene(_gl, Renderer!.GraphicsDevice, loggerFactory, _renderDats, meshManager);
 
                 var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
                 if (settings != null) {

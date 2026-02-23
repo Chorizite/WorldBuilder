@@ -82,7 +82,7 @@ namespace WorldBuilder.Lib.Extensions {
         /// <param name="collection">The service collection to add services to</param>
         /// <param name="project">The project instance to register</param>
         /// <param name="rootProvider">The root service provider</param>
-        public static void AddWorldBuilderProjectServices(this IServiceCollection collection, Project project,
+        public static void AddWorldBuilderProjectServices(this IServiceCollection collection, IProject project,
             IServiceProvider rootProvider) {
             collection.AddLogging((c) => {
                 c.AddProvider(new ColorConsoleLoggerProvider());
@@ -96,7 +96,8 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton(rootProvider.GetRequiredService<IDialogService>());
             collection.AddSingleton(rootProvider.GetRequiredService<PerformanceService>());
 
-            collection.AddSingleton(project);
+            collection.AddSingleton((Project)project);
+            collection.AddSingleton<IProject>(project);
 
             // ViewModels
             collection.AddTransient<MainViewModel>();

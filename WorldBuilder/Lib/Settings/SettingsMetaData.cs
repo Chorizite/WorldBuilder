@@ -4,6 +4,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 
+using WorldBuilder.Shared.Lib.Settings;
+
 namespace WorldBuilder.Lib.Settings {
     /// <summary>
     /// Metadata about a setting property
@@ -101,9 +103,9 @@ namespace WorldBuilder.Lib.Settings {
 
         [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
         private List<SettingCategoryMetadata> DiscoverCategories(Type rootType) {
-            var assembly = rootType.Assembly;
-            return assembly.GetTypes()
-                .Where(t => t.IsClass && !t.IsAbstract && t.Namespace == "WorldBuilder.Lib.Settings" && t.GetCustomAttribute<SettingCategoryAttribute>() != null)
+            var assemblies = new[] { rootType.Assembly, typeof(WorldBuilder.Shared.Lib.LandscapeColorsSettings).Assembly }.Distinct();
+            return assemblies.SelectMany(a => a.GetTypes())
+                .Where(t => t.IsClass && !t.IsAbstract && t.GetCustomAttribute<SettingCategoryAttribute>() != null)
                 .Select(t => new SettingCategoryMetadata(t))
                 .ToList();
         }

@@ -1,6 +1,6 @@
 using System;
 
-namespace WorldBuilder.Lib.Settings {
+namespace WorldBuilder.Shared.Lib.Settings {
     /// <summary>
     /// Defines a setting category for organizing settings in the UI
     /// </summary>

@@ -62,10 +62,12 @@ public partial class SceneryPreview : Base3DViewport {
 
     protected override void OnGlInit(GL gl, PixelSize canvasSize) {
         _gl = gl;
-        var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>();
-        var log = loggerFactory?.CreateLogger("SceneryPreviewScene") ?? new ColorConsoleLogger("SceneryPreviewScene", () => new ColorConsoleLoggerConfiguration());
+        var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>() ?? LoggerFactory.Create(builder => {
+            builder.AddProvider(new ColorConsoleLoggerProvider());
+            builder.SetMinimumLevel(LogLevel.Debug);
+        });
 
-        _gameScene = new GameScene(gl, Renderer!.GraphicsDevice, log);
+        _gameScene = new GameScene(gl, Renderer!.GraphicsDevice, loggerFactory);
         _gameScene.Initialize();
         _gameScene.Resize(canvasSize.Width, canvasSize.Height);
         _gameScene.SetCameraMode(true);

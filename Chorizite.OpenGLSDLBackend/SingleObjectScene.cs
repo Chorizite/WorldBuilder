@@ -16,6 +16,7 @@ namespace Chorizite.OpenGLSDLBackend {
     public class SingleObjectScene : IDisposable {
         private readonly GL _gl;
         private readonly OpenGLGraphicsDevice _graphicsDevice;
+        private readonly ILoggerFactory _loggerFactory;
         private readonly ILogger _log;
         private readonly IDatReaderWriter _dats;
 
@@ -40,7 +41,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public ICamera Camera => _camera;
 
-        public Vector4 BackgroundColor { get; set; } = RenderColors.Background;
+        public Vector4 BackgroundColor { get; set; } = new Vector4(0.15f, 0.15f, 0.2f, 1.0f); // Dark Blue-Grey
 
         public bool EnableTransparencyPass { get; set; } = true;
 
@@ -59,13 +60,14 @@ namespace Chorizite.OpenGLSDLBackend {
             }
         }
 
-        public SingleObjectScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILogger log, IDatReaderWriter dats, ObjectMeshManager? meshManager = null) {
+        public SingleObjectScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILoggerFactory loggerFactory, IDatReaderWriter dats, ObjectMeshManager? meshManager = null) {
             _gl = gl;
             _graphicsDevice = graphicsDevice;
-            _log = log;
+            _loggerFactory = loggerFactory;
+            _log = loggerFactory.CreateLogger<SingleObjectScene>();
             _dats = dats;
             _ownsMeshManager = meshManager == null;
-            _meshManager = meshManager ?? new ObjectMeshManager(graphicsDevice, dats);
+            _meshManager = meshManager ?? new ObjectMeshManager(graphicsDevice, dats, _loggerFactory.CreateLogger<ObjectMeshManager>());
 
             _camera = new Camera3D(new Vector3(0, -5, 2), 0, 0);
             _camera.MoveSpeed = 0.5f;

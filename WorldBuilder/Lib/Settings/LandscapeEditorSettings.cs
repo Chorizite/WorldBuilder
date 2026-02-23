@@ -1,6 +1,8 @@
 ﻿using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Numerics;
+using WorldBuilder.Shared.Lib;
+using WorldBuilder.Shared.Lib.Settings;
 
 namespace WorldBuilder.Lib.Settings {
     [SettingCategory("Landscape Editor", Order = 1)]
@@ -41,16 +43,30 @@ namespace WorldBuilder.Lib.Settings {
             }
         }
 
+        [SettingHidden]
+        private LandscapeColorsSettings _colors = new();
+        public LandscapeColorsSettings Colors {
+            get => _colors;
+            set {
+                if (_colors != null) _colors.PropertyChanged -= OnSubSettingsPropertyChanged;
+                if (SetProperty(ref _colors, value) && _colors != null) {
+                    _colors.PropertyChanged += OnSubSettingsPropertyChanged;
+                }
+            }
+        }
+
         public LandscapeEditorSettings() {
             if (_camera != null) _camera.PropertyChanged += OnSubSettingsPropertyChanged;
             if (_rendering != null) _rendering.PropertyChanged += OnSubSettingsPropertyChanged;
             if (_grid != null) _grid.PropertyChanged += OnSubSettingsPropertyChanged;
+            if (_colors != null) _colors.PropertyChanged += OnSubSettingsPropertyChanged;
         }
 
         private void OnSubSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
             if (sender == _camera) OnPropertyChanged(nameof(Camera));
             else if (sender == _rendering) OnPropertyChanged(nameof(Rendering));
             else if (sender == _grid) OnPropertyChanged(nameof(Grid));
+            else if (sender == _colors) OnPropertyChanged(nameof(Colors));
         }
     }
 

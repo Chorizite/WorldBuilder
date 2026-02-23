@@ -1,5 +1,4 @@
-﻿
-using WorldBuilder.Shared.Models;
+﻿using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Services;
 
