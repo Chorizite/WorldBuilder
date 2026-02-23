@@ -174,8 +174,6 @@ public class GameScene : IDisposable {
         _camera3D.OnMoveSpeedChanged += (speed) => OnMoveSpeedChanged?.Invoke(speed);
         _currentCamera = _camera3D;
         _is3DMode = true;
-
-        _debugRenderer = new DebugRenderer(gl, graphicsDevice);
     }
 
     /// <summary>
@@ -183,6 +181,8 @@ public class GameScene : IDisposable {
     /// </summary>
     public void Initialize() {
         if (_initialized) return;
+
+        _debugRenderer = new DebugRenderer(_gl, _graphicsDevice);
 
         // Create shader
         var vertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.InstancedLine.vert");
