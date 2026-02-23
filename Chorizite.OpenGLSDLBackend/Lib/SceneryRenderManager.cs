@@ -466,26 +466,28 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var kvp in _landblocks) {
                 if (!kvp.Value.GpuReady) continue;
 
-                foreach (var inst in kvp.Value.Instances) {
-                    var renderData = _meshManager.TryGetRenderData(inst.ObjectId);
-                    if (renderData == null) continue;
+                lock (kvp.Value.Lock) {
+                    foreach (var inst in kvp.Value.Instances) {
+                        var renderData = _meshManager.TryGetRenderData(inst.ObjectId);
+                        if (renderData == null) continue;
 
-                    // Broad phase: Bounding Box
-                    if (!ObjectMeshManager.RayIntersectsBox(origin, direction, inst.BoundingBox, out _)) {
-                        continue;
-                    }
+                        // Broad phase: Bounding Box
+                        if (!ObjectMeshManager.RayIntersectsBox(origin, direction, inst.BoundingBox, out _)) {
+                            continue;
+                        }
 
-                    // Narrow phase: Mesh-precise raycast
-                    if (_meshManager.IntersectMesh(renderData, inst.Transform, origin, direction, out float d)) {
-                        if (d < hit.Distance) {
-                            hit.Hit = true;
-                            hit.Distance = d;
-                            hit.Type = InspectorSelectionType.Scenery;
-                            hit.ObjectId = inst.ObjectId;
-                            hit.InstanceId = inst.InstanceId;
-                            hit.Position = inst.WorldPosition;
-                            hit.Rotation = inst.Rotation;
-                            hit.LandblockId = (uint)((kvp.Key << 16) | 0xFFFE);
+                        // Narrow phase: Mesh-precise raycast
+                        if (_meshManager.IntersectMesh(renderData, inst.Transform, origin, direction, out float d)) {
+                            if (d < hit.Distance) {
+                                hit.Hit = true;
+                                hit.Distance = d;
+                                hit.Type = InspectorSelectionType.Scenery;
+                                hit.ObjectId = inst.ObjectId;
+                                hit.InstanceId = inst.InstanceId;
+                                hit.Position = inst.WorldPosition;
+                                hit.Rotation = inst.Rotation;
+                                hit.LandblockId = (uint)((kvp.Key << 16) | 0xFFFE);
+                            }
                         }
                     }
                 }
@@ -553,11 +555,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// freed when no other loaded landblock references the same object.
         /// </summary>
         private void UnloadLandblockResources(ObjectLandblock lb) {
-            DecrementInstanceRefCounts(lb.Instances);
-            lb.Instances.Clear();
-            lb.PendingInstances = null;
-            lb.GpuReady = false;
-            lb.MeshDataReady = false;
+            lock (lb.Lock) {
+                DecrementInstanceRefCounts(lb.Instances);
+                lb.Instances.Clear();
+                lb.PendingInstances = null;
+                lb.GpuReady = false;
+                lb.MeshDataReady = false;
+            }
         }
 
         private void IncrementInstanceRefCounts(List<SceneryInstance> instances) {

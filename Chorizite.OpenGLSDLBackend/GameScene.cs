@@ -60,6 +60,7 @@ public class GameScene : IDisposable {
     private float _gridLineWidth = 1.0f;
     private float _gridOpacity = 0.4f;
     private float _timeOfDay = 0.5f;
+    private float _lightIntensity = 1.0f;
     private int _terrainRenderDistance = 12;
     private int _sceneryRenderDistance = 25;
 
@@ -184,9 +185,9 @@ public class GameScene : IDisposable {
         if (_initialized) return;
 
         // Create shader
-        var vertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Simple3D.vert");
-        var fragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Simple3D.frag");
-        _shader = _graphicsDevice.CreateShader("Simple3D", vertSource, fragSource);
+        var vertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.InstancedLine.vert");
+        var fragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.InstancedLine.frag");
+        _shader = _graphicsDevice.CreateShader("InstancedLine", vertSource, fragSource);
         _debugRenderer?.SetShader(_shader);
 
         // Create terrain shader
@@ -259,15 +260,18 @@ public class GameScene : IDisposable {
             _terrainManager.Initialize(_terrainShader);
         }
         _terrainManager.TimeOfDay = _timeOfDay;
+        _terrainManager.LightIntensity = _lightIntensity;
 
         _staticObjectManager = new StaticObjectRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager);
         _staticObjectManager.RenderDistance = _sceneryRenderDistance;
+        _staticObjectManager.LightIntensity = _lightIntensity;
         if (_initialized && _sceneryShader != null) {
             _staticObjectManager.Initialize(_sceneryShader);
         }
 
         _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager, _staticObjectManager, documentManager);
         _sceneryManager.RenderDistance = _sceneryRenderDistance;
+        _sceneryManager.LightIntensity = _lightIntensity;
         if (_initialized && _sceneryShader != null) {
             _sceneryManager.Initialize(_sceneryShader);
         }
@@ -279,6 +283,7 @@ public class GameScene : IDisposable {
 
         if (_skyboxManager != null) {
             _skyboxManager.TimeOfDay = _timeOfDay;
+            _skyboxManager.LightIntensity = _lightIntensity;
         }
 
         if (centerCamera && landscapeDoc.Region != null) {
@@ -385,6 +390,7 @@ public class GameScene : IDisposable {
     /// </summary>
     /// <param name="intensity">The light intensity (ambient).</param>
     public void SetLightIntensity(float intensity) {
+        _lightIntensity = intensity;
         if (_terrainManager != null) {
             _terrainManager.LightIntensity = intensity;
         }

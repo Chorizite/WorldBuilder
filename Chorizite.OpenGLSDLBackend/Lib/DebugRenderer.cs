@@ -12,34 +12,72 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     public unsafe class DebugRenderer : IDisposable {
         private readonly GL _gl;
         private readonly OpenGLGraphicsDevice _graphicsDevice;
-        private uint _vbo;
+        private uint _quadVbo;
+        private uint _instanceVbo;
         private uint _vao;
         private IShader? _shader;
 
         [StructLayout(LayoutKind.Sequential)]
-        private struct DebugVertex {
-            public Vector3 Position;
+        private struct LineInstance {
+            public Vector3 Start;
+            public Vector3 End;
             public Vector4 Color;
+            public float Thickness;
         }
 
-        private readonly List<DebugVertex> _vertices = new();
+        private readonly List<LineInstance> _lineInstances = new();
 
         public DebugRenderer(GL gl, OpenGLGraphicsDevice graphicsDevice) {
             _gl = gl;
             _graphicsDevice = graphicsDevice;
 
             _gl.GenVertexArrays(1, out _vao);
-            _gl.GenBuffers(1, out _vbo);
+            _gl.GenBuffers(1, out _quadVbo);
+            _gl.GenBuffers(1, out _instanceVbo);
 
             _gl.BindVertexArray(_vao);
-            _gl.BindBuffer(GLEnum.ArrayBuffer, _vbo);
 
-            // Position
+            // Unit quad vertices for two triangles (0 to 1 for length, -0.5 to 0.5 for thickness)
+            float[] quadVertices = {
+                0.0f, -0.5f,
+                1.0f, -0.5f,
+                1.0f,  0.5f,
+                0.0f, -0.5f,
+                1.0f,  0.5f,
+                0.0f,  0.5f
+            };
+
+            _gl.BindBuffer(GLEnum.ArrayBuffer, _quadVbo);
+            fixed (float* pQuad = quadVertices) {
+                _gl.BufferData(GLEnum.ArrayBuffer, (nuint)(quadVertices.Length * sizeof(float)), pQuad, GLEnum.StaticDraw);
+            }
+
+            // Quad Pos attribute (location 0)
             _gl.EnableVertexAttribArray(0);
-            _gl.VertexAttribPointer(0, 3, GLEnum.Float, false, (uint)Marshal.SizeOf<DebugVertex>(), (void*)0);
-            // Color
+            _gl.VertexAttribPointer(0, 2, GLEnum.Float, false, 2 * sizeof(float), (void*)0);
+
+            // Instance attributes
+            _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVbo);
+            
+            // aStart (location 1)
             _gl.EnableVertexAttribArray(1);
-            _gl.VertexAttribPointer(1, 4, GLEnum.Float, false, (uint)Marshal.SizeOf<DebugVertex>(), (void*)Marshal.OffsetOf<DebugVertex>("Color"));
+            _gl.VertexAttribPointer(1, 3, GLEnum.Float, false, (uint)Marshal.SizeOf<LineInstance>(), (void*)0);
+            _gl.VertexAttribDivisor(1, 1);
+
+            // aEnd (location 2)
+            _gl.EnableVertexAttribArray(2);
+            _gl.VertexAttribPointer(2, 3, GLEnum.Float, false, (uint)Marshal.SizeOf<LineInstance>(), (void*)Marshal.OffsetOf<LineInstance>("End"));
+            _gl.VertexAttribDivisor(2, 1);
+
+            // aColor (location 3)
+            _gl.EnableVertexAttribArray(3);
+            _gl.VertexAttribPointer(3, 4, GLEnum.Float, false, (uint)Marshal.SizeOf<LineInstance>(), (void*)Marshal.OffsetOf<LineInstance>("Color"));
+            _gl.VertexAttribDivisor(3, 1);
+
+            // aThickness (location 4)
+            _gl.EnableVertexAttribArray(4);
+            _gl.VertexAttribPointer(4, 1, GLEnum.Float, false, (uint)Marshal.SizeOf<LineInstance>(), (void*)Marshal.OffsetOf<LineInstance>("Thickness"));
+            _gl.VertexAttribDivisor(4, 1);
 
             _gl.BindVertexArray(0);
         }
@@ -49,8 +87,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void DrawLine(Vector3 start, Vector3 end, Vector4 color) {
-            _vertices.Add(new DebugVertex { Position = start, Color = color });
-            _vertices.Add(new DebugVertex { Position = end, Color = color });
+            _lineInstances.Add(new LineInstance { 
+                Start = start, 
+                End = end, 
+                Color = color, 
+                Thickness = 2.0f 
+            });
         }
 
         public void DrawBox(BoundingBox box, Vector4 color) {
@@ -120,29 +162,36 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void Render(Matrix4x4 view, Matrix4x4 projection) {
-            if (_vertices.Count == 0 || _shader == null) return;
+            if (_lineInstances.Count == 0 || _shader == null) return;
 
             _shader.Bind();
             _shader.SetUniform("uView", view);
             _shader.SetUniform("uProjection", projection);
-            _shader.SetUniform("uModel", Matrix4x4.Identity);
+            _shader.SetUniform("uViewportSize", new Vector2(_graphicsDevice.Viewport.Width, _graphicsDevice.Viewport.Height));
 
-            _gl.LineWidth(2.0f);
+            _gl.Disable(EnableCap.CullFace);
+            _gl.Enable(EnableCap.DepthTest);
+            _gl.DepthFunc(GLEnum.Lequal);
+            _gl.DepthMask(true);
+            _gl.Enable(EnableCap.Blend);
+            _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
             _gl.BindVertexArray(_vao);
-            _gl.BindBuffer(GLEnum.ArrayBuffer, _vbo);
             
-            var vertexSpan = CollectionsMarshal.AsSpan(_vertices);
-            _gl.BufferData(GLEnum.ArrayBuffer, (nuint)(_vertices.Count * Marshal.SizeOf<DebugVertex>()), vertexSpan, GLEnum.StreamDraw);
+            _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVbo);
+            var instanceSpan = CollectionsMarshal.AsSpan(_lineInstances);
+            _gl.BufferData(GLEnum.ArrayBuffer, (nuint)(_lineInstances.Count * Marshal.SizeOf<LineInstance>()), instanceSpan, GLEnum.StreamDraw);
 
-            _gl.DrawArrays(GLEnum.Lines, 0, (uint)_vertices.Count);
+            _gl.DrawArraysInstanced(GLEnum.Triangles, 0, 6, (uint)_lineInstances.Count);
 
-            _gl.LineWidth(1.0f);
-            _vertices.Clear();
+            _lineInstances.Clear();
             _gl.BindVertexArray(0);
+            _gl.DepthFunc(GLEnum.Less);
         }
 
         public void Dispose() {
-            if (_vbo != 0) _gl.DeleteBuffer(_vbo);
+            if (_quadVbo != 0) _gl.DeleteBuffer(_quadVbo);
+            if (_instanceVbo != 0) _gl.DeleteBuffer(_instanceVbo);
             if (_vao != 0) _gl.DeleteVertexArray(_vao);
         }
     }

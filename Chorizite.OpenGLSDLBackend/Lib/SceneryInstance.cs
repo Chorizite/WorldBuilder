@@ -49,6 +49,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>Grid Y coordinate of this landblock.</summary>
         public int GridY { get; set; }
 
+        public object Lock { get; } = new();
+
         public List<SceneryInstance> Instances { get; set; } = new();
 
         public List<SceneryInstance>? PendingInstances { get; set; }

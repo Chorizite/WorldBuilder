@@ -156,31 +156,33 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var (key, lb) in _landblocks) {
                 if (!lb.InstancesReady) continue;
 
-                foreach (var instance in lb.Instances) {
-                    if (instance.IsBuilding && !targets.HasFlag(RaycastTarget.Buildings)) continue;
-                    if (!instance.IsBuilding && !targets.HasFlag(RaycastTarget.StaticObjects)) continue;
+                lock (lb.Lock) {
+                    foreach (var instance in lb.Instances) {
+                        if (instance.IsBuilding && !targets.HasFlag(RaycastTarget.Buildings)) continue;
+                        if (!instance.IsBuilding && !targets.HasFlag(RaycastTarget.StaticObjects)) continue;
 
-                    var renderData = _meshManager.TryGetRenderData(instance.ObjectId);
-                    if (renderData == null) continue;
+                        var renderData = _meshManager.TryGetRenderData(instance.ObjectId);
+                        if (renderData == null) continue;
 
-                    // Broad phase: Bounding Box
-                    if (instance.BoundingBox.Max != instance.BoundingBox.Min) {
-                        if (!ObjectMeshManager.RayIntersectsBox(rayOrigin, rayDirection, instance.BoundingBox, out _)) {
-                            continue;
+                        // Broad phase: Bounding Box
+                        if (instance.BoundingBox.Max != instance.BoundingBox.Min) {
+                            if (!ObjectMeshManager.RayIntersectsBox(rayOrigin, rayDirection, instance.BoundingBox, out _)) {
+                                continue;
+                            }
                         }
-                    }
 
-                    // Narrow phase: Mesh-precise raycast
-                    if (_meshManager.IntersectMesh(renderData, instance.Transform, rayOrigin, rayDirection, out float d)) {
-                        if (d < hit.Distance) {
-                            hit.Hit = true;
-                            hit.Distance = d;
-                            hit.Type = instance.IsBuilding ? InspectorSelectionType.Building : InspectorSelectionType.StaticObject;
-                            hit.ObjectId = instance.ObjectId;
-                            hit.InstanceId = instance.InstanceId;
-                            hit.Position = instance.WorldPosition;
-                            hit.Rotation = instance.Rotation;
-                            hit.LandblockId = (uint)((key << 16) | 0xFFFE);
+                        // Narrow phase: Mesh-precise raycast
+                        if (_meshManager.IntersectMesh(renderData, instance.Transform, rayOrigin, rayDirection, out float d)) {
+                            if (d < hit.Distance) {
+                                hit.Hit = true;
+                                hit.Distance = d;
+                                hit.Type = instance.IsBuilding ? InspectorSelectionType.Building : InspectorSelectionType.StaticObject;
+                                hit.ObjectId = instance.ObjectId;
+                                hit.InstanceId = instance.InstanceId;
+                                hit.Position = instance.WorldPosition;
+                                hit.Rotation = instance.Rotation;
+                                hit.LandblockId = (uint)((key << 16) | 0xFFFE);
+                            }
                         }
                     }
                 }
@@ -597,11 +599,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _instanceReadyTcs.TryRemove(key, out _);
                 lb.InstancesReady = false;
             }
-            DecrementInstanceRefCounts(lb.Instances);
-            lb.Instances.Clear();
-            lb.PendingInstances = null;
-            lb.GpuReady = false;
-            lb.MeshDataReady = false;
+            lock (lb.Lock) {
+                DecrementInstanceRefCounts(lb.Instances);
+                lb.Instances.Clear();
+                lb.PendingInstances = null;
+                lb.GpuReady = false;
+                lb.MeshDataReady = false;
+            }
         }
 
         private void IncrementInstanceRefCounts(List<SceneryInstance> instances) {

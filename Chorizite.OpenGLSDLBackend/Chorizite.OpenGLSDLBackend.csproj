@@ -49,6 +49,12 @@
 	  <EmbeddedResource Include="Shaders\Simple3D.frag">
 	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Shaders\InstancedLine.vert">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Shaders\InstancedLine.frag">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <None Remove="Shaders\Terrain.frag" />
 	  <None Remove="Shaders\Terrain.vert" />
 	</ItemGroup>
