@@ -22,6 +22,11 @@ namespace WorldBuilder.Lib.Settings {
         );
         public string ProjectsDirectory { get => _projectsDirectory; set => SetProperty(ref _projectsDirectory, value); }
 
+        [SettingDescription("Automatically load most recent project on startup")]
+        [SettingOrder(1)]
+        private bool _autoLoadProject = false;
+        public bool AutoLoadProject { get => _autoLoadProject; set => SetProperty(ref _autoLoadProject, value); }
+
         [SettingDescription("Minimum log level for application logging")]
         [SettingOrder(1)]
         private LogLevel _logLevel = LogLevel.Information;
