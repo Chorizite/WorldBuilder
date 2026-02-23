@@ -73,6 +73,11 @@ namespace Chorizite.OpenGLSDLBackend {
             var fragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.StaticObject.frag");
             _shader = GraphicsDevice.CreateShader("StaticObject", vertSource, fragSource);
 
+            if (_shader is GLSLShader glsl && glsl.Program == 0) {
+                _log.LogError("Failed to initialize StaticObject shader.");
+                return;
+            }
+
             // Initialize instance buffer with identity matrix
             Gl.BindBuffer(GLEnum.ArrayBuffer, InstanceVBO);
             unsafe {
@@ -175,7 +180,7 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public void Render() {
-            if (!_initialized || _shader == null) return;
+            if (!_initialized || _shader == null || (_shader is GLSLShader glsl && glsl.Program == 0)) return;
 
             // Preserve the current viewport and scissor state
             Span<int> currentViewport = stackalloc int[4];
@@ -183,6 +188,11 @@ namespace Chorizite.OpenGLSDLBackend {
             bool wasScissorEnabled = Gl.IsEnabled(EnableCap.ScissorTest);
 
             try {
+                CurrentVAO = 0;
+                CurrentIBO = 0;
+                CurrentAtlas = 0;
+                CurrentCullMode = null;
+
                 Gl.Disable(EnableCap.ScissorTest);
                 Gl.Disable(EnableCap.Blend);
                 Gl.Enable(EnableCap.DepthTest);
@@ -272,7 +282,7 @@ namespace Chorizite.OpenGLSDLBackend {
         private void RenderCurrentObject(ObjectRenderData data, Matrix4x4 transform) {
             if (data.IsSetup) {
                 foreach (var part in data.SetupParts) {
-                    var partData = MeshManager.GetRenderData(part.GfxObjId);
+                    var partData = MeshManager.TryGetRenderData(part.GfxObjId);
                     if (partData != null) {
                         RenderObjectBatches(_shader!, partData, new List<Matrix4x4> { part.Transform * transform });
                     }

@@ -119,8 +119,6 @@ namespace Chorizite.OpenGLSDLBackend {
                     $"Cannot bind texture array: NativePtr is invalid (Slot={Slot}, Size={Width}x{Height}x{Size}).");
             }
 
-            GL.BindSampler((uint)slot, 0);
-            GLHelpers.CheckErrors();
             GL.ActiveTexture(GLEnum.Texture0 + slot);
             GLHelpers.CheckErrors();
             GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);

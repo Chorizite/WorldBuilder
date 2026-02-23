@@ -79,7 +79,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private LandSurfaceManager? _surfaceManager;
 
-        private uint _currentVAO;
+        private static uint _currentVAO;
 
         public TerrainRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc, IDatReaderWriter dats,
             OpenGLGraphicsDevice graphicsDevice, IDocumentManager documentManager) {
@@ -551,7 +551,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public unsafe void Render(Matrix4x4 viewMatrix, Matrix4x4 projectionMatrix, Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, float fieldOfView) {
-            if (!_initialized || _shader is null) return;
+            if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0)) return;
+
+            _currentVAO = 0;
 
             _shader.Bind();
 
