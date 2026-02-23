@@ -22,17 +22,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected uint InstanceVBO;
         protected int InstanceBufferCapacity = 0;
 
-        // Render state tracking
-        protected uint CurrentVAO;
-        protected uint CurrentIBO;
-        protected uint CurrentAtlas;
-        protected CullMode? CurrentCullMode;
+        // Render state tracking (Static so all managers sharing a context see the same state)
+        public static uint CurrentVAO;
+        public static uint CurrentIBO;
+        public static uint CurrentAtlas;
+        public static CullMode? CurrentCullMode;
 
         protected BaseObjectRenderManager(GL gl, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager) {
             Gl = gl;
             GraphicsDevice = graphicsDevice;
             MeshManager = meshManager;
             Gl.GenBuffers(1, out InstanceVBO);
+            GLHelpers.CheckErrors();
         }
 
         protected unsafe void RenderObjectBatches(IShader shader, ObjectRenderData renderData, List<Matrix4x4> instanceTransforms) {

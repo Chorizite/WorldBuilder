@@ -66,7 +66,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public unsafe void Render(Matrix4x4 viewMatrix, Matrix4x4 projectionMatrix, Vector3 cameraPosition, float fov, float aspectRatio) {
-            if (!_initialized || _shader is null || _landscapeDoc.Region == null) return;
+            if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || _landscapeDoc.Region == null) return;
 
             var regionInfo = _landscapeDoc.Region;
             var region = regionInfo.Region;

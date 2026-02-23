@@ -1,6 +1,7 @@
 ﻿using Chorizite.Core.Dats;
 using Chorizite.Core.Render;
 using Chorizite.Core.Render.Enums;
+using Chorizite.OpenGLSDLBackend.Lib;
 using Silk.NET.OpenGL;
 using Image = SixLabors.ImageSharp.Image;
 
@@ -39,10 +40,10 @@ namespace Chorizite.OpenGLSDLBackend {
                 GL.TexImage2D(GLEnum.Texture2D, 0, (int)InternalFormat.Rgba8, (uint)width, (uint)height, 0, PixelFormat.Rgba, (PixelType)0x1401, data);
                 GLHelpers.CheckErrors();
             }
-            GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
-            GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
-            GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
-            GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+            GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
+            GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
+            GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
+            GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
             GLHelpers.CheckErrors();
             //  GL.TexParameterI(GLEnum.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapNearest);
             // GL.TexParameterI(GLEnum.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
@@ -83,10 +84,11 @@ namespace Chorizite.OpenGLSDLBackend {
         protected ManagedGLTexture(OpenGLGraphicsDevice device, Image bitmap) {
             throw new NotImplementedException();
         }
-       
+
         public void SetData(Rectangle rectangle, byte[] data) {
             if (_texture == 0) return;
 
+            BaseObjectRenderManager.CurrentAtlas = 0;
             GL.BindTexture(GLEnum.Texture2D, _texture);
             GLHelpers.CheckErrors();
 
@@ -114,6 +116,9 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public void Bind(int slot = 0) {
+            if (slot == 0) {
+                BaseObjectRenderManager.CurrentAtlas = 0;
+            }
             GL.BindSampler((uint)slot, 0);
             GL.ActiveTexture(GLEnum.Texture0 + slot);
             GLHelpers.CheckErrors();

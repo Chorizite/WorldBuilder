@@ -15,14 +15,28 @@ namespace Chorizite.OpenGLSDLBackend {
             Device = device;
         }
 
+        private static bool _loggedVersion = false;
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void CheckErrors(bool logErrors = false, [CallerMemberName] string callerName = "",
             [CallerFilePath] string callerFile = "", [CallerLineNumber] int callerLine = 0) {
             var error = Device?.GL.GetError();
             if (error.HasValue && error.Value != GLEnum.NoError) {
+                if (!_loggedVersion && Device != null) {
+                    _loggedVersion = true;
+                    var version = Device.GL.GetStringS(GLEnum.Version);
+                    var vendor = Device.GL.GetStringS(GLEnum.Vendor);
+                    var renderer = Device.GL.GetStringS(GLEnum.Renderer);
+                    Logger?.LogInformation($"GL Version: {version}, Vendor: {vendor}, Renderer: {renderer}");
+                }
                 string errorDetails = GetErrorDetails(error.Value);
                 string location = $"{System.IO.Path.GetFileName(callerFile)}::{callerName}:{callerLine}";
-                string message = $"OpenGL Error: {error} ({errorDetails}) at {location}";
+                
+                var program = Device?.GL.GetInteger(GLEnum.CurrentProgram);
+                var vao = Device?.GL.GetInteger(GLEnum.VertexArrayBinding);
+                var activeTex = Device?.GL.GetInteger(GLEnum.ActiveTexture);
+                
+                string message = $"OpenGL Error: {error} ({errorDetails}) at {location}. Program: {program}, VAO: {vao}, ActiveTex: {activeTex}";
 
                 Logger?.LogError(message);
                 throw new Exception(message);

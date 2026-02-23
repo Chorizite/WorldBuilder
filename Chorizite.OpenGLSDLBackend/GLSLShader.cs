@@ -35,8 +35,8 @@ namespace Chorizite.OpenGLSDLBackend {
         private int GetUniformLocation(uint program, string name) {
             if (!_uniformLocations.ContainsKey(name)) {
                 _uniformLocations.Add(name, GL.GetUniformLocation(program, name));
+                GLHelpers.CheckErrors();
             }
-            GLHelpers.CheckErrors();
             return _uniformLocations[name];
         }
 
@@ -161,8 +161,9 @@ namespace Chorizite.OpenGLSDLBackend {
             GL.GetProgram(prog, GLEnum.LinkStatus, out int success);
             GLHelpers.CheckErrors();
             if (success != 1) {
-                var infoLog = GL.GetProgramInfoLog(Program);
-                _log.LogError($"Error: shader program compilation failed: {infoLog}");
+                var infoLog = GL.GetProgramInfoLog(prog);
+                _log.LogError($"Error: shader {Name} link failed: {infoLog}");
+                GL.DeleteProgram(prog);
                 return;
             }
             else {

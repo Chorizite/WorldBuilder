@@ -434,7 +434,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public unsafe void Render(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
-            if (!_initialized || _shader is null || cameraPosition.Z > 4000) return;
+            if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || cameraPosition.Z > 4000) return;
+
+            CurrentVAO = 0;
+            CurrentIBO = 0;
+            CurrentAtlas = 0;
+            CurrentCullMode = null;
 
             _shader.Bind();
             _shader.SetUniform("uViewProjection", viewProjectionMatrix);
