@@ -455,7 +455,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     else if (isHovered) color = new Vector4(1.0f, 1.0f, 0.0f, 1.0f); // Bright Yellow
                     else color = InspectorTool.SceneryColor;
 
-                    debug.DrawBox(instance.BoundingBox, color);
+                    debug.DrawBox(instance.LocalBoundingBox, instance.Transform, color);
                 }
             }
         }
@@ -733,7 +733,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         var isSetup = (obj.ObjectId >> 24) == 0x02;
 
                         var bounds = _meshManager.GetBounds(obj.ObjectId, isSetup);
-                        var bbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max).Transform(transform) : default;
+                        var localBbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max) : default;
+                        var bbox = localBbox.Transform(transform);
 
                         var instance = new SceneryInstance {
                             ObjectId = obj.ObjectId,
@@ -743,6 +744,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             Rotation = quat,
                             Scale = scale,
                             Transform = transform,
+                            LocalBoundingBox = localBbox,
                             BoundingBox = bbox
                         };
 

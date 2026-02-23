@@ -524,7 +524,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     else if (instance.IsBuilding) color = InspectorTool.BuildingColor;
                     else color = InspectorTool.StaticObjectColor;
 
-                    debug.DrawBox(instance.BoundingBox, color);
+                    debug.DrawBox(instance.LocalBoundingBox, instance.Transform, color);
                 }
             }
         }
@@ -661,7 +661,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         * Matrix4x4.CreateTranslation(worldPos);
 
                     var bounds = _meshManager.GetBounds(obj.SetupId, isSetup);
-                    var bbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max).Transform(transform) : default;
+                    var localBbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max) : default;
+                    var bbox = localBbox.Transform(transform);
 
                     staticObjects.Add(new SceneryInstance {
                         ObjectId = obj.SetupId,
@@ -672,6 +673,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         Rotation = rotation,
                         Scale = Vector3.One,
                         Transform = transform,
+                        LocalBoundingBox = localBbox,
                         BoundingBox = bbox
                     });
                 }
@@ -692,7 +694,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         * Matrix4x4.CreateTranslation(worldPos);
 
                     var bounds = _meshManager.GetBounds(building.ModelId, isSetup);
-                    var bbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max).Transform(transform) : default;
+                    var localBbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max) : default;
+                    var bbox = localBbox.Transform(transform);
 
                     staticObjects.Add(new SceneryInstance {
                         ObjectId = building.ModelId,
@@ -703,6 +706,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         Rotation = rotation,
                         Scale = Vector3.One,
                         Transform = transform,
+                        LocalBoundingBox = localBbox,
                         BoundingBox = bbox
                     });
                 }

@@ -31,6 +31,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>Pre-computed world transform matrix.</summary>
         public Matrix4x4 Transform;
 
+        /// <summary>Local-space bounding box.</summary>
+        public BoundingBox LocalBoundingBox;
+
         /// <summary>World-space bounding box.</summary>
         public BoundingBox BoundingBox;
     }

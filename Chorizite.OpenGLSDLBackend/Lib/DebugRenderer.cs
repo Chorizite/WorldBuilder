@@ -54,26 +54,44 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void DrawBox(BoundingBox box, Vector4 color) {
+            DrawBox(box, Matrix4x4.Identity, color);
+        }
+
+        public void DrawBox(BoundingBox box, Matrix4x4 transform, Vector4 color) {
             var min = box.Min;
             var max = box.Max;
 
+            var corners = new Vector3[8];
+            corners[0] = new Vector3(min.X, min.Y, min.Z);
+            corners[1] = new Vector3(max.X, min.Y, min.Z);
+            corners[2] = new Vector3(max.X, max.Y, min.Z);
+            corners[3] = new Vector3(min.X, max.Y, min.Z);
+            corners[4] = new Vector3(min.X, min.Y, max.Z);
+            corners[5] = new Vector3(max.X, min.Y, max.Z);
+            corners[6] = new Vector3(max.X, max.Y, max.Z);
+            corners[7] = new Vector3(min.X, max.Y, max.Z);
+
+            for (int i = 0; i < 8; i++) {
+                corners[i] = Vector3.Transform(corners[i], transform);
+            }
+
             // Bottom
-            DrawLine(new Vector3(min.X, min.Y, min.Z), new Vector3(max.X, min.Y, min.Z), color);
-            DrawLine(new Vector3(max.X, min.Y, min.Z), new Vector3(max.X, max.Y, min.Z), color);
-            DrawLine(new Vector3(max.X, max.Y, min.Z), new Vector3(min.X, max.Y, min.Z), color);
-            DrawLine(new Vector3(min.X, max.Y, min.Z), new Vector3(min.X, min.Y, min.Z), color);
+            DrawLine(corners[0], corners[1], color);
+            DrawLine(corners[1], corners[2], color);
+            DrawLine(corners[2], corners[3], color);
+            DrawLine(corners[3], corners[0], color);
 
             // Top
-            DrawLine(new Vector3(min.X, min.Y, max.Z), new Vector3(max.X, min.Y, max.Z), color);
-            DrawLine(new Vector3(max.X, min.Y, max.Z), new Vector3(max.X, max.Y, max.Z), color);
-            DrawLine(new Vector3(max.X, max.Y, max.Z), new Vector3(min.X, max.Y, max.Z), color);
-            DrawLine(new Vector3(min.X, max.Y, max.Z), new Vector3(min.X, min.Y, max.Z), color);
+            DrawLine(corners[4], corners[5], color);
+            DrawLine(corners[5], corners[6], color);
+            DrawLine(corners[6], corners[7], color);
+            DrawLine(corners[7], corners[4], color);
 
             // Verticals
-            DrawLine(new Vector3(min.X, min.Y, min.Z), new Vector3(min.X, min.Y, max.Z), color);
-            DrawLine(new Vector3(max.X, min.Y, min.Z), new Vector3(max.X, min.Y, max.Z), color);
-            DrawLine(new Vector3(max.X, max.Y, min.Z), new Vector3(max.X, max.Y, max.Z), color);
-            DrawLine(new Vector3(min.X, max.Y, min.Z), new Vector3(min.X, max.Y, max.Z), color);
+            DrawLine(corners[0], corners[4], color);
+            DrawLine(corners[1], corners[5], color);
+            DrawLine(corners[2], corners[6], color);
+            DrawLine(corners[3], corners[7], color);
         }
 
         public void DrawSphere(Vector3 center, float radius, Vector4 color, int segments = 16) {
