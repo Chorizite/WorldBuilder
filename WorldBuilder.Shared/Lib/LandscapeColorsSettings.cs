@@ -11,12 +11,12 @@ namespace WorldBuilder.Shared.Lib
         public static LandscapeColorsSettings Instance => _instance ??= new LandscapeColorsSettings();
 
         // UI / Interaction Colors
-        private Vector4 _selection = new Vector4(1.0f, 0.5f, 0.0f, 0.8f); // Orange
+        private Vector4 _selection = new Vector4(1.0f, 1.0f, 0.0f, 0.6f); // Yellow
         [SettingDescription("Color for selected items")]
         [SettingOrder(0)]
         public Vector4 Selection { get => _selection; set => SetProperty(ref _selection, value); }
 
-        private Vector4 _hover = new Vector4(1.0f, 1.0f, 0.0f, 0.6f); // Yellow
+        private Vector4 _hover = new Vector4(1.0f, 1.0f, 0.0f, 0.45f); // Yellow
         [SettingDescription("Color for hovered items")]
         [SettingOrder(1)]
         public Vector4 Hover { get => _hover; set => SetProperty(ref _hover, value); }
@@ -27,7 +27,7 @@ namespace WorldBuilder.Shared.Lib
         public Vector4 Brush { get => _brush; set => SetProperty(ref _brush, value); }
 
         // Object Type Colors
-        private Vector4 _vertex = new Vector4(1.0f, 1.0f, 0.0f, 1.0f); // Yellow
+        private Vector4 _vertex = new Vector4(1.0f, 0.0f, 0.0f, 1.0f); // Red
         [SettingDescription("Color for landscape vertices")]
         [SettingOrder(3)]
         public Vector4 Vertex { get => _vertex; set => SetProperty(ref _vertex, value); }

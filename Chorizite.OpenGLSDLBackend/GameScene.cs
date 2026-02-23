@@ -580,8 +580,7 @@ public class GameScene : IDisposable {
         float z = _landscapeDoc.GetHeight(vx, vy);
 
         var pos = new Vector3(x, y, z);
-        var size = 0.2f;
-        _debugRenderer.DrawBox(new BoundingBox(pos - new Vector3(size), pos + new Vector3(size)), color);
+        _debugRenderer.DrawSphere(pos, 1.5f, color);
     }
 
     public void SetHoveredStaticObject(uint landblockId, uint instanceId) {
@@ -746,6 +745,32 @@ public class GameScene : IDisposable {
 
             _sceneryManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
             _staticObjectManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
+
+            if (_inspectorTool != null && _inspectorTool.SelectVertices && _landscapeDoc?.Region != null) {
+                var region = _landscapeDoc.Region;
+                var lbSize = region.CellSizeInUnits * region.LandblockCellLength;
+                var pos = new Vector2(_currentCamera.Position.X, _currentCamera.Position.Y) - region.MapOffset;
+                int camLbX = (int)Math.Floor(pos.X / lbSize);
+                int camLbY = (int)Math.Floor(pos.Y / lbSize);
+
+                int range = _staticObjectManager?.RenderDistance ?? 25; 
+                for (int lbX = camLbX - range; lbX <= camLbX + range; lbX++) {
+                    for (int lbY = camLbY - range; lbY <= camLbY + range; lbY++) {
+                        if (lbX < 0 || lbX >= region.MapWidthInLandblocks || lbY < 0 || lbY >= region.MapHeightInLandblocks) continue;
+
+                        for (int vx = 0; vx < 8; vx++) {
+                            for (int vy = 0; vy < 8; vy++) {
+                                int gvx = lbX * 8 + vx;
+                                int gvy = lbY * 8 + vy;
+                                if (_hoveredVertex.HasValue && _hoveredVertex.Value.x == gvx && _hoveredVertex.Value.y == gvy) continue;
+                                if (_selectedVertex.HasValue && _selectedVertex.Value.x == gvx && _selectedVertex.Value.y == gvy) continue;
+
+                                DrawVertexDebug(gvx, gvy, _inspectorTool.VertexColor);
+                            }
+                        }
+                    }
+                }
+            }
 
             if (_inspectorTool == null || (_inspectorTool.ShowBoundingBoxes && _inspectorTool.SelectVertices)) {
                 if (_hoveredVertex.HasValue) {

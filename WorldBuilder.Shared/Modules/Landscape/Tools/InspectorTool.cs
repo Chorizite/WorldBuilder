@@ -24,19 +24,52 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         [ObservableProperty] private bool _showBoundingBoxes = true;
 
-        public Vector4 VertexColor { get; } = LandscapeColorsSettings.Instance.Vertex; // Yellow
-        public Vector4 BuildingColor { get; } = LandscapeColorsSettings.Instance.Building; // Magenta
-        public Vector4 StaticObjectColor { get; } = LandscapeColorsSettings.Instance.StaticObject; // Light Blue
-        public Vector4 SceneryColor { get; } = LandscapeColorsSettings.Instance.Scenery; // Green
+        public Vector4 VertexColor {
+            get => LandscapeColorsSettings.Instance.Vertex;
+            set {
+                LandscapeColorsSettings.Instance.Vertex = value;
+                OnPropertyChanged(nameof(VertexColor));
+            }
+        }
+
+        public Vector4 BuildingColor {
+            get => LandscapeColorsSettings.Instance.Building;
+            set {
+                LandscapeColorsSettings.Instance.Building = value;
+                OnPropertyChanged(nameof(BuildingColor));
+            }
+        }
+
+        public Vector4 StaticObjectColor {
+            get => LandscapeColorsSettings.Instance.StaticObject;
+            set {
+                LandscapeColorsSettings.Instance.StaticObject = value;
+                OnPropertyChanged(nameof(StaticObjectColor));
+            }
+        }
+
+        public Vector4 SceneryColor {
+            get => LandscapeColorsSettings.Instance.Scenery;
+            set {
+                LandscapeColorsSettings.Instance.Scenery = value;
+                OnPropertyChanged(nameof(SceneryColor));
+            }
+        }
 
         public void Activate(LandscapeToolContext context) {
             _context = context;
             IsActive = true;
+            LandscapeColorsSettings.Instance.PropertyChanged += OnColorsChanged;
         }
 
         public void Deactivate() {
             IsActive = false;
+            LandscapeColorsSettings.Instance.PropertyChanged -= OnColorsChanged;
             ClearHover();
+        }
+
+        private void OnColorsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
+            OnPropertyChanged(e.PropertyName);
         }
 
         private void ClearHover() {
@@ -101,14 +134,28 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 if (_context.RaycastTerrain != null) {
                     var terrainHit = _context.RaycastTerrain((float)e.Position.X, (float)e.Position.Y);
                     if (terrainHit.Hit) {
-                        if (terrainHit.Distance < bestHit.Distance) {
-                            bestHit = new SceneRaycastHit {
-                                Hit = true,
-                                Type = InspectorSelectionType.Vertex,
-                                Distance = terrainHit.Distance,
-                                VertexX = terrainHit.VerticeX,
-                                VertexY = terrainHit.VerticeY
-                            };
+                        int vx = (int)(terrainHit.LandblockX * terrainHit.LandblockCellLength + terrainHit.VerticeX);
+                        int vy = (int)(terrainHit.LandblockY * terrainHit.LandblockCellLength + terrainHit.VerticeY);
+                        float vHeight = _context.Document.GetHeight(vx, vy);
+                        
+                        float cellSize = terrainHit.CellSize;
+                        int lbCellLen = terrainHit.LandblockCellLength;
+                        Vector2 mapOffset = terrainHit.MapOffset;
+                        float vX = terrainHit.LandblockX * (cellSize * lbCellLen) + terrainHit.VerticeX * cellSize + mapOffset.X;
+                        float vY = terrainHit.LandblockY * (cellSize * lbCellLen) + terrainHit.VerticeY * cellSize + mapOffset.Y;
+                        
+                        Vector3 vertexPos = new Vector3(vX, vY, vHeight);
+                        if (Vector3.Distance(terrainHit.HitPosition, vertexPos) <= 1.5f) {
+                            if (terrainHit.Distance < bestHit.Distance) {
+                                bestHit = new SceneRaycastHit {
+                                    Hit = true,
+                                    Type = InspectorSelectionType.Vertex,
+                                    Distance = terrainHit.Distance,
+                                    Position = terrainHit.HitPosition,
+                                    VertexX = vx,
+                                    VertexY = vy
+                                };
+                            }
                         }
                     }
                 }

@@ -25,7 +25,7 @@
                     <DataTemplate DataType="vm:LandscapeVertexViewModel">
                         <StackPanel Spacing="4">
                             <TextBlock Text="Landscape Vertex" FontWeight="Bold" />
-                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto">
+                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto">
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Coordinates: " Opacity="0.7" />
                                 <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="4">
                                     <TextBlock Text="{Binding VertexX}" />
@@ -34,13 +34,19 @@
                                 </StackPanel>
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Height: " Opacity="0.7" />
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Height, StringFormat='\{0:F3\}'}" />
+                                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding Height, StringFormat='\{0:F3\}'}" />
+                                    <TextBlock Text="{Binding RawHeight, StringFormat='(raw: \{0\})'}" Opacity="0.5" />
+                                </StackPanel>
 
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Texture Type: " Opacity="0.7" />
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TextureType, FallbackValue='None'}" />
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Texture: " Opacity="0.7" />
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TextureName}" />
 
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Scenery Type: " Opacity="0.7" />
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SceneryType, FallbackValue='None'}" />
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Scenery: " Opacity="0.7" />
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SceneryName}" />
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Road Type: " Opacity="0.7" />
+                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding RoadType, FallbackValue='None'}" />
                             </Grid>
                         </StackPanel>
                     </DataTemplate>
@@ -49,7 +55,7 @@
                         <StackPanel Spacing="4">
                             <TextBlock Text="Static Object" FontWeight="Bold" />
                             <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto">
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Object ID: " Opacity="0.7" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Model ID: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:DataIdControl Grid.Row="0" Grid.Column="1" 
                                                    DataId="{Binding ObjectId}" 
                                                    Dats="{Binding #Root.((vm:PropertiesPanelViewModel)DataContext).Dats}" />
@@ -99,7 +105,7 @@
                         <StackPanel Spacing="4">
                             <TextBlock Text="Scenery" FontWeight="Bold" />
                             <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto">
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Object ID: " Opacity="0.7" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Model ID: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:DataIdControl Grid.Row="0" Grid.Column="1" 
                                                    DataId="{Binding ObjectId}" 
                                                    Dats="{Binding #Root.((vm:PropertiesPanelViewModel)DataContext).Dats}" />
