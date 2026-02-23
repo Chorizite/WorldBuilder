@@ -142,6 +142,23 @@ public partial class App : Application {
                 }
             }
 
+            // Check if auto-load is enabled and load the most recent project
+            var settings = Services?.GetService<WorldBuilderSettings>();
+            if (settings?.App.AutoLoadProject == true && ProjectManager?.RecentProjects.Count > 0) {
+                var mostRecentProject = ProjectManager.RecentProjects
+                    .Where(p => !p.HasError && File.Exists(p.FilePath))
+                    .FirstOrDefault();
+                
+                if (mostRecentProject != null) {
+                    var log = Services?.GetService<ILogger<App>>();
+                    log?.LogInformation("Auto-loading most recent project: {ProjectName} ({ProjectPath})", 
+                        mostRecentProject.Name, mostRecentProject.FilePath);
+                    
+                    WeakReferenceMessenger.Default.Send(new OpenProjectMessage(mostRecentProject.FilePath));
+                    return;
+                }
+            }
+
             desktop.MainWindow = new SplashPageWindow { DataContext = projectSelectionVM };
             desktop.MainWindow.Show();
         }
