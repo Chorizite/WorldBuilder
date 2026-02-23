@@ -160,7 +160,9 @@ namespace WorldBuilder.Shared.Models {
             if (Region == null) return 0f;
 
             int mapWidth = Region.MapWidthInVertices;
-            if (vx < 0 || vx >= mapWidth || vy < 0 || vy >= Region.MapHeightInVertices) return 0f;
+            int mapHeight = Region.MapHeightInVertices;
+            vx = Math.Clamp(vx, 0, mapWidth - 1);
+            vy = Math.Clamp(vy, 0, mapHeight - 1);
 
             uint index = (uint)(vy * mapWidth + vx);
             var entry = GetCachedEntry(index);

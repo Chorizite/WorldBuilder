@@ -33,12 +33,8 @@
                           BrushPosition="{Binding BrushPosition}"
                           BrushRadius="{Binding BrushRadius}"
                           ShowBrush="{Binding ShowBrush}"
-                          ShowScenery="{Binding IsSceneryEnabled}"
-                          ShowStaticObjects="{Binding IsStaticObjectsEnabled}"
-                          ShowUnwalkableSlopes="{Binding IsUnwalkableSlopeHighlightEnabled}"
-                          ShowDebugShapes="{Binding IsDebugShapesEnabled}"
-                          Is3DCamera="{Binding Is3DCameraEnabled}"
-                          TimeOfDay="{Binding TimeOfDay}" />
+                          EditorState="{Binding EditorState}"
+                          Is3DCamera="{Binding Is3DCameraEnabled}" />
 
         <!-- Overlay Buttons -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" Spacing="4">
@@ -73,16 +69,16 @@
           <ToggleButton IsChecked="{Binding Is3DCameraEnabled}" ToolTip.Tip="Toggle Camera">
             <icons:MaterialIcon Kind="Camera" />
           </ToggleButton>
-          <ToggleButton IsChecked="{Binding IsSceneryEnabled}" ToolTip.Tip="Toggle Scenery">
+          <ToggleButton IsChecked="{Binding EditorState.ShowScenery}" ToolTip.Tip="Toggle Scenery">
             <icons:MaterialIcon Kind="Tree" />
           </ToggleButton>
-          <ToggleButton IsChecked="{Binding IsStaticObjectsEnabled}" ToolTip.Tip="Toggle Static Objects">
+          <ToggleButton IsChecked="{Binding EditorState.ShowStaticObjects}" ToolTip.Tip="Toggle Static Objects">
             <icons:MaterialIcon Kind="Home" />
           </ToggleButton>
-          <ToggleButton IsChecked="{Binding IsGridEnabled}" ToolTip.Tip="Toggle Grid">
+          <ToggleButton IsChecked="{Binding EditorState.ShowGrid}" ToolTip.Tip="Toggle Grid">
             <icons:MaterialIcon Kind="Grid" />
           </ToggleButton>
-          <ToggleButton IsChecked="{Binding IsUnwalkableSlopeHighlightEnabled}" ToolTip.Tip="Toggle Unwalkable Slopes">
+          <ToggleButton IsChecked="{Binding EditorState.ShowUnwalkableSlopes}" ToolTip.Tip="Toggle Unwalkable Slopes">
             <icons:MaterialIcon Kind="Terrain" />
           </ToggleButton>
           <Button Command="{Binding ResetCamera}" ToolTip.Tip="Reset Camera">
@@ -96,7 +92,7 @@
                 CornerRadius="4" Padding="8,4" Width="200">
           <Grid ColumnDefinitions="Auto, *">
             <icons:MaterialIcon Kind="WeatherSunny" Margin="0,0,8,0" Foreground="{DynamicResource SemiColorText0}" />
-            <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding TimeOfDay}" 
+            <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding EditorState.TimeOfDay}" 
                     ToolTip.Tip="Time of Day" />
           </Grid>
         </Border>

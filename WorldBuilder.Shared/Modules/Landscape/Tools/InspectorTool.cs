@@ -17,7 +17,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public bool IsActive { get; private set; }
 
         // Settings
-        [ObservableProperty] private bool _selectVertices = true;
+        [ObservableProperty] private bool _selectVertices = false;
         [ObservableProperty] private bool _selectBuildings = true;
         [ObservableProperty] private bool _selectStaticObjects = true;
         [ObservableProperty] private bool _selectScenery = false;

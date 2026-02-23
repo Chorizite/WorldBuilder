@@ -76,7 +76,7 @@ namespace WorldBuilder.Lib.Settings {
         [SettingRange(100, 100000, 100, 500)]
         [SettingFormat("{0:F0}")]
         [SettingOrder(0)]
-        private float _maxDrawDistance = 4000f;
+        private float _maxDrawDistance = 40000f;
         public float MaxDrawDistance { get => _maxDrawDistance; set => SetProperty(ref _maxDrawDistance, value); }
 
         [SettingDescription("Camera field of view in degrees")]
@@ -137,17 +137,11 @@ namespace WorldBuilder.Lib.Settings {
         private bool _showUnwalkableSlopes = false;
         public bool ShowUnwalkableSlopes { get => _showUnwalkableSlopes; set => SetProperty(ref _showUnwalkableSlopes, value); }
 
-        [SettingDescription("Number of terrain chunks to render around the camera")]
-        [SettingRange(1, 64, 1, 4)]
-        [SettingOrder(6)]
-        private int _terrainRenderDistance = 18;
-        public int TerrainRenderDistance { get => _terrainRenderDistance; set => SetProperty(ref _terrainRenderDistance, value); }
-
-        [SettingDescription("Number of landblocks to render scenery around the camera")]
+        [SettingDescription("Number of landblocks to render objects (scenery, buildings, etc) around the camera")]
         [SettingRange(1, 64, 1, 4)]
         [SettingOrder(7)]
-        private int _sceneryRenderDistance = 12;
-        public int SceneryRenderDistance { get => _sceneryRenderDistance; set => SetProperty(ref _sceneryRenderDistance, value); }
+        private int _objectRenderDistance = 12;
+        public int ObjectRenderDistance { get => _objectRenderDistance; set => SetProperty(ref _objectRenderDistance, value); }
 
         [SettingDescription("Enable secondary render pass for transparency. Disabling this may improve performance but will cause transparency issues.")]
         [SettingOrder(8)]

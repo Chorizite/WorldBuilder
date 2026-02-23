@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Silk.NET.OpenGL;
 using System.Numerics;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using Xunit;
 
@@ -135,19 +136,19 @@ public class GameSceneTests {
 
     [Fact]
     public void EnableTransparencyPass_DefaultsToTrue() {
-        Assert.True(_gameScene.EnableTransparencyPass);
+        Assert.True(_gameScene.State.EnableTransparencyPass);
     }
 
     [Fact]
     public void ShowDebugShapes_DefaultsToTrue() {
-        Assert.True(_gameScene.ShowDebugShapes);
+        Assert.True(_gameScene.State.ShowDebugShapes);
     }
 
     [Fact]
     public void ShowDebugShapes_CanBeToggled() {
-        _gameScene.ShowDebugShapes = false;
-        Assert.False(_gameScene.ShowDebugShapes);
-        _gameScene.ShowDebugShapes = true;
-        Assert.True(_gameScene.ShowDebugShapes);
+        _gameScene.State.ShowDebugShapes = false;
+        Assert.False(_gameScene.State.ShowDebugShapes);
+        _gameScene.State.ShowDebugShapes = true;
+        Assert.True(_gameScene.State.ShowDebugShapes);
     }
 }

@@ -70,7 +70,9 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         [Fact]
         public void OnPointerPressed_ShouldPrioritizeClosestHit() {
             // Arrange
-            var tool = new InspectorTool();
+            var tool = new InspectorTool {
+                SelectVertices = true
+            };
             var context = CreateContext();
             tool.Activate(context);
 
@@ -127,7 +129,8 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             // Arrange
             var tool = new InspectorTool {
                 SelectStaticObjects = false,
-                SelectBuildings = false
+                SelectBuildings = false,
+                SelectVertices = true
             };
             var context = CreateContext();
             tool.Activate(context);
@@ -183,6 +186,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             regionMock.Setup(r => r.MapHeightInVertices).Returns(9);
             regionMock.Setup(r => r.LandblockVerticeLength).Returns(9);
             regionMock.Setup(r => r.MapOffset).Returns(Vector2.Zero);
+            regionMock.Setup(r => r.LandHeights).Returns(new float[256]);
             regionMock.Setup(r => r.GetVertexIndex(It.IsAny<int>(), It.IsAny<int>()))
                 .Returns<int, int>((x, y) => y * 9 + x);
             regionMock.Setup(r => r.GetVertexCoordinates(It.IsAny<uint>()))

@@ -73,12 +73,12 @@ public partial class SceneryPreview : Base3DViewport {
         _gameScene.SetCameraMode(true);
 
         // Increase render distances to ensure the preview landblock is always loaded
-        _gameScene.SetTerrainRenderDistance(5);
-        _gameScene.SetSceneryRenderDistance(5);
+        _gameScene.State.MaxDrawDistance = 10000f;
+        _gameScene.State.ObjectRenderDistance = 5;
 
         var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
         if (settings != null) {
-            _gameScene.EnableTransparencyPass = settings.Landscape.Rendering.EnableTransparencyPass;
+            _gameScene.State.EnableTransparencyPass = settings.Landscape.Rendering.EnableTransparencyPass;
         }
 
         _needsUpdate = true;

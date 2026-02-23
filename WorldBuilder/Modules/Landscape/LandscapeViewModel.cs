@@ -19,6 +19,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using WorldBuilder.Lib.Settings;
 using WorldBuilder.Lib;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Modules.Landscape.ViewModels;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Models;
@@ -61,51 +62,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     [ObservableProperty] private float _brushRadius = 30f;
     [ObservableProperty] private bool _showBrush;
 
-    [ObservableProperty] private bool _isSceneryEnabled = true;
-    [ObservableProperty] private bool _isStaticObjectsEnabled = true;
-    [ObservableProperty] private bool _isSkyboxEnabled = true;
-    [ObservableProperty] private bool _isDebugShapesEnabled = true;
-    [ObservableProperty] private bool _isUnwalkableSlopeHighlightEnabled;
-    [ObservableProperty] private bool _isGridEnabled;
     [ObservableProperty] private bool _is3DCameraEnabled = true;
-    [ObservableProperty] private float _timeOfDay = 0.5f;
 
-    partial void OnIsSceneryEnabledChanged(bool value) {
-        if (_settings != null) {
-            _settings.Landscape.Rendering.ShowScenery = value;
-        }
-    }
-
-    partial void OnIsStaticObjectsEnabledChanged(bool value) {
-        if (_settings != null) {
-            _settings.Landscape.Rendering.ShowStaticObjects = value;
-        }
-    }
-
-    partial void OnIsSkyboxEnabledChanged(bool value) {
-        if (_settings != null) {
-            _settings.Landscape.Rendering.ShowSkybox = value;
-        }
-    }
-
-    partial void OnIsDebugShapesEnabledChanged(bool value) {
-        if (_gameScene != null) {
-            _gameScene.ShowDebugShapes = value;
-        }
+    private void OnIsDebugShapesEnabledChanged(bool value) {
+        EditorState.ShowDebugShapes = value;
         if (ActiveTool is InspectorTool inspector) {
             inspector.ShowBoundingBoxes = value;
-        }
-    }
-
-    partial void OnIsUnwalkableSlopeHighlightEnabledChanged(bool value) {
-        if (_settings != null) {
-            _settings.Landscape.Rendering.ShowUnwalkableSlopes = value;
-        }
-    }
-
-    partial void OnIsGridEnabledChanged(bool value) {
-        if (_settings != null) {
-            _settings.Landscape.Grid.ShowGrid = value;
         }
     }
 
@@ -113,13 +75,8 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         UpdateToolContext();
     }
 
-    partial void OnTimeOfDayChanged(float value) {
-        if (_settings != null) {
-            _settings.Landscape.Rendering.TimeOfDay = value;
-        }
-    }
-
     private readonly WorldBuilderSettings? _settings;
+    public EditorState EditorState { get; } = new();
 
     public CommandHistory CommandHistory { get; } = new();
     public HistoryPanelViewModel HistoryPanel { get; }
@@ -146,17 +103,14 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
         if (_settings != null) {
             CommandHistory.MaxHistoryDepth = _settings.App.HistoryLimit;
-            IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
-            IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
-            IsSkyboxEnabled = _settings.Landscape.Rendering.ShowSkybox;
-            IsUnwalkableSlopeHighlightEnabled = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
-            IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
-            TimeOfDay = _settings.Landscape.Rendering.TimeOfDay;
+            SyncSettingsToState();
 
             _settings.PropertyChanged += OnSettingsPropertyChanged;
             _settings.Landscape.PropertyChanged += OnLandscapeSettingsPropertyChanged;
             _settings.Landscape.Rendering.PropertyChanged += OnRenderingSettingsPropertyChanged;
             _settings.Landscape.Grid.PropertyChanged += OnGridSettingsPropertyChanged;
+            
+            EditorState.PropertyChanged += OnEditorStatePropertyChanged;
         }
 
         HistoryPanel = new HistoryPanelViewModel(CommandHistory);
@@ -299,34 +253,13 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     }
 
     private void OnInspectorHovered(object? sender, InspectorSelectionEventArgs e) {
-        if (e.Selection.Type == InspectorSelectionType.StaticObject || e.Selection.Type == InspectorSelectionType.Building) {
-            _gameScene?.SetHoveredStaticObject(e.Selection.LandblockId, e.Selection.InstanceId);
-            _gameScene?.SetHoveredScenery(0, 0);
-            _gameScene?.SetHoveredVertex(0, 0);
-        }
-        else if (e.Selection.Type == InspectorSelectionType.Scenery) {
-            _gameScene?.SetHoveredScenery(e.Selection.LandblockId, e.Selection.InstanceId);
-            _gameScene?.SetHoveredStaticObject(0, 0);
-            _gameScene?.SetHoveredVertex(0, 0);
-        }
-        else if (e.Selection.Type == InspectorSelectionType.Vertex) {
-            _gameScene?.SetHoveredVertex(e.Selection.VertexX, e.Selection.VertexY);
-            _gameScene?.SetHoveredStaticObject(0, 0);
-            _gameScene?.SetHoveredScenery(0, 0);
-        }
-        else {
-            _gameScene?.SetHoveredStaticObject(0, 0);
-            _gameScene?.SetHoveredScenery(0, 0);
-            _gameScene?.SetHoveredVertex(0, 0);
-        }
+        _gameScene?.SetHoveredObject(e.Selection.Type, e.Selection.LandblockId, e.Selection.InstanceId, e.Selection.VertexX, e.Selection.VertexY);
     }
 
     private void OnInspectorSelected(object? sender, InspectorSelectionEventArgs e) {
-        if (e.Selection.Type == InspectorSelectionType.StaticObject || e.Selection.Type == InspectorSelectionType.Building) {
-            _gameScene?.SetSelectedStaticObject(e.Selection.LandblockId, e.Selection.InstanceId);
-            _gameScene?.SetSelectedScenery(0, 0);
-            _gameScene?.SetSelectedVertex(0, 0);
+        _gameScene?.SetSelectedObject(e.Selection.Type, e.Selection.LandblockId, e.Selection.InstanceId, e.Selection.VertexX, e.Selection.VertexY);
 
+        if (e.Selection.Type == InspectorSelectionType.StaticObject || e.Selection.Type == InspectorSelectionType.Building) {
             if (e.Selection.Type == InspectorSelectionType.StaticObject) {
                 PropertiesPanel.SelectedItem = new StaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.Rotation);
             }
@@ -335,22 +268,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             }
         }
         else if (e.Selection.Type == InspectorSelectionType.Scenery) {
-            _gameScene?.SetSelectedScenery(e.Selection.LandblockId, e.Selection.InstanceId);
-            _gameScene?.SetSelectedStaticObject(0, 0);
-            _gameScene?.SetSelectedVertex(0, 0);
-
             PropertiesPanel.SelectedItem = new SceneryViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.Rotation);
         }
         else if (e.Selection.Type == InspectorSelectionType.Vertex) {
-            _gameScene?.SetSelectedVertex(e.Selection.VertexX, e.Selection.VertexY);
-            _gameScene?.SetSelectedStaticObject(0, 0);
-            _gameScene?.SetSelectedScenery(0, 0);
             PropertiesPanel.SelectedItem = new LandscapeVertexViewModel(e.Selection.VertexX, e.Selection.VertexY, ActiveDocument!, _dats, CommandHistory);
         }
         else {
-            _gameScene?.SetSelectedStaticObject(0, 0);
-            _gameScene?.SetSelectedScenery(0, 0);
-            _gameScene?.SetSelectedVertex(0, 0);
             PropertiesPanel.SelectedItem = null;
         }
     }
@@ -444,6 +367,11 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
     private GameScene? _gameScene;
 
+    public bool IsDebugShapesEnabled {
+        get => EditorState.ShowDebugShapes;
+        set => EditorState.ShowDebugShapes = value;
+    }
+
     public void SetGameScene(GameScene scene) {
         if (_gameScene != null) {
             _gameScene.OnPointerPressed -= OnPointerPressed;
@@ -457,6 +385,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         _gameScene = scene;
 
         if (_gameScene != null) {
+            _gameScene.State = EditorState;
             _gameScene.OnPointerPressed += OnPointerPressed;
             _gameScene.OnPointerMoved += OnPointerMoved;
             _gameScene.OnPointerReleased += OnPointerReleased;
@@ -464,7 +393,6 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _gameScene.Camera2D.OnChanged += OnCameraStateChanged;
             _gameScene.Camera3D.OnChanged += OnCameraStateChanged;
 
-            _gameScene.ShowDebugShapes = IsDebugShapesEnabled;
             _gameScene.SetInspectorTool(ActiveTool as InspectorTool);
 
             if (ActiveDocument != null) {
@@ -485,9 +413,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _gameScene.Camera3D.Position = projectSettings.LandscapeCameraPosition;
             _gameScene.Camera3D.Yaw = projectSettings.LandscapeCameraYaw;
             _gameScene.Camera3D.Pitch = projectSettings.LandscapeCameraPitch;
+            _gameScene.Camera3D.MoveSpeed = projectSettings.LandscapeCameraMovementSpeed;
+            _gameScene.Camera3D.FieldOfView = projectSettings.LandscapeCameraFieldOfView;
 
             _gameScene.Camera2D.Position = projectSettings.LandscapeCameraPosition;
             _gameScene.Camera2D.Zoom = projectSettings.LandscapeCameraZoom;
+            _gameScene.Camera2D.FieldOfView = projectSettings.LandscapeCameraFieldOfView;
 
             _gameScene.SetCameraMode(projectSettings.LandscapeCameraIs3D);
         }
@@ -505,6 +436,8 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         projectSettings.LandscapeCameraYaw = _gameScene.Camera3D.Yaw;
         projectSettings.LandscapeCameraPitch = _gameScene.Camera3D.Pitch;
         projectSettings.LandscapeCameraZoom = _gameScene.Camera2D.Zoom;
+        projectSettings.LandscapeCameraMovementSpeed = _gameScene.Camera3D.MoveSpeed;
+        projectSettings.LandscapeCameraFieldOfView = (int)_gameScene.Camera3D.FieldOfView;
     }
 
 
@@ -597,80 +530,67 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         }
     }
 
+    private void SyncSettingsToState() {
+        if (_settings == null) return;
+        EditorState.ShowScenery = _settings.Landscape.Rendering.ShowScenery;
+        EditorState.ShowStaticObjects = _settings.Landscape.Rendering.ShowStaticObjects;
+        EditorState.ShowSkybox = _settings.Landscape.Rendering.ShowSkybox;
+        EditorState.ShowUnwalkableSlopes = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
+        EditorState.ObjectRenderDistance = _settings.Landscape.Rendering.ObjectRenderDistance;
+        EditorState.MaxDrawDistance = _settings.Landscape.Camera.MaxDrawDistance;
+        EditorState.EnableTransparencyPass = _settings.Landscape.Rendering.EnableTransparencyPass;
+        EditorState.TimeOfDay = _settings.Landscape.Rendering.TimeOfDay;
+        EditorState.LightIntensity = _settings.Landscape.Rendering.LightIntensity;
+
+        EditorState.ShowGrid = _settings.Landscape.Grid.ShowGrid;
+        EditorState.ShowLandblockGrid = true;
+        EditorState.ShowCellGrid = true;
+        EditorState.LandblockGridColor = _settings.Landscape.Grid.LandblockColor;
+        EditorState.CellGridColor = _settings.Landscape.Grid.CellColor;
+        EditorState.GridLineWidth = _settings.Landscape.Grid.LineWidth;
+        EditorState.GridOpacity = _settings.Landscape.Grid.Opacity;
+    }
+
+    private void OnEditorStatePropertyChanged(object? sender, PropertyChangedEventArgs e) {
+        if (_settings == null) return;
+        switch (e.PropertyName) {
+            case nameof(EditorState.ShowScenery): _settings.Landscape.Rendering.ShowScenery = EditorState.ShowScenery; break;
+            case nameof(EditorState.ShowStaticObjects): _settings.Landscape.Rendering.ShowStaticObjects = EditorState.ShowStaticObjects; break;
+            case nameof(EditorState.ShowSkybox): _settings.Landscape.Rendering.ShowSkybox = EditorState.ShowSkybox; break;
+            case nameof(EditorState.ShowUnwalkableSlopes): _settings.Landscape.Rendering.ShowUnwalkableSlopes = EditorState.ShowUnwalkableSlopes; break;
+            case nameof(EditorState.ObjectRenderDistance): _settings.Landscape.Rendering.ObjectRenderDistance = EditorState.ObjectRenderDistance; break;
+            case nameof(EditorState.MaxDrawDistance): _settings.Landscape.Camera.MaxDrawDistance = EditorState.MaxDrawDistance; break;
+            case nameof(EditorState.EnableTransparencyPass): _settings.Landscape.Rendering.EnableTransparencyPass = EditorState.EnableTransparencyPass; break;
+            case nameof(EditorState.TimeOfDay): _settings.Landscape.Rendering.TimeOfDay = EditorState.TimeOfDay; break;
+            case nameof(EditorState.LightIntensity): _settings.Landscape.Rendering.LightIntensity = EditorState.LightIntensity; break;
+            case nameof(EditorState.ShowGrid): _settings.Landscape.Grid.ShowGrid = EditorState.ShowGrid; break;
+            case nameof(EditorState.LandblockGridColor): _settings.Landscape.Grid.LandblockColor = EditorState.LandblockGridColor; break;
+            case nameof(EditorState.CellGridColor): _settings.Landscape.Grid.CellColor = EditorState.CellGridColor; break;
+            case nameof(EditorState.GridLineWidth): _settings.Landscape.Grid.LineWidth = EditorState.GridLineWidth; break;
+            case nameof(EditorState.GridOpacity): _settings.Landscape.Grid.Opacity = EditorState.GridOpacity; break;
+        }
+    }
+
     private void OnSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
         if (e.PropertyName == nameof(WorldBuilderSettings.Landscape)) {
-            if (_settings != null) {
-                _settings.Landscape.PropertyChanged -= OnLandscapeSettingsPropertyChanged;
-                _settings.Landscape.PropertyChanged += OnLandscapeSettingsPropertyChanged;
-
-                _settings.Landscape.Rendering.PropertyChanged -= OnRenderingSettingsPropertyChanged;
-                _settings.Landscape.Rendering.PropertyChanged += OnRenderingSettingsPropertyChanged;
-
-                _settings.Landscape.Grid.PropertyChanged -= OnGridSettingsPropertyChanged;
-                _settings.Landscape.Grid.PropertyChanged += OnGridSettingsPropertyChanged;
-
-                IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
-                IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
-                IsSkyboxEnabled = _settings.Landscape.Rendering.ShowSkybox;
-                IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
-            }
+            SyncSettingsToState();
         }
     }
 
     private void OnLandscapeSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
-        if (e.PropertyName == nameof(LandscapeEditorSettings.Rendering)) {
-            if (_settings != null) {
-                _settings.Landscape.Rendering.PropertyChanged -= OnRenderingSettingsPropertyChanged;
-                _settings.Landscape.Rendering.PropertyChanged += OnRenderingSettingsPropertyChanged;
-                IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
-                IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
-                IsSkyboxEnabled = _settings.Landscape.Rendering.ShowSkybox;
-                IsUnwalkableSlopeHighlightEnabled = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
-            }
-        }
-        else if (e.PropertyName == nameof(LandscapeEditorSettings.Grid)) {
-            if (_settings != null) {
-                _settings.Landscape.Grid.PropertyChanged -= OnGridSettingsPropertyChanged;
-                _settings.Landscape.Grid.PropertyChanged += OnGridSettingsPropertyChanged;
-                IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
-            }
+        if (e.PropertyName == nameof(LandscapeEditorSettings.Rendering) || 
+            e.PropertyName == nameof(LandscapeEditorSettings.Grid) ||
+            e.PropertyName == nameof(LandscapeEditorSettings.Camera)) {
+            SyncSettingsToState();
         }
     }
 
     private void OnRenderingSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
-        if (e.PropertyName == nameof(RenderingSettings.ShowScenery)) {
-            if (_settings != null) {
-                IsSceneryEnabled = _settings.Landscape.Rendering.ShowScenery;
-            }
-        }
-        else if (e.PropertyName == nameof(RenderingSettings.ShowStaticObjects)) {
-            if (_settings != null) {
-                IsStaticObjectsEnabled = _settings.Landscape.Rendering.ShowStaticObjects;
-            }
-        }
-        else if (e.PropertyName == nameof(RenderingSettings.ShowSkybox)) {
-            if (_settings != null) {
-                IsSkyboxEnabled = _settings.Landscape.Rendering.ShowSkybox;
-            }
-        }
-        else if (e.PropertyName == nameof(RenderingSettings.ShowUnwalkableSlopes)) {
-            if (_settings != null) {
-                IsUnwalkableSlopeHighlightEnabled = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
-            }
-        }
-        else if (e.PropertyName == nameof(RenderingSettings.TimeOfDay)) {
-            if (_settings != null) {
-                TimeOfDay = _settings.Landscape.Rendering.TimeOfDay;
-            }
-        }
+        SyncSettingsToState();
     }
 
     private void OnGridSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
-        if (e.PropertyName == nameof(GridSettings.ShowGrid)) {
-            if (_settings != null) {
-                IsGridEnabled = _settings.Landscape.Grid.ShowGrid;
-            }
-        }
+        SyncSettingsToState();
     }
 
     public bool HandleHotkey(KeyEventArgs e) {

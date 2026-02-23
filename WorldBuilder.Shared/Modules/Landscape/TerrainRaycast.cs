@@ -129,7 +129,7 @@ namespace WorldBuilder.Shared.Modules.Landscape {
             uint hitCellY = 0;
             Vector3d hitPosition = new Vector3d();
 
-            var cellsToCheck = GetCellTraversalOrder(rayOrigin, rayDirection, baseLandblockX, baseLandblockY, region.CellSizeInUnits);
+            var cellsToCheck = GetCellTraversalOrder(rayOrigin, rayDirection, baseLandblockX, baseLandblockY, region.CellSizeInUnits, tMin);
 
             foreach (var (cellX, cellY) in cellsToCheck) {
                 Vector3d[] vertices = GenerateCellVertices(
@@ -243,23 +243,45 @@ namespace WorldBuilder.Shared.Modules.Landscape {
 
         private static IEnumerable<(uint cellX, uint cellY)> GetCellTraversalOrder(
             Vector3d rayOrigin, Vector3d rayDirection,
-            double baseLandblockX, double baseLandblockY, float cellSize) {
-            var cellDistances = new List<(uint cellX, uint cellY, double distance)>(64);
+            double baseLandblockX, double baseLandblockY, float cellSize, double tMin) {
+            Vector3d entryPoint = rayOrigin + rayDirection * (tMin + 0.001);
 
-            for (uint cellY = 0; cellY < 8; cellY++) {
-                for (uint cellX = 0; cellX < 8; cellX++) {
-                    double cellCenterX = baseLandblockX + (cellX + 0.5) * cellSize;
-                    double cellCenterY = baseLandblockY + (cellY + 0.5) * cellSize;
-                    double dx = rayOrigin.X - cellCenterX;
-                    double dy = rayOrigin.Y - cellCenterY;
-                    double distanceSq = dx * dx + dy * dy;
-                    cellDistances.Add((cellX, cellY, distanceSq));
+            int currentCellX = (int)Math.Floor((entryPoint.X - baseLandblockX) / cellSize);
+            int currentCellY = (int)Math.Floor((entryPoint.Y - baseLandblockY) / cellSize);
+
+            int stepX = rayDirection.X > 0 ? 1 : -1;
+            int stepY = rayDirection.Y > 0 ? 1 : -1;
+
+            double deltaDistX = Math.Abs(1.0 / rayDirection.X);
+            double deltaDistY = Math.Abs(1.0 / rayDirection.Y);
+
+            double cellDeltaDistX = deltaDistX * cellSize;
+            double cellDeltaDistY = deltaDistY * cellSize;
+
+            double sideDistX = rayDirection.X < 0
+                ? ((entryPoint.X - baseLandblockX) / cellSize - currentCellX) * cellDeltaDistX
+                : (currentCellX + 1.0 - (entryPoint.X - baseLandblockX) / cellSize) * cellDeltaDistX;
+
+            double sideDistY = rayDirection.Y < 0
+                ? ((entryPoint.Y - baseLandblockY) / cellSize - currentCellY) * cellDeltaDistY
+                : (currentCellY + 1.0 - (entryPoint.Y - baseLandblockY) / cellSize) * cellDeltaDistY;
+
+            for (int step = 0; step < 16; step++) {
+                if (currentCellX >= 0 && currentCellX < 8 && currentCellY >= 0 && currentCellY < 8) {
+                    yield return ((uint)currentCellX, (uint)currentCellY);
                 }
-            }
+                else {
+                    break;
+                }
 
-            cellDistances.Sort((a, b) => a.distance.CompareTo(b.distance));
-            foreach (var (cellX, cellY, _) in cellDistances) {
-                yield return (cellX, cellY);
+                if (sideDistX < sideDistY) {
+                    sideDistX += cellDeltaDistX;
+                    currentCellX += stepX;
+                }
+                else {
+                    sideDistY += cellDeltaDistY;
+                    currentCellY += stepY;
+                }
             }
         }
 
