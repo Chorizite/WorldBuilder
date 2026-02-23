@@ -1,6 +1,7 @@
 ﻿using Chorizite.Core.Render.Enums;
 using Chorizite.Core.Render.Vertex;
 using Chorizite.OpenGLSDLBackend.Extensions;
+using Chorizite.OpenGLSDLBackend.Lib;
 using Silk.NET.OpenGL;
 using BufferUsage = Chorizite.Core.Render.Enums.BufferUsage;
 
@@ -133,6 +134,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
         /// <inheritdoc />
         public void Bind() {
+            BaseObjectRenderManager.CurrentIBO = 0;
             GL.BindBuffer(GLEnum.ElementArrayBuffer, bufferId);
             GLHelpers.CheckErrors();
         }

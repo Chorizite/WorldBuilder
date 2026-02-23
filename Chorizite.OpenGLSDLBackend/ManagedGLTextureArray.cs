@@ -119,6 +119,10 @@ namespace Chorizite.OpenGLSDLBackend {
                     $"Cannot bind texture array: NativePtr is invalid (Slot={Slot}, Size={Width}x{Height}x{Size}).");
             }
 
+            if (slot == 0) {
+                BaseObjectRenderManager.CurrentAtlas = 0;
+            }
+
             GL.ActiveTexture(GLEnum.Texture0 + slot);
             GLHelpers.CheckErrors();
             GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
@@ -126,19 +130,21 @@ namespace Chorizite.OpenGLSDLBackend {
 
             if (!_isCompressed && _needsMipmapRegeneration) {
                 lock (_mipmapLock) {
-                    if (_mipmapDirtyCount > 0 && _usedLayers.All(used => used || true /* or check if cleared */)) {
+                    if (_mipmapDirtyCount > 0) {
                         try {
                             GL.GenerateMipmap(GLEnum.Texture2DArray);
                             GLHelpers.CheckErrorsWithContext("Generating mipmaps for texture array");
+                            _mipmapDirtyCount = 0;
+                            _needsMipmapRegeneration = false;
                         }
                         catch (Exception ex) {
                             _logger.LogWarning(ex, "Failed to generate mipmaps for texture array (Slot={Slot}). This is expected if the texture is currently being updated.", Slot);
                         }
-                        _mipmapDirtyCount = 0;
+                    }
+                    else if (_mipmapDirtyCount == 0) {
+                        _needsMipmapRegeneration = false;
                     }
                 }
-
-                _needsMipmapRegeneration = false;
             }
         }
 
@@ -179,6 +185,7 @@ namespace Chorizite.OpenGLSDLBackend {
             }
 
             // Ensure the texture is bound before uploading
+            BaseObjectRenderManager.CurrentAtlas = 0;
             GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
             GLHelpers.CheckErrors();
 

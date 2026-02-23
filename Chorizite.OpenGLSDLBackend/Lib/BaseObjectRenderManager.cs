@@ -23,10 +23,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected int InstanceBufferCapacity = 0;
 
         // Render state tracking (Static so all managers sharing a context see the same state)
-        protected static uint CurrentVAO;
-        protected static uint CurrentIBO;
-        protected static uint CurrentAtlas;
-        protected static CullMode? CurrentCullMode;
+        public static uint CurrentVAO;
+        public static uint CurrentIBO;
+        public static uint CurrentAtlas;
+        public static CullMode? CurrentCullMode;
 
         protected BaseObjectRenderManager(GL gl, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager) {
             Gl = gl;

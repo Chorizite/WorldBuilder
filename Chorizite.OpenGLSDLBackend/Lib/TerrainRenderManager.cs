@@ -79,7 +79,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private LandSurfaceManager? _surfaceManager;
 
-        private static uint _currentVAO;
+        public static uint CurrentVAO;
 
         public TerrainRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc, IDatReaderWriter dats,
             OpenGLGraphicsDevice graphicsDevice, IDocumentManager documentManager) {
@@ -553,7 +553,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public unsafe void Render(Matrix4x4 viewMatrix, Matrix4x4 projectionMatrix, Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, float fieldOfView) {
             if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0)) return;
 
-            _currentVAO = 0;
+            CurrentVAO = 0;
 
             _shader.Bind();
 
@@ -603,15 +603,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             _frustum.Update(viewProjectionMatrix);
 
-            _currentVAO = 0;
+            CurrentVAO = 0;
             foreach (var chunk in _chunks.Values) {
                 if (!chunk.IsGenerated || chunk.IndexCount == 0) continue;
 
                 if (_frustum.TestBox(chunk.Bounds) == FrustumTestResult.Outside) continue;
 
-                if (_currentVAO != chunk.VAO) {
+                if (CurrentVAO != chunk.VAO) {
                     _gl.BindVertexArray(chunk.VAO);
-                    _currentVAO = chunk.VAO;
+                    CurrentVAO = chunk.VAO;
                 }
                 _gl.DrawElements(PrimitiveType.Triangles, (uint)chunk.IndexCount, DrawElementsType.UnsignedInt,
                     (void*)0);

@@ -1,5 +1,6 @@
 ﻿using Chorizite.Core.Render.Enums;
 using Chorizite.Core.Render.Vertex;
+using Chorizite.OpenGLSDLBackend.Lib;
 using Silk.NET.OpenGL;
 using SixLabors.ImageSharp.Memory;
 using System;
@@ -54,6 +55,8 @@ namespace Chorizite.OpenGLSDLBackend {
         };
 
         public void Bind() {
+            BaseObjectRenderManager.CurrentVAO = 0;
+            TerrainRenderManager.CurrentVAO = 0;
             GL.BindVertexArray(_vaoId);
             GLHelpers.CheckErrors();
         }

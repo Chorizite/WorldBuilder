@@ -1,6 +1,7 @@
 ﻿using Chorizite.Core.Dats;
 using Chorizite.Core.Render;
 using Chorizite.Core.Render.Enums;
+using Chorizite.OpenGLSDLBackend.Lib;
 using Silk.NET.OpenGL;
 using Image = SixLabors.ImageSharp.Image;
 
@@ -87,6 +88,7 @@ namespace Chorizite.OpenGLSDLBackend {
         public void SetData(Rectangle rectangle, byte[] data) {
             if (_texture == 0) return;
 
+            BaseObjectRenderManager.CurrentAtlas = 0;
             GL.BindTexture(GLEnum.Texture2D, _texture);
             GLHelpers.CheckErrors();
 
@@ -114,6 +116,9 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public void Bind(int slot = 0) {
+            if (slot == 0) {
+                BaseObjectRenderManager.CurrentAtlas = 0;
+            }
             GL.ActiveTexture(GLEnum.Texture0 + slot);
             GLHelpers.CheckErrors();
             GL.BindTexture(GLEnum.Texture2D, (uint)NativePtr);
