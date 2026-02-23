@@ -1,13 +1,45 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="WorldBuilder.Modules.Landscape.Views.Components.PropertiesPanel">
+             xmlns:vm="clr-namespace:WorldBuilder.Modules.Landscape.ViewModels"
+             x:Class="WorldBuilder.Modules.Landscape.Views.Components.PropertiesPanel"
+             x:DataType="vm:PropertiesPanelViewModel">
     <Border Background="{DynamicResource SemiColorBackground0}"
             BorderBrush="{DynamicResource SemiColorBorder}"
             BorderThickness="1"
             CornerRadius="4" Padding="12">
         <StackPanel Spacing="8">
             <TextBlock Text="Properties" FontWeight="SemiBold" />
-            <TextBlock Text="No selection" HorizontalAlignment="Center" Margin="0,20" Opacity="0.5" />
+            <Separator />
+            <ContentControl Content="{Binding SelectedItem}">
+                <ContentControl.DataTemplates>
+                    <DataTemplate DataType="vm:LayerItemViewModel">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding Name, StringFormat='Layer: {0}'}" FontWeight="Bold" />
+                            <TextBlock Text="{Binding Model.Id, StringFormat='ID: {0}'}" FontSize="10" Opacity="0.7" />
+                        </StackPanel>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:StaticObjectViewModel">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Static Object" FontWeight="Bold" />
+                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto">
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Object ID: " Opacity="0.7" />
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ObjectIdHex}" />
+                                
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Instance ID: " Opacity="0.7" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding InstanceIdHex}" />
+                                
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Landblock: " Opacity="0.7" />
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LandblockIdHex}" />
+                            </Grid>
+                        </StackPanel>
+                    </DataTemplate>
+                </ContentControl.DataTemplates>
+            </ContentControl>
+            <TextBlock Text="No selection" 
+                       HorizontalAlignment="Center" 
+                       Margin="0,20" 
+                       Opacity="0.5"
+                       IsVisible="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNull}}" />
         </StackPanel>
     </Border>
 </UserControl>

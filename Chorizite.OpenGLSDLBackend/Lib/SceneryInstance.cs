@@ -10,8 +10,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>GfxObj or Setup ID from DAT.</summary>
         public uint ObjectId;
 
+        /// <summary>Unique instance ID within the landblock.</summary>
+        public uint InstanceId;
+
         /// <summary>True for multi-part Setup objects, false for simple GfxObj.</summary>
         public bool IsSetup;
+
+        /// <summary>True if this instance is a building.</summary>
+        public bool IsBuilding;
 
         /// <summary>World-space position.</summary>
         public Vector3 WorldPosition;

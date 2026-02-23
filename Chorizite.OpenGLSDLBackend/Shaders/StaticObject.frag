@@ -11,6 +11,7 @@ in vec3 LightingColor;
 
 uniform sampler2DArray uTextureArray;
 uniform int uRenderPass;
+uniform vec4 uHighlightColor;
 
 out vec4 FragColor;
 
@@ -29,5 +30,10 @@ void main() {
     }
     
     color.rgb *= LightingColor;
+
+    if (uHighlightColor.a > 0.0) {
+        color.rgb = mix(color.rgb, uHighlightColor.rgb, uHighlightColor.a);
+    }
+
     FragColor = color;
 }

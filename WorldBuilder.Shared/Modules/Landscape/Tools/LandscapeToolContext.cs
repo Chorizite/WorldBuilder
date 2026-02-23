@@ -1,15 +1,45 @@
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using WorldBuilder.Shared.Models;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {
+    public class StaticObjectSelectionEventArgs : EventArgs {
+        public uint LandblockId { get; }
+        public uint InstanceId { get; }
+
+        public StaticObjectSelectionEventArgs(uint landblockId, uint instanceId) {
+            LandblockId = landblockId;
+            InstanceId = instanceId;
+        }
+    }
+
     /// <summary>
     /// Provides context and services to landscape tools.
     /// </summary>
     public class LandscapeToolContext {
+        public event EventHandler<StaticObjectSelectionEventArgs>? StaticObjectHovered;
+        public event EventHandler<StaticObjectSelectionEventArgs>? StaticObjectSelected;
+
+        public void NotifyStaticObjectHovered(uint landblockId, uint instanceId) {
+            StaticObjectHovered?.Invoke(this, new StaticObjectSelectionEventArgs(landblockId, instanceId));
+        }
+
+        public void NotifyStaticObjectSelected(uint landblockId, uint instanceId) {
+            StaticObjectSelected?.Invoke(this, new StaticObjectSelectionEventArgs(landblockId, instanceId));
+        }
+
+        /// <summary>Delegate for raycasting against static objects.</summary>
+        public delegate bool RaycastStaticObjectDelegate(Vector3 rayOrigin, Vector3 rayDirection, out uint landblockId, out uint instanceId, out float distance);
+
+        /// <summary>Performs a raycast against static objects in the scene.</summary>
+        public RaycastStaticObjectDelegate? RaycastStaticObject { get; set; }
+
         /// <summary>The active landscape document.</summary>
         public LandscapeDocument Document { get; }
+        /// <summary>The dat reader/writer.</summary>
+        public Services.IDatReaderWriter Dats { get; }
         /// <summary>The command history for undo/redo.</summary>
         public CommandHistory CommandHistory { get; }
         /// <summary>The camera used for viewing the scene.</summary>
@@ -29,12 +59,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         /// <summary>Initializes a new instance of the <see cref="LandscapeToolContext"/> class.</summary>
         /// <param name="document">The landscape document.</param>
+        /// <param name="dats">The dat reader/writer.</param>
         /// <param name="commandHistory">The command history.</param>
         /// <param name="camera">The camera.</param>
         /// <param name="logger">The logger.</param>
         /// <param name="activeLayer">The active layer (optional).</param>
-        public LandscapeToolContext(LandscapeDocument document, CommandHistory commandHistory, ICamera camera, ILogger logger, LandscapeLayer? activeLayer = null) {
+        public LandscapeToolContext(LandscapeDocument document, Services.IDatReaderWriter dats, CommandHistory commandHistory, ICamera camera, ILogger logger, LandscapeLayer? activeLayer = null) {
             Document = document;
+            Dats = dats;
             CommandHistory = commandHistory;
             Camera = camera;
             Logger = logger;

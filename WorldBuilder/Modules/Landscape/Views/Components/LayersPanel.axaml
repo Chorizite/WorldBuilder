@@ -7,17 +7,9 @@
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="450"
              x:Class="WorldBuilder.Modules.Landscape.Views.Components.LayersPanel"
              x:DataType="vm:LayersPanelViewModel">
-    <Border Background="{DynamicResource SemiColorBackground0}"
-            BorderBrush="{DynamicResource SemiColorBorder}"
-            BorderThickness="1"
-            CornerRadius="4" Padding="4">
-        <Grid RowDefinitions="Auto, Auto, *">
-            <Border Grid.Row="0" BorderBrush="{DynamicResource SemiColorPrimary}" BorderThickness="0,0,0,2" Margin="4,4,4,8" Padding="0,0,0,4">
-                <TextBlock Text="Layers" FontWeight="Bold" FontSize="14" />
-            </Border>
-            
-            <!-- Toolbar -->
-            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="4" Margin="4">
+    <Grid RowDefinitions="Auto, *">
+        <!-- Toolbar -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="4" Margin="4">
                 <Button Command="{Binding AddLayerCommand}" ToolTip.Tip="Add New Layer">
                     <icons:MaterialIcon Kind="Plus" Width="16" Height="16" />
                 </Button>
@@ -132,5 +124,4 @@
                 </TreeView.ItemTemplate>
             </TreeView>
         </Grid>
-    </Border>
 </UserControl>

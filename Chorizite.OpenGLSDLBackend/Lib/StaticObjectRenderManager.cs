@@ -18,6 +18,16 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Services;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
+    public struct SelectedStaticObject {
+        public ushort LandblockKey;
+        public uint InstanceId;
+
+        public override bool Equals(object? obj) => obj is SelectedStaticObject other && LandblockKey == other.LandblockKey && InstanceId == other.InstanceId;
+        public override int GetHashCode() => HashCode.Combine(LandblockKey, InstanceId);
+        public static bool operator ==(SelectedStaticObject left, SelectedStaticObject right) => left.Equals(right);
+        public static bool operator !=(SelectedStaticObject left, SelectedStaticObject right) => !(left == right);
+    }
+
     /// <summary>
     /// Manages static object rendering (buildings, placed objects from LandBlockInfo).
     /// Background generation, time-sliced GPU uploads, instanced drawing.
@@ -30,6 +40,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly IDatReaderWriter _dats;
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private readonly ObjectMeshManager _meshManager;
+
+        public SelectedStaticObject? HoveredInstance { get; set; }
+        public SelectedStaticObject? SelectedInstance { get; set; }
 
         // Per-landblock data, keyed by (gridX, gridY) packed into ushort
         private readonly ConcurrentDictionary<ushort, ObjectLandblock> _landblocks = new();
@@ -124,6 +137,114 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public bool IsLandblockReady(ushort key) {
             return _landblocks.TryGetValue(key, out var lb) && lb.MeshDataReady;
+        }
+
+        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, out ushort hitLandblockKey, out SceneryInstance hitInstance, out float hitDistance) {
+            hitLandblockKey = 0;
+            hitInstance = default;
+            hitDistance = float.MaxValue;
+            float bestScore = float.MaxValue;
+            bool hit = false;
+
+            foreach (var (key, lb) in _landblocks) {
+                if (!lb.InstancesReady) continue;
+
+                foreach (var instance in lb.Instances) {
+                    if (instance.IsBuilding) continue;
+
+                    bool hitThis = false;
+                    float d = float.MaxValue;
+                    float tca = float.MaxValue;
+                    float radius = 0f;
+
+                    var renderData = _meshManager.TryGetRenderData(instance.ObjectId);
+
+                    // Try SelectionSphere first if we have valid sphere data
+                    if (renderData?.SelectionSphere != null && renderData.SelectionSphere.Radius > 0.001f) {
+                        var sphere = renderData.SelectionSphere;
+                        var worldOrigin = Vector3.Transform(sphere.Origin, instance.Transform);
+                        radius = sphere.Radius * instance.Scale.X; // Scale radius!
+
+                        if (RayIntersectsSphere(rayOrigin, rayDirection, worldOrigin, radius, out d, out tca)) {
+                            hitThis = true;
+                        }
+                    }
+
+                    // Fallback to BoundingBox if no SelectionSphere hit (or no sphere data)
+                    if (!hitThis) {
+                        // Check if the bounding box is valid (not just a point at 0,0,0)
+                        if (instance.BoundingBox.Max != instance.BoundingBox.Min) {
+                            if (RayIntersectsBox(rayOrigin, rayDirection, instance.BoundingBox, out d)) {
+                                tca = Vector3.Distance(rayOrigin, instance.BoundingBox.Center);
+                                radius = Vector3.Distance(instance.BoundingBox.Max, instance.BoundingBox.Min) / 2f;
+                                hitThis = true;
+                            }
+                        }
+                    }
+
+                    if (hitThis) {
+                        // Priority Score: Distance to center + small bias for radius.
+                        // This allows selecting small objects inside large ones if their centers are similar,
+                        // and prefers closer objects generally.
+                        float score = tca + (radius * 0.01f); 
+
+                        if (score < bestScore) {
+                            bestScore = score;
+                            hitDistance = d;
+                            hitInstance = instance;
+                            hitLandblockKey = key;
+                            hit = true;
+                        }
+                    }
+                }
+            }
+
+            return hit;
+        }
+
+        private bool RayIntersectsSphere(Vector3 rayOrigin, Vector3 rayDirection, Vector3 sphereOrigin, float sphereRadius, out float distance, out float tca) {
+            distance = 0;
+            tca = 0;
+            Vector3 l = sphereOrigin - rayOrigin;
+            tca = Vector3.Dot(l, rayDirection);
+            if (tca < 0) return false;
+            float d2 = Vector3.Dot(l, l) - tca * tca;
+            float r2 = sphereRadius * sphereRadius;
+            if (d2 > r2) return false;
+            float thc = MathF.Sqrt(r2 - d2);
+            distance = tca - thc;
+            return true;
+        }
+
+        private bool RayIntersectsBox(Vector3 rayOrigin, Vector3 rayDirection, BoundingBox box, out float distance) {
+            distance = 0;
+            float tmin = (box.Min.X - rayOrigin.X) / rayDirection.X;
+            float tmax = (box.Max.X - rayOrigin.X) / rayDirection.X;
+
+            if (tmin > tmax) (tmin, tmax) = (tmax, tmin);
+
+            float tymin = (box.Min.Y - rayOrigin.Y) / rayDirection.Y;
+            float tymax = (box.Max.Y - rayOrigin.Y) / rayDirection.Y;
+
+            if (tymin > tymax) (tymin, tymax) = (tymax, tymin);
+
+            if ((tmin > tymax) || (tymin > tmax)) return false;
+
+            if (tymin > tmin) tmin = tymin;
+            if (tymax < tmax) tmax = tymax;
+
+            float tzmin = (box.Min.Z - rayOrigin.Z) / rayDirection.Z;
+            float tzmax = (box.Max.Z - rayOrigin.Z) / rayDirection.Z;
+
+            if (tzmin > tzmax) (tzmin, tzmax) = (tzmax, tzmin);
+
+            if ((tmin > tzmax) || (tzmin > tmax)) return false;
+
+            if (tzmin > tmin) tmin = tzmin;
+            if (tzmax < tmax) tmax = tzmax;
+
+            distance = tmin;
+            return distance >= 0;
         }
 
         public StaticObjectRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
@@ -405,6 +526,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("uSunlightColor", region?.SunlightColor ?? SunlightColor);
             _shader.SetUniform("uAmbientColor", (region?.AmbientColor ?? AmbientColor) * LightIntensity);
             _shader.SetUniform("uSpecularPower", 32.0f);
+            _shader.SetUniform("uHighlightColor", Vector4.Zero);
 
             if (_visibleGfxObjIds.Count == 0) return;
 
@@ -422,7 +544,78 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
+            // Draw highlighted / selected objects on top
+            _gl.DepthFunc(GLEnum.Lequal);
+            if (SelectedInstance.HasValue) {
+                RenderSelectedInstance(SelectedInstance.Value, new Vector4(1.0f, 0.5f, 0.0f, 0.8f)); // Very Strong Orange
+            }
+            if (HoveredInstance.HasValue && HoveredInstance.Value != SelectedInstance) {
+                RenderSelectedInstance(HoveredInstance.Value, new Vector4(1.0f, 1.0f, 0.0f, 0.6f)); // Stronger Yellow
+            }
+            _gl.DepthFunc(GLEnum.Less);
+
+            _shader.SetUniform("uHighlightColor", Vector4.Zero);
             _gl.BindVertexArray(0);
+        }
+
+        public void SubmitDebugShapes(DebugRenderer? debug) {
+            if (debug == null) return;
+
+            foreach (var lb in _landblocks.Values) {
+                if (!lb.InstancesReady || !IsWithinRenderDistance(lb)) continue;
+                if (GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) continue;
+
+                foreach (var instance in lb.Instances) {
+                    if (instance.IsBuilding) continue;
+
+                    // Skip if instance is outside frustum
+                    if (!_frustum.Intersects(instance.BoundingBox)) continue;
+
+                    var isSelected = SelectedInstance.HasValue && SelectedInstance.Value.LandblockKey == PackKey(lb.GridX, lb.GridY) && SelectedInstance.Value.InstanceId == instance.InstanceId;
+                    var isHovered = HoveredInstance.HasValue && HoveredInstance.Value.LandblockKey == PackKey(lb.GridX, lb.GridY) && HoveredInstance.Value.InstanceId == instance.InstanceId;
+
+                    Vector4 color;
+                    if (isSelected) color = new Vector4(1.0f, 0.5f, 0.0f, 1.0f); // Bright Orange
+                    else if (isHovered) color = new Vector4(1.0f, 1.0f, 0.0f, 1.0f); // Bright Yellow
+                    else color = new Vector4(0.0f, 1.0f, 1.0f, 0.7f); // High-contrast Cyan
+
+                    var renderData = _meshManager.TryGetRenderData(instance.ObjectId);
+                    
+                    // Draw Selection Sphere if valid
+                    if (renderData?.SelectionSphere != null && renderData.SelectionSphere.Radius > 0.001f) {
+                        var sphere = renderData.SelectionSphere;
+                        var worldOrigin = Vector3.Transform(sphere.Origin, instance.Transform);
+                        debug.DrawSphere(worldOrigin, sphere.Radius, color);
+                    }
+                    else {
+                        // Fallback to Bounding Box
+                        debug.DrawBox(instance.BoundingBox, color);
+                    }
+                }
+            }
+        }
+
+        private void RenderSelectedInstance(SelectedStaticObject selected, Vector4 highlightColor) {
+            if (_landblocks.TryGetValue(selected.LandblockKey, out var lb)) {
+                var instance = lb.Instances.FirstOrDefault(i => i.InstanceId == selected.InstanceId);
+                if (instance.ObjectId != 0) {
+                    var renderData = _meshManager.TryGetRenderData(instance.ObjectId);
+                    if (renderData != null) {
+                        _shader!.SetUniform("uHighlightColor", highlightColor);
+                        if (renderData.IsSetup) {
+                            foreach (var (partId, partTransform) in renderData.SetupParts) {
+                                var partRenderData = _meshManager.TryGetRenderData(partId);
+                                if (partRenderData != null) {
+                                    RenderObjectBatches(partRenderData, new List<Matrix4x4> { partTransform * instance.Transform });
+                                }
+                            }
+                        }
+                        else {
+                            RenderObjectBatches(renderData, new List<Matrix4x4> { instance.Transform });
+                        }
+                    }
+                }
+            }
         }
 
         public void InvalidateLandblock(int lbX, int lbY) {
@@ -537,7 +730,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                     staticObjects.Add(new SceneryInstance {
                         ObjectId = obj.SetupId,
+                        InstanceId = obj.InstanceId,
                         IsSetup = isSetup,
+                        IsBuilding = false,
                         WorldPosition = worldPos,
                         Rotation = rotation,
                         Scale = Vector3.One,
@@ -566,7 +761,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                     staticObjects.Add(new SceneryInstance {
                         ObjectId = building.ModelId,
+                        InstanceId = building.InstanceId,
                         IsSetup = isSetup,
+                        IsBuilding = true,
                         WorldPosition = worldPos,
                         Rotation = rotation,
                         Scale = Vector3.One,

@@ -64,6 +64,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     [ObservableProperty] private bool _isSceneryEnabled = true;
     [ObservableProperty] private bool _isStaticObjectsEnabled = true;
     [ObservableProperty] private bool _isSkyboxEnabled = true;
+    [ObservableProperty] private bool _isDebugShapesEnabled = true;
     [ObservableProperty] private bool _isUnwalkableSlopeHighlightEnabled;
     [ObservableProperty] private bool _isGridEnabled;
     [ObservableProperty] private bool _is3DCameraEnabled = true;
@@ -84,6 +85,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     partial void OnIsSkyboxEnabledChanged(bool value) {
         if (_settings != null) {
             _settings.Landscape.Rendering.ShowSkybox = value;
+        }
+    }
+
+    partial void OnIsDebugShapesEnabledChanged(bool value) {
+        if (_gameScene != null) {
+            _gameScene.ShowDebugShapes = value;
         }
     }
 
@@ -114,6 +121,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     public CommandHistory CommandHistory { get; } = new();
     public HistoryPanelViewModel HistoryPanel { get; }
     public LayersPanelViewModel LayersPanel { get; }
+    public PropertiesPanelViewModel PropertiesPanel { get; }
 
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _saveDebounceTokens = new();
     private readonly IDocumentManager _documentManager;
@@ -149,6 +157,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         }
 
         HistoryPanel = new HistoryPanelViewModel(CommandHistory);
+        PropertiesPanel = new PropertiesPanelViewModel();
         LayersPanel = new LayersPanelViewModel(log, CommandHistory, _documentManager, _settings, _project, async (item, changeType) => {
             if (ActiveDocument != null) {
                 if (changeType == LayerChangeType.VisibilityChange && item != null) {
@@ -167,6 +176,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         LayersPanel.PropertyChanged += (s, e) => {
             if (e.PropertyName == nameof(LayersPanel.SelectedItem)) {
                 ActiveLayer = LayersPanel.SelectedItem?.Model as LandscapeLayer;
+                PropertiesPanel.SelectedItem = LayersPanel.SelectedItem;
             }
         };
 
@@ -178,6 +188,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             Tools.Add(new BucketFillTool());
             Tools.Add(new RoadVertexTool());
             Tools.Add(new RoadLineTool());
+            Tools.Add(new StaticObjectSelectionTool());
         }
         ActiveTool = Tools.FirstOrDefault();
     }
@@ -223,15 +234,63 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         if (ActiveDocument != null && Camera != null) {
             _log.LogTrace("Updating tool context. ActiveLayer: {LayerId}", ActiveLayer?.Id);
 
-            _toolContext = new LandscapeToolContext(ActiveDocument, CommandHistory, Camera, _log, ActiveLayer);
+            if (_toolContext != null) {
+                _toolContext.StaticObjectHovered -= OnStaticObjectHovered;
+                _toolContext.StaticObjectSelected -= OnStaticObjectSelected;
+            }
+
+            _toolContext = new LandscapeToolContext(ActiveDocument, _dats, CommandHistory, Camera, _log, ActiveLayer);
             _toolContext.RequestSave = RequestSave;
             if (_invalidateCallback != null) {
                 _toolContext.InvalidateLandblock = _invalidateCallback;
             }
+
+            _toolContext.RaycastStaticObject = (Vector3 origin, Vector3 dir, out uint lbId, out uint instId, out float dist) => {
+                lbId = 0; instId = 0; dist = float.MaxValue;
+                return _gameScene?.RaycastStaticObjects(origin, dir, out lbId, out instId, out dist) ?? false;
+            };
+
+            _toolContext.StaticObjectHovered += OnStaticObjectHovered;
+            _toolContext.StaticObjectSelected += OnStaticObjectSelected;
+
             ActiveTool?.Activate(_toolContext);
         }
         else {
             _log.LogTrace("Skipping UpdateToolContext. ActiveDocument: {HasDoc}, Camera: {HasCamera}", ActiveDocument != null, Camera != null);
+        }
+    }
+
+    private void OnStaticObjectHovered(object? sender, StaticObjectSelectionEventArgs e) {
+        _gameScene?.SetHoveredStaticObject(e.LandblockId, e.InstanceId);
+    }
+
+    private void OnStaticObjectSelected(object? sender, StaticObjectSelectionEventArgs e) {
+        _gameScene?.SetSelectedStaticObject(e.LandblockId, e.InstanceId);
+
+        if (e.LandblockId == 0) {
+            if (PropertiesPanel.SelectedItem is StaticObjectViewModel) {
+                PropertiesPanel.SelectedItem = null;
+            }
+        }
+        else {
+            var lb = ActiveDocument?.GetMergedLandblock(e.LandblockId);
+            uint objId = 0;
+            if (lb != null) {
+                var obj = lb.StaticObjects.FirstOrDefault(o => o.InstanceId == e.InstanceId);
+                if (obj != null) {
+                    objId = obj.SetupId;
+                }
+                else {
+                    var bldg = lb.Buildings.FirstOrDefault(b => b.InstanceId == e.InstanceId);
+                    if (bldg != null) {
+                        objId = bldg.ModelId;
+                    }
+                }
+            }
+
+            if (objId != 0) {
+                PropertiesPanel.SelectedItem = new StaticObjectViewModel(objId, e.InstanceId, e.LandblockId);
+            }
         }
     }
 

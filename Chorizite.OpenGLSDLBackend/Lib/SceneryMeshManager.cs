@@ -54,6 +54,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         /// <summary>Local bounding box.</summary>
         public BoundingBox BoundingBox { get; set; }
+
+        /// <summary>Sphere used for mouse selection.</summary>
+        public Sphere? SelectionSphere { get; set; }
     }
 
     /// <summary>
@@ -95,6 +98,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         /// <summary>Local bounding box.</summary>
         public BoundingBox BoundingBox { get; set; }
+
+        /// <summary>Sphere used for mouse selection.</summary>
+        public Sphere? SelectionSphere { get; set; }
 
         /// <summary>Estimated GPU memory usage in bytes.</summary>
         public long MemorySize { get; set; }
@@ -293,6 +299,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         SetupParts = meshData.SetupParts,
                         Batches = new List<ObjectRenderBatch>(),
                         BoundingBox = meshData.BoundingBox,
+                        SelectionSphere = meshData.SelectionSphere,
                         MemorySize = 1024 // Small overhead for the setup itself
                     };
                     _renderData[meshData.ObjectId] = data;
@@ -310,6 +317,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var renderData = UploadGfxObjMeshData(meshData);
                 if (renderData != null) {
                     renderData.BoundingBox = meshData.BoundingBox;
+                    renderData.SelectionSphere = meshData.SelectionSphere;
                     _renderData[meshData.ObjectId] = renderData;
                     _usageCount.TryAdd(meshData.ObjectId, 1);
                     _currentGpuMemory += renderData.MemorySize;
@@ -369,7 +377,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 ObjectId = id,
                 IsSetup = true,
                 SetupParts = parts,
-                BoundingBox = hasBounds ? new BoundingBox(min, max) : default
+                BoundingBox = hasBounds ? new BoundingBox(min, max) : default,
+                SelectionSphere = setup.SelectionSphere
             };
         }
 
@@ -568,7 +577,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 IsSetup = false,
                 Vertices = vertices.ToArray(),
                 TextureBatches = batchesByFormat,
-                BoundingBox = boundingBox
+                BoundingBox = boundingBox,
+                SelectionSphere = new Sphere { Origin = boundingBox.Center, Radius = Vector3.Distance(boundingBox.Max, boundingBox.Min) / 2.0f }
             };
         }
 

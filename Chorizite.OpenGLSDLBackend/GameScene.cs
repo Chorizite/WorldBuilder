@@ -35,6 +35,7 @@ public class GameScene : IDisposable {
     public bool ShowScenery { get; set; } = true;
     public bool ShowStaticObjects { get; set; } = true;
     public bool ShowSkybox { get; set; } = true;
+    public bool ShowDebugShapes { get; set; } = true;
     public bool EnableTransparencyPass { get; set; } = true;
     private bool _showUnwalkableSlopes;
     public bool ShowUnwalkableSlopes {
@@ -69,6 +70,7 @@ public class GameScene : IDisposable {
     private SceneryRenderManager? _sceneryManager;
     private StaticObjectRenderManager? _staticObjectManager;
     private SkyboxRenderManager? _skyboxManager = null;
+    private DebugRenderer? _debugRenderer;
 
     private float _lastTerrainUploadTime;
     private float _lastSceneryUploadTime;
@@ -163,6 +165,8 @@ public class GameScene : IDisposable {
         _camera3D.OnMoveSpeedChanged += (speed) => OnMoveSpeedChanged?.Invoke(speed);
         _currentCamera = _camera3D;
         _is3DMode = true;
+
+        _debugRenderer = new DebugRenderer(gl, graphicsDevice);
     }
 
     /// <summary>
@@ -175,6 +179,7 @@ public class GameScene : IDisposable {
         var vertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Simple3D.vert");
         var fragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Simple3D.frag");
         _shader = _graphicsDevice.CreateShader("Simple3D", vertSource, fragSource);
+        _debugRenderer?.SetShader(_shader);
 
         // Create terrain shader
         var tVertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Landscape.vert");
@@ -495,6 +500,49 @@ public class GameScene : IDisposable {
         _staticObjectManager?.InvalidateLandblock(lbX, lbY);
     }
 
+    public void SetHoveredStaticObject(uint landblockId, uint instanceId) {
+        if (_staticObjectManager != null) {
+            if (landblockId == 0) {
+                _staticObjectManager.HoveredInstance = null;
+            }
+            else {
+                _staticObjectManager.HoveredInstance = new SelectedStaticObject {
+                    LandblockKey = (ushort)(landblockId >> 16),
+                    InstanceId = instanceId
+                };
+            }
+        }
+    }
+
+    public void SetSelectedStaticObject(uint landblockId, uint instanceId) {
+        if (_staticObjectManager != null) {
+            if (landblockId == 0) {
+                _staticObjectManager.SelectedInstance = null;
+            }
+            else {
+                _staticObjectManager.SelectedInstance = new SelectedStaticObject {
+                    LandblockKey = (ushort)(landblockId >> 16),
+                    InstanceId = instanceId
+                };
+            }
+        }
+    }
+
+    public bool RaycastStaticObjects(Vector3 origin, Vector3 direction, out uint landblockId, out uint instanceId, out float distance) {
+        landblockId = 0;
+        instanceId = 0;
+        distance = float.MaxValue;
+
+        if (_staticObjectManager != null && _staticObjectManager.Raycast(origin, direction, out ushort key, out var instance, out distance)) {
+            // Reconstruct full landblock ID (assuming standard FFFE format for now, or just using the key)
+            // The key is (x << 8) | y. The full ID is ((x << 8) | y) << 16 | 0xFFFE
+            landblockId = (uint)((key << 16) | 0xFFFE);
+            instanceId = instance.InstanceId;
+            return true;
+        }
+        return false;
+    }
+
     /// <summary>
     /// Renders the scene.
     /// </summary>
@@ -595,6 +643,11 @@ public class GameScene : IDisposable {
             }
         }
 
+        if (ShowDebugShapes) {
+            _staticObjectManager?.SubmitDebugShapes(_debugRenderer);
+            _debugRenderer?.Render(snapshotView, snapshotProj);
+        }
+
         // Restore depth mask for subsequent renders if needed
         _gl.DepthMask(true);
 
@@ -663,6 +716,7 @@ public class GameScene : IDisposable {
         _sceneryManager?.Dispose();
         _staticObjectManager?.Dispose();
         _skyboxManager?.Dispose();
+        _debugRenderer?.Dispose();
         if (_ownsMeshManager) {
             _meshManager?.Dispose();
         }

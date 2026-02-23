@@ -85,7 +85,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
         private LandscapeToolContext CreateContext(LandscapeDocument doc) {
             var activeLayer = doc.GetAllLayers().First();
-            return new LandscapeToolContext(doc, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer);
+            return new LandscapeToolContext(doc, new Mock<IDatReaderWriter>().Object, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer);
         }
     }
 }
