@@ -84,7 +84,7 @@ namespace Chorizite.OpenGLSDLBackend {
         protected ManagedGLTexture(OpenGLGraphicsDevice device, Image bitmap) {
             throw new NotImplementedException();
         }
-       
+
         public void SetData(Rectangle rectangle, byte[] data) {
             if (_texture == 0) return;
 
@@ -119,6 +119,7 @@ namespace Chorizite.OpenGLSDLBackend {
             if (slot == 0) {
                 BaseObjectRenderManager.CurrentAtlas = 0;
             }
+            GL.BindSampler((uint)slot, 0);
             GL.ActiveTexture(GLEnum.Texture0 + slot);
             GLHelpers.CheckErrors();
             GL.BindTexture(GLEnum.Texture2D, (uint)NativePtr);

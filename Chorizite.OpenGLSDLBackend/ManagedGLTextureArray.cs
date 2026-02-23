@@ -123,6 +123,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 BaseObjectRenderManager.CurrentAtlas = 0;
             }
 
+            GL.BindSampler((uint)slot, 0);
             GL.ActiveTexture(GLEnum.Texture0 + slot);
             GLHelpers.CheckErrors();
             GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
