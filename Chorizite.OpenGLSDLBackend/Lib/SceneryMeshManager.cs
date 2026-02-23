@@ -96,6 +96,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public bool IsSetup { get; set; }
         public List<(uint GfxObjId, Matrix4x4 Transform)> SetupParts { get; set; } = new();
 
+        /// <summary>CPU-side vertex positions for raycasting.</summary>
+        public Vector3[] CPUPositions { get; set; } = Array.Empty<Vector3>();
+
+        /// <summary>CPU-side indices for raycasting.</summary>
+        public ushort[] CPUIndices { get; set; } = Array.Empty<ushort>();
+
         /// <summary>Local bounding box.</summary>
         public BoundingBox BoundingBox { get; set; }
 
@@ -717,6 +723,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 VBO = vbo,
                 VertexCount = meshData.Vertices.Length,
                 Batches = renderBatches,
+                CPUPositions = meshData.Vertices.Select(v => v.Position).ToArray(),
+                CPUIndices = meshData.TextureBatches.Values.SelectMany(l => l).SelectMany(b => b.Indices).ToArray(),
                 MemorySize = (meshData.Vertices.Length * VertexPositionNormalTexture.Size) +
                              renderBatches.Sum(b => (long)b.IndexCount * sizeof(ushort))
             };
@@ -728,6 +736,135 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #endregion
 
         #region Private: Utilities
+
+        #region Raycasting
+
+        public bool IntersectMesh(ObjectRenderData renderData, Matrix4x4 transform, Vector3 rayOrigin, Vector3 rayDirection, out float distance) {
+            distance = float.MaxValue;
+            bool hit = false;
+
+            if (renderData.IsSetup) {
+                foreach (var part in renderData.SetupParts) {
+                    var partData = TryGetRenderData(part.GfxObjId);
+                    if (partData != null) {
+                        if (IntersectMesh(partData, part.Transform * transform, rayOrigin, rayDirection, out float d)) {
+                            if (d < distance) {
+                                distance = d;
+                                hit = true;
+                            }
+                        }
+                    }
+                }
+                return hit;
+            }
+
+            if (renderData.CPUPositions.Length == 0 || renderData.CPUIndices.Length == 0) {
+                // Fallback to sphere if no CPU mesh data
+                if (renderData.SelectionSphere != null && renderData.SelectionSphere.Radius > 0.001f) {
+                    var worldOrigin = Vector3.Transform(renderData.SelectionSphere.Origin, transform);
+                    float radius = renderData.SelectionSphere.Radius * transform.Translation.Length(); // Rough scale
+                    return RayIntersectsSphere(rayOrigin, rayDirection, worldOrigin, radius, out distance, out _);
+                }
+                return false;
+            }
+
+            // Transform ray to local space
+            if (!Matrix4x4.Invert(transform, out var invTransform)) return false;
+            Vector3 localOrigin = Vector3.Transform(rayOrigin, invTransform);
+            Vector3 localDirection = Vector3.Normalize(Vector3.TransformNormal(rayDirection, invTransform));
+
+            // Iterate through triangles
+            for (int i = 0; i < renderData.CPUIndices.Length; i += 3) {
+                Vector3 v0 = renderData.CPUPositions[renderData.CPUIndices[i]];
+                Vector3 v1 = renderData.CPUPositions[renderData.CPUIndices[i + 1]];
+                Vector3 v2 = renderData.CPUPositions[renderData.CPUIndices[i + 2]];
+
+                if (RayIntersectsTriangle(localOrigin, localDirection, v0, v1, v2, out float t)) {
+                    // Convert t back to world space distance
+                    Vector3 hitPointLocal = localOrigin + localDirection * t;
+                    Vector3 hitPointWorld = Vector3.Transform(hitPointLocal, transform);
+                    float worldDist = Vector3.Distance(rayOrigin, hitPointWorld);
+
+                    if (worldDist < distance) {
+                        distance = worldDist;
+                        hit = true;
+                    }
+                }
+            }
+
+            return hit;
+        }
+
+        public static bool RayIntersectsTriangle(Vector3 origin, Vector3 direction, Vector3 v0, Vector3 v1, Vector3 v2, out float t) {
+            t = 0;
+            Vector3 edge1 = v1 - v0;
+            Vector3 edge2 = v2 - v0;
+            Vector3 h = Vector3.Cross(direction, edge2);
+            float a = Vector3.Dot(edge1, h);
+
+            if (a > -0.00001f && a < 0.00001f) return false;
+
+            float f = 1.0f / a;
+            Vector3 s = origin - v0;
+            float u = f * Vector3.Dot(s, h);
+
+            if (u < 0.0f || u > 1.0f) return false;
+
+            Vector3 q = Vector3.Cross(s, edge1);
+            float v = f * Vector3.Dot(direction, q);
+
+            if (v < 0.0f || u + v > 1.0f) return false;
+
+            t = f * Vector3.Dot(edge2, q);
+            return t > 0.00001f;
+        }
+
+        public static bool RayIntersectsSphere(Vector3 rayOrigin, Vector3 rayDirection, Vector3 sphereOrigin, float sphereRadius, out float distance, out float tca) {
+            distance = 0;
+            tca = 0;
+            Vector3 l = sphereOrigin - rayOrigin;
+            tca = Vector3.Dot(l, rayDirection);
+            if (tca < 0) return false;
+            float d2 = Vector3.Dot(l, l) - tca * tca;
+            float r2 = sphereRadius * sphereRadius;
+            if (d2 > r2) return false;
+            float thc = MathF.Sqrt(r2 - d2);
+            distance = tca - thc;
+            return true;
+        }
+
+        public static bool RayIntersectsBox(Vector3 rayOrigin, Vector3 rayDirection, BoundingBox box, out float distance) {
+            distance = 0;
+            float tmin = (box.Min.X - rayOrigin.X) / rayDirection.X;
+            float tmax = (box.Max.X - rayOrigin.X) / rayDirection.X;
+
+            if (tmin > tmax) (tmin, tmax) = (tmax, tmin);
+
+            float tymin = (box.Min.Y - rayOrigin.Y) / rayDirection.Y;
+            float tymax = (box.Max.Y - rayOrigin.Y) / rayDirection.Y;
+
+            if (tymin > tymax) (tymin, tymax) = (tymax, tymin);
+
+            if ((tmin > tymax) || (tymin > tmax)) return false;
+
+            if (tymin > tmin) tmin = tymin;
+            if (tymax < tmax) tmax = tymax;
+
+            float tzmin = (box.Min.Z - rayOrigin.Z) / rayDirection.Z;
+            float tzmax = (box.Max.Z - rayOrigin.Z) / rayDirection.Z;
+
+            if (tzmin > tzmax) (tzmin, tzmax) = (tzmax, tzmin);
+
+            if ((tmin > tzmax) || (tzmin > tmax)) return false;
+
+            if (tzmin > tmin) tmin = tzmin;
+            if (tzmax < tmax) tmax = tzmax;
+
+            distance = tmin;
+            return distance >= 0;
+        }
+
+        #endregion
 
         private (Vector3 Min, Vector3 Max) ComputeBounds(GfxObj gfxObj, Vector3 scale) {
             var min = new Vector3(float.MaxValue);

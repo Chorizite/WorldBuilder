@@ -3,6 +3,7 @@
              xmlns:vm="clr-namespace:WorldBuilder.Modules.Landscape"
              xmlns:tools="clr-namespace:WorldBuilder.Shared.Modules.Landscape.Tools;assembly=WorldBuilder.Shared"
              xmlns:converters="clr-namespace:WorldBuilder.Converters"
+             xmlns:libconverters="clr-namespace:WorldBuilder.Lib.Converters"
              xmlns:views="clr-namespace:WorldBuilder.Views"
              xmlns:icons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              x:Class="WorldBuilder.Modules.Landscape.Views.Components.ToolSettingsPanel"
@@ -10,6 +11,7 @@
              x:DataType="vm:LandscapeViewModel">
     <UserControl.Resources>
       <converters:TextureToViewModelConverter x:Key="TextureConverter" />
+      <libconverters:Vector4ToColorConverter x:Key="Vector4ToColorConverter" />
       
       <ControlTemplate x:Key="RibbonGroupTemplate" TargetType="HeaderedContentControl">
         <Border BorderBrush="{DynamicResource SemiColorBorder}"
@@ -131,7 +133,7 @@
 
         <ContentControl Content="{Binding ActiveTool}">
           <ContentControl.DataTemplates>
-            <DataTemplate DataType="{x:Type tools:BrushTool}">
+            <DataTemplate DataType="{x:Type tools:BrushTool}" x:DataType="tools:BrushTool">
               <StackPanel Orientation="Horizontal">
                 <HeaderedContentControl Header="Brush" Template="{StaticResource RibbonGroupTemplate}">
                   <StackPanel Orientation="Horizontal" Spacing="8">
@@ -147,7 +149,7 @@
               </StackPanel>
             </DataTemplate>
 
-            <DataTemplate DataType="{x:Type tools:BucketFillTool}">
+            <DataTemplate DataType="{x:Type tools:BucketFillTool}" x:DataType="tools:BucketFillTool">
               <StackPanel Orientation="Horizontal">
                 <HeaderedContentControl Header="Fill Options" Template="{StaticResource RibbonGroupTemplate}">
                   <StackPanel Orientation="Horizontal" Spacing="12">
@@ -162,16 +164,44 @@
               </StackPanel>
             </DataTemplate>
 
-            <DataTemplate DataType="{x:Type tools:RoadLineTool}">
+            <DataTemplate DataType="{x:Type tools:RoadLineTool}" x:DataType="tools:RoadLineTool">
                 <HeaderedContentControl Header="Options" Template="{StaticResource RibbonGroupTemplate}">
                   <TextBlock Text="No settings available" FontSize="12" Opacity="0.6" VerticalAlignment="Center"/>
                 </HeaderedContentControl>
             </DataTemplate>
 
-            <DataTemplate DataType="{x:Type tools:RoadVertexTool}">
+            <DataTemplate DataType="{x:Type tools:RoadVertexTool}" x:DataType="tools:RoadVertexTool">
                 <HeaderedContentControl Header="Options" Template="{StaticResource RibbonGroupTemplate}">
                   <TextBlock Text="No settings available" FontSize="12" Opacity="0.6" VerticalAlignment="Center"/>
                 </HeaderedContentControl>
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type tools:InspectorTool}" x:DataType="tools:InspectorTool">
+                <StackPanel Orientation="Horizontal">
+                  <HeaderedContentControl Header="Filter" Template="{StaticResource RibbonGroupTemplate}">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                      <StackPanel Orientation="Horizontal" Spacing="4">
+                        <Border Width="12" Height="12" Background="{Binding VertexColor, Converter={StaticResource Vector4ToColorConverter}}" CornerRadius="2" VerticalAlignment="Center"/>
+                        <CheckBox Content="Vertices" IsChecked="{Binding SelectVertices}" FontSize="12" />
+                      </StackPanel>
+                      <StackPanel Orientation="Horizontal" Spacing="4">
+                        <Border Width="12" Height="12" Background="{Binding BuildingColor, Converter={StaticResource Vector4ToColorConverter}}" CornerRadius="2" VerticalAlignment="Center"/>
+                        <CheckBox Content="Buildings" IsChecked="{Binding SelectBuildings}" FontSize="12" />
+                      </StackPanel>
+                      <StackPanel Orientation="Horizontal" Spacing="4">
+                        <Border Width="12" Height="12" Background="{Binding StaticObjectColor, Converter={StaticResource Vector4ToColorConverter}}" CornerRadius="2" VerticalAlignment="Center"/>
+                        <CheckBox Content="Static Objects" IsChecked="{Binding SelectStaticObjects}" FontSize="12" />
+                      </StackPanel>
+                      <StackPanel Orientation="Horizontal" Spacing="4">
+                        <Border Width="12" Height="12" Background="{Binding SceneryColor, Converter={StaticResource Vector4ToColorConverter}}" CornerRadius="2" VerticalAlignment="Center"/>
+                        <CheckBox Content="Scenery" IsChecked="{Binding SelectScenery}" FontSize="12" />
+                      </StackPanel>
+                    </StackPanel>
+                  </HeaderedContentControl>
+                  <HeaderedContentControl Header="Display" Template="{StaticResource RibbonGroupTemplate}">
+                    <CheckBox Content="Bounding Boxes" IsChecked="{Binding ShowBoundingBoxes}" FontSize="12" />
+                  </HeaderedContentControl>
+                </StackPanel>
             </DataTemplate>
           </ContentControl.DataTemplates>
         </ContentControl>

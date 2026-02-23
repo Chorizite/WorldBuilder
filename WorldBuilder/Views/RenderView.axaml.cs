@@ -357,7 +357,7 @@ public partial class RenderView : Base3DViewport {
             var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
             var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _pendingDatReader);
 
-            _gameScene.SetLandscape(_pendingLandscapeDocument, _pendingDatReader, documentManager!, meshManager, centerCamera: true);
+            _gameScene.SetLandscape(_pendingLandscapeDocument, _pendingDatReader, documentManager!, meshManager, centerCamera: false);
             _pendingLandscapeDocument = null;
             _pendingDatReader = null;
         }
@@ -467,6 +467,14 @@ public partial class RenderView : Base3DViewport {
         set => SetValue(ShowUnwalkableSlopesProperty, value);
     }
 
+    public static readonly StyledProperty<bool> ShowDebugShapesProperty =
+        AvaloniaProperty.Register<RenderView, bool>(nameof(ShowDebugShapes));
+
+    public bool ShowDebugShapes {
+        get => GetValue(ShowDebugShapesProperty);
+        set => SetValue(ShowDebugShapesProperty, value);
+    }
+
     public static readonly StyledProperty<float> TimeOfDayProperty =
         AvaloniaProperty.Register<RenderView, float>(nameof(TimeOfDay), defaultValue: 0.5f);
 
@@ -512,6 +520,11 @@ public partial class RenderView : Base3DViewport {
         else if (change.Property == ShowUnwalkableSlopesProperty) {
             if (_gameScene != null) {
                 _gameScene.ShowUnwalkableSlopes = ShowUnwalkableSlopes;
+            }
+        }
+        else if (change.Property == ShowDebugShapesProperty) {
+            if (_gameScene != null) {
+                _gameScene.ShowDebugShapes = ShowDebugShapes;
             }
         }
         else if (change.Property == TimeOfDayProperty) {

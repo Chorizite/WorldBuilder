@@ -1,3 +1,4 @@
+using Chorizite.Core.Lib;
 using Chorizite.Core.Render;
 using Chorizite.OpenGLSDLBackend.Lib;
 using DatReaderWriter;
@@ -7,6 +8,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Services;
 
 
@@ -71,6 +73,12 @@ public class GameScene : IDisposable {
     private StaticObjectRenderManager? _staticObjectManager;
     private SkyboxRenderManager? _skyboxManager = null;
     private DebugRenderer? _debugRenderer;
+    private LandscapeDocument? _landscapeDoc;
+
+    private (int x, int y)? _hoveredVertex;
+    private (int x, int y)? _selectedVertex;
+
+    private InspectorTool? _inspectorTool;
 
     private float _lastTerrainUploadTime;
     private float _lastSceneryUploadTime;
@@ -211,6 +219,7 @@ public class GameScene : IDisposable {
     }
 
     public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats, IDocumentManager documentManager, ObjectMeshManager? meshManager = null, bool centerCamera = true) {
+        _landscapeDoc = landscapeDoc;
         if (_terrainManager != null) {
             _terrainManager.Dispose();
         }
@@ -500,6 +509,78 @@ public class GameScene : IDisposable {
         _staticObjectManager?.InvalidateLandblock(lbX, lbY);
     }
 
+    public void SetHoveredVertex(int vx, int vy) {
+        if (vx == 0 && vy == 0) _hoveredVertex = null;
+        else _hoveredVertex = (vx, vy);
+    }
+
+    public void SetSelectedVertex(int vx, int vy) {
+        if (vx == 0 && vy == 0) _selectedVertex = null;
+        else _selectedVertex = (vx, vy);
+    }
+
+    public void SetHoveredScenery(uint landblockId, uint instanceId) {
+        if (_sceneryManager != null) {
+            if (landblockId == 0) {
+                _sceneryManager.HoveredInstance = null;
+            }
+            else {
+                _sceneryManager.HoveredInstance = new SelectedStaticObject {
+                    LandblockKey = (ushort)(landblockId >> 16),
+                    InstanceId = instanceId
+                };
+            }
+        }
+    }
+
+    public void SetSelectedScenery(uint landblockId, uint instanceId) {
+        if (_sceneryManager != null) {
+            if (landblockId == 0) {
+                _sceneryManager.SelectedInstance = null;
+            }
+            else {
+                _sceneryManager.SelectedInstance = new SelectedStaticObject {
+                    LandblockKey = (ushort)(landblockId >> 16),
+                    InstanceId = instanceId
+                };
+            }
+        }
+    }
+
+    public void SetInspectorTool(InspectorTool? tool) {
+        _inspectorTool = tool;
+        if (_staticObjectManager != null) {
+            _staticObjectManager.InspectorTool = tool;
+        }
+        if (_sceneryManager != null) {
+            _sceneryManager.InspectorTool = tool;
+        }
+    }
+
+    private void DrawVertexDebug(int vx, int vy, Vector4 color) {
+        if (_landscapeDoc?.Region == null || _debugRenderer == null) return;
+
+        var region = _landscapeDoc.Region;
+        if (vx < 0 || vx >= region.MapWidthInVertices || vy < 0 || vy >= region.MapHeightInVertices) return;
+
+        float cellSize = region.CellSizeInUnits;
+        int lbCellLen = region.LandblockCellLength;
+        Vector2 mapOffset = region.MapOffset;
+
+        int lbX = vx / lbCellLen;
+        int lbY = vy / lbCellLen;
+        int localVx = vx % lbCellLen;
+        int localVy = vy % lbCellLen;
+
+        float x = lbX * (cellSize * lbCellLen) + localVx * cellSize + mapOffset.X;
+        float y = lbY * (cellSize * lbCellLen) + localVy * cellSize + mapOffset.Y;
+        float z = _landscapeDoc.GetHeight(vx, vy);
+
+        var pos = new Vector3(x, y, z);
+        var size = 0.2f;
+        _debugRenderer.DrawBox(new BoundingBox(pos - new Vector3(size), pos + new Vector3(size)), color);
+    }
+
     public void SetHoveredStaticObject(uint landblockId, uint instanceId) {
         if (_staticObjectManager != null) {
             if (landblockId == 0) {
@@ -528,16 +609,23 @@ public class GameScene : IDisposable {
         }
     }
 
-    public bool RaycastStaticObjects(Vector3 origin, Vector3 direction, out uint landblockId, out uint instanceId, out float distance) {
-        landblockId = 0;
-        instanceId = 0;
-        distance = float.MaxValue;
+    public bool RaycastStaticObjects(Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit) {
+        hit = SceneRaycastHit.NoHit;
 
-        if (_staticObjectManager != null && _staticObjectManager.Raycast(origin, direction, out ushort key, out var instance, out distance)) {
-            // Reconstruct full landblock ID (assuming standard FFFE format for now, or just using the key)
-            // The key is (x << 8) | y. The full ID is ((x << 8) | y) << 16 | 0xFFFE
-            landblockId = (uint)((key << 16) | 0xFFFE);
-            instanceId = instance.InstanceId;
+        var targets = StaticObjectRenderManager.RaycastTarget.None;
+        if (includeBuildings) targets |= StaticObjectRenderManager.RaycastTarget.Buildings;
+        if (includeStaticObjects) targets |= StaticObjectRenderManager.RaycastTarget.StaticObjects;
+
+        if (_staticObjectManager != null && _staticObjectManager.Raycast(origin, direction, targets, out hit)) {
+            return true;
+        }
+        return false;
+    }
+
+    public bool RaycastScenery(Vector3 origin, Vector3 direction, out SceneRaycastHit hit) {
+        hit = SceneRaycastHit.NoHit;
+
+        if (_sceneryManager != null && _sceneryManager.Raycast(origin, direction, out hit)) {
             return true;
         }
         return false;
@@ -644,7 +732,18 @@ public class GameScene : IDisposable {
         }
 
         if (ShowDebugShapes) {
+            _sceneryManager?.SubmitDebugShapes(_debugRenderer);
             _staticObjectManager?.SubmitDebugShapes(_debugRenderer);
+
+            if (_inspectorTool == null || (_inspectorTool.ShowBoundingBoxes && _inspectorTool.SelectVertices)) {
+                if (_hoveredVertex.HasValue) {
+                    DrawVertexDebug(_hoveredVertex.Value.x, _hoveredVertex.Value.y, new Vector4(1.0f, 1.0f, 0.0f, 1.0f));
+                }
+                if (_selectedVertex.HasValue) {
+                    DrawVertexDebug(_selectedVertex.Value.x, _selectedVertex.Value.y, new Vector4(1.0f, 0.5f, 0.0f, 1.0f));
+                }
+            }
+
             _debugRenderer?.Render(snapshotView, snapshotProj);
         }
 

@@ -92,6 +92,9 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         if (_gameScene != null) {
             _gameScene.ShowDebugShapes = value;
         }
+        if (ActiveTool is InspectorTool inspector) {
+            inspector.ShowBoundingBoxes = value;
+        }
     }
 
     partial void OnIsUnwalkableSlopeHighlightEnabledChanged(bool value) {
@@ -157,7 +160,9 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         }
 
         HistoryPanel = new HistoryPanelViewModel(CommandHistory);
-        PropertiesPanel = new PropertiesPanelViewModel();
+        PropertiesPanel = new PropertiesPanelViewModel {
+            Dats = dats
+        };
         LayersPanel = new LayersPanelViewModel(log, CommandHistory, _documentManager, _settings, _project, async (item, changeType) => {
             if (ActiveDocument != null) {
                 if (changeType == LayerChangeType.VisibilityChange && item != null) {
@@ -188,15 +193,37 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             Tools.Add(new BucketFillTool());
             Tools.Add(new RoadVertexTool());
             Tools.Add(new RoadLineTool());
-            Tools.Add(new StaticObjectSelectionTool());
+            Tools.Add(new InspectorTool());
         }
         ActiveTool = Tools.FirstOrDefault();
     }
 
     partial void OnActiveToolChanged(ILandscapeTool? oldValue, ILandscapeTool? newValue) {
+        if (oldValue is InspectorTool oldInspector) {
+            oldInspector.PropertyChanged -= OnInspectorToolPropertyChanged;
+        }
+
         oldValue?.Deactivate();
         if (newValue != null && _toolContext != null) {
             newValue.Activate(_toolContext);
+            if (newValue is InspectorTool newInspector) {
+                newInspector.PropertyChanged += OnInspectorToolPropertyChanged;
+                IsDebugShapesEnabled = newInspector.ShowBoundingBoxes;
+            }
+            else {
+                IsDebugShapesEnabled = false;
+            }
+        }
+        else {
+            IsDebugShapesEnabled = false;
+        }
+
+        _gameScene?.SetInspectorTool(newValue as InspectorTool);
+    }
+
+    private void OnInspectorToolPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+        if (sender is InspectorTool inspector && e.PropertyName == nameof(InspectorTool.ShowBoundingBoxes)) {
+            IsDebugShapesEnabled = inspector.ShowBoundingBoxes;
         }
     }
 
@@ -235,8 +262,8 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _log.LogTrace("Updating tool context. ActiveLayer: {LayerId}", ActiveLayer?.Id);
 
             if (_toolContext != null) {
-                _toolContext.StaticObjectHovered -= OnStaticObjectHovered;
-                _toolContext.StaticObjectSelected -= OnStaticObjectSelected;
+                _toolContext.InspectorHovered -= OnInspectorHovered;
+                _toolContext.InspectorSelected -= OnInspectorSelected;
             }
 
             _toolContext = new LandscapeToolContext(ActiveDocument, _dats, CommandHistory, Camera, _log, ActiveLayer);
@@ -245,13 +272,25 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 _toolContext.InvalidateLandblock = _invalidateCallback;
             }
 
-            _toolContext.RaycastStaticObject = (Vector3 origin, Vector3 dir, out uint lbId, out uint instId, out float dist) => {
-                lbId = 0; instId = 0; dist = float.MaxValue;
-                return _gameScene?.RaycastStaticObjects(origin, dir, out lbId, out instId, out dist) ?? false;
+            _toolContext.RaycastStaticObject = (Vector3 origin, Vector3 dir, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit) => {
+                hit = SceneRaycastHit.NoHit;
+                return _gameScene?.RaycastStaticObjects(origin, dir, includeBuildings, includeStaticObjects, out hit) ?? false;
             };
 
-            _toolContext.StaticObjectHovered += OnStaticObjectHovered;
-            _toolContext.StaticObjectSelected += OnStaticObjectSelected;
+            _toolContext.RaycastScenery = (Vector3 origin, Vector3 dir, out SceneRaycastHit hit) => {
+                hit = SceneRaycastHit.NoHit;
+                return _gameScene?.RaycastScenery(origin, dir, out hit) ?? false;
+            };
+
+            _toolContext.RaycastTerrain = (float x, float y) => {
+                if (_gameScene == null || ActiveDocument?.Region == null) return new TerrainRaycastHit();
+                return TerrainRaycast.Raycast(x, y, (int)_toolContext.ViewportSize.X, (int)_toolContext.ViewportSize.Y, _toolContext.Camera, ActiveDocument.Region, ActiveDocument);
+            };
+
+            _toolContext.InspectorHovered += OnInspectorHovered;
+            _toolContext.InspectorSelected += OnInspectorSelected;
+
+            _gameScene?.SetInspectorTool(ActiveTool as InspectorTool);
 
             ActiveTool?.Activate(_toolContext);
         }
@@ -260,37 +299,60 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         }
     }
 
-    private void OnStaticObjectHovered(object? sender, StaticObjectSelectionEventArgs e) {
-        _gameScene?.SetHoveredStaticObject(e.LandblockId, e.InstanceId);
-    }
-
-    private void OnStaticObjectSelected(object? sender, StaticObjectSelectionEventArgs e) {
-        _gameScene?.SetSelectedStaticObject(e.LandblockId, e.InstanceId);
-
-        if (e.LandblockId == 0) {
-            if (PropertiesPanel.SelectedItem is StaticObjectViewModel) {
-                PropertiesPanel.SelectedItem = null;
-            }
+    private void OnInspectorHovered(object? sender, InspectorSelectionEventArgs e) {
+        if (e.Selection.Type == InspectorSelectionType.StaticObject || e.Selection.Type == InspectorSelectionType.Building) {
+            _gameScene?.SetHoveredStaticObject(e.Selection.LandblockId, e.Selection.InstanceId);
+            _gameScene?.SetHoveredScenery(0, 0);
+            _gameScene?.SetHoveredVertex(0, 0);
+        }
+        else if (e.Selection.Type == InspectorSelectionType.Scenery) {
+            _gameScene?.SetHoveredScenery(e.Selection.LandblockId, e.Selection.InstanceId);
+            _gameScene?.SetHoveredStaticObject(0, 0);
+            _gameScene?.SetHoveredVertex(0, 0);
+        }
+        else if (e.Selection.Type == InspectorSelectionType.Vertex) {
+            _gameScene?.SetHoveredVertex(e.Selection.VertexX, e.Selection.VertexY);
+            _gameScene?.SetHoveredStaticObject(0, 0);
+            _gameScene?.SetHoveredScenery(0, 0);
         }
         else {
-            var lb = ActiveDocument?.GetMergedLandblock(e.LandblockId);
-            uint objId = 0;
-            if (lb != null) {
-                var obj = lb.StaticObjects.FirstOrDefault(o => o.InstanceId == e.InstanceId);
-                if (obj != null) {
-                    objId = obj.SetupId;
-                }
-                else {
-                    var bldg = lb.Buildings.FirstOrDefault(b => b.InstanceId == e.InstanceId);
-                    if (bldg != null) {
-                        objId = bldg.ModelId;
-                    }
-                }
-            }
+            _gameScene?.SetHoveredStaticObject(0, 0);
+            _gameScene?.SetHoveredScenery(0, 0);
+            _gameScene?.SetHoveredVertex(0, 0);
+        }
+    }
 
-            if (objId != 0) {
-                PropertiesPanel.SelectedItem = new StaticObjectViewModel(objId, e.InstanceId, e.LandblockId);
+    private void OnInspectorSelected(object? sender, InspectorSelectionEventArgs e) {
+        if (e.Selection.Type == InspectorSelectionType.StaticObject || e.Selection.Type == InspectorSelectionType.Building) {
+            _gameScene?.SetSelectedStaticObject(e.Selection.LandblockId, e.Selection.InstanceId);
+            _gameScene?.SetSelectedScenery(0, 0);
+            _gameScene?.SetSelectedVertex(0, 0);
+
+            if (e.Selection.Type == InspectorSelectionType.StaticObject) {
+                PropertiesPanel.SelectedItem = new StaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.Rotation);
             }
+            else {
+                PropertiesPanel.SelectedItem = new BuildingViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.Rotation);
+            }
+        }
+        else if (e.Selection.Type == InspectorSelectionType.Scenery) {
+            _gameScene?.SetSelectedScenery(e.Selection.LandblockId, e.Selection.InstanceId);
+            _gameScene?.SetSelectedStaticObject(0, 0);
+            _gameScene?.SetSelectedVertex(0, 0);
+
+            PropertiesPanel.SelectedItem = new SceneryViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.Rotation);
+        }
+        else if (e.Selection.Type == InspectorSelectionType.Vertex) {
+            _gameScene?.SetSelectedVertex(e.Selection.VertexX, e.Selection.VertexY);
+            _gameScene?.SetSelectedStaticObject(0, 0);
+            _gameScene?.SetSelectedScenery(0, 0);
+            PropertiesPanel.SelectedItem = new LandscapeVertexViewModel(e.Selection.VertexX, e.Selection.VertexY, ActiveDocument!, _dats, CommandHistory);
+        }
+        else {
+            _gameScene?.SetSelectedStaticObject(0, 0);
+            _gameScene?.SetSelectedScenery(0, 0);
+            _gameScene?.SetSelectedVertex(0, 0);
+            PropertiesPanel.SelectedItem = null;
         }
     }
 
@@ -453,6 +515,10 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     }
 
     public void OnPointerPressed(ViewportInputEvent e) {
+        if (_toolContext != null) {
+            _toolContext.ViewportSize = e.ViewportSize;
+        }
+
         if (ActiveTool != null && _toolContext != null) {
             if (ActiveTool.OnPointerPressed(e)) {
                 // Handled

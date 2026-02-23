@@ -6,8 +6,8 @@ using WorldBuilder.Shared.Modules.Landscape.Tools;
 
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 
-public partial class StaticObjectViewModel : ViewModelBase, ISelectedObjectInfo {
-    public InspectorSelectionType Type => InspectorSelectionType.StaticObject;
+public partial class SceneryViewModel : ViewModelBase, ISelectedObjectInfo {
+    public InspectorSelectionType Type => InspectorSelectionType.Scenery;
     public int VertexX => 0;
     public int VertexY => 0;
 
@@ -25,7 +25,7 @@ public partial class StaticObjectViewModel : ViewModelBase, ISelectedObjectInfo 
     public string InstanceIdHex => $"0x{InstanceId:X8}";
     public string LandblockIdHex => $"0x{LandblockId:X8}";
 
-    public StaticObjectViewModel(uint objectId, uint instanceId, uint landblockId, Vector3 position, Quaternion rotation) {
+    public SceneryViewModel(uint objectId, uint instanceId, uint landblockId, Vector3 position, Quaternion rotation) {
         ObjectId = objectId;
         InstanceId = instanceId;
         LandblockId = landblockId;

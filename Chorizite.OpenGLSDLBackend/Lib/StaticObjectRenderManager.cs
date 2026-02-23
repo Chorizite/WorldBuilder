@@ -15,6 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Services;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
@@ -55,6 +56,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         // Prepared mesh data waiting for GPU upload (thread-safe buffer between background and main thread)
         private readonly ConcurrentDictionary<uint, ObjectMeshData> _preparedMeshes = new();
+
+        public InspectorTool? InspectorTool { get; set; }
 
         private readonly ConcurrentDictionary<ushort, TaskCompletionSource> _instanceReadyTcs = new();
         private readonly object _tcsLock = new();
@@ -139,112 +142,51 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return _landblocks.TryGetValue(key, out var lb) && lb.MeshDataReady;
         }
 
-        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, out ushort hitLandblockKey, out SceneryInstance hitInstance, out float hitDistance) {
-            hitLandblockKey = 0;
-            hitInstance = default;
-            hitDistance = float.MaxValue;
-            float bestScore = float.MaxValue;
-            bool hit = false;
+        [Flags]
+        public enum RaycastTarget {
+            None = 0,
+            StaticObjects = 1,
+            Buildings = 2,
+            All = StaticObjects | Buildings
+        }
+
+        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, RaycastTarget targets, out SceneRaycastHit hit) {
+            hit = SceneRaycastHit.NoHit;
 
             foreach (var (key, lb) in _landblocks) {
                 if (!lb.InstancesReady) continue;
 
                 foreach (var instance in lb.Instances) {
-                    if (instance.IsBuilding) continue;
-
-                    bool hitThis = false;
-                    float d = float.MaxValue;
-                    float tca = float.MaxValue;
-                    float radius = 0f;
+                    if (instance.IsBuilding && !targets.HasFlag(RaycastTarget.Buildings)) continue;
+                    if (!instance.IsBuilding && !targets.HasFlag(RaycastTarget.StaticObjects)) continue;
 
                     var renderData = _meshManager.TryGetRenderData(instance.ObjectId);
+                    if (renderData == null) continue;
 
-                    // Try SelectionSphere first if we have valid sphere data
-                    if (renderData?.SelectionSphere != null && renderData.SelectionSphere.Radius > 0.001f) {
-                        var sphere = renderData.SelectionSphere;
-                        var worldOrigin = Vector3.Transform(sphere.Origin, instance.Transform);
-                        radius = sphere.Radius * instance.Scale.X; // Scale radius!
-
-                        if (RayIntersectsSphere(rayOrigin, rayDirection, worldOrigin, radius, out d, out tca)) {
-                            hitThis = true;
+                    // Broad phase: Bounding Box
+                    if (instance.BoundingBox.Max != instance.BoundingBox.Min) {
+                        if (!ObjectMeshManager.RayIntersectsBox(rayOrigin, rayDirection, instance.BoundingBox, out _)) {
+                            continue;
                         }
                     }
 
-                    // Fallback to BoundingBox if no SelectionSphere hit (or no sphere data)
-                    if (!hitThis) {
-                        // Check if the bounding box is valid (not just a point at 0,0,0)
-                        if (instance.BoundingBox.Max != instance.BoundingBox.Min) {
-                            if (RayIntersectsBox(rayOrigin, rayDirection, instance.BoundingBox, out d)) {
-                                tca = Vector3.Distance(rayOrigin, instance.BoundingBox.Center);
-                                radius = Vector3.Distance(instance.BoundingBox.Max, instance.BoundingBox.Min) / 2f;
-                                hitThis = true;
-                            }
-                        }
-                    }
-
-                    if (hitThis) {
-                        // Priority Score: Distance to center + small bias for radius.
-                        // This allows selecting small objects inside large ones if their centers are similar,
-                        // and prefers closer objects generally.
-                        float score = tca + (radius * 0.01f); 
-
-                        if (score < bestScore) {
-                            bestScore = score;
-                            hitDistance = d;
-                            hitInstance = instance;
-                            hitLandblockKey = key;
-                            hit = true;
+                    // Narrow phase: Mesh-precise raycast
+                    if (_meshManager.IntersectMesh(renderData, instance.Transform, rayOrigin, rayDirection, out float d)) {
+                        if (d < hit.Distance) {
+                            hit.Hit = true;
+                            hit.Distance = d;
+                            hit.Type = instance.IsBuilding ? InspectorSelectionType.Building : InspectorSelectionType.StaticObject;
+                            hit.ObjectId = instance.ObjectId;
+                            hit.InstanceId = instance.InstanceId;
+                            hit.Position = instance.WorldPosition;
+                            hit.Rotation = instance.Rotation;
+                            hit.LandblockId = (uint)((key << 16) | 0xFFFE);
                         }
                     }
                 }
             }
 
-            return hit;
-        }
-
-        private bool RayIntersectsSphere(Vector3 rayOrigin, Vector3 rayDirection, Vector3 sphereOrigin, float sphereRadius, out float distance, out float tca) {
-            distance = 0;
-            tca = 0;
-            Vector3 l = sphereOrigin - rayOrigin;
-            tca = Vector3.Dot(l, rayDirection);
-            if (tca < 0) return false;
-            float d2 = Vector3.Dot(l, l) - tca * tca;
-            float r2 = sphereRadius * sphereRadius;
-            if (d2 > r2) return false;
-            float thc = MathF.Sqrt(r2 - d2);
-            distance = tca - thc;
-            return true;
-        }
-
-        private bool RayIntersectsBox(Vector3 rayOrigin, Vector3 rayDirection, BoundingBox box, out float distance) {
-            distance = 0;
-            float tmin = (box.Min.X - rayOrigin.X) / rayDirection.X;
-            float tmax = (box.Max.X - rayOrigin.X) / rayDirection.X;
-
-            if (tmin > tmax) (tmin, tmax) = (tmax, tmin);
-
-            float tymin = (box.Min.Y - rayOrigin.Y) / rayDirection.Y;
-            float tymax = (box.Max.Y - rayOrigin.Y) / rayDirection.Y;
-
-            if (tymin > tymax) (tymin, tymax) = (tymax, tymin);
-
-            if ((tmin > tymax) || (tymin > tmax)) return false;
-
-            if (tymin > tmin) tmin = tymin;
-            if (tymax < tmax) tmax = tymax;
-
-            float tzmin = (box.Min.Z - rayOrigin.Z) / rayDirection.Z;
-            float tzmax = (box.Max.Z - rayOrigin.Z) / rayDirection.Z;
-
-            if (tzmin > tzmax) (tzmin, tzmax) = (tzmax, tzmin);
-
-            if ((tmin > tzmax) || (tzmin > tmax)) return false;
-
-            if (tzmin > tmin) tmin = tzmin;
-            if (tzmax < tmax) tmax = tzmax;
-
-            distance = tmin;
-            return distance >= 0;
+            return hit.Hit;
         }
 
         public StaticObjectRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
@@ -549,24 +491,26 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (SelectedInstance.HasValue) {
                 RenderSelectedInstance(SelectedInstance.Value, new Vector4(1.0f, 0.5f, 0.0f, 0.8f)); // Very Strong Orange
             }
-            if (HoveredInstance.HasValue && HoveredInstance.Value != SelectedInstance) {
+            if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
                 RenderSelectedInstance(HoveredInstance.Value, new Vector4(1.0f, 1.0f, 0.0f, 0.6f)); // Stronger Yellow
             }
             _gl.DepthFunc(GLEnum.Less);
 
             _shader.SetUniform("uHighlightColor", Vector4.Zero);
+            _shader.SetUniform("uRenderPass", 0);
             _gl.BindVertexArray(0);
         }
 
         public void SubmitDebugShapes(DebugRenderer? debug) {
-            if (debug == null) return;
+            if (debug == null || _landscapeDoc.Region == null || InspectorTool == null || !InspectorTool.ShowBoundingBoxes) return;
 
             foreach (var lb in _landblocks.Values) {
                 if (!lb.InstancesReady || !IsWithinRenderDistance(lb)) continue;
                 if (GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) continue;
 
                 foreach (var instance in lb.Instances) {
-                    if (instance.IsBuilding) continue;
+                    if (instance.IsBuilding && !InspectorTool.SelectBuildings) continue;
+                    if (!instance.IsBuilding && !InspectorTool.SelectStaticObjects) continue;
 
                     // Skip if instance is outside frustum
                     if (!_frustum.Intersects(instance.BoundingBox)) continue;
@@ -577,20 +521,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     Vector4 color;
                     if (isSelected) color = new Vector4(1.0f, 0.5f, 0.0f, 1.0f); // Bright Orange
                     else if (isHovered) color = new Vector4(1.0f, 1.0f, 0.0f, 1.0f); // Bright Yellow
-                    else color = new Vector4(0.0f, 1.0f, 1.0f, 0.7f); // High-contrast Cyan
+                    else if (instance.IsBuilding) color = InspectorTool.BuildingColor;
+                    else color = InspectorTool.StaticObjectColor;
 
-                    var renderData = _meshManager.TryGetRenderData(instance.ObjectId);
-                    
-                    // Draw Selection Sphere if valid
-                    if (renderData?.SelectionSphere != null && renderData.SelectionSphere.Radius > 0.001f) {
-                        var sphere = renderData.SelectionSphere;
-                        var worldOrigin = Vector3.Transform(sphere.Origin, instance.Transform);
-                        debug.DrawSphere(worldOrigin, sphere.Radius, color);
-                    }
-                    else {
-                        // Fallback to Bounding Box
-                        debug.DrawBox(instance.BoundingBox, color);
-                    }
+                    debug.DrawBox(instance.BoundingBox, color);
                 }
             }
         }
@@ -602,6 +536,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     var renderData = _meshManager.TryGetRenderData(instance.ObjectId);
                     if (renderData != null) {
                         _shader!.SetUniform("uHighlightColor", highlightColor);
+                        _shader!.SetUniform("uRenderPass", 2); // Single pass mode for highlighting
                         if (renderData.IsSetup) {
                             foreach (var (partId, partTransform) in renderData.SetupParts) {
                                 var partRenderData = _meshManager.TryGetRenderData(partId);

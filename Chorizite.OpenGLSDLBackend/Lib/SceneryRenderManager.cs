@@ -16,6 +16,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Services;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
@@ -45,6 +46,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         // Prepared mesh data waiting for GPU upload (thread-safe buffer between background and main thread)
         private readonly ConcurrentDictionary<uint, ObjectMeshData> _preparedMeshes = new();
+
+        public InspectorTool? InspectorTool { get; set; }
+        public SelectedStaticObject? HoveredInstance { get; set; }
+        public SelectedStaticObject? SelectedInstance { get; set; }
 
         // Distance-based unloading
         private const float UnloadDelay = 15f;
@@ -376,8 +381,22 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("uSunlightColor", region?.SunlightColor ?? SunlightColor);
             _shader.SetUniform("uAmbientColor", (region?.AmbientColor ?? AmbientColor) * LightIntensity);
             _shader.SetUniform("uSpecularPower", 32.0f);
+            _shader.SetUniform("uHighlightColor", Vector4.Zero);
 
-            if (_visibleGfxObjIds.Count == 0) return;
+            if (_visibleGfxObjIds.Count == 0) {
+                // We still want to draw selected/hovered instances even if no other scenery is visible
+                _gl.DepthFunc(GLEnum.Lequal);
+                if (SelectedInstance.HasValue) {
+                    RenderSelectedInstance(SelectedInstance.Value, new Vector4(1.0f, 0.5f, 0.0f, 0.8f)); // Very Strong Orange
+                }
+                if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
+                    RenderSelectedInstance(HoveredInstance.Value, new Vector4(1.0f, 1.0f, 0.0f, 0.6f)); // Stronger Yellow
+                }
+                _gl.DepthFunc(GLEnum.Less);
+                _shader.SetUniform("uHighlightColor", Vector4.Zero);
+                _shader.SetUniform("uRenderPass", 0);
+                return;
+            }
 
             _currentVAO = 0;
             _currentIBO = 0;
@@ -393,6 +412,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
+            // Draw highlighted / selected objects on top
+            _gl.DepthFunc(GLEnum.Lequal);
+            if (SelectedInstance.HasValue) {
+                RenderSelectedInstance(SelectedInstance.Value, new Vector4(1.0f, 0.5f, 0.0f, 0.8f)); // Very Strong Orange
+            }
+            if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
+                RenderSelectedInstance(HoveredInstance.Value, new Vector4(1.0f, 1.0f, 0.0f, 0.6f)); // Stronger Yellow
+            }
+            _gl.DepthFunc(GLEnum.Less);
+
+            _shader.SetUniform("uHighlightColor", Vector4.Zero);
+            _shader.SetUniform("uRenderPass", 0);
             _gl.BindVertexArray(0);
         }
 
@@ -402,6 +433,92 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (_landblocks.TryGetValue(key, out var lb)) {
                 lb.MeshDataReady = false;
                 _pendingGeneration[key] = lb;
+            }
+        }
+
+        public void SubmitDebugShapes(DebugRenderer? debug) {
+            if (debug == null || _landscapeDoc.Region == null || InspectorTool == null || !InspectorTool.ShowBoundingBoxes || !InspectorTool.SelectScenery) return;
+
+            foreach (var lb in _landblocks.Values) {
+                if (!lb.GpuReady || !IsWithinRenderDistance(lb)) continue;
+                if (GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) continue;
+
+                foreach (var instance in lb.Instances) {
+                    // Skip if instance is outside frustum
+                    if (!_frustum.Intersects(instance.BoundingBox)) continue;
+
+                    var isSelected = SelectedInstance.HasValue && SelectedInstance.Value.LandblockKey == PackKey(lb.GridX, lb.GridY) && SelectedInstance.Value.InstanceId == instance.InstanceId;
+                    var isHovered = HoveredInstance.HasValue && HoveredInstance.Value.LandblockKey == PackKey(lb.GridX, lb.GridY) && HoveredInstance.Value.InstanceId == instance.InstanceId;
+
+                    Vector4 color;
+                    if (isSelected) color = new Vector4(1.0f, 0.5f, 0.0f, 1.0f); // Bright Orange
+                    else if (isHovered) color = new Vector4(1.0f, 1.0f, 0.0f, 1.0f); // Bright Yellow
+                    else color = InspectorTool.SceneryColor;
+
+                    debug.DrawBox(instance.BoundingBox, color);
+                }
+            }
+        }
+
+        public bool Raycast(Vector3 origin, Vector3 direction, out SceneRaycastHit hit) {
+            hit = SceneRaycastHit.NoHit;
+
+            foreach (var kvp in _landblocks) {
+                if (!kvp.Value.GpuReady) continue;
+
+                foreach (var inst in kvp.Value.Instances) {
+                    var renderData = _meshManager.TryGetRenderData(inst.ObjectId);
+                    if (renderData == null) continue;
+
+                    // Broad phase: Bounding Box
+                    if (!ObjectMeshManager.RayIntersectsBox(origin, direction, inst.BoundingBox, out _)) {
+                        continue;
+                    }
+
+                    // Narrow phase: Mesh-precise raycast
+                    if (_meshManager.IntersectMesh(renderData, inst.Transform, origin, direction, out float d)) {
+                        if (d < hit.Distance) {
+                            hit.Hit = true;
+                            hit.Distance = d;
+                            hit.Type = InspectorSelectionType.Scenery;
+                            hit.ObjectId = inst.ObjectId;
+                            hit.InstanceId = inst.InstanceId;
+                            hit.Position = inst.WorldPosition;
+                            hit.Rotation = inst.Rotation;
+                            hit.LandblockId = (uint)((kvp.Key << 16) | 0xFFFE);
+                        }
+                    }
+                }
+            }
+
+            return hit.Hit;
+        }
+
+        public void RenderSelectedInstance(SelectedStaticObject selected, Vector4 highlightColor) {
+            if (_landblocks.TryGetValue(selected.LandblockKey, out var lb)) {
+                var instance = lb.Instances.FirstOrDefault(i => i.InstanceId == selected.InstanceId);
+                if (instance.ObjectId != 0) {
+                    RenderObjectInstance(instance, highlightColor);
+                }
+            }
+        }
+
+        private void RenderObjectInstance(SceneryInstance instance, Vector4 highlightColor) {
+            var renderData = _meshManager.TryGetRenderData(instance.ObjectId);
+            if (renderData != null) {
+                _shader!.SetUniform("uHighlightColor", highlightColor);
+                _shader!.SetUniform("uRenderPass", 2); // Single pass mode for highlighting
+                if (renderData.IsSetup) {
+                    foreach (var (partId, partTransform) in renderData.SetupParts) {
+                        var partRenderData = _meshManager.TryGetRenderData(partId);
+                        if (partRenderData != null) {
+                            RenderObjectBatches(partRenderData, new List<Matrix4x4> { partTransform * instance.Transform });
+                        }
+                    }
+                }
+                else {
+                    RenderObjectBatches(renderData, new List<Matrix4x4> { instance.Transform });
+                }
             }
         }
 
@@ -620,6 +737,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                         var instance = new SceneryInstance {
                             ObjectId = obj.ObjectId,
+                            InstanceId = (uint)scenery.Count,
                             IsSetup = isSetup,
                             WorldPosition = worldOrigin,
                             Rotation = quat,

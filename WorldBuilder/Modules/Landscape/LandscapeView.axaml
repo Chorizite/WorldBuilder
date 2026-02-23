@@ -36,6 +36,7 @@
                           ShowScenery="{Binding IsSceneryEnabled}"
                           ShowStaticObjects="{Binding IsStaticObjectsEnabled}"
                           ShowUnwalkableSlopes="{Binding IsUnwalkableSlopeHighlightEnabled}"
+                          ShowDebugShapes="{Binding IsDebugShapesEnabled}"
                           Is3DCamera="{Binding Is3DCameraEnabled}"
                           TimeOfDay="{Binding TimeOfDay}" />
 
@@ -83,9 +84,6 @@
           </ToggleButton>
           <ToggleButton IsChecked="{Binding IsUnwalkableSlopeHighlightEnabled}" ToolTip.Tip="Toggle Unwalkable Slopes">
             <icons:MaterialIcon Kind="Terrain" />
-          </ToggleButton>
-          <ToggleButton IsChecked="{Binding IsDebugShapesEnabled}" ToolTip.Tip="Toggle Debug Shapes">
-            <icons:MaterialIcon Kind="SquareOutline" />
           </ToggleButton>
           <Button Command="{Binding ResetCamera}" ToolTip.Tip="Reset Camera">
             <icons:MaterialIcon Kind="Target" />

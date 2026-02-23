@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Modules.Landscape.Models;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     public class StaticObjectSelectionEventArgs : EventArgs {
@@ -15,10 +16,37 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
     }
 
+    public enum InspectorSelectionType {
+        None,
+        Vertex,
+        Building,
+        StaticObject,
+        Scenery
+    }
+
+    public class InspectorSelectionEventArgs : EventArgs {
+        public ISelectedObjectInfo Selection { get; }
+
+        public InspectorSelectionEventArgs(ISelectedObjectInfo selection) {
+            Selection = selection;
+        }
+    }
+
     /// <summary>
     /// Provides context and services to landscape tools.
     /// </summary>
     public class LandscapeToolContext {
+        public event EventHandler<InspectorSelectionEventArgs>? InspectorHovered;
+        public event EventHandler<InspectorSelectionEventArgs>? InspectorSelected;
+
+        public void NotifyInspectorHovered(ISelectedObjectInfo selection) {
+            InspectorHovered?.Invoke(this, new InspectorSelectionEventArgs(selection));
+        }
+
+        public void NotifyInspectorSelected(ISelectedObjectInfo selection) {
+            InspectorSelected?.Invoke(this, new InspectorSelectionEventArgs(selection));
+        }
+
         public event EventHandler<StaticObjectSelectionEventArgs>? StaticObjectHovered;
         public event EventHandler<StaticObjectSelectionEventArgs>? StaticObjectSelected;
 
@@ -31,10 +59,22 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         /// <summary>Delegate for raycasting against static objects.</summary>
-        public delegate bool RaycastStaticObjectDelegate(Vector3 rayOrigin, Vector3 rayDirection, out uint landblockId, out uint instanceId, out float distance);
+        public delegate bool RaycastStaticObjectDelegate(Vector3 rayOrigin, Vector3 rayDirection, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit);
 
         /// <summary>Performs a raycast against static objects in the scene.</summary>
         public RaycastStaticObjectDelegate? RaycastStaticObject { get; set; }
+
+        /// <summary>Delegate for raycasting against scenery.</summary>
+        public delegate bool RaycastSceneryDelegate(Vector3 rayOrigin, Vector3 rayDirection, out SceneRaycastHit hit);
+
+        /// <summary>Performs a raycast against scenery in the scene.</summary>
+        public RaycastSceneryDelegate? RaycastScenery { get; set; }
+
+        /// <summary>Delegate for raycasting against terrain.</summary>
+        public delegate TerrainRaycastHit RaycastTerrainDelegate(float screenX, float screenY);
+
+        /// <summary>Performs a raycast against the terrain.</summary>
+        public RaycastTerrainDelegate? RaycastTerrain { get; set; }
 
         /// <summary>The active landscape document.</summary>
         public LandscapeDocument Document { get; }
