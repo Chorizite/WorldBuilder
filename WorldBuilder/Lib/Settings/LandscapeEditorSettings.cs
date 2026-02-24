@@ -132,6 +132,11 @@ namespace WorldBuilder.Lib.Settings {
         private bool _showBuildings = true;
         public bool ShowBuildings { get => _showBuildings; set => SetProperty(ref _showBuildings, value); }
 
+        [SettingDescription("Render portals (semi-transparent magenta polys)")]
+        [SettingOrder(5)]
+        private bool _showPortals = true;
+        public bool ShowPortals { get => _showPortals; set => SetProperty(ref _showPortals, value); }
+
         [SettingDescription("Render skybox")]
         [SettingOrder(6)]
         private bool _showSkybox = true;

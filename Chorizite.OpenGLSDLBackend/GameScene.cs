@@ -35,6 +35,7 @@ public class GameScene : IDisposable {
     private IShader? _shader;
     private IShader? _terrainShader;
     private IShader? _sceneryShader;
+    private IShader? _simpleShader;
     private bool _initialized;
     private int _width;
     private int _height;
@@ -81,6 +82,11 @@ public class GameScene : IDisposable {
             _staticObjectManager.LightIntensity = _state.LightIntensity;
         }
 
+        if (_portalManager != null) {
+            _portalManager.RenderDistance = _state.ObjectRenderDistance;
+            _portalManager.ShowPortals = _state.ShowPortals;
+        }
+
         if (_skyboxManager != null) {
             _skyboxManager.TimeOfDay = _state.TimeOfDay;
             _skyboxManager.LightIntensity = _state.LightIntensity;
@@ -89,8 +95,8 @@ public class GameScene : IDisposable {
         _camera3D.FarPlane = _state.MaxDrawDistance;
     }
 
-    // Terrain
     private TerrainRenderManager? _terrainManager;
+    private PortalRenderManager? _portalManager;
 
     // Scenery / Static Objects
     private ObjectMeshManager? _meshManager;
@@ -226,6 +232,11 @@ public class GameScene : IDisposable {
         var sFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.StaticObject.frag");
         _sceneryShader = _graphicsDevice.CreateShader("StaticObject", sVertSource, sFragSource);
 
+        // Create simple 3D shader for portals
+        var simVertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Simple3D.vert");
+        var simFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Simple3D.frag");
+        _simpleShader = _graphicsDevice.CreateShader("Simple3D", simVertSource, simFragSource);
+
         _initialized = true;
 
         if (_terrainManager != null && _terrainShader != null) {
@@ -238,6 +249,10 @@ public class GameScene : IDisposable {
 
         if (_staticObjectManager != null && _sceneryShader != null) {
             _staticObjectManager.Initialize(_sceneryShader);
+        }
+
+        if (_portalManager != null && _simpleShader != null) {
+            _portalManager.Initialize(_simpleShader);
         }
 
         if (_skyboxManager != null && _sceneryShader != null) {
@@ -256,6 +271,10 @@ public class GameScene : IDisposable {
 
         if (_staticObjectManager != null) {
             _staticObjectManager.Dispose();
+        }
+
+        if (_portalManager != null) {
+            _portalManager.Dispose();
         }
 
         if (_skyboxManager != null) {
@@ -293,6 +312,13 @@ public class GameScene : IDisposable {
         _staticObjectManager.LightIntensity = _state.LightIntensity;
         if (_initialized && _sceneryShader != null) {
             _staticObjectManager.Initialize(_sceneryShader);
+        }
+
+        _portalManager = new PortalRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice);
+        _portalManager.RenderDistance = _state.ObjectRenderDistance;
+        _portalManager.ShowPortals = _state.ShowPortals;
+        if (_initialized && _simpleShader != null) {
+            _portalManager.Initialize(_simpleShader);
         }
 
         _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager, _staticObjectManager, documentManager);
@@ -446,6 +472,10 @@ public class GameScene : IDisposable {
 
         _staticObjectManager?.Update(deltaTime, _currentCamera);
         _lastStaticObjectUploadTime = _staticObjectManager?.ProcessUploads(remainingTime) ?? 0;
+        remainingTime = Math.Max(0, remainingTime - _lastStaticObjectUploadTime);
+
+        _portalManager?.Update(deltaTime, _currentCamera);
+        _portalManager?.ProcessUploads(remainingTime);
 
         _skyboxManager?.Update(deltaTime);
     }
@@ -467,6 +497,7 @@ public class GameScene : IDisposable {
         _terrainManager?.InvalidateLandblock(lbX, lbY);
         _sceneryManager?.InvalidateLandblock(lbX, lbY);
         _staticObjectManager?.InvalidateLandblock(lbX, lbY);
+        _portalManager?.OnLandblockChanged(this, new LandblockChangedEventArgs(new[] { (lbX, lbY) }));
     }
 
     public void SetInspectorTool(InspectorTool? tool) {
@@ -644,6 +675,11 @@ public class GameScene : IDisposable {
             _terrainManager.Render(snapshotView, snapshotProj, snapshotVP, snapshotPos, snapshotFov);
         }
 
+        // Render Portals
+        if (_state.ShowPortals) {
+            _portalManager?.Render(snapshotView, snapshotProj);
+        }
+
         // Pass 1: Opaque Scenery & Static Objects
         _sceneryShader?.Bind();
         _sceneryShader?.SetUniform("uRenderPass", _state.EnableTransparencyPass ? 0 : 2);
@@ -788,6 +824,7 @@ public class GameScene : IDisposable {
 
     public void Dispose() {
         _terrainManager?.Dispose();
+        _portalManager?.Dispose();
         _sceneryManager?.Dispose();
         _staticObjectManager?.Dispose();
         _skyboxManager?.Dispose();

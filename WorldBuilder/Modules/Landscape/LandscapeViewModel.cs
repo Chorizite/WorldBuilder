@@ -536,6 +536,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         EditorState.ShowScenery = _settings.Landscape.Rendering.ShowScenery;
         EditorState.ShowStaticObjects = _settings.Landscape.Rendering.ShowStaticObjects;
         EditorState.ShowBuildings = _settings.Landscape.Rendering.ShowBuildings;
+        EditorState.ShowPortals = _settings.Landscape.Rendering.ShowPortals;
         EditorState.ShowSkybox = _settings.Landscape.Rendering.ShowSkybox;
         EditorState.ShowUnwalkableSlopes = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
         EditorState.ObjectRenderDistance = _settings.Landscape.Rendering.ObjectRenderDistance;
@@ -559,6 +560,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             case nameof(EditorState.ShowScenery): _settings.Landscape.Rendering.ShowScenery = EditorState.ShowScenery; break;
             case nameof(EditorState.ShowStaticObjects): _settings.Landscape.Rendering.ShowStaticObjects = EditorState.ShowStaticObjects; break;
             case nameof(EditorState.ShowBuildings): _settings.Landscape.Rendering.ShowBuildings = EditorState.ShowBuildings; break;
+            case nameof(EditorState.ShowPortals): _settings.Landscape.Rendering.ShowPortals = EditorState.ShowPortals; break;
             case nameof(EditorState.ShowSkybox): _settings.Landscape.Rendering.ShowSkybox = EditorState.ShowSkybox; break;
             case nameof(EditorState.ShowUnwalkableSlopes): _settings.Landscape.Rendering.ShowUnwalkableSlopes = EditorState.ShowUnwalkableSlopes; break;
             case nameof(EditorState.ObjectRenderDistance): _settings.Landscape.Rendering.ObjectRenderDistance = EditorState.ObjectRenderDistance; break;
