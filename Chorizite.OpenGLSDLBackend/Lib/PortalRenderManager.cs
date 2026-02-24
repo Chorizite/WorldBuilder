@@ -27,22 +27,6 @@ using PrimitiveType = Silk.NET.OpenGL.PrimitiveType;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
     /// <summary>
-    /// Represents a vertex for portal rendering.
-    /// </summary>
-    [StructLayout(LayoutKind.Sequential)]
-    public struct PortalVertex : IVertex {
-        public Vector3 Position;
-        public Vector4 Color;
-
-        public static int Size => Marshal.SizeOf<PortalVertex>();
-
-        public static VertexFormat Format => new VertexFormat(
-            new VertexAttribute(VertexAttributeName.Position, 3, VertexAttribType.Float, false, (int)Marshal.OffsetOf<PortalVertex>(nameof(Position))),
-            new VertexAttribute(VertexAttributeName.Color, 4, VertexAttribType.Float, false, (int)Marshal.OffsetOf<PortalVertex>(nameof(Color)))
-        );
-    }
-
-    /// <summary>
     /// Manages portal rendering.
     /// Portals are semi-transparent magenta polygons that connect cells to the outside world.
     /// </summary>
@@ -58,9 +42,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly ConcurrentDictionary<ushort, PortalLandblock> _pendingGeneration = new();
         private readonly ConcurrentQueue<PortalLandblock> _uploadQueue = new();
         private int _activeGenerations = 0;
-
-        private IShader? _shader;
-        private bool _initialized;
 
         public bool ShowPortals { get; set; } = true;
         public int RenderDistance { get; set; } = 12;
@@ -85,7 +66,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public void OnLandblockChanged(object? sender, LandblockChangedEventArgs e) {
             if (e.AffectedLandblocks == null) {
                 foreach (var lb in _landblocks.Values) {
-                    lb.GpuReady = false;
+                    lb.Ready = false;
                     var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
                     _pendingGeneration[key] = lb;
                 }
@@ -94,20 +75,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 foreach (var (lbX, lbY) in e.AffectedLandblocks) {
                     var key = GeometryUtils.PackKey(lbX, lbY);
                     if (_landblocks.TryGetValue(key, out var lb)) {
-                        lb.GpuReady = false;
+                        lb.Ready = false;
                         _pendingGeneration[key] = lb;
                     }
                 }
             }
         }
 
-        public void Initialize(IShader shader) {
-            _shader = shader;
-            _initialized = true;
-        }
-
         public void Update(float deltaTime, ICamera camera) {
-            if (!_initialized || _landscapeDoc.Region == null) return;
+            if (_landscapeDoc.Region == null) return;
 
             var region = _landscapeDoc.Region;
             var lbSize = region.CellSizeInUnits * region.LandblockCellLength;
@@ -168,8 +144,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public float ProcessUploads(float timeBudgetMs) {
-            if (!_initialized) return 0;
-
             var sw = Stopwatch.StartNew();
             while (sw.Elapsed.TotalMilliseconds < timeBudgetMs && _uploadQueue.TryDequeue(out var lb)) {
                 UploadLandblock(lb);
@@ -177,29 +151,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return (float)sw.Elapsed.TotalMilliseconds;
         }
 
-        public void Render(Matrix4x4 viewMatrix, Matrix4x4 projectionMatrix) {
-            if (!_initialized || !ShowPortals || _shader == null) return;
+        public void SubmitDebugShapes(DebugRenderer? debug) {
+            if (debug == null || !ShowPortals || _landscapeDoc.Region == null) return;
 
-            _shader.Bind();
-            _shader.SetUniform("uView", viewMatrix);
-            _shader.SetUniform("uProjection", projectionMatrix);
-            _shader.SetUniform("uModel", Matrix4x4.Identity);
-
-            _gl.Enable(EnableCap.Blend);
-            _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-            _gl.DepthMask(false);
+            var magenta = new Vector4(1f, 0f, 1f, 1f);
 
             foreach (var lb in _landblocks.Values) {
-                if (!lb.GpuReady) continue;
+                if (!lb.Ready) continue;
 
                 foreach (var portal in lb.Portals) {
-                    portal.VAO.Bind();
-                    _gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)portal.VertexCount);
+                    for (int i = 0; i < portal.Vertices.Length; i++) {
+                        debug.DrawLine(portal.Vertices[i], portal.Vertices[(i + 1) % portal.Vertices.Length], magenta, 5.0f);
+                    }
                 }
             }
-
-            _gl.DepthMask(true);
-            _gl.BindVertexArray(0);
         }
 
         private async Task GeneratePortalsForLandblock(PortalLandblock lb) {
@@ -229,14 +194,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(0x0D000000u | envCell.EnvironmentId, out var environment)) {
                                     if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
                                         if (cellStruct.Polygons.TryGetValue(portal.PolygonId, out var polygon)) {
-                                            var vertexData = new List<PortalVertex>();
-                                            var color = new Vector4(1f, 0f, 1f, 0.5f); // Magenta, semi-transparent
+                                            var vertices = new List<Vector3>();
 
-                                            // Triangulate the polygon
-                                            for (int j = 1; j < polygon.VertexIds.Count - 1; j++) {
-                                                AddVertex(vertexData, cellStruct.VertexArray, polygon.VertexIds[0], color);
-                                                AddVertex(vertexData, cellStruct.VertexArray, polygon.VertexIds[j], color);
-                                                AddVertex(vertexData, cellStruct.VertexArray, polygon.VertexIds[j + 1], color);
+                                            foreach (var vertexId in polygon.VertexIds) {
+                                                if (cellStruct.VertexArray.Vertices.TryGetValue((ushort)vertexId, out var vertex)) {
+                                                    vertices.Add(vertex.Origin);
+                                                }
                                             }
 
                                             var transform = Matrix4x4.CreateFromQuaternion(envCell.Position.Orientation) *
@@ -244,10 +207,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                                             Matrix4x4.CreateTranslation(lbOrigin);
 
                                             portals.Add(new PortalData {
-                                                Vertices = vertexData.Select(v => new PortalVertex {
-                                                    Position = Vector3.Transform(v.Position, transform),
-                                                    Color = v.Color
-                                                }).ToArray()
+                                                Vertices = vertices.Select(v => Vector3.Transform(v, transform)).ToArray()
                                             });
                                         }
                                     }
@@ -265,43 +225,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        private void AddVertex(List<PortalVertex> list, DatReaderWriter.Types.VertexArray vertexArray, short vertexId, Vector4 color) {
-            if (vertexArray.Vertices.TryGetValue((ushort)vertexId, out var vertex)) {
-                list.Add(new PortalVertex {
-                    Position = vertex.Origin,
-                    Color = color
-                });
-            }
-        }
-
         private void UploadLandblock(PortalLandblock lb) {
-            foreach (var portal in lb.Portals) {
-                portal.Dispose();
-            }
             lb.Portals.Clear();
 
             if (lb.PendingPortals != null) {
-                foreach (var data in lb.PendingPortals) {
-                    var vbo = new ManagedGLVertexBuffer(_graphicsDevice, BufferUsage.Static, data.Vertices.Length * PortalVertex.Size);
-                    vbo.SetData(data.Vertices);
-                    var vao = new ManagedGLVertexArray(_graphicsDevice, vbo, PortalVertex.Format);
-                    lb.Portals.Add(new PortalGpuData {
-                        VBO = vbo,
-                        VAO = vao,
-                        VertexCount = data.Vertices.Length
-                    });
-                }
+                lb.Portals.AddRange(lb.PendingPortals);
                 lb.PendingPortals = null;
             }
-            lb.GpuReady = true;
+            lb.Ready = true;
         }
 
         private void UnloadLandblock(PortalLandblock lb) {
-            foreach (var portal in lb.Portals) {
-                portal.Dispose();
-            }
             lb.Portals.Clear();
-            lb.GpuReady = false;
+            lb.Ready = false;
         }
 
         public void Dispose() {
@@ -315,24 +251,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private class PortalLandblock {
             public int GridX;
             public int GridY;
-            public List<PortalGpuData> Portals = new();
+            public List<PortalData> Portals = new();
             public List<PortalData>? PendingPortals;
-            public bool GpuReady;
+            public bool Ready;
         }
 
         private class PortalData {
-            public PortalVertex[] Vertices = Array.Empty<PortalVertex>();
-        }
-
-        private class PortalGpuData : IDisposable {
-            public ManagedGLVertexBuffer VBO = null!;
-            public ManagedGLVertexArray VAO = null!;
-            public int VertexCount;
-
-            public void Dispose() {
-                VBO?.Dispose();
-                VAO?.Dispose();
-            }
+            public Vector3[] Vertices = Array.Empty<Vector3>();
         }
     }
 }

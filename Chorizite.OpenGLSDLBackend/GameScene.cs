@@ -35,7 +35,6 @@ public class GameScene : IDisposable {
     private IShader? _shader;
     private IShader? _terrainShader;
     private IShader? _sceneryShader;
-    private IShader? _simpleShader;
     private bool _initialized;
     private int _width;
     private int _height;
@@ -232,11 +231,6 @@ public class GameScene : IDisposable {
         var sFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.StaticObject.frag");
         _sceneryShader = _graphicsDevice.CreateShader("StaticObject", sVertSource, sFragSource);
 
-        // Create simple 3D shader for portals
-        var simVertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Simple3D.vert");
-        var simFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Simple3D.frag");
-        _simpleShader = _graphicsDevice.CreateShader("Simple3D", simVertSource, simFragSource);
-
         _initialized = true;
 
         if (_terrainManager != null && _terrainShader != null) {
@@ -249,10 +243,6 @@ public class GameScene : IDisposable {
 
         if (_staticObjectManager != null && _sceneryShader != null) {
             _staticObjectManager.Initialize(_sceneryShader);
-        }
-
-        if (_portalManager != null && _simpleShader != null) {
-            _portalManager.Initialize(_simpleShader);
         }
 
         if (_skyboxManager != null && _sceneryShader != null) {
@@ -317,9 +307,6 @@ public class GameScene : IDisposable {
         _portalManager = new PortalRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice);
         _portalManager.RenderDistance = _state.ObjectRenderDistance;
         _portalManager.ShowPortals = _state.ShowPortals;
-        if (_initialized && _simpleShader != null) {
-            _portalManager.Initialize(_simpleShader);
-        }
 
         _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager, _staticObjectManager, documentManager);
         _sceneryManager.RenderDistance = _state.ObjectRenderDistance;
@@ -677,7 +664,7 @@ public class GameScene : IDisposable {
 
         // Render Portals
         if (_state.ShowPortals) {
-            _portalManager?.Render(snapshotView, snapshotProj);
+            _portalManager?.SubmitDebugShapes(_debugRenderer);
         }
 
         // Pass 1: Opaque Scenery & Static Objects
@@ -755,9 +742,9 @@ public class GameScene : IDisposable {
                     DrawVertexDebug(_selectedVertex.Value.x, _selectedVertex.Value.y, LandscapeColorsSettings.Instance.Selection);
                 }
             }
-
-            _debugRenderer?.Render(snapshotView, snapshotProj);
         }
+
+        _debugRenderer?.Render(snapshotView, snapshotProj);
 
         // Restore depth mask for subsequent renders if needed
         _gl.DepthMask(true);

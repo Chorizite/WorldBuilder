@@ -78,6 +78,9 @@
           <ToggleButton IsChecked="{Binding EditorState.ShowStaticObjects}" ToolTip.Tip="Toggle Static Objects">
             <icons:MaterialIcon Kind="Cube" />
           </ToggleButton>
+          <ToggleButton IsChecked="{Binding EditorState.ShowPortals}" ToolTip.Tip="Toggle Portals">
+            <icons:MaterialIcon Kind="DoorOpen" />
+          </ToggleButton>
           <ToggleButton IsChecked="{Binding EditorState.ShowGrid}" ToolTip.Tip="Toggle Grid">
             <icons:MaterialIcon Kind="Grid" />
           </ToggleButton>
