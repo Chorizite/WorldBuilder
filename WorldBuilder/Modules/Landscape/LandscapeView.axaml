@@ -72,8 +72,11 @@
           <ToggleButton IsChecked="{Binding EditorState.ShowScenery}" ToolTip.Tip="Toggle Scenery">
             <icons:MaterialIcon Kind="Tree" />
           </ToggleButton>
-          <ToggleButton IsChecked="{Binding EditorState.ShowStaticObjects}" ToolTip.Tip="Toggle Static Objects">
+          <ToggleButton IsChecked="{Binding EditorState.ShowBuildings}" ToolTip.Tip="Toggle Buildings">
             <icons:MaterialIcon Kind="Home" />
+          </ToggleButton>
+          <ToggleButton IsChecked="{Binding EditorState.ShowStaticObjects}" ToolTip.Tip="Toggle Static Objects">
+            <icons:MaterialIcon Kind="Cube" />
           </ToggleButton>
           <ToggleButton IsChecked="{Binding EditorState.ShowGrid}" ToolTip.Tip="Toggle Grid">
             <icons:MaterialIcon Kind="Grid" />

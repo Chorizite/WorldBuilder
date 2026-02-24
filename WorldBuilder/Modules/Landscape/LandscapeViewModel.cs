@@ -227,11 +227,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
             _toolContext.RaycastStaticObject = (Vector3 origin, Vector3 dir, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit) => {
                 hit = SceneRaycastHit.NoHit;
-                return _gameScene?.RaycastStaticObjects(origin, dir, includeBuildings, includeStaticObjects, out hit) ?? false;
+                return _gameScene?.RaycastStaticObjects(origin, dir, includeBuildings && EditorState.ShowBuildings, includeStaticObjects && EditorState.ShowStaticObjects, out hit) ?? false;
             };
 
             _toolContext.RaycastScenery = (Vector3 origin, Vector3 dir, out SceneRaycastHit hit) => {
                 hit = SceneRaycastHit.NoHit;
+                if (!EditorState.ShowScenery) return false;
                 return _gameScene?.RaycastScenery(origin, dir, out hit) ?? false;
             };
 
@@ -534,6 +535,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         if (_settings == null) return;
         EditorState.ShowScenery = _settings.Landscape.Rendering.ShowScenery;
         EditorState.ShowStaticObjects = _settings.Landscape.Rendering.ShowStaticObjects;
+        EditorState.ShowBuildings = _settings.Landscape.Rendering.ShowBuildings;
         EditorState.ShowSkybox = _settings.Landscape.Rendering.ShowSkybox;
         EditorState.ShowUnwalkableSlopes = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
         EditorState.ObjectRenderDistance = _settings.Landscape.Rendering.ObjectRenderDistance;
@@ -556,6 +558,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         switch (e.PropertyName) {
             case nameof(EditorState.ShowScenery): _settings.Landscape.Rendering.ShowScenery = EditorState.ShowScenery; break;
             case nameof(EditorState.ShowStaticObjects): _settings.Landscape.Rendering.ShowStaticObjects = EditorState.ShowStaticObjects; break;
+            case nameof(EditorState.ShowBuildings): _settings.Landscape.Rendering.ShowBuildings = EditorState.ShowBuildings; break;
             case nameof(EditorState.ShowSkybox): _settings.Landscape.Rendering.ShowSkybox = EditorState.ShowSkybox; break;
             case nameof(EditorState.ShowUnwalkableSlopes): _settings.Landscape.Rendering.ShowUnwalkableSlopes = EditorState.ShowUnwalkableSlopes; break;
             case nameof(EditorState.ObjectRenderDistance): _settings.Landscape.Rendering.ObjectRenderDistance = EditorState.ObjectRenderDistance; break;

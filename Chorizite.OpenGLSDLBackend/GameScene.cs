@@ -630,8 +630,8 @@ public class GameScene : IDisposable {
             _sceneryManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
         }
 
-        if (_state.ShowStaticObjects) {
-            _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
+        if (_state.ShowStaticObjects || _state.ShowBuildings) {
+            _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos, _state.ShowBuildings, _state.ShowStaticObjects);
         }
 
         if (_state.ShowSkybox) {
@@ -653,7 +653,7 @@ public class GameScene : IDisposable {
             _sceneryManager?.Render(snapshotVP, snapshotPos);
         }
 
-        if (_state.ShowStaticObjects) {
+        if (_state.ShowStaticObjects || _state.ShowBuildings) {
             _staticObjectManager?.Render(snapshotVP, snapshotPos);
         }
 
@@ -667,7 +667,7 @@ public class GameScene : IDisposable {
                 _sceneryManager?.Render(snapshotVP, snapshotPos);
             }
 
-            if (_state.ShowStaticObjects) {
+            if (_state.ShowStaticObjects || _state.ShowBuildings) {
                 _staticObjectManager?.Render(snapshotVP, snapshotPos);
             }
         }
@@ -677,9 +677,9 @@ public class GameScene : IDisposable {
             if (_inspectorTool != null) {
                 debugSettings.ShowBoundingBoxes = _inspectorTool.ShowBoundingBoxes;
                 debugSettings.SelectVertices = _inspectorTool.SelectVertices;
-                debugSettings.SelectBuildings = _inspectorTool.SelectBuildings;
-                debugSettings.SelectStaticObjects = _inspectorTool.SelectStaticObjects;
-                debugSettings.SelectScenery = _inspectorTool.SelectScenery;
+                debugSettings.SelectBuildings = _inspectorTool.SelectBuildings && _state.ShowBuildings;
+                debugSettings.SelectStaticObjects = _inspectorTool.SelectStaticObjects && _state.ShowStaticObjects;
+                debugSettings.SelectScenery = _inspectorTool.SelectScenery && _state.ShowScenery;
             }
 
             _sceneryManager?.SubmitDebugShapes(_debugRenderer, debugSettings);

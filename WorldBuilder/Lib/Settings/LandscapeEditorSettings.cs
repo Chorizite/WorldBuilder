@@ -127,24 +127,29 @@ namespace WorldBuilder.Lib.Settings {
         private bool _showStaticObjects = true;
         public bool ShowStaticObjects { get => _showStaticObjects; set => SetProperty(ref _showStaticObjects, value); }
 
-        [SettingDescription("Render skybox")]
+        [SettingDescription("Render buildings")]
         [SettingOrder(5)]
+        private bool _showBuildings = true;
+        public bool ShowBuildings { get => _showBuildings; set => SetProperty(ref _showBuildings, value); }
+
+        [SettingDescription("Render skybox")]
+        [SettingOrder(6)]
         private bool _showSkybox = true;
         public bool ShowSkybox { get => _showSkybox; set => SetProperty(ref _showSkybox, value); }
 
         [SettingDescription("Highlight unwalkable slopes red")]
-        [SettingOrder(6)]
+        [SettingOrder(7)]
         private bool _showUnwalkableSlopes = false;
         public bool ShowUnwalkableSlopes { get => _showUnwalkableSlopes; set => SetProperty(ref _showUnwalkableSlopes, value); }
 
         [SettingDescription("Number of landblocks to render objects (scenery, buildings, etc) around the camera")]
         [SettingRange(1, 64, 1, 4)]
-        [SettingOrder(7)]
+        [SettingOrder(8)]
         private int _objectRenderDistance = 12;
         public int ObjectRenderDistance { get => _objectRenderDistance; set => SetProperty(ref _objectRenderDistance, value); }
 
         [SettingDescription("Enable secondary render pass for transparency. Disabling this may improve performance but will cause transparency issues.")]
-        [SettingOrder(8)]
+        [SettingOrder(9)]
         private bool _enableTransparencyPass = true;
         public bool EnableTransparencyPass { get => _enableTransparencyPass; set => SetProperty(ref _enableTransparencyPass, value); }
     }
