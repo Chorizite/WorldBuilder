@@ -34,11 +34,17 @@ namespace Chorizite.OpenGLSDLBackend {
         private uint _loadingFileId;
         private bool _loadingIsSetup;
 
+        private DebugRenderer? _debugRenderer;
+        private IShader? _lineShader;
+
         public ICamera Camera => _camera;
 
         public Vector4 BackgroundColor { get; set; } = new Vector4(0.15f, 0.15f, 0.2f, 1.0f); // Dark Blue-Grey
 
         public bool EnableTransparencyPass { get; set; } = true;
+
+        public bool ShowWireframe { get; set; }
+        public bool ShowCulling { get; set; }
 
         public bool IsAutoCamera {
             get => _isAutoCamera;
@@ -77,6 +83,12 @@ namespace Chorizite.OpenGLSDLBackend {
                 _log.LogError("Failed to initialize StaticObject shader.");
                 return;
             }
+
+            _debugRenderer = new DebugRenderer(Gl, GraphicsDevice);
+            var vertSourceLine = EmbeddedResourceReader.GetEmbeddedResource("Shaders.InstancedLine.vert");
+            var fragSourceLine = EmbeddedResourceReader.GetEmbeddedResource("Shaders.InstancedLine.frag");
+            _lineShader = GraphicsDevice.CreateShader("InstancedLine", vertSourceLine, fragSourceLine);
+            _debugRenderer.SetShader(_lineShader);
 
             // Initialize instance buffer with identity matrix
             Gl.BindBuffer(GLEnum.ArrayBuffer, InstanceVBO);
@@ -204,7 +216,6 @@ namespace Chorizite.OpenGLSDLBackend {
                 Gl.DepthFunc(DepthFunction.Less);
                 Gl.DepthMask(true);
                 Gl.ClearDepth(1.0f);
-                Gl.Disable(EnableCap.CullFace);
 
                 Gl.ClearColor(BackgroundColor.X, BackgroundColor.Y, BackgroundColor.Z, BackgroundColor.W);
                 Gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
@@ -262,6 +273,16 @@ namespace Chorizite.OpenGLSDLBackend {
                 Gl.DepthMask(true);
                 Gl.Enable(EnableCap.Blend);
                 Gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+                if (ShowCulling) {
+                    Gl.Enable(EnableCap.CullFace);
+                    Gl.CullFace(TriangleFace.Back);
+                    Gl.FrontFace(FrontFaceDirection.CW);
+                }
+                else {
+                    Gl.Disable(EnableCap.CullFace);
+                }
+
                 RenderCurrentObject(data, transform);
 
                 // Pass 2: Transparent
@@ -269,6 +290,11 @@ namespace Chorizite.OpenGLSDLBackend {
                     _shader.SetUniform("uRenderPass", 1);
                     Gl.DepthMask(false);
                     RenderCurrentObject(data, transform);
+                }
+
+                if (ShowWireframe && _debugRenderer != null) {
+                    SubmitWireframe(data, transform);
+                    _debugRenderer.Render(_camera.ViewMatrix, _camera.ProjectionMatrix);
                 }
 
                 Gl.DepthMask(true);
@@ -289,12 +315,12 @@ namespace Chorizite.OpenGLSDLBackend {
                 foreach (var part in data.SetupParts) {
                     var partData = MeshManager.TryGetRenderData(part.GfxObjId);
                     if (partData != null) {
-                        RenderObjectBatches(_shader!, partData, new List<Matrix4x4> { part.Transform * transform });
+                        RenderObjectBatches(_shader!, partData, new List<Matrix4x4> { part.Transform * transform }, ShowCulling);
                     }
                 }
             }
             else {
-                RenderObjectBatches(_shader!, data, new List<Matrix4x4> { transform });
+                RenderObjectBatches(_shader!, data, new List<Matrix4x4> { transform }, ShowCulling);
             }
         }
 
@@ -315,10 +341,43 @@ namespace Chorizite.OpenGLSDLBackend {
             }
         }
 
+        private void SubmitWireframe(ObjectRenderData data, Matrix4x4 transform) {
+            if (data.IsSetup) {
+                foreach (var part in data.SetupParts) {
+                    var partData = MeshManager.TryGetRenderData(part.GfxObjId);
+                    if (partData != null) {
+                        SubmitObjectWireframe(partData, part.Transform * transform);
+                    }
+                }
+            }
+            else {
+                SubmitObjectWireframe(data, transform);
+            }
+        }
+
+        private void SubmitObjectWireframe(ObjectRenderData data, Matrix4x4 transform) {
+            if (_debugRenderer == null || data.CPUIndices.Length == 0 || data.CPUPositions.Length == 0) return;
+
+            var wireColor = new Vector4(0.0f, 1.0f, 0.0f, 0.5f); // Semi-transparent green
+            var indices = data.CPUIndices;
+            var positions = data.CPUPositions;
+
+            for (int i = 0; i < indices.Length; i += 3) {
+                var p1 = Vector3.Transform(positions[indices[i]], transform);
+                var p2 = Vector3.Transform(positions[indices[i + 1]], transform);
+                var p3 = Vector3.Transform(positions[indices[i + 2]], transform);
+
+                _debugRenderer.DrawLine(p1, p2, wireColor, 1.0f);
+                _debugRenderer.DrawLine(p2, p3, wireColor, 1.0f);
+                _debugRenderer.DrawLine(p3, p1, wireColor, 1.0f);
+            }
+        }
+
         public override void Dispose() {
             base.Dispose();
             _loadCts?.Cancel();
             _loadCts?.Dispose();
+            _debugRenderer?.Dispose();
             ReleaseCurrentObject();
             if (_ownsMeshManager) {
                 MeshManager.Dispose();

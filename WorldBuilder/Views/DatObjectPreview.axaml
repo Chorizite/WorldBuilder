@@ -18,6 +18,8 @@
             Dats="{Binding Dats, ElementName=Root}"
             IsTooltip="{Binding IsTooltip, ElementName=Root}"
             ClearColor="{Binding ClearColor, ElementName=Root}"
+            ShowWireframe="{Binding ShowWireframe, ElementName=Root}"
+            ShowCulling="{Binding ShowCulling, ElementName=Root}"
             HorizontalAlignment="Stretch" 
             VerticalAlignment="Stretch"/>
 
@@ -61,6 +63,8 @@
                     <TextBlock Text="⛶" />
                 </Button>
             </StackPanel>
+
+
         </Panel>
 
         <TextBlock Text="No Preview Available" 

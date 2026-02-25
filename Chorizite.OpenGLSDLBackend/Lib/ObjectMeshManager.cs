@@ -653,11 +653,22 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var max = new Vector3(float.MinValue);
             bool hasBounds = false;
 
+            // Calculate the inverse transform of the cell to localize its contents
+            var cellTransform = Matrix4x4.CreateFromQuaternion(envCell.Position.Orientation) *
+                                Matrix4x4.CreateTranslation(envCell.Position.Origin);
+            if (!Matrix4x4.Invert(cellTransform, out var invertCellTransform)) {
+                invertCellTransform = Matrix4x4.Identity;
+            }
+
             // Add static objects
             foreach (var stab in envCell.StaticObjects) {
                 var transform = Matrix4x4.CreateFromQuaternion(stab.Frame.Orientation)
                                 * Matrix4x4.CreateTranslation(stab.Frame.Origin);
-                CollectParts(stab.Id, transform, parts, ref min, ref max, ref hasBounds, ct);
+
+                // Localize static object transform relative to the cell
+                var localizedTransform = transform * invertCellTransform;
+
+                CollectParts(stab.Id, localizedTransform, parts, ref min, ref max, ref hasBounds, ct);
             }
 
             // Load environment and cell structure geometry
@@ -665,7 +676,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             ObjectMeshData? cellGeometry = null;
             if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
                 if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
-                    cellGeometry = PrepareCellStructMeshData(id | 0x80000000u, cellStruct, envCell.Surfaces, ct);
+                    // Environment cell geometry is already local, so we pass Identity
+                    cellGeometry = PrepareCellStructMeshData(id | 0x80000000u, cellStruct, envCell.Surfaces, Matrix4x4.Identity, ct);
                     if (cellGeometry != null) {
                         min = Vector3.Min(min, cellGeometry.BoundingBox.Min);
                         max = Vector3.Max(max, cellGeometry.BoundingBox.Max);
@@ -684,7 +696,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             };
         }
 
-        private ObjectMeshData? PrepareCellStructMeshData(uint id, CellStruct cellStruct, List<ushort> surfaceOverrides, CancellationToken ct) {
+        private ObjectMeshData? PrepareCellStructMeshData(uint id, CellStruct cellStruct, List<ushort> surfaceOverrides, Matrix4x4 transform, CancellationToken ct) {
             var vertices = new List<VertexPositionNormalTexture>();
             var UVLookup = new Dictionary<(ushort vertId, ushort uvIdx, bool isNeg), ushort>();
             var batchesByFormat = new Dictionary<(int Width, int Height, TextureFormat Format), List<TextureBatchData>>();
@@ -692,8 +704,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var min = new Vector3(float.MaxValue);
             var max = new Vector3(float.MinValue);
             foreach (var vert in cellStruct.VertexArray.Vertices.Values) {
-                min = Vector3.Min(min, vert.Origin);
-                max = Vector3.Max(max, vert.Origin);
+                var localizedPos = Vector3.Transform(vert.Origin, transform);
+                min = Vector3.Min(min, localizedPos);
+                max = Vector3.Max(max, localizedPos);
             }
             var boundingBox = new BoundingBox(min, max);
 
@@ -717,11 +730,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 void AddSurfaceToBatch(Polygon poly, short surfaceIdx, bool isNeg) {
                     if (surfaceIdx < 0) return;
-                    
+
                     uint surfaceId;
                     if (surfaceIdx < surfaceOverrides.Count) {
                         surfaceId = 0x08000000u | surfaceOverrides[surfaceIdx];
-                    } else {
+                    }
+                    else {
                         // Fallback or skip? ACViewer uses the surfaceIdx as an index into the EnvCell.Surfaces list.
                         return;
                     }
@@ -834,7 +848,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     }
 
                     // Helper for CellStruct vertices
-                    BuildCellStructPolygonIndices(poly, cellStruct, UVLookup, vertices, batch.Indices, isNeg);
+                    BuildCellStructPolygonIndices(poly, cellStruct, UVLookup, vertices, batch.Indices, isNeg, transform);
                 }
             }
 
@@ -850,7 +864,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private void BuildCellStructPolygonIndices(Polygon poly, CellStruct cellStruct,
             Dictionary<(ushort vertId, ushort uvIdx, bool isNeg), ushort> UVLookup,
-            List<VertexPositionNormalTexture> vertices, List<ushort> indices, bool useNegSurface) {
+            List<VertexPositionNormalTexture> vertices, List<ushort> indices, bool useNegSurface, Matrix4x4 transform) {
 
             var polyIndices = new List<ushort>();
 
@@ -875,14 +889,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         ? new Vector2(vertex.UVs[uvIdx].U, vertex.UVs[uvIdx].V)
                         : Vector2.Zero;
 
-                    var normal = Vector3.Normalize(vertex.Normal);
+                    var normal = Vector3.Normalize(Vector3.TransformNormal(vertex.Normal, transform));
                     if (useNegSurface) {
                         normal = -normal;
                     }
 
                     idx = (ushort)vertices.Count;
                     vertices.Add(new VertexPositionNormalTexture(
-                        vertex.Origin,
+                        Vector3.Transform(vertex.Origin, transform),
                         normal,
                         uv
                     ));

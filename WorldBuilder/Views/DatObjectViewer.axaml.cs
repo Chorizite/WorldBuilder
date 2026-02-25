@@ -26,6 +26,8 @@ namespace WorldBuilder.Views {
         private uint _renderFileId;
         private bool _renderIsSetup;
         private bool _renderIsAutoCamera = true;
+        private bool _renderShowWireframe;
+        private bool _renderShowCulling = true;
         private Vector4 _renderBackgroundColor = new Vector4(0.15f, 0.15f, 0.2f, 1.0f);
 
         public static readonly StyledProperty<uint> FileIdProperty =
@@ -60,6 +62,22 @@ namespace WorldBuilder.Views {
             set => SetValue(IsAutoCameraProperty, value);
         }
 
+        public static readonly StyledProperty<bool> ShowWireframeProperty =
+            AvaloniaProperty.Register<DatObjectViewer, bool>(nameof(ShowWireframe), false);
+
+        public bool ShowWireframe {
+            get => GetValue(ShowWireframeProperty);
+            set => SetValue(ShowWireframeProperty, value);
+        }
+
+        public static readonly StyledProperty<bool> ShowCullingProperty =
+            AvaloniaProperty.Register<DatObjectViewer, bool>(nameof(ShowCulling), true);
+
+        public bool ShowCulling {
+            get => GetValue(ShowCullingProperty);
+            set => SetValue(ShowCullingProperty, value);
+        }
+
         public DatObjectViewer() {
             InitializeComponent();
             InitializeBase3DView();
@@ -81,6 +99,8 @@ namespace WorldBuilder.Views {
                 _scene = new SingleObjectScene(gl, Renderer!.GraphicsDevice, loggerFactory, _renderDats, meshManager);
                 _scene.BackgroundColor = _renderBackgroundColor;
                 _scene.IsAutoCamera = _renderIsAutoCamera;
+                _scene.ShowWireframe = _renderShowWireframe;
+                _scene.ShowCulling = _renderShowCulling;
 
                 var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
                 if (settings != null) {
@@ -123,6 +143,20 @@ namespace WorldBuilder.Views {
             if (change.Property == IsAutoCameraProperty) {
                 if (_scene != null) {
                     _scene.IsAutoCamera = _renderIsAutoCamera;
+                }
+            }
+
+            if (change.Property == ShowWireframeProperty) {
+                _renderShowWireframe = ShowWireframe;
+                if (_scene != null) {
+                    _scene.ShowWireframe = _renderShowWireframe;
+                }
+            }
+
+            if (change.Property == ShowCullingProperty) {
+                _renderShowCulling = ShowCulling;
+                if (_scene != null) {
+                    _scene.ShowCulling = _renderShowCulling;
                 }
             }
 

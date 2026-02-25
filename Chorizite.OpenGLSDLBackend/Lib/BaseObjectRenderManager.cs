@@ -36,7 +36,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             GLHelpers.CheckErrors();
         }
 
-        protected unsafe void RenderObjectBatches(IShader shader, ObjectRenderData renderData, List<Matrix4x4> instanceTransforms) {
+        protected unsafe void RenderObjectBatches(IShader shader, ObjectRenderData renderData, List<Matrix4x4> instanceTransforms, bool showCulling = true) {
             if (renderData.Batches.Count == 0 || instanceTransforms.Count == 0) return;
 
             if (CurrentVAO != renderData.VAO) {
@@ -63,9 +63,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             foreach (var batch in renderData.Batches) {
-                if (CurrentCullMode != batch.CullMode) {
-                    SetCullMode(batch.CullMode);
-                    CurrentCullMode = batch.CullMode;
+                var cullMode = showCulling ? batch.CullMode : CullMode.None;
+                if (CurrentCullMode != cullMode) {
+                    SetCullMode(cullMode);
+                    CurrentCullMode = cullMode;
                 }
 
                 // Set texture index as a vertex attribute constant (location 7)

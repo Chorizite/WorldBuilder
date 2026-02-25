@@ -157,6 +157,22 @@ namespace WorldBuilder.Views {
             set => SetValue(IsManualZoomProperty, value);
         }
 
+        public static readonly StyledProperty<bool> ShowWireframeProperty =
+            AvaloniaProperty.Register<DatObjectPreview, bool>(nameof(ShowWireframe), false);
+
+        public bool ShowWireframe {
+            get => GetValue(ShowWireframeProperty);
+            set => SetValue(ShowWireframeProperty, value);
+        }
+
+        public static readonly StyledProperty<bool> ShowCullingProperty =
+            AvaloniaProperty.Register<DatObjectPreview, bool>(nameof(ShowCulling), true);
+
+        public bool ShowCulling {
+            get => GetValue(ShowCullingProperty);
+            set => SetValue(ShowCullingProperty, value);
+        }
+
         public DatObjectPreview() {
             InitializeComponent();
             AddHandler(PointerWheelChangedEvent, (s, e) => {
@@ -178,7 +194,8 @@ namespace WorldBuilder.Views {
                     var delta = e.Delta.Y;
                     if (delta > 0) {
                         ZoomLevel *= 1.1;
-                    } else {
+                    }
+                    else {
                         ZoomLevel /= 1.1;
                     }
                     UpdateZoomedSize();
@@ -198,7 +215,8 @@ namespace WorldBuilder.Views {
             if (TextureBitmap == null || !IsManualZoom) {
                 ZoomedWidth = double.NaN;
                 ZoomedHeight = double.NaN;
-            } else {
+            }
+            else {
                 ZoomedWidth = TextureBitmap.Size.Width * ZoomLevel;
                 ZoomedHeight = TextureBitmap.Size.Height * ZoomLevel;
             }
@@ -211,7 +229,8 @@ namespace WorldBuilder.Views {
             base.OnPropertyChanged(change);
             if (change.Property == DataIdProperty || change.Property == DatsProperty || change.Property == TargetTypeProperty) {
                 UpdatePreview();
-            } else if (change.Property == TextureBitmapProperty || change.Property == ZoomLevelProperty || change.Property == ImageStretchProperty) {
+            }
+            else if (change.Property == TextureBitmapProperty || change.Property == ZoomLevelProperty || change.Property == ImageStretchProperty) {
                 UpdateZoomedSize();
             }
         }
@@ -256,7 +275,7 @@ namespace WorldBuilder.Views {
             var db = selectedResolution.Database;
             DataObjectType = type;
             PreviewDetails = null;
-            
+
             IsSetup = type == DBObjType.Setup || type == DBObjType.EnvCell;
             Is3D = IsSetup || type == DBObjType.GfxObj;
             Is2D = type == DBObjType.SurfaceTexture || type == DBObjType.RenderSurface || type == DBObjType.Surface;
@@ -271,11 +290,13 @@ namespace WorldBuilder.Views {
                             bool isClipMap = surface.Type.HasFlag(SurfaceType.Base1ClipMap);
                             if (surface.OrigTextureId != 0) {
                                 TextureBitmap = await textureService.GetTextureAsync(surface.OrigTextureId, surface.OrigPaletteId, isClipMap);
-                            } else if (surface.Type.HasFlag(SurfaceType.Base1Solid)) {
+                            }
+                            else if (surface.Type.HasFlag(SurfaceType.Base1Solid)) {
                                 TextureBitmap = textureService.CreateSolidColorBitmap(surface.ColorValue);
                             }
                         }
-                    } else {
+                    }
+                    else {
                         TextureBitmap = await textureService.GetTextureAsync(DataId);
                     }
                 }
@@ -284,16 +305,19 @@ namespace WorldBuilder.Views {
                     if (db.TryGet<RenderSurface>(DataId, out var surf)) {
                         PreviewDetails = $"{surf.Width}x{surf.Height} {surf.Format}";
                     }
-                } else if (DataObjectType == DBObjType.SurfaceTexture) {
+                }
+                else if (DataObjectType == DBObjType.SurfaceTexture) {
                     if (db.TryGet<SurfaceTexture>(DataId, out var surfTex)) {
                         PreviewDetails = $"{surfTex.Textures.Count} textures";
                     }
-                } else if (DataObjectType == DBObjType.Surface) {
+                }
+                else if (DataObjectType == DBObjType.Surface) {
                     if (db.TryGet<Surface>(DataId, out var surface)) {
                         PreviewDetails = $"{surface.Type}";
                     }
                 }
-            } else {
+            }
+            else {
                 TextureBitmap = null;
             }
         }
