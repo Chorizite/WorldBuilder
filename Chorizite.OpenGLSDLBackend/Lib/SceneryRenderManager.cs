@@ -58,7 +58,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private int _cameraLbY;
 
         // Frustum culling
-        private readonly Frustum _frustum = new();
+        private readonly Frustum _frustum;
         private float _lbSizeInUnits;
 
         // Render state
@@ -81,13 +81,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public SceneryRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
             IDatReaderWriter dats, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager,
-            StaticObjectRenderManager staticObjectManager, IDocumentManager documentManager)
+            StaticObjectRenderManager staticObjectManager, IDocumentManager documentManager, Frustum frustum)
             : base(gl, graphicsDevice, meshManager) {
             _log = log;
             _landscapeDoc = landscapeDoc;
             _dats = dats;
             _staticObjectManager = staticObjectManager;
             _documentManager = documentManager;
+            _frustum = frustum;
 
             _landscapeDoc.LandblockChanged += OnLandblockChanged;
         }
@@ -125,8 +126,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _cameraLbX = (int)Math.Floor(pos.X / lbSize);
             _cameraLbY = (int)Math.Floor(pos.Y / lbSize);
             _lbSizeInUnits = lbSize;
-
-            _frustum.Update(viewProjectionMatrix);
 
             // Queue landblocks within render distance
             for (int x = _cameraLbX - RenderDistance; x <= _cameraLbX + RenderDistance; x++) {
@@ -297,8 +296,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
             if (!_initialized || cameraPosition.Z > 4000) return;
-
-            _frustum.Update(viewProjectionMatrix);
 
             // Clear previous frame data
             _visibleGroups.Clear();

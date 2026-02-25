@@ -74,7 +74,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public Vector3 AmbientColor { get; set; } = new Vector3(0.4f, 0.4f, 0.4f);
         public Vector3 LightDirection { get; set; } = Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f));
 
-        private readonly Frustum _frustum = new();
+        private readonly Frustum _frustum;
         private readonly IDatReaderWriter _dats;
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private LandSurfaceManager? _surfaceManager;
@@ -82,13 +82,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public static uint CurrentVAO;
 
         public TerrainRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc, IDatReaderWriter dats,
-            OpenGLGraphicsDevice graphicsDevice, IDocumentManager documentManager) {
+            OpenGLGraphicsDevice graphicsDevice, IDocumentManager documentManager, Frustum frustum) {
             _gl = gl;
             _log = log;
             _landscapeDoc = landscapeDoc;
             _dats = dats;
             _graphicsDevice = graphicsDevice;
             _documentManager = documentManager;
+            _frustum = frustum;
             log.LogTrace($"Initialized TerrainRenderManager");
 
             _landscapeDoc.LandblockChanged += OnLandblockChanged;
@@ -170,8 +171,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public void Update(float deltaTime, ICamera camera) {
             if (!_initialized) return;
-
-            _frustum.Update(camera.ViewProjectionMatrix);
 
             if (_landscapeDoc.Region is null) return;
 
@@ -600,8 +599,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _surfaceManager.AlphaAtlas.Bind(1);
                 _shader.SetUniform("xAlphas", 1);
             }
-
-            _frustum.Update(viewProjectionMatrix);
 
             CurrentVAO = 0;
             foreach (var chunk in _chunks.Values) {
