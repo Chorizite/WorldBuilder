@@ -31,6 +31,9 @@
         <DataTemplate DataType="vm:SurfaceTextureOverviewViewModel">
             <v:SurfaceTextureOverviewView/>
         </DataTemplate>
+        <DataTemplate DataType="vm:EnvCellOverviewViewModel">
+            <v:EnvCellOverviewView/>
+        </DataTemplate>
     </UserControl.DataTemplates>
 
     <UserControl.Styles>

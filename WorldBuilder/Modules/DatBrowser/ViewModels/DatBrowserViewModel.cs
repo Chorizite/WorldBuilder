@@ -30,15 +30,15 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         public ViewModelBase ViewModel => this;
 
         public IEnumerable<DBObjType> DatTypes => System.Enum.GetValues<DBObjType>().Where(t => {
-                return t switch {
-                    DBObjType.Setup => true,
-                    DBObjType.GfxObj => true,
-                    DBObjType.SurfaceTexture => true,
-                    DBObjType.RenderSurface => true,
-                    DBObjType.Surface => true,
-                    DBObjType.EnvCell => true,
-                    _ => false
-                };
+            return t switch {
+                DBObjType.Setup => true,
+                DBObjType.GfxObj => true,
+                DBObjType.SurfaceTexture => true,
+                DBObjType.RenderSurface => true,
+                DBObjType.Surface => true,
+                DBObjType.EnvCell => true,
+                _ => false
+            };
         });
 
         public bool CanBrowse => true;
@@ -263,11 +263,19 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                     stBrowser.PreviewFileId = stovm.SelectedTextureId;
                 }
             }
+            if (sender is EnvCellOverviewViewModel ecovm && e.PropertyName == nameof(EnvCellOverviewViewModel.SelectedItem)) {
+                if (ecovm.SelectedItem != null && ecovm.SelectedItem.DataId.HasValue) {
+                    PreviewFileId = ecovm.SelectedItem.DataId.Value;
+                }
+            }
         }
 
         private object? CreateOverview(IDBObj? obj) {
             if (obj is SurfaceTexture surfaceTexture) {
                 return new SurfaceTextureOverviewViewModel(surfaceTexture, _dats);
+            }
+            if (obj is EnvCell envCell) {
+                return new EnvCellOverviewViewModel(envCell, _dats);
             }
             return null;
         }

@@ -1,0 +1,77 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
+             xmlns:v="using:WorldBuilder.Modules.DatBrowser.Views"
+             xmlns:views="using:WorldBuilder.Views"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="800"
+             x:Class="WorldBuilder.Modules.DatBrowser.Views.EnvCellOverviewView"
+             x:DataType="vm:EnvCellOverviewViewModel">
+    <UserControl.Styles>
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="2"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}"/>
+        </Style>
+        <Style Selector="ListBoxItem:selected Border#ItemBorder">
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}"/>
+            <Setter Property="BorderThickness" Value="3"/>
+            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}"/>
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer>
+        <StackPanel Margin="10" Spacing="10">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+                <TextBlock Text="ID:" FontWeight="Bold"/>
+                <TextBlock Text="{Binding EnvCell.Id, StringFormat='0x{0:X8}'}"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="5">
+                <TextBlock Text="Flags:" FontWeight="Bold"/>
+                <TextBlock Text="{Binding Flags}"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="5">
+                <TextBlock Text="Environment ID:" FontWeight="Bold"/>
+                <v:DataIdView DataContext="{Binding EnvironmentIdNode}"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="5">
+                <TextBlock Text="Position:" FontWeight="Bold"/>
+                <TextBlock Text="{Binding Position}"/>
+            </StackPanel>
+
+            <StackPanel Spacing="5">
+                <TextBlock Text="Static Objects:" FontWeight="Bold"/>
+                <ListBox ItemsSource="{Binding StaticObjects}" SelectedItem="{Binding SelectedItem}" Background="Transparent">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="5" Margin="2">
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" Width="40" Margin="5,0,0,0"/>
+                                <v:DataIdView DataContext="{Binding}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </StackPanel>
+
+            <StackPanel Spacing="5">
+                <TextBlock Text="Surfaces:" FontWeight="Bold"/>
+                <ListBox ItemsSource="{Binding Surfaces}" SelectedItem="{Binding SelectedItem}" Background="Transparent">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="5" Margin="2">
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" Width="40" Margin="5,0,0,0"/>
+                                <v:DataIdView DataContext="{Binding}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
