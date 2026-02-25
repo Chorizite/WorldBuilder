@@ -122,6 +122,7 @@ public class CombinedViewLocatorTests {
         var settings = new WorldBuilder.Services.WorldBuilderSettings(
             Microsoft.Extensions.Logging.Abstractions.NullLogger<WorldBuilder.Services.WorldBuilderSettings>.Instance
         );
+        settings.App.Theme = WorldBuilder.Lib.Settings.AppTheme.Light;
         var themeService = new WorldBuilder.Services.ThemeService(settings);
         
         var mockSetup = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SetupBrowserViewModel>(mockDats.Object, settings, themeService);
