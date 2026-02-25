@@ -41,6 +41,7 @@ namespace WorldBuilder.Shared.Lib.Extensions {
             // Core services
             services.AddSingleton<IDocumentManager, DocumentManager>();
             services.AddSingleton<IUndoStack, UndoStack>();
+            services.AddSingleton<IPortalService, PortalService>();
             services.AddSingleton<ILandscapeModule, WorldBuilder.Shared.Modules.Landscape.LandscapeModule>();
 
             // Sync services

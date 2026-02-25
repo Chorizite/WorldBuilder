@@ -19,6 +19,7 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Numerics;
 using WorldBuilder.Shared.Services;
+using BoundingBox = Chorizite.Core.Lib.BoundingBox;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
     /// <summary>

@@ -41,6 +41,39 @@ namespace WorldBuilder.Shared.Numerics {
             return (rayOrigin, rayDirection);
         }
 
+        public static bool RayIntersectsBox(Vector3 rayOrigin, Vector3 rayDirection, Vector3 boxMin, Vector3 boxMax, out float distance) {
+            distance = 0;
+            float tmin = (boxMin.X - rayOrigin.X) / rayDirection.X;
+            float tmax = (boxMax.X - rayOrigin.X) / rayDirection.X;
+
+            if (tmin > tmax) (tmin, tmax) = (tmax, tmin);
+
+            float tymin = (boxMin.Y - rayOrigin.Y) / rayDirection.Y;
+            float tymax = (boxMax.Y - rayOrigin.Y) / rayDirection.Y;
+
+            if (tymin > tymax) (tymin, tymax) = (tymax, tymin);
+
+            if ((tmin > tymax) || (tymin > tmax)) return false;
+
+            if (tymin > tmin) tmin = tymin;
+            if (tymax < tmax) tmax = tymax;
+
+            float tzmin = (boxMin.Z - rayOrigin.Z) / rayDirection.Z;
+            float tzmax = (boxMax.Z - rayOrigin.Z) / rayDirection.Z;
+
+            if (tzmin > tzmax) (tzmin, tzmax) = (tzmax, tzmin);
+
+            if ((tmin > tzmax) || (tzmin > tmax)) return false;
+
+            if (tzmin > tmin) tmin = tzmin;
+            if (tzmax < tmax) tmax = tzmax;
+
+            if (tmax < 0) return false;
+
+            distance = tmin < 0 ? tmax : tmin;
+            return true;
+        }
+
         /// <summary>
         /// Tests if a ray intersects a convex polygon.
         /// </summary>

@@ -165,15 +165,28 @@ namespace WorldBuilder.Shared.Numerics {
         }
     }
 
-    /// <summary>
-    /// An axis-aligned bounding box using double precision floating point numbers.
-    /// </summary>
-    public struct BoundingBoxd {
-        public Vector3d Min;
-        public Vector3d Max;
-        public BoundingBoxd(Vector3d min, Vector3d max) {
-            Min = min;
-            Max = max;
+        /// <summary>
+        /// An axis-aligned bounding box using double precision floating point numbers.
+        /// </summary>
+        public struct BoundingBoxd {
+            public Vector3d Min;
+            public Vector3d Max;
+            public BoundingBoxd(Vector3d min, Vector3d max) {
+                Min = min;
+                Max = max;
+            }
+        }
+    
+        /// <summary>
+        /// An axis-aligned bounding box.
+        /// </summary>
+        public struct BoundingBox {
+            public Vector3 Min;
+            public Vector3 Max;
+            public BoundingBox(Vector3 min, Vector3 max) {
+                Min = min;
+                Max = max;
+            }
         }
     }
-}
+    

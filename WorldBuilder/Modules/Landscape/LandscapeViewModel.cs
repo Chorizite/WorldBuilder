@@ -35,6 +35,7 @@ namespace WorldBuilder.Modules.Landscape;
 public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModule, IHotkeyHandler {
     private readonly IProject _project;
     private readonly IDatReaderWriter _dats;
+    private readonly IPortalService _portalService;
     private readonly ILogger<LandscapeViewModel> _log;
     private readonly IDialogService _dialogService;
     private DocumentRental<LandscapeDocument>? _landscapeRental;
@@ -93,9 +94,10 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         set => _camera = value;
     }
 
-    public LandscapeViewModel(IProject project, IDatReaderWriter dats, IDocumentManager documentManager, ILogger<LandscapeViewModel> log, IDialogService dialogService) {
+    public LandscapeViewModel(IProject project, IDatReaderWriter dats, IPortalService portalService, IDocumentManager documentManager, ILogger<LandscapeViewModel> log, IDialogService dialogService) {
         _project = project;
         _dats = dats;
+        _portalService = portalService;
         _documentManager = documentManager;
         _log = log;
         _dialogService = dialogService;
@@ -273,7 +275,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             PropertiesPanel.SelectedItem = new SceneryViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.Rotation);
         }
         else if (e.Selection.Type == InspectorSelectionType.Portal) {
-            PropertiesPanel.SelectedItem = new PortalViewModel(e.Selection.LandblockId, e.Selection.ObjectId, e.Selection.InstanceId, _dats);
+            PropertiesPanel.SelectedItem = new PortalViewModel(e.Selection.LandblockId, e.Selection.ObjectId, e.Selection.InstanceId, _dats, _portalService);
         }
         else if (e.Selection.Type == InspectorSelectionType.Vertex) {
             PropertiesPanel.SelectedItem = new LandscapeVertexViewModel(e.Selection.VertexX, e.Selection.VertexY, ActiveDocument!, _dats, CommandHistory);

@@ -24,6 +24,7 @@ public class GameScene : IDisposable {
     private readonly OpenGLGraphicsDevice _graphicsDevice;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger _log;
+    private readonly IPortalService _portalService;
 
     // Camera system
     private Camera2D _camera2D;
@@ -193,10 +194,11 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Creates a new GameScene.
     /// </summary>
-    public GameScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILoggerFactory loggerFactory) {
+    public GameScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILoggerFactory loggerFactory, IPortalService portalService) {
         _gl = gl;
         _graphicsDevice = graphicsDevice;
         _loggerFactory = loggerFactory;
+        _portalService = portalService;
         _log = loggerFactory.CreateLogger<GameScene>();
 
         // Initialize cameras
@@ -304,7 +306,7 @@ public class GameScene : IDisposable {
             _staticObjectManager.Initialize(_sceneryShader);
         }
 
-        _portalManager = new PortalRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice);
+        _portalManager = new PortalRenderManager(_gl, _log, landscapeDoc, dats, _portalService, _graphicsDevice);
         _portalManager.RenderDistance = _state.ObjectRenderDistance;
         _portalManager.ShowPortals = _state.ShowPortals;
 
@@ -473,6 +475,8 @@ public class GameScene : IDisposable {
         _portalManager?.ProcessUploads(remainingTime);
 
         _skyboxManager?.Update(deltaTime);
+
+        SyncState();
     }
 
     /// <summary>
@@ -523,80 +527,35 @@ public class GameScene : IDisposable {
     }
 
     public void SetHoveredObject(InspectorSelectionType type, uint landblockId, uint instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
-        if (type == InspectorSelectionType.Vertex) {
-            _hoveredVertex = (vx == 0 && vy == 0) ? null : (vx, vy);
-            if (_sceneryManager != null) _sceneryManager.HoveredInstance = null;
-            if (_staticObjectManager != null) _staticObjectManager.HoveredInstance = null;
-            if (_portalManager != null) _portalManager.HoveredPortal = null;
-        }
-        else if (type == InspectorSelectionType.Scenery) {
-            if (_sceneryManager != null) {
-                _sceneryManager.HoveredInstance = (landblockId == 0) ? null : new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId };
-            }
-            if (_staticObjectManager != null) _staticObjectManager.HoveredInstance = null;
-            if (_portalManager != null) _portalManager.HoveredPortal = null;
-            _hoveredVertex = null;
-        }
-        else if (type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) {
-            if (_staticObjectManager != null) {
-                _staticObjectManager.HoveredInstance = (landblockId == 0) ? null : new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId };
-            }
-            if (_sceneryManager != null) _sceneryManager.HoveredInstance = null;
-            if (_portalManager != null) _portalManager.HoveredPortal = null;
-            _hoveredVertex = null;
-        }
-        else if (type == InspectorSelectionType.Portal) {
-            if (_portalManager != null) {
-                _portalManager.HoveredPortal = (landblockId == 0) ? null : (objectId, instanceId);
-            }
-            if (_sceneryManager != null) _sceneryManager.HoveredInstance = null;
-            if (_staticObjectManager != null) _staticObjectManager.HoveredInstance = null;
-            _hoveredVertex = null;
-        }
-        else {
-            if (_sceneryManager != null) _sceneryManager.HoveredInstance = null;
-            if (_staticObjectManager != null) _staticObjectManager.HoveredInstance = null;
-            if (_portalManager != null) _portalManager.HoveredPortal = null;
-            _hoveredVertex = null;
-        }
+        SetObjectHighlight(ref _hoveredVertex, type, landblockId, instanceId, objectId, vx, vy, (m, val) => {
+            if (m is SceneryRenderManager srm) srm.HoveredInstance = (SelectedStaticObject?)val;
+            if (m is StaticObjectRenderManager sorm) sorm.HoveredInstance = (SelectedStaticObject?)val;
+            if (m is PortalRenderManager prm) prm.HoveredPortal = ((uint, uint)?)val;
+        });
     }
 
     public void SetSelectedObject(InspectorSelectionType type, uint landblockId, uint instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
-        if (type == InspectorSelectionType.Vertex) {
-            _selectedVertex = (vx == 0 && vy == 0) ? null : (vx, vy);
-            if (_sceneryManager != null) _sceneryManager.SelectedInstance = null;
-            if (_staticObjectManager != null) _staticObjectManager.SelectedInstance = null;
-            if (_portalManager != null) _portalManager.SelectedPortal = null;
+        SetObjectHighlight(ref _selectedVertex, type, landblockId, instanceId, objectId, vx, vy, (m, val) => {
+            if (m is SceneryRenderManager srm) srm.SelectedInstance = (SelectedStaticObject?)val;
+            if (m is StaticObjectRenderManager sorm) sorm.SelectedInstance = (SelectedStaticObject?)val;
+            if (m is PortalRenderManager prm) prm.SelectedPortal = ((uint, uint)?)val;
+        });
+    }
+
+    private void SetObjectHighlight(ref (int x, int y)? vertexStorage, InspectorSelectionType type, uint landblockId, uint instanceId, uint objectId, int vx, int vy, Action<object, object?> setter) {
+        vertexStorage = (type == InspectorSelectionType.Vertex && (vx != 0 || vy != 0)) ? (vx, vy) : null;
+
+        if (_sceneryManager != null) {
+            var val = (type == InspectorSelectionType.Scenery && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId } : (object?)null;
+            setter(_sceneryManager, val);
         }
-        else if (type == InspectorSelectionType.Scenery) {
-            if (_sceneryManager != null) {
-                _sceneryManager.SelectedInstance = (landblockId == 0) ? null : new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId };
-            }
-            if (_staticObjectManager != null) _staticObjectManager.SelectedInstance = null;
-            if (_portalManager != null) _portalManager.SelectedPortal = null;
-            _selectedVertex = null;
+        if (_staticObjectManager != null) {
+            var val = ((type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId } : (object?)null;
+            setter(_staticObjectManager, val);
         }
-        else if (type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) {
-            if (_staticObjectManager != null) {
-                _staticObjectManager.SelectedInstance = (landblockId == 0) ? null : new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId };
-            }
-            if (_sceneryManager != null) _sceneryManager.SelectedInstance = null;
-            if (_portalManager != null) _portalManager.SelectedPortal = null;
-            _selectedVertex = null;
-        }
-        else if (type == InspectorSelectionType.Portal) {
-            if (_portalManager != null) {
-                _portalManager.SelectedPortal = (landblockId == 0) ? null : (objectId, instanceId);
-            }
-            if (_sceneryManager != null) _sceneryManager.SelectedInstance = null;
-            if (_staticObjectManager != null) _staticObjectManager.SelectedInstance = null;
-            _selectedVertex = null;
-        }
-        else {
-            if (_sceneryManager != null) _sceneryManager.SelectedInstance = null;
-            if (_staticObjectManager != null) _staticObjectManager.SelectedInstance = null;
-            if (_portalManager != null) _portalManager.SelectedPortal = null;
-            _selectedVertex = null;
+        if (_portalManager != null) {
+            var val = (type == InspectorSelectionType.Portal && landblockId != 0) ? (object)(objectId, instanceId) : (object?)null;
+            setter(_portalManager, val);
         }
     }
 
@@ -704,9 +663,7 @@ public class GameScene : IDisposable {
         }
 
         // Render Portals
-        if (_state.ShowPortals) {
-            _portalManager?.SubmitDebugShapes(_debugRenderer);
-        }
+        _portalManager?.SubmitDebugShapes(_debugRenderer);
 
         // Pass 1: Opaque Scenery & Static Objects
         _sceneryShader?.Bind();
