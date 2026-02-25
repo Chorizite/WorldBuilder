@@ -25,8 +25,14 @@
         <DataTemplate DataType="vm:SurfaceBrowserViewModel">
             <v:SurfaceBrowserView/>
         </DataTemplate>
+        <DataTemplate DataType="vm:EnvCellBrowserViewModel">
+            <v:EnvCellBrowserView/>
+        </DataTemplate>
         <DataTemplate DataType="vm:SurfaceTextureOverviewViewModel">
             <v:SurfaceTextureOverviewView/>
+        </DataTemplate>
+        <DataTemplate DataType="vm:EnvCellOverviewViewModel">
+            <v:EnvCellOverviewView/>
         </DataTemplate>
     </UserControl.DataTemplates>
 

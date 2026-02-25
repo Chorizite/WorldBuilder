@@ -28,6 +28,14 @@ namespace WorldBuilder.Views {
             set => SetValue(IsTooltipProperty, value);
         }
 
+        public static readonly StyledProperty<Type?> TargetTypeProperty =
+            AvaloniaProperty.Register<DataIdPreview, Type?>(nameof(TargetType));
+
+        public Type? TargetType {
+            get => GetValue(TargetTypeProperty);
+            set => SetValue(TargetTypeProperty, value);
+        }
+
         public DataIdPreview() {
             InitializeComponent();
         }

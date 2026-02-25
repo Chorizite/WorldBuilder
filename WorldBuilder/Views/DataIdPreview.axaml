@@ -9,5 +9,6 @@
     <views:DatObjectPreview 
         DataId="{Binding DataId, ElementName=Root}"
         Dats="{Binding Dats, ElementName=Root}"
+        TargetType="{Binding TargetType, ElementName=Root}"
         IsTooltip="{Binding IsTooltip, ElementName=Root}" />
 </UserControl>

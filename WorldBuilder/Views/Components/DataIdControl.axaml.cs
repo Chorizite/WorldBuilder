@@ -33,6 +33,14 @@ namespace WorldBuilder.Views.Components {
             set => SetValue(DbTypeProperty, value);
         }
 
+        public static readonly StyledProperty<Type?> TargetTypeProperty =
+            AvaloniaProperty.Register<DataIdControl, Type?>(nameof(TargetType));
+
+        public Type? TargetType {
+            get => GetValue(TargetTypeProperty);
+            set => SetValue(TargetTypeProperty, value);
+        }
+
         public IRelayCommand OpenInNewWindowCommand { get; }
 
         public DataIdControl() {
@@ -42,22 +50,34 @@ namespace WorldBuilder.Views.Components {
 
         private void OpenInNewWindow() {
             if (DataId != 0) {
-                WeakReferenceMessenger.Default.Send(new OpenQualifiedDataIdMessage(DataId, null));
+                WeakReferenceMessenger.Default.Send(new OpenQualifiedDataIdMessage(DataId, TargetType));
             }
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
             base.OnPropertyChanged(change);
 
-            if (change.Property == DataIdProperty || change.Property == DatsProperty) {
+            if (change.Property == DataIdProperty || change.Property == DatsProperty || change.Property == TargetTypeProperty) {
                 UpdateDbType();
             }
         }
 
         private void UpdateDbType() {
             if (Dats != null && DataId != 0) {
-                DbType = Dats.TypeFromId(DataId);
-                if (DbType == DBObjType.Unknown) {
+                var resolutions = Dats.ResolveId(DataId).ToList();
+                if (resolutions.Count > 0) {
+                    // If we have a target type, try to find a resolution that matches it
+                    if (TargetType != null) {
+                        var targetTypeName = TargetType.Name;
+                        var matching = resolutions.FirstOrDefault(r => r.Type.ToString() == targetTypeName);
+                        if (matching != null) {
+                            DbType = matching.Type;
+                            return;
+                        }
+                    }
+                    DbType = resolutions.First().Type;
+                }
+                else {
                     DbType = null;
                 }
             }

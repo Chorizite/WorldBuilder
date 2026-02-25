@@ -112,6 +112,7 @@ public class CombinedViewLocatorTests {
         var mockDats = new Moq.Mock<WorldBuilder.Shared.Services.IDatReaderWriter>();
         var mockPortal = new Moq.Mock<WorldBuilder.Shared.Services.IDatDatabase>();
         mockDats.Setup(d => d.Portal).Returns(mockPortal.Object);
+        mockDats.Setup(d => d.CellRegions).Returns(new System.Collections.ObjectModel.ReadOnlyDictionary<uint, WorldBuilder.Shared.Services.IDatDatabase>(new System.Collections.Generic.Dictionary<uint, WorldBuilder.Shared.Services.IDatDatabase>()));
         mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.Setup>()).Returns(Enumerable.Empty<uint>());
         mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.GfxObj>()).Returns(Enumerable.Empty<uint>());
         mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.SurfaceTexture>()).Returns(Enumerable.Empty<uint>());
@@ -121,6 +122,7 @@ public class CombinedViewLocatorTests {
         var settings = new WorldBuilder.Services.WorldBuilderSettings(
             Microsoft.Extensions.Logging.Abstractions.NullLogger<WorldBuilder.Services.WorldBuilderSettings>.Instance
         );
+        settings.App.Theme = WorldBuilder.Lib.Settings.AppTheme.Light;
         var themeService = new WorldBuilder.Services.ThemeService(settings);
         
         var mockSetup = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SetupBrowserViewModel>(mockDats.Object, settings, themeService);
@@ -128,6 +130,7 @@ public class CombinedViewLocatorTests {
         var mockTex = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SurfaceTextureBrowserViewModel>(mockDats.Object, settings, themeService);
         var mockRenderTex = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.RenderSurfaceBrowserViewModel>(mockDats.Object, settings, themeService);
         var mockSurface = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SurfaceBrowserViewModel>(mockDats.Object, settings, themeService);
+        var mockEnvCell = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.EnvCellBrowserViewModel>(mockDats.Object, settings, themeService);
         var mockDialog = new Moq.Mock<HanumanInstitute.MvvmDialogs.IDialogService>();
         var mockServiceProvider = new Moq.Mock<IServiceProvider>();
 
@@ -137,6 +140,7 @@ public class CombinedViewLocatorTests {
             mockTex.Object,
             mockRenderTex.Object,
             mockSurface.Object,
+            mockEnvCell.Object,
             mockDialog.Object,
             mockServiceProvider.Object,
             mockDats.Object

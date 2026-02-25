@@ -30,14 +30,15 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         public ViewModelBase ViewModel => this;
 
         public IEnumerable<DBObjType> DatTypes => System.Enum.GetValues<DBObjType>().Where(t => {
-                return t switch {
-                    DBObjType.Setup => true,
-                    DBObjType.GfxObj => true,
-                    DBObjType.SurfaceTexture => true,
-                    DBObjType.RenderSurface => true,
-                    DBObjType.Surface => true,
-                    _ => false
-                };
+            return t switch {
+                DBObjType.Setup => true,
+                DBObjType.GfxObj => true,
+                DBObjType.SurfaceTexture => true,
+                DBObjType.RenderSurface => true,
+                DBObjType.Surface => true,
+                DBObjType.EnvCell => true,
+                _ => false
+            };
         });
 
         public bool CanBrowse => true;
@@ -71,18 +72,20 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private readonly SurfaceTextureBrowserViewModel _surfaceTextureBrowser;
         private readonly RenderSurfaceBrowserViewModel _renderSurfaceBrowser;
         private readonly SurfaceBrowserViewModel _surfaceBrowser;
+        private readonly EnvCellBrowserViewModel _envCellBrowser;
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
         private readonly IDatReaderWriter _dats;
 
         public IDatReaderWriter Dats => _dats;
 
-        public DatBrowserViewModel(SetupBrowserViewModel setupBrowser, GfxObjBrowserViewModel gfxObjBrowser, SurfaceTextureBrowserViewModel surfaceTextureBrowser, RenderSurfaceBrowserViewModel renderSurfaceBrowser, SurfaceBrowserViewModel surfaceBrowser, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats) {
+        public DatBrowserViewModel(SetupBrowserViewModel setupBrowser, GfxObjBrowserViewModel gfxObjBrowser, SurfaceTextureBrowserViewModel surfaceTextureBrowser, RenderSurfaceBrowserViewModel renderSurfaceBrowser, SurfaceBrowserViewModel surfaceBrowser, EnvCellBrowserViewModel envCellBrowser, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats) {
             _setupBrowser = setupBrowser;
             _gfxObjBrowser = gfxObjBrowser;
             _surfaceTextureBrowser = surfaceTextureBrowser;
             _renderSurfaceBrowser = renderSurfaceBrowser;
             _surfaceBrowser = surfaceBrowser;
+            _envCellBrowser = envCellBrowser;
             _dialogService = dialogService;
             _serviceProvider = serviceProvider;
             _dats = dats;
@@ -112,6 +115,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 DBObjType.SurfaceTexture => _surfaceTextureBrowser,
                 DBObjType.RenderSurface => _renderSurfaceBrowser,
                 DBObjType.Surface => _surfaceBrowser,
+                DBObjType.EnvCell => _envCellBrowser,
                 _ => null
             };
         }
@@ -161,7 +165,10 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             if (value != null) {
                 _isSettingObject = true;
                 try {
-                    SelectedType = Dats.TypeFromId(value.Id);
+                    var resolutions = Dats.ResolveId(value.Id).ToList();
+                    if (resolutions.Count > 0) {
+                        SelectedType = resolutions.First().Type;
+                    }
 
                     if (ObjectOverview is SurfaceTextureOverviewViewModel stovm) {
                         PreviewFileId = stovm.SelectedTextureId;
@@ -240,11 +247,12 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         }
 
         private void NavigateToFileId(uint fileId) {
-            if (_dats.Portal.TryGet<IDBObj>(fileId, out var obj)) {
-                SelectedObject = obj;
-            }
-            else if (_dats.HighRes.TryGet<IDBObj>(fileId, out var obj2)) {
-                SelectedObject = obj2;
+            var resolutions = _dats.ResolveId(fileId).ToList();
+            if (resolutions.Count > 0) {
+                var res = resolutions.First();
+                if (res.Database.TryGet<IDBObj>(fileId, out var obj)) {
+                    SelectedObject = obj;
+                }
             }
         }
 
@@ -255,11 +263,19 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                     stBrowser.PreviewFileId = stovm.SelectedTextureId;
                 }
             }
+            if (sender is EnvCellOverviewViewModel ecovm && e.PropertyName == nameof(EnvCellOverviewViewModel.SelectedItem)) {
+                if (ecovm.SelectedItem != null && ecovm.SelectedItem.DataId.HasValue) {
+                    PreviewFileId = ecovm.SelectedItem.DataId.Value;
+                }
+            }
         }
 
         private object? CreateOverview(IDBObj? obj) {
             if (obj is SurfaceTexture surfaceTexture) {
                 return new SurfaceTextureOverviewViewModel(surfaceTexture, _dats);
+            }
+            if (obj is EnvCell envCell) {
+                return new EnvCellOverviewViewModel(envCell, _dats);
             }
             return null;
         }

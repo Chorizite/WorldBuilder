@@ -27,6 +27,8 @@
                 IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsNotZero}}"
                 DataId="{Binding SelectedFileId}"
                 Dats="{Binding Dats}"
+                ShowWireframe="{Binding ShowWireframe, Mode=TwoWay}"
+                WireframeColor="{Binding WireframeColor}"
                 IsTooltip="False" />
             <Panel IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsZero}}">
                 <v:GridBrowserView DataContext="{Binding GridBrowser}" />

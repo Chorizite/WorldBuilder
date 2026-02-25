@@ -45,7 +45,9 @@ namespace WorldBuilder.Shared.Tests.Mocks {
             return true;
         }
 
-        public DBObjType TypeFromId(uint id) => DBObjType.Unknown;
+        public IEnumerable<IDatReaderWriter.IdResolution> ResolveId(uint id) {
+            return [];
+        }
 
         public void Dispose() {
 

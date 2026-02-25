@@ -64,7 +64,19 @@ namespace WorldBuilder.Shared.Services {
         /// <returns>True if the object was saved; otherwise, false.</returns>
         bool TrySave<T>(uint regionId, T obj, int iteration = 0) where T : IDBObj;
 
-        public DBObjType TypeFromId(uint id);
+        /// <summary>
+        /// Resolution of a data ID to a database and type
+        /// </summary>
+        /// <param name="Database"></param>
+        /// <param name="Type"></param>
+        public record IdResolution(IDatDatabase Database, DBObjType Type);
+
+        /// <summary>
+        /// Resolves a data ID to all possible databases and types.
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public IEnumerable<IdResolution> ResolveId(uint id);
     }
 
     /// <summary>

@@ -7,8 +7,8 @@
              xmlns:v="using:WorldBuilder.Modules.DatBrowser.Views"
              xmlns:conv="using:WorldBuilder.Converters"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="WorldBuilder.Modules.DatBrowser.Views.SurfaceTextureBrowserView"
-             x:DataType="vm:SurfaceTextureBrowserViewModel">
+             x:Class="WorldBuilder.Modules.DatBrowser.Views.EnvCellBrowserView"
+             x:DataType="vm:EnvCellBrowserViewModel">
     <Grid ColumnDefinitions="300, 5, *">
         <!-- Sidebar -->
         <ListBox Grid.Column="0" ItemsSource="{Binding FileIds}" SelectedItem="{Binding SelectedFileId}" Margin="5">
@@ -23,24 +23,14 @@
 
         <!-- Preview Area -->
         <Panel Grid.Column="2" Background="{DynamicResource SemiColorBackground0}">
-            <TabControl ItemsSource="{Binding Textures}" SelectedItem="{Binding PreviewFileId}" 
-                        IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsNotZero}}">
-                <TabControl.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding StringFormat='{}{0:X8}'}" />
-                    </DataTemplate>
-                </TabControl.ItemTemplate>
-                <TabControl.ContentTemplate>
-                    <DataTemplate>
-                        <views:DatObjectPreview 
-                            DataId="{Binding}"
-                            Dats="{Binding $parent[UserControl].((vm:SurfaceTextureBrowserViewModel)DataContext).Dats}"
-                            ShowWireframe="{Binding $parent[UserControl].((vm:SurfaceTextureBrowserViewModel)DataContext).ShowWireframe, Mode=TwoWay}"
-                            WireframeColor="{Binding $parent[UserControl].((vm:SurfaceTextureBrowserViewModel)DataContext).WireframeColor}"
-                            IsTooltip="False" />
-                    </DataTemplate>
-                </TabControl.ContentTemplate>
-            </TabControl>
+            <views:DatObjectPreview 
+                IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsNotZero}}"
+                DataId="{Binding SelectedFileId}"
+                Dats="{Binding Dats}"
+                ClearColor="{Binding IsDarkMode, Converter={StaticResource ThemeToViewportBrushConverter}}"
+                ShowWireframe="{Binding ShowWireframe, Mode=TwoWay}"
+                WireframeColor="{Binding WireframeColor}"
+                IsTooltip="False" />
             <Panel IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsZero}}">
                 <v:GridBrowserView DataContext="{Binding GridBrowser}" />
             </Panel>

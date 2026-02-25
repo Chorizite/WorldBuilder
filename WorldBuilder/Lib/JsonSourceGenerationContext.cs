@@ -20,6 +20,7 @@ namespace WorldBuilder.Lib {
     [JsonSerializable(typeof(LandscapeColorsSettings))]
     [JsonSerializable(typeof(ProjectSettings))]
     [JsonSerializable(typeof(AppSettings))]
+    [JsonSerializable(typeof(DatBrowserSettings))]
     [JsonSerializable(typeof(AppTheme))]
     [JsonSerializable(typeof(Dictionary<string, bool>))]
     [JsonSerializable(typeof(CameraSettings))]

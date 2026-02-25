@@ -6,6 +6,7 @@ using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
 using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.Numerics;
 using System.Threading.Tasks;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Services;
@@ -26,6 +27,14 @@ namespace WorldBuilder.Views {
         public IDatReaderWriter? Dats {
             get => GetValue(DatsProperty);
             set => SetValue(DatsProperty, value);
+        }
+
+        public static readonly StyledProperty<Type?> TargetTypeProperty =
+            AvaloniaProperty.Register<DatObjectPreview, Type?>(nameof(TargetType));
+
+        public Type? TargetType {
+            get => GetValue(TargetTypeProperty);
+            set => SetValue(TargetTypeProperty, value);
         }
 
         public static readonly StyledProperty<bool> IsTooltipProperty =
@@ -149,6 +158,30 @@ namespace WorldBuilder.Views {
             set => SetValue(IsManualZoomProperty, value);
         }
 
+        public static readonly StyledProperty<bool> ShowWireframeProperty =
+            AvaloniaProperty.Register<DatObjectPreview, bool>(nameof(ShowWireframe), false);
+
+        public bool ShowWireframe {
+            get => GetValue(ShowWireframeProperty);
+            set => SetValue(ShowWireframeProperty, value);
+        }
+
+        public static readonly StyledProperty<Vector4> WireframeColorProperty =
+            AvaloniaProperty.Register<DatObjectPreview, Vector4>(nameof(WireframeColor), new Vector4(0.0f, 1.0f, 0.0f, 0.5f));
+
+        public Vector4 WireframeColor {
+            get => GetValue(WireframeColorProperty);
+            set => SetValue(WireframeColorProperty, value);
+        }
+
+        public static readonly StyledProperty<bool> ShowCullingProperty =
+            AvaloniaProperty.Register<DatObjectPreview, bool>(nameof(ShowCulling), true);
+
+        public bool ShowCulling {
+            get => GetValue(ShowCullingProperty);
+            set => SetValue(ShowCullingProperty, value);
+        }
+
         public DatObjectPreview() {
             InitializeComponent();
             AddHandler(PointerWheelChangedEvent, (s, e) => {
@@ -170,7 +203,8 @@ namespace WorldBuilder.Views {
                     var delta = e.Delta.Y;
                     if (delta > 0) {
                         ZoomLevel *= 1.1;
-                    } else {
+                    }
+                    else {
                         ZoomLevel /= 1.1;
                     }
                     UpdateZoomedSize();
@@ -190,7 +224,8 @@ namespace WorldBuilder.Views {
             if (TextureBitmap == null || !IsManualZoom) {
                 ZoomedWidth = double.NaN;
                 ZoomedHeight = double.NaN;
-            } else {
+            }
+            else {
                 ZoomedWidth = TextureBitmap.Size.Width * ZoomLevel;
                 ZoomedHeight = TextureBitmap.Size.Height * ZoomLevel;
             }
@@ -201,9 +236,10 @@ namespace WorldBuilder.Views {
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
             base.OnPropertyChanged(change);
-            if (change.Property == DataIdProperty || change.Property == DatsProperty) {
+            if (change.Property == DataIdProperty || change.Property == DatsProperty || change.Property == TargetTypeProperty) {
                 UpdatePreview();
-            } else if (change.Property == TextureBitmapProperty || change.Property == ZoomLevelProperty || change.Property == ImageStretchProperty) {
+            }
+            else if (change.Property == TextureBitmapProperty || change.Property == ZoomLevelProperty || change.Property == ImageStretchProperty) {
                 UpdateZoomedSize();
             }
         }
@@ -221,12 +257,35 @@ namespace WorldBuilder.Views {
                 return;
             }
 
+            var resolutions = Dats.ResolveId(DataId).ToList();
+            if (resolutions.Count == 0) {
+                Is3D = false;
+                Is2D = false;
+                IsSetup = false;
+                IsPreviewable = false;
+                HasData = false;
+                DataObjectType = DBObjType.Unknown;
+                PreviewDetails = null;
+                TextureBitmap = null;
+                return;
+            }
+
+            IDatReaderWriter.IdResolution selectedResolution = resolutions.First();
+            if (TargetType != null) {
+                var targetTypeName = TargetType.Name;
+                var matching = resolutions.FirstOrDefault(r => r.Type.ToString() == targetTypeName);
+                if (matching != null) {
+                    selectedResolution = matching;
+                }
+            }
+
             HasData = true;
-            var type = Dats.TypeFromId(DataId);
+            var type = selectedResolution.Type;
+            var db = selectedResolution.Database;
             DataObjectType = type;
             PreviewDetails = null;
-            
-            IsSetup = type == DBObjType.Setup;
+
+            IsSetup = type == DBObjType.Setup || type == DBObjType.EnvCell;
             Is3D = IsSetup || type == DBObjType.GfxObj;
             Is2D = type == DBObjType.SurfaceTexture || type == DBObjType.RenderSurface || type == DBObjType.Surface;
 
@@ -236,36 +295,38 @@ namespace WorldBuilder.Views {
                 var textureService = WorldBuilder.App.ProjectManager?.GetProjectService<TextureService>();
                 if (textureService != null) {
                     if (DataObjectType == DBObjType.Surface) {
-                        if (Dats.Portal.TryGet<Surface>(DataId, out var surface)) {
+                        if (db.TryGet<Surface>(DataId, out var surface)) {
                             bool isClipMap = surface.Type.HasFlag(SurfaceType.Base1ClipMap);
                             if (surface.OrigTextureId != 0) {
                                 TextureBitmap = await textureService.GetTextureAsync(surface.OrigTextureId, surface.OrigPaletteId, isClipMap);
-                            } else if (surface.Type.HasFlag(SurfaceType.Base1Solid)) {
+                            }
+                            else if (surface.Type.HasFlag(SurfaceType.Base1Solid)) {
                                 TextureBitmap = textureService.CreateSolidColorBitmap(surface.ColorValue);
                             }
                         }
-                    } else {
+                    }
+                    else {
                         TextureBitmap = await textureService.GetTextureAsync(DataId);
                     }
                 }
 
                 if (DataObjectType == DBObjType.RenderSurface) {
-                    if (Dats.HighRes.TryGet<RenderSurface>(DataId, out var surf)) {
+                    if (db.TryGet<RenderSurface>(DataId, out var surf)) {
                         PreviewDetails = $"{surf.Width}x{surf.Height} {surf.Format}";
                     }
-                    else if (Dats.Portal.TryGet<RenderSurface>(DataId, out var surf2)) {
-                        PreviewDetails = $"{surf2.Width}x{surf2.Height} {surf2.Format}";
-                    }
-                } else if (DataObjectType == DBObjType.SurfaceTexture) {
-                    if (Dats.Portal.TryGet<SurfaceTexture>(DataId, out var surfTex)) {
+                }
+                else if (DataObjectType == DBObjType.SurfaceTexture) {
+                    if (db.TryGet<SurfaceTexture>(DataId, out var surfTex)) {
                         PreviewDetails = $"{surfTex.Textures.Count} textures";
                     }
-                } else if (DataObjectType == DBObjType.Surface) {
-                    if (Dats.Portal.TryGet<Surface>(DataId, out var surface)) {
+                }
+                else if (DataObjectType == DBObjType.Surface) {
+                    if (db.TryGet<Surface>(DataId, out var surface)) {
                         PreviewDetails = $"{surface.Type}";
                     }
                 }
-            } else {
+            }
+            else {
                 TextureBitmap = null;
             }
         }

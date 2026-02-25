@@ -42,6 +42,14 @@
                           ToolTip.Tip="Toggle Freecam">
                 <TextBlock Text="📷" />
             </ToggleButton>
+            <ToggleButton IsChecked="{Binding ShowWireframe, RelativeSource={RelativeSource AncestorType=views:DatObjectViewer}}" 
+                          ToolTip.Tip="Show Wireframe">
+                <TextBlock Text="#" />
+            </ToggleButton>
+            <ToggleButton IsChecked="{Binding ShowCulling, RelativeSource={RelativeSource AncestorType=views:DatObjectViewer}}" 
+                          ToolTip.Tip="Enable Culling">
+                <TextBlock Text="◐" />
+            </ToggleButton>
         </StackPanel>
     </Panel>
 </views:Base3DViewport>
