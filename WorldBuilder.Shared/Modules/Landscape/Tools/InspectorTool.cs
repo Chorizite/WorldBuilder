@@ -21,6 +21,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         [ObservableProperty] private bool _selectBuildings = true;
         [ObservableProperty] private bool _selectStaticObjects = true;
         [ObservableProperty] private bool _selectScenery = false;
+        [ObservableProperty] private bool _selectPortals = true;
 
         [ObservableProperty] private bool _showBoundingBoxes = true;
 
@@ -54,6 +55,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 LandscapeColorsSettings.Instance.Scenery = value;
                 OnPropertyChanged(nameof(SceneryColor));
             }
+        }
+
+        public Vector4 PortalColor {
+            get => new Vector4(1f, 0f, 1f, 1f);
         }
 
         public void Activate(LandscapeToolContext context) {
@@ -126,6 +131,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 if (_context.RaycastScenery != null && _context.RaycastScenery(ray.Origin, ray.Direction, out var sceneryHit)) {
                     if (sceneryHit.Distance < bestHit.Distance) {
                         bestHit = sceneryHit;
+                    }
+                }
+            }
+
+            if (SelectPortals) {
+                var ray = GetRay(e, _context.Camera);
+                if (_context.RaycastPortals != null && _context.RaycastPortals(ray.Origin, ray.Direction, out var portalHit)) {
+                    if (portalHit.Distance < bestHit.Distance) {
+                        bestHit = portalHit;
                     }
                 }
             }

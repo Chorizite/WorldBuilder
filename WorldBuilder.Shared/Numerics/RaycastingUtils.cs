@@ -40,5 +40,42 @@ namespace WorldBuilder.Shared.Numerics {
 
             return (rayOrigin, rayDirection);
         }
+
+        /// <summary>
+        /// Tests if a ray intersects a convex polygon.
+        /// </summary>
+        public static bool RayIntersectsPolygon(Vector3 rayOrigin, Vector3 rayDirection, Vector3[] vertices, out float distance) {
+            distance = 0;
+            if (vertices.Length < 3) return false;
+
+            // Compute the plane's normal
+            Vector3 v0 = vertices[0];
+            Vector3 v1 = vertices[1];
+            Vector3 v2 = vertices[2];
+            Vector3 normal = Vector3.Normalize(Vector3.Cross(v1 - v0, v2 - v0));
+
+            // Check if ray is parallel to the plane
+            float denom = Vector3.Dot(normal, rayDirection);
+            if (Math.Abs(denom) < 1e-6) return false;
+
+            // Distance from ray origin to the plane
+            float t = Vector3.Dot(v0 - rayOrigin, normal) / denom;
+            if (t < 0) return false;
+
+            Vector3 hitPoint = rayOrigin + rayDirection * t;
+
+            // Check if hit point is inside the polygon
+            for (int i = 0; i < vertices.Length; i++) {
+                Vector3 p1 = vertices[i];
+                Vector3 p2 = vertices[(i + 1) % vertices.Length];
+                Vector3 edge = p2 - p1;
+                Vector3 toPoint = hitPoint - p1;
+                Vector3 cross = Vector3.Cross(edge, toPoint);
+                if (Vector3.Dot(normal, cross) < 0) return false;
+            }
+
+            distance = t;
+            return true;
+        }
     }
 }

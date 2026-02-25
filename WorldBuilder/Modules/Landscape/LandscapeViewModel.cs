@@ -244,6 +244,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _toolContext.InspectorHovered += OnInspectorHovered;
             _toolContext.InspectorSelected += OnInspectorSelected;
 
+            _gameScene?.SetToolContext(_toolContext);
             _gameScene?.SetInspectorTool(ActiveTool as InspectorTool);
 
             ActiveTool?.Activate(_toolContext);
@@ -254,11 +255,11 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     }
 
     private void OnInspectorHovered(object? sender, InspectorSelectionEventArgs e) {
-        _gameScene?.SetHoveredObject(e.Selection.Type, e.Selection.LandblockId, e.Selection.InstanceId, e.Selection.VertexX, e.Selection.VertexY);
+        _gameScene?.SetHoveredObject(e.Selection.Type, e.Selection.LandblockId, e.Selection.InstanceId, e.Selection.ObjectId, e.Selection.VertexX, e.Selection.VertexY);
     }
 
     private void OnInspectorSelected(object? sender, InspectorSelectionEventArgs e) {
-        _gameScene?.SetSelectedObject(e.Selection.Type, e.Selection.LandblockId, e.Selection.InstanceId, e.Selection.VertexX, e.Selection.VertexY);
+        _gameScene?.SetSelectedObject(e.Selection.Type, e.Selection.LandblockId, e.Selection.InstanceId, e.Selection.ObjectId, e.Selection.VertexX, e.Selection.VertexY);
 
         if (e.Selection.Type == InspectorSelectionType.StaticObject || e.Selection.Type == InspectorSelectionType.Building) {
             if (e.Selection.Type == InspectorSelectionType.StaticObject) {
@@ -270,6 +271,9 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         }
         else if (e.Selection.Type == InspectorSelectionType.Scenery) {
             PropertiesPanel.SelectedItem = new SceneryViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.Rotation);
+        }
+        else if (e.Selection.Type == InspectorSelectionType.Portal) {
+            PropertiesPanel.SelectedItem = new PortalViewModel(e.Selection.LandblockId, e.Selection.ObjectId, e.Selection.InstanceId, _dats);
         }
         else if (e.Selection.Type == InspectorSelectionType.Vertex) {
             PropertiesPanel.SelectedItem = new LandscapeVertexViewModel(e.Selection.VertexX, e.Selection.VertexY, ActiveDocument!, _dats, CommandHistory);
@@ -395,6 +399,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _gameScene.Camera3D.OnChanged += OnCameraStateChanged;
 
             _gameScene.SetInspectorTool(ActiveTool as InspectorTool);
+            _gameScene.SetToolContext(_toolContext);
 
             if (ActiveDocument != null) {
                 RestoreCameraState();

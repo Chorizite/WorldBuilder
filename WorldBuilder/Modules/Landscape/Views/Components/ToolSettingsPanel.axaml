@@ -196,6 +196,10 @@
                         <ColorPicker Color="{Binding SceneryColor, Converter={StaticResource Vector4ToColorConverter}}" />
                         <CheckBox Content="Scenery" IsChecked="{Binding SelectScenery}" FontSize="12" />
                       </StackPanel>
+                      <StackPanel Orientation="Horizontal" Spacing="4">
+                        <ColorPicker Color="{Binding PortalColor, Converter={StaticResource Vector4ToColorConverter}}" IsEnabled="False" />
+                        <CheckBox Content="Portals" IsChecked="{Binding SelectPortals}" FontSize="12" />
+                      </StackPanel>
                     </StackPanel>
                   </HeaderedContentControl>
                   <HeaderedContentControl Header="Display" Template="{StaticResource RibbonGroupTemplate}">

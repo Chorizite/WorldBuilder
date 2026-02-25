@@ -19,6 +19,7 @@ using System.Threading.Tasks;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Numerics;
 using WorldBuilder.Shared.Services;
 using VertexAttribType = Chorizite.Core.Render.Enums.VertexAttribType;
@@ -45,6 +46,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public bool ShowPortals { get; set; } = true;
         public int RenderDistance { get; set; } = 12;
+
+        public (uint CellId, uint PortalIndex)? HoveredPortal { get; set; }
+        public (uint CellId, uint PortalIndex)? SelectedPortal { get; set; }
 
         private Vector3 _cameraPosition;
         private int _cameraLbX;
@@ -155,16 +159,68 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (debug == null || !ShowPortals || _landscapeDoc.Region == null) return;
 
             var magenta = new Vector4(1f, 0f, 1f, 1f);
+            var hoverColor = LandscapeColorsSettings.Instance.Hover;
+            var selectionColor = LandscapeColorsSettings.Instance.Selection;
 
             foreach (var lb in _landblocks.Values) {
                 if (!lb.Ready) continue;
 
                 foreach (var portal in lb.Portals) {
+                    var color = magenta;
+                    if (HoveredPortal.HasValue && HoveredPortal.Value.CellId == portal.CellId && HoveredPortal.Value.PortalIndex == portal.PortalIndex) {
+                        color = hoverColor;
+                    }
+                    if (SelectedPortal.HasValue && SelectedPortal.Value.CellId == portal.CellId && SelectedPortal.Value.PortalIndex == portal.PortalIndex) {
+                        color = selectionColor;
+                    }
+
                     for (int i = 0; i < portal.Vertices.Length; i++) {
-                        debug.DrawLine(portal.Vertices[i], portal.Vertices[(i + 1) % portal.Vertices.Length], magenta, 5.0f);
+                        debug.DrawLine(portal.Vertices[i], portal.Vertices[(i + 1) % portal.Vertices.Length], color, 5.0f);
                     }
                 }
             }
+        }
+
+        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, out SceneRaycastHit hit) {
+            hit = SceneRaycastHit.NoHit;
+            if (!ShowPortals || _landscapeDoc.Region == null) return false;
+
+            float closestDistance = float.MaxValue;
+            PortalData? closestPortal = null;
+            uint closestLandblockId = 0;
+
+            foreach (var lb in _landblocks.Values) {
+                if (!lb.Ready) continue;
+
+                var lbGlobalX = (uint)lb.GridX;
+                var lbGlobalY = (uint)lb.GridY;
+                var lbId = (uint)((lbGlobalX << 24) | (lbGlobalY << 16) | 0xFFFF);
+
+                foreach (var portal in lb.Portals) {
+                    if (RaycastingUtils.RayIntersectsPolygon(rayOrigin, rayDirection, portal.Vertices, out float distance)) {
+                        if (distance < closestDistance) {
+                            closestDistance = distance;
+                            closestPortal = portal;
+                            closestLandblockId = lbId;
+                        }
+                    }
+                }
+            }
+
+            if (closestPortal != null) {
+                hit = new SceneRaycastHit {
+                    Hit = true,
+                    Type = InspectorSelectionType.Portal,
+                    Distance = closestDistance,
+                    Position = rayOrigin + rayDirection * closestDistance,
+                    LandblockId = closestLandblockId,
+                    ObjectId = closestPortal.CellId,
+                    InstanceId = closestPortal.PortalIndex
+                };
+                return true;
+            }
+
+            return false;
         }
 
         private async Task GeneratePortalsForLandblock(PortalLandblock lb) {
@@ -188,7 +244,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 for (uint i = 0; i < lbi.NumCells; i++) {
                     var cellId = (lbId & 0xFFFF0000) | (0x0100 + i);
                     if (cellDb.TryGet<EnvCell>(cellId, out var envCell)) {
-                        foreach (var portal in envCell.CellPortals) {
+                        for (int portalIdx = 0; portalIdx < envCell.CellPortals.Count; portalIdx++) {
+                            var portal = envCell.CellPortals[portalIdx];
                             if (portal.OtherCellId == 0xFFFF) {
                                 // Portal to outside!
                                 if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(0x0D000000u | envCell.EnvironmentId, out var environment)) {
@@ -207,6 +264,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                                             Matrix4x4.CreateTranslation(lbOrigin);
 
                                             portals.Add(new PortalData {
+                                                CellId = cellId,
+                                                PortalIndex = (uint)portalIdx,
                                                 Vertices = vertices.Select(v => Vector3.Transform(v, transform)).ToArray()
                                             });
                                         }
@@ -257,6 +316,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         private class PortalData {
+            public uint CellId;
+            public uint PortalIndex;
             public Vector3[] Vertices = Array.Empty<Vector3>();
         }
     }

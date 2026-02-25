@@ -330,6 +330,14 @@ public class GameScene : IDisposable {
         }
     }
 
+    public void SetToolContext(LandscapeToolContext? context) {
+        if (context != null) {
+            context.RaycastStaticObject = RaycastStaticObjects;
+            context.RaycastScenery = RaycastScenery;
+            context.RaycastPortals = RaycastPortals;
+        }
+    }
+
     private void CenterCameraOnLandscape(ITerrainInfo region) {
         _camera3D.Position = new Vector3(-701.20f, -5347.16f, 2000f);
         _camera3D.Pitch = -89.9f;
@@ -514,17 +522,19 @@ public class GameScene : IDisposable {
         _debugRenderer.DrawSphere(pos, 1.5f, color);
     }
 
-    public void SetHoveredObject(InspectorSelectionType type, uint landblockId, uint instanceId, int vx = 0, int vy = 0) {
+    public void SetHoveredObject(InspectorSelectionType type, uint landblockId, uint instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
         if (type == InspectorSelectionType.Vertex) {
             _hoveredVertex = (vx == 0 && vy == 0) ? null : (vx, vy);
             if (_sceneryManager != null) _sceneryManager.HoveredInstance = null;
             if (_staticObjectManager != null) _staticObjectManager.HoveredInstance = null;
+            if (_portalManager != null) _portalManager.HoveredPortal = null;
         }
         else if (type == InspectorSelectionType.Scenery) {
             if (_sceneryManager != null) {
                 _sceneryManager.HoveredInstance = (landblockId == 0) ? null : new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId };
             }
             if (_staticObjectManager != null) _staticObjectManager.HoveredInstance = null;
+            if (_portalManager != null) _portalManager.HoveredPortal = null;
             _hoveredVertex = null;
         }
         else if (type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) {
@@ -532,26 +542,38 @@ public class GameScene : IDisposable {
                 _staticObjectManager.HoveredInstance = (landblockId == 0) ? null : new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId };
             }
             if (_sceneryManager != null) _sceneryManager.HoveredInstance = null;
+            if (_portalManager != null) _portalManager.HoveredPortal = null;
+            _hoveredVertex = null;
+        }
+        else if (type == InspectorSelectionType.Portal) {
+            if (_portalManager != null) {
+                _portalManager.HoveredPortal = (landblockId == 0) ? null : (objectId, instanceId);
+            }
+            if (_sceneryManager != null) _sceneryManager.HoveredInstance = null;
+            if (_staticObjectManager != null) _staticObjectManager.HoveredInstance = null;
             _hoveredVertex = null;
         }
         else {
             if (_sceneryManager != null) _sceneryManager.HoveredInstance = null;
             if (_staticObjectManager != null) _staticObjectManager.HoveredInstance = null;
+            if (_portalManager != null) _portalManager.HoveredPortal = null;
             _hoveredVertex = null;
         }
     }
 
-    public void SetSelectedObject(InspectorSelectionType type, uint landblockId, uint instanceId, int vx = 0, int vy = 0) {
+    public void SetSelectedObject(InspectorSelectionType type, uint landblockId, uint instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
         if (type == InspectorSelectionType.Vertex) {
             _selectedVertex = (vx == 0 && vy == 0) ? null : (vx, vy);
             if (_sceneryManager != null) _sceneryManager.SelectedInstance = null;
             if (_staticObjectManager != null) _staticObjectManager.SelectedInstance = null;
+            if (_portalManager != null) _portalManager.SelectedPortal = null;
         }
         else if (type == InspectorSelectionType.Scenery) {
             if (_sceneryManager != null) {
                 _sceneryManager.SelectedInstance = (landblockId == 0) ? null : new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId };
             }
             if (_staticObjectManager != null) _staticObjectManager.SelectedInstance = null;
+            if (_portalManager != null) _portalManager.SelectedPortal = null;
             _selectedVertex = null;
         }
         else if (type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) {
@@ -559,11 +581,21 @@ public class GameScene : IDisposable {
                 _staticObjectManager.SelectedInstance = (landblockId == 0) ? null : new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId };
             }
             if (_sceneryManager != null) _sceneryManager.SelectedInstance = null;
+            if (_portalManager != null) _portalManager.SelectedPortal = null;
+            _selectedVertex = null;
+        }
+        else if (type == InspectorSelectionType.Portal) {
+            if (_portalManager != null) {
+                _portalManager.SelectedPortal = (landblockId == 0) ? null : (objectId, instanceId);
+            }
+            if (_sceneryManager != null) _sceneryManager.SelectedInstance = null;
+            if (_staticObjectManager != null) _staticObjectManager.SelectedInstance = null;
             _selectedVertex = null;
         }
         else {
             if (_sceneryManager != null) _sceneryManager.SelectedInstance = null;
             if (_staticObjectManager != null) _staticObjectManager.SelectedInstance = null;
+            if (_portalManager != null) _portalManager.SelectedPortal = null;
             _selectedVertex = null;
         }
     }
@@ -585,6 +617,15 @@ public class GameScene : IDisposable {
         hit = SceneRaycastHit.NoHit;
 
         if (_sceneryManager != null && _sceneryManager.Raycast(origin, direction, out hit)) {
+            return true;
+        }
+        return false;
+    }
+
+    public bool RaycastPortals(Vector3 origin, Vector3 direction, out SceneRaycastHit hit) {
+        hit = SceneRaycastHit.NoHit;
+
+        if (_portalManager != null && _portalManager.Raycast(origin, direction, out hit)) {
             return true;
         }
         return false;
