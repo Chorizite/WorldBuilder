@@ -36,7 +36,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             GLHelpers.CheckErrors();
         }
 
-        protected unsafe void RenderObjectBatches(IShader shader, ObjectRenderData renderData, List<Matrix4x4> instanceTransforms, bool showCulling = true) {
+        protected unsafe void RenderObjectBatches(IShader shader, ObjectRenderData renderData,
+            List<Matrix4x4> instanceTransforms, bool showCulling = true) {
             if (renderData.Batches.Count == 0 || instanceTransforms.Count == 0) return;
 
             if (CurrentVAO != renderData.VAO) {
@@ -85,6 +86,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     Gl.BindBuffer(GLEnum.ElementArrayBuffer, batch.IBO);
                     CurrentIBO = batch.IBO;
                 }
+
                 Gl.DrawElementsInstanced(PrimitiveType.Triangles, (uint)batch.IndexCount,
                     DrawElementsType.UnsignedShort, (void*)0, (uint)instanceTransforms.Count);
             }
@@ -132,6 +134,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var instance in instances) {
                 uniqueObjectIds.Add(instance.ObjectId);
             }
+
             foreach (var objectId in uniqueObjectIds) {
                 MeshManager.IncrementRefCount(objectId);
             }
@@ -142,6 +145,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var instance in instances) {
                 uniqueObjectIds.Add(instance.ObjectId);
             }
+
             foreach (var objectId in uniqueObjectIds) {
                 MeshManager.DecrementRefCount(objectId);
             }

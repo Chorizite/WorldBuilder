@@ -653,7 +653,8 @@ public class GameScene : IDisposable {
         }
 
         if (_state.ShowStaticObjects || _state.ShowBuildings) {
-            _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos, _state.ShowBuildings, _state.ShowStaticObjects);
+            _staticObjectManager?.SetVisibilityFilters(_state.ShowBuildings, _state.ShowStaticObjects);
+            _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
         }
 
         if (_state.ShowSkybox) {
