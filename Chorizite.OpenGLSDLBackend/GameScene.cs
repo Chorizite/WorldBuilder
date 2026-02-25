@@ -671,15 +671,28 @@ public class GameScene : IDisposable {
 
         // Pass 1: Opaque Scenery & Static Objects
         _sceneryShader?.Bind();
-        _sceneryShader?.SetUniform("uRenderPass", _state.EnableTransparencyPass ? 0 : 2);
+        int pass1RenderPass = _state.EnableTransparencyPass ? 0 : 2;
+
+        if (_sceneryShader != null) {
+            _sceneryShader.SetUniform("uRenderPass", pass1RenderPass);
+            _sceneryShader.SetUniform("uViewProjection", snapshotVP);
+            _sceneryShader.SetUniform("uCameraPosition", snapshotPos);
+            var region = _landscapeDoc?.Region;
+            _sceneryShader.SetUniform("uLightDirection", region?.LightDirection ?? Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f)));
+            _sceneryShader.SetUniform("uSunlightColor", region?.SunlightColor ?? Vector3.One);
+            _sceneryShader.SetUniform("uAmbientColor", (region?.AmbientColor ?? new Vector3(0.4f, 0.4f, 0.4f)) * _state.LightIntensity);
+            _sceneryShader.SetUniform("uSpecularPower", 32.0f);
+            _sceneryShader.SetUniform("uHighlightColor", Vector4.Zero);
+        }
+
         _gl.DepthMask(true);
 
         if (_state.ShowScenery) {
-            _sceneryManager?.Render(snapshotVP, snapshotPos);
+            _sceneryManager?.Render(pass1RenderPass);
         }
 
         if (_state.ShowStaticObjects || _state.ShowBuildings) {
-            _staticObjectManager?.Render(snapshotVP, snapshotPos);
+            _staticObjectManager?.Render(pass1RenderPass);
         }
 
         // Pass 2: Transparent Scenery & Static Objects
@@ -689,11 +702,11 @@ public class GameScene : IDisposable {
             _gl.DepthMask(false);
 
             if (_state.ShowScenery) {
-                _sceneryManager?.Render(snapshotVP, snapshotPos);
+                _sceneryManager?.Render(1);
             }
 
             if (_state.ShowStaticObjects || _state.ShowBuildings) {
-                _staticObjectManager?.Render(snapshotVP, snapshotPos);
+                _staticObjectManager?.Render(1);
             }
         }
 

@@ -350,23 +350,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public unsafe void Render(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
-            if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || cameraPosition.Z > 4000) return;
+        public unsafe void Render(int renderPass) {
+            if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || _cameraPosition.Z > 4000) return;
 
             CurrentVAO = 0;
             CurrentIBO = 0;
             CurrentAtlas = 0;
             CurrentCullMode = null;
-
-            _shader.Bind();
-            _shader.SetUniform("uViewProjection", viewProjectionMatrix);
-            _shader.SetUniform("uCameraPosition", cameraPosition);
-            var region = _landscapeDoc.Region;
-            _shader.SetUniform("uLightDirection", region?.LightDirection ?? LightDirection);
-            _shader.SetUniform("uSunlightColor", region?.SunlightColor ?? SunlightColor);
-            _shader.SetUniform("uAmbientColor", (region?.AmbientColor ?? AmbientColor) * LightIntensity);
-            _shader.SetUniform("uSpecularPower", 32.0f);
-            _shader.SetUniform("uHighlightColor", Vector4.Zero);
 
             if (_visibleGfxObjIds.Count == 0) {
                 Gl.DepthFunc(GLEnum.Lequal);
@@ -378,7 +368,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
                 Gl.DepthFunc(GLEnum.Less);
                 _shader.SetUniform("uHighlightColor", Vector4.Zero);
-                _shader.SetUniform("uRenderPass", 0);
+                _shader.SetUniform("uRenderPass", renderPass);
                 return;
             }
 
@@ -407,7 +397,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             Gl.DepthFunc(GLEnum.Less);
 
             _shader.SetUniform("uHighlightColor", Vector4.Zero);
-            _shader.SetUniform("uRenderPass", 0);
+            _shader.SetUniform("uRenderPass", renderPass);
             Gl.BindVertexArray(0);
         }
 
