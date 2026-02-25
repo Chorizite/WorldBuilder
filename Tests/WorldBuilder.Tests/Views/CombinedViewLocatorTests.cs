@@ -112,6 +112,7 @@ public class CombinedViewLocatorTests {
         var mockDats = new Moq.Mock<WorldBuilder.Shared.Services.IDatReaderWriter>();
         var mockPortal = new Moq.Mock<WorldBuilder.Shared.Services.IDatDatabase>();
         mockDats.Setup(d => d.Portal).Returns(mockPortal.Object);
+        mockDats.Setup(d => d.CellRegions).Returns(new System.Collections.ObjectModel.ReadOnlyDictionary<uint, WorldBuilder.Shared.Services.IDatDatabase>(new System.Collections.Generic.Dictionary<uint, WorldBuilder.Shared.Services.IDatDatabase>()));
         mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.Setup>()).Returns(Enumerable.Empty<uint>());
         mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.GfxObj>()).Returns(Enumerable.Empty<uint>());
         mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.SurfaceTexture>()).Returns(Enumerable.Empty<uint>());
