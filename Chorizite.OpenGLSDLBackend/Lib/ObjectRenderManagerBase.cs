@@ -33,7 +33,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected int _activeGenerations = 0;
 
         // Prepared mesh data waiting for GPU upload (thread-safe buffer between background and main thread)
-        protected readonly ConcurrentDictionary<uint, ObjectMeshData> _preparedMeshes = new();
+        protected readonly ConcurrentDictionary<ulong, ObjectMeshData> _preparedMeshes = new();
 
         public SelectedStaticObject? HoveredInstance { get; set; }
         public SelectedStaticObject? SelectedInstance { get; set; }
@@ -54,8 +54,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected bool _initialized;
 
         // Grouped instances for rendering
-        private readonly Dictionary<uint, List<Matrix4x4>> _visibleGroups = new();
-        private readonly List<uint> _visibleGfxObjIds = new();
+        private readonly Dictionary<ulong, List<Matrix4x4>> _visibleGroups = new();
+        private readonly List<ulong> _visibleGfxObjIds = new();
 
         // List pool for rendering
         private readonly List<List<Matrix4x4>> _listPool = new();
@@ -272,7 +272,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _poolIndex = 0;
 
             foreach (var lb in _landblocks.Values) {
-                if (!lb.GpuReady || lb.Instances.Count == 0 || !IsWithinRenderDistance(lb)) continue;
+                if (!lb.GpuReady) continue;
+                if (lb.Instances.Count == 0) continue;
+                if (!IsWithinRenderDistance(lb)) continue;
 
                 var testResult = GetLandblockFrustumResult(lb.GridX, lb.GridY);
                 if (testResult == FrustumTestResult.Outside) continue;
@@ -398,7 +400,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Returns part group enumerables to iterate during fast-path rendering (landblock fully inside frustum).
         /// Default returns StaticPartGroups only. Override to include BuildingPartGroups or filter.
         /// </summary>
-        protected virtual IEnumerable<KeyValuePair<uint, List<Matrix4x4>>> GetFastPathGroups(ObjectLandblock lb) {
+        protected virtual IEnumerable<KeyValuePair<ulong, List<Matrix4x4>>> GetFastPathGroups(ObjectLandblock lb) {
             return lb.StaticPartGroups;
         }
 
@@ -584,7 +586,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             lb.GpuReady = true;
         }
 
-        private ObjectRenderData? UploadPreparedMesh(uint objectId) {
+        private ObjectRenderData? UploadPreparedMesh(ulong objectId) {
             if (MeshManager.HasRenderData(objectId))
                 return MeshManager.TryGetRenderData(objectId);
 

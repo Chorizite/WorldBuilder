@@ -130,7 +130,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         protected void IncrementInstanceRefCounts(List<SceneryInstance> instances) {
-            var uniqueObjectIds = new HashSet<uint>();
+            var uniqueObjectIds = new HashSet<ulong>();
             foreach (var instance in instances) {
                 uniqueObjectIds.Add(instance.ObjectId);
             }
@@ -141,7 +141,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         protected void DecrementInstanceRefCounts(List<SceneryInstance> instances) {
-            var uniqueObjectIds = new HashSet<uint>();
+            var uniqueObjectIds = new HashSet<ulong>();
             foreach (var instance in instances) {
                 uniqueObjectIds.Add(instance.ObjectId);
             }

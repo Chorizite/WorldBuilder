@@ -56,7 +56,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Protected: Overrides
 
-        protected override IEnumerable<KeyValuePair<uint, List<Matrix4x4>>> GetFastPathGroups(ObjectLandblock lb) {
+        protected override IEnumerable<KeyValuePair<ulong, List<Matrix4x4>>> GetFastPathGroups(ObjectLandblock lb) {
             if (_showEnvCells) {
                 foreach (var kvp in lb.BuildingPartGroups) { // Recycle BuildingPartGroups for EnvCells
                     yield return kvp;
@@ -138,29 +138,28 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 // Find entry portals from buildings in this landblock
                 var discoveredCellIds = new HashSet<uint>();
                 var cellsToProcess = new Queue<uint>();
-
-                if (_dats.CellRegions.TryGetValue(regionInfo.Region.RegionNumber, out var cellDb)) {
+                
+                var cellDb = LandscapeDoc.CellDatabase;
+                if (cellDb != null && mergedLb.Buildings.Count > 0) {
                     if (cellDb.TryGet<LandBlockInfo>(lbId, out var lbi)) {
                         foreach (var building in mergedLb.Buildings) {
-                            // Only base buildings have portal info for now
-                            var isBase = (building.InstanceId & 0x80000000) != 0;
-                            if (isBase) {
-                                int index = (int)(building.InstanceId & 0x3FFFFFFF);
-                                if (index < lbi.Buildings.Count) {
-                                    var bInfo = lbi.Buildings[index];
-                                    // Start discovery from building portals
-                                    foreach (var portal in bInfo.Portals) {
-                                        if (portal.OtherCellId != 0xFFFF) {
-                                            var cellId = (lbId & 0xFFFF0000) | portal.OtherCellId;
-                                            if (discoveredCellIds.Add(cellId)) {
-                                                cellsToProcess.Enqueue(cellId);
-                                            }
+                            int index = (int)(building.InstanceId & 0x3FFFFFFF);
+                            if (index < lbi.Buildings.Count) {
+                                var bInfo = lbi.Buildings[index];
+                                // Start discovery from building portals
+                                foreach (var portal in bInfo.Portals) {
+                                    if (portal.OtherCellId != 0xFFFF) {
+                                        var cellId = (lbId & 0xFFFF0000) | portal.OtherCellId;
+                                        if (discoveredCellIds.Add(cellId)) {
+                                            cellsToProcess.Enqueue(cellId);
                                         }
                                     }
                                 }
                             }
-                            // TODO: Support portals on custom buildings when we have that data
                         }
+                    }
+                    else {
+                        Log.LogWarning("Failed to get LandBlockInfo for {LbId:X8}", lbId);
                     }
                 }
 
@@ -178,20 +177,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             // Calculate world position
                             var localPos = new Vector3(
                                 new Vector2(lbGlobalX * lbSizeUnits + (float)envCell.Position.Origin[0], lbGlobalY * lbSizeUnits + (float)envCell.Position.Origin[1]) + regionInfo.MapOffset,
-                                (float)envCell.Position.Origin[2]
+                                envCell.Position.Origin[2]
                             );
 
                             var rotation = new Quaternion(
-                                (float)envCell.Position.Orientation[0], // X
-                                (float)envCell.Position.Orientation[1], // Y
-                                (float)envCell.Position.Orientation[2], // Z
-                                (float)envCell.Position.Orientation[3]  // W
+                                envCell.Position.Orientation[0], // X
+                                envCell.Position.Orientation[1], // Y
+                                envCell.Position.Orientation[2], // Z
+                                envCell.Position.Orientation[3]  // W
                             );
 
                             var transform = Matrix4x4.CreateFromQuaternion(rotation)
                                 * Matrix4x4.CreateTranslation(localPos);
 
-                            var isSetup = true; // Force isSetup true for EnvCells
+                            var isSetup = true; // TODO: EnvCells are Setups (.02) because they contain parts and geography
                             var bounds = MeshManager.GetBounds(envCell.Id, isSetup);
                             var localBbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max) : default;
                             var bbox = localBbox.Transform(transform);
@@ -200,7 +199,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 ObjectId = envCell.Id,
                                 InstanceId = 0,
                                 IsSetup = isSetup,
-                                IsBuilding = false,
+                                IsBuilding = true,
                                 WorldPosition = localPos,
                                 Rotation = rotation,
                                 Scale = Vector3.One,
@@ -231,10 +230,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     }
                 }
 
-                if (instances.Count > 0) {
-                    Log.LogTrace("Generated {Count} EnvCells ({Visited} visited) for landblock ({X},{Y})", instances.Count, numVisibleCells, lb.GridX, lb.GridY);
-                }
-
                 // Prepare mesh data for unique objects on background thread
                 await PrepareMeshesForInstances(instances, ct);
 
@@ -250,9 +245,5 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         #endregion
-
-        public override void Dispose() {
-            base.Dispose();
-        }
     }
 }

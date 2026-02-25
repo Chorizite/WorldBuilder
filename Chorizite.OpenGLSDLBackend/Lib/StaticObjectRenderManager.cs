@@ -131,7 +131,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.Hit = true;
                                 hit.Distance = d;
                                 hit.Type = instance.IsBuilding ? InspectorSelectionType.Building : InspectorSelectionType.StaticObject;
-                                hit.ObjectId = instance.ObjectId;
+                                hit.ObjectId = (uint)instance.ObjectId;
                                 hit.InstanceId = instance.InstanceId;
                                 hit.Position = instance.WorldPosition;
                                 hit.Rotation = instance.Rotation;
@@ -177,7 +177,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Protected: Overrides
 
-        protected override IEnumerable<KeyValuePair<uint, List<Matrix4x4>>> GetFastPathGroups(ObjectLandblock lb) {
+        protected override IEnumerable<KeyValuePair<ulong, List<Matrix4x4>>> GetFastPathGroups(ObjectLandblock lb) {
             if (_showBuildings) {
                 foreach (var kvp in lb.BuildingPartGroups) {
                     yield return kvp;
