@@ -91,7 +91,28 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 }
 
                 if (node.DataId.HasValue) {
-                    node.DbType = dats.TypeFromId(node.DataId.Value);
+                    var resolutions = dats.ResolveId(node.DataId.Value).ToList();
+                    if (resolutions.Count > 0) {
+                        node.DbType = resolutions.First().Type;
+                    }
+                }
+
+                return node;
+            }
+
+            if (obj is PackedQualifiedDataId pqid) {
+                var node = new ReflectionNodeViewModel(name, $"0x{pqid.DataId:X8}", type.Name);
+                node.DataId = pqid.DataId;
+                node.Dats = dats;
+                if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(PackedQualifiedDataId<>)) {
+                    node.TargetType = type.GetGenericArguments()[0];
+                }
+
+                if (node.DataId.HasValue) {
+                    var resolutions = dats.ResolveId(node.DataId.Value).ToList();
+                    if (resolutions.Count > 0) {
+                        node.DbType = resolutions.First().Type;
+                    }
                 }
 
                 return node;

@@ -34,7 +34,8 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             Dats = dats;
 
             Textures = surfaceTexture.Textures.Select((id, index) => {
-                var type = dats.TypeFromId(id.DataId);
+                var resolutions = dats.ResolveId(id.DataId).ToList();
+                var type = resolutions.FirstOrDefault()?.Type ?? DBObjType.Unknown;
                 var node = new ReflectionNodeViewModel($"[{index}]", $"0x{id.DataId:X8}", type.ToString());
                 node.DataId = id.DataId;
                 node.Dats = dats;

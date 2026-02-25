@@ -271,13 +271,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         public ObjectMeshData? PrepareMeshData(uint id, bool isSetup, CancellationToken ct = default) {
             try {
-                var type = _dats.TypeFromId(id);
+                var resolutions = _dats.ResolveId(id).ToList();
+                var selectedResolution = resolutions.OrderByDescending(r => r.Database == _dats.Portal).FirstOrDefault();
+                if (selectedResolution == null) return null;
+
+                var type = selectedResolution.Type;
+                var db = selectedResolution.Database;
+
                 if (type == DBObjType.Setup) {
-                    if (!_dats.Portal.TryGet<Setup>(id, out var setup)) return null;
+                    if (!db.TryGet<Setup>(id, out var setup)) return null;
                     return PrepareSetupMeshData(id, setup, ct);
                 }
                 else if (type == DBObjType.GfxObj) {
-                    if (!_dats.Portal.TryGet<GfxObj>(id, out var gfxObj)) return null;
+                    if (!db.TryGet<GfxObj>(id, out var gfxObj)) return null;
                     return PrepareGfxObjMeshData(id, gfxObj, Vector3.One, ct);
                 }
                 return null;
@@ -351,7 +357,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             try {
                 (Vector3 Min, Vector3 Max)? result = null;
-                var type = _dats.TypeFromId(id);
+                var resolutions = _dats.ResolveId(id).ToList();
+                var selectedResolution = resolutions.OrderByDescending(r => r.Database == _dats.Portal).FirstOrDefault();
+                if (selectedResolution == null) return null;
+
+                var type = selectedResolution.Type;
+                var db = selectedResolution.Database;
+
                 if (type == DBObjType.Setup) {
                     var min = new Vector3(float.MaxValue);
                     var max = new Vector3(float.MinValue);
@@ -362,7 +374,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     result = hasBounds ? (min, max) : null;
                 }
                 else {
-                    if (!_dats.Portal.TryGet<GfxObj>(id, out var gfxObj)) return null;
+                    if (!db.TryGet<GfxObj>(id, out var gfxObj)) return null;
                     result = ComputeBounds(gfxObj, Vector3.One);
                 }
                 _boundsCache[id] = result;
@@ -395,9 +407,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private void CollectParts(uint id, Matrix4x4 currentTransform, List<(uint GfxObjId, Matrix4x4 Transform)> parts, ref Vector3 min, ref Vector3 max, ref bool hasBounds, CancellationToken ct) {
             ct.ThrowIfCancellationRequested();
-            var type = _dats.TypeFromId(id);
+            var resolutions = _dats.ResolveId(id).ToList();
+            var selectedResolution = resolutions.OrderByDescending(r => r.Database == _dats.Portal).FirstOrDefault();
+            if (selectedResolution == null) return;
+
+            var type = selectedResolution.Type;
+            var db = selectedResolution.Database;
+
             if (type == DBObjType.Setup) {
-                if (!_dats.Portal.TryGet<Setup>(id, out var setup)) return;
+                if (!db.TryGet<Setup>(id, out var setup)) return;
                 var placementFrame = setup.PlacementFrames[0];
 
                 for (int i = 0; i < setup.Parts.Count; i++) {
@@ -414,7 +432,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             else if (type == DBObjType.GfxObj) {
                 parts.Add((id, currentTransform));
 
-                if (_dats.Portal.TryGet<GfxObj>(id, out var partGfx)) {
+                if (db.TryGet<GfxObj>(id, out var partGfx)) {
                     var (partMin, partMax) = ComputeBounds(partGfx, Vector3.One);
                     var corners = new Vector3[8];
                     corners[0] = new Vector3(partMin.X, partMin.Y, partMin.Z);

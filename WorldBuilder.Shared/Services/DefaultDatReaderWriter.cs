@@ -112,14 +112,28 @@ namespace WorldBuilder.Shared.Services {
             }
             return Portal.TryGetFileBytes(fileId, ref bytes, out bytesRead);
         }
-        
-        /// <summary>
-        /// Get the type of a DBObj based on its id.
-        /// </summary>
-        /// <param name="id"></param>
-        /// <returns></returns>
-        public DBObjType TypeFromId(uint id) {
-            return Portal.Db.TypeFromId(id);
+
+        /// <inheritdoc/>
+        public IEnumerable<IDatReaderWriter.IdResolution> ResolveId(uint id) {
+            var results = new List<IDatReaderWriter.IdResolution>();
+
+            void CheckDb(IDatDatabase db) {
+                if (db.Db.Tree.TryGetFile(id, out _)) {
+                    var type = db.Db.TypeFromId(id);
+                    if (type != DBObjType.Unknown) {
+                        results.Add(new IDatReaderWriter.IdResolution(db, type));
+                    }
+                }
+            }
+
+            CheckDb(HighRes);
+            CheckDb(Portal);
+            CheckDb(Language);
+            foreach (var cell in _cellRegions.Values) {
+                CheckDb(cell);
+            }
+
+            return results;
         }
 
         /// <inheritdoc/>

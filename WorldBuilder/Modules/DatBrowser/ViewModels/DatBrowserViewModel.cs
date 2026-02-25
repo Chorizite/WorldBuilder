@@ -161,7 +161,10 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             if (value != null) {
                 _isSettingObject = true;
                 try {
-                    SelectedType = Dats.TypeFromId(value.Id);
+                    var resolutions = Dats.ResolveId(value.Id).ToList();
+                    if (resolutions.Count > 0) {
+                        SelectedType = resolutions.First().Type;
+                    }
 
                     if (ObjectOverview is SurfaceTextureOverviewViewModel stovm) {
                         PreviewFileId = stovm.SelectedTextureId;
@@ -240,11 +243,12 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         }
 
         private void NavigateToFileId(uint fileId) {
-            if (_dats.Portal.TryGet<IDBObj>(fileId, out var obj)) {
-                SelectedObject = obj;
-            }
-            else if (_dats.HighRes.TryGet<IDBObj>(fileId, out var obj2)) {
-                SelectedObject = obj2;
+            var resolutions = _dats.ResolveId(fileId).ToList();
+            if (resolutions.Count > 0) {
+                var res = resolutions.First();
+                if (res.Database.TryGet<IDBObj>(fileId, out var obj)) {
+                    SelectedObject = obj;
+                }
             }
         }
 

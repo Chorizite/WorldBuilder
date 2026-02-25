@@ -69,24 +69,35 @@ namespace WorldBuilder.Services {
             return await Task.Run(() => {
                 try {
                     RenderSurface? renderSurface = null;
-                    var type = _dats.TypeFromId(textureId);
+                    var resolutions = _dats.ResolveId(textureId).ToList();
                     var renderSurfaceId = textureId;
+                    IDatDatabase? sourceDb = null;
 
-                    if (type == DBObjType.SurfaceTexture) {
-                        if (_dats.Portal != null && _dats.Portal.TryGet<SurfaceTexture>(textureId, out var surfaceTexture)) {
+                    // Try to find if it's a SurfaceTexture first
+                    var surfTexRes = resolutions.FirstOrDefault(r => r.Type == DBObjType.SurfaceTexture);
+                    if (surfTexRes != null) {
+                        if (surfTexRes.Database.TryGet<SurfaceTexture>(textureId, out var surfaceTexture)) {
                             renderSurfaceId = surfaceTexture.Textures.FirstOrDefault() ?? 0;
+                            // Re-resolve for the actual RenderSurface
+                            resolutions = _dats.ResolveId(renderSurfaceId).ToList();
                         }
                     }
 
-                    if (_dats.HighRes != null && _dats.HighRes.TryGet<RenderSurface>(renderSurfaceId, out var surf)) {
-                        renderSurface = surf;
-                    }
-                    else if (_dats.Portal != null && _dats.Portal.TryGet<RenderSurface>(renderSurfaceId, out var surf2)) {
-                        renderSurface = surf2;
+                    // Look for RenderSurface in resolutions, prioritizing HighRes then Portal
+                    var renderSurfRes = resolutions.Where(r => r.Type == DBObjType.RenderSurface)
+                                                  .OrderByDescending(r => r.Database == _dats.HighRes)
+                                                  .ThenByDescending(r => r.Database == _dats.Portal)
+                                                  .FirstOrDefault();
+
+                    if (renderSurfRes != null) {
+                        sourceDb = renderSurfRes.Database;
+                        if (sourceDb.TryGet<RenderSurface>(renderSurfaceId, out var surf)) {
+                            renderSurface = surf;
+                        }
                     }
 
                     if (renderSurface == null) {
-                        _logger.LogWarning("Could not find any RenderSurface for texture 0x{TextureId:X8} (Type: {Type})", textureId, type);
+                        _logger.LogWarning("Could not find any RenderSurface for texture 0x{TextureId:X8}", textureId);
                         AddToCache(cacheKey, null);
                         return null;
                     }
