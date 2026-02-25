@@ -271,7 +271,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                         var instance = new SceneryInstance {
                             ObjectId = obj.ObjectId,
-                            InstanceId = (uint)scenery.Count,
+                            InstanceId = InstanceIdConstants.Encode((uint)scenery.Count, InspectorSelectionType.Scenery),
                             IsSetup = isSetup,
                             WorldPosition = worldOrigin,
                             Rotation = quat,

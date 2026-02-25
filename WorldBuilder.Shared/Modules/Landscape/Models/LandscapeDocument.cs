@@ -194,7 +194,7 @@ namespace WorldBuilder.Shared.Models {
             }
         }
 
-        public void RemoveInstance(string layerId, ushort chunkId, uint instanceId) {
+        public void RemoveInstance(string layerId, ushort chunkId, ulong instanceId) {
             if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
                 if (!chunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
                     layerEdits = new LandscapeChunkEdits();
@@ -441,9 +441,9 @@ namespace WorldBuilder.Shared.Models {
             var lbFileId = (landblockId & 0xFFFF0000) | 0xFFFE;
             if (CellDatabase != null && CellDatabase.TryGetFileBytes(lbFileId, out var _)) {
                 if (CellDatabase.TryGet<LandBlockInfo>(lbFileId, out var lbi)) {
-                    Dictionary<uint, StaticObject> baseStatics = new();
+                    Dictionary<ulong, StaticObject> baseStatics = new();
                     for (int i = 0; i < lbi.Objects.Count; i++) {
-                        uint instanceId = (uint)i | 0x40000000;
+                        ulong instanceId = InstanceIdConstants.Encode((uint)i, InspectorSelectionType.StaticObject);
                         baseStatics[instanceId] = new StaticObject {
                             SetupId = lbi.Objects[i].Id,
                             Position = [lbi.Objects[i].Frame.Origin.X, lbi.Objects[i].Frame.Origin.Y, lbi.Objects[i].Frame.Origin.Z, lbi.Objects[i].Frame.Orientation.W, lbi.Objects[i].Frame.Orientation.X, lbi.Objects[i].Frame.Orientation.Y, lbi.Objects[i].Frame.Orientation.Z],
@@ -452,9 +452,9 @@ namespace WorldBuilder.Shared.Models {
                         };
                     }
 
-                    Dictionary<uint, BuildingObject> baseBuildings = new();
+                    Dictionary<ulong, BuildingObject> baseBuildings = new();
                     for (int i = 0; i < lbi.Buildings.Count; i++) {
-                        uint instanceId = (uint)i | 0x80000000;
+                        ulong instanceId = InstanceIdConstants.Encode((uint)i, InspectorSelectionType.Building);
                         baseBuildings[instanceId] = new BuildingObject {
                             ModelId = lbi.Buildings[i].ModelId,
                             Position = [lbi.Buildings[i].Frame.Origin.X, lbi.Buildings[i].Frame.Origin.Y, lbi.Buildings[i].Frame.Origin.Z, lbi.Buildings[i].Frame.Orientation.W, lbi.Buildings[i].Frame.Orientation.X, lbi.Buildings[i].Frame.Orientation.Y, lbi.Buildings[i].Frame.Orientation.Z],
@@ -534,10 +534,10 @@ namespace WorldBuilder.Shared.Models {
                     LayerId = "Base"
                 };
 
-                Dictionary<uint, StaticObject> baseStatics = new();
+                Dictionary<ulong, StaticObject> baseStatics = new();
                 if (cell.StaticObjects != null) {
                     for (int i = 0; i < cell.StaticObjects.Count; i++) {
-                        uint instanceId = (uint)i | 0x40000000;
+                        ulong instanceId = InstanceIdConstants.Encode((uint)i, InspectorSelectionType.StaticObject);
                         baseStatics[instanceId] = new StaticObject {
                             SetupId = cell.StaticObjects[i].Id,
                             Position = [cell.StaticObjects[i].Frame.Origin.X, cell.StaticObjects[i].Frame.Origin.Y, cell.StaticObjects[i].Frame.Origin.Z, cell.StaticObjects[i].Frame.Orientation.W, cell.StaticObjects[i].Frame.Orientation.X, cell.StaticObjects[i].Frame.Orientation.Y, cell.StaticObjects[i].Frame.Orientation.Z],

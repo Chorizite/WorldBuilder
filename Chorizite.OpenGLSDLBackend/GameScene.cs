@@ -570,23 +570,23 @@ public class GameScene : IDisposable {
         _debugRenderer.DrawSphere(pos, 1.5f, color);
     }
 
-    public void SetHoveredObject(InspectorSelectionType type, uint landblockId, uint instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
+    public void SetHoveredObject(InspectorSelectionType type, uint landblockId, ulong instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
         SetObjectHighlight(ref _hoveredVertex, type, landblockId, instanceId, objectId, vx, vy, (m, val) => {
             if (m is SceneryRenderManager srm) srm.HoveredInstance = (SelectedStaticObject?)val;
             if (m is StaticObjectRenderManager sorm) sorm.HoveredInstance = (SelectedStaticObject?)val;
-            if (m is PortalRenderManager prm) prm.HoveredPortal = ((uint, uint)?)val;
+            if (m is PortalRenderManager prm) prm.HoveredPortal = ((uint, ulong)?)val;
         });
     }
 
-    public void SetSelectedObject(InspectorSelectionType type, uint landblockId, uint instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
+    public void SetSelectedObject(InspectorSelectionType type, uint landblockId, ulong instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
         SetObjectHighlight(ref _selectedVertex, type, landblockId, instanceId, objectId, vx, vy, (m, val) => {
             if (m is SceneryRenderManager srm) srm.SelectedInstance = (SelectedStaticObject?)val;
             if (m is StaticObjectRenderManager sorm) sorm.SelectedInstance = (SelectedStaticObject?)val;
-            if (m is PortalRenderManager prm) prm.SelectedPortal = ((uint, uint)?)val;
+            if (m is PortalRenderManager prm) prm.SelectedPortal = ((uint, ulong)?)val;
         });
     }
 
-    private void SetObjectHighlight(ref (int x, int y)? vertexStorage, InspectorSelectionType type, uint landblockId, uint instanceId, uint objectId, int vx, int vy, Action<object, object?> setter) {
+    private void SetObjectHighlight(ref (int x, int y)? vertexStorage, InspectorSelectionType type, uint landblockId, ulong instanceId, uint objectId, int vx, int vy, Action<object, object?> setter) {
         vertexStorage = (type == InspectorSelectionType.Vertex && (vx != 0 || vy != 0)) ? (vx, vy) : null;
 
         if (_sceneryManager != null) {

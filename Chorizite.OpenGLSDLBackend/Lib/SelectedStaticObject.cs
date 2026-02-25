@@ -3,7 +3,7 @@ using System;
 namespace Chorizite.OpenGLSDLBackend.Lib {
     public struct SelectedStaticObject {
         public ushort LandblockKey;
-        public uint InstanceId;
+        public ulong InstanceId;
 
         public override bool Equals(object? obj) => obj is SelectedStaticObject other && LandblockKey == other.LandblockKey && InstanceId == other.InstanceId;
         public override int GetHashCode() => HashCode.Combine(LandblockKey, InstanceId);

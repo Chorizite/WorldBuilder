@@ -369,15 +369,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>
         /// Gets bounding box for an object (for frustum culling).
         /// </summary>
-        public (Vector3 Min, Vector3 Max)? GetBounds(uint id, bool isSetup) {
-            ulong ulongId = id;
-            if (_boundsCache.TryGetValue(ulongId, out var cachedBounds)) {
+        public (Vector3 Min, Vector3 Max)? GetBounds(ulong id, bool isSetup) {
+            if (_boundsCache.TryGetValue(id, out var cachedBounds)) {
                 return cachedBounds;
             }
 
             try {
                 (Vector3 Min, Vector3 Max)? result = null;
-                var resolutions = _dats.ResolveId(id).ToList();
+                uint datId = (uint)(id & 0xFFFFFFFFu);
+                var resolutions = _dats.ResolveId(datId).ToList();
                 var selectedResolution = resolutions.OrderByDescending(r => r.Database == _dats.Portal).FirstOrDefault();
                 if (selectedResolution == null) return null;
 
@@ -390,24 +390,24 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     bool hasBounds = false;
                     var parts = new List<(ulong GfxObjId, Matrix4x4 Transform)>();
 
-                    CollectParts(id, Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds, CancellationToken.None);
+                    CollectParts(datId, Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds, CancellationToken.None);
                     result = hasBounds ? (min, max) : null;
                 }
                 else if (type == DBObjType.EnvCell) {
-                    if (!db.TryGet<EnvCell>(id, out var envCell)) return null;
+                    if (!db.TryGet<EnvCell>(datId, out var envCell)) return null;
                     var min = new Vector3(float.MaxValue);
                     var max = new Vector3(float.MinValue);
                     bool hasBounds = false;
                     var parts = new List<(ulong GfxObjId, Matrix4x4 Transform)>();
 
-                    CollectParts(id, Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds, CancellationToken.None);
+                    CollectParts(datId, Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds, CancellationToken.None);
                     result = hasBounds ? (min, max) : null;
                 }
                 else {
-                    if (!db.TryGet<GfxObj>(id, out var gfxObj)) return null;
+                    if (!db.TryGet<GfxObj>(datId, out var gfxObj)) return null;
                     result = ComputeBounds(gfxObj, Vector3.One);
                 }
-                _boundsCache[ulongId] = result;
+                _boundsCache[id] = result;
                 return result;
             }
             catch (Exception ex) {

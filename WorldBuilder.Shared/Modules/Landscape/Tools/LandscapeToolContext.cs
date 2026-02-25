@@ -8,21 +8,12 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     public class StaticObjectSelectionEventArgs : EventArgs {
         public uint LandblockId { get; }
-        public uint InstanceId { get; }
+        public ulong InstanceId { get; }
 
-        public StaticObjectSelectionEventArgs(uint landblockId, uint instanceId) {
+        public StaticObjectSelectionEventArgs(uint landblockId, ulong instanceId) {
             LandblockId = landblockId;
             InstanceId = instanceId;
         }
-    }
-
-    public enum InspectorSelectionType {
-        None,
-        Vertex,
-        Building,
-        StaticObject,
-        Scenery,
-        Portal
     }
 
     public class InspectorSelectionEventArgs : EventArgs {
@@ -51,11 +42,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public event EventHandler<StaticObjectSelectionEventArgs>? StaticObjectHovered;
         public event EventHandler<StaticObjectSelectionEventArgs>? StaticObjectSelected;
 
-        public void NotifyStaticObjectHovered(uint landblockId, uint instanceId) {
+        public void NotifyStaticObjectHovered(uint landblockId, ulong instanceId) {
             StaticObjectHovered?.Invoke(this, new StaticObjectSelectionEventArgs(landblockId, instanceId));
         }
 
-        public void NotifyStaticObjectSelected(uint landblockId, uint instanceId) {
+        public void NotifyStaticObjectSelected(uint landblockId, ulong instanceId) {
             StaticObjectSelected?.Invoke(this, new StaticObjectSelectionEventArgs(landblockId, instanceId));
         }
 

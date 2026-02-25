@@ -24,7 +24,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models
         /// Base dat objects get an ID corresponding to their array index.
         /// Custom spawned objects get generated IDs.
         /// </summary>
-        [MemoryPackOrder(2)] public uint InstanceId { get; init; }
+        [MemoryPackOrder(2)] public ulong InstanceId { get; init; }
 
         /// <summary>
         /// Landscape Layer ID owning this static instance.

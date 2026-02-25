@@ -49,8 +49,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public bool ShowPortals { get; set; } = true;
         public int RenderDistance { get; set; } = 12;
 
-        public (uint CellId, uint PortalIndex)? HoveredPortal { get; set; }
-        public (uint CellId, uint PortalIndex)? SelectedPortal { get; set; }
+        public (uint CellId, ulong PortalIndex)? HoveredPortal { get; set; }
+        public (uint CellId, ulong PortalIndex)? SelectedPortal { get; set; }
 
         private Vector3 _cameraPosition;
         private int _cameraLbX;
@@ -225,7 +225,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     Position = rayOrigin + rayDirection * closestDistance,
                     LandblockId = closestLandblockId,
                     ObjectId = closestPortal.CellId,
-                    InstanceId = closestPortal.PortalIndex
+                    InstanceId = InstanceIdConstants.Encode((uint)closestPortal.PortalIndex, InspectorSelectionType.Portal)
                 };
                 return true;
             }

@@ -46,7 +46,7 @@ public partial class LandscapeDocument {
     /// <summary>
     /// Deletes a static object from a landscape layer.
     /// </summary>
-    public async Task<Result<bool>> DeleteStaticObjectAsync(string layerId, uint landblockId, uint instanceId, IDatReaderWriter dats, IDocumentManager documentManager, ITransaction tx, CancellationToken ct) {
+    public async Task<Result<bool>> DeleteStaticObjectAsync(string layerId, uint landblockId, ulong instanceId, IDatReaderWriter dats, IDocumentManager documentManager, ITransaction tx, CancellationToken ct) {
         try {
             var layer = FindItem(layerId) as LandscapeLayer;
             if (layer == null) {

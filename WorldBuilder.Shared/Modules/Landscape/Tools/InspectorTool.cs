@@ -161,13 +161,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                         Vector3 vertexPos = new Vector3(vX, vY, vHeight);
                         if (Vector3.Distance(terrainHit.HitPosition, vertexPos) <= 1.5f) {
                             if (terrainHit.Distance < bestHit.Distance) {
+                                uint vertexIndex = (uint)(_context.Document.Region?.GetVertexIndex(vx, vy) ?? 0);
                                 bestHit = new SceneRaycastHit {
                                     Hit = true,
                                     Type = InspectorSelectionType.Vertex,
                                     Distance = terrainHit.Distance,
                                     Position = terrainHit.HitPosition,
                                     VertexX = vx,
-                                    VertexY = vy
+                                    VertexY = vy,
+                                    InstanceId = InstanceIdConstants.Encode(vertexIndex, InspectorSelectionType.Vertex)
                                 };
                             }
                         }

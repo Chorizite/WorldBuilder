@@ -11,7 +11,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public ulong ObjectId;
 
         /// <summary>Unique instance ID within the landblock.</summary>
-        public uint InstanceId;
+        public ulong InstanceId;
 
         /// <summary>True for multi-part Setup objects, false for simple GfxObj.</summary>
         public bool IsSetup;
