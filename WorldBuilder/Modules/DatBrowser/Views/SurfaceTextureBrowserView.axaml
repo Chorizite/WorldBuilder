@@ -35,6 +35,8 @@
                         <views:DatObjectPreview 
                             DataId="{Binding}"
                             Dats="{Binding $parent[UserControl].((vm:SurfaceTextureBrowserViewModel)DataContext).Dats}"
+                            ShowWireframe="{Binding $parent[UserControl].((vm:SurfaceTextureBrowserViewModel)DataContext).ShowWireframe, Mode=TwoWay}"
+                            WireframeColor="{Binding $parent[UserControl].((vm:SurfaceTextureBrowserViewModel)DataContext).WireframeColor}"
                             IsTooltip="False" />
                     </DataTemplate>
                 </TabControl.ContentTemplate>

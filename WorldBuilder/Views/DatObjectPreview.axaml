@@ -18,7 +18,7 @@
             Dats="{Binding Dats, ElementName=Root}"
             IsTooltip="{Binding IsTooltip, ElementName=Root}"
             ClearColor="{Binding ClearColor, ElementName=Root}"
-            ShowWireframe="{Binding ShowWireframe, ElementName=Root}"
+            ShowWireframe="{Binding ShowWireframe, ElementName=Root, Mode=TwoWay}"
             WireframeColor="{Binding WireframeColor, ElementName=Root}"
             ShowCulling="{Binding ShowCulling, ElementName=Root}"
             HorizontalAlignment="Stretch" 

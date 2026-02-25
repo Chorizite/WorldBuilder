@@ -45,8 +45,15 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         [NotifyPropertyChangedFor(nameof(CalculatedItemSize))]
         private double _containerWidth = 800;
 
-        [ObservableProperty]
-        private bool _showWireframe;
+        public bool ShowWireframe {
+            get => _settings.DatBrowser.ShowWireframe;
+            set {
+                if (_settings.DatBrowser.ShowWireframe != value) {
+                    _settings.DatBrowser.ShowWireframe = value;
+                    OnPropertyChanged(nameof(ShowWireframe));
+                }
+            }
+        }
 
         [ObservableProperty]
         private Vector4 _wireframeColor = new Vector4(0.0f, 1.0f, 0.0f, 0.5f);
@@ -69,7 +76,6 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             _themeService = themeService;
             _onSelected = onSelected;
             _title = $"Browsing {type}";
-            _showWireframe = false;
             _wireframeColor = themeService.IsDarkMode ? new Vector4(1f, 1f, 1f, 0.5f) : new Vector4(0f, 0f, 0f, 0.5f);
 
             _themeService.PropertyChanged += (s, e) => {
@@ -83,6 +89,9 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 if (e.PropertyName == nameof(DatBrowserSettings.ItemsPerRow)) {
                     OnPropertyChanged(nameof(ItemsPerRow));
                     OnPropertyChanged(nameof(CalculatedItemSize));
+                }
+                if (e.PropertyName == nameof(DatBrowserSettings.ShowWireframe)) {
+                    OnPropertyChanged(nameof(ShowWireframe));
                 }
             };
 

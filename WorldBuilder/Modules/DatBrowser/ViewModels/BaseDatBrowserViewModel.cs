@@ -9,6 +9,7 @@ using DatReaderWriter;
 using WorldBuilder.Shared.Services;
 using WorldBuilder.Services;
 using WorldBuilder.Lib;
+using WorldBuilder.Lib.Settings;
 using System.Numerics;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
@@ -30,6 +31,16 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         [ObservableProperty]
         private Vector4 _wireframeColor = new Vector4(0.0f, 1.0f, 0.0f, 0.5f);
 
+        public bool ShowWireframe {
+            get => _settings.DatBrowser.ShowWireframe;
+            set {
+                if (_settings.DatBrowser.ShowWireframe != value) {
+                    _settings.DatBrowser.ShowWireframe = value;
+                    OnPropertyChanged(nameof(ShowWireframe));
+                }
+            }
+        }
+
         public IDatReaderWriter Dats => _dats;
 
         public bool IsDarkMode => _themeService.IsDarkMode;
@@ -49,6 +60,12 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 if (e.PropertyName == nameof(ThemeService.IsDarkMode)) {
                     OnPropertyChanged(nameof(IsDarkMode));
                     WireframeColor = _themeService.IsDarkMode ? new Vector4(1f, 1f, 1f, 0.5f) : new Vector4(0f, 0f, 0f, 0.5f);
+                }
+            };
+
+            _settings.DatBrowser.PropertyChanged += (s, e) => {
+                if (e.PropertyName == nameof(DatBrowserSettings.ShowWireframe)) {
+                    OnPropertyChanged(nameof(ShowWireframe));
                 }
             };
         }

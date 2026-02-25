@@ -736,7 +736,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         surfaceId = 0x08000000u | surfaceOverrides[surfaceIdx];
                     }
                     else {
-                        // Fallback or skip? ACViewer uses the surfaceIdx as an index into the EnvCell.Surfaces list.
+                        _logger.LogWarning($"Failed to find surface override for index {surfaceIdx} in CellStruct 0x{cellStruct:X4}");
                         return;
                     }
 

@@ -28,7 +28,7 @@
                 DataId="{Binding SelectedFileId}"
                 Dats="{Binding Dats}"
                 ClearColor="{Binding IsDarkMode, Converter={StaticResource ThemeToViewportBrushConverter}}"
-                ShowWireframe="True"
+                ShowWireframe="{Binding ShowWireframe, Mode=TwoWay}"
                 WireframeColor="{Binding WireframeColor}"
                 IsTooltip="False" />
             <Panel IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsZero}}">
