@@ -4,6 +4,7 @@ using Silk.NET.OpenGL;
 using System.Numerics;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Services;
 using Xunit;
 
 namespace Chorizite.OpenGLSDLBackend.Tests;
@@ -16,9 +17,10 @@ public class GameSceneTests {
         var mockGraphicsDevice = new Mock<OpenGLGraphicsDevice>(MockBehavior.Loose, new object[] { null!, null! });
         var mockLoggerFactory = new Mock<ILoggerFactory>();
         var mockLogger = new Mock<ILogger>();
+        var mockPortalService = new Mock<IPortalService>();
         mockLoggerFactory.Setup(x => x.CreateLogger(It.IsAny<string>())).Returns(mockLogger.Object);
 
-        _gameScene = new GameScene(mockGl.Object, mockGraphicsDevice.Object, mockLoggerFactory.Object);
+        _gameScene = new GameScene(mockGl.Object, mockGraphicsDevice.Object, mockLoggerFactory.Object, mockPortalService.Object);
     }
 
     [Fact]
