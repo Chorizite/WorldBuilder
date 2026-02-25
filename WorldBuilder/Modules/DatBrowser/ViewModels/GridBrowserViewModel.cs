@@ -1,12 +1,13 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using WorldBuilder.ViewModels;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.Input;
-using System;
 using WorldBuilder.Shared.Services;
 using CommunityToolkit.Mvvm.Messaging;
 using DatReaderWriter.Enums;
@@ -16,13 +17,15 @@ using System.Numerics;
 
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
-    public partial class GridBrowserViewModel : ViewModelBase {
+    public partial class GridBrowserViewModel : ViewModelBase, IDisposable {
         private readonly IDatReaderWriter _dats;
         private readonly IDatDatabase _database;
         private readonly DBObjType _type;
         private readonly Action<uint> _onSelected;
         private readonly WorldBuilderSettings _settings;
         private readonly ThemeService _themeService;
+        private readonly PropertyChangedEventHandler _themeChangedHandler;
+        private readonly PropertyChangedEventHandler _settingsChangedHandler;
 
         [ObservableProperty]
         private uint _selectedFileId;
@@ -78,14 +81,15 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             _title = $"Browsing {type}";
             _wireframeColor = themeService.IsDarkMode ? new Vector4(1f, 1f, 1f, 0.5f) : new Vector4(0f, 0f, 0f, 0.5f);
 
-            _themeService.PropertyChanged += (s, e) => {
+            _themeChangedHandler = (s, e) => {
                 if (e.PropertyName == nameof(ThemeService.IsDarkMode)) {
                     OnPropertyChanged(nameof(IsDarkMode));
                     WireframeColor = _themeService.IsDarkMode ? new Vector4(1f, 1f, 1f, 0.5f) : new Vector4(0f, 0f, 0f, 0.5f);
                 }
             };
+            _themeService.PropertyChanged += _themeChangedHandler;
 
-            _settings.DatBrowser.PropertyChanged += (s, e) => {
+            _settingsChangedHandler = (s, e) => {
                 if (e.PropertyName == nameof(DatBrowserSettings.ItemsPerRow)) {
                     OnPropertyChanged(nameof(ItemsPerRow));
                     OnPropertyChanged(nameof(CalculatedItemSize));
@@ -94,6 +98,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                     OnPropertyChanged(nameof(ShowWireframe));
                 }
             };
+            _settings.DatBrowser.PropertyChanged += _settingsChangedHandler;
 
             LoadIds();
         }
@@ -134,5 +139,11 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private void OpenInNewWindow(uint id) {
             WeakReferenceMessenger.Default.Send(new OpenQualifiedDataIdMessage(id, null));
         }
+
+        public void Dispose() {
+            _themeService.PropertyChanged -= _themeChangedHandler;
+            _settings.DatBrowser.PropertyChanged -= _settingsChangedHandler;
+        }
     }
 }
+

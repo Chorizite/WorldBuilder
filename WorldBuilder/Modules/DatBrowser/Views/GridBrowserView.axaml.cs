@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -8,11 +9,18 @@ namespace WorldBuilder.Modules.DatBrowser.Views {
         public GridBrowserView() {
             InitializeComponent();
             AddHandler(PointerPressedEvent, OnItemPointerPressed, RoutingStrategies.Tunnel);
-            SizeChanged += (s, e) => {
-                if (DataContext is GridBrowserViewModel vm) {
-                    vm.ContainerWidth = e.NewSize.Width;
-                }
-            };
+            SizeChanged += OnSizeChanged;
+        }
+
+        private void OnSizeChanged(object? sender, SizeChangedEventArgs e) {
+            if (DataContext is GridBrowserViewModel vm) {
+                vm.ContainerWidth = e.NewSize.Width;
+            }
+        }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
+            base.OnDetachedFromVisualTree(e);
+            SizeChanged -= OnSizeChanged;
         }
 
         private void OnItemPointerPressed(object? sender, PointerPressedEventArgs e) {
@@ -30,3 +38,4 @@ namespace WorldBuilder.Modules.DatBrowser.Views {
         }
     }
 }
+

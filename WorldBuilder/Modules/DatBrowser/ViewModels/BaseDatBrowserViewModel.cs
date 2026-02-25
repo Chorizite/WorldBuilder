@@ -1,5 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using WorldBuilder.ViewModels;
 using DatReaderWriter.DBObjs;
@@ -13,11 +15,13 @@ using WorldBuilder.Lib.Settings;
 using System.Numerics;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
-    public abstract partial class BaseDatBrowserViewModel<T> : ViewModelBase, IDatBrowserViewModel where T : class, IDBObj {
+    public abstract partial class BaseDatBrowserViewModel<T> : ViewModelBase, IDatBrowserViewModel, IDisposable where T : class, IDBObj {
         protected readonly IDatReaderWriter _dats;
         protected readonly IDatDatabase _database;
         protected readonly WorldBuilderSettings _settings;
         protected readonly ThemeService _themeService;
+        private readonly PropertyChangedEventHandler _themeChangedHandler;
+        private readonly PropertyChangedEventHandler _settingsChangedHandler;
 
         [ObservableProperty]
         private IEnumerable<uint> _fileIds = Enumerable.Empty<uint>();
@@ -56,18 +60,20 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             GridBrowser = new GridBrowserViewModel(type, dats, settings, themeService, (id) => SelectedFileId = id, _database);
             _wireframeColor = themeService.IsDarkMode ? new Vector4(1f, 1f, 1f, 0.5f) : new Vector4(0f, 0f, 0f, 0.5f);
 
-            _themeService.PropertyChanged += (s, e) => {
+            _themeChangedHandler = (s, e) => {
                 if (e.PropertyName == nameof(ThemeService.IsDarkMode)) {
                     OnPropertyChanged(nameof(IsDarkMode));
                     WireframeColor = _themeService.IsDarkMode ? new Vector4(1f, 1f, 1f, 0.5f) : new Vector4(0f, 0f, 0f, 0.5f);
                 }
             };
+            _themeService.PropertyChanged += _themeChangedHandler;
 
-            _settings.DatBrowser.PropertyChanged += (s, e) => {
+            _settingsChangedHandler = (s, e) => {
                 if (e.PropertyName == nameof(DatBrowserSettings.ShowWireframe)) {
                     OnPropertyChanged(nameof(ShowWireframe));
                 }
             };
+            _settings.DatBrowser.PropertyChanged += _settingsChangedHandler;
         }
 
         partial void OnSelectedFileIdChanged(uint value) {
@@ -98,6 +104,12 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         }
 
         protected virtual void OnObjectLoaded(T? obj) {
+        }
+
+        public virtual void Dispose() {
+            _themeService.PropertyChanged -= _themeChangedHandler;
+            _settings.DatBrowser.PropertyChanged -= _settingsChangedHandler;
+            GridBrowser.Dispose();
         }
     }
 }

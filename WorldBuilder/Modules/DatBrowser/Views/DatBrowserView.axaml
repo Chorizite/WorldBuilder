@@ -42,6 +42,19 @@
             <Setter Property="MinHeight" Value="24"/>
             <Setter Property="Padding" Value="8,0"/>
         </Style>
+        <!-- Shared overview styles, used by SurfaceTextureOverviewView and EnvCellOverviewView -->
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="2"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}"/>
+        </Style>
+        <Style Selector="ListBoxItem:selected Border#ItemBorder">
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}"/>
+            <Setter Property="BorderThickness" Value="3"/>
+            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}"/>
+        </Style>
     </UserControl.Styles>
     
     <Grid ColumnDefinitions="*, Auto, Auto">
