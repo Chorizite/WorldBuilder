@@ -8,20 +8,6 @@
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="450"
              x:Class="WorldBuilder.Modules.DatBrowser.Views.SurfaceTextureOverviewView"
              x:DataType="vm:SurfaceTextureOverviewViewModel">
-    <UserControl.Styles>
-        <Style Selector="ListBoxItem">
-            <Setter Property="Padding" Value="2"/>
-            <Setter Property="Background" Value="Transparent"/>
-        </Style>
-        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}"/>
-        </Style>
-        <Style Selector="ListBoxItem:selected Border#ItemBorder">
-            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}"/>
-            <Setter Property="BorderThickness" Value="3"/>
-            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}"/>
-        </Style>
-    </UserControl.Styles>
 
     <ScrollViewer>
         <StackPanel Margin="10" Spacing="10">

@@ -95,32 +95,12 @@ namespace WorldBuilder.Views {
 
         protected override void OnGlInit(GL gl, PixelSize canvasSize) {
             _gl = gl;
-            var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>() ?? LoggerFactory.Create(builder => {
-                builder.AddProvider(new ColorConsoleLoggerProvider());
-                builder.SetMinimumLevel(LogLevel.Debug);
-            });
 
             if (_renderDats != null) {
-                var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
-                var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
-                var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _renderDats);
-
-                _scene = new SingleObjectScene(gl, Renderer!.GraphicsDevice, loggerFactory, _renderDats, meshManager);
-                _scene.BackgroundColor = _renderBackgroundColor;
-                _scene.IsAutoCamera = _renderIsAutoCamera;
-                _scene.ShowWireframe = _renderShowWireframe;
-                _scene.WireframeColor = _renderWireframeColor;
-                _scene.ShowCulling = _renderShowCulling;
-
-                var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
-                if (settings != null) {
-                    _scene.EnableTransparencyPass = settings.Landscape.Rendering.EnableTransparencyPass;
-                }
-
-                _scene.Initialize();
-                _scene.Resize(canvasSize.Width, canvasSize.Height);
+                InitializeScene();
+                _scene?.Resize(canvasSize.Width, canvasSize.Height);
                 if (_renderFileId != 0) {
-                    _scene.SetObject(_renderFileId, _renderIsSetup);
+                    _scene?.SetObject(_renderFileId, _renderIsSetup);
                 }
             }
         }
@@ -187,29 +167,38 @@ namespace WorldBuilder.Views {
 
         private void UpdateObject() {
             if (_scene == null && _gl != null && _renderDats != null) {
-                var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>() ?? LoggerFactory.Create(builder => {
-                    builder.AddProvider(new ColorConsoleLoggerProvider());
-                    builder.SetMinimumLevel(LogLevel.Debug);
-                });
-
-                var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
-                var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
-                var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _renderDats);
-
-                _scene = new SingleObjectScene(_gl, Renderer!.GraphicsDevice, loggerFactory, _renderDats, meshManager);
-
-                var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
-                if (settings != null) {
-                    _scene.EnableTransparencyPass = settings.Landscape.Rendering.EnableTransparencyPass;
-                }
-
-                _scene.Initialize();
-                _scene.Resize((int)Bounds.Width, (int)Bounds.Height);
+                InitializeScene();
+                _scene?.Resize((int)Bounds.Width, (int)Bounds.Height);
             }
 
             if (_scene != null && _renderFileId != 0) {
                 _ = _scene.LoadObjectAsync(_renderFileId, _renderIsSetup);
             }
+        }
+
+        private void InitializeScene() {
+            var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>() ?? LoggerFactory.Create(builder => {
+                builder.AddProvider(new ColorConsoleLoggerProvider());
+                builder.SetMinimumLevel(LogLevel.Debug);
+            });
+
+            var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
+            var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
+            var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _renderDats!);
+
+            _scene = new SingleObjectScene(_gl!, Renderer!.GraphicsDevice, loggerFactory, _renderDats!, meshManager);
+            _scene.BackgroundColor = _renderBackgroundColor;
+            _scene.IsAutoCamera = _renderIsAutoCamera;
+            _scene.ShowWireframe = _renderShowWireframe;
+            _scene.WireframeColor = _renderWireframeColor;
+            _scene.ShowCulling = _renderShowCulling;
+
+            var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
+            if (settings != null) {
+                _scene.EnableTransparencyPass = settings.Landscape.Rendering.EnableTransparencyPass;
+            }
+
+            _scene.Initialize();
         }
 
         protected override void OnGlRender(double frameTime) {

@@ -40,7 +40,8 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private void Copy() {
             if (DataId.HasValue) {
                 TopLevel.Clipboard?.SetTextAsync($"0x{DataId.Value:X8}");
-            } else {
+            }
+            else {
                 TopLevel.Clipboard?.SetTextAsync(Value ?? "");
             }
         }
@@ -59,6 +60,19 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             if (children != null) {
                 Children = new ObservableCollection<ReflectionNodeViewModel>(children);
             }
+        }
+
+        /// <summary>
+        /// Creates a ReflectionNodeViewModel from a DataId, resolving its type from the dat databases.
+        /// </summary>
+        public static ReflectionNodeViewModel CreateFromDataId(string name, uint dataId, IDatReaderWriter dats) {
+            var resolutions = dats.ResolveId(dataId).ToList();
+            var type = resolutions.FirstOrDefault()?.Type ?? DBObjType.Unknown;
+            var node = new ReflectionNodeViewModel(name, $"0x{dataId:X8}", type.ToString());
+            node.DataId = dataId;
+            node.Dats = dats;
+            node.DbType = type;
+            return node;
         }
 
         [UnconditionalSuppressMessage("Trimming", "IL2075:Reflection is used for debugging/browsing", Justification = "This is a developer tool for browsing object graphs")]
@@ -131,7 +145,8 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 foreach (DictionaryEntry entry in dictionary) {
                     children.Add(Create(entry.Key?.ToString() ?? "null", entry.Value, dats, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
                 }
-            } else if (obj is IEnumerable enumerable && obj is not string) {
+            }
+            else if (obj is IEnumerable enumerable && obj is not string) {
                 int index = 0;
                 foreach (var item in enumerable) {
                     var itemType = item?.GetType();
@@ -139,17 +154,20 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                         var key = itemType.GetProperty("Key")?.GetValue(item);
                         var value = itemType.GetProperty("Value")?.GetValue(item);
                         children.Add(Create(key?.ToString() ?? "null", value, dats, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
-                    } else {
+                    }
+                    else {
                         isList = true;
                         children.Add(Create($"[{index++}]", item, dats, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
                     }
                 }
-            } else {
+            }
+            else {
                 var flags = BindingFlags.Public | BindingFlags.Instance;
                 foreach (var field in type.GetFields(flags)) {
                     try {
                         children.Add(Create(field.Name, field.GetValue(obj), dats, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
-                    } catch (Exception ex) {
+                    }
+                    catch (Exception ex) {
                         children.Add(new ReflectionNodeViewModel(field.Name, $"Error: {ex.Message}", field.FieldType.Name));
                     }
                 }
@@ -157,7 +175,8 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                     if (prop.GetIndexParameters().Length > 0) continue;
                     try {
                         children.Add(Create(prop.Name, prop.GetValue(obj), dats, new HashSet<object>(visited, ReferenceEqualityComparer.Instance), depth + 1));
-                    } catch (Exception ex) {
+                    }
+                    catch (Exception ex) {
                         children.Add(new ReflectionNodeViewModel(prop.Name, $"Error: {ex.Message}", prop.PropertyType.Name));
                     }
                 }

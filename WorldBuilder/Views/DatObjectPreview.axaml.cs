@@ -115,7 +115,13 @@ namespace WorldBuilder.Views {
         private Bitmap? _textureBitmap;
         public Bitmap? TextureBitmap {
             get => _textureBitmap;
-            private set => SetAndRaise(TextureBitmapProperty, ref _textureBitmap, value);
+            private set {
+                var old = _textureBitmap;
+                SetAndRaise(TextureBitmapProperty, ref _textureBitmap, value);
+                if (old != null && !ReferenceEquals(old, value)) {
+                    old.Dispose();
+                }
+            }
         }
 
         public static readonly StyledProperty<Stretch> ImageStretchProperty =
@@ -233,6 +239,11 @@ namespace WorldBuilder.Views {
 
         public void On1To1Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => SetStretch(Stretch.Fill);
         public void OnFitClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => SetStretch(Stretch.Uniform);
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
+            base.OnDetachedFromVisualTree(e);
+            TextureBitmap = null;
+        }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
             base.OnPropertyChanged(change);
