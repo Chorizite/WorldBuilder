@@ -132,6 +132,11 @@ namespace WorldBuilder.Lib.Settings {
         private bool _showBuildings = true;
         public bool ShowBuildings { get => _showBuildings; set => SetProperty(ref _showBuildings, value); }
 
+        [SettingDescription("Render building interior cells visible from outside")]
+        [SettingOrder(5)]
+        private bool _showEnvCells = true;
+        public bool ShowEnvCells { get => _showEnvCells; set => SetProperty(ref _showEnvCells, value); }
+
         [SettingDescription("Render portals (semi-transparent magenta polys)")]
         [SettingOrder(5)]
         private bool _showPortals = true;

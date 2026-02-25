@@ -274,7 +274,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         public ObjectMeshData? PrepareMeshData(uint id, bool isSetup, CancellationToken ct = default) {
             try {
-                var resolutions = _dats.ResolveId(id).ToList();
+                // Handle synthetic IDs for EnvCell geometry (bit 31 set)
+                var actualId = id & 0x7FFFFFFFu;
+                var resolutions = _dats.ResolveId(actualId).ToList();
                 var selectedResolution = resolutions.OrderByDescending(r => r.Database == _dats.Portal).FirstOrDefault();
                 if (selectedResolution == null) return null;
 
@@ -282,16 +284,28 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var db = selectedResolution.Database;
 
                 if (type == DBObjType.Setup) {
-                    if (!db.TryGet<Setup>(id, out var setup)) return null;
-                    return PrepareSetupMeshData(id, setup, ct);
+                    if (!db.TryGet<Setup>(actualId, out var setup)) return null;
+                    return PrepareSetupMeshData(actualId, setup, ct);
                 }
                 else if (type == DBObjType.GfxObj) {
-                    if (!db.TryGet<GfxObj>(id, out var gfxObj)) return null;
-                    return PrepareGfxObjMeshData(id, gfxObj, Vector3.One, ct);
+                    if (!db.TryGet<GfxObj>(actualId, out var gfxObj)) return null;
+                    return PrepareGfxObjMeshData(actualId, gfxObj, Vector3.One, ct);
                 }
                 else if (type == DBObjType.EnvCell) {
-                    if (!db.TryGet<EnvCell>(id, out var envCell)) return null;
-                    return PrepareEnvCellMeshData(id, envCell, ct);
+                    if (!db.TryGet<EnvCell>(actualId, out var envCell)) return null;
+
+                    // If bit 31 is set, we only want the cell geometry itself
+                    if ((id & 0x80000000u) != 0) {
+                        uint envId = 0x0D000000u | envCell.EnvironmentId;
+                        if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
+                            if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
+                                return PrepareCellStructMeshData(id, cellStruct, envCell.Surfaces, Matrix4x4.Identity, ct);
+                            }
+                        }
+                        return null;
+                    }
+
+                    return PrepareEnvCellMeshData(actualId, envCell, ct);
                 }
                 return null;
             }
@@ -449,7 +463,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     var partId = setup.Parts[i];
                     var transform = Matrix4x4.Identity;
                     if (placementFrame.Frames != null && i < placementFrame.Frames.Count) {
-                        transform = Matrix4x4.CreateFromQuaternion(placementFrame.Frames[i].Orientation)
+                        var orientation = placementFrame.Frames[i].Orientation;
+                        transform = Matrix4x4.CreateFromQuaternion(orientation)
                             * Matrix4x4.CreateTranslation(placementFrame.Frames[i].Origin);
                     }
 
@@ -459,8 +474,22 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             else if (type == DBObjType.EnvCell) {
                 if (!db.TryGet<EnvCell>(id, out var envCell)) return;
 
+                // Include cell geometry
+                uint envId = 0x0D000000u | envCell.EnvironmentId;
+                if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
+                    if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
+                        foreach (var vert in cellStruct.VertexArray.Vertices.Values) {
+                            var transformed = Vector3.Transform(vert.Origin, currentTransform);
+                            min = Vector3.Min(min, transformed);
+                            max = Vector3.Max(max, transformed);
+                        }
+                        hasBounds = true;
+                    }
+                }
+
                 foreach (var stab in envCell.StaticObjects) {
-                    var transform = Matrix4x4.CreateFromQuaternion(stab.Frame.Orientation)
+                    var orientation = stab.Frame.Orientation;
+                    var transform = Matrix4x4.CreateFromQuaternion(orientation)
                                     * Matrix4x4.CreateTranslation(stab.Frame.Origin);
                     CollectParts(stab.Id, transform * currentTransform, parts, ref min, ref max, ref hasBounds, ct);
                 }
@@ -654,7 +683,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             bool hasBounds = false;
 
             // Calculate the inverse transform of the cell to localize its contents
-            var cellTransform = Matrix4x4.CreateFromQuaternion(envCell.Position.Orientation) *
+            var cellOrientation = new System.Numerics.Quaternion(
+                (float)envCell.Position.Orientation[0], // X
+                (float)envCell.Position.Orientation[1], // Y
+                (float)envCell.Position.Orientation[2], // Z
+                (float)envCell.Position.Orientation[3]  // W
+            );
+            var cellTransform = Matrix4x4.CreateFromQuaternion(cellOrientation) *
                                 Matrix4x4.CreateTranslation(envCell.Position.Origin);
             if (!Matrix4x4.Invert(cellTransform, out var invertCellTransform)) {
                 invertCellTransform = Matrix4x4.Identity;
@@ -662,7 +697,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             // Add static objects
             foreach (var stab in envCell.StaticObjects) {
-                var transform = Matrix4x4.CreateFromQuaternion(stab.Frame.Orientation)
+                var orientation = stab.Frame.Orientation;
+                var transform = Matrix4x4.CreateFromQuaternion(orientation)
                                 * Matrix4x4.CreateTranslation(stab.Frame.Origin);
 
                 // Localize static object transform relative to the cell
@@ -679,6 +715,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     // Environment cell geometry is already local, so we pass Identity
                     cellGeometry = PrepareCellStructMeshData(id | 0x80000000u, cellStruct, envCell.Surfaces, Matrix4x4.Identity, ct);
                     if (cellGeometry != null) {
+                        parts.Add((id | 0x80000000u, Matrix4x4.Identity));
                         min = Vector3.Min(min, cellGeometry.BoundingBox.Min);
                         max = Vector3.Max(max, cellGeometry.BoundingBox.Max);
                         hasBounds = true;

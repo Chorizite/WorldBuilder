@@ -111,7 +111,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _settings.Landscape.PropertyChanged += OnLandscapeSettingsPropertyChanged;
             _settings.Landscape.Rendering.PropertyChanged += OnRenderingSettingsPropertyChanged;
             _settings.Landscape.Grid.PropertyChanged += OnGridSettingsPropertyChanged;
-            
+
             EditorState.PropertyChanged += OnEditorStatePropertyChanged;
         }
 
@@ -543,6 +543,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         EditorState.ShowScenery = _settings.Landscape.Rendering.ShowScenery;
         EditorState.ShowStaticObjects = _settings.Landscape.Rendering.ShowStaticObjects;
         EditorState.ShowBuildings = _settings.Landscape.Rendering.ShowBuildings;
+        EditorState.ShowEnvCells = _settings.Landscape.Rendering.ShowEnvCells;
         EditorState.ShowPortals = _settings.Landscape.Rendering.ShowPortals;
         EditorState.ShowSkybox = _settings.Landscape.Rendering.ShowSkybox;
         EditorState.ShowUnwalkableSlopes = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
@@ -567,6 +568,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             case nameof(EditorState.ShowScenery): _settings.Landscape.Rendering.ShowScenery = EditorState.ShowScenery; break;
             case nameof(EditorState.ShowStaticObjects): _settings.Landscape.Rendering.ShowStaticObjects = EditorState.ShowStaticObjects; break;
             case nameof(EditorState.ShowBuildings): _settings.Landscape.Rendering.ShowBuildings = EditorState.ShowBuildings; break;
+            case nameof(EditorState.ShowEnvCells): _settings.Landscape.Rendering.ShowEnvCells = EditorState.ShowEnvCells; break;
             case nameof(EditorState.ShowPortals): _settings.Landscape.Rendering.ShowPortals = EditorState.ShowPortals; break;
             case nameof(EditorState.ShowSkybox): _settings.Landscape.Rendering.ShowSkybox = EditorState.ShowSkybox; break;
             case nameof(EditorState.ShowUnwalkableSlopes): _settings.Landscape.Rendering.ShowUnwalkableSlopes = EditorState.ShowUnwalkableSlopes; break;
@@ -590,7 +592,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     }
 
     private void OnLandscapeSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
-        if (e.PropertyName == nameof(LandscapeEditorSettings.Rendering) || 
+        if (e.PropertyName == nameof(LandscapeEditorSettings.Rendering) ||
             e.PropertyName == nameof(LandscapeEditorSettings.Grid) ||
             e.PropertyName == nameof(LandscapeEditorSettings.Camera)) {
             SyncSettingsToState();

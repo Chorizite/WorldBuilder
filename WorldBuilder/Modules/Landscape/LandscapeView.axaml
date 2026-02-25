@@ -75,6 +75,9 @@
           <ToggleButton IsChecked="{Binding EditorState.ShowBuildings}" ToolTip.Tip="Toggle Buildings">
             <icons:MaterialIcon Kind="Home" />
           </ToggleButton>
+          <ToggleButton IsChecked="{Binding EditorState.ShowEnvCells}" ToolTip.Tip="Toggle EnvCells">
+            <icons:MaterialIcon Kind="OfficeBuilding" />
+          </ToggleButton>
           <ToggleButton IsChecked="{Binding EditorState.ShowStaticObjects}" ToolTip.Tip="Toggle Static Objects">
             <icons:MaterialIcon Kind="Cube" />
           </ToggleButton>

@@ -82,6 +82,11 @@ public class GameScene : IDisposable {
             _staticObjectManager.LightIntensity = _state.LightIntensity;
         }
 
+        if (_envCellManager != null) {
+            _envCellManager.RenderDistance = _state.ObjectRenderDistance;
+            _envCellManager.SetVisibilityFilters(_state.ShowEnvCells);
+        }
+
         if (_portalManager != null) {
             _portalManager.RenderDistance = _state.ObjectRenderDistance;
             _portalManager.ShowPortals = _state.ShowPortals;
@@ -103,6 +108,7 @@ public class GameScene : IDisposable {
     private bool _ownsMeshManager;
     private SceneryRenderManager? _sceneryManager;
     private StaticObjectRenderManager? _staticObjectManager;
+    private EnvCellRenderManager? _envCellManager;
     private SkyboxRenderManager? _skyboxManager = null;
     private DebugRenderer? _debugRenderer;
     private LandscapeDocument? _landscapeDoc;
@@ -116,6 +122,7 @@ public class GameScene : IDisposable {
     private float _lastTerrainUploadTime;
     private float _lastSceneryUploadTime;
     private float _lastStaticObjectUploadTime;
+    private float _lastEnvCellUploadTime;
 
     /// <summary>
     /// Gets the number of pending terrain uploads.
@@ -153,6 +160,16 @@ public class GameScene : IDisposable {
     public int PendingStaticObjectGenerations => _staticObjectManager?.QueuedGenerations ?? 0;
 
     /// <summary>
+    /// Gets the number of pending EnvCell uploads.
+    /// </summary>
+    public int PendingEnvCellUploads => _envCellManager?.QueuedUploads ?? 0;
+
+    /// <summary>
+    /// Gets the number of pending EnvCell generations.
+    /// </summary>
+    public int PendingEnvCellGenerations => _envCellManager?.QueuedGenerations ?? 0;
+
+    /// <summary>
     /// Gets the time spent on the last terrain upload in ms.
     /// </summary>
     public float LastTerrainUploadTime => _lastTerrainUploadTime;
@@ -166,6 +183,11 @@ public class GameScene : IDisposable {
     /// Gets the time spent on the last static object upload in ms.
     /// </summary>
     public float LastStaticObjectUploadTime => _lastStaticObjectUploadTime;
+
+    /// <summary>
+    /// Gets the time spent on the last EnvCell upload in ms.
+    /// </summary>
+    public float LastEnvCellUploadTime => _lastEnvCellUploadTime;
 
     /// <summary>
     /// Gets the 2D camera.
@@ -248,6 +270,10 @@ public class GameScene : IDisposable {
             _staticObjectManager.Initialize(_sceneryShader);
         }
 
+        if (_envCellManager != null && _sceneryShader != null) {
+            _envCellManager.Initialize(_sceneryShader);
+        }
+
         if (_skyboxManager != null && _sceneryShader != null) {
             _skyboxManager.Initialize(_sceneryShader);
         }
@@ -264,6 +290,10 @@ public class GameScene : IDisposable {
 
         if (_staticObjectManager != null) {
             _staticObjectManager.Dispose();
+        }
+
+        if (_envCellManager != null) {
+            _envCellManager.Dispose();
         }
 
         if (_portalManager != null) {
@@ -305,6 +335,13 @@ public class GameScene : IDisposable {
         _staticObjectManager.LightIntensity = _state.LightIntensity;
         if (_initialized && _sceneryShader != null) {
             _staticObjectManager.Initialize(_sceneryShader);
+        }
+
+        _envCellManager = new EnvCellRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager, _cullingFrustum);
+        _envCellManager.RenderDistance = _state.ObjectRenderDistance;
+        _envCellManager.SetVisibilityFilters(_state.ShowEnvCells);
+        if (_initialized && _sceneryShader != null) {
+            _envCellManager.Initialize(_sceneryShader);
         }
 
         _portalManager = new PortalRenderManager(_gl, _log, landscapeDoc, dats, _portalService, _graphicsDevice, _cullingFrustum);
@@ -473,6 +510,10 @@ public class GameScene : IDisposable {
         _lastStaticObjectUploadTime = _staticObjectManager?.ProcessUploads(remainingTime) ?? 0;
         remainingTime = Math.Max(0, remainingTime - _lastStaticObjectUploadTime);
 
+        _envCellManager?.Update(deltaTime, _currentCamera);
+        _lastEnvCellUploadTime = _envCellManager?.ProcessUploads(remainingTime) ?? 0;
+        remainingTime = Math.Max(0, remainingTime - _lastEnvCellUploadTime);
+
         _portalManager?.Update(deltaTime, _currentCamera);
         _portalManager?.ProcessUploads(remainingTime);
 
@@ -498,6 +539,7 @@ public class GameScene : IDisposable {
         _terrainManager?.InvalidateLandblock(lbX, lbY);
         _sceneryManager?.InvalidateLandblock(lbX, lbY);
         _staticObjectManager?.InvalidateLandblock(lbX, lbY);
+        _envCellManager?.InvalidateLandblock(lbX, lbY);
         _portalManager?.OnLandblockChanged(this, new LandblockChangedEventArgs(new[] { (lbX, lbY) }));
     }
 
@@ -554,6 +596,10 @@ public class GameScene : IDisposable {
         if (_staticObjectManager != null) {
             var val = ((type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId } : (object?)null;
             setter(_staticObjectManager, val);
+        }
+        if (_envCellManager != null) {
+            var val = (type == InspectorSelectionType.Building && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId } : (object?)null;
+            setter(_envCellManager, val);
         }
         if (_portalManager != null) {
             var val = (type == InspectorSelectionType.Portal && landblockId != 0) ? (object)(objectId, instanceId) : (object?)null;
@@ -657,6 +703,11 @@ public class GameScene : IDisposable {
             _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
         }
 
+        if (_state.ShowEnvCells) {
+            _envCellManager?.SetVisibilityFilters(_state.ShowEnvCells);
+            _envCellManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
+        }
+
         if (_state.ShowSkybox) {
             // Draw skybox before everything else
             //_skyboxManager?.Render(snapshotView, snapshotProj, snapshotPos, snapshotFov, (float)_width / _height);
@@ -696,6 +747,10 @@ public class GameScene : IDisposable {
             _staticObjectManager?.Render(pass1RenderPass);
         }
 
+        if (_state.ShowEnvCells) {
+            _envCellManager?.Render(pass1RenderPass);
+        }
+
         // Pass 2: Transparent Scenery & Static Objects
         if (_state.EnableTransparencyPass) {
             _sceneryShader?.Bind();
@@ -708,6 +763,10 @@ public class GameScene : IDisposable {
 
             if (_state.ShowStaticObjects || _state.ShowBuildings) {
                 _staticObjectManager?.Render(1);
+            }
+
+            if (_state.ShowEnvCells) {
+                _envCellManager?.Render(1);
             }
         }
 
@@ -830,6 +889,7 @@ public class GameScene : IDisposable {
         _portalManager?.Dispose();
         _sceneryManager?.Dispose();
         _staticObjectManager?.Dispose();
+        _envCellManager?.Dispose();
         _skyboxManager?.Dispose();
         _debugRenderer?.Dispose();
         if (_ownsMeshManager) {
