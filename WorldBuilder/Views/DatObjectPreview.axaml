@@ -19,6 +19,7 @@
             IsTooltip="{Binding IsTooltip, ElementName=Root}"
             ClearColor="{Binding ClearColor, ElementName=Root}"
             ShowWireframe="{Binding ShowWireframe, ElementName=Root}"
+            WireframeColor="{Binding WireframeColor, ElementName=Root}"
             ShowCulling="{Binding ShowCulling, ElementName=Root}"
             HorizontalAlignment="Stretch" 
             VerticalAlignment="Stretch"/>

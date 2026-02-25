@@ -9,11 +9,10 @@ using DatReaderWriter;
 using WorldBuilder.Shared.Services;
 using WorldBuilder.Services;
 using WorldBuilder.Lib;
+using System.Numerics;
 
-namespace WorldBuilder.Modules.DatBrowser.ViewModels
-{
-    public abstract partial class BaseDatBrowserViewModel<T> : ViewModelBase, IDatBrowserViewModel where T : class, IDBObj
-    {
+namespace WorldBuilder.Modules.DatBrowser.ViewModels {
+    public abstract partial class BaseDatBrowserViewModel<T> : ViewModelBase, IDatBrowserViewModel where T : class, IDBObj {
         protected readonly IDatReaderWriter _dats;
         protected readonly IDatDatabase _database;
         protected readonly WorldBuilderSettings _settings;
@@ -28,43 +27,44 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels
         [ObservableProperty]
         private IDBObj? _selectedObject;
 
+        [ObservableProperty]
+        private Vector4 _wireframeColor = new Vector4(0.0f, 1.0f, 0.0f, 0.5f);
+
         public IDatReaderWriter Dats => _dats;
 
         public bool IsDarkMode => _themeService.IsDarkMode;
 
         public GridBrowserViewModel GridBrowser { get; }
 
-        protected BaseDatBrowserViewModel(DBObjType type, IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService, IDatDatabase? database = null, IEnumerable<uint>? fileIds = null)
-        {
+        protected BaseDatBrowserViewModel(DBObjType type, IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService, IDatDatabase? database = null, IEnumerable<uint>? fileIds = null) {
             _dats = dats;
             _database = database ?? dats.Portal;
             _settings = settings;
             _themeService = themeService;
             _fileIds = fileIds ?? _database.GetAllIdsOfType<T>().OrderBy(x => x).ToList();
             GridBrowser = new GridBrowserViewModel(type, dats, settings, themeService, (id) => SelectedFileId = id, _database);
+            _wireframeColor = themeService.IsDarkMode ? new Vector4(1f, 1f, 1f, 0.5f) : new Vector4(0f, 0f, 0f, 0.5f);
 
             _themeService.PropertyChanged += (s, e) => {
                 if (e.PropertyName == nameof(ThemeService.IsDarkMode)) {
                     OnPropertyChanged(nameof(IsDarkMode));
+                    WireframeColor = _themeService.IsDarkMode ? new Vector4(1f, 1f, 1f, 0.5f) : new Vector4(0f, 0f, 0f, 0.5f);
                 }
             };
         }
 
-        partial void OnSelectedFileIdChanged(uint value)
-        {
+        partial void OnSelectedFileIdChanged(uint value) {
             if (value == 0) {
                 OnObjectLoaded(null);
                 SelectedObject = null;
                 return;
             }
 
-            if (_database.TryGet<T>(value, out var obj))
-            {
+            if (_database.TryGet<T>(value, out var obj)) {
                 OnObjectLoaded(obj);
                 SelectedObject = obj;
             }
-            else
-            {
+            else {
                 // Try resolving via all databases
                 var resolutions = _dats.ResolveId(value).ToList();
                 foreach (var res in resolutions) {
@@ -80,8 +80,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels
             }
         }
 
-        protected virtual void OnObjectLoaded(T? obj)
-        {
+        protected virtual void OnObjectLoaded(T? obj) {
         }
     }
 }

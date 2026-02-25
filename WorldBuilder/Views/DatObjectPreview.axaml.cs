@@ -6,6 +6,7 @@ using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
 using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.Numerics;
 using System.Threading.Tasks;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Services;
@@ -163,6 +164,14 @@ namespace WorldBuilder.Views {
         public bool ShowWireframe {
             get => GetValue(ShowWireframeProperty);
             set => SetValue(ShowWireframeProperty, value);
+        }
+
+        public static readonly StyledProperty<Vector4> WireframeColorProperty =
+            AvaloniaProperty.Register<DatObjectPreview, Vector4>(nameof(WireframeColor), new Vector4(0.0f, 1.0f, 0.0f, 0.5f));
+
+        public Vector4 WireframeColor {
+            get => GetValue(WireframeColorProperty);
+            set => SetValue(WireframeColorProperty, value);
         }
 
         public static readonly StyledProperty<bool> ShowCullingProperty =

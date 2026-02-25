@@ -8,6 +8,11 @@ namespace WorldBuilder.Modules.DatBrowser.Views {
         public GridBrowserView() {
             InitializeComponent();
             AddHandler(PointerPressedEvent, OnItemPointerPressed, RoutingStrategies.Tunnel);
+            SizeChanged += (s, e) => {
+                if (DataContext is GridBrowserViewModel vm) {
+                    vm.ContainerWidth = e.NewSize.Width;
+                }
+            };
         }
 
         private void OnItemPointerPressed(object? sender, PointerPressedEventArgs e) {

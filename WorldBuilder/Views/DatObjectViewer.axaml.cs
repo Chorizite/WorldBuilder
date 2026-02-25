@@ -27,6 +27,7 @@ namespace WorldBuilder.Views {
         private bool _renderIsSetup;
         private bool _renderIsAutoCamera = true;
         private bool _renderShowWireframe;
+        private Vector4 _renderWireframeColor = new Vector4(0.0f, 1.0f, 0.0f, 0.5f);
         private bool _renderShowCulling = true;
         private Vector4 _renderBackgroundColor = new Vector4(0.15f, 0.15f, 0.2f, 1.0f);
 
@@ -70,6 +71,14 @@ namespace WorldBuilder.Views {
             set => SetValue(ShowWireframeProperty, value);
         }
 
+        public static readonly StyledProperty<Vector4> WireframeColorProperty =
+            AvaloniaProperty.Register<DatObjectViewer, Vector4>(nameof(WireframeColor), new Vector4(0.0f, 1.0f, 0.0f, 0.5f));
+
+        public Vector4 WireframeColor {
+            get => GetValue(WireframeColorProperty);
+            set => SetValue(WireframeColorProperty, value);
+        }
+
         public static readonly StyledProperty<bool> ShowCullingProperty =
             AvaloniaProperty.Register<DatObjectViewer, bool>(nameof(ShowCulling), true);
 
@@ -100,6 +109,7 @@ namespace WorldBuilder.Views {
                 _scene.BackgroundColor = _renderBackgroundColor;
                 _scene.IsAutoCamera = _renderIsAutoCamera;
                 _scene.ShowWireframe = _renderShowWireframe;
+                _scene.WireframeColor = _renderWireframeColor;
                 _scene.ShowCulling = _renderShowCulling;
 
                 var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
@@ -150,6 +160,13 @@ namespace WorldBuilder.Views {
                 _renderShowWireframe = ShowWireframe;
                 if (_scene != null) {
                     _scene.ShowWireframe = _renderShowWireframe;
+                }
+            }
+
+            if (change.Property == WireframeColorProperty) {
+                _renderWireframeColor = WireframeColor;
+                if (_scene != null) {
+                    _scene.WireframeColor = _renderWireframeColor;
                 }
             }
 

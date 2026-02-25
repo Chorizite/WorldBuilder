@@ -43,6 +43,8 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public bool EnableTransparencyPass { get; set; } = true;
 
+        public Vector4 WireframeColor { get; set; } = new Vector4(0.0f, 1.0f, 0.0f, 0.5f);
+
         public bool ShowWireframe { get; set; }
         public bool ShowCulling { get; set; }
 
@@ -266,7 +268,10 @@ namespace Chorizite.OpenGLSDLBackend {
                 // where transparent 3D objects are drawn.
                 Gl.ColorMask(true, true, true, false);
 
-                var transform = Matrix4x4.CreateRotationZ(_rotation);
+                var center = (data.BoundingBox.Min + data.BoundingBox.Max) / 2f;
+                var transform = Matrix4x4.CreateTranslation(-center)
+                              * Matrix4x4.CreateRotationZ(_rotation)
+                              * Matrix4x4.CreateTranslation(center);
 
                 // Pass 1: Opaque
                 _shader.SetUniform("uRenderPass", EnableTransparencyPass ? 0 : 2);
@@ -358,7 +363,7 @@ namespace Chorizite.OpenGLSDLBackend {
         private void SubmitObjectWireframe(ObjectRenderData data, Matrix4x4 transform) {
             if (_debugRenderer == null || data.CPUIndices.Length == 0 || data.CPUPositions.Length == 0) return;
 
-            var wireColor = new Vector4(0.0f, 1.0f, 0.0f, 0.5f); // Semi-transparent green
+            var wireColor = WireframeColor;
             var indices = data.CPUIndices;
             var positions = data.CPUPositions;
 

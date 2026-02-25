@@ -12,6 +12,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using DatReaderWriter.Enums;
 using WorldBuilder.Services;
 using WorldBuilder.Lib.Settings;
+using System.Numerics;
 
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
@@ -29,10 +30,32 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         [ObservableProperty]
         private string _title;
 
+        public int ItemsPerRow {
+            get => _settings.DatBrowser.ItemsPerRow;
+            set {
+                if (_settings.DatBrowser.ItemsPerRow != value) {
+                    _settings.DatBrowser.ItemsPerRow = value;
+                    OnPropertyChanged(nameof(ItemsPerRow));
+                    OnPropertyChanged(nameof(CalculatedItemSize));
+                }
+            }
+        }
+
         [ObservableProperty]
-        private double _itemSize = 160;
+        [NotifyPropertyChangedFor(nameof(CalculatedItemSize))]
+        private double _containerWidth = 800;
+
+        [ObservableProperty]
+        private bool _showWireframe;
+
+        [ObservableProperty]
+        private Vector4 _wireframeColor = new Vector4(0.0f, 1.0f, 0.0f, 0.5f);
 
         public bool IsDarkMode => _themeService.IsDarkMode;
+
+        public bool Is3DView => _type == DBObjType.Setup || _type == DBObjType.GfxObj || _type == DBObjType.EnvCell;
+
+        public double CalculatedItemSize => Math.Max(40, (ContainerWidth - 40 - (ItemsPerRow - 1) * 10) / ItemsPerRow);
 
         public ObservableCollection<uint> FileIds { get; } = new();
 
@@ -46,10 +69,20 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             _themeService = themeService;
             _onSelected = onSelected;
             _title = $"Browsing {type}";
+            _showWireframe = false;
+            _wireframeColor = themeService.IsDarkMode ? new Vector4(1f, 1f, 1f, 0.5f) : new Vector4(0f, 0f, 0f, 0.5f);
 
             _themeService.PropertyChanged += (s, e) => {
                 if (e.PropertyName == nameof(ThemeService.IsDarkMode)) {
                     OnPropertyChanged(nameof(IsDarkMode));
+                    WireframeColor = _themeService.IsDarkMode ? new Vector4(1f, 1f, 1f, 0.5f) : new Vector4(0f, 0f, 0f, 0.5f);
+                }
+            };
+
+            _settings.DatBrowser.PropertyChanged += (s, e) => {
+                if (e.PropertyName == nameof(DatBrowserSettings.ItemsPerRow)) {
+                    OnPropertyChanged(nameof(ItemsPerRow));
+                    OnPropertyChanged(nameof(CalculatedItemSize));
                 }
             };
 

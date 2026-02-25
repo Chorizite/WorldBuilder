@@ -42,6 +42,16 @@ namespace WorldBuilder.Services {
                 }
             }
         }
+        private DatBrowserSettings _datBrowser = new();
+        public DatBrowserSettings DatBrowser {
+            get => _datBrowser;
+            set {
+                if (_datBrowser != null) _datBrowser.PropertyChanged -= OnSubSettingsPropertyChanged;
+                if (SetProperty(ref _datBrowser, value) && _datBrowser != null) {
+                    _datBrowser.PropertyChanged += OnSubSettingsPropertyChanged;
+                }
+            }
+        }
 
         private ProjectSettings? _project;
         [JsonIgnore]
@@ -70,6 +80,9 @@ namespace WorldBuilder.Services {
             if (_landscape != null) {
                 _landscape.PropertyChanged += OnSubSettingsPropertyChanged;
                 LandscapeColorsSettings.Initialize(_landscape.Colors);
+            }
+            if (_datBrowser != null) {
+                _datBrowser.PropertyChanged += OnSubSettingsPropertyChanged;
             }
         }
 

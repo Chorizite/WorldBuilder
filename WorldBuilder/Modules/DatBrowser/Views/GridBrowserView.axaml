@@ -10,15 +10,16 @@
         x:DataType="vm:GridBrowserViewModel">
     <Grid RowDefinitions="Auto, *">
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="10,0,10,0" Spacing="10">
-            <TextBlock Text="Item Size:" VerticalAlignment="Center"/>
-            <Slider Minimum="80" Maximum="400" Value="{Binding ItemSize}" Width="200" VerticalAlignment="Center"/>
-            <TextBlock Text="{Binding ItemSize, StringFormat='{}{0:F0}px'}" VerticalAlignment="Center" Width="50"/>
+            <TextBlock Text="Items Per Row:" VerticalAlignment="Center"/>
+            <Slider Minimum="1" Maximum="36" Value="{Binding ItemsPerRow}" Width="200" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding ItemsPerRow}" VerticalAlignment="Center" Width="30"/>
+            <CheckBox Content="Show Wireframe" IsChecked="{Binding ShowWireframe}" IsVisible="{Binding Is3DView}" VerticalAlignment="Center"/>
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <ItemsRepeater ItemsSource="{Binding FileIds}" Margin="10">
                 <ItemsRepeater.Layout>
-                    <UniformGridLayout MinItemWidth="{Binding ItemSize}" 
+                    <UniformGridLayout MinItemWidth="{Binding CalculatedItemSize}" 
                                        MinColumnSpacing="10" MinRowSpacing="10" />
                 </ItemsRepeater.Layout>
                 <ItemsRepeater.ItemTemplate>
@@ -36,7 +37,10 @@
                                         Dats="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).Dats}"
                                         IsTooltip="True"
                                         ClearColor="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).IsDarkMode, Converter={StaticResource ThemeToViewportBrushConverter}}"
-                                        Height="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).ItemSize}" />
+                                        ShowWireframe="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).ShowWireframe}"
+                                        WireframeColor="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).WireframeColor}"
+                                        Width="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).CalculatedItemSize}"
+                                        Height="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).CalculatedItemSize}" />
 
                                 </Grid>
                             </Button>
