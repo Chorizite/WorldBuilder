@@ -35,6 +35,7 @@ namespace WorldBuilder.Modules.Landscape;
 public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModule, IHotkeyHandler {
     private readonly IProject _project;
     private readonly IDatReaderWriter _dats;
+    private readonly IPortalService _portalService;
     private readonly ILogger<LandscapeViewModel> _log;
     private readonly IDialogService _dialogService;
     private DocumentRental<LandscapeDocument>? _landscapeRental;
@@ -93,9 +94,10 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         set => _camera = value;
     }
 
-    public LandscapeViewModel(IProject project, IDatReaderWriter dats, IDocumentManager documentManager, ILogger<LandscapeViewModel> log, IDialogService dialogService) {
+    public LandscapeViewModel(IProject project, IDatReaderWriter dats, IPortalService portalService, IDocumentManager documentManager, ILogger<LandscapeViewModel> log, IDialogService dialogService) {
         _project = project;
         _dats = dats;
+        _portalService = portalService;
         _documentManager = documentManager;
         _log = log;
         _dialogService = dialogService;
@@ -227,11 +229,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
             _toolContext.RaycastStaticObject = (Vector3 origin, Vector3 dir, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit) => {
                 hit = SceneRaycastHit.NoHit;
-                return _gameScene?.RaycastStaticObjects(origin, dir, includeBuildings, includeStaticObjects, out hit) ?? false;
+                return _gameScene?.RaycastStaticObjects(origin, dir, includeBuildings && EditorState.ShowBuildings, includeStaticObjects && EditorState.ShowStaticObjects, out hit) ?? false;
             };
 
             _toolContext.RaycastScenery = (Vector3 origin, Vector3 dir, out SceneRaycastHit hit) => {
                 hit = SceneRaycastHit.NoHit;
+                if (!EditorState.ShowScenery) return false;
                 return _gameScene?.RaycastScenery(origin, dir, out hit) ?? false;
             };
 
@@ -243,6 +246,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _toolContext.InspectorHovered += OnInspectorHovered;
             _toolContext.InspectorSelected += OnInspectorSelected;
 
+            _gameScene?.SetToolContext(_toolContext);
             _gameScene?.SetInspectorTool(ActiveTool as InspectorTool);
 
             ActiveTool?.Activate(_toolContext);
@@ -253,11 +257,11 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     }
 
     private void OnInspectorHovered(object? sender, InspectorSelectionEventArgs e) {
-        _gameScene?.SetHoveredObject(e.Selection.Type, e.Selection.LandblockId, e.Selection.InstanceId, e.Selection.VertexX, e.Selection.VertexY);
+        _gameScene?.SetHoveredObject(e.Selection.Type, e.Selection.LandblockId, e.Selection.InstanceId, e.Selection.ObjectId, e.Selection.VertexX, e.Selection.VertexY);
     }
 
     private void OnInspectorSelected(object? sender, InspectorSelectionEventArgs e) {
-        _gameScene?.SetSelectedObject(e.Selection.Type, e.Selection.LandblockId, e.Selection.InstanceId, e.Selection.VertexX, e.Selection.VertexY);
+        _gameScene?.SetSelectedObject(e.Selection.Type, e.Selection.LandblockId, e.Selection.InstanceId, e.Selection.ObjectId, e.Selection.VertexX, e.Selection.VertexY);
 
         if (e.Selection.Type == InspectorSelectionType.StaticObject || e.Selection.Type == InspectorSelectionType.Building) {
             if (e.Selection.Type == InspectorSelectionType.StaticObject) {
@@ -269,6 +273,9 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         }
         else if (e.Selection.Type == InspectorSelectionType.Scenery) {
             PropertiesPanel.SelectedItem = new SceneryViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.Rotation);
+        }
+        else if (e.Selection.Type == InspectorSelectionType.Portal) {
+            PropertiesPanel.SelectedItem = new PortalViewModel(e.Selection.LandblockId, e.Selection.ObjectId, e.Selection.InstanceId, _dats, _portalService);
         }
         else if (e.Selection.Type == InspectorSelectionType.Vertex) {
             PropertiesPanel.SelectedItem = new LandscapeVertexViewModel(e.Selection.VertexX, e.Selection.VertexY, ActiveDocument!, _dats, CommandHistory);
@@ -394,6 +401,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _gameScene.Camera3D.OnChanged += OnCameraStateChanged;
 
             _gameScene.SetInspectorTool(ActiveTool as InspectorTool);
+            _gameScene.SetToolContext(_toolContext);
 
             if (ActiveDocument != null) {
                 RestoreCameraState();
@@ -534,6 +542,8 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         if (_settings == null) return;
         EditorState.ShowScenery = _settings.Landscape.Rendering.ShowScenery;
         EditorState.ShowStaticObjects = _settings.Landscape.Rendering.ShowStaticObjects;
+        EditorState.ShowBuildings = _settings.Landscape.Rendering.ShowBuildings;
+        EditorState.ShowPortals = _settings.Landscape.Rendering.ShowPortals;
         EditorState.ShowSkybox = _settings.Landscape.Rendering.ShowSkybox;
         EditorState.ShowUnwalkableSlopes = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
         EditorState.ObjectRenderDistance = _settings.Landscape.Rendering.ObjectRenderDistance;
@@ -556,6 +566,8 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         switch (e.PropertyName) {
             case nameof(EditorState.ShowScenery): _settings.Landscape.Rendering.ShowScenery = EditorState.ShowScenery; break;
             case nameof(EditorState.ShowStaticObjects): _settings.Landscape.Rendering.ShowStaticObjects = EditorState.ShowStaticObjects; break;
+            case nameof(EditorState.ShowBuildings): _settings.Landscape.Rendering.ShowBuildings = EditorState.ShowBuildings; break;
+            case nameof(EditorState.ShowPortals): _settings.Landscape.Rendering.ShowPortals = EditorState.ShowPortals; break;
             case nameof(EditorState.ShowSkybox): _settings.Landscape.Rendering.ShowSkybox = EditorState.ShowSkybox; break;
             case nameof(EditorState.ShowUnwalkableSlopes): _settings.Landscape.Rendering.ShowUnwalkableSlopes = EditorState.ShowUnwalkableSlopes; break;
             case nameof(EditorState.ObjectRenderDistance): _settings.Landscape.Rendering.ObjectRenderDistance = EditorState.ObjectRenderDistance; break;

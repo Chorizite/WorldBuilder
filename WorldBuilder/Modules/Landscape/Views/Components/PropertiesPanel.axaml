@@ -125,6 +125,34 @@
                             </Grid>
                         </StackPanel>
                     </DataTemplate>
+
+                    <DataTemplate DataType="vm:PortalViewModel">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Portal" FontWeight="Bold" />
+                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto">
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Cell ID: " Opacity="0.7" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CellIdHex}" VerticalAlignment="Center" />
+                                
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Portal Index: " Opacity="0.7" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PortalIndex}" VerticalAlignment="Center" />
+                                
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Landblock: " Opacity="0.7" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LandblockIdHex}" VerticalAlignment="Center" />
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Flags: " Opacity="0.7" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Flags}" VerticalAlignment="Center" />
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Polygon ID: " Opacity="0.7" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding PolygonId}" VerticalAlignment="Center" />
+
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="Other Cell: " Opacity="0.7" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding OtherCellIdHex}" VerticalAlignment="Center" />
+
+                                <TextBlock Grid.Row="6" Grid.Column="0" Text="Other Portal: " Opacity="0.7" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding OtherPortalId}" VerticalAlignment="Center" />
+                            </Grid>
+                        </StackPanel>
+                    </DataTemplate>
                 </ContentControl.DataTemplates>
             </ContentControl>
             <TextBlock Text="No selection" 

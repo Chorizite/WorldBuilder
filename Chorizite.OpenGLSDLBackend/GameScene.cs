@@ -24,6 +24,7 @@ public class GameScene : IDisposable {
     private readonly OpenGLGraphicsDevice _graphicsDevice;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger _log;
+    private readonly IPortalService _portalService;
 
     // Camera system
     private Camera2D _camera2D;
@@ -81,6 +82,11 @@ public class GameScene : IDisposable {
             _staticObjectManager.LightIntensity = _state.LightIntensity;
         }
 
+        if (_portalManager != null) {
+            _portalManager.RenderDistance = _state.ObjectRenderDistance;
+            _portalManager.ShowPortals = _state.ShowPortals;
+        }
+
         if (_skyboxManager != null) {
             _skyboxManager.TimeOfDay = _state.TimeOfDay;
             _skyboxManager.LightIntensity = _state.LightIntensity;
@@ -89,8 +95,8 @@ public class GameScene : IDisposable {
         _camera3D.FarPlane = _state.MaxDrawDistance;
     }
 
-    // Terrain
     private TerrainRenderManager? _terrainManager;
+    private PortalRenderManager? _portalManager;
 
     // Scenery / Static Objects
     private ObjectMeshManager? _meshManager;
@@ -188,10 +194,11 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Creates a new GameScene.
     /// </summary>
-    public GameScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILoggerFactory loggerFactory) {
+    public GameScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILoggerFactory loggerFactory, IPortalService portalService) {
         _gl = gl;
         _graphicsDevice = graphicsDevice;
         _loggerFactory = loggerFactory;
+        _portalService = portalService;
         _log = loggerFactory.CreateLogger<GameScene>();
 
         // Initialize cameras
@@ -258,6 +265,10 @@ public class GameScene : IDisposable {
             _staticObjectManager.Dispose();
         }
 
+        if (_portalManager != null) {
+            _portalManager.Dispose();
+        }
+
         if (_skyboxManager != null) {
             _skyboxManager.Dispose();
         }
@@ -295,6 +306,10 @@ public class GameScene : IDisposable {
             _staticObjectManager.Initialize(_sceneryShader);
         }
 
+        _portalManager = new PortalRenderManager(_gl, _log, landscapeDoc, dats, _portalService, _graphicsDevice);
+        _portalManager.RenderDistance = _state.ObjectRenderDistance;
+        _portalManager.ShowPortals = _state.ShowPortals;
+
         _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager, _staticObjectManager, documentManager);
         _sceneryManager.RenderDistance = _state.ObjectRenderDistance;
         _sceneryManager.LightIntensity = _state.LightIntensity;
@@ -314,6 +329,14 @@ public class GameScene : IDisposable {
 
         if (centerCamera && landscapeDoc.Region != null) {
             CenterCameraOnLandscape(landscapeDoc.Region);
+        }
+    }
+
+    public void SetToolContext(LandscapeToolContext? context) {
+        if (context != null) {
+            context.RaycastStaticObject = RaycastStaticObjects;
+            context.RaycastScenery = RaycastScenery;
+            context.RaycastPortals = RaycastPortals;
         }
     }
 
@@ -446,8 +469,14 @@ public class GameScene : IDisposable {
 
         _staticObjectManager?.Update(deltaTime, _currentCamera);
         _lastStaticObjectUploadTime = _staticObjectManager?.ProcessUploads(remainingTime) ?? 0;
+        remainingTime = Math.Max(0, remainingTime - _lastStaticObjectUploadTime);
+
+        _portalManager?.Update(deltaTime, _currentCamera);
+        _portalManager?.ProcessUploads(remainingTime);
 
         _skyboxManager?.Update(deltaTime);
+
+        SyncState();
     }
 
     /// <summary>
@@ -467,6 +496,7 @@ public class GameScene : IDisposable {
         _terrainManager?.InvalidateLandblock(lbX, lbY);
         _sceneryManager?.InvalidateLandblock(lbX, lbY);
         _staticObjectManager?.InvalidateLandblock(lbX, lbY);
+        _portalManager?.OnLandblockChanged(this, new LandblockChangedEventArgs(new[] { (lbX, lbY) }));
     }
 
     public void SetInspectorTool(InspectorTool? tool) {
@@ -496,57 +526,36 @@ public class GameScene : IDisposable {
         _debugRenderer.DrawSphere(pos, 1.5f, color);
     }
 
-    public void SetHoveredObject(InspectorSelectionType type, uint landblockId, uint instanceId, int vx = 0, int vy = 0) {
-        if (type == InspectorSelectionType.Vertex) {
-            _hoveredVertex = (vx == 0 && vy == 0) ? null : (vx, vy);
-            if (_sceneryManager != null) _sceneryManager.HoveredInstance = null;
-            if (_staticObjectManager != null) _staticObjectManager.HoveredInstance = null;
-        }
-        else if (type == InspectorSelectionType.Scenery) {
-            if (_sceneryManager != null) {
-                _sceneryManager.HoveredInstance = (landblockId == 0) ? null : new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId };
-            }
-            if (_staticObjectManager != null) _staticObjectManager.HoveredInstance = null;
-            _hoveredVertex = null;
-        }
-        else if (type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) {
-            if (_staticObjectManager != null) {
-                _staticObjectManager.HoveredInstance = (landblockId == 0) ? null : new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId };
-            }
-            if (_sceneryManager != null) _sceneryManager.HoveredInstance = null;
-            _hoveredVertex = null;
-        }
-        else {
-            if (_sceneryManager != null) _sceneryManager.HoveredInstance = null;
-            if (_staticObjectManager != null) _staticObjectManager.HoveredInstance = null;
-            _hoveredVertex = null;
-        }
+    public void SetHoveredObject(InspectorSelectionType type, uint landblockId, uint instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
+        SetObjectHighlight(ref _hoveredVertex, type, landblockId, instanceId, objectId, vx, vy, (m, val) => {
+            if (m is SceneryRenderManager srm) srm.HoveredInstance = (SelectedStaticObject?)val;
+            if (m is StaticObjectRenderManager sorm) sorm.HoveredInstance = (SelectedStaticObject?)val;
+            if (m is PortalRenderManager prm) prm.HoveredPortal = ((uint, uint)?)val;
+        });
     }
 
-    public void SetSelectedObject(InspectorSelectionType type, uint landblockId, uint instanceId, int vx = 0, int vy = 0) {
-        if (type == InspectorSelectionType.Vertex) {
-            _selectedVertex = (vx == 0 && vy == 0) ? null : (vx, vy);
-            if (_sceneryManager != null) _sceneryManager.SelectedInstance = null;
-            if (_staticObjectManager != null) _staticObjectManager.SelectedInstance = null;
+    public void SetSelectedObject(InspectorSelectionType type, uint landblockId, uint instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
+        SetObjectHighlight(ref _selectedVertex, type, landblockId, instanceId, objectId, vx, vy, (m, val) => {
+            if (m is SceneryRenderManager srm) srm.SelectedInstance = (SelectedStaticObject?)val;
+            if (m is StaticObjectRenderManager sorm) sorm.SelectedInstance = (SelectedStaticObject?)val;
+            if (m is PortalRenderManager prm) prm.SelectedPortal = ((uint, uint)?)val;
+        });
+    }
+
+    private void SetObjectHighlight(ref (int x, int y)? vertexStorage, InspectorSelectionType type, uint landblockId, uint instanceId, uint objectId, int vx, int vy, Action<object, object?> setter) {
+        vertexStorage = (type == InspectorSelectionType.Vertex && (vx != 0 || vy != 0)) ? (vx, vy) : null;
+
+        if (_sceneryManager != null) {
+            var val = (type == InspectorSelectionType.Scenery && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId } : (object?)null;
+            setter(_sceneryManager, val);
         }
-        else if (type == InspectorSelectionType.Scenery) {
-            if (_sceneryManager != null) {
-                _sceneryManager.SelectedInstance = (landblockId == 0) ? null : new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId };
-            }
-            if (_staticObjectManager != null) _staticObjectManager.SelectedInstance = null;
-            _selectedVertex = null;
+        if (_staticObjectManager != null) {
+            var val = ((type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId } : (object?)null;
+            setter(_staticObjectManager, val);
         }
-        else if (type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) {
-            if (_staticObjectManager != null) {
-                _staticObjectManager.SelectedInstance = (landblockId == 0) ? null : new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId };
-            }
-            if (_sceneryManager != null) _sceneryManager.SelectedInstance = null;
-            _selectedVertex = null;
-        }
-        else {
-            if (_sceneryManager != null) _sceneryManager.SelectedInstance = null;
-            if (_staticObjectManager != null) _staticObjectManager.SelectedInstance = null;
-            _selectedVertex = null;
+        if (_portalManager != null) {
+            var val = (type == InspectorSelectionType.Portal && landblockId != 0) ? (object)(objectId, instanceId) : (object?)null;
+            setter(_portalManager, val);
         }
     }
 
@@ -567,6 +576,15 @@ public class GameScene : IDisposable {
         hit = SceneRaycastHit.NoHit;
 
         if (_sceneryManager != null && _sceneryManager.Raycast(origin, direction, out hit)) {
+            return true;
+        }
+        return false;
+    }
+
+    public bool RaycastPortals(Vector3 origin, Vector3 direction, out SceneRaycastHit hit) {
+        hit = SceneRaycastHit.NoHit;
+
+        if (_portalManager != null && _portalManager.Raycast(origin, direction, out hit)) {
             return true;
         }
         return false;
@@ -630,8 +648,8 @@ public class GameScene : IDisposable {
             _sceneryManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
         }
 
-        if (_state.ShowStaticObjects) {
-            _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
+        if (_state.ShowStaticObjects || _state.ShowBuildings) {
+            _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos, _state.ShowBuildings, _state.ShowStaticObjects);
         }
 
         if (_state.ShowSkybox) {
@@ -644,6 +662,9 @@ public class GameScene : IDisposable {
             _terrainManager.Render(snapshotView, snapshotProj, snapshotVP, snapshotPos, snapshotFov);
         }
 
+        // Render Portals
+        _portalManager?.SubmitDebugShapes(_debugRenderer);
+
         // Pass 1: Opaque Scenery & Static Objects
         _sceneryShader?.Bind();
         _sceneryShader?.SetUniform("uRenderPass", _state.EnableTransparencyPass ? 0 : 2);
@@ -653,7 +674,7 @@ public class GameScene : IDisposable {
             _sceneryManager?.Render(snapshotVP, snapshotPos);
         }
 
-        if (_state.ShowStaticObjects) {
+        if (_state.ShowStaticObjects || _state.ShowBuildings) {
             _staticObjectManager?.Render(snapshotVP, snapshotPos);
         }
 
@@ -667,7 +688,7 @@ public class GameScene : IDisposable {
                 _sceneryManager?.Render(snapshotVP, snapshotPos);
             }
 
-            if (_state.ShowStaticObjects) {
+            if (_state.ShowStaticObjects || _state.ShowBuildings) {
                 _staticObjectManager?.Render(snapshotVP, snapshotPos);
             }
         }
@@ -677,9 +698,9 @@ public class GameScene : IDisposable {
             if (_inspectorTool != null) {
                 debugSettings.ShowBoundingBoxes = _inspectorTool.ShowBoundingBoxes;
                 debugSettings.SelectVertices = _inspectorTool.SelectVertices;
-                debugSettings.SelectBuildings = _inspectorTool.SelectBuildings;
-                debugSettings.SelectStaticObjects = _inspectorTool.SelectStaticObjects;
-                debugSettings.SelectScenery = _inspectorTool.SelectScenery;
+                debugSettings.SelectBuildings = _inspectorTool.SelectBuildings && _state.ShowBuildings;
+                debugSettings.SelectStaticObjects = _inspectorTool.SelectStaticObjects && _state.ShowStaticObjects;
+                debugSettings.SelectScenery = _inspectorTool.SelectScenery && _state.ShowScenery;
             }
 
             _sceneryManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
@@ -719,9 +740,9 @@ public class GameScene : IDisposable {
                     DrawVertexDebug(_selectedVertex.Value.x, _selectedVertex.Value.y, LandscapeColorsSettings.Instance.Selection);
                 }
             }
-
-            _debugRenderer?.Render(snapshotView, snapshotProj);
         }
+
+        _debugRenderer?.Render(snapshotView, snapshotProj);
 
         // Restore depth mask for subsequent renders if needed
         _gl.DepthMask(true);
@@ -788,6 +809,7 @@ public class GameScene : IDisposable {
 
     public void Dispose() {
         _terrainManager?.Dispose();
+        _portalManager?.Dispose();
         _sceneryManager?.Dispose();
         _staticObjectManager?.Dispose();
         _skyboxManager?.Dispose();

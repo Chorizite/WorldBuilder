@@ -40,5 +40,75 @@ namespace WorldBuilder.Shared.Numerics {
 
             return (rayOrigin, rayDirection);
         }
+
+        public static bool RayIntersectsBox(Vector3 rayOrigin, Vector3 rayDirection, Vector3 boxMin, Vector3 boxMax, out float distance) {
+            distance = 0;
+            float tmin = (boxMin.X - rayOrigin.X) / rayDirection.X;
+            float tmax = (boxMax.X - rayOrigin.X) / rayDirection.X;
+
+            if (tmin > tmax) (tmin, tmax) = (tmax, tmin);
+
+            float tymin = (boxMin.Y - rayOrigin.Y) / rayDirection.Y;
+            float tymax = (boxMax.Y - rayOrigin.Y) / rayDirection.Y;
+
+            if (tymin > tymax) (tymin, tymax) = (tymax, tymin);
+
+            if ((tmin > tymax) || (tymin > tmax)) return false;
+
+            if (tymin > tmin) tmin = tymin;
+            if (tymax < tmax) tmax = tymax;
+
+            float tzmin = (boxMin.Z - rayOrigin.Z) / rayDirection.Z;
+            float tzmax = (boxMax.Z - rayOrigin.Z) / rayDirection.Z;
+
+            if (tzmin > tzmax) (tzmin, tzmax) = (tzmax, tzmin);
+
+            if ((tmin > tzmax) || (tzmin > tmax)) return false;
+
+            if (tzmin > tmin) tmin = tzmin;
+            if (tzmax < tmax) tmax = tzmax;
+
+            if (tmax < 0) return false;
+
+            distance = tmin < 0 ? tmax : tmin;
+            return true;
+        }
+
+        /// <summary>
+        /// Tests if a ray intersects a convex polygon.
+        /// </summary>
+        public static bool RayIntersectsPolygon(Vector3 rayOrigin, Vector3 rayDirection, Vector3[] vertices, out float distance) {
+            distance = 0;
+            if (vertices.Length < 3) return false;
+
+            // Compute the plane's normal
+            Vector3 v0 = vertices[0];
+            Vector3 v1 = vertices[1];
+            Vector3 v2 = vertices[2];
+            Vector3 normal = Vector3.Normalize(Vector3.Cross(v1 - v0, v2 - v0));
+
+            // Check if ray is parallel to the plane
+            float denom = Vector3.Dot(normal, rayDirection);
+            if (Math.Abs(denom) < 1e-6) return false;
+
+            // Distance from ray origin to the plane
+            float t = Vector3.Dot(v0 - rayOrigin, normal) / denom;
+            if (t < 0) return false;
+
+            Vector3 hitPoint = rayOrigin + rayDirection * t;
+
+            // Check if hit point is inside the polygon
+            for (int i = 0; i < vertices.Length; i++) {
+                Vector3 p1 = vertices[i];
+                Vector3 p2 = vertices[(i + 1) % vertices.Length];
+                Vector3 edge = p2 - p1;
+                Vector3 toPoint = hitPoint - p1;
+                Vector3 cross = Vector3.Cross(edge, toPoint);
+                if (Vector3.Dot(normal, cross) < 0) return false;
+            }
+
+            distance = t;
+            return true;
+        }
     }
 }

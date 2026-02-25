@@ -86,12 +86,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader = shader;
         }
 
-        public void DrawLine(Vector3 start, Vector3 end, Vector4 color) {
+        public void DrawLine(Vector3 start, Vector3 end, Vector4 color, float thickness = 2.0f) {
             _lineInstances.Add(new LineInstance { 
                 Start = start, 
                 End = end, 
                 Color = color, 
-                Thickness = 2.0f 
+                Thickness = thickness 
             });
         }
 

@@ -19,6 +19,7 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Numerics;
 using WorldBuilder.Shared.Services;
+using BoundingBox = Chorizite.Core.Lib.BoundingBox;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
     /// <summary>
@@ -375,13 +376,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return newList;
         }
 
-        public void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
+        public void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, bool showBuildings, bool showStaticObjects) {
             if (!_initialized || cameraPosition.Z > 4000) return;
 
             _frustum.Update(viewProjectionMatrix);
 
             // Clear previous frame data
             _visibleGroups.Clear();
+            _visibleGfxObjIds.Add(0); // Dummy for clearing, actually we just clear groups
             _visibleGfxObjIds.Clear();
             _poolIndex = 0;
 
@@ -393,18 +395,33 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 if (testResult == FrustumTestResult.Inside) {
                     // Fast path: All instances in this landblock are visible
-                    foreach (var (gfxObjId, transforms) in lb.PartGroups) {
-                        if (!_visibleGroups.TryGetValue(gfxObjId, out var list)) {
-                            list = GetPooledList();
-                            _visibleGroups[gfxObjId] = list;
-                            _visibleGfxObjIds.Add(gfxObjId);
+                    if (showBuildings) {
+                        foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
+                            if (!_visibleGroups.TryGetValue(gfxObjId, out var list)) {
+                                list = GetPooledList();
+                                _visibleGroups[gfxObjId] = list;
+                                _visibleGfxObjIds.Add(gfxObjId);
+                            }
+                            list.AddRange(transforms);
                         }
-                        list.AddRange(transforms);
+                    }
+                    if (showStaticObjects) {
+                        foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
+                            if (!_visibleGroups.TryGetValue(gfxObjId, out var list)) {
+                                list = GetPooledList();
+                                _visibleGroups[gfxObjId] = list;
+                                _visibleGfxObjIds.Add(gfxObjId);
+                            }
+                            list.AddRange(transforms);
+                        }
                     }
                 }
                 else {
                     // Slow path: Test each instance individually
                     foreach (var instance in lb.Instances) {
+                        if (instance.IsBuilding && !showBuildings) continue;
+                        if (!instance.IsBuilding && !showStaticObjects) continue;
+
                         if (_frustum.Intersects(instance.BoundingBox)) {
                             if (instance.IsSetup) {
                                 var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
@@ -763,25 +780,27 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
-            // Populate PartGroups for efficient rendering
-            lb.PartGroups.Clear();
+            // Populate StaticPartGroups and BuildingPartGroups for efficient rendering
+            lb.StaticPartGroups.Clear();
+            lb.BuildingPartGroups.Clear();
             foreach (var instance in instancesToUpload) {
+                var targetGroup = instance.IsBuilding ? lb.BuildingPartGroups : lb.StaticPartGroups;
                 if (instance.IsSetup) {
                     var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
                     if (renderData is { IsSetup: true }) {
                         foreach (var (partId, partTransform) in renderData.SetupParts) {
-                            if (!lb.PartGroups.TryGetValue(partId, out var list)) {
+                            if (!targetGroup.TryGetValue(partId, out var list)) {
                                 list = new List<Matrix4x4>();
-                                lb.PartGroups[partId] = list;
+                                targetGroup[partId] = list;
                             }
                             list.Add(partTransform * instance.Transform);
                         }
                     }
                 }
                 else {
-                    if (!lb.PartGroups.TryGetValue(instance.ObjectId, out var list)) {
+                    if (!targetGroup.TryGetValue(instance.ObjectId, out var list)) {
                         list = new List<Matrix4x4>();
-                        lb.PartGroups[instance.ObjectId] = list;
+                        targetGroup[instance.ObjectId] = list;
                     }
                     list.Add(instance.Transform);
                 }

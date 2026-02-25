@@ -21,7 +21,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         Vertex,
         Building,
         StaticObject,
-        Scenery
+        Scenery,
+        Portal
     }
 
     public class InspectorSelectionEventArgs : EventArgs {
@@ -69,6 +70,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         /// <summary>Performs a raycast against scenery in the scene.</summary>
         public RaycastSceneryDelegate? RaycastScenery { get; set; }
+
+        /// <summary>Delegate for raycasting against portals.</summary>
+        public delegate bool RaycastPortalsDelegate(Vector3 rayOrigin, Vector3 rayDirection, out SceneRaycastHit hit);
+
+        /// <summary>Performs a raycast against portals in the scene.</summary>
+        public RaycastPortalsDelegate? RaycastPortals { get; set; }
 
         /// <summary>Delegate for raycasting against terrain.</summary>
         public delegate TerrainRaycastHit RaycastTerrainDelegate(float screenX, float screenY);

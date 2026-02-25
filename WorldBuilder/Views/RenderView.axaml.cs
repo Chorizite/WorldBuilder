@@ -73,7 +73,10 @@ public partial class RenderView : Base3DViewport {
                 builder.AddProvider(new ColorConsoleLoggerProvider());
                 builder.SetMinimumLevel(LogLevel.Debug);
             });
-            _gameScene = new GameScene(gl, Renderer.GraphicsDevice, loggerFactory);
+            var portalService = WorldBuilder.App.Services?.GetService<ProjectManager>()?.GetProjectService<IPortalService>() ?? 
+                                WorldBuilder.App.Services?.GetService<IPortalService>() ?? 
+                                new PortalService(Dats ?? WorldBuilder.App.Services?.GetService<ProjectManager>()?.GetProjectService<IDatReaderWriter>()!);
+            _gameScene = new GameScene(gl, Renderer.GraphicsDevice, loggerFactory, portalService);
 
             if (_cachedEditorState != null) {
                 _gameScene.State = _cachedEditorState;

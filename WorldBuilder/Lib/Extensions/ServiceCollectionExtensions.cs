@@ -120,6 +120,7 @@ namespace WorldBuilder.Lib.Extensions {
             // to ensure they are the same instances used by the project module.
             collection.AddSingleton<IDocumentManager>(project.Services.GetRequiredService<IDocumentManager>());
             collection.AddSingleton<IDatReaderWriter>(project.Services.GetRequiredService<IDatReaderWriter>());
+            collection.AddSingleton<IPortalService>(project.Services.GetRequiredService<IPortalService>());
             collection.AddSingleton<ILandscapeModule>(project.Services.GetRequiredService<ILandscapeModule>());
             collection.AddSingleton<IProjectRepository>(project.Services.GetRequiredService<IProjectRepository>());
             collection.AddSingleton<IUndoStack>(project.Services.GetRequiredService<IUndoStack>());
