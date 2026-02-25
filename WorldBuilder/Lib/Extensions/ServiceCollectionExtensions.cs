@@ -108,6 +108,7 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddTransient<WorldBuilder.Modules.DatBrowser.ViewModels.SurfaceTextureBrowserViewModel>();
             collection.AddTransient<WorldBuilder.Modules.DatBrowser.ViewModels.RenderSurfaceBrowserViewModel>();
             collection.AddTransient<WorldBuilder.Modules.DatBrowser.ViewModels.SurfaceBrowserViewModel>();
+            collection.AddTransient<WorldBuilder.Modules.DatBrowser.ViewModels.EnvCellBrowserViewModel>();
 
             collection.AddSingleton<WorldBuilder.Modules.Landscape.LandscapeViewModel>();
             collection.AddSingleton<IToolModule, WorldBuilder.Modules.Landscape.LandscapeModule>();

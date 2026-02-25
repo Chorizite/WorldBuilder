@@ -103,6 +103,11 @@ namespace Chorizite.OpenGLSDLBackend {
                 if (meshData != null && !ct.IsCancellationRequested) {
                     _stagedMeshData.Enqueue(meshData);
 
+                    // Stage EnvCell geometry if present
+                    if (meshData.EnvCellGeometry != null) {
+                        _stagedMeshData.Enqueue(meshData.EnvCellGeometry);
+                    }
+
                     // For Setup objects, also prepare each part's GfxObj on background thread
                     if (meshData.IsSetup && meshData.SetupParts.Count > 0) {
                         foreach (var (partId, _) in meshData.SetupParts) {

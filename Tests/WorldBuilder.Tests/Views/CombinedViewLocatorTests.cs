@@ -128,6 +128,7 @@ public class CombinedViewLocatorTests {
         var mockTex = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SurfaceTextureBrowserViewModel>(mockDats.Object, settings, themeService);
         var mockRenderTex = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.RenderSurfaceBrowserViewModel>(mockDats.Object, settings, themeService);
         var mockSurface = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SurfaceBrowserViewModel>(mockDats.Object, settings, themeService);
+        var mockEnvCell = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.EnvCellBrowserViewModel>(mockDats.Object, settings, themeService);
         var mockDialog = new Moq.Mock<HanumanInstitute.MvvmDialogs.IDialogService>();
         var mockServiceProvider = new Moq.Mock<IServiceProvider>();
 
@@ -137,6 +138,7 @@ public class CombinedViewLocatorTests {
             mockTex.Object,
             mockRenderTex.Object,
             mockSurface.Object,
+            mockEnvCell.Object,
             mockDialog.Object,
             mockServiceProvider.Object,
             mockDats.Object

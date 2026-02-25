@@ -15,6 +15,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels
     public abstract partial class BaseDatBrowserViewModel<T> : ViewModelBase, IDatBrowserViewModel where T : class, IDBObj
     {
         protected readonly IDatReaderWriter _dats;
+        protected readonly IDatDatabase _database;
         protected readonly WorldBuilderSettings _settings;
         protected readonly ThemeService _themeService;
 
@@ -33,13 +34,14 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels
 
         public GridBrowserViewModel GridBrowser { get; }
 
-        protected BaseDatBrowserViewModel(DBObjType type, IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService)
+        protected BaseDatBrowserViewModel(DBObjType type, IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService, IDatDatabase? database = null, IEnumerable<uint>? fileIds = null)
         {
             _dats = dats;
+            _database = database ?? dats.Portal;
             _settings = settings;
             _themeService = themeService;
-            _fileIds = _dats.Portal.GetAllIdsOfType<T>().OrderBy(x => x).ToList();
-            GridBrowser = new GridBrowserViewModel(type, dats, settings, themeService, (id) => SelectedFileId = id);
+            _fileIds = fileIds ?? _database.GetAllIdsOfType<T>().OrderBy(x => x).ToList();
+            GridBrowser = new GridBrowserViewModel(type, dats, settings, themeService, (id) => SelectedFileId = id, _database);
 
             _themeService.PropertyChanged += (s, e) => {
                 if (e.PropertyName == nameof(ThemeService.IsDarkMode)) {
@@ -50,13 +52,29 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels
 
         partial void OnSelectedFileIdChanged(uint value)
         {
-            if (value != 0 && _dats.Portal.TryGet<T>(value, out var obj))
+            if (value == 0) {
+                OnObjectLoaded(null);
+                SelectedObject = null;
+                return;
+            }
+
+            if (_database.TryGet<T>(value, out var obj))
             {
                 OnObjectLoaded(obj);
                 SelectedObject = obj;
             }
             else
             {
+                // Try resolving via all databases
+                var resolutions = _dats.ResolveId(value).ToList();
+                foreach (var res in resolutions) {
+                    if (res.Database.TryGet<T>(value, out var resolvedObj)) {
+                        OnObjectLoaded(resolvedObj);
+                        SelectedObject = resolvedObj;
+                        return;
+                    }
+                }
+
                 OnObjectLoaded(null);
                 SelectedObject = null;
             }

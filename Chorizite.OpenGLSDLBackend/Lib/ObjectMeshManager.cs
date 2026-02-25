@@ -49,6 +49,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public VertexPositionNormalTexture[] Vertices { get; set; } = Array.Empty<VertexPositionNormalTexture>();
         public List<MeshBatchData> Batches { get; set; } = new();
 
+        /// <summary>For EnvCell: the geometry of the cell itself.</summary>
+        public ObjectMeshData? EnvCellGeometry { get; set; }
+
         /// <summary>For Setup objects: parts with their local transforms.</summary>
         public List<(uint GfxObjId, Matrix4x4 Transform)> SetupParts { get; set; } = new();
 
@@ -286,6 +289,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (!db.TryGet<GfxObj>(id, out var gfxObj)) return null;
                     return PrepareGfxObjMeshData(id, gfxObj, Vector3.One, ct);
                 }
+                else if (type == DBObjType.EnvCell) {
+                    if (!db.TryGet<EnvCell>(id, out var envCell)) return null;
+                    return PrepareEnvCellMeshData(id, envCell, ct);
+                }
                 return null;
             }
             catch (OperationCanceledException) {
@@ -310,10 +317,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
                 _preparationTasks.TryRemove(meshData.ObjectId, out _);
                 if (meshData.IsSetup) {
+                    var setupParts = new List<(uint GfxObjId, Matrix4x4 Transform)>(meshData.SetupParts);
+
+                    // Upload EnvCell geometry if present
+                    if (meshData.EnvCellGeometry != null) {
+                        var geomData = UploadMeshData(meshData.EnvCellGeometry);
+                        if (geomData != null) {
+                            setupParts.Insert(0, (meshData.EnvCellGeometry.ObjectId, Matrix4x4.Identity));
+                        }
+                    }
+
                     // Setup objects are multi-part - each part needs its own render data
                     var data = new ObjectRenderData {
                         IsSetup = true,
-                        SetupParts = meshData.SetupParts,
+                        SetupParts = setupParts,
                         Batches = new List<ObjectRenderBatch>(),
                         BoundingBox = meshData.BoundingBox,
                         SelectionSphere = meshData.SelectionSphere,
@@ -324,7 +341,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     _currentGpuMemory += data.MemorySize;
 
                     // Increment ref counts for all parts
-                    foreach (var (partId, _) in meshData.SetupParts) {
+                    foreach (var (partId, _) in setupParts) {
                         IncrementRefCount(partId);
                     }
 
@@ -365,6 +382,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var db = selectedResolution.Database;
 
                 if (type == DBObjType.Setup) {
+                    var min = new Vector3(float.MaxValue);
+                    var max = new Vector3(float.MinValue);
+                    bool hasBounds = false;
+                    var parts = new List<(uint GfxObjId, Matrix4x4 Transform)>();
+
+                    CollectParts(id, Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds, CancellationToken.None);
+                    result = hasBounds ? (min, max) : null;
+                }
+                else if (type == DBObjType.EnvCell) {
+                    if (!db.TryGet<EnvCell>(id, out var envCell)) return null;
                     var min = new Vector3(float.MaxValue);
                     var max = new Vector3(float.MinValue);
                     bool hasBounds = false;
@@ -427,6 +454,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     }
 
                     CollectParts(partId, transform * currentTransform, parts, ref min, ref max, ref hasBounds, ct);
+                }
+            }
+            else if (type == DBObjType.EnvCell) {
+                if (!db.TryGet<EnvCell>(id, out var envCell)) return;
+
+                foreach (var stab in envCell.StaticObjects) {
+                    var transform = Matrix4x4.CreateFromQuaternion(stab.Frame.Orientation)
+                                    * Matrix4x4.CreateTranslation(stab.Frame.Origin);
+                    CollectParts(stab.Id, transform * currentTransform, parts, ref min, ref max, ref hasBounds, ct);
                 }
             }
             else if (type == DBObjType.GfxObj) {
@@ -609,6 +645,266 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 BoundingBox = boundingBox,
                 SelectionSphere = new Sphere { Origin = boundingBox.Center, Radius = Vector3.Distance(boundingBox.Max, boundingBox.Min) / 2.0f }
             };
+        }
+
+        private ObjectMeshData? PrepareEnvCellMeshData(uint id, EnvCell envCell, CancellationToken ct) {
+            var parts = new List<(uint GfxObjId, Matrix4x4 Transform)>();
+            var min = new Vector3(float.MaxValue);
+            var max = new Vector3(float.MinValue);
+            bool hasBounds = false;
+
+            // Add static objects
+            foreach (var stab in envCell.StaticObjects) {
+                var transform = Matrix4x4.CreateFromQuaternion(stab.Frame.Orientation)
+                                * Matrix4x4.CreateTranslation(stab.Frame.Origin);
+                CollectParts(stab.Id, transform, parts, ref min, ref max, ref hasBounds, ct);
+            }
+
+            // Load environment and cell structure geometry
+            uint envId = 0x0D000000u | envCell.EnvironmentId;
+            ObjectMeshData? cellGeometry = null;
+            if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
+                if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
+                    cellGeometry = PrepareCellStructMeshData(id | 0x80000000u, cellStruct, envCell.Surfaces, ct);
+                    if (cellGeometry != null) {
+                        min = Vector3.Min(min, cellGeometry.BoundingBox.Min);
+                        max = Vector3.Max(max, cellGeometry.BoundingBox.Max);
+                        hasBounds = true;
+                    }
+                }
+            }
+
+            return new ObjectMeshData {
+                ObjectId = id,
+                IsSetup = true,
+                SetupParts = parts,
+                EnvCellGeometry = cellGeometry,
+                BoundingBox = hasBounds ? new BoundingBox(min, max) : default,
+                SelectionSphere = new Sphere { Origin = hasBounds ? (min + max) / 2f : Vector3.Zero, Radius = hasBounds ? Vector3.Distance(max, min) / 2.0f : 0f }
+            };
+        }
+
+        private ObjectMeshData? PrepareCellStructMeshData(uint id, CellStruct cellStruct, List<ushort> surfaceOverrides, CancellationToken ct) {
+            var vertices = new List<VertexPositionNormalTexture>();
+            var UVLookup = new Dictionary<(ushort vertId, ushort uvIdx, bool isNeg), ushort>();
+            var batchesByFormat = new Dictionary<(int Width, int Height, TextureFormat Format), List<TextureBatchData>>();
+
+            var min = new Vector3(float.MaxValue);
+            var max = new Vector3(float.MinValue);
+            foreach (var vert in cellStruct.VertexArray.Vertices.Values) {
+                min = Vector3.Min(min, vert.Origin);
+                max = Vector3.Max(max, vert.Origin);
+            }
+            var boundingBox = new BoundingBox(min, max);
+
+            foreach (var poly in cellStruct.Polygons.Values) {
+                ct.ThrowIfCancellationRequested();
+                if (poly.VertexIds.Count < 3) continue;
+
+                // Handle Positive Surface
+                if (!poly.Stippling.HasFlag(StipplingType.NoPos)) {
+                    AddSurfaceToBatch(poly, poly.PosSurface, false);
+                }
+
+                // Handle Negative Surface
+                bool hasNeg = poly.Stippling.HasFlag(StipplingType.Negative) ||
+                             poly.Stippling.HasFlag(StipplingType.Both) ||
+                             (!poly.Stippling.HasFlag(StipplingType.NoNeg) && poly.SidesType == CullMode.Clockwise);
+
+                if (hasNeg) {
+                    AddSurfaceToBatch(poly, poly.NegSurface, true);
+                }
+
+                void AddSurfaceToBatch(Polygon poly, short surfaceIdx, bool isNeg) {
+                    if (surfaceIdx < 0) return;
+                    
+                    uint surfaceId;
+                    if (surfaceIdx < surfaceOverrides.Count) {
+                        surfaceId = 0x08000000u | surfaceOverrides[surfaceIdx];
+                    } else {
+                        // Fallback or skip? ACViewer uses the surfaceIdx as an index into the EnvCell.Surfaces list.
+                        return;
+                    }
+
+                    if (!_dats.Portal.TryGet<Surface>(surfaceId, out var surface)) return;
+
+                    int texWidth, texHeight;
+                    byte[] textureData;
+                    TextureFormat textureFormat;
+                    PixelFormat? uploadPixelFormat = null;
+                    PixelType? uploadPixelType = null;
+                    bool isSolid = poly.Stippling.HasFlag(StipplingType.NoPos) || surface.Type.HasFlag(SurfaceType.Base1Solid);
+                    bool isClipMap = surface.Type.HasFlag(SurfaceType.Base1ClipMap);
+                    uint paletteId = 0;
+
+                    if (isSolid) {
+                        texWidth = texHeight = 32;
+                        textureData = TextureHelpers.CreateSolidColorTexture(surface.ColorValue, texWidth, texHeight);
+                        textureFormat = TextureFormat.RGBA8;
+                        uploadPixelFormat = PixelFormat.Rgba;
+                    }
+                    else if (_dats.Portal.TryGet<SurfaceTexture>(surface.OrigTextureId, out var surfaceTexture)) {
+                        var renderSurfaceId = surfaceTexture.Textures.First();
+                        if (!_dats.Portal.TryGet<RenderSurface>(renderSurfaceId, out var renderSurface)) {
+                            if (!_dats.HighRes.TryGet<RenderSurface>(renderSurfaceId, out var hrRenderSurface)) {
+                                return;
+                            }
+                            renderSurface = hrRenderSurface;
+                        }
+
+                        texWidth = renderSurface.Width;
+                        texHeight = renderSurface.Height;
+                        paletteId = renderSurface.DefaultPaletteId;
+
+                        if (TextureHelpers.IsCompressedFormat(renderSurface.Format)) {
+                            textureFormat = renderSurface.Format switch {
+                                DatReaderWriter.Enums.PixelFormat.PFID_DXT1 => TextureFormat.DXT1,
+                                DatReaderWriter.Enums.PixelFormat.PFID_DXT3 => TextureFormat.DXT3,
+                                DatReaderWriter.Enums.PixelFormat.PFID_DXT5 => TextureFormat.DXT5,
+                                _ => throw new NotSupportedException($"Unsupported compressed format: {renderSurface.Format}")
+                            };
+                            textureData = renderSurface.SourceData;
+                        }
+                        else {
+                            textureFormat = TextureFormat.RGBA8;
+                            textureData = renderSurface.SourceData;
+                            switch (renderSurface.Format) {
+                                case DatReaderWriter.Enums.PixelFormat.PFID_A8R8G8B8:
+                                    textureData = new byte[texWidth * texHeight * 4];
+                                    TextureHelpers.FillA8R8G8B8(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                    uploadPixelFormat = PixelFormat.Rgba;
+                                    break;
+                                case DatReaderWriter.Enums.PixelFormat.PFID_R8G8B8:
+                                    uploadPixelFormat = PixelFormat.Rgb;
+                                    textureFormat = TextureFormat.RGB8;
+                                    break;
+                                case DatReaderWriter.Enums.PixelFormat.PFID_INDEX16:
+                                    if (!_dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var paletteData)) return;
+                                    textureData = new byte[texWidth * texHeight * 4];
+                                    TextureHelpers.FillIndex16(renderSurface.SourceData, paletteData, textureData.AsSpan(), texWidth, texHeight, isClipMap);
+                                    uploadPixelFormat = PixelFormat.Rgba;
+                                    break;
+                                case DatReaderWriter.Enums.PixelFormat.PFID_P8:
+                                    if (!_dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var p8PaletteData)) return;
+                                    textureData = new byte[texWidth * texHeight * 4];
+                                    TextureHelpers.FillP8(renderSurface.SourceData, p8PaletteData, textureData.AsSpan(), texWidth, texHeight, isClipMap);
+                                    uploadPixelFormat = PixelFormat.Rgba;
+                                    break;
+                                case DatReaderWriter.Enums.PixelFormat.PFID_R5G6B5:
+                                    textureData = new byte[texWidth * texHeight * 4];
+                                    TextureHelpers.FillR5G6B5(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                    uploadPixelFormat = PixelFormat.Rgba;
+                                    break;
+                                case DatReaderWriter.Enums.PixelFormat.PFID_A4R4G4B4:
+                                    textureData = new byte[texWidth * texHeight * 4];
+                                    TextureHelpers.FillA4R4G4B4(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                    uploadPixelFormat = PixelFormat.Rgba;
+                                    break;
+                                default: return;
+                            }
+                        }
+                    }
+                    else {
+                        return;
+                    }
+
+                    var format = (texWidth, texHeight, textureFormat);
+                    var key = new TextureAtlasManager.TextureKey {
+                        SurfaceId = surfaceId,
+                        PaletteId = paletteId,
+                        Stippling = poly.Stippling,
+                        IsSolid = isSolid
+                    };
+
+                    if (!batchesByFormat.TryGetValue(format, out var batches)) {
+                        batches = new List<TextureBatchData>();
+                        batchesByFormat[format] = batches;
+                    }
+
+                    var batch = batches.FirstOrDefault(b => b.Key.Equals(key) && b.CullMode == poly.SidesType);
+                    if (batch == null) {
+                        batch = new TextureBatchData {
+                            Key = key,
+                            CullMode = poly.SidesType,
+                            TextureData = textureData,
+                            UploadPixelFormat = uploadPixelFormat,
+                            UploadPixelType = uploadPixelType
+                        };
+                        batches.Add(batch);
+                    }
+
+                    // Helper for CellStruct vertices
+                    BuildCellStructPolygonIndices(poly, cellStruct, UVLookup, vertices, batch.Indices, isNeg);
+                }
+            }
+
+            return new ObjectMeshData {
+                ObjectId = id,
+                IsSetup = false,
+                Vertices = vertices.ToArray(),
+                TextureBatches = batchesByFormat,
+                BoundingBox = boundingBox,
+                SelectionSphere = new Sphere { Origin = boundingBox.Center, Radius = Vector3.Distance(boundingBox.Max, boundingBox.Min) / 2.0f }
+            };
+        }
+
+        private void BuildCellStructPolygonIndices(Polygon poly, CellStruct cellStruct,
+            Dictionary<(ushort vertId, ushort uvIdx, bool isNeg), ushort> UVLookup,
+            List<VertexPositionNormalTexture> vertices, List<ushort> indices, bool useNegSurface) {
+
+            var polyIndices = new List<ushort>();
+
+            for (int i = 0; i < poly.VertexIds.Count; i++) {
+                ushort vertId = (ushort)poly.VertexIds[i];
+                ushort uvIdx = 0;
+
+                if (useNegSurface && poly.NegUVIndices != null && i < poly.NegUVIndices.Count)
+                    uvIdx = poly.NegUVIndices[i];
+                else if (!useNegSurface && poly.PosUVIndices != null && i < poly.PosUVIndices.Count)
+                    uvIdx = poly.PosUVIndices[i];
+
+                if (!cellStruct.VertexArray.Vertices.TryGetValue(vertId, out var vertex)) continue;
+
+                if (uvIdx >= vertex.UVs.Count) {
+                    uvIdx = 0;
+                }
+
+                var key = (vertId, uvIdx, useNegSurface);
+                if (!UVLookup.TryGetValue(key, out var idx)) {
+                    var uv = vertex.UVs.Count > 0
+                        ? new Vector2(vertex.UVs[uvIdx].U, vertex.UVs[uvIdx].V)
+                        : Vector2.Zero;
+
+                    var normal = Vector3.Normalize(vertex.Normal);
+                    if (useNegSurface) {
+                        normal = -normal;
+                    }
+
+                    idx = (ushort)vertices.Count;
+                    vertices.Add(new VertexPositionNormalTexture(
+                        vertex.Origin,
+                        normal,
+                        uv
+                    ));
+                    UVLookup[key] = idx;
+                }
+                polyIndices.Add(idx);
+            }
+
+            if (useNegSurface) {
+                for (int i = 2; i < polyIndices.Count; i++) {
+                    indices.Add(polyIndices[0]);
+                    indices.Add(polyIndices[i - 1]);
+                    indices.Add(polyIndices[i]);
+                }
+            }
+            else {
+                for (int i = 2; i < polyIndices.Count; i++) {
+                    indices.Add(polyIndices[i]);
+                    indices.Add(polyIndices[i - 1]);
+                    indices.Add(polyIndices[0]);
+                }
+            }
         }
 
         private void BuildPolygonIndices(Polygon poly, GfxObj gfxObj, Vector3 scale,

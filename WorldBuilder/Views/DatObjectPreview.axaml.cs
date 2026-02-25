@@ -257,7 +257,7 @@ namespace WorldBuilder.Views {
             DataObjectType = type;
             PreviewDetails = null;
             
-            IsSetup = type == DBObjType.Setup;
+            IsSetup = type == DBObjType.Setup || type == DBObjType.EnvCell;
             Is3D = IsSetup || type == DBObjType.GfxObj;
             Is2D = type == DBObjType.SurfaceTexture || type == DBObjType.RenderSurface || type == DBObjType.Surface;
 

@@ -36,6 +36,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                     DBObjType.SurfaceTexture => true,
                     DBObjType.RenderSurface => true,
                     DBObjType.Surface => true,
+                    DBObjType.EnvCell => true,
                     _ => false
                 };
         });
@@ -71,18 +72,20 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private readonly SurfaceTextureBrowserViewModel _surfaceTextureBrowser;
         private readonly RenderSurfaceBrowserViewModel _renderSurfaceBrowser;
         private readonly SurfaceBrowserViewModel _surfaceBrowser;
+        private readonly EnvCellBrowserViewModel _envCellBrowser;
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
         private readonly IDatReaderWriter _dats;
 
         public IDatReaderWriter Dats => _dats;
 
-        public DatBrowserViewModel(SetupBrowserViewModel setupBrowser, GfxObjBrowserViewModel gfxObjBrowser, SurfaceTextureBrowserViewModel surfaceTextureBrowser, RenderSurfaceBrowserViewModel renderSurfaceBrowser, SurfaceBrowserViewModel surfaceBrowser, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats) {
+        public DatBrowserViewModel(SetupBrowserViewModel setupBrowser, GfxObjBrowserViewModel gfxObjBrowser, SurfaceTextureBrowserViewModel surfaceTextureBrowser, RenderSurfaceBrowserViewModel renderSurfaceBrowser, SurfaceBrowserViewModel surfaceBrowser, EnvCellBrowserViewModel envCellBrowser, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats) {
             _setupBrowser = setupBrowser;
             _gfxObjBrowser = gfxObjBrowser;
             _surfaceTextureBrowser = surfaceTextureBrowser;
             _renderSurfaceBrowser = renderSurfaceBrowser;
             _surfaceBrowser = surfaceBrowser;
+            _envCellBrowser = envCellBrowser;
             _dialogService = dialogService;
             _serviceProvider = serviceProvider;
             _dats = dats;
@@ -112,6 +115,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 DBObjType.SurfaceTexture => _surfaceTextureBrowser,
                 DBObjType.RenderSurface => _renderSurfaceBrowser,
                 DBObjType.Surface => _surfaceBrowser,
+                DBObjType.EnvCell => _envCellBrowser,
                 _ => null
             };
         }

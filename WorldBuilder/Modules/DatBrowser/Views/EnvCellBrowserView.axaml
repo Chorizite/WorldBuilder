@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
+             xmlns:views="using:WorldBuilder.Views"
+             xmlns:v="using:WorldBuilder.Modules.DatBrowser.Views"
+             xmlns:conv="using:WorldBuilder.Converters"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="WorldBuilder.Modules.DatBrowser.Views.EnvCellBrowserView"
+             x:DataType="vm:EnvCellBrowserViewModel">
+    <Grid ColumnDefinitions="300, 5, *">
+        <!-- Sidebar -->
+        <ListBox Grid.Column="0" ItemsSource="{Binding FileIds}" SelectedItem="{Binding SelectedFileId}" Margin="5">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding StringFormat='{}{0:X8}'}" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <GridSplitter Grid.Column="1" Background="{DynamicResource SemiColorBorder}" ResizeDirection="Columns"/>
+
+        <!-- Preview Area -->
+        <Panel Grid.Column="2" Background="{DynamicResource SemiColorBackground0}">
+            <views:DatObjectPreview 
+                IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsNotZero}}"
+                DataId="{Binding SelectedFileId}"
+                Dats="{Binding Dats}"
+                ClearColor="{Binding IsDarkMode, Converter={StaticResource ThemeToViewportBrushConverter}}"
+                IsTooltip="False" />
+            <Panel IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsZero}}">
+                <v:GridBrowserView DataContext="{Binding GridBrowser}" />
+            </Panel>
+        </Panel>
+    </Grid>
+</UserControl>
