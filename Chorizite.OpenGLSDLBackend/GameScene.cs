@@ -106,6 +106,7 @@ public class GameScene : IDisposable {
     private SkyboxRenderManager? _skyboxManager = null;
     private DebugRenderer? _debugRenderer;
     private LandscapeDocument? _landscapeDoc;
+    private readonly Frustum _cullingFrustum = new();
 
     private (int x, int y)? _hoveredVertex;
     private (int x, int y)? _selectedVertex;
@@ -280,7 +281,7 @@ public class GameScene : IDisposable {
         _ownsMeshManager = meshManager == null;
         _meshManager = meshManager ?? new ObjectMeshManager(_graphicsDevice, dats, _loggerFactory.CreateLogger<ObjectMeshManager>());
 
-        _terrainManager = new TerrainRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, documentManager);
+        _terrainManager = new TerrainRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, documentManager, _cullingFrustum);
         _terrainManager.ShowUnwalkableSlopes = _state.ShowUnwalkableSlopes;
         _terrainManager.ScreenHeight = _height;
         _terrainManager.RenderDistance = (int)Math.Ceiling(_state.MaxDrawDistance / 1536f);
@@ -299,18 +300,18 @@ public class GameScene : IDisposable {
         _terrainManager.TimeOfDay = _state.TimeOfDay;
         _terrainManager.LightIntensity = _state.LightIntensity;
 
-        _staticObjectManager = new StaticObjectRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager);
+        _staticObjectManager = new StaticObjectRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager, _cullingFrustum);
         _staticObjectManager.RenderDistance = _state.ObjectRenderDistance;
         _staticObjectManager.LightIntensity = _state.LightIntensity;
         if (_initialized && _sceneryShader != null) {
             _staticObjectManager.Initialize(_sceneryShader);
         }
 
-        _portalManager = new PortalRenderManager(_gl, _log, landscapeDoc, dats, _portalService, _graphicsDevice);
+        _portalManager = new PortalRenderManager(_gl, _log, landscapeDoc, dats, _portalService, _graphicsDevice, _cullingFrustum);
         _portalManager.RenderDistance = _state.ObjectRenderDistance;
         _portalManager.ShowPortals = _state.ShowPortals;
 
-        _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager, _staticObjectManager, documentManager);
+        _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager, _staticObjectManager, documentManager, _cullingFrustum);
         _sceneryManager.RenderDistance = _state.ObjectRenderDistance;
         _sceneryManager.LightIntensity = _state.LightIntensity;
         if (_initialized && _sceneryShader != null) {
@@ -451,6 +452,7 @@ public class GameScene : IDisposable {
     public void Update(float deltaTime) {
         float remainingTime = MAX_GPU_UPDATE_TIME_PER_FRAME;
         _currentCamera.Update(deltaTime);
+        _cullingFrustum.Update(_currentCamera.ViewProjectionMatrix);
 
         if (_is3DMode && _terrainManager != null) {
             var terrainHeight = _terrainManager.GetHeight(_currentCamera.Position.X, _currentCamera.Position.Y);
@@ -644,12 +646,15 @@ public class GameScene : IDisposable {
         var snapshotPos = _currentCamera.Position;
         var snapshotFov = _currentCamera.FieldOfView;
 
+        _cullingFrustum.Update(snapshotVP);
+
         if (_state.ShowScenery) {
             _sceneryManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
         }
 
         if (_state.ShowStaticObjects || _state.ShowBuildings) {
-            _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos, _state.ShowBuildings, _state.ShowStaticObjects);
+            _staticObjectManager?.SetVisibilityFilters(_state.ShowBuildings, _state.ShowStaticObjects);
+            _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
         }
 
         if (_state.ShowSkybox) {
@@ -667,15 +672,28 @@ public class GameScene : IDisposable {
 
         // Pass 1: Opaque Scenery & Static Objects
         _sceneryShader?.Bind();
-        _sceneryShader?.SetUniform("uRenderPass", _state.EnableTransparencyPass ? 0 : 2);
+        int pass1RenderPass = _state.EnableTransparencyPass ? 0 : 2;
+
+        if (_sceneryShader != null) {
+            _sceneryShader.SetUniform("uRenderPass", pass1RenderPass);
+            _sceneryShader.SetUniform("uViewProjection", snapshotVP);
+            _sceneryShader.SetUniform("uCameraPosition", snapshotPos);
+            var region = _landscapeDoc?.Region;
+            _sceneryShader.SetUniform("uLightDirection", region?.LightDirection ?? Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f)));
+            _sceneryShader.SetUniform("uSunlightColor", region?.SunlightColor ?? Vector3.One);
+            _sceneryShader.SetUniform("uAmbientColor", (region?.AmbientColor ?? new Vector3(0.4f, 0.4f, 0.4f)) * _state.LightIntensity);
+            _sceneryShader.SetUniform("uSpecularPower", 32.0f);
+            _sceneryShader.SetUniform("uHighlightColor", Vector4.Zero);
+        }
+
         _gl.DepthMask(true);
 
         if (_state.ShowScenery) {
-            _sceneryManager?.Render(snapshotVP, snapshotPos);
+            _sceneryManager?.Render(pass1RenderPass);
         }
 
         if (_state.ShowStaticObjects || _state.ShowBuildings) {
-            _staticObjectManager?.Render(snapshotVP, snapshotPos);
+            _staticObjectManager?.Render(pass1RenderPass);
         }
 
         // Pass 2: Transparent Scenery & Static Objects
@@ -685,11 +703,11 @@ public class GameScene : IDisposable {
             _gl.DepthMask(false);
 
             if (_state.ShowScenery) {
-                _sceneryManager?.Render(snapshotVP, snapshotPos);
+                _sceneryManager?.Render(1);
             }
 
             if (_state.ShowStaticObjects || _state.ShowBuildings) {
-                _staticObjectManager?.Render(snapshotVP, snapshotPos);
+                _staticObjectManager?.Render(1);
             }
         }
 

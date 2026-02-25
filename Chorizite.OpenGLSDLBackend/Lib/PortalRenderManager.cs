@@ -56,16 +56,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private int _cameraLbX;
         private int _cameraLbY;
         private float _lbSizeInUnits;
-        private readonly Frustum _frustum = new();
+        private readonly Frustum _frustum;
 
         public PortalRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
-            IDatReaderWriter dats, IPortalService portalService, OpenGLGraphicsDevice graphicsDevice) {
+            IDatReaderWriter dats, IPortalService portalService, OpenGLGraphicsDevice graphicsDevice, Frustum frustum) {
             _gl = gl;
             _log = log;
             _landscapeDoc = landscapeDoc;
             _dats = dats;
             _portalService = portalService;
             _graphicsDevice = graphicsDevice;
+            _frustum = frustum;
 
             _landscapeDoc.LandblockChanged += OnLandblockChanged;
         }
@@ -100,8 +101,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var pos = new Vector2(_cameraPosition.X, _cameraPosition.Y) - region.MapOffset;
             _cameraLbX = (int)Math.Floor(pos.X / lbSize);
             _cameraLbY = (int)Math.Floor(pos.Y / lbSize);
-
-            _frustum.Update(camera.ViewProjectionMatrix);
 
             // Queue landblocks within render distance
             for (int x = _cameraLbX - RenderDistance; x <= _cameraLbX + RenderDistance; x++) {

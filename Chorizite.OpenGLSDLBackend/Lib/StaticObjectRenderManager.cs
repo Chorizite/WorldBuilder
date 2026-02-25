@@ -7,10 +7,8 @@ using Silk.NET.OpenGL;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using WorldBuilder.Shared.Models;
@@ -24,31 +22,38 @@ using BoundingBox = Chorizite.Core.Lib.BoundingBox;
 namespace Chorizite.OpenGLSDLBackend.Lib {
     /// <summary>
     /// Manages static object rendering (buildings, placed objects from LandBlockInfo).
-    /// Background generation, time-sliced GPU uploads, instanced drawing.
+    /// Extends <see cref="ObjectRenderManagerBase"/> with LandBlockInfo-based generation.
     /// Shares ObjectMeshManager with SceneryRenderManager for mesh/texture reuse.
     /// </summary>
-    public class StaticObjectRenderManager : BaseObjectRenderManager {
-        private readonly ILogger _log;
-        private readonly LandscapeDocument _landscapeDoc;
+    public class StaticObjectRenderManager : ObjectRenderManagerBase {
         private readonly IDatReaderWriter _dats;
 
-        public SelectedStaticObject? HoveredInstance { get; set; }
-        public SelectedStaticObject? SelectedInstance { get; set; }
-
-        // Per-landblock data, keyed by (gridX, gridY) packed into ushort
-        private readonly ConcurrentDictionary<ushort, ObjectLandblock> _landblocks = new();
-
-        // Queues — generation uses a dictionary for cancellation + priority ordering
-        private readonly ConcurrentDictionary<ushort, ObjectLandblock> _pendingGeneration = new();
-        private readonly ConcurrentQueue<ObjectLandblock> _uploadQueue = new();
-        private readonly ConcurrentDictionary<ushort, CancellationTokenSource> _generationCTS = new();
-        private int _activeGenerations = 0;
-
-        // Prepared mesh data waiting for GPU upload (thread-safe buffer between background and main thread)
-        private readonly ConcurrentDictionary<uint, ObjectMeshData> _preparedMeshes = new();
-
+        // Instance readiness coordination (used by SceneryRenderManager)
         private readonly ConcurrentDictionary<ushort, TaskCompletionSource> _instanceReadyTcs = new();
         private readonly object _tcsLock = new();
+
+        // Visibility filters (Option A: stored as state, used by base PrepareRenderBatches)
+        private bool _showBuildings = true;
+        private bool _showStaticObjects = true;
+
+        protected override int MaxConcurrentGenerations => 21;
+
+        public StaticObjectRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
+            IDatReaderWriter dats, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager, Frustum frustum)
+            : base(gl, graphicsDevice, meshManager, log, landscapeDoc, frustum) {
+            _dats = dats;
+        }
+
+        #region Public: Static Object-Specific API
+
+        /// <summary>
+        /// Sets the visibility filters for buildings and static objects.
+        /// Call before <see cref="ObjectRenderManagerBase.PrepareRenderBatches"/>.
+        /// </summary>
+        public void SetVisibilityFilters(bool showBuildings, bool showStaticObjects) {
+            _showBuildings = showBuildings;
+            _showStaticObjects = showStaticObjects;
+        }
 
         /// <summary>
         /// Waits until instances for a specific landblock are ready.
@@ -72,35 +77,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 await task;
             }
         }
-
-        // Distance-based unloading
-        private const float UnloadDelay = 15f;
-        private readonly ConcurrentDictionary<ushort, float> _outOfRangeTimers = new();
-        private Vector3 _cameraPosition;
-        private int _cameraLbX;
-        private int _cameraLbY;
-
-        // Frustum culling
-        private readonly Frustum _frustum = new();
-        private float _lbSizeInUnits;
-
-        // Render state
-        private IShader? _shader;
-        private bool _initialized;
-
-        // Grouped instances for rendering
-        private readonly Dictionary<uint, List<Matrix4x4>> _visibleGroups = new();
-        private readonly List<uint> _visibleGfxObjIds = new();
-
-        // Statistics
-        public int RenderDistance { get; set; } = 25;
-        public int QueuedUploads => _uploadQueue.Count;
-        public int QueuedGenerations => _pendingGeneration.Count;
-        public int ActiveLandblocks => _landblocks.Count;
-        public float LightIntensity { get; set; } = 1.0f;
-        public Vector3 SunlightColor { get; set; } = Vector3.One;
-        public Vector3 AmbientColor { get; set; } = new Vector3(0.4f, 0.4f, 0.4f);
-        public Vector3 LightDirection { get; set; } = Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f));
 
         /// <summary>
         /// Gets the instances for a landblock.
@@ -169,338 +145,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return hit.Hit;
         }
 
-        public StaticObjectRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
-            IDatReaderWriter dats, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager)
-            : base(gl, graphicsDevice, meshManager) {
-            _log = log;
-            _landscapeDoc = landscapeDoc;
-            _dats = dats;
-
-            _landscapeDoc.LandblockChanged += OnLandblockChanged;
-        }
-
-        private void OnLandblockChanged(object? sender, LandblockChangedEventArgs e) {
-            if (e.AffectedLandblocks == null) {
-                foreach (var lb in _landblocks.Values) {
-                    lb.MeshDataReady = false;
-                    var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
-                    _pendingGeneration[key] = lb;
-                }
-            }
-            else {
-                foreach (var (lbX, lbY) in e.AffectedLandblocks) {
-                    InvalidateLandblock(lbX, lbY);
-                }
-            }
-        }
-
-        public void Initialize(IShader shader) {
-            _shader = shader;
-            _initialized = true;
-        }
-
-        public void Update(float deltaTime, ICamera camera) {
-            var cameraPosition = camera.Position;
-            var viewProjectionMatrix = camera.ViewProjectionMatrix;
-            if (!_initialized || _landscapeDoc.Region == null || cameraPosition.Z > 4000) return;
-
-            var region = _landscapeDoc.Region;
-            var lbSize = region.CellSizeInUnits * region.LandblockCellLength;
-
-            _cameraPosition = cameraPosition;
-            var pos = new Vector2(cameraPosition.X, cameraPosition.Y) - region.MapOffset;
-            _cameraLbX = (int)Math.Floor(pos.X / lbSize);
-            _cameraLbY = (int)Math.Floor(pos.Y / lbSize);
-            _lbSizeInUnits = lbSize;
-
-            _frustum.Update(viewProjectionMatrix);
-
-            // Queue landblocks within render distance
-            for (int x = _cameraLbX - RenderDistance; x <= _cameraLbX + RenderDistance; x++) {
-                for (int y = _cameraLbY - RenderDistance; y <= _cameraLbY + RenderDistance; y++) {
-                    if (x < 0 || y < 0 || x >= region.MapWidthInLandblocks || y >= region.MapHeightInLandblocks)
-                        continue;
-
-                    if (GetLandblockFrustumResult(x, y) == FrustumTestResult.Outside)
-                        continue;
-
-                    var key = GeometryUtils.PackKey(x, y);
-                    _outOfRangeTimers.TryRemove(key, out _);
-
-                    if (!_landblocks.ContainsKey(key)) {
-                        var lb = new ObjectLandblock {
-                            GridX = x,
-                            GridY = y
-                        };
-                        if (_landblocks.TryAdd(key, lb)) {
-                            _pendingGeneration[key] = lb;
-                        }
-                    }
-                }
-            }
-
-            // Clean up landblocks that are no longer in frustum and not yet loaded
-            foreach (var (key, lb) in _landblocks) {
-                if (!lb.GpuReady && GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) {
-                    if (_landblocks.TryRemove(key, out _)) {
-                        _pendingGeneration.TryRemove(key, out _);
-                        if (_generationCTS.TryRemove(key, out var cts)) {
-                            cts.Cancel();
-                            cts.Dispose();
-                        }
-                        UnloadLandblockResources(lb);
-                    }
-                }
-            }
-
-            // Unload landblocks outside render distance (with delay)
-            var keysToRemove = new List<ushort>();
-            foreach (var (key, lb) in _landblocks) {
-                if (Math.Abs(lb.GridX - _cameraLbX) > RenderDistance || Math.Abs(lb.GridY - _cameraLbY) > RenderDistance) {
-                    var elapsed = _outOfRangeTimers.AddOrUpdate(key, deltaTime, (_, e) => e + deltaTime);
-                    if (elapsed >= UnloadDelay) {
-                        keysToRemove.Add(key);
-                    }
-                }
-            }
-
-            foreach (var key in keysToRemove) {
-                if (_landblocks.TryRemove(key, out var lb)) {
-                    if (_generationCTS.TryRemove(key, out var cts)) {
-                        cts.Cancel();
-                        cts.Dispose();
-                    }
-                    UnloadLandblockResources(lb);
-                }
-                _outOfRangeTimers.TryRemove(key, out _);
-                _pendingGeneration.TryRemove(key, out _);
-            }
-
-            // Start background generation tasks — prioritize nearest landblocks
-            while (_activeGenerations < 21 && !_pendingGeneration.IsEmpty) {
-                ObjectLandblock? nearest = null;
-                float bestPriority = float.MaxValue;
-                ushort bestKey = 0;
-
-                Vector3 camDir3 = camera.Forward;
-                Vector2 camDir2D = new Vector2(camDir3.X, camDir3.Y);
-                if (camDir2D.LengthSquared() > 0.001f) {
-                    camDir2D = Vector2.Normalize(camDir2D);
-                }
-                else {
-                    camDir2D = Vector2.Zero;
-                }
-
-                foreach (var (key, lb) in _pendingGeneration) {
-                    float dx = lb.GridX - _cameraLbX;
-                    float dy = lb.GridY - _cameraLbY;
-                    float dist = MathF.Sqrt(dx * dx + dy * dy);
-
-                    float priority = dist;
-                    if (dist > 0.1f && camDir2D != Vector2.Zero) {
-                        Vector2 dirToChunk = Vector2.Normalize(new Vector2(dx, dy));
-                        float dot = Vector2.Dot(camDir2D, dirToChunk);
-                        priority -= dot * 1.5f;
-                    }
-
-                    if (priority < bestPriority) {
-                        bestPriority = priority;
-                        nearest = lb;
-                        bestKey = key;
-                    }
-                }
-
-                if (nearest == null || !_pendingGeneration.TryRemove(bestKey, out var lbToGenerate))
-                    break;
-
-                int chosenDist = Math.Max(Math.Abs(lbToGenerate.GridX - _cameraLbX), Math.Abs(lbToGenerate.GridY - _cameraLbY));
-
-                if (chosenDist > RenderDistance || GetLandblockFrustumResult(lbToGenerate.GridX, lbToGenerate.GridY) == FrustumTestResult.Outside) {
-                    if (_landblocks.TryRemove(bestKey, out _)) {
-                        UnloadLandblockResources(lbToGenerate);
-                    }
-                    continue;
-                }
-
-                Interlocked.Increment(ref _activeGenerations);
-                var cts = new CancellationTokenSource();
-                _generationCTS[bestKey] = cts;
-                var token = cts.Token;
-                Task.Run(async () => {
-                    try {
-                        await GenerateStaticObjectsForLandblock(lbToGenerate, token);
-                    }
-                    finally {
-                        _generationCTS.TryRemove(bestKey, out _);
-                        cts.Dispose();
-                        Interlocked.Decrement(ref _activeGenerations);
-                    }
-                });
-            }
-        }
-
-        public float ProcessUploads(float timeBudgetMs) {
-            if (!_initialized) return 0;
-
-            var sw = Stopwatch.StartNew();
-            while (sw.Elapsed.TotalMilliseconds < timeBudgetMs && _uploadQueue.TryDequeue(out var lb)) {
-                var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
-                if (!_landblocks.TryGetValue(key, out var currentLb) || currentLb != lb) {
-                    continue;
-                }
-
-                if (!IsWithinRenderDistance(lb) || GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) {
-                    if (_landblocks.TryRemove(key, out _)) {
-                        UnloadLandblockResources(lb);
-                    }
-                    continue;
-                }
-                UploadLandblockMeshes(lb);
-            }
-
-            return (float)sw.Elapsed.TotalMilliseconds;
-        }
-
-        private readonly List<List<Matrix4x4>> _listPool = new();
-        private int _poolIndex = 0;
-
-        private List<Matrix4x4> GetPooledList() {
-            if (_poolIndex < _listPool.Count) {
-                var list = _listPool[_poolIndex++];
-                list.Clear();
-                return list;
-            }
-            var newList = new List<Matrix4x4>();
-            _listPool.Add(newList);
-            _poolIndex++;
-            return newList;
-        }
-
-        public void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, bool showBuildings, bool showStaticObjects) {
-            if (!_initialized || cameraPosition.Z > 4000) return;
-
-            _frustum.Update(viewProjectionMatrix);
-
-            // Clear previous frame data
-            _visibleGroups.Clear();
-            _visibleGfxObjIds.Add(0); // Dummy for clearing, actually we just clear groups
-            _visibleGfxObjIds.Clear();
-            _poolIndex = 0;
-
-            foreach (var lb in _landblocks.Values) {
-                if (!lb.GpuReady || lb.Instances.Count == 0 || !IsWithinRenderDistance(lb)) continue;
-
-                var testResult = GetLandblockFrustumResult(lb.GridX, lb.GridY);
-                if (testResult == FrustumTestResult.Outside) continue;
-
-                if (testResult == FrustumTestResult.Inside) {
-                    // Fast path: All instances in this landblock are visible
-                    if (showBuildings) {
-                        foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
-                            if (!_visibleGroups.TryGetValue(gfxObjId, out var list)) {
-                                list = GetPooledList();
-                                _visibleGroups[gfxObjId] = list;
-                                _visibleGfxObjIds.Add(gfxObjId);
-                            }
-                            list.AddRange(transforms);
-                        }
-                    }
-                    if (showStaticObjects) {
-                        foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
-                            if (!_visibleGroups.TryGetValue(gfxObjId, out var list)) {
-                                list = GetPooledList();
-                                _visibleGroups[gfxObjId] = list;
-                                _visibleGfxObjIds.Add(gfxObjId);
-                            }
-                            list.AddRange(transforms);
-                        }
-                    }
-                }
-                else {
-                    // Slow path: Test each instance individually
-                    foreach (var instance in lb.Instances) {
-                        if (instance.IsBuilding && !showBuildings) continue;
-                        if (!instance.IsBuilding && !showStaticObjects) continue;
-
-                        if (_frustum.Intersects(instance.BoundingBox)) {
-                            if (instance.IsSetup) {
-                                var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
-                                if (renderData is { IsSetup: true }) {
-                                    foreach (var (partId, partTransform) in renderData.SetupParts) {
-                                        if (!_visibleGroups.TryGetValue(partId, out var list)) {
-                                            list = GetPooledList();
-                                            _visibleGroups[partId] = list;
-                                            _visibleGfxObjIds.Add(partId);
-                                        }
-                                        list.Add(partTransform * instance.Transform);
-                                    }
-                                }
-                            }
-                            else {
-                                if (!_visibleGroups.TryGetValue(instance.ObjectId, out var list)) {
-                                    list = GetPooledList();
-                                    _visibleGroups[instance.ObjectId] = list;
-                                    _visibleGfxObjIds.Add(instance.ObjectId);
-                                }
-                                list.Add(instance.Transform);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        public unsafe void Render(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
-            if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || cameraPosition.Z > 4000) return;
-
-            CurrentVAO = 0;
-            CurrentIBO = 0;
-            CurrentAtlas = 0;
-            CurrentCullMode = null;
-
-            _shader.Bind();
-            _shader.SetUniform("uViewProjection", viewProjectionMatrix);
-            _shader.SetUniform("uCameraPosition", cameraPosition);
-            var region = _landscapeDoc.Region;
-            _shader.SetUniform("uLightDirection", region?.LightDirection ?? LightDirection);
-            _shader.SetUniform("uSunlightColor", region?.SunlightColor ?? SunlightColor);
-            _shader.SetUniform("uAmbientColor", (region?.AmbientColor ?? AmbientColor) * LightIntensity);
-            _shader.SetUniform("uSpecularPower", 32.0f);
-            _shader.SetUniform("uHighlightColor", Vector4.Zero);
-
-            if (_visibleGfxObjIds.Count == 0) return;
-
-            CurrentVAO = 0;
-            CurrentIBO = 0;
-            CurrentAtlas = 0;
-            CurrentCullMode = null;
-
-            foreach (var gfxObjId in _visibleGfxObjIds) {
-                if (_visibleGroups.TryGetValue(gfxObjId, out var transforms)) {
-                    var renderData = MeshManager.TryGetRenderData(gfxObjId);
-                    if (renderData != null && !renderData.IsSetup) {
-                        RenderObjectBatches(_shader, renderData, transforms);
-                    }
-                }
-            }
-
-            // Draw highlighted / selected objects on top
-            Gl.DepthFunc(GLEnum.Lequal);
-            if (SelectedInstance.HasValue) {
-                RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection);
-            }
-            if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
-                RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover);
-            }
-            Gl.DepthFunc(GLEnum.Less);
-
-            _shader.SetUniform("uHighlightColor", Vector4.Zero);
-            _shader.SetUniform("uRenderPass", 0);
-            Gl.BindVertexArray(0);
-        }
-
         public void SubmitDebugShapes(DebugRenderer? debug, DebugRenderSettings settings) {
-            if (debug == null || _landscapeDoc.Region == null || !settings.ShowBoundingBoxes) return;
+            if (debug == null || LandscapeDoc.Region == null || !settings.ShowBoundingBoxes) return;
 
             foreach (var lb in _landblocks.Values) {
                 if (!lb.InstancesReady || !IsWithinRenderDistance(lb)) continue;
@@ -527,98 +173,85 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        private void RenderSelectedInstance(SelectedStaticObject selected, Vector4 highlightColor) {
-            if (_landblocks.TryGetValue(selected.LandblockKey, out var lb)) {
-                var instance = lb.Instances.FirstOrDefault(i => i.InstanceId == selected.InstanceId);
-                if (instance.ObjectId != 0) {
+        #endregion
+
+        #region Protected: Overrides
+
+        protected override IEnumerable<KeyValuePair<uint, List<Matrix4x4>>> GetFastPathGroups(ObjectLandblock lb) {
+            if (_showBuildings) {
+                foreach (var kvp in lb.BuildingPartGroups) {
+                    yield return kvp;
+                }
+            }
+            if (_showStaticObjects) {
+                foreach (var kvp in lb.StaticPartGroups) {
+                    yield return kvp;
+                }
+            }
+        }
+
+        protected override bool ShouldIncludeInstance(SceneryInstance instance) {
+            if (instance.IsBuilding && !_showBuildings) return false;
+            if (!instance.IsBuilding && !_showStaticObjects) return false;
+            return true;
+        }
+
+        protected override void PopulatePartGroups(ObjectLandblock lb, List<SceneryInstance> instances) {
+            lb.StaticPartGroups.Clear();
+            lb.BuildingPartGroups.Clear();
+            foreach (var instance in instances) {
+                var targetGroup = instance.IsBuilding ? lb.BuildingPartGroups : lb.StaticPartGroups;
+                if (instance.IsSetup) {
                     var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
-                    if (renderData != null) {
-                        _shader!.SetUniform("uHighlightColor", highlightColor);
-                        _shader!.SetUniform("uRenderPass", 2); // Single pass mode for highlighting
-                        if (renderData.IsSetup) {
-                            foreach (var (partId, partTransform) in renderData.SetupParts) {
-                                var partRenderData = MeshManager.TryGetRenderData(partId);
-                                if (partRenderData != null) {
-                                    RenderObjectBatches(_shader!, partRenderData, new List<Matrix4x4> { partTransform * instance.Transform });
-                                }
+                    if (renderData is { IsSetup: true }) {
+                        foreach (var (partId, partTransform) in renderData.SetupParts) {
+                            if (!targetGroup.TryGetValue(partId, out var list)) {
+                                list = new List<Matrix4x4>();
+                                targetGroup[partId] = list;
                             }
-                        }
-                        else {
-                            RenderObjectBatches(_shader!, renderData, new List<Matrix4x4> { instance.Transform });
+                            list.Add(partTransform * instance.Transform);
                         }
                     }
                 }
-            }
-        }
-
-        public void InvalidateLandblock(int lbX, int lbY) {
-            if (lbX < 0 || lbY < 0) return;
-            var key = GeometryUtils.PackKey(lbX, lbY);
-            lock (_tcsLock) {
-                _instanceReadyTcs.TryRemove(key, out _);
-                if (_landblocks.TryGetValue(key, out var lb)) {
-                    lb.InstancesReady = false;
-                    lb.MeshDataReady = false;
-                    _pendingGeneration[key] = lb;
+                else {
+                    if (!targetGroup.TryGetValue(instance.ObjectId, out var list)) {
+                        list = new List<Matrix4x4>();
+                        targetGroup[instance.ObjectId] = list;
+                    }
+                    list.Add(instance.Transform);
                 }
             }
         }
 
-        #region Private: Distance Helpers
-
-        /// <summary>
-        /// Tests whether a landblock's bounding box intersects the camera frustum.
-        /// Uses a generous Z range to avoid missing objects on hills/valleys.
-        /// </summary>
-        private FrustumTestResult GetLandblockFrustumResult(int gridX, int gridY) {
-            var offset = _landscapeDoc.Region?.MapOffset ?? Vector2.Zero;
-            var minX = gridX * _lbSizeInUnits + offset.X;
-            var minY = gridY * _lbSizeInUnits + offset.Y;
-            var maxX = (gridX + 1) * _lbSizeInUnits + offset.X;
-            var maxY = (gridY + 1) * _lbSizeInUnits + offset.Y;
-
-            var box = new BoundingBox(
-                new Vector3(minX, minY, -1000f),
-                new Vector3(maxX, maxY, 5000f)
-            );
-            return _frustum.TestBox(box);
-        }
-
-        private bool IsWithinRenderDistance(ObjectLandblock lb) {
-            return Math.Abs(lb.GridX - _cameraLbX) <= RenderDistance
-                && Math.Abs(lb.GridY - _cameraLbY) <= RenderDistance;
-        }
-
-        private void UnloadLandblockResources(ObjectLandblock lb) {
-            var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
+        protected override void OnUnloadResources(ObjectLandblock lb, ushort key) {
             lock (_tcsLock) {
                 _instanceReadyTcs.TryRemove(key, out _);
                 lb.InstancesReady = false;
             }
-            lock (lb) {
-                DecrementInstanceRefCounts(lb.Instances);
-                lb.Instances.Clear();
-                lb.PendingInstances = null;
-                lb.GpuReady = false;
-                lb.MeshDataReady = false;
+        }
+
+        protected override void OnInvalidateLandblock(ushort key) {
+            lock (_tcsLock) {
+                _instanceReadyTcs.TryRemove(key, out _);
+                if (_landblocks.TryGetValue(key, out var lb)) {
+                    lb.InstancesReady = false;
+                }
             }
         }
 
-        #endregion
+        protected override void OnLandblockChangedExtra(ushort key) {
+            lock (_tcsLock) {
+                _instanceReadyTcs.TryRemove(key, out _);
+            }
+        }
 
-        #region Private: Background Generation
-
-        /// <summary>
-        /// Load static objects from LandBlockInfo in the cell DAT.
-        /// Objects include placed items and buildings.
-        /// </summary>
-        private async Task GenerateStaticObjectsForLandblock(ObjectLandblock lb, CancellationToken ct) {
+        protected override async Task GenerateForLandblockAsync(ObjectLandblock lb, CancellationToken ct) {
             try {
                 var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
                 if (!IsWithinRenderDistance(lb) || !_landblocks.ContainsKey(key)) return;
                 ct.ThrowIfCancellationRequested();
 
-                if (_landscapeDoc.Region is not ITerrainInfo regionInfo) return;
+                if (LandscapeDoc.Region is not ITerrainInfo regionInfo) return;
 
                 var lbGlobalX = (uint)lb.GridX;
                 var lbGlobalY = (uint)lb.GridY;
@@ -629,7 +262,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var staticObjects = new List<SceneryInstance>();
                 var lbSizeUnits = regionInfo.LandblockSizeInUnits; // 192
 
-                var mergedLb = _landscapeDoc.GetMergedLandblock(lbId);
+                var mergedLb = LandscapeDoc.GetMergedLandblock(lbId);
 
                 // Placed objects
                 foreach (var obj in mergedLb.StaticObjects) {
@@ -707,45 +340,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 if (staticObjects.Count > 0) {
-                    _log.LogTrace("Generated {Count} static objects for landblock ({X},{Y})", staticObjects.Count, lb.GridX, lb.GridY);
+                    Log.LogTrace("Generated {Count} static objects for landblock ({X},{Y})", staticObjects.Count, lb.GridX, lb.GridY);
                 }
 
                 // Prepare mesh data for unique objects on background thread
-                var uniqueObjects = staticObjects.Select(s => (s.ObjectId, s.IsSetup))
-                    .Distinct()
-                    .ToList();
-
-                var preparationTasks = new List<Task<ObjectMeshData?>>();
-                foreach (var (objectId, isSetup) in uniqueObjects) {
-                    if (MeshManager.HasRenderData(objectId) || _preparedMeshes.ContainsKey(objectId))
-                        continue;
-
-                    preparationTasks.Add(MeshManager.PrepareMeshDataAsync(objectId, isSetup, ct));
-                }
-
-                var preparedMeshes = await Task.WhenAll(preparationTasks);
-                foreach (var meshData in preparedMeshes) {
-                    if (meshData == null) continue;
-
-                    _preparedMeshes.TryAdd(meshData.ObjectId, meshData);
-
-                    // For Setup objects, also prepare each part's GfxObj
-                    if (meshData.IsSetup && meshData.SetupParts.Count > 0) {
-                        var partTasks = new List<Task<ObjectMeshData?>>();
-                        foreach (var (partId, _) in meshData.SetupParts) {
-                            if (!MeshManager.HasRenderData(partId) && !_preparedMeshes.ContainsKey(partId)) {
-                                partTasks.Add(MeshManager.PrepareMeshDataAsync(partId, false, ct));
-                            }
-                        }
-
-                        var partMeshes = await Task.WhenAll(partTasks);
-                        foreach (var partData in partMeshes) {
-                            if (partData != null) {
-                                _preparedMeshes.TryAdd(partData.ObjectId, partData);
-                            }
-                        }
-                    }
-                }
+                await PrepareMeshesForInstances(staticObjects, ct);
 
                 lb.MeshDataReady = true;
                 _uploadQueue.Enqueue(lb);
@@ -754,91 +353,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 // Ignore cancellations
             }
             catch (Exception ex) {
-                _log.LogError(ex, "Error generating static objects for landblock ({X},{Y})", lb.GridX, lb.GridY);
+                Log.LogError(ex, "Error generating static objects for landblock ({X},{Y})", lb.GridX, lb.GridY);
             }
-        }
-
-        #endregion
-
-        #region Private: GPU Upload
-
-        private void UploadLandblockMeshes(ObjectLandblock lb) {
-            var instancesToUpload = lb.PendingInstances ?? lb.Instances;
-
-            var uniqueObjects = instancesToUpload
-                .Select(s => s.ObjectId)
-                .Distinct()
-                .ToList();
-
-            foreach (var objectId in uniqueObjects) {
-                var renderData = UploadPreparedMesh(objectId);
-
-                if (renderData is { IsSetup: true }) {
-                    foreach (var (partId, _) in renderData.SetupParts) {
-                        UploadPreparedMesh(partId);
-                    }
-                }
-            }
-
-            // Populate StaticPartGroups and BuildingPartGroups for efficient rendering
-            lb.StaticPartGroups.Clear();
-            lb.BuildingPartGroups.Clear();
-            foreach (var instance in instancesToUpload) {
-                var targetGroup = instance.IsBuilding ? lb.BuildingPartGroups : lb.StaticPartGroups;
-                if (instance.IsSetup) {
-                    var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
-                    if (renderData is { IsSetup: true }) {
-                        foreach (var (partId, partTransform) in renderData.SetupParts) {
-                            if (!targetGroup.TryGetValue(partId, out var list)) {
-                                list = new List<Matrix4x4>();
-                                targetGroup[partId] = list;
-                            }
-                            list.Add(partTransform * instance.Transform);
-                        }
-                    }
-                }
-                else {
-                    if (!targetGroup.TryGetValue(instance.ObjectId, out var list)) {
-                        list = new List<Matrix4x4>();
-                        targetGroup[instance.ObjectId] = list;
-                    }
-                    list.Add(instance.Transform);
-                }
-            }
-
-            if (lb.PendingInstances != null) {
-                DecrementInstanceRefCounts(lb.Instances);
-                IncrementInstanceRefCounts(lb.PendingInstances);
-                lb.Instances = lb.PendingInstances;
-                lb.PendingInstances = null;
-            }
-            else if (!lb.GpuReady) {
-                IncrementInstanceRefCounts(lb.Instances);
-            }
-
-            lb.GpuReady = true;
-        }
-
-        private ObjectRenderData? UploadPreparedMesh(uint objectId) {
-            if (MeshManager.HasRenderData(objectId))
-                return MeshManager.TryGetRenderData(objectId);
-
-            if (_preparedMeshes.TryRemove(objectId, out var meshData)) {
-                return MeshManager.UploadMeshData(meshData);
-            }
-            return null;
         }
 
         #endregion
 
         public override void Dispose() {
             base.Dispose();
-            _landscapeDoc.LandblockChanged -= OnLandblockChanged;
-            _landblocks.Clear();
-            _preparedMeshes.Clear();
-            _pendingGeneration.Clear();
-            _outOfRangeTimers.Clear();
         }
     }
-
 }
