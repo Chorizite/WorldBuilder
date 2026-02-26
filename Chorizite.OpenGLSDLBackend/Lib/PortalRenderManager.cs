@@ -252,7 +252,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Each entry provides the GPU data needed to render the stencil mask and the set of
         /// EnvCell IDs to render through it.
         /// </summary>
-        public IEnumerable<(ushort LbKey, BuildingPortalGPU Building)> GetVisibleBuildingPortals() {
+        internal IEnumerable<(ushort LbKey, BuildingPortalGPU Building)> GetVisibleBuildingPortals() {
             foreach (var (key, lb) in _landblocks) {
                 if (!lb.Ready || lb.BuildingPortals.Count == 0 || !IsWithinRenderDistance(lb)) continue;
 
@@ -269,7 +269,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Finds all building portal groups that contain the specified EnvCell ID.
         /// Does NOT perform frustum culling, as this is used to identify portals of the building the camera is in.
         /// </summary>
-        public IEnumerable<(ushort LbKey, BuildingPortalGPU Building)> GetBuildingPortalsByCellId(uint cellId) {
+        internal IEnumerable<(ushort LbKey, BuildingPortalGPU Building)> GetBuildingPortalsByCellId(uint cellId) {
             foreach (var (key, lb) in _landblocks) {
                 if (!lb.Ready) continue;
                 foreach (var building in lb.BuildingPortals) {
@@ -294,7 +294,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Renders the stencil mask for a single building's portal polygons.
         /// Caller is responsible for setting up stencil state before calling.
         /// </summary>
-        public unsafe void RenderBuildingStencilMask(BuildingPortalGPU building, Matrix4x4 viewProjection, bool writeFarDepth = false) {
+        internal unsafe void RenderBuildingStencilMask(BuildingPortalGPU building, Matrix4x4 viewProjection, bool writeFarDepth = false) {
             if (_stencilShader == null || building.VAO == 0) return;
 
             _stencilShader.Bind();
@@ -379,7 +379,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Clean up old building GPU resources
             foreach (var building in lb.BuildingPortals) {
                 if (building.VAO != 0) _gl.DeleteVertexArray(building.VAO);
-                if (building.VBO != 0) _gl.DeleteBuffer(building.VBO);
+                if (building.VBO != 0) {
+                    GpuMemoryTracker.TrackDeallocation(building.VertexCount * sizeof(Vector3));
+                    _gl.DeleteBuffer(building.VBO);
+                }
             }
             lb.BuildingPortals.Clear();
 
@@ -482,11 +485,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     /// GPU-uploaded portal polygon mesh for a single building.
     /// Used for stencil-based portal rendering.
     /// </summary>
-    public class BuildingPortalGPU {
-        public int BuildingIndex;
-        public uint VAO;
-        public uint VBO;
-        public int VertexCount;
-        public HashSet<uint> EnvCellIds = new();
+    internal sealed record BuildingPortalGPU {
+        public int BuildingIndex { get; init; }
+        public uint VAO { get; init; }
+        public uint VBO { get; init; }
+        public int VertexCount { get; init; }
+        public HashSet<uint> EnvCellIds { get; init; } = new();
     }
 }

@@ -749,7 +749,7 @@ public class GameScene : IDisposable {
                 _portalManager?.RenderBuildingStencilMask(building, snapshotVP, false);
             }
 
-            // Step 1b: Punch through depth buffer at doorways so outside can be seen.
+            // Step 2: Punch through depth buffer at doorways so outside can be seen.
             _gl.DepthMask(true);
             _gl.DepthFunc(DepthFunction.Always);
             foreach (var (lbKey, building) in buildingsWithCurrentCell) {
@@ -757,7 +757,7 @@ public class GameScene : IDisposable {
             }
         }
 
-        // Step 2: Render EnvCells of the current building(s).
+        // Step 3: Render EnvCells of the current building(s).
         // These should ALWAYS render, not restricted by their own portals (since we are inside).
         _gl.ColorMask(true, true, true, false);
         _gl.DepthMask(true);
@@ -790,7 +790,7 @@ public class GameScene : IDisposable {
             }
         }
 
-        // Step 3: Render EnvCells of OTHER buildings, masked by our portals AND their own portals.
+        // Step 4: Render EnvCells of OTHER buildings, masked by our portals AND their own portals.
         if (didInsideStencil && visibleBuildingPortals != null) {
             var otherBuildings = visibleBuildingPortals.Where(p => !p.Building.EnvCellIds.Contains(currentEnvCellId)).ToList();
             if (otherBuildings.Count > 0) {
@@ -837,7 +837,7 @@ public class GameScene : IDisposable {
             }
         }
 
-        // Step 4: Restrict exterior (Terrain/Scenery/etc) through portals.
+        // Step 5: Restrict exterior (Terrain/Scenery/etc) through portals.
         if (didInsideStencil) {
             _gl.Enable(EnableCap.StencilTest);
             _gl.StencilFunc(StencilFunction.Equal, 1, 0x01);
@@ -936,7 +936,7 @@ public class GameScene : IDisposable {
                     _sceneryManager?.Render(pass1RenderPass);
                 }
 
-                // Step 4: Render EnvCells through stencil with normal depth test.
+                // Step 4: Prepare state for EnvCell rendering through stencil.
                 // At doorway: depth=far_plane, EnvCells pass ✓
                 // At wall from side: wall depth restored, EnvCells fail ✓
                 _gl.ColorMask(true, true, true, false);
@@ -946,7 +946,7 @@ public class GameScene : IDisposable {
 
         // Render EnvCells building by building to apply individual portal masks
         if (didStencil && visiblePortals != null) {
-            // Step 4: Render EnvCells through portal masks with normal depth test.
+            // Step 5: Render EnvCells through portal masks with normal depth test.
             _gl.StencilFunc(StencilFunction.Equal, 1, 0xFF);
             _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
             _gl.ColorMask(true, true, true, false);
