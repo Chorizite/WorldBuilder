@@ -178,37 +178,47 @@
 
             <DataTemplate DataType="{x:Type tools:InspectorTool}" x:DataType="tools:InspectorTool">
                 <StackPanel Orientation="Horizontal">
-                  <HeaderedContentControl Header="Filter" Template="{StaticResource RibbonGroupTemplate}">
-                    <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
-                      <StackPanel Orientation="Horizontal" Spacing="4">
-                        <ColorPicker Color="{Binding VertexColor, Converter={StaticResource Vector4ToColorConverter}}" />
-                        <CheckBox Content="Vertices" IsChecked="{Binding SelectVertices}" FontSize="12" />
+                  <HeaderedContentControl Header="Filters" Template="{StaticResource RibbonGroupTemplate}">
+                    <DropDownButton VerticalAlignment="Center" Background="Transparent" BorderThickness="0">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <icons:MaterialIcon Kind="FilterVariant" Width="18" Height="18" />
+                        <TextBlock Text="Select Filters" FontSize="12" VerticalAlignment="Center"/>
                       </StackPanel>
-                      <StackPanel Orientation="Horizontal" Spacing="4">
-                        <ColorPicker Color="{Binding BuildingColor, Converter={StaticResource Vector4ToColorConverter}}" />
-                        <CheckBox Content="Buildings" IsChecked="{Binding SelectBuildings}" FontSize="12" />
-                      </StackPanel>
-                      <StackPanel Orientation="Horizontal" Spacing="4">
-                        <ColorPicker Color="{Binding StaticObjectColor, Converter={StaticResource Vector4ToColorConverter}}" />
-                        <CheckBox Content="Static Objects" IsChecked="{Binding SelectStaticObjects}" FontSize="12" />
-                      </StackPanel>
-                      <StackPanel Orientation="Horizontal" Spacing="4">
-                        <ColorPicker Color="{Binding SceneryColor, Converter={StaticResource Vector4ToColorConverter}}" />
-                        <CheckBox Content="Scenery" IsChecked="{Binding SelectScenery}" FontSize="12" />
-                      </StackPanel>
-                      <StackPanel Orientation="Horizontal" Spacing="4">
-                        <ColorPicker Color="{Binding EnvCellColor, Converter={StaticResource Vector4ToColorConverter}}" />
-                        <CheckBox Content="EnvCells" IsChecked="{Binding SelectEnvCells}" FontSize="12" />
-                      </StackPanel>
-                      <StackPanel Orientation="Horizontal" Spacing="4">
-                        <ColorPicker Color="{Binding EnvCellStaticObjectColor, Converter={StaticResource Vector4ToColorConverter}}" />
-                        <CheckBox Content="Cell Objects" IsChecked="{Binding SelectEnvCellStaticObjects}" FontSize="12" />
-                      </StackPanel>
-                      <StackPanel Orientation="Horizontal" Spacing="4">
-                        <ColorPicker Color="{Binding PortalColor, Converter={StaticResource Vector4ToColorConverter}}" />
-                        <CheckBox Content="Portals" IsChecked="{Binding SelectPortals}" FontSize="12" />
-                      </StackPanel>
-                    </StackPanel>
+                      <DropDownButton.Flyout>
+                        <Flyout Placement="BottomEdgeAlignedLeft">
+                          <StackPanel Spacing="4" Margin="4">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                              <ColorPicker Color="{Binding VertexColor, Converter={StaticResource Vector4ToColorConverter}}" />
+                              <CheckBox Content="Vertices" IsChecked="{Binding SelectVertices}" FontSize="12" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                              <ColorPicker Color="{Binding BuildingColor, Converter={StaticResource Vector4ToColorConverter}}" />
+                              <CheckBox Content="Buildings" IsChecked="{Binding SelectBuildings}" FontSize="12" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                              <ColorPicker Color="{Binding StaticObjectColor, Converter={StaticResource Vector4ToColorConverter}}" />
+                              <CheckBox Content="Static Objects" IsChecked="{Binding SelectStaticObjects}" FontSize="12" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                              <ColorPicker Color="{Binding SceneryColor, Converter={StaticResource Vector4ToColorConverter}}" />
+                              <CheckBox Content="Scenery" IsChecked="{Binding SelectScenery}" FontSize="12" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                              <ColorPicker Color="{Binding EnvCellColor, Converter={StaticResource Vector4ToColorConverter}}" />
+                              <CheckBox Content="EnvCells" IsChecked="{Binding SelectEnvCells}" FontSize="12" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                              <ColorPicker Color="{Binding EnvCellStaticObjectColor, Converter={StaticResource Vector4ToColorConverter}}" />
+                              <CheckBox Content="Cell Objects" IsChecked="{Binding SelectEnvCellStaticObjects}" FontSize="12" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                              <ColorPicker Color="{Binding PortalColor, Converter={StaticResource Vector4ToColorConverter}}" />
+                              <CheckBox Content="Portals" IsChecked="{Binding SelectPortals}" FontSize="12" />
+                            </StackPanel>
+                          </StackPanel>
+                        </Flyout>
+                      </DropDownButton.Flyout>
+                    </DropDownButton>
                   </HeaderedContentControl>
                   <HeaderedContentControl Header="Display" Template="{StaticResource RibbonGroupTemplate}">
                     <CheckBox Content="Bounding Boxes" IsChecked="{Binding ShowBoundingBoxes}" FontSize="12" VerticalAlignment="Center" />
