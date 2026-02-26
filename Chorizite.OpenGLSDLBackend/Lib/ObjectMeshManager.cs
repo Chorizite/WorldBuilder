@@ -1141,12 +1141,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Raycasting
 
-        public bool IntersectMesh(ObjectRenderData renderData, Matrix4x4 transform, Vector3 rayOrigin, Vector3 rayDirection, out float distance) {
-            return IntersectMeshInternal(renderData, transform, rayOrigin, rayDirection, 0, out distance);
+        public bool IntersectMesh(ObjectRenderData renderData, Matrix4x4 transform, Vector3 rayOrigin, Vector3 rayDirection, out float distance, out Vector3 normal) {
+            return IntersectMeshInternal(renderData, transform, rayOrigin, rayDirection, 0, out distance, out normal);
         }
 
-        private bool IntersectMeshInternal(ObjectRenderData renderData, Matrix4x4 transform, Vector3 rayOrigin, Vector3 rayDirection, int depth, out float distance) {
+        private bool IntersectMeshInternal(ObjectRenderData renderData, Matrix4x4 transform, Vector3 rayOrigin, Vector3 rayDirection, int depth, out float distance, out Vector3 normal) {
             distance = float.MaxValue;
+            normal = Vector3.UnitZ;
             bool hit = false;
 
             if (depth > 32) return false; // Prevent stack overflow from circular setups
@@ -1155,9 +1156,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 foreach (var part in renderData.SetupParts) {
                     var partData = TryGetRenderData(part.GfxObjId);
                     if (partData != null) {
-                        if (IntersectMeshInternal(partData, part.Transform * transform, rayOrigin, rayDirection, depth + 1, out float d)) {
+                        if (IntersectMeshInternal(partData, part.Transform * transform, rayOrigin, rayDirection, depth + 1, out float d, out Vector3 n)) {
                             if (d < distance) {
                                 distance = d;
+                                normal = n;
                                 hit = true;
                             }
                         }
@@ -1171,7 +1173,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (renderData.SelectionSphere != null && renderData.SelectionSphere.Radius > 0.001f) {
                     var worldOrigin = Vector3.Transform(renderData.SelectionSphere.Origin, transform);
                     float radius = renderData.SelectionSphere.Radius * transform.Translation.Length(); // Rough scale
-                    return GeometryUtils.RayIntersectsSphere(rayOrigin, rayDirection, worldOrigin, radius, out distance);
+                    if (GeometryUtils.RayIntersectsSphere(rayOrigin, rayDirection, worldOrigin, radius, out distance)) {
+                        normal = Vector3.Normalize(rayOrigin + rayDirection * distance - worldOrigin);
+                        return true;
+                    }
                 }
                 return false;
             }
@@ -1195,6 +1200,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                     if (worldDist < distance) {
                         distance = worldDist;
+                        
+                        // Calculate normal in local space and transform to world space
+                        Vector3 localNormal = Vector3.Normalize(Vector3.Cross(v1 - v0, v2 - v0));
+                        normal = Vector3.Normalize(Vector3.TransformNormal(localNormal, transform));
+
+                        // Ensure normal faces the ray
+                        if (Vector3.Dot(normal, rayDirection) > 0) {
+                            normal = -normal;
+                        }
+
                         hit = true;
                     }
                 }

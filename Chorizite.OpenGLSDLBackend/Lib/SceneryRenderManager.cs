@@ -88,7 +88,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         }
 
                         // Narrow phase: Mesh-precise raycast
-                        if (MeshManager.IntersectMesh(renderData, inst.Transform, origin, direction, out float d)) {
+                        if (MeshManager.IntersectMesh(renderData, inst.Transform, origin, direction, out float d, out Vector3 normal)) {
                             if (d < hit.Distance) {
                                 hit.Hit = true;
                                 hit.Distance = d;
@@ -98,6 +98,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.Position = inst.WorldPosition;
                                 hit.Rotation = inst.Rotation;
                                 hit.LandblockId = (uint)((kvp.Key << 16) | 0xFFFE);
+                                hit.Normal = normal;
                             }
                         }
                     }

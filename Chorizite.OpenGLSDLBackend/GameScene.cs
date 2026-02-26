@@ -499,15 +499,54 @@ public class GameScene : IDisposable {
     /// </summary>
     public void Update(float deltaTime) {
         float remainingTime = MAX_GPU_UPDATE_TIME_PER_FRAME;
+        Vector3 oldPos = _currentCamera.Position;
         _currentCamera.Update(deltaTime);
-        _cullingFrustum.Update(_currentCamera.ViewProjectionMatrix);
+        Vector3 newPos = _currentCamera.Position;
 
-        if (_is3DMode && _state.EnableTerrainCollision && _terrainManager != null) {
-            var terrainHeight = _terrainManager.GetHeight(_currentCamera.Position.X, _currentCamera.Position.Y);
-            if (_currentCamera.Position.Z < terrainHeight + 1f) {
-                _currentCamera.Position = new Vector3(_currentCamera.Position.X, _currentCamera.Position.Y, terrainHeight + 1f);
+        if (_is3DMode && _state.EnableCameraCollision) {
+            uint currentEnvCell = GetEnvCellAt(oldPos);
+            Vector3 moveDir = newPos - oldPos;
+            float moveDist = moveDir.Length();
+
+            if (moveDist > 0.0001f) {
+                Vector3 normalizedDir = Vector3.Normalize(moveDir);
+                SceneRaycastHit hit = SceneRaycastHit.NoHit;
+                bool hasHit = false;
+
+                if (currentEnvCell != 0) {
+                    // Inside: Collide with EnvCells and EnvCellStaticObjects
+                    if (RaycastEnvCells(oldPos, normalizedDir, true, true, out hit)) {
+                        if (hit.Distance <= moveDist + 0.5f) {
+                            hasHit = true;
+                        }
+                    }
+                }
+                else {
+                    // Outside: Collide with Buildings and StaticObjects
+                    if (RaycastStaticObjects(oldPos, normalizedDir, true, true, out hit)) {
+                        if (hit.Distance <= moveDist + 0.5f) {
+                            hasHit = true;
+                        }
+                    }
+                }
+
+                if (hasHit) {
+                    newPos = oldPos + normalizedDir * Math.Max(0, hit.Distance - 0.5f);
+                    _currentCamera.Position = newPos;
+                }
+            }
+
+            // Always enforce terrain height if outside and camera collision is enabled
+            if (currentEnvCell == 0 && _state.EnableCameraCollision && _terrainManager != null) {
+                var terrainHeight = _terrainManager.GetHeight(newPos.X, newPos.Y);
+                if (newPos.Z < terrainHeight + 1.6f) {
+                    newPos.Z = terrainHeight + 1.6f;
+                    _currentCamera.Position = newPos;
+                }
             }
         }
+
+        _cullingFrustum.Update(_currentCamera.ViewProjectionMatrix);
 
         _terrainManager?.Update(deltaTime, _currentCamera);
         _lastTerrainUploadTime = _terrainManager?.ProcessUploads(remainingTime) ?? 0;

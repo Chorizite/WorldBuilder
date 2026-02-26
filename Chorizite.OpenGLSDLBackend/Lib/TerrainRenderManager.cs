@@ -143,6 +143,51 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return TerrainUtils.GetHeight(regionInfo.Region, entries, (uint)lbX, (uint)lbY, localPos);
         }
 
+        public Vector3 GetNormal(float x, float y) {
+            if (_landscapeDoc?.Region is not RegionInfo regionInfo) return Vector3.UnitZ;
+
+            // Convert to map coordinates
+            float mapX = x - regionInfo.MapOffset.X;
+            float mapY = y - regionInfo.MapOffset.Y;
+
+            if (mapX < 0 || mapY < 0) return Vector3.UnitZ;
+
+            int lbX = (int)(mapX / regionInfo.LandblockSizeInUnits);
+            int lbY = (int)(mapY / regionInfo.LandblockSizeInUnits);
+
+            if (lbX >= regionInfo.MapWidthInLandblocks || lbY >= regionInfo.MapHeightInLandblocks) return Vector3.UnitZ;
+
+            uint chunkX = (uint)lbX / 8;
+            uint chunkY = (uint)lbY / 8;
+            ushort chunkId = (ushort)((chunkX << 8) | chunkY);
+
+            if (!_landscapeDoc.LoadedChunks.TryGetValue(chunkId, out var chunk)) return Vector3.UnitZ;
+
+            var entries = new TerrainEntry[81];
+            int localLbX = lbX % 8;
+            int localLbY = lbY % 8;
+            int startX = localLbX * 8;
+            int startY = localLbY * 8;
+
+            for (int dy = 0; dy < 9; dy++) {
+                for (int dx = 0; dx < 9; dx++) {
+                    int srcIdx = (startY + dy) * 65 + (startX + dx);
+                    int dstIdx = dx * 9 + dy;
+                    if (srcIdx < chunk.MergedEntries.Length) {
+                        entries[dstIdx] = chunk.MergedEntries[srcIdx];
+                    }
+                }
+            }
+
+            Vector3 localPos = new Vector3(
+                mapX - (lbX * regionInfo.LandblockSizeInUnits),
+                mapY - (lbY * regionInfo.LandblockSizeInUnits),
+                0
+            );
+
+            return TerrainUtils.GetNormal(regionInfo.Region, entries, (uint)lbX, (uint)lbY, localPos);
+        }
+
         private void OnLandblockChanged(object? sender, LandblockChangedEventArgs e) {
             if (e.AffectedLandblocks == null) {
                 _log.LogTrace("LandblockChanged: All landblocks invalidated");
