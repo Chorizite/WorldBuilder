@@ -774,7 +774,7 @@ public class GameScene : IDisposable {
 
             if (_state.EnableTransparencyPass) {
                 _gl.DepthMask(false);
-                _envCellManager.Render(1, currentEnvCellIds);
+                _envCellManager!.Render(1, currentEnvCellIds);
                 _gl.DepthMask(true);
             }
         }
@@ -785,7 +785,7 @@ public class GameScene : IDisposable {
 
             if (_state.EnableTransparencyPass) {
                 _gl.DepthMask(false);
-                _envCellManager.Render(1, fallbackSet);
+                _envCellManager!.Render(1, fallbackSet);
                 _gl.DepthMask(true);
             }
         }
@@ -818,11 +818,11 @@ public class GameScene : IDisposable {
                     _gl.ColorMask(true, true, true, false);
                     _gl.DepthFunc(DepthFunction.Less);
                     _sceneryShader?.Bind();
-                    _envCellManager.Render(pass1RenderPass, building.EnvCellIds);
+                    _envCellManager!.Render(pass1RenderPass, building.EnvCellIds);
 
                     if (_state.EnableTransparencyPass) {
                         _gl.DepthMask(false);
-                        _envCellManager.Render(1, building.EnvCellIds);
+                        _envCellManager!.Render(1, building.EnvCellIds);
                         _gl.DepthMask(true);
                     }
 
@@ -869,7 +869,6 @@ public class GameScene : IDisposable {
         }
 
         // Reset cell filter for subsequent logic
-        _envCellManager!.ClearCellFilter();
     }
 
     private void RenderOutsideIn(int pass1RenderPass, Matrix4x4 snapshotVP, Vector3 snapshotPos) {
@@ -959,7 +958,7 @@ public class GameScene : IDisposable {
 
                 if (_state.EnableTransparencyPass) {
                     _gl.DepthMask(false);
-                    _envCellManager.Render(1, building.EnvCellIds);
+                    _envCellManager!.Render(1, building.EnvCellIds);
                     _gl.DepthMask(true);
                 }
             }
@@ -969,7 +968,7 @@ public class GameScene : IDisposable {
 
             if (_state.EnableTransparencyPass) {
                 _gl.DepthMask(false);
-                _envCellManager.Render(1, null);
+                _envCellManager!.Render(1, null);
                 _gl.DepthMask(true);
             }
         }
@@ -978,12 +977,10 @@ public class GameScene : IDisposable {
             _gl.Disable(EnableCap.StencilTest);
             _gl.StencilMask(0xFF);
         }
-        _envCellManager!.ClearCellFilter();
     }
 
     private void RenderEnvCellsFallback(int pass1RenderPass) {
-        _envCellManager!.ClearCellFilter();
-        _envCellManager.Render(pass1RenderPass);
+        _envCellManager!.Render(pass1RenderPass);
     }
 
     /// <summary>
@@ -1056,7 +1053,6 @@ public class GameScene : IDisposable {
         }
 
         if (_state.ShowEnvCells && _envCellManager != null) {
-            _envCellManager.ClearCellFilter();
             _envCellManager.SetVisibilityFilters(_state.ShowEnvCells);
             _envCellManager.PrepareRenderBatches(snapshotVP, snapshotPos);
         }
