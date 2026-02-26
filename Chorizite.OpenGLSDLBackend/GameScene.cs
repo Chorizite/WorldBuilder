@@ -927,13 +927,7 @@ public class GameScene : IDisposable {
                 _gl.DepthFunc(DepthFunction.Less);
                 // ColorMask still false, DepthMask still true
 
-                _sceneryShader?.Bind();
-                if (_sceneryShader != null) {
-                    _sceneryShader.SetUniform("uRenderPass", pass1RenderPass);
-                    _sceneryShader.SetUniform("uViewProjection", snapshotVP);
-                    _sceneryShader.SetUniform("uCameraPosition", snapshotPos);
-                    _sceneryShader.SetUniform("uHighlightColor", Vector4.Zero);
-                }
+                _sceneryShader?.Bind(); // Uniforms are already set in Render()
 
                 if (_state.ShowStaticObjects || _state.ShowBuildings) {
                     _staticObjectManager?.Render(pass1RenderPass);
@@ -953,13 +947,13 @@ public class GameScene : IDisposable {
 
         // Render EnvCells building by building to apply individual portal masks
         if (didStencil && visiblePortals != null) {
-            foreach (var (lbKey, building) in visiblePortals) {
-                // Step 4: Render this building's EnvCells through its portal mask with normal depth test.
-                _gl.StencilFunc(StencilFunction.Equal, 1, 0xFF);
-                _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
-                _gl.ColorMask(true, true, true, false);
-                _gl.DepthFunc(DepthFunction.Less);
+            // Step 4: Render EnvCells through portal masks with normal depth test.
+            _gl.StencilFunc(StencilFunction.Equal, 1, 0xFF);
+            _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
+            _gl.ColorMask(true, true, true, false);
+            _gl.DepthFunc(DepthFunction.Less);
 
+            foreach (var (lbKey, building) in visiblePortals) {
                 _sceneryShader?.Bind();
                 _envCellManager!.Render(pass1RenderPass, building.EnvCellIds);
 
