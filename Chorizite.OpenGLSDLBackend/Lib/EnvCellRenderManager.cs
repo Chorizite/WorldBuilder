@@ -34,6 +34,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private bool _showEnvCells = true;
 
+        protected override bool RenderHighlightsWhenEmpty => true;
+
         protected override int MaxConcurrentGenerations => 21;
 
         public EnvCellRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
@@ -50,6 +52,78 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         public void SetVisibilityFilters(bool showEnvCells) {
             _showEnvCells = showEnvCells;
+        }
+
+        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit) {
+            hit = SceneRaycastHit.NoHit;
+
+            foreach (var (key, lb) in _landblocks) {
+                if (!lb.InstancesReady) continue;
+
+                lock (lb) {
+                    foreach (var instance in lb.Instances) {
+                        var type = InstanceIdConstants.GetType(instance.InstanceId);
+                        if (type == InspectorSelectionType.EnvCell && !includeCells) continue;
+                        if (type == InspectorSelectionType.EnvCellStaticObject && !includeStaticObjects) continue;
+
+                        var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
+                        if (renderData == null) continue;
+
+                        // Broad phase: Bounding Box
+                        if (instance.BoundingBox.Max != instance.BoundingBox.Min) {
+                            if (!GeometryUtils.RayIntersectsBox(rayOrigin, rayDirection, instance.BoundingBox.Min, instance.BoundingBox.Max, out _)) {
+                                continue;
+                            }
+                        }
+
+                        // Narrow phase: Mesh-precise raycast
+                        if (MeshManager.IntersectMesh(renderData, instance.Transform, rayOrigin, rayDirection, out float d)) {
+                            if (d < hit.Distance) {
+                                hit.Hit = true;
+                                hit.Distance = d;
+                                hit.Type = type;
+                                hit.ObjectId = (uint)instance.ObjectId;
+                                hit.InstanceId = instance.InstanceId;
+                                hit.SecondaryId = InstanceIdConstants.GetSecondaryId(instance.InstanceId);
+                                hit.Position = instance.WorldPosition;
+                                hit.Rotation = instance.Rotation;
+                                hit.LandblockId = (uint)((key << 16) | 0xFFFE);
+                            }
+                        }
+                    }
+                }
+            }
+
+            return hit.Hit;
+        }
+
+        public void SubmitDebugShapes(DebugRenderer? debug, DebugRenderSettings settings) {
+            if (debug == null || LandscapeDoc.Region == null || !settings.ShowBoundingBoxes) return;
+
+            foreach (var lb in _landblocks.Values) {
+                if (!lb.InstancesReady || !IsWithinRenderDistance(lb)) continue;
+                if (GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) continue;
+
+                foreach (var instance in lb.Instances) {
+                    var type = InstanceIdConstants.GetType(instance.InstanceId);
+                    if (type == InspectorSelectionType.EnvCell && !settings.SelectEnvCells) continue;
+                    if (type == InspectorSelectionType.EnvCellStaticObject && !settings.SelectEnvCellStaticObjects) continue;
+
+                    // Skip if instance is outside frustum
+                    if (!_frustum.Intersects(instance.BoundingBox)) continue;
+
+                    var isSelected = SelectedInstance.HasValue && SelectedInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && SelectedInstance.Value.InstanceId == instance.InstanceId;
+                    var isHovered = HoveredInstance.HasValue && HoveredInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && HoveredInstance.Value.InstanceId == instance.InstanceId;
+
+                    Vector4 color;
+                    if (isSelected) color = LandscapeColorsSettings.Instance.Selection;
+                    else if (isHovered) color = LandscapeColorsSettings.Instance.Hover;
+                    else if (type == InspectorSelectionType.EnvCell) color = settings.EnvCellColor;
+                    else color = settings.EnvCellStaticObjectColor;
+
+                    debug.DrawBox(instance.LocalBoundingBox, instance.Transform, color);
+                }
+            }
         }
 
         #endregion
@@ -190,23 +264,63 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             var transform = Matrix4x4.CreateFromQuaternion(rotation)
                                 * Matrix4x4.CreateTranslation(localPos);
 
-                            var isSetup = true; // TODO: EnvCells are Setups (.02) because they contain parts and geography
-                            var bounds = MeshManager.GetBounds(envCell.Id, isSetup);
-                            var localBbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max) : default;
-                            var bbox = localBbox.Transform(transform);
+                            // Add the cell geometry itself
+                            uint envId = 0x0D000000u | envCell.EnvironmentId;
+                            if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
+                                if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
+                                    // Use synthetic ID for cell geometry (bit 32 set)
+                                    var cellGeomId = (ulong)cellId | 0x1_0000_0000UL;
+                                    var bounds = MeshManager.GetBounds(cellGeomId, false);
+                                    var localBbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max) : default;
+                                    var bbox = localBbox.Transform(transform);
 
-                            instances.Add(new SceneryInstance {
-                                ObjectId = envCell.Id,
-                                InstanceId = cellId,
-                                IsSetup = isSetup,
-                                IsBuilding = true,
-                                WorldPosition = localPos,
-                                Rotation = rotation,
-                                Scale = Vector3.One,
-                                Transform = transform,
-                                LocalBoundingBox = localBbox,
-                                BoundingBox = bbox
-                            });
+                                    instances.Add(new SceneryInstance {
+                                        ObjectId = cellGeomId,
+                                        InstanceId = InstanceIdConstants.Encode(cellId, InspectorSelectionType.EnvCell),
+                                        IsSetup = false,
+                                        IsBuilding = true,
+                                        WorldPosition = localPos,
+                                        Rotation = rotation,
+                                        Scale = Vector3.One,
+                                        Transform = transform,
+                                        LocalBoundingBox = localBbox,
+                                        BoundingBox = bbox
+                                    });
+                                }
+                            }
+
+                            // Add static objects within the cell
+                            if (envCell.StaticObjects.Count > 0) {
+                                for (ushort i = 0; i < envCell.StaticObjects.Count; i++) {
+                                    var stab = envCell.StaticObjects[i];
+                                    
+                                    var stabWorldPos = new Vector3(
+                                        new Vector2(lbGlobalX * lbSizeUnits + (float)stab.Frame.Origin[0], lbGlobalY * lbSizeUnits + (float)stab.Frame.Origin[1]) + regionInfo.MapOffset,
+                                        stab.Frame.Origin[2]
+                                    );
+                                    
+                                    var stabWorldRot = new Quaternion(stab.Frame.Orientation[0], stab.Frame.Orientation[1], stab.Frame.Orientation[2], stab.Frame.Orientation[3]);
+                                    var stabWorldTransform = Matrix4x4.CreateFromQuaternion(stabWorldRot) * Matrix4x4.CreateTranslation(stabWorldPos);
+
+                                    var isSetup = (stab.Id >> 24) == 0x02;
+                                    var bounds = MeshManager.GetBounds(stab.Id, isSetup);
+                                    var localBbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max) : default;
+                                    var bbox = localBbox.Transform(stabWorldTransform);
+
+                                    instances.Add(new SceneryInstance {
+                                        ObjectId = stab.Id,
+                                        InstanceId = InstanceIdConstants.EncodeEnvCellStaticObject(cellId, i, false),
+                                        IsSetup = isSetup,
+                                        IsBuilding = false,
+                                        WorldPosition = stabWorldPos,
+                                        Rotation = stabWorldRot,
+                                        Scale = Vector3.One,
+                                        Transform = stabWorldTransform,
+                                        LocalBoundingBox = localBbox,
+                                        BoundingBox = bbox
+                                    });
+                                }
+                            }
                         }
 
                         // Recursively walk portals to other interior cells

@@ -10,6 +10,7 @@ namespace WorldBuilder.Modules.Landscape.ViewModels;
 public partial class BuildingViewModel : ViewModelBase, ISelectedObjectInfo {
     public InspectorSelectionType Type => InspectorSelectionType.Building;
     public uint ObjectId => ModelId;
+    public ushort SecondaryId => InstanceIdConstants.GetSecondaryId(InstanceId);
     public int VertexX => 0;
     public int VertexY => 0;
 

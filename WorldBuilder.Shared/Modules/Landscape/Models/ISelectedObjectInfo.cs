@@ -6,6 +6,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         InspectorSelectionType Type { get; }
         uint LandblockId { get; }
         ulong InstanceId { get; }
+        ushort SecondaryId { get; }
         uint ObjectId { get; }
         Vector3 Position { get; }
         Quaternion Rotation { get; }

@@ -22,6 +22,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         [ObservableProperty] private bool _selectStaticObjects = true;
         [ObservableProperty] private bool _selectScenery = false;
         [ObservableProperty] private bool _selectPortals = true;
+        [ObservableProperty] private bool _selectEnvCells = true;
+        [ObservableProperty] private bool _selectEnvCellStaticObjects = true;
 
         [ObservableProperty] private bool _showBoundingBoxes = true;
 
@@ -58,7 +60,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         public Vector4 PortalColor {
-            get => new Vector4(1f, 0f, 1f, 1f);
+            get => LandscapeColorsSettings.Instance.Portal;
+        }
+
+        public Vector4 EnvCellColor {
+            get => LandscapeColorsSettings.Instance.EnvCell;
+        }
+
+        public Vector4 EnvCellStaticObjectColor {
+            get => LandscapeColorsSettings.Instance.EnvCellStaticObject;
         }
 
         public void Activate(LandscapeToolContext context) {
@@ -140,6 +150,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 if (_context.RaycastPortals != null && _context.RaycastPortals(ray.Origin, ray.Direction, out var portalHit)) {
                     if (portalHit.Distance < bestHit.Distance) {
                         bestHit = portalHit;
+                    }
+                }
+            }
+
+            if (SelectEnvCells || SelectEnvCellStaticObjects) {
+                var ray = GetRay(e, _context.Camera);
+                if (_context.RaycastEnvCells != null && _context.RaycastEnvCells(ray.Origin, ray.Direction, SelectEnvCells, SelectEnvCellStaticObjects, out var envCellHit)) {
+                    if (envCellHit.Distance < bestHit.Distance) {
+                        bestHit = envCellHit;
                     }
                 }
             }

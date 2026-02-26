@@ -47,6 +47,21 @@ namespace WorldBuilder.Shared.Lib
         [SettingOrder(6)]
         public Vector4 Scenery { get => _scenery; set => SetProperty(ref _scenery, value); }
 
+        private Vector4 _envCell = new Vector4(0f, 1f, 1f, 1.0f); // Cyan
+        [SettingDescription("Color for interior cells")]
+        [SettingOrder(7)]
+        public Vector4 EnvCell { get => _envCell; set => SetProperty(ref _envCell, value); }
+
+        private Vector4 _envCellStaticObject = new Vector4(0f, 0.5f, 1f, 1.0f); // Blue
+        [SettingDescription("Color for interior cell objects")]
+        [SettingOrder(8)]
+        public Vector4 EnvCellStaticObject { get => _envCellStaticObject; set => SetProperty(ref _envCellStaticObject, value); }
+
+        private Vector4 _portal = new Vector4(1f, 0f, 1f, 1.0f); // Magenta
+        [SettingDescription("Color for portals")]
+        [SettingOrder(9)]
+        public Vector4 Portal { get => _portal; set => SetProperty(ref _portal, value); }
+
         public static void Initialize(LandscapeColorsSettings instance) {
             _instance = instance;
         }

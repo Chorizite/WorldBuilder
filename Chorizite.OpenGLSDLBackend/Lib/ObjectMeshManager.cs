@@ -293,6 +293,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
                 else if (type == DBObjType.EnvCell) {
                     if (!db.TryGet<EnvCell>(datId, out var envCell)) return null;
+
+                    // If bit 32 is set, this is a request for the cell's synthetic geometry only
+                    if ((id & 0x1_0000_0000UL) != 0) {
+                        uint envId = 0x0D000000u | envCell.EnvironmentId;
+                        if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
+                            if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
+                                return PrepareCellStructMeshData(id, cellStruct, envCell.Surfaces, Matrix4x4.Identity, ct);
+                            }
+                        }
+                        return null;
+                    }
+
                     return PrepareEnvCellMeshData(id, envCell, ct);
                 }
                 return null;
@@ -319,20 +331,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
                 _preparationTasks.TryRemove(meshData.ObjectId, out _);
                 if (meshData.IsSetup) {
-                    var setupParts = new List<(ulong GfxObjId, Matrix4x4 Transform)>(meshData.SetupParts);
-
-                    // Upload EnvCell geometry if present
+                    // Upload EnvCell geometry if present to ensure it's in _renderData
                     if (meshData.EnvCellGeometry != null) {
-                        var geomData = UploadMeshData(meshData.EnvCellGeometry);
-                        if (geomData != null) {
-                            setupParts.Insert(0, (meshData.EnvCellGeometry.ObjectId, Matrix4x4.Identity));
-                        }
+                        UploadMeshData(meshData.EnvCellGeometry);
                     }
 
                     // Setup objects are multi-part - each part needs its own render data
                     var data = new ObjectRenderData {
                         IsSetup = true,
-                        SetupParts = setupParts,
+                        SetupParts = meshData.SetupParts,
                         Batches = new List<ObjectRenderBatch>(),
                         BoundingBox = meshData.BoundingBox,
                         SelectionSphere = meshData.SelectionSphere,
@@ -343,7 +350,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     _currentGpuMemory += data.MemorySize;
 
                     // Increment ref counts for all parts
-                    foreach (var (partId, _) in setupParts) {
+                    foreach (var (partId, _) in meshData.SetupParts) {
                         IncrementRefCount(partId);
                     }
 
@@ -395,13 +402,31 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
                 else if (type == DBObjType.EnvCell) {
                     if (!db.TryGet<EnvCell>(datId, out var envCell)) return null;
-                    var min = new Vector3(float.MaxValue);
-                    var max = new Vector3(float.MinValue);
-                    bool hasBounds = false;
-                    var parts = new List<(ulong GfxObjId, Matrix4x4 Transform)>();
 
-                    CollectParts(datId, Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds, CancellationToken.None);
-                    result = hasBounds ? (min, max) : null;
+                    // If bit 32 is set, this is a request for the cell's synthetic geometry only
+                    if ((id & 0x1_0000_0000UL) != 0) {
+                        uint envId = 0x0D000000u | envCell.EnvironmentId;
+                        if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
+                            if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
+                                var min = new Vector3(float.MaxValue);
+                                var max = new Vector3(float.MinValue);
+                                foreach (var vert in cellStruct.VertexArray.Vertices.Values) {
+                                    min = Vector3.Min(min, vert.Origin);
+                                    max = Vector3.Max(max, vert.Origin);
+                                }
+                                result = (min, max);
+                            }
+                        }
+                    }
+                    else {
+                        var min = new Vector3(float.MaxValue);
+                        var max = new Vector3(float.MinValue);
+                        bool hasBounds = false;
+                        var parts = new List<(ulong GfxObjId, Matrix4x4 Transform)>();
+
+                        CollectParts(datId, Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds, CancellationToken.None);
+                        result = hasBounds ? (min, max) : null;
+                    }
                 }
                 else {
                     if (!db.TryGet<GfxObj>(datId, out var gfxObj)) return null;
@@ -1117,14 +1142,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #region Raycasting
 
         public bool IntersectMesh(ObjectRenderData renderData, Matrix4x4 transform, Vector3 rayOrigin, Vector3 rayDirection, out float distance) {
+            return IntersectMeshInternal(renderData, transform, rayOrigin, rayDirection, 0, out distance);
+        }
+
+        private bool IntersectMeshInternal(ObjectRenderData renderData, Matrix4x4 transform, Vector3 rayOrigin, Vector3 rayDirection, int depth, out float distance) {
             distance = float.MaxValue;
             bool hit = false;
+
+            if (depth > 32) return false; // Prevent stack overflow from circular setups
 
             if (renderData.IsSetup) {
                 foreach (var part in renderData.SetupParts) {
                     var partData = TryGetRenderData(part.GfxObjId);
                     if (partData != null) {
-                        if (IntersectMesh(partData, part.Transform * transform, rayOrigin, rayDirection, out float d)) {
+                        if (IntersectMeshInternal(partData, part.Transform * transform, rayOrigin, rayDirection, depth + 1, out float d)) {
                             if (d < distance) {
                                 distance = d;
                                 hit = true;

@@ -17,6 +17,7 @@ public partial class PortalViewModel : ViewModelBase, ISelectedObjectInfo {
     public InspectorSelectionType Type => InspectorSelectionType.Portal;
     public uint ObjectId => CellId;
     public ulong InstanceId => PortalIndex;
+    public ushort SecondaryId => InstanceIdConstants.GetSecondaryId(InstanceId);
     public int VertexX => 0;
     public int VertexY => 0;
 

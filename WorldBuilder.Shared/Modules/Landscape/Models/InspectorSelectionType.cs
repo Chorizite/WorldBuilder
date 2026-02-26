@@ -5,6 +5,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         Building,
         StaticObject,
         Scenery,
-        Portal
+        Portal,
+        EnvCell,
+        EnvCellStaticObject
     }
 }

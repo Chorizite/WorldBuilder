@@ -9,6 +9,7 @@ namespace WorldBuilder.Modules.Landscape.ViewModels;
 
 public partial class StaticObjectViewModel : ViewModelBase, ISelectedObjectInfo {
     public InspectorSelectionType Type => InspectorSelectionType.StaticObject;
+    public ushort SecondaryId => InstanceIdConstants.GetSecondaryId(InstanceId);
     public int VertexX => 0;
     public int VertexY => 0;
 

@@ -197,6 +197,14 @@
                         <CheckBox Content="Scenery" IsChecked="{Binding SelectScenery}" FontSize="12" />
                       </StackPanel>
                       <StackPanel Orientation="Horizontal" Spacing="4">
+                        <ColorPicker Color="{Binding EnvCellColor, Converter={StaticResource Vector4ToColorConverter}}" />
+                        <CheckBox Content="EnvCells" IsChecked="{Binding SelectEnvCells}" FontSize="12" />
+                      </StackPanel>
+                      <StackPanel Orientation="Horizontal" Spacing="4">
+                        <ColorPicker Color="{Binding EnvCellStaticObjectColor, Converter={StaticResource Vector4ToColorConverter}}" />
+                        <CheckBox Content="Cell Objects" IsChecked="{Binding SelectEnvCellStaticObjects}" FontSize="12" />
+                      </StackPanel>
+                      <StackPanel Orientation="Horizontal" Spacing="4">
                         <ColorPicker Color="{Binding PortalColor, Converter={StaticResource Vector4ToColorConverter}}" IsEnabled="False" />
                         <CheckBox Content="Portals" IsChecked="{Binding SelectPortals}" FontSize="12" />
                       </StackPanel>

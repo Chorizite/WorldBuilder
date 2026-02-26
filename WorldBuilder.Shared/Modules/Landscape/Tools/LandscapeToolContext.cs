@@ -68,6 +68,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <summary>Performs a raycast against portals in the scene.</summary>
         public RaycastPortalsDelegate? RaycastPortals { get; set; }
 
+        /// <summary>Delegate for raycasting against env cells.</summary>
+        public delegate bool RaycastEnvCellsDelegate(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit);
+
+        /// <summary>Performs a raycast against env cells in the scene.</summary>
+        public RaycastEnvCellsDelegate? RaycastEnvCells { get; set; }
+
         /// <summary>Delegate for raycasting against terrain.</summary>
         public delegate TerrainRaycastHit RaycastTerrainDelegate(float screenX, float screenY);
 

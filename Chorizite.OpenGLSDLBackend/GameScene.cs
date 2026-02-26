@@ -375,6 +375,7 @@ public class GameScene : IDisposable {
             context.RaycastStaticObject = RaycastStaticObjects;
             context.RaycastScenery = RaycastScenery;
             context.RaycastPortals = RaycastPortals;
+            context.RaycastEnvCells = RaycastEnvCells;
         }
     }
 
@@ -574,6 +575,7 @@ public class GameScene : IDisposable {
         SetObjectHighlight(ref _hoveredVertex, type, landblockId, instanceId, objectId, vx, vy, (m, val) => {
             if (m is SceneryRenderManager srm) srm.HoveredInstance = (SelectedStaticObject?)val;
             if (m is StaticObjectRenderManager sorm) sorm.HoveredInstance = (SelectedStaticObject?)val;
+            if (m is EnvCellRenderManager ecrm) ecrm.HoveredInstance = (SelectedStaticObject?)val;
             if (m is PortalRenderManager prm) prm.HoveredPortal = ((uint, ulong)?)val;
         });
     }
@@ -582,6 +584,7 @@ public class GameScene : IDisposable {
         SetObjectHighlight(ref _selectedVertex, type, landblockId, instanceId, objectId, vx, vy, (m, val) => {
             if (m is SceneryRenderManager srm) srm.SelectedInstance = (SelectedStaticObject?)val;
             if (m is StaticObjectRenderManager sorm) sorm.SelectedInstance = (SelectedStaticObject?)val;
+            if (m is EnvCellRenderManager ecrm) ecrm.SelectedInstance = (SelectedStaticObject?)val;
             if (m is PortalRenderManager prm) prm.SelectedPortal = ((uint, ulong)?)val;
         });
     }
@@ -598,7 +601,7 @@ public class GameScene : IDisposable {
             setter(_staticObjectManager, val);
         }
         if (_envCellManager != null) {
-            var val = (type == InspectorSelectionType.Building && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId } : (object?)null;
+            var val = ((type == InspectorSelectionType.EnvCell || type == InspectorSelectionType.EnvCellStaticObject) && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId } : (object?)null;
             setter(_envCellManager, val);
         }
         if (_portalManager != null) {
@@ -633,6 +636,15 @@ public class GameScene : IDisposable {
         hit = SceneRaycastHit.NoHit;
 
         if (_portalManager != null && _portalManager.Raycast(origin, direction, out hit)) {
+            return true;
+        }
+        return false;
+    }
+
+    public bool RaycastEnvCells(Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit) {
+        hit = SceneRaycastHit.NoHit;
+
+        if (_envCellManager != null && _envCellManager.Raycast(origin, direction, includeCells, includeStaticObjects, out hit)) {
             return true;
         }
         return false;
@@ -778,10 +790,14 @@ public class GameScene : IDisposable {
                 debugSettings.SelectBuildings = _inspectorTool.SelectBuildings && _state.ShowBuildings;
                 debugSettings.SelectStaticObjects = _inspectorTool.SelectStaticObjects && _state.ShowStaticObjects;
                 debugSettings.SelectScenery = _inspectorTool.SelectScenery && _state.ShowScenery;
+                debugSettings.SelectEnvCells = _inspectorTool.SelectEnvCells && _state.ShowEnvCells;
+                debugSettings.SelectEnvCellStaticObjects = _inspectorTool.SelectEnvCellStaticObjects && _state.ShowEnvCells;
+                debugSettings.SelectPortals = _inspectorTool.SelectPortals && _state.ShowPortals;
             }
 
             _sceneryManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
             _staticObjectManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
+            _envCellManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
 
             if (_inspectorTool != null && _inspectorTool.SelectVertices && _landscapeDoc?.Region != null) {
                 var region = _landscapeDoc.Region;

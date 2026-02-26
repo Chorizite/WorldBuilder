@@ -9,6 +9,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
         [InlineData(0xFFFFFFFF, InspectorSelectionType.StaticObject, InstanceIdConstants.StaticObjectFlag | 0xFFFFFFFFUL)]
         [InlineData(1, InspectorSelectionType.Scenery, InstanceIdConstants.SceneryFlag | 1UL)]
         [InlineData(42, InspectorSelectionType.Portal, InstanceIdConstants.PortalFlag | 42UL)]
+        [InlineData(100, InspectorSelectionType.EnvCell, InstanceIdConstants.EnvCellFlag | 100UL)]
         [InlineData(100, InspectorSelectionType.None, 100UL)]
         public void Encode_CorrectlyCombinesFlagAndId(uint id, InspectorSelectionType type, ulong expected) {
             var result = InstanceIdConstants.Encode(id, type);
@@ -21,10 +22,23 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
         [InlineData(InstanceIdConstants.StaticObjectFlag, InspectorSelectionType.StaticObject)]
         [InlineData(InstanceIdConstants.SceneryFlag | 123, InspectorSelectionType.Scenery)]
         [InlineData(InstanceIdConstants.PortalFlag | 999, InspectorSelectionType.Portal)]
+        [InlineData(InstanceIdConstants.EnvCellFlag | 0x12345678UL, InspectorSelectionType.EnvCell)]
+        [InlineData(InstanceIdConstants.EnvCellStaticObjectFlag | 0x12345678UL, InspectorSelectionType.EnvCellStaticObject)]
         [InlineData(500UL, InspectorSelectionType.None)]
         public void GetType_CorrectlyIdentifiesType(ulong instanceId, InspectorSelectionType expected) {
             var result = InstanceIdConstants.GetType(instanceId);
             Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData(0x12345678U, 5, false)]
+        [InlineData(0x12345678U, 0x7FFF, true)]
+        public void EncodeEnvCellStaticObject_CorrectlyEncodes(uint cellId, ushort index, bool isCustom) {
+            var result = InstanceIdConstants.EncodeEnvCellStaticObject(cellId, index, isCustom);
+            Assert.Equal(InspectorSelectionType.EnvCellStaticObject, InstanceIdConstants.GetType(result));
+            Assert.Equal(cellId, InstanceIdConstants.GetRawId(result));
+            Assert.Equal(index, InstanceIdConstants.GetSecondaryId(result));
+            Assert.Equal(isCustom, InstanceIdConstants.IsCustomObject(result));
         }
 
         [Theory]
@@ -45,6 +59,8 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             Assert.True(InstanceIdConstants.StaticObjectFlag > uint.MaxValue);
             Assert.True(InstanceIdConstants.SceneryFlag > uint.MaxValue);
             Assert.True(InstanceIdConstants.PortalFlag > uint.MaxValue);
+            Assert.True(InstanceIdConstants.EnvCellFlag > uint.MaxValue);
+            Assert.True(InstanceIdConstants.EnvCellStaticObjectFlag > uint.MaxValue);
         }
 
         [Fact]
@@ -54,7 +70,9 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
                 InstanceIdConstants.BuildingFlag,
                 InstanceIdConstants.StaticObjectFlag,
                 InstanceIdConstants.SceneryFlag,
-                InstanceIdConstants.PortalFlag
+                InstanceIdConstants.PortalFlag,
+                InstanceIdConstants.EnvCellFlag,
+                InstanceIdConstants.EnvCellStaticObjectFlag
             };
 
             for (int i = 0; i < flags.Length; i++) {

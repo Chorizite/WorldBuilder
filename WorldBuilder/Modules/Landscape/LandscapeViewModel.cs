@@ -277,6 +277,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         else if (e.Selection.Type == InspectorSelectionType.Portal) {
             PropertiesPanel.SelectedItem = new PortalViewModel(e.Selection.LandblockId, e.Selection.ObjectId, e.Selection.InstanceId, _dats, _portalService);
         }
+        else if (e.Selection.Type == InspectorSelectionType.EnvCell) {
+            PropertiesPanel.SelectedItem = new EnvCellViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.Rotation);
+        }
+        else if (e.Selection.Type == InspectorSelectionType.EnvCellStaticObject) {
+            PropertiesPanel.SelectedItem = new EnvCellStaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.Rotation);
+        }
         else if (e.Selection.Type == InspectorSelectionType.Vertex) {
             PropertiesPanel.SelectedItem = new LandscapeVertexViewModel(e.Selection.VertexX, e.Selection.VertexY, ActiveDocument!, _dats, CommandHistory);
         }
