@@ -831,9 +831,8 @@ public class GameScene : IDisposable {
 
         // When inside an EnvCell, we render it first so that terrain is blocked by building walls.
         if (isInside && _state.ShowEnvCells && _envCellManager != null) {
+            var buildingsWithCurrentCell = _portalManager?.GetBuildingPortalsByCellId(currentEnvCellId).ToList();
             var visibleBuildingPortals = _portalManager?.GetVisibleBuildingPortals().ToList();
-            var buildingsWithCurrentCell = visibleBuildingPortals?
-                .Where(p => p.Building.EnvCellIds.Contains(currentEnvCellId)).ToList();
 
             bool didInsideStencil = false;
             if (buildingsWithCurrentCell != null && buildingsWithCurrentCell.Count > 0) {
@@ -855,6 +854,13 @@ public class GameScene : IDisposable {
 
                 foreach (var (lbKey, building) in buildingsWithCurrentCell) {
                     _portalManager?.RenderBuildingStencilMask(building, snapshotVP, false);
+                }
+
+                // Step 1b: Punch through depth buffer at doorways so outside can be seen.
+                _gl.DepthMask(true);
+                _gl.DepthFunc(DepthFunction.Always);
+                foreach (var (lbKey, building) in buildingsWithCurrentCell) {
+                    _portalManager?.RenderBuildingStencilMask(building, snapshotVP, true);
                 }
             }
 
@@ -880,12 +886,13 @@ public class GameScene : IDisposable {
                 }
             }
             else {
-                // If we don't know which building we are in, just render everything as a fallback
-                _envCellManager.Render(pass1RenderPass, null);
+                // If we don't know which building we are in, just render the current cell as a minimal fallback
+                var fallbackSet = new HashSet<uint> { currentEnvCellId };
+                _envCellManager.Render(pass1RenderPass, fallbackSet);
 
                 if (_state.EnableTransparencyPass) {
                     _gl.DepthMask(false);
-                    _envCellManager.Render(1, null);
+                    _envCellManager.Render(1, fallbackSet);
                     _gl.DepthMask(true);
                 }
             }
@@ -943,6 +950,8 @@ public class GameScene : IDisposable {
                 _gl.StencilFunc(StencilFunction.Equal, 1, 0x01);
                 _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
                 _gl.StencilMask(0x00);
+                _gl.ColorMask(true, true, true, false);
+                _gl.DepthMask(true);
                 _gl.Enable(EnableCap.CullFace);
                 _gl.DepthFunc(DepthFunction.Less);
             }
@@ -954,10 +963,18 @@ public class GameScene : IDisposable {
             }
 
             if (_state.ShowScenery) {
+                if (_sceneryShader != null) {
+                    _sceneryShader.Bind();
+                    _sceneryShader.SetUniform("uViewProjection", snapshotVP);
+                }
                 _sceneryManager?.Render(pass1RenderPass);
             }
 
             if (_state.ShowStaticObjects || _state.ShowBuildings) {
+                if (_sceneryShader != null) {
+                    _sceneryShader.Bind();
+                    _sceneryShader.SetUniform("uViewProjection", snapshotVP);
+                }
                 _staticObjectManager?.Render(pass1RenderPass);
             }
 

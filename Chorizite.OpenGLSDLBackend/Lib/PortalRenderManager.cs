@@ -254,12 +254,40 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         public IEnumerable<(ushort LbKey, BuildingPortalGPU Building)> GetVisibleBuildingPortals() {
             foreach (var (key, lb) in _landblocks) {
-                if (!lb.Ready || lb.BuildingPortals.Count == 0) continue;
+                if (!lb.Ready || lb.BuildingPortals.Count == 0 || !IsWithinRenderDistance(lb)) continue;
+
+                // Simple landblock frustum test for performance
+                if (GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) continue;
 
                 foreach (var building in lb.BuildingPortals) {
                     yield return (key, building);
                 }
             }
+        }
+
+        /// <summary>
+        /// Finds all building portal groups that contain the specified EnvCell ID.
+        /// Does NOT perform frustum culling, as this is used to identify portals of the building the camera is in.
+        /// </summary>
+        public IEnumerable<(ushort LbKey, BuildingPortalGPU Building)> GetBuildingPortalsByCellId(uint cellId) {
+            foreach (var (key, lb) in _landblocks) {
+                if (!lb.Ready) continue;
+                foreach (var building in lb.BuildingPortals) {
+                    if (building.EnvCellIds.Contains(cellId)) {
+                        yield return (key, building);
+                    }
+                }
+            }
+        }
+
+        private bool IsWithinRenderDistance(PortalLandblock lb) {
+            return Math.Abs(lb.GridX - _cameraLbX) <= RenderDistance && Math.Abs(lb.GridY - _cameraLbY) <= RenderDistance;
+        }
+
+        private FrustumTestResult GetLandblockFrustumResult(int gridX, int gridY) {
+            var min = new Vector3(gridX * 192f + _landscapeDoc.Region!.MapOffset.X, gridY * 192f + _landscapeDoc.Region!.MapOffset.Y, -1000f);
+            var max = new Vector3(min.X + 192f, min.Y + 192f, 4000f);
+            return _frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(min, max));
         }
 
         /// <summary>
