@@ -790,18 +790,6 @@ public class GameScene : IDisposable {
                 _gl.DepthMask(true);
             }
         }
-        else {
-            // If we don't know which building we are in, just render the current cell as a minimal fallback
-            _currentEnvCellIds.Clear();
-            _currentEnvCellIds.Add(currentEnvCellId);
-            _envCellManager!.Render(pass1RenderPass, _currentEnvCellIds);
-
-            if (_state.EnableTransparencyPass) {
-                _gl.DepthMask(false);
-                _envCellManager!.Render(1, _currentEnvCellIds);
-                _gl.DepthMask(true);
-            }
-        }
 
         // Step 4: Render EnvCells of OTHER buildings, masked by our portals AND their own portals.
         if (didInsideStencil) {
@@ -887,8 +875,6 @@ public class GameScene : IDisposable {
             _gl.Disable(EnableCap.StencilTest);
             _gl.StencilMask(0xFF);
         }
-
-        // Reset cell filter for subsequent logic
     }
 
     private void RenderOutsideIn(int pass1RenderPass, Matrix4x4 snapshotVP, Vector3 snapshotPos) {
@@ -951,7 +937,7 @@ public class GameScene : IDisposable {
                 _gl.DepthFunc(DepthFunction.Less);
                 // ColorMask still false, DepthMask still true
 
-                _sceneryShader?.Bind(); // Uniforms are already set in Render()
+                _sceneryShader?.Bind();
 
                 if (_state.ShowStaticObjects || _state.ShowBuildings) {
                     _staticObjectManager?.Render(pass1RenderPass);
@@ -1134,7 +1120,6 @@ public class GameScene : IDisposable {
             if (_state.ShowEnvCells && _envCellManager != null) {
                 if (!_state.EnableCameraCollision) {
                     // No collision rendering: When collision is disabled, render all interiors without portal masking.
-                    // This is faster and avoids portal-related artifacts when flying through walls.
                     RenderEnvCellsFallback(pass1RenderPass);
                 }
                 else {
@@ -1217,10 +1202,8 @@ public class GameScene : IDisposable {
 
         _debugRenderer?.Render(snapshotView, snapshotProj);
 
-        // Restore depth mask for subsequent renders if needed
-        _gl.DepthMask(true);
-
         // Restore for Avalonia
+        _gl.DepthMask(true);
         _gl.ColorMask(true, true, true, true);
         if (wasScissorEnabled) _gl.Enable(EnableCap.ScissorTest);
         _gl.Enable(EnableCap.DepthTest);

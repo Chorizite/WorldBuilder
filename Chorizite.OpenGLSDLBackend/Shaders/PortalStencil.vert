@@ -10,6 +10,8 @@ void main() {
     // Clamp to near plane to prevent portal geometry from being clipped
     // when the camera is very close to or passing through a portal.
     // This ensures the stencil mask is still marked.
+    // TODO: this is still a bit wonky, especially when approaching portals at steep angles.
+    // A possible solution would be to use a custom clipping shader that clips against the portal plane instead of the near plane.
     if (pos.z < -pos.w) {
         pos.z = -pos.w;
     }

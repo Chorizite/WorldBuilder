@@ -13,8 +13,6 @@ void main() {
         gl_FragDepth = 1.0;
     } else {
         // Default depth is used if gl_FragDepth is not written.
-        // However, in some GL implementations, if you write to gl_FragDepth in one branch,
-        // you should write to it in all branches.
         gl_FragDepth = gl_FragCoord.z;
     }
 
