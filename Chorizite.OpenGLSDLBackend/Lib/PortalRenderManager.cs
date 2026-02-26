@@ -1,5 +1,5 @@
 using Chorizite.Core.Lib;
-using Chorizite.Core.Render.Enums;
+using Chorizite.Core.Render;
 using Chorizite.Core.Render.Vertex;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
@@ -31,6 +31,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     /// <summary>
     /// Manages portal rendering.
     /// Portals are semi-transparent magenta polygons that connect cells to the outside world.
+    /// Also manages GPU-uploaded portal polygon meshes for stencil-based interior rendering.
     /// </summary>
     public class PortalRenderManager : IDisposable {
         private readonly GL _gl;
@@ -58,6 +59,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private float _lbSizeInUnits;
         private readonly Frustum _frustum;
 
+        // Stencil rendering
+        private IShader? _stencilShader;
+
         public PortalRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
             IDatReaderWriter dats, IPortalService portalService, OpenGLGraphicsDevice graphicsDevice, Frustum frustum) {
             _gl = gl;
@@ -69,6 +73,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _frustum = frustum;
 
             _landscapeDoc.LandblockChanged += OnLandblockChanged;
+        }
+
+        /// <summary>
+        /// Initializes the stencil shader for portal stencil rendering.
+        /// Must be called after the GL context is ready.
+        /// </summary>
+        public void InitializeStencilShader(IShader stencilShader) {
+            _stencilShader = stencilShader;
         }
 
         public void OnLandblockChanged(object? sender, LandblockChangedEventArgs e) {
@@ -233,6 +245,40 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return false;
         }
 
+        #region Stencil Rendering
+
+        /// <summary>
+        /// Returns an enumerable of visible building portal groups across all loaded landblocks.
+        /// Each entry provides the GPU data needed to render the stencil mask and the set of
+        /// EnvCell IDs to render through it.
+        /// </summary>
+        public IEnumerable<(ushort LbKey, BuildingPortalGPU Building)> GetVisibleBuildingPortals() {
+            foreach (var (key, lb) in _landblocks) {
+                if (!lb.Ready || lb.BuildingPortals.Count == 0) continue;
+
+                foreach (var building in lb.BuildingPortals) {
+                    yield return (key, building);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Renders the stencil mask for a single building's portal polygons.
+        /// Caller is responsible for setting up stencil state before calling.
+        /// </summary>
+        public unsafe void RenderBuildingStencilMask(BuildingPortalGPU building, Matrix4x4 viewProjection) {
+            if (_stencilShader == null || building.VAO == 0) return;
+
+            _stencilShader.Bind();
+            _stencilShader.SetUniform("uViewProjection", viewProjection);
+
+            _gl.BindVertexArray(building.VAO);
+            _gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)building.VertexCount);
+            _gl.BindVertexArray(0);
+        }
+
+        #endregion
+
         private async Task GeneratePortalsForLandblock(PortalLandblock lb) {
             try {
                 var lbGlobalX = (uint)lb.GridX;
@@ -245,6 +291,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     0
                 );
 
+                // Generate debug portal data (existing functionality)
                 var portals = _portalService.GetPortalsForLandblock(_landscapeDoc.RegionId, lbId).ToList();
                 var lbMin = new Vector3(float.MaxValue);
                 var lbMax = new Vector3(float.MinValue);
@@ -260,8 +307,36 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     lbMax = Vector3.Max(lbMax, portal.BoundingBox.Max);
                 }
 
+                // Generate per-building portal mesh data for stencil rendering
+                var buildingGroups = _portalService.GetPortalsByBuilding(_landscapeDoc.RegionId, lbId).ToList();
+                var pendingBuildings = new List<PendingBuildingPortal>();
+
+                foreach (var group in buildingGroups) {
+                    // Build triangle data from portal polygons (triangle fan per polygon)
+                    var triangleVertices = new List<Vector3>();
+
+                    foreach (var portal in group.Portals) {
+                        // Transform the portal vertices the same way as the debug portals
+                        var verts = portal.Vertices.Select(v => v + lbOrigin).ToArray();
+
+                        // Triangle fan: vertex 0 is the hub
+                        for (int i = 1; i < verts.Length - 1; i++) {
+                            triangleVertices.Add(verts[0]);
+                            triangleVertices.Add(verts[i]);
+                            triangleVertices.Add(verts[i + 1]);
+                        }
+                    }
+
+                    pendingBuildings.Add(new PendingBuildingPortal {
+                        BuildingIndex = group.BuildingIndex,
+                        Vertices = triangleVertices.ToArray(),
+                        EnvCellIds = group.EnvCellIds
+                    });
+                }
+
                 lb.PendingPortals = portals;
                 lb.PendingBoundingBox = new BoundingBox(lbMin, lbMax);
+                lb.PendingBuildings = pendingBuildings;
                 _uploadQueue.Enqueue(lb);
             }
             catch (Exception ex) {
@@ -269,29 +344,87 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        private void UploadLandblock(PortalLandblock lb) {
+        private unsafe void UploadLandblock(PortalLandblock lb) {
             lb.Portals.Clear();
+
+            // Clean up old building GPU resources
+            foreach (var building in lb.BuildingPortals) {
+                if (building.VAO != 0) _gl.DeleteVertexArray(building.VAO);
+                if (building.VBO != 0) _gl.DeleteBuffer(building.VBO);
+            }
+            lb.BuildingPortals.Clear();
 
             if (lb.PendingPortals != null) {
                 lb.Portals.AddRange(lb.PendingPortals);
                 lb.PendingPortals = null;
                 lb.BoundingBox = lb.PendingBoundingBox;
             }
+
+            // Upload building portal mesh data for stencil rendering
+            if (lb.PendingBuildings != null) {
+                foreach (var pending in lb.PendingBuildings) {
+                    uint vao = 0, vbo = 0;
+
+                    if (pending.Vertices.Length > 0) {
+                        vao = _gl.GenVertexArray();
+                        vbo = _gl.GenBuffer();
+
+                        _gl.BindVertexArray(vao);
+                        _gl.BindBuffer(GLEnum.ArrayBuffer, vbo);
+
+                        fixed (Vector3* ptr = pending.Vertices) {
+                            _gl.BufferData(GLEnum.ArrayBuffer, (nuint)(pending.Vertices.Length * sizeof(Vector3)), ptr, GLEnum.StaticDraw);
+                        }
+
+                        // aPosition at location 0
+                        _gl.EnableVertexAttribArray(0);
+                        _gl.VertexAttribPointer(0, 3, GLEnum.Float, false, (uint)sizeof(Vector3), (void*)0);
+
+                        _gl.BindVertexArray(0);
+
+                        GpuMemoryTracker.TrackAllocation(pending.Vertices.Length * sizeof(Vector3));
+                    }
+
+                    lb.BuildingPortals.Add(new BuildingPortalGPU {
+                        BuildingIndex = pending.BuildingIndex,
+                        VAO = vao,
+                        VBO = vbo,
+                        VertexCount = pending.Vertices.Length,
+                        EnvCellIds = pending.EnvCellIds
+                    });
+                }
+                lb.PendingBuildings = null;
+            }
+
             lb.Ready = true;
         }
 
-        private void UnloadLandblock(PortalLandblock lb) {
+        private unsafe void UnloadLandblock(PortalLandblock lb) {
             lb.Portals.Clear();
+
+            foreach (var building in lb.BuildingPortals) {
+                if (building.VAO != 0) {
+                    _gl.DeleteVertexArray(building.VAO);
+                }
+                if (building.VBO != 0) {
+                    GpuMemoryTracker.TrackDeallocation(building.VertexCount * sizeof(Vector3));
+                    _gl.DeleteBuffer(building.VBO);
+                }
+            }
+            lb.BuildingPortals.Clear();
+
             lb.Ready = false;
         }
 
-        public void Dispose() {
+        public unsafe void Dispose() {
             _landscapeDoc.LandblockChanged -= OnLandblockChanged;
             foreach (var lb in _landblocks.Values) {
                 UnloadLandblock(lb);
             }
             _landblocks.Clear();
         }
+
+        #region Inner Types
 
         private class PortalLandblock {
             public int GridX;
@@ -301,6 +434,30 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             public BoundingBox BoundingBox;
             public BoundingBox PendingBoundingBox;
             public bool Ready;
+
+            // Per-building GPU portal mesh data
+            public List<BuildingPortalGPU> BuildingPortals = new();
+            public List<PendingBuildingPortal>? PendingBuildings;
         }
+
+        private class PendingBuildingPortal {
+            public int BuildingIndex;
+            public Vector3[] Vertices = Array.Empty<Vector3>();
+            public HashSet<uint> EnvCellIds = new();
+        }
+
+        #endregion
+    }
+
+    /// <summary>
+    /// GPU-uploaded portal polygon mesh for a single building.
+    /// Used for stencil-based portal rendering.
+    /// </summary>
+    public class BuildingPortalGPU {
+        public int BuildingIndex;
+        public uint VAO;
+        public uint VBO;
+        public int VertexCount;
+        public HashSet<uint> EnvCellIds = new();
     }
 }

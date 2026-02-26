@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using DatReaderWriter.DBObjs;
+using DatReaderWriter.Enums;
 using DatReaderWriter.Types;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Numerics;
@@ -31,12 +32,68 @@ namespace WorldBuilder.Shared.Services {
 
         public PortalData? GetPortal(uint regionId, uint landblockId, uint cellId, uint portalIndex) {
             if (!_dats.CellRegions.TryGetValue(regionId, out var cellDb)) return null;
-            
+
             var portals = GetPortalsForCell(cellDb, cellId).ToList();
             if (portalIndex < portals.Count) {
                 return portals[(int)portalIndex];
             }
             return null;
+        }
+
+        /// <inheritdoc />
+        public IEnumerable<BuildingPortalGroup> GetPortalsByBuilding(uint regionId, uint landblockId) {
+            var lbId = (landblockId & 0xFFFF0000u) | 0xFFFE;
+
+            if (!_dats.CellRegions.TryGetValue(regionId, out var cellDb)) yield break;
+            if (!cellDb.TryGet<LandBlockInfo>(lbId, out var lbi)) yield break;
+
+            for (int buildingIdx = 0; buildingIdx < lbi.Buildings.Count; buildingIdx++) {
+                var bInfo = lbi.Buildings[buildingIdx];
+
+                // Discover all cells reachable from this building's entry portals
+                var discoveredCellIds = new HashSet<uint>();
+                var cellsToProcess = new Queue<uint>();
+
+                foreach (var portal in bInfo.Portals) {
+                    if (portal.OtherCellId != 0xFFFF) {
+                        var cellId = (lbId & 0xFFFF0000) | portal.OtherCellId;
+                        if (discoveredCellIds.Add(cellId)) {
+                            cellsToProcess.Enqueue(cellId);
+                        }
+                    }
+                }
+
+                // BFS through connected cells
+                while (cellsToProcess.Count > 0) {
+                    var cellId = cellsToProcess.Dequeue();
+                    if (cellDb.TryGet<EnvCell>(cellId, out var envCell)) {
+                        foreach (var cellPortal in envCell.CellPortals) {
+                            if (cellPortal.OtherCellId != 0xFFFF) {
+                                var neighborId = (lbId & 0xFFFF0000) | cellPortal.OtherCellId;
+                                if (discoveredCellIds.Add(neighborId)) {
+                                    cellsToProcess.Enqueue(neighborId);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Now collect outside-facing portals from all discovered cells
+                var outsidePortals = new List<PortalData>();
+                foreach (var cellId in discoveredCellIds) {
+                    foreach (var portal in GetPortalsForCell(cellDb, cellId)) {
+                        outsidePortals.Add(portal);
+                    }
+                }
+
+                if (discoveredCellIds.Count > 0) {
+                    yield return new BuildingPortalGroup {
+                        BuildingIndex = buildingIdx,
+                        Portals = outsidePortals,
+                        EnvCellIds = discoveredCellIds
+                    };
+                }
+            }
         }
 
         private IEnumerable<PortalData> GetPortalsForCell(IDatDatabase cellDb, uint cellId) {

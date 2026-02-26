@@ -34,6 +34,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private bool _showEnvCells = true;
 
+        // Optional cell filter for per-building stencil rendering.
+        // When non-null, only instances belonging to these cell IDs are included.
+        private HashSet<uint>? _cellFilter = null;
+
         protected override bool RenderHighlightsWhenEmpty => true;
 
         protected override int MaxConcurrentGenerations => 21;
@@ -52,6 +56,22 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         public void SetVisibilityFilters(bool showEnvCells) {
             _showEnvCells = showEnvCells;
+        }
+
+        /// <summary>
+        /// Sets a cell filter so that only instances belonging to the specified cell IDs
+        /// are included in the next PrepareRenderBatches/Render cycle.
+        /// Used for per-building stencil rendering.
+        /// </summary>
+        public void SetCellFilter(HashSet<uint> cellIds) {
+            _cellFilter = cellIds;
+        }
+
+        /// <summary>
+        /// Clears the cell filter, allowing all cells to be rendered.
+        /// </summary>
+        public void ClearCellFilter() {
+            _cellFilter = null;
         }
 
         public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit) {
@@ -131,15 +151,45 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #region Protected: Overrides
 
         protected override IEnumerable<KeyValuePair<ulong, List<Matrix4x4>>> GetFastPathGroups(ObjectLandblock lb) {
-            if (_showEnvCells) {
-                foreach (var kvp in lb.BuildingPartGroups) { // Recycle BuildingPartGroups for EnvCells
+            if (!_showEnvCells) yield break;
+
+            if (_cellFilter == null) {
+                // No filter: return all groups (original behavior)
+                foreach (var kvp in lb.BuildingPartGroups) {
                     yield return kvp;
+                }
+            }
+            else {
+                // With filter: iterate instances and only include matching cells.
+                // We can't use BuildingPartGroups because they don't store per-instance cell IDs.
+                foreach (var instance in lb.Instances) {
+                    var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
+                    if (!_cellFilter.Contains(cellId)) continue;
+
+                    if (instance.IsSetup) {
+                        var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
+                        if (renderData is { IsSetup: true }) {
+                            foreach (var (partId, partTransform) in renderData.SetupParts) {
+                                yield return new KeyValuePair<ulong, List<Matrix4x4>>(
+                                    partId, new List<Matrix4x4> { partTransform * instance.Transform });
+                            }
+                        }
+                    }
+                    else {
+                        yield return new KeyValuePair<ulong, List<Matrix4x4>>(
+                            instance.ObjectId, new List<Matrix4x4> { instance.Transform });
+                    }
                 }
             }
         }
 
         protected override bool ShouldIncludeInstance(SceneryInstance instance) {
-            return _showEnvCells;
+            if (!_showEnvCells) return false;
+            if (_cellFilter == null) return true;
+
+            // Extract the cell ID from the instance ID
+            var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
+            return _cellFilter.Contains(cellId);
         }
 
         protected override void PopulatePartGroups(ObjectLandblock lb, List<SceneryInstance> instances) {
@@ -212,7 +262,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 // Find entry portals from buildings in this landblock
                 var discoveredCellIds = new HashSet<uint>();
                 var cellsToProcess = new Queue<uint>();
-                
+
                 var cellDb = LandscapeDoc.CellDatabase;
                 if (cellDb != null && mergedLb.Buildings.Count > 0) {
                     if (cellDb.TryGet<LandBlockInfo>(lbId, out var lbi)) {
@@ -293,12 +343,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             if (envCell.StaticObjects.Count > 0) {
                                 for (ushort i = 0; i < envCell.StaticObjects.Count; i++) {
                                     var stab = envCell.StaticObjects[i];
-                                    
+
                                     var stabWorldPos = new Vector3(
                                         new Vector2(lbGlobalX * lbSizeUnits + (float)stab.Frame.Origin[0], lbGlobalY * lbSizeUnits + (float)stab.Frame.Origin[1]) + regionInfo.MapOffset,
                                         stab.Frame.Origin[2]
                                     );
-                                    
+
                                     var stabWorldRot = new Quaternion(stab.Frame.Orientation[0], stab.Frame.Orientation[1], stab.Frame.Orientation[2], stab.Frame.Orientation[3]);
                                     var stabWorldTransform = Matrix4x4.CreateFromQuaternion(stabWorldRot) * Matrix4x4.CreateTranslation(stabWorldPos);
 
