@@ -99,6 +99,11 @@ namespace WorldBuilder.Lib.Settings {
         [SettingOrder(3)]
         private float _movementSpeed = 1000f;
         public float MovementSpeed { get => _movementSpeed; set => SetProperty(ref _movementSpeed, value); }
+
+        [SettingDescription("Prevent camera from going below the terrain")]
+        [SettingOrder(4)]
+        private bool _enableTerrainCollision = true;
+        public bool EnableTerrainCollision { get => _enableTerrainCollision; set => SetProperty(ref _enableTerrainCollision, value); }
     }
 
     [SettingCategory("Rendering", ParentCategory = "Landscape Editor", Order = 1)]

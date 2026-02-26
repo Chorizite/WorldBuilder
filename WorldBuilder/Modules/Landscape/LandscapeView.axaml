@@ -90,6 +90,9 @@
           <ToggleButton IsChecked="{Binding EditorState.ShowUnwalkableSlopes}" ToolTip.Tip="Toggle Unwalkable Slopes">
             <icons:MaterialIcon Kind="Terrain" />
           </ToggleButton>
+          <ToggleButton IsChecked="{Binding EditorState.EnableTerrainCollision}" ToolTip.Tip="Toggle Camera Collision">
+            <icons:MaterialIcon Kind="Wall" />
+          </ToggleButton>
           <Button Command="{Binding ResetCamera}" ToolTip.Tip="Reset Camera">
             <icons:MaterialIcon Kind="Target" />
           </Button>

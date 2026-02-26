@@ -549,6 +549,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         EditorState.ShowUnwalkableSlopes = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
         EditorState.ObjectRenderDistance = _settings.Landscape.Rendering.ObjectRenderDistance;
         EditorState.MaxDrawDistance = _settings.Landscape.Camera.MaxDrawDistance;
+        EditorState.EnableTerrainCollision = _settings.Landscape.Camera.EnableTerrainCollision;
         EditorState.EnableTransparencyPass = _settings.Landscape.Rendering.EnableTransparencyPass;
         EditorState.TimeOfDay = _settings.Landscape.Rendering.TimeOfDay;
         EditorState.LightIntensity = _settings.Landscape.Rendering.LightIntensity;
@@ -574,6 +575,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             case nameof(EditorState.ShowUnwalkableSlopes): _settings.Landscape.Rendering.ShowUnwalkableSlopes = EditorState.ShowUnwalkableSlopes; break;
             case nameof(EditorState.ObjectRenderDistance): _settings.Landscape.Rendering.ObjectRenderDistance = EditorState.ObjectRenderDistance; break;
             case nameof(EditorState.MaxDrawDistance): _settings.Landscape.Camera.MaxDrawDistance = EditorState.MaxDrawDistance; break;
+            case nameof(EditorState.EnableTerrainCollision): _settings.Landscape.Camera.EnableTerrainCollision = EditorState.EnableTerrainCollision; break;
             case nameof(EditorState.EnableTransparencyPass): _settings.Landscape.Rendering.EnableTransparencyPass = EditorState.EnableTransparencyPass; break;
             case nameof(EditorState.TimeOfDay): _settings.Landscape.Rendering.TimeOfDay = EditorState.TimeOfDay; break;
             case nameof(EditorState.LightIntensity): _settings.Landscape.Rendering.LightIntensity = EditorState.LightIntensity; break;

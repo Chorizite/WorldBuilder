@@ -43,14 +43,15 @@ public partial class PortalViewModel : ViewModelBase, ISelectedObjectInfo {
         PortalIndex = portalIndex;
 
         var regionId = (landblockId >> 16) & 0xFFFF;
-        var portal = portalService.GetPortal(regionId, landblockId, cellId, (uint)portalIndex);
+        var portal = portalService.GetPortal(regionId, landblockId, cellId, InstanceIdConstants.GetRawId(portalIndex));
         
         // Note: PortalService currently only returns geometry data. 
         // We'll keep the Dat lookup for now to get flags and other properties.
         if (dats.CellRegions.TryGetValue(regionId, out var cellDb)) {
             if (cellDb.TryGet<EnvCell>(cellId, out var envCell)) {
-                if (portalIndex < (ulong)envCell.CellPortals.Count) {
-                    var dbPortal = envCell.CellPortals[(int)portalIndex];
+                var rawPortalIndex = InstanceIdConstants.GetRawId(portalIndex);
+                if (rawPortalIndex < (uint)envCell.CellPortals.Count) {
+                    var dbPortal = envCell.CellPortals[(int)rawPortalIndex];
                     Flags = dbPortal.Flags;
                     PolygonId = dbPortal.PolygonId;
                     OtherCellId = dbPortal.OtherCellId;

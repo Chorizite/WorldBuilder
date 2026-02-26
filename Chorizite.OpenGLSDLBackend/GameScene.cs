@@ -491,7 +491,7 @@ public class GameScene : IDisposable {
         _currentCamera.Update(deltaTime);
         _cullingFrustum.Update(_currentCamera.ViewProjectionMatrix);
 
-        if (_is3DMode && _terrainManager != null) {
+        if (_is3DMode && _state.EnableTerrainCollision && _terrainManager != null) {
             var terrainHeight = _terrainManager.GetHeight(_currentCamera.Position.X, _currentCamera.Position.Y);
             if (_currentCamera.Position.Z < terrainHeight + 1f) {
                 _currentCamera.Position = new Vector3(_currentCamera.Position.X, _currentCamera.Position.Y, terrainHeight + 1f);

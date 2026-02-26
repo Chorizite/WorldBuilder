@@ -28,5 +28,6 @@ namespace WorldBuilder.Shared.Lib {
 
         [ObservableProperty] private int _objectRenderDistance = 12;
         [ObservableProperty] private float _maxDrawDistance = 40000f;
+        [ObservableProperty] private bool _enableTerrainCollision = true;
     }
 }

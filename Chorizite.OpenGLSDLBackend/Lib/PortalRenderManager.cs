@@ -169,10 +169,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 foreach (var portal in lb.Portals) {
                     var color = magenta;
-                    if (HoveredPortal.HasValue && HoveredPortal.Value.CellId == portal.CellId && HoveredPortal.Value.PortalIndex == portal.PortalIndex) {
+                    if (HoveredPortal.HasValue && HoveredPortal.Value.CellId == portal.CellId && InstanceIdConstants.GetRawId(HoveredPortal.Value.PortalIndex) == portal.PortalIndex) {
                         color = hoverColor;
                     }
-                    if (SelectedPortal.HasValue && SelectedPortal.Value.CellId == portal.CellId && SelectedPortal.Value.PortalIndex == portal.PortalIndex) {
+                    if (SelectedPortal.HasValue && SelectedPortal.Value.CellId == portal.CellId && InstanceIdConstants.GetRawId(SelectedPortal.Value.PortalIndex) == portal.PortalIndex) {
                         color = selectionColor;
                     }
 
