@@ -121,6 +121,8 @@ public class GameScene : IDisposable {
 
     private InspectorTool? _inspectorTool;
 
+    private uint _currentEnvCellId;
+
     private float _lastTerrainUploadTime;
     private float _lastSceneryUploadTime;
     private float _lastStaticObjectUploadTime;
@@ -217,6 +219,11 @@ public class GameScene : IDisposable {
     public bool Is3DMode => _is3DMode;
 
     /// <summary>
+    /// Gets the current environment cell ID the camera is in.
+    /// </summary>
+    public uint CurrentEnvCellId => _currentEnvCellId;
+
+    /// <summary>
     /// Creates a new GameScene.
     /// </summary>
     public GameScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILoggerFactory loggerFactory, IPortalService portalService) {
@@ -288,6 +295,7 @@ public class GameScene : IDisposable {
 
     public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats, IDocumentManager documentManager, ObjectMeshManager? meshManager = null, bool centerCamera = true) {
         _landscapeDoc = landscapeDoc;
+        _currentEnvCellId = 0;
         if (_terrainManager != null) {
             _terrainManager.Dispose();
         }
@@ -503,47 +511,59 @@ public class GameScene : IDisposable {
         _currentCamera.Update(deltaTime);
         Vector3 newPos = _currentCamera.Position;
 
-        if (_is3DMode && _state.EnableCameraCollision) {
-            uint currentEnvCell = GetEnvCellAt(oldPos);
-            Vector3 moveDir = newPos - oldPos;
-            float moveDist = moveDir.Length();
+        if (_is3DMode) {
+            if (_state.EnableCameraCollision) {
+                Vector3 moveDir = newPos - oldPos;
+                float moveDist = moveDir.Length();
 
-            if (moveDist > 0.0001f) {
-                Vector3 normalizedDir = Vector3.Normalize(moveDir);
-                SceneRaycastHit hit = SceneRaycastHit.NoHit;
-                bool hasHit = false;
+                if (moveDist > 0.0001f) {
+                    Vector3 normalizedDir = Vector3.Normalize(moveDir);
+                    SceneRaycastHit hit = SceneRaycastHit.NoHit;
+                    bool hasHit = false;
 
-                if (currentEnvCell != 0) {
-                    // Inside: Collide with EnvCells and EnvCellStaticObjects
-                    if (RaycastEnvCells(oldPos, normalizedDir, true, true, out hit)) {
-                        if (hit.Distance <= moveDist + 0.5f) {
-                            hasHit = true;
+                    if (_currentEnvCellId != 0) {
+                        // Inside: Collide with EnvCells and EnvCellStaticObjects
+                        if (RaycastEnvCells(oldPos, normalizedDir, true, true, out hit)) {
+                            if (hit.Distance <= moveDist + 0.5f) {
+                                hasHit = true;
+                            }
                         }
                     }
-                }
-                else {
-                    // Outside: Collide with Buildings and StaticObjects
-                    if (RaycastStaticObjects(oldPos, normalizedDir, true, true, out hit)) {
-                        if (hit.Distance <= moveDist + 0.5f) {
-                            hasHit = true;
+                    else {
+                        // Outside: Collide with Buildings and StaticObjects
+                        if (RaycastStaticObjects(oldPos, normalizedDir, true, true, out hit)) {
+                            if (hit.Distance <= moveDist + 0.5f) {
+                                hasHit = true;
+                            }
                         }
                     }
-                }
 
-                if (hasHit) {
-                    newPos = oldPos + normalizedDir * Math.Max(0, hit.Distance - 0.5f);
-                    _currentCamera.Position = newPos;
+                    if (hasHit) {
+                        newPos = oldPos + normalizedDir * Math.Max(0, hit.Distance - 0.5f);
+                        _currentCamera.Position = newPos;
+                    }
                 }
             }
 
+            // Update current cell ID based on portal transition rules
+            if (_currentEnvCellId == 0) {
+                _currentEnvCellId = GetEnvCellAt(newPos, true);
+            }
+            else {
+                _currentEnvCellId = GetEnvCellAt(newPos, false);
+            }
+
             // Always enforce terrain height if outside and camera collision is enabled
-            if (currentEnvCell == 0 && _state.EnableCameraCollision && _terrainManager != null) {
+            if (_currentEnvCellId == 0 && _state.EnableCameraCollision && _terrainManager != null) {
                 var terrainHeight = _terrainManager.GetHeight(newPos.X, newPos.Y);
                 if (newPos.Z < terrainHeight + 1.6f) {
                     newPos.Z = terrainHeight + 1.6f;
                     _currentCamera.Position = newPos;
                 }
             }
+        }
+        else {
+            _currentEnvCellId = GetEnvCellAt(newPos, false);
         }
 
         _cullingFrustum.Update(_currentCamera.ViewProjectionMatrix);
@@ -699,8 +719,8 @@ public class GameScene : IDisposable {
         return false;
     }
 
-    public uint GetEnvCellAt(Vector3 pos) {
-        return _envCellManager?.GetEnvCellAt(pos) ?? 0;
+    public uint GetEnvCellAt(Vector3 pos, bool onlyEntryCells = false) {
+        return _envCellManager?.GetEnvCellAt(pos, onlyEntryCells) ?? 0;
     }
 
     /// <summary>
@@ -758,7 +778,7 @@ public class GameScene : IDisposable {
         var snapshotFov = _currentCamera.FieldOfView;
 
         // Detect if we are inside an EnvCell to handle depth sorting and terrain clipping correctly.
-        uint currentEnvCellId = _envCellManager?.GetEnvCellAt(snapshotPos) ?? 0;
+        uint currentEnvCellId = _currentEnvCellId;
         bool isInside = currentEnvCellId != 0;
 
         _cullingFrustum.Update(snapshotVP);

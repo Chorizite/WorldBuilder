@@ -54,12 +54,10 @@ public partial class LandscapeView : UserControl {
         var pos = _renderView.Camera.Position;
         var loc = Position.FromGlobal(pos, _renderView.LandscapeDocument.Region);
 
-        if (_renderView.EditorState?.EnableCameraCollision == true) {
-            var cellId = _renderView.GetEnvCellAt(pos);
-            if (cellId != 0) {
-                loc.CellId = (ushort)(cellId & 0xFFFF);
-                loc.LandblockId = (ushort)(cellId >> 16);
-            }
+        var cellId = _renderView.GetEnvCellAt(pos);
+        if (cellId != 0) {
+            loc.CellId = (ushort)(cellId & 0xFFFF);
+            loc.LandblockId = (ushort)(cellId >> 16);
         }
 
         _locationText.Text = loc.ToString() + $" (IsOutside: {loc.IsOutside})";

@@ -19,6 +19,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>True if this instance is a building.</summary>
         public bool IsBuilding;
 
+        /// <summary>True if this is an interior cell connected directly to the landblock.</summary>
+        public bool IsEntryCell;
+
         /// <summary>World-space position.</summary>
         public Vector3 WorldPosition;
 

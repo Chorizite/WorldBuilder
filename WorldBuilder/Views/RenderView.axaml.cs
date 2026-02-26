@@ -32,7 +32,7 @@ public partial class RenderView : Base3DViewport {
 
     public WorldBuilder.Shared.Models.ICamera? Camera => _gameScene?.Camera;
 
-    public uint GetEnvCellAt(Vector3 pos) => _gameScene?.GetEnvCellAt(pos) ?? 0;
+    public uint GetEnvCellAt(Vector3 pos) => _gameScene?.CurrentEnvCellId ?? 0;
 
     public event Action? SceneInitialized;
 

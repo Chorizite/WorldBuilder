@@ -74,7 +74,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _cellFilter = null;
         }
 
-        public uint GetEnvCellAt(Vector3 pos) {
+        public uint GetEnvCellAt(Vector3 pos, bool onlyEntryCells = false) {
             if (LandscapeDoc.Region == null) return 0;
 
             var lbSize = LandscapeDoc.Region.LandblockSizeInUnits;
@@ -90,6 +90,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     foreach (var instance in lb.Instances) {
                         var type = InstanceIdConstants.GetType(instance.InstanceId);
                         if (type != InspectorSelectionType.EnvCell) continue;
+                        if (onlyEntryCells && !instance.IsEntryCell) continue;
 
                         if (instance.BoundingBox.Contains(pos)) {
                             return InstanceIdConstants.GetRawId(instance.InstanceId);
@@ -288,6 +289,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 // Find entry portals from buildings in this landblock
                 var discoveredCellIds = new HashSet<uint>();
+                var entryCellIds = new HashSet<uint>();
                 var cellsToProcess = new Queue<uint>();
 
                 var cellDb = LandscapeDoc.CellDatabase;
@@ -302,6 +304,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     if (portal.OtherCellId != 0xFFFF) {
                                         var cellId = (lbId & 0xFFFF0000) | portal.OtherCellId;
                                         if (discoveredCellIds.Add(cellId)) {
+                                            entryCellIds.Add(cellId);
                                             cellsToProcess.Enqueue(cellId);
                                         }
                                     }
@@ -356,6 +359,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                         InstanceId = InstanceIdConstants.Encode(cellId, InspectorSelectionType.EnvCell),
                                         IsSetup = false,
                                         IsBuilding = true,
+                                        IsEntryCell = entryCellIds.Contains(cellId),
                                         WorldPosition = localPos,
                                         Rotation = rotation,
                                         Scale = Vector3.One,
