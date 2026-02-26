@@ -252,6 +252,41 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Each entry provides the GPU data needed to render the stencil mask and the set of
         /// EnvCell IDs to render through it.
         /// </summary>
+        internal void GetVisibleBuildingPortals(List<(ushort LbKey, BuildingPortalGPU Building)> results) {
+            results.Clear();
+            foreach (var (key, lb) in _landblocks) {
+                if (!lb.Ready || lb.BuildingPortals.Count == 0 || !IsWithinRenderDistance(lb)) continue;
+
+                // Simple landblock frustum test for performance
+                if (GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) continue;
+
+                foreach (var building in lb.BuildingPortals) {
+                    results.Add((key, building));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Finds all building portal groups that contain the specified EnvCell ID.
+        /// Does NOT perform frustum culling, as this is used to identify portals of the building the camera is in.
+        /// </summary>
+        internal void GetBuildingPortalsByCellId(uint cellId, List<(ushort LbKey, BuildingPortalGPU Building)> results) {
+            results.Clear();
+            foreach (var (key, lb) in _landblocks) {
+                if (!lb.Ready) continue;
+                foreach (var building in lb.BuildingPortals) {
+                    if (building.EnvCellIds.Contains(cellId)) {
+                        results.Add((key, building));
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns an enumerable of visible building portal groups across all loaded landblocks.
+        /// Each entry provides the GPU data needed to render the stencil mask and the set of
+        /// EnvCell IDs to render through it.
+        /// </summary>
         internal IEnumerable<(ushort LbKey, BuildingPortalGPU Building)> GetVisibleBuildingPortals() {
             foreach (var (key, lb) in _landblocks) {
                 if (!lb.Ready || lb.BuildingPortals.Count == 0 || !IsWithinRenderDistance(lb)) continue;

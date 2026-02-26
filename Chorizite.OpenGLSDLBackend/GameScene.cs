@@ -4,6 +4,7 @@ using Chorizite.OpenGLSDLBackend.Lib;
 using DatReaderWriter;
 using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
+using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -122,6 +123,11 @@ public class GameScene : IDisposable {
     private InspectorTool? _inspectorTool;
 
     private uint _currentEnvCellId;
+
+    private readonly List<(ushort LbKey, BuildingPortalGPU Building)> _visibleBuildingPortals = new();
+    private readonly List<(ushort LbKey, BuildingPortalGPU Building)> _buildingsWithCurrentCell = new();
+    private readonly List<(ushort LbKey, BuildingPortalGPU Building)> _otherBuildings = new();
+    private readonly HashSet<uint> _currentEnvCellIds = new();
 
     private float _lastTerrainUploadTime;
     private float _lastSceneryUploadTime;
@@ -724,11 +730,17 @@ public class GameScene : IDisposable {
     }
 
     private void RenderInsideOut(uint currentEnvCellId, int pass1RenderPass, Matrix4x4 snapshotVP, Matrix4x4 snapshotView, Matrix4x4 snapshotProj, Vector3 snapshotPos, float snapshotFov) {
-        var buildingsWithCurrentCell = _portalManager?.GetBuildingPortalsByCellId(currentEnvCellId).ToList();
-        var visibleBuildingPortals = _portalManager?.GetVisibleBuildingPortals().ToList();
+        if (_portalManager != null) {
+            _portalManager.GetBuildingPortalsByCellId(currentEnvCellId, _buildingsWithCurrentCell);
+            _portalManager.GetVisibleBuildingPortals(_visibleBuildingPortals);
+        }
+        else {
+            _buildingsWithCurrentCell.Clear();
+            _visibleBuildingPortals.Clear();
+        }
 
         bool didInsideStencil = false;
-        if (buildingsWithCurrentCell != null && buildingsWithCurrentCell.Count > 0) {
+        if (_buildingsWithCurrentCell.Count > 0) {
             didInsideStencil = true;
             _gl.Enable(EnableCap.StencilTest);
             _gl.ClearStencil(0);
@@ -745,14 +757,14 @@ public class GameScene : IDisposable {
             _gl.Enable(EnableCap.DepthTest);
             _gl.DepthFunc(DepthFunction.Less);
 
-            foreach (var (lbKey, building) in buildingsWithCurrentCell) {
+            foreach (var (lbKey, building) in _buildingsWithCurrentCell) {
                 _portalManager?.RenderBuildingStencilMask(building, snapshotVP, false);
             }
 
             // Step 2: Punch through depth buffer at doorways so outside can be seen.
             _gl.DepthMask(true);
             _gl.DepthFunc(DepthFunction.Always);
-            foreach (var (lbKey, building) in buildingsWithCurrentCell) {
+            foreach (var (lbKey, building) in _buildingsWithCurrentCell) {
                 _portalManager?.RenderBuildingStencilMask(building, snapshotVP, true);
             }
         }
@@ -765,40 +777,47 @@ public class GameScene : IDisposable {
         _gl.DepthFunc(DepthFunction.Less);
         _sceneryShader?.Bind();
 
-        if (buildingsWithCurrentCell != null && buildingsWithCurrentCell.Count > 0) {
-            var currentEnvCellIds = new HashSet<uint>();
-            foreach (var (lbKey, building) in buildingsWithCurrentCell) {
-                foreach (var id in building.EnvCellIds) currentEnvCellIds.Add(id);
+        if (_buildingsWithCurrentCell.Count > 0) {
+            _currentEnvCellIds.Clear();
+            foreach (var (lbKey, building) in _buildingsWithCurrentCell) {
+                foreach (var id in building.EnvCellIds) _currentEnvCellIds.Add(id);
             }
-            _envCellManager!.Render(pass1RenderPass, currentEnvCellIds);
+            _envCellManager!.Render(pass1RenderPass, _currentEnvCellIds);
 
             if (_state.EnableTransparencyPass) {
                 _gl.DepthMask(false);
-                _envCellManager!.Render(1, currentEnvCellIds);
+                _envCellManager!.Render(1, _currentEnvCellIds);
                 _gl.DepthMask(true);
             }
         }
         else {
             // If we don't know which building we are in, just render the current cell as a minimal fallback
-            var fallbackSet = new HashSet<uint> { currentEnvCellId };
-            _envCellManager!.Render(pass1RenderPass, fallbackSet);
+            _currentEnvCellIds.Clear();
+            _currentEnvCellIds.Add(currentEnvCellId);
+            _envCellManager!.Render(pass1RenderPass, _currentEnvCellIds);
 
             if (_state.EnableTransparencyPass) {
                 _gl.DepthMask(false);
-                _envCellManager!.Render(1, fallbackSet);
+                _envCellManager!.Render(1, _currentEnvCellIds);
                 _gl.DepthMask(true);
             }
         }
 
         // Step 4: Render EnvCells of OTHER buildings, masked by our portals AND their own portals.
-        if (didInsideStencil && visibleBuildingPortals != null) {
-            var otherBuildings = visibleBuildingPortals.Where(p => !p.Building.EnvCellIds.Contains(currentEnvCellId)).ToList();
-            if (otherBuildings.Count > 0) {
+        if (didInsideStencil) {
+            _otherBuildings.Clear();
+            foreach (var p in _visibleBuildingPortals) {
+                if (!p.Building.EnvCellIds.Contains(currentEnvCellId)) {
+                    _otherBuildings.Add(p);
+                }
+            }
+
+            if (_otherBuildings.Count > 0) {
                 _gl.Enable(EnableCap.StencilTest);
                 _gl.ColorMask(false, false, false, false);
                 _gl.DepthMask(false);
 
-                foreach (var (lbKey, building) in otherBuildings) {
+                foreach (var (lbKey, building) in _otherBuildings) {
                     // a. Mark Bit 2 (0x02) for this building's portals, BUT ONLY where Bit 1 (0x01) is set.
                     // We use Ref=3, Mask=0x02 to set Bit 2 while Bit 1 remains.
                     _gl.StencilFunc(StencilFunction.Equal, 3, 0x01); // Match Bit 1
@@ -874,13 +893,18 @@ public class GameScene : IDisposable {
 
     private void RenderOutsideIn(int pass1RenderPass, Matrix4x4 snapshotVP, Vector3 snapshotPos) {
         bool didStencil = false;
-        List<(ushort LbKey, BuildingPortalGPU Building)>? visiblePortals = null;
 
         if (_portalManager != null) {
-            visiblePortals = _portalManager.GetVisibleBuildingPortals()
-                .Where(p => p.Building.VertexCount > 0).ToList();
+            _portalManager.GetVisibleBuildingPortals(_visibleBuildingPortals);
+            
+            // Filter out buildings with no vertices (e.g. they failed to load or were empty)
+            for (int i = _visibleBuildingPortals.Count - 1; i >= 0; i--) {
+                if (_visibleBuildingPortals[i].Building.VertexCount <= 0) {
+                    _visibleBuildingPortals.RemoveAt(i);
+                }
+            }
 
-            if (visiblePortals.Count > 0) {
+            if (_visibleBuildingPortals.Count > 0) {
                 didStencil = true;
                 _gl.Enable(EnableCap.StencilTest);
                 _gl.ClearStencil(0);
@@ -900,7 +924,7 @@ public class GameScene : IDisposable {
                 _gl.Enable(EnableCap.DepthTest);
                 _gl.DepthFunc(DepthFunction.Less);
 
-                foreach (var (lbKey, building) in visiblePortals) {
+                foreach (var (lbKey, building) in _visibleBuildingPortals) {
                     _portalManager.RenderBuildingStencilMask(building, snapshotVP, false);
                 }
 
@@ -913,7 +937,7 @@ public class GameScene : IDisposable {
                 _gl.DepthMask(true);
                 _gl.DepthFunc(DepthFunction.Always);
 
-                foreach (var (lbKey, building) in visiblePortals) {
+                foreach (var (lbKey, building) in _visibleBuildingPortals) {
                     _portalManager.RenderBuildingStencilMask(building, snapshotVP, true);
                 }
 
@@ -946,14 +970,14 @@ public class GameScene : IDisposable {
         }
 
         // Render EnvCells building by building to apply individual portal masks
-        if (didStencil && visiblePortals != null) {
+        if (didStencil) {
             // Step 5: Render EnvCells through portal masks with normal depth test.
             _gl.StencilFunc(StencilFunction.Equal, 1, 0xFF);
             _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
             _gl.ColorMask(true, true, true, false);
             _gl.DepthFunc(DepthFunction.Less);
 
-            foreach (var (lbKey, building) in visiblePortals) {
+            foreach (var (lbKey, building) in _visibleBuildingPortals) {
                 _sceneryShader?.Bind();
                 _envCellManager!.Render(pass1RenderPass, building.EnvCellIds);
 
