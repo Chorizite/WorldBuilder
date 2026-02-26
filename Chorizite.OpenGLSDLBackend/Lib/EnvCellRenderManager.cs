@@ -38,6 +38,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // When non-null, only instances belonging to these cell IDs are included.
         private HashSet<uint>? _cellFilter = null;
 
+        // Grouped instances by cell ID for efficient filtered rendering
+        private readonly Dictionary<uint, Dictionary<ulong, List<Matrix4x4>>> _cellBatches = new();
+
         protected override bool RenderHighlightsWhenEmpty => true;
 
         protected override int MaxConcurrentGenerations => 21;
@@ -177,6 +180,106 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #endregion
 
         #region Protected: Overrides
+
+        public override void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
+            if (!_initialized || cameraPosition.Z > 4000) return;
+
+            // Clear previous frame data
+            _visibleGroups.Clear();
+            _visibleGfxObjIds.Clear();
+            _poolIndex = 0;
+            _cellBatches.Clear();
+
+            foreach (var lb in _landblocks.Values) {
+                if (!lb.GpuReady || lb.Instances.Count == 0 || !IsWithinRenderDistance(lb)) continue;
+
+                var testResult = GetLandblockFrustumResult(lb.GridX, lb.GridY);
+                if (testResult == FrustumTestResult.Outside) continue;
+
+                foreach (var instance in lb.Instances) {
+                    if (testResult == FrustumTestResult.Inside || _frustum.Intersects(instance.BoundingBox)) {
+                        var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
+                        if (!_cellBatches.TryGetValue(cellId, out var cellGroups)) {
+                            cellGroups = new Dictionary<ulong, List<Matrix4x4>>();
+                            _cellBatches[cellId] = cellGroups;
+                        }
+
+                        if (instance.IsSetup) {
+                            var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
+                            if (renderData is { IsSetup: true }) {
+                                foreach (var (partId, partTransform) in renderData.SetupParts) {
+                                    if (!cellGroups.TryGetValue(partId, out var list)) {
+                                        list = GetPooledList();
+                                        cellGroups[partId] = list;
+                                    }
+                                    list.Add(partTransform * instance.Transform);
+                                }
+                            }
+                        }
+                        else {
+                            if (!cellGroups.TryGetValue(instance.ObjectId, out var list)) {
+                                list = GetPooledList();
+                                cellGroups[instance.ObjectId] = list;
+                            }
+                            list.Add(instance.Transform);
+                        }
+                    }
+                }
+            }
+        }
+
+        public override void Render(int renderPass) {
+            Render(renderPass, _cellFilter);
+        }
+
+        public void Render(int renderPass, HashSet<uint>? filter) {
+            if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || (_cameraPosition.Z > 4000 && renderPass != 2)) return;
+
+            CurrentVAO = 0;
+            CurrentIBO = 0;
+            CurrentAtlas = 0;
+            CurrentCullMode = null;
+
+            _shader.SetUniform("uRenderPass", renderPass);
+
+            if (filter == null) {
+                foreach (var cellId in _cellBatches.Keys) {
+                    RenderCell(cellId);
+                }
+            }
+            else {
+                foreach (var cellId in filter) {
+                    RenderCell(cellId);
+                }
+            }
+
+            // Draw highlighted / selected objects on top
+            if (RenderHighlightsWhenEmpty || _cellBatches.Count > 0) {
+                Gl.DepthFunc(GLEnum.Lequal);
+                if (SelectedInstance.HasValue) {
+                    RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection);
+                }
+                if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
+                    RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover);
+                }
+                Gl.DepthFunc(GLEnum.Less);
+            }
+
+            _shader.SetUniform("uHighlightColor", Vector4.Zero);
+            _shader.SetUniform("uRenderPass", renderPass);
+            Gl.BindVertexArray(0);
+        }
+
+        private void RenderCell(uint cellId) {
+            if (_cellBatches.TryGetValue(cellId, out var groups)) {
+                foreach (var (gfxObjId, transforms) in groups) {
+                    var renderData = MeshManager.TryGetRenderData(gfxObjId);
+                    if (renderData != null && !renderData.IsSetup) {
+                        RenderObjectBatches(_shader!, renderData, transforms);
+                    }
+                }
+            }
+        }
 
         protected override IEnumerable<KeyValuePair<ulong, List<Matrix4x4>>> GetFastPathGroups(ObjectLandblock lb) {
             if (!_showEnvCells) yield break;
