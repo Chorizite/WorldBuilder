@@ -849,7 +849,8 @@ public class GameScene : IDisposable {
             _gl.DepthFunc(DepthFunction.Less);
         }
 
-        // Render terrain after EnvCells when inside, so that terrain only renders where there are no building walls (portals).
+        // Render terrain after EnvCells when inside, so that terrain only renders through portal openings 
+        // (where there are no interior walls to occlude it).
         if (_terrainManager != null) {
             _terrainManager.Render(snapshotView, snapshotProj, snapshotVP, snapshotPos, snapshotFov);
             _sceneryShader?.Bind();
@@ -979,6 +980,10 @@ public class GameScene : IDisposable {
         }
     }
 
+    /// <summary>
+    /// Renders all interiors within range without any portal masking or depth clearing.
+    /// Used as a fallback when portal-based rendering is disabled (e.g. no camera collision).
+    /// </summary>
     private void RenderEnvCellsFallback(int pass1RenderPass) {
         _envCellManager!.Render(pass1RenderPass);
     }
@@ -1089,9 +1094,11 @@ public class GameScene : IDisposable {
         _gl.DepthMask(true);
 
         if (isInside && _state.ShowEnvCells && _envCellManager != null) {
+            // Inside rendering: Render the building we are in, then other buildings and the exterior through portals.
             RenderInsideOut(currentEnvCellId, pass1RenderPass, snapshotVP, snapshotView, snapshotProj, snapshotPos, snapshotFov);
         }
         else if (!isInside) {
+            // Outside rendering: Render the exterior world normally.
             if (_state.ShowScenery) {
                 _sceneryManager?.Render(pass1RenderPass);
             }
@@ -1102,9 +1109,13 @@ public class GameScene : IDisposable {
 
             if (_state.ShowEnvCells && _envCellManager != null) {
                 if (!_state.EnableCameraCollision) {
+                    // No collision rendering: When collision is disabled, render all interiors without portal masking.
+                    // This is faster and avoids portal-related artifacts when flying through walls.
                     RenderEnvCellsFallback(pass1RenderPass);
                 }
                 else {
+                    // Outside-in rendering: Use stencil-based portal masks to "punch through" solid building exteriors
+                    // so interiors can be seen through doorways and windows.
                     RenderOutsideIn(pass1RenderPass, snapshotVP, snapshotPos);
                 }
             }
