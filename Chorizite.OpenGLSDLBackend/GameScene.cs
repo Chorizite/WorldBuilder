@@ -757,6 +757,10 @@ public class GameScene : IDisposable {
         var snapshotPos = _currentCamera.Position;
         var snapshotFov = _currentCamera.FieldOfView;
 
+        // Detect if we are inside an EnvCell to handle depth sorting and terrain clipping correctly.
+        uint currentEnvCellId = _envCellManager?.GetEnvCellAt(snapshotPos) ?? 0;
+        bool isInside = currentEnvCellId != 0;
+
         _cullingFrustum.Update(snapshotVP);
 
         if (_state.ShowScenery) {
@@ -779,8 +783,8 @@ public class GameScene : IDisposable {
             //_skyboxManager?.Render(snapshotView, snapshotProj, snapshotPos, snapshotFov, (float)_width / _height);
         }
 
-        // Render Terrain
-        if (_terrainManager != null) {
+        // Render Terrain (only if not inside, otherwise we render it after EnvCells)
+        if (!isInside && _terrainManager != null) {
             _terrainManager.Render(snapshotView, snapshotProj, snapshotVP, snapshotPos, snapshotFov);
         }
 
@@ -805,20 +809,90 @@ public class GameScene : IDisposable {
 
         _gl.DepthMask(true);
 
-        if (_state.ShowScenery) {
+        // When inside an EnvCell, we render it first so that terrain is blocked by building walls.
+        if (isInside && _state.ShowEnvCells) {
+            bool didInsideStencil = false;
+            var buildingsWithCurrentCell = _portalManager?.GetVisibleBuildingPortals()
+                .Where(p => p.Building.EnvCellIds.Contains(currentEnvCellId)).ToList();
+
+            if (buildingsWithCurrentCell != null && buildingsWithCurrentCell.Count > 0) {
+                didInsideStencil = true;
+                _gl.Enable(EnableCap.StencilTest);
+                _gl.ClearStencil(0);
+                _gl.Clear(ClearBufferMask.StencilBufferBit);
+
+                // Step 1: Write stencil for all portals of the building(s) we are in.
+                _gl.Disable(EnableCap.CullFace);
+                _gl.StencilFunc(StencilFunction.Always, 1, 0xFF);
+                _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Replace);
+                _gl.StencilMask(0xFF);
+                _gl.ColorMask(false, false, false, false);
+                _gl.DepthMask(false);
+                _gl.Enable(EnableCap.DepthTest);
+                _gl.DepthFunc(DepthFunction.Always);
+
+                foreach (var (lbKey, building) in buildingsWithCurrentCell) {
+                    _portalManager?.RenderBuildingStencilMask(building, snapshotVP);
+                }
+
+                _gl.ColorMask(true, true, true, false);
+                _gl.DepthMask(true);
+                _gl.StencilMask(0x00);
+                _gl.Disable(EnableCap.StencilTest);
+            }
+
+            // Step 2: Render EnvCells (Interior). These should ALWAYS render, not restricted by portals.
+            // Ensure state is correct for EnvCell rendering
+            _gl.DepthFunc(DepthFunction.Less);
+            _sceneryShader?.Bind();
+            _envCellManager?.Render(pass1RenderPass);
+
+            // Step 3: Restrict exterior (Terrain/Scenery/etc) through portals.
+            if (didInsideStencil) {
+                _gl.Enable(EnableCap.StencilTest);
+                _gl.StencilFunc(StencilFunction.Equal, 1, 0xFF);
+                _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
+                _gl.Enable(EnableCap.CullFace);
+                _gl.DepthFunc(DepthFunction.Less);
+            }
+
+            // Render terrain after EnvCells when inside, so that terrain only renders where there are no building walls (portals).
+            if (_terrainManager != null) {
+                // If we are using stencil, terrain only draws through portals.
+                // If not (e.g. current building has no portal data yet), it draws everywhere but depth-tested against EnvCells.
+                _terrainManager.Render(snapshotView, snapshotProj, snapshotVP, snapshotPos, snapshotFov);
+                // Re-bind scenery shader for the remaining opaque passes
+                _sceneryShader?.Bind();
+            }
+
+            if (_state.ShowScenery) {
+                _sceneryManager?.Render(pass1RenderPass);
+            }
+
+            if (_state.ShowStaticObjects || _state.ShowBuildings) {
+                _staticObjectManager?.Render(pass1RenderPass);
+            }
+
+            if (didInsideStencil) {
+                _gl.Disable(EnableCap.StencilTest);
+                _gl.StencilMask(0xFF);
+            }
+        }
+
+        if (!isInside && _state.ShowScenery) {
             _sceneryManager?.Render(pass1RenderPass);
         }
 
-        if (_state.ShowStaticObjects || _state.ShowBuildings) {
+        if (!isInside && (_state.ShowStaticObjects || _state.ShowBuildings)) {
             _staticObjectManager?.Render(pass1RenderPass);
         }
 
-        if (!_state.EnableCameraCollision && _state.ShowEnvCells) {
+        if (!isInside && !_state.EnableCameraCollision && _state.ShowEnvCells) {
             _envCellManager?.Render(pass1RenderPass);
         }
 
-        // Portal Stencil Rendering: fix terrain clipping over EnvCells
-        if (_state.EnableCameraCollision && _state.ShowEnvCells && _envCellManager != null) {
+        // Portal Stencil Rendering: fix terrain clipping over EnvCells (only when outside)
+        if (!isInside && _state.EnableCameraCollision && _state.ShowEnvCells && _envCellManager != null) {
             bool didStencil = false;
 
             if (_portalManager != null) {
@@ -932,6 +1006,10 @@ public class GameScene : IDisposable {
             _sceneryShader?.SetUniform("uRenderPass", 1);
             _gl.DepthMask(false);
 
+            if (isInside && _state.ShowEnvCells) {
+                _envCellManager?.Render(1);
+            }
+
             if (_state.ShowScenery) {
                 _sceneryManager?.Render(1);
             }
@@ -940,7 +1018,7 @@ public class GameScene : IDisposable {
                 _staticObjectManager?.Render(1);
             }
 
-            if (!_state.EnableCameraCollision && _state.ShowEnvCells) {
+            if (!isInside && !_state.EnableCameraCollision && _state.ShowEnvCells) {
                 _envCellManager?.Render(1);
             }
 
