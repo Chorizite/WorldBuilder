@@ -768,6 +768,12 @@ public class GameScene : IDisposable {
             _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
         }
 
+        if (_state.ShowEnvCells && _envCellManager != null) {
+            _envCellManager.ClearCellFilter();
+            _envCellManager.SetVisibilityFilters(_state.ShowEnvCells);
+            _envCellManager.PrepareRenderBatches(snapshotVP, snapshotPos);
+        }
+
         if (_state.ShowSkybox) {
             // Draw skybox before everything else
             //_skyboxManager?.Render(snapshotView, snapshotProj, snapshotPos, snapshotFov, (float)_width / _height);
@@ -807,8 +813,12 @@ public class GameScene : IDisposable {
             _staticObjectManager?.Render(pass1RenderPass);
         }
 
+        if (!_state.EnableCameraCollision && _state.ShowEnvCells) {
+            _envCellManager?.Render(pass1RenderPass);
+        }
+
         // Portal Stencil Rendering: fix terrain clipping over EnvCells
-        if (_state.ShowEnvCells && _envCellManager != null) {
+        if (_state.EnableCameraCollision && _state.ShowEnvCells && _envCellManager != null) {
             bool didStencil = false;
 
             if (_portalManager != null) {
@@ -886,11 +896,7 @@ public class GameScene : IDisposable {
                 }
             }
 
-            // Prepare and render all EnvCells
-            _envCellManager.ClearCellFilter();
-            _envCellManager.SetVisibilityFilters(_state.ShowEnvCells);
-            _envCellManager.PrepareRenderBatches(snapshotVP, snapshotPos);
-
+            // Render all EnvCells
             _sceneryShader?.Bind();
             if (_sceneryShader != null) {
                 _sceneryShader.SetUniform("uRenderPass", pass1RenderPass);
@@ -932,6 +938,10 @@ public class GameScene : IDisposable {
 
             if (_state.ShowStaticObjects || _state.ShowBuildings) {
                 _staticObjectManager?.Render(1);
+            }
+
+            if (!_state.EnableCameraCollision && _state.ShowEnvCells) {
+                _envCellManager?.Render(1);
             }
 
             _gl.DepthMask(true);
