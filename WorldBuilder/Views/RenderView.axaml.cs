@@ -32,6 +32,8 @@ public partial class RenderView : Base3DViewport {
 
     public WorldBuilder.Shared.Models.ICamera? Camera => _gameScene?.Camera;
 
+    public uint GetEnvCellAt(Vector3 pos) => _gameScene?.GetEnvCellAt(pos) ?? 0;
+
     public event Action? SceneInitialized;
 
     // Pending landscape update to be processed on the render thread

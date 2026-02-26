@@ -660,6 +660,10 @@ public class GameScene : IDisposable {
         return false;
     }
 
+    public uint GetEnvCellAt(Vector3 pos) {
+        return _envCellManager?.GetEnvCellAt(pos) ?? 0;
+    }
+
     /// <summary>
     /// Renders the scene.
     /// </summary>

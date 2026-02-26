@@ -74,6 +74,32 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _cellFilter = null;
         }
 
+        public uint GetEnvCellAt(Vector3 pos) {
+            if (LandscapeDoc.Region == null) return 0;
+
+            var lbSize = LandscapeDoc.Region.LandblockSizeInUnits;
+            var mapPos = new Vector2(pos.X, pos.Y) - LandscapeDoc.Region.MapOffset;
+            int lbX = (int)Math.Floor(mapPos.X / lbSize);
+            int lbY = (int)Math.Floor(mapPos.Y / lbSize);
+
+            var key = GeometryUtils.PackKey(lbX, lbY);
+
+            if (_landblocks.TryGetValue(key, out var lb)) {
+                if (!lb.InstancesReady) return 0;
+                lock (lb) {
+                    foreach (var instance in lb.Instances) {
+                        var type = InstanceIdConstants.GetType(instance.InstanceId);
+                        if (type != InspectorSelectionType.EnvCell) continue;
+
+                        if (instance.BoundingBox.Contains(pos)) {
+                            return InstanceIdConstants.GetRawId(instance.InstanceId);
+                        }
+                    }
+                }
+            }
+            return 0;
+        }
+
         public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit) {
             hit = SceneRaycastHit.NoHit;
 
