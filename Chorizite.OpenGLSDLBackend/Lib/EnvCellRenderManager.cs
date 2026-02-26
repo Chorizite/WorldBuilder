@@ -34,6 +34,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private bool _showEnvCells = true;
 
+        // Grouped instances by cell ID for efficient filtered rendering
+        private readonly Dictionary<uint, Dictionary<ulong, List<Matrix4x4>>> _cellBatches = new();
+
         protected override bool RenderHighlightsWhenEmpty => true;
 
         protected override int MaxConcurrentGenerations => 21;
@@ -52,6 +55,33 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         public void SetVisibilityFilters(bool showEnvCells) {
             _showEnvCells = showEnvCells;
+        }
+
+        public uint GetEnvCellAt(Vector3 pos, bool onlyEntryCells = false) {
+            if (LandscapeDoc.Region == null) return 0;
+
+            var lbSize = LandscapeDoc.Region.LandblockSizeInUnits;
+            var mapPos = new Vector2(pos.X, pos.Y) - LandscapeDoc.Region.MapOffset;
+            int lbX = (int)Math.Floor(mapPos.X / lbSize);
+            int lbY = (int)Math.Floor(mapPos.Y / lbSize);
+
+            var key = GeometryUtils.PackKey(lbX, lbY);
+
+            if (_landblocks.TryGetValue(key, out var lb)) {
+                if (!lb.InstancesReady) return 0;
+                lock (lb) {
+                    foreach (var instance in lb.Instances) {
+                        var type = InstanceIdConstants.GetType(instance.InstanceId);
+                        if (type != InspectorSelectionType.EnvCell) continue;
+                        if (onlyEntryCells && !instance.IsEntryCell) continue;
+
+                        if (instance.BoundingBox.Contains(pos)) {
+                            return InstanceIdConstants.GetRawId(instance.InstanceId);
+                        }
+                    }
+                }
+            }
+            return 0;
         }
 
         public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit) {
@@ -77,7 +107,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         }
 
                         // Narrow phase: Mesh-precise raycast
-                        if (MeshManager.IntersectMesh(renderData, instance.Transform, rayOrigin, rayDirection, out float d)) {
+                        if (MeshManager.IntersectMesh(renderData, instance.Transform, rayOrigin, rayDirection, out float d, out Vector3 normal)) {
                             if (d < hit.Distance) {
                                 hit.Hit = true;
                                 hit.Distance = d;
@@ -88,6 +118,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.Position = instance.WorldPosition;
                                 hit.Rotation = instance.Rotation;
                                 hit.LandblockId = (uint)((key << 16) | 0xFFFE);
+                                hit.Normal = normal;
                             }
                         }
                     }
@@ -130,16 +161,104 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Protected: Overrides
 
-        protected override IEnumerable<KeyValuePair<ulong, List<Matrix4x4>>> GetFastPathGroups(ObjectLandblock lb) {
-            if (_showEnvCells) {
-                foreach (var kvp in lb.BuildingPartGroups) { // Recycle BuildingPartGroups for EnvCells
-                    yield return kvp;
+        public override void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
+            if (!_initialized || cameraPosition.Z > 4000) return;
+
+            // Clear previous frame data
+            _visibleGroups.Clear();
+            _visibleGfxObjIds.Clear();
+            _poolIndex = 0;
+            _cellBatches.Clear();
+
+            foreach (var lb in _landblocks.Values) {
+                if (!lb.GpuReady || lb.Instances.Count == 0 || !IsWithinRenderDistance(lb)) continue;
+
+                var testResult = GetLandblockFrustumResult(lb.GridX, lb.GridY);
+                if (testResult == FrustumTestResult.Outside) continue;
+
+                foreach (var instance in lb.Instances) {
+                    if (testResult == FrustumTestResult.Inside || _frustum.Intersects(instance.BoundingBox)) {
+                        var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
+                        if (!_cellBatches.TryGetValue(cellId, out var cellGroups)) {
+                            cellGroups = new Dictionary<ulong, List<Matrix4x4>>();
+                            _cellBatches[cellId] = cellGroups;
+                        }
+
+                        if (instance.IsSetup) {
+                            var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
+                            if (renderData is { IsSetup: true }) {
+                                foreach (var (partId, partTransform) in renderData.SetupParts) {
+                                    if (!cellGroups.TryGetValue(partId, out var list)) {
+                                        list = GetPooledList();
+                                        cellGroups[partId] = list;
+                                    }
+                                    list.Add(partTransform * instance.Transform);
+                                }
+                            }
+                        }
+                        else {
+                            if (!cellGroups.TryGetValue(instance.ObjectId, out var list)) {
+                                list = GetPooledList();
+                                cellGroups[instance.ObjectId] = list;
+                            }
+                            list.Add(instance.Transform);
+                        }
+                    }
                 }
             }
         }
 
-        protected override bool ShouldIncludeInstance(SceneryInstance instance) {
-            return _showEnvCells;
+        public override void Render(int renderPass) {
+            Render(renderPass, null);
+        }
+
+        public void Render(int renderPass, HashSet<uint>? filter) {
+            if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || (_cameraPosition.Z > 4000 && renderPass != 2)) return;
+
+            CurrentVAO = 0;
+            CurrentIBO = 0;
+            CurrentAtlas = 0;
+            CurrentCullMode = null;
+
+            _shader.SetUniform("uRenderPass", renderPass);
+
+            if (filter == null) {
+                foreach (var cellId in _cellBatches.Keys) {
+                    RenderCell(cellId);
+                }
+            }
+            else {
+                foreach (var cellId in filter) {
+                    RenderCell(cellId);
+                }
+            }
+
+            // Draw highlighted / selected objects on top
+            if (RenderHighlightsWhenEmpty || _cellBatches.Count > 0) {
+                Gl.DepthFunc(GLEnum.Lequal);
+                if (SelectedInstance.HasValue) {
+                    RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection);
+                }
+                if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
+                    RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover);
+                }
+                Gl.DepthFunc(GLEnum.Less);
+            }
+
+            _shader.SetUniform("uHighlightColor", Vector4.Zero);
+            _shader.SetUniform("uRenderPass", renderPass);
+            Gl.BindVertexArray(0);
+        }
+
+        private void RenderCell(uint cellId) {
+            if (_cellBatches.TryGetValue(cellId, out var groups)) {
+                foreach (var (gfxObjId, transforms) in groups) {
+                    var renderData = MeshManager.TryGetRenderData(gfxObjId);
+                    if (renderData != null && !renderData.IsSetup) {
+                        RenderObjectBatches(_shader!, renderData, transforms);
+                    }
+                }
+            }
         }
 
         protected override void PopulatePartGroups(ObjectLandblock lb, List<SceneryInstance> instances) {
@@ -211,8 +330,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 // Find entry portals from buildings in this landblock
                 var discoveredCellIds = new HashSet<uint>();
+                var entryCellIds = new HashSet<uint>();
                 var cellsToProcess = new Queue<uint>();
-                
+
                 var cellDb = LandscapeDoc.CellDatabase;
                 if (cellDb != null && mergedLb.Buildings.Count > 0) {
                     if (cellDb.TryGet<LandBlockInfo>(lbId, out var lbi)) {
@@ -225,6 +345,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     if (portal.OtherCellId != 0xFFFF) {
                                         var cellId = (lbId & 0xFFFF0000) | portal.OtherCellId;
                                         if (discoveredCellIds.Add(cellId)) {
+                                            entryCellIds.Add(cellId);
                                             cellsToProcess.Enqueue(cellId);
                                         }
                                     }
@@ -251,7 +372,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             // Calculate world position
                             var localPos = new Vector3(
                                 new Vector2(lbGlobalX * lbSizeUnits + (float)envCell.Position.Origin[0], lbGlobalY * lbSizeUnits + (float)envCell.Position.Origin[1]) + regionInfo.MapOffset,
-                                envCell.Position.Origin[2]
+                                (float)envCell.Position.Origin[2] + RenderConstants.ObjectZOffset
                             );
 
                             var rotation = new Quaternion(
@@ -279,6 +400,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                         InstanceId = InstanceIdConstants.Encode(cellId, InspectorSelectionType.EnvCell),
                                         IsSetup = false,
                                         IsBuilding = true,
+                                        IsEntryCell = entryCellIds.Contains(cellId),
                                         WorldPosition = localPos,
                                         Rotation = rotation,
                                         Scale = Vector3.One,
@@ -293,12 +415,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             if (envCell.StaticObjects.Count > 0) {
                                 for (ushort i = 0; i < envCell.StaticObjects.Count; i++) {
                                     var stab = envCell.StaticObjects[i];
-                                    
+
                                     var stabWorldPos = new Vector3(
                                         new Vector2(lbGlobalX * lbSizeUnits + (float)stab.Frame.Origin[0], lbGlobalY * lbSizeUnits + (float)stab.Frame.Origin[1]) + regionInfo.MapOffset,
-                                        stab.Frame.Origin[2]
+                                        (float)stab.Frame.Origin[2] + RenderConstants.ObjectZOffset
                                     );
-                                    
+
                                     var stabWorldRot = new Quaternion(stab.Frame.Orientation[0], stab.Frame.Orientation[1], stab.Frame.Orientation[2], stab.Frame.Orientation[3]);
                                     var stabWorldTransform = Matrix4x4.CreateFromQuaternion(stabWorldRot) * Matrix4x4.CreateTranslation(stabWorldPos);
 

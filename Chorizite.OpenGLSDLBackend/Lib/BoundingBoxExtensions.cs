@@ -8,6 +8,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                    (box.Min.Y <= other.Max.Y && box.Max.Y >= other.Min.Y);
         }
 
+        public static bool Contains(this BoundingBox box, Vector3 point) {
+            return (point.X >= box.Min.X && point.X <= box.Max.X) &&
+                   (point.Y >= box.Min.Y && point.Y <= box.Max.Y) &&
+                   (point.Z >= box.Min.Z && point.Z <= box.Max.Z);
+        }
+
         public static BoundingBox Transform(this BoundingBox box, Matrix4x4 matrix) {
             var corners = new Vector3[8];
             corners[0] = new Vector3(box.Min.X, box.Min.Y, box.Min.Z);

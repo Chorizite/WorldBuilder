@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using System;
+using System.Numerics;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Views;
@@ -50,8 +51,16 @@ public partial class LandscapeView : UserControl {
     private void OnUpdateTick(object? sender, EventArgs e) {
         if (_locationText == null || _renderView?.Camera == null || _renderView.LandscapeDocument?.Region == null) return;
 
-        var loc = Position.FromGlobal(_renderView.Camera.Position, _renderView.LandscapeDocument.Region);
-        _locationText.Text = loc.ToString();
+        var pos = _renderView.Camera.Position;
+        var loc = Position.FromGlobal(pos, _renderView.LandscapeDocument.Region);
+
+        var cellId = _renderView.GetEnvCellAt(pos);
+        if (cellId != 0) {
+            loc.CellId = (ushort)(cellId & 0xFFFF);
+            loc.LandblockId = (ushort)(cellId >> 16);
+        }
+
+        _locationText.Text = loc.ToString() + $" (IsOutside: {loc.IsOutside})";
     }
 
     protected override void OnDataContextChanged(EventArgs e) {

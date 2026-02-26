@@ -4,6 +4,8 @@ using Chorizite.OpenGLSDLBackend.Lib;
 using DatReaderWriter;
 using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
+using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using WorldBuilder.Shared.Models;
@@ -36,6 +38,7 @@ public class GameScene : IDisposable {
     private IShader? _shader;
     private IShader? _terrainShader;
     private IShader? _sceneryShader;
+    private IShader? _stencilShader;
     private bool _initialized;
     private int _width;
     private int _height;
@@ -118,6 +121,13 @@ public class GameScene : IDisposable {
     private (int x, int y)? _selectedVertex;
 
     private InspectorTool? _inspectorTool;
+
+    private uint _currentEnvCellId;
+
+    private readonly List<(ushort LbKey, BuildingPortalGPU Building)> _visibleBuildingPortals = new();
+    private readonly List<(ushort LbKey, BuildingPortalGPU Building)> _buildingsWithCurrentCell = new();
+    private readonly List<(ushort LbKey, BuildingPortalGPU Building)> _otherBuildings = new();
+    private readonly HashSet<uint> _currentEnvCellIds = new();
 
     private float _lastTerrainUploadTime;
     private float _lastSceneryUploadTime;
@@ -215,6 +225,11 @@ public class GameScene : IDisposable {
     public bool Is3DMode => _is3DMode;
 
     /// <summary>
+    /// Gets the current environment cell ID the camera is in.
+    /// </summary>
+    public uint CurrentEnvCellId => _currentEnvCellId;
+
+    /// <summary>
     /// Creates a new GameScene.
     /// </summary>
     public GameScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILoggerFactory loggerFactory, IPortalService portalService) {
@@ -256,6 +271,11 @@ public class GameScene : IDisposable {
         var sFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.StaticObject.frag");
         _sceneryShader = _graphicsDevice.CreateShader("StaticObject", sVertSource, sFragSource);
 
+        // Create portal stencil shader
+        var pVertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.PortalStencil.vert");
+        var pFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.PortalStencil.frag");
+        _stencilShader = _graphicsDevice.CreateShader("PortalStencil", pVertSource, pFragSource);
+
         _initialized = true;
 
         if (_terrainManager != null && _terrainShader != null) {
@@ -281,6 +301,7 @@ public class GameScene : IDisposable {
 
     public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats, IDocumentManager documentManager, ObjectMeshManager? meshManager = null, bool centerCamera = true) {
         _landscapeDoc = landscapeDoc;
+        _currentEnvCellId = 0;
         if (_terrainManager != null) {
             _terrainManager.Dispose();
         }
@@ -347,6 +368,9 @@ public class GameScene : IDisposable {
         _portalManager = new PortalRenderManager(_gl, _log, landscapeDoc, dats, _portalService, _graphicsDevice, _cullingFrustum);
         _portalManager.RenderDistance = _state.ObjectRenderDistance;
         _portalManager.ShowPortals = _state.ShowPortals;
+        if (_initialized && _stencilShader != null) {
+            _portalManager.InitializeStencilShader(_stencilShader);
+        }
 
         _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager, _staticObjectManager, documentManager, _cullingFrustum);
         _sceneryManager.RenderDistance = _state.ObjectRenderDistance;
@@ -489,15 +513,66 @@ public class GameScene : IDisposable {
     /// </summary>
     public void Update(float deltaTime) {
         float remainingTime = MAX_GPU_UPDATE_TIME_PER_FRAME;
+        Vector3 oldPos = _currentCamera.Position;
         _currentCamera.Update(deltaTime);
-        _cullingFrustum.Update(_currentCamera.ViewProjectionMatrix);
+        Vector3 newPos = _currentCamera.Position;
 
-        if (_is3DMode && _state.EnableTerrainCollision && _terrainManager != null) {
-            var terrainHeight = _terrainManager.GetHeight(_currentCamera.Position.X, _currentCamera.Position.Y);
-            if (_currentCamera.Position.Z < terrainHeight + 1f) {
-                _currentCamera.Position = new Vector3(_currentCamera.Position.X, _currentCamera.Position.Y, terrainHeight + 1f);
+        if (_is3DMode) {
+            if (_state.EnableCameraCollision) {
+                Vector3 moveDir = newPos - oldPos;
+                float moveDist = moveDir.Length();
+
+                if (moveDist > 0.0001f) {
+                    Vector3 normalizedDir = Vector3.Normalize(moveDir);
+                    SceneRaycastHit hit = SceneRaycastHit.NoHit;
+                    bool hasHit = false;
+
+                    if (_currentEnvCellId != 0) {
+                        // Inside: Collide with EnvCells and EnvCellStaticObjects
+                        if (RaycastEnvCells(oldPos, normalizedDir, true, true, out hit)) {
+                            if (hit.Distance <= moveDist + 0.5f) {
+                                hasHit = true;
+                            }
+                        }
+                    }
+                    else {
+                        // Outside: Collide with Buildings and StaticObjects
+                        if (RaycastStaticObjects(oldPos, normalizedDir, true, true, out hit)) {
+                            if (hit.Distance <= moveDist + 0.5f) {
+                                hasHit = true;
+                            }
+                        }
+                    }
+
+                    if (hasHit) {
+                        newPos = oldPos + normalizedDir * Math.Max(0, hit.Distance - 0.5f);
+                        _currentCamera.Position = newPos;
+                    }
+                }
+            }
+
+            // Update current cell ID based on portal transition rules
+            if (_currentEnvCellId == 0) {
+                _currentEnvCellId = GetEnvCellAt(newPos, true);
+            }
+            else {
+                _currentEnvCellId = GetEnvCellAt(newPos, false);
+            }
+
+            // Always enforce terrain height if outside and camera collision is enabled
+            if (_currentEnvCellId == 0 && _state.EnableCameraCollision && _terrainManager != null) {
+                var terrainHeight = _terrainManager.GetHeight(newPos.X, newPos.Y);
+                if (newPos.Z < terrainHeight + .6f) {
+                    newPos.Z = terrainHeight + .6f;
+                    _currentCamera.Position = newPos;
+                }
             }
         }
+        else {
+            _currentEnvCellId = GetEnvCellAt(newPos, false);
+        }
+
+        _cullingFrustum.Update(_currentCamera.ViewProjectionMatrix);
 
         _terrainManager?.Update(deltaTime, _currentCamera);
         _lastTerrainUploadTime = _terrainManager?.ProcessUploads(remainingTime) ?? 0;
@@ -650,6 +725,279 @@ public class GameScene : IDisposable {
         return false;
     }
 
+    public uint GetEnvCellAt(Vector3 pos, bool onlyEntryCells = false) {
+        return _envCellManager?.GetEnvCellAt(pos, onlyEntryCells) ?? 0;
+    }
+
+    private void RenderInsideOut(uint currentEnvCellId, int pass1RenderPass, Matrix4x4 snapshotVP, Matrix4x4 snapshotView, Matrix4x4 snapshotProj, Vector3 snapshotPos, float snapshotFov) {
+        if (_portalManager != null) {
+            _portalManager.GetBuildingPortalsByCellId(currentEnvCellId, _buildingsWithCurrentCell);
+            _portalManager.GetVisibleBuildingPortals(_visibleBuildingPortals);
+        }
+        else {
+            _buildingsWithCurrentCell.Clear();
+            _visibleBuildingPortals.Clear();
+        }
+
+        bool didInsideStencil = false;
+        if (_buildingsWithCurrentCell.Count > 0) {
+            didInsideStencil = true;
+            _gl.Enable(EnableCap.StencilTest);
+            _gl.ClearStencil(0);
+            _gl.Clear(ClearBufferMask.StencilBufferBit);
+
+            // Step 1: Write stencil Bit 1 (0x01) for all portals of the building(s) we are in.
+            // This marks the "doorways" out of our current building.
+            _gl.Disable(EnableCap.CullFace);
+            _gl.StencilFunc(StencilFunction.Always, 1, 0xFF);
+            _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Replace);
+            _gl.StencilMask(0x01); // Only write Bit 1
+            _gl.ColorMask(false, false, false, false);
+            _gl.DepthMask(false);
+            _gl.Enable(EnableCap.DepthTest);
+            _gl.DepthFunc(DepthFunction.Less);
+
+            foreach (var (lbKey, building) in _buildingsWithCurrentCell) {
+                _portalManager?.RenderBuildingStencilMask(building, snapshotVP, false);
+            }
+
+            // Step 2: Punch through depth buffer at doorways so outside can be seen.
+            _gl.DepthMask(true);
+            _gl.DepthFunc(DepthFunction.Always);
+            foreach (var (lbKey, building) in _buildingsWithCurrentCell) {
+                _portalManager?.RenderBuildingStencilMask(building, snapshotVP, true);
+            }
+        }
+
+        // Step 3: Render EnvCells of the current building(s).
+        // These should ALWAYS render, not restricted by their own portals (since we are inside).
+        _gl.ColorMask(true, true, true, false);
+        _gl.DepthMask(true);
+        _gl.Disable(EnableCap.StencilTest);
+        _gl.DepthFunc(DepthFunction.Less);
+        _sceneryShader?.Bind();
+
+        if (_buildingsWithCurrentCell.Count > 0) {
+            _currentEnvCellIds.Clear();
+            foreach (var (lbKey, building) in _buildingsWithCurrentCell) {
+                foreach (var id in building.EnvCellIds) _currentEnvCellIds.Add(id);
+            }
+            _envCellManager!.Render(pass1RenderPass, _currentEnvCellIds);
+
+            if (_state.EnableTransparencyPass) {
+                _gl.DepthMask(false);
+                _envCellManager!.Render(1, _currentEnvCellIds);
+                _gl.DepthMask(true);
+            }
+        }
+
+        // Step 4: Render EnvCells of OTHER buildings, masked by our portals AND their own portals.
+        if (didInsideStencil) {
+            _otherBuildings.Clear();
+            foreach (var p in _visibleBuildingPortals) {
+                if (!p.Building.EnvCellIds.Contains(currentEnvCellId)) {
+                    _otherBuildings.Add(p);
+                }
+            }
+
+            if (_otherBuildings.Count > 0) {
+                _gl.Enable(EnableCap.StencilTest);
+                _gl.ColorMask(false, false, false, false);
+                _gl.DepthMask(false);
+
+                foreach (var (lbKey, building) in _otherBuildings) {
+                    // a. Mark Bit 2 (0x02) for this building's portals, BUT ONLY where Bit 1 (0x01) is set.
+                    // We use Ref=3, Mask=0x02 to set Bit 2 while Bit 1 remains.
+                    _gl.StencilFunc(StencilFunction.Equal, 3, 0x01); // Match Bit 1
+                    _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Replace);
+                    _gl.StencilMask(0x02); // Only write to Bit 2
+                    _gl.Disable(EnableCap.CullFace);
+                    _portalManager?.RenderBuildingStencilMask(building, snapshotVP, false);
+
+                    // b. Clear depth where Stencil == 3 (Inside our portal AND its portal).
+                    _gl.StencilFunc(StencilFunction.Equal, 3, 0x03);
+                    _gl.StencilMask(0x00);
+                    _gl.DepthMask(true);
+                    _gl.DepthFunc(DepthFunction.Always);
+                    _portalManager?.RenderBuildingStencilMask(building, snapshotVP, true);
+
+                    // c. Render this building's EnvCells where Stencil == 3.
+                    _gl.ColorMask(true, true, true, false);
+                    _gl.DepthFunc(DepthFunction.Less);
+                    _sceneryShader?.Bind();
+                    _envCellManager!.Render(pass1RenderPass, building.EnvCellIds);
+
+                    if (_state.EnableTransparencyPass) {
+                        _gl.DepthMask(false);
+                        _envCellManager!.Render(1, building.EnvCellIds);
+                        _gl.DepthMask(true);
+                    }
+
+                    // d. Reset Stencil back to 1 (clear Bit 2) for the next building.
+                    _gl.ColorMask(false, false, false, false);
+                    _gl.DepthMask(false);
+                    _gl.StencilMask(0x02);
+                    _gl.StencilFunc(StencilFunction.Always, 1, 0x02); // Replace Bit 2 with 0 (Ref=1 has Bit 2=0)
+                    _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Replace);
+                    _portalManager?.RenderBuildingStencilMask(building, snapshotVP, false);
+                }
+            }
+        }
+
+        // Step 5: Restrict exterior (Terrain/Scenery/etc) through portals.
+        if (didInsideStencil) {
+            _gl.Enable(EnableCap.StencilTest);
+            _gl.StencilFunc(StencilFunction.Equal, 1, 0x01);
+            _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
+            _gl.StencilMask(0x00);
+            _gl.ColorMask(true, true, true, false);
+            _gl.DepthMask(true);
+            _gl.Enable(EnableCap.CullFace);
+            _gl.DepthFunc(DepthFunction.Less);
+        }
+
+        // Render terrain after EnvCells when inside, so that terrain only renders through portal openings 
+        // (where there are no interior walls to occlude it).
+        if (_terrainManager != null) {
+            _terrainManager.Render(snapshotView, snapshotProj, snapshotVP, snapshotPos, snapshotFov);
+            _sceneryShader?.Bind();
+        }
+
+        if (_state.ShowScenery) {
+            _sceneryManager?.Render(pass1RenderPass);
+        }
+
+        if (_state.ShowStaticObjects || _state.ShowBuildings) {
+            _staticObjectManager?.Render(pass1RenderPass);
+        }
+
+        if (didInsideStencil) {
+            _gl.Disable(EnableCap.StencilTest);
+            _gl.StencilMask(0xFF);
+        }
+    }
+
+    private void RenderOutsideIn(int pass1RenderPass, Matrix4x4 snapshotVP, Vector3 snapshotPos) {
+        bool didStencil = false;
+
+        if (_portalManager != null) {
+            _portalManager.GetVisibleBuildingPortals(_visibleBuildingPortals);
+            
+            // Filter out buildings with no vertices (e.g. they failed to load or were empty)
+            for (int i = _visibleBuildingPortals.Count - 1; i >= 0; i--) {
+                if (_visibleBuildingPortals[i].Building.VertexCount <= 0) {
+                    _visibleBuildingPortals.RemoveAt(i);
+                }
+            }
+
+            if (_visibleBuildingPortals.Count > 0) {
+                didStencil = true;
+                _gl.Enable(EnableCap.StencilTest);
+                _gl.ClearStencil(0);
+                _gl.Clear(ClearBufferMask.StencilBufferBit);
+
+                // Step 1: Write stencil for all portal polygons.
+                // DepthFunc(Always) so portals always mark the stencil.
+                // No color or depth writes — just stencil.
+                // Disable backface culling: portal polygons face inward
+                // (into the building) so they'd be culled when viewed from outside.
+                _gl.Disable(EnableCap.CullFace);
+                _gl.StencilFunc(StencilFunction.Always, 1, 0xFF);
+                _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Replace);
+                _gl.StencilMask(0xFF);
+                _gl.ColorMask(false, false, false, false);
+                _gl.DepthMask(false);
+                _gl.Enable(EnableCap.DepthTest);
+                _gl.DepthFunc(DepthFunction.Less);
+
+                foreach (var (lbKey, building) in _visibleBuildingPortals) {
+                    _portalManager.RenderBuildingStencilMask(building, snapshotVP, false);
+                }
+
+                // Step 2: Clear depth to far plane ONLY where stencil==1.
+                // This removes terrain depth at portal openings so EnvCells
+                // can render over terrain. Shader writes gl_FragDepth = 1.0.
+                _gl.StencilFunc(StencilFunction.Equal, 1, 0xFF);
+                _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
+                _gl.StencilMask(0x00);
+                _gl.DepthMask(true);
+                _gl.DepthFunc(DepthFunction.Always);
+
+                foreach (var (lbKey, building) in _visibleBuildingPortals) {
+                    _portalManager.RenderBuildingStencilMask(building, snapshotVP, true);
+                }
+
+                // Re-enable backface culling for depth repair
+                _gl.Enable(EnableCap.CullFace);
+
+                // Step 3: Depth repair — re-render building walls depth-only
+                // where stencil==1. This restores wall depth that was cleared
+                // in step 2, preventing see-through-walls.
+                // StencilFunc still Equal,1 — only repair where portal was marked.
+                _gl.DepthFunc(DepthFunction.Less);
+                // ColorMask still false, DepthMask still true
+
+                _sceneryShader?.Bind();
+
+                if (_state.ShowStaticObjects || _state.ShowBuildings) {
+                    _staticObjectManager?.Render(pass1RenderPass);
+                }
+
+                if (_state.ShowScenery) {
+                    _sceneryManager?.Render(pass1RenderPass);
+                }
+
+                // Step 4: Prepare state for EnvCell rendering through stencil.
+                // At doorway: depth=far_plane, EnvCells pass ✓
+                // At wall from side: wall depth restored, EnvCells fail ✓
+                _gl.ColorMask(true, true, true, false);
+                // StencilFunc still Equal,1; DepthFunc still Less
+            }
+        }
+
+        // Render EnvCells building by building to apply individual portal masks
+        if (didStencil) {
+            // Step 5: Render EnvCells through portal masks with normal depth test.
+            _gl.StencilFunc(StencilFunction.Equal, 1, 0xFF);
+            _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
+            _gl.ColorMask(true, true, true, false);
+            _gl.DepthFunc(DepthFunction.Less);
+
+            foreach (var (lbKey, building) in _visibleBuildingPortals) {
+                _sceneryShader?.Bind();
+                _envCellManager!.Render(pass1RenderPass, building.EnvCellIds);
+
+                if (_state.EnableTransparencyPass) {
+                    _gl.DepthMask(false);
+                    _envCellManager!.Render(1, building.EnvCellIds);
+                    _gl.DepthMask(true);
+                }
+            }
+        }
+        else {
+            _envCellManager!.Render(pass1RenderPass, null);
+
+            if (_state.EnableTransparencyPass) {
+                _gl.DepthMask(false);
+                _envCellManager!.Render(1, null);
+                _gl.DepthMask(true);
+            }
+        }
+
+        if (didStencil) {
+            _gl.Disable(EnableCap.StencilTest);
+            _gl.StencilMask(0xFF);
+        }
+    }
+
+    /// <summary>
+    /// Renders all interiors within range without any portal masking or depth clearing.
+    /// Used as a fallback when portal-based rendering is disabled (e.g. no camera collision).
+    /// </summary>
+    private void RenderEnvCellsFallback(int pass1RenderPass) {
+        _envCellManager!.Render(pass1RenderPass);
+    }
+
     /// <summary>
     /// Renders the scene.
     /// </summary>
@@ -704,6 +1052,10 @@ public class GameScene : IDisposable {
         var snapshotPos = _currentCamera.Position;
         var snapshotFov = _currentCamera.FieldOfView;
 
+        // Detect if we are inside an EnvCell to handle depth sorting and terrain clipping correctly.
+        uint currentEnvCellId = _currentEnvCellId;
+        bool isInside = currentEnvCellId != 0;
+
         _cullingFrustum.Update(snapshotVP);
 
         if (_state.ShowScenery) {
@@ -715,9 +1067,9 @@ public class GameScene : IDisposable {
             _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
         }
 
-        if (_state.ShowEnvCells) {
-            _envCellManager?.SetVisibilityFilters(_state.ShowEnvCells);
-            _envCellManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
+        if (_state.ShowEnvCells && _envCellManager != null) {
+            _envCellManager.SetVisibilityFilters(_state.ShowEnvCells);
+            _envCellManager.PrepareRenderBatches(snapshotVP, snapshotPos);
         }
 
         if (_state.ShowSkybox) {
@@ -725,15 +1077,15 @@ public class GameScene : IDisposable {
             //_skyboxManager?.Render(snapshotView, snapshotProj, snapshotPos, snapshotFov, (float)_width / _height);
         }
 
-        // Render Terrain
-        if (_terrainManager != null) {
+        // Render Terrain (only if not inside, otherwise we render it after EnvCells)
+        if (!isInside && _terrainManager != null) {
             _terrainManager.Render(snapshotView, snapshotProj, snapshotVP, snapshotPos, snapshotFov);
         }
 
-        // Render Portals
+        // Render Portals (debug outlines)
         _portalManager?.SubmitDebugShapes(_debugRenderer);
 
-        // Pass 1: Opaque Scenery & Static Objects
+        // Pass 1: Opaque Scenery & Static Objects (exterior)
         _sceneryShader?.Bind();
         int pass1RenderPass = _state.EnableTransparencyPass ? 0 : 2;
 
@@ -751,19 +1103,34 @@ public class GameScene : IDisposable {
 
         _gl.DepthMask(true);
 
-        if (_state.ShowScenery) {
-            _sceneryManager?.Render(pass1RenderPass);
+        if (isInside && _state.ShowEnvCells && _envCellManager != null) {
+            // Inside rendering: Render the building we are in, then other buildings and the exterior through portals.
+            RenderInsideOut(currentEnvCellId, pass1RenderPass, snapshotVP, snapshotView, snapshotProj, snapshotPos, snapshotFov);
+        }
+        else if (!isInside) {
+            // Outside rendering: Render the exterior world normally.
+            if (_state.ShowScenery) {
+                _sceneryManager?.Render(pass1RenderPass);
+            }
+
+            if (_state.ShowStaticObjects || _state.ShowBuildings) {
+                _staticObjectManager?.Render(pass1RenderPass);
+            }
+
+            if (_state.ShowEnvCells && _envCellManager != null) {
+                if (!_state.EnableCameraCollision) {
+                    // No collision rendering: When collision is disabled, render all interiors without portal masking.
+                    RenderEnvCellsFallback(pass1RenderPass);
+                }
+                else {
+                    // Outside-in rendering: Use stencil-based portal masks to "punch through" solid building exteriors
+                    // so interiors can be seen through doorways and windows.
+                    RenderOutsideIn(pass1RenderPass, snapshotVP, snapshotPos);
+                }
+            }
         }
 
-        if (_state.ShowStaticObjects || _state.ShowBuildings) {
-            _staticObjectManager?.Render(pass1RenderPass);
-        }
-
-        if (_state.ShowEnvCells) {
-            _envCellManager?.Render(pass1RenderPass);
-        }
-
-        // Pass 2: Transparent Scenery & Static Objects
+        // Pass 2: Transparent Scenery & Static Objects (exterior)
         if (_state.EnableTransparencyPass) {
             _sceneryShader?.Bind();
             _sceneryShader?.SetUniform("uRenderPass", 1);
@@ -777,9 +1144,7 @@ public class GameScene : IDisposable {
                 _staticObjectManager?.Render(1);
             }
 
-            if (_state.ShowEnvCells) {
-                _envCellManager?.Render(1);
-            }
+            _gl.DepthMask(true);
         }
 
         if (_state.ShowDebugShapes) {
@@ -837,10 +1202,8 @@ public class GameScene : IDisposable {
 
         _debugRenderer?.Render(snapshotView, snapshotProj);
 
-        // Restore depth mask for subsequent renders if needed
-        _gl.DepthMask(true);
-
         // Restore for Avalonia
+        _gl.DepthMask(true);
         _gl.ColorMask(true, true, true, true);
         if (wasScissorEnabled) _gl.Enable(EnableCap.ScissorTest);
         _gl.Enable(EnableCap.DepthTest);

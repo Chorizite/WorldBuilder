@@ -142,7 +142,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             return TerrainUtils.GetHeight(regionInfo.Region, entries, (uint)lbX, (uint)lbY, localPos);
         }
-
+        
         private void OnLandblockChanged(object? sender, LandblockChangedEventArgs e) {
             if (e.AffectedLandblocks == null) {
                 _log.LogTrace("LandblockChanged: All landblocks invalidated");

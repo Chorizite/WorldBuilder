@@ -54,12 +54,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected bool _initialized;
 
         // Grouped instances for rendering
-        private readonly Dictionary<ulong, List<Matrix4x4>> _visibleGroups = new();
-        private readonly List<ulong> _visibleGfxObjIds = new();
+        protected readonly Dictionary<ulong, List<Matrix4x4>> _visibleGroups = new();
+        protected readonly List<ulong> _visibleGfxObjIds = new();
 
         // List pool for rendering
-        private readonly List<List<Matrix4x4>> _listPool = new();
-        private int _poolIndex = 0;
+        protected readonly List<List<Matrix4x4>> _listPool = new();
+        protected int _poolIndex = 0;
 
         // Statistics
         public int RenderDistance { get; set; } = 25;
@@ -263,7 +263,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return (float)sw.Elapsed.TotalMilliseconds;
         }
 
-        public void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
+        public virtual void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
             if (!_initialized || cameraPosition.Z > 4000) return;
 
             // Clear previous frame data
@@ -323,13 +323,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public unsafe void Render(int renderPass) {
+        public virtual unsafe void Render(int renderPass) {
             if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || _cameraPosition.Z > 4000) return;
 
             CurrentVAO = 0;
             CurrentIBO = 0;
             CurrentAtlas = 0;
             CurrentCullMode = null;
+
+            _shader.SetUniform("uRenderPass", renderPass);
+            _shader.SetUniform("uHighlightColor", Vector4.Zero);
 
             if (_visibleGfxObjIds.Count == 0) {
                 if (RenderHighlightsWhenEmpty) {
@@ -341,8 +344,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover);
                     }
                     Gl.DepthFunc(GLEnum.Less);
-                    _shader.SetUniform("uHighlightColor", Vector4.Zero);
-                    _shader.SetUniform("uRenderPass", renderPass);
                 }
                 return;
             }
@@ -596,7 +597,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return null;
         }
 
-        private List<Matrix4x4> GetPooledList() {
+        protected List<Matrix4x4> GetPooledList() {
             if (_poolIndex < _listPool.Count) {
                 var list = _listPool[_poolIndex++];
                 list.Clear();
@@ -608,7 +609,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return newList;
         }
 
-        private void RenderSelectedInstance(SelectedStaticObject selected, Vector4 highlightColor) {
+        protected void RenderSelectedInstance(SelectedStaticObject selected, Vector4 highlightColor) {
             if (_landblocks.TryGetValue(selected.LandblockKey, out var lb)) {
                 var instance = lb.Instances.FirstOrDefault(i => i.InstanceId == selected.InstanceId);
                 if (instance.ObjectId != 0) {

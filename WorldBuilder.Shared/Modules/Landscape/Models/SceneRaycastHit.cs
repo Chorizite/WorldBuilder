@@ -33,6 +33,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         /// <summary>The object ID (from dats) of the hit object.</summary>
         public uint ObjectId { get; set; }
         
+        /// <summary>The surface normal at the hit point.</summary>
+        public Vector3 Normal { get; set; }
+        
         /// <summary>The X vertex coordinate (for terrain hits).</summary>
         public int VertexX { get; set; }
         
