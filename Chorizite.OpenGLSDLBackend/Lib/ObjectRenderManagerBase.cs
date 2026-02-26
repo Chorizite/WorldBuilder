@@ -331,6 +331,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             CurrentAtlas = 0;
             CurrentCullMode = null;
 
+            _shader.SetUniform("uRenderPass", renderPass);
+            _shader.SetUniform("uHighlightColor", Vector4.Zero);
+
             if (_visibleGfxObjIds.Count == 0) {
                 if (RenderHighlightsWhenEmpty) {
                     Gl.DepthFunc(GLEnum.Lequal);
@@ -341,8 +344,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover);
                     }
                     Gl.DepthFunc(GLEnum.Less);
-                    _shader.SetUniform("uHighlightColor", Vector4.Zero);
-                    _shader.SetUniform("uRenderPass", renderPass);
                 }
                 return;
             }

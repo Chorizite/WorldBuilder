@@ -963,18 +963,10 @@ public class GameScene : IDisposable {
             }
 
             if (_state.ShowScenery) {
-                if (_sceneryShader != null) {
-                    _sceneryShader.Bind();
-                    _sceneryShader.SetUniform("uViewProjection", snapshotVP);
-                }
                 _sceneryManager?.Render(pass1RenderPass);
             }
 
             if (_state.ShowStaticObjects || _state.ShowBuildings) {
-                if (_sceneryShader != null) {
-                    _sceneryShader.Bind();
-                    _sceneryShader.SetUniform("uViewProjection", snapshotVP);
-                }
                 _staticObjectManager?.Render(pass1RenderPass);
             }
 
