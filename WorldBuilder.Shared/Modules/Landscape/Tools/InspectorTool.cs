@@ -61,14 +61,26 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         public Vector4 PortalColor {
             get => LandscapeColorsSettings.Instance.Portal;
+            set {
+                LandscapeColorsSettings.Instance.Portal = value;
+                OnPropertyChanged(nameof(PortalColor));
+            }
         }
 
         public Vector4 EnvCellColor {
             get => LandscapeColorsSettings.Instance.EnvCell;
+            set {
+                LandscapeColorsSettings.Instance.EnvCell = value;
+                OnPropertyChanged(nameof(EnvCellColor));
+            }
         }
 
         public Vector4 EnvCellStaticObjectColor {
             get => LandscapeColorsSettings.Instance.EnvCellStaticObject;
+            set {
+                LandscapeColorsSettings.Instance.EnvCellStaticObject = value;
+                OnPropertyChanged(nameof(EnvCellStaticObjectColor));
+            }
         }
 
         public void Activate(LandscapeToolContext context) {
@@ -84,7 +96,17 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         private void OnColorsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
-            OnPropertyChanged(e.PropertyName);
+            if (string.IsNullOrEmpty(e.PropertyName)) {
+                OnPropertyChanged(nameof(VertexColor));
+                OnPropertyChanged(nameof(BuildingColor));
+                OnPropertyChanged(nameof(StaticObjectColor));
+                OnPropertyChanged(nameof(SceneryColor));
+                OnPropertyChanged(nameof(PortalColor));
+                OnPropertyChanged(nameof(EnvCellColor));
+                OnPropertyChanged(nameof(EnvCellStaticObjectColor));
+            } else {
+                OnPropertyChanged(e.PropertyName + "Color");
+            }
         }
 
         private void ClearHover() {

@@ -160,7 +160,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public void SubmitDebugShapes(DebugRenderer? debug) {
             if (debug == null || !ShowPortals || _landscapeDoc.Region == null) return;
 
-            var magenta = new Vector4(1f, 0f, 1f, 1f);
+            var portalColor = LandscapeColorsSettings.Instance.Portal;
             var hoverColor = LandscapeColorsSettings.Instance.Hover;
             var selectionColor = LandscapeColorsSettings.Instance.Selection;
 
@@ -168,7 +168,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (!lb.Ready) continue;
 
                 foreach (var portal in lb.Portals) {
-                    var color = magenta;
+                    var color = portalColor;
                     if (HoveredPortal.HasValue && HoveredPortal.Value.CellId == portal.CellId && InstanceIdConstants.GetRawId(HoveredPortal.Value.PortalIndex) == portal.PortalIndex) {
                         color = hoverColor;
                     }

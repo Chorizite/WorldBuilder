@@ -205,7 +205,7 @@
                         <CheckBox Content="Cell Objects" IsChecked="{Binding SelectEnvCellStaticObjects}" FontSize="12" />
                       </StackPanel>
                       <StackPanel Orientation="Horizontal" Spacing="4">
-                        <ColorPicker Color="{Binding PortalColor, Converter={StaticResource Vector4ToColorConverter}}" IsEnabled="False" />
+                        <ColorPicker Color="{Binding PortalColor, Converter={StaticResource Vector4ToColorConverter}}" />
                         <CheckBox Content="Portals" IsChecked="{Binding SelectPortals}" FontSize="12" />
                       </StackPanel>
                     </StackPanel>
