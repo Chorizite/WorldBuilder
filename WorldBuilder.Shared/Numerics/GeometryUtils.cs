@@ -6,33 +6,50 @@ namespace WorldBuilder.Shared.Numerics {
 
         public static bool RayIntersectsBox(Vector3 rayOrigin, Vector3 rayDirection, Vector3 min, Vector3 max, out float distance) {
             distance = 0;
-            float tmin = (min.X - rayOrigin.X) / rayDirection.X;
-            float tmax = (max.X - rayOrigin.X) / rayDirection.X;
+            float tmin = 0.0f;
+            float tmax = float.MaxValue;
 
-            if (tmin > tmax) (tmin, tmax) = (tmax, tmin);
+            if (Math.Abs(rayDirection.X) < 1e-7f) {
+                if (rayOrigin.X < min.X || rayOrigin.X > max.X) return false;
+            }
+            else {
+                float invD = 1.0f / rayDirection.X;
+                float t0 = (min.X - rayOrigin.X) * invD;
+                float t1 = (max.X - rayOrigin.X) * invD;
+                if (t0 > t1) (t0, t1) = (t1, t0);
+                tmin = Math.Max(tmin, t0);
+                tmax = Math.Min(tmax, t1);
+                if (tmin > tmax) return false;
+            }
 
-            float tymin = (min.Y - rayOrigin.Y) / rayDirection.Y;
-            float tymax = (max.Y - rayOrigin.Y) / rayDirection.Y;
+            if (Math.Abs(rayDirection.Y) < 1e-7f) {
+                if (rayOrigin.Y < min.Y || rayOrigin.Y > max.Y) return false;
+            }
+            else {
+                float invD = 1.0f / rayDirection.Y;
+                float t0 = (min.Y - rayOrigin.Y) * invD;
+                float t1 = (max.Y - rayOrigin.Y) * invD;
+                if (t0 > t1) (t0, t1) = (t1, t0);
+                tmin = Math.Max(tmin, t0);
+                tmax = Math.Min(tmax, t1);
+                if (tmin > tmax) return false;
+            }
 
-            if (tymin > tymax) (tymin, tymax) = (tymax, tymin);
-
-            if ((tmin > tymax) || (tymin > tmax)) return false;
-
-            if (tymin > tmin) tmin = tymin;
-            if (tymax < tmax) tmax = tymax;
-
-            float tzmin = (min.Z - rayOrigin.Z) / rayDirection.Z;
-            float tzmax = (max.Z - rayOrigin.Z) / rayDirection.Z;
-
-            if (tzmin > tzmax) (tzmin, tzmax) = (tzmax, tzmin);
-
-            if ((tmin > tzmax) || (tzmin > tmax)) return false;
-
-            if (tzmin > tmin) tmin = tzmin;
-            if (tzmax < tmax) tmax = tzmax;
+            if (Math.Abs(rayDirection.Z) < 1e-7f) {
+                if (rayOrigin.Z < min.Z || rayOrigin.Z > max.Z) return false;
+            }
+            else {
+                float invD = 1.0f / rayDirection.Z;
+                float t0 = (min.Z - rayOrigin.Z) * invD;
+                float t1 = (max.Z - rayOrigin.Z) * invD;
+                if (t0 > t1) (t0, t1) = (t1, t0);
+                tmin = Math.Max(tmin, t0);
+                tmax = Math.Min(tmax, t1);
+                if (tmin > tmax) return false;
+            }
 
             distance = tmin;
-            return distance >= 0;
+            return true;
         }
 
         public static bool RayIntersectsBox(Vector3d rayOrigin, Vector3d rayDirection, Vector3d min, Vector3d max, out double tMin, out double tMax) {
