@@ -556,8 +556,8 @@ public class GameScene : IDisposable {
             // Always enforce terrain height if outside and camera collision is enabled
             if (_currentEnvCellId == 0 && _state.EnableCameraCollision && _terrainManager != null) {
                 var terrainHeight = _terrainManager.GetHeight(newPos.X, newPos.Y);
-                if (newPos.Z < terrainHeight + 1.6f) {
-                    newPos.Z = terrainHeight + 1.6f;
+                if (newPos.Z < terrainHeight + .6f) {
+                    newPos.Z = terrainHeight + .6f;
                     _currentCamera.Position = newPos;
                 }
             }

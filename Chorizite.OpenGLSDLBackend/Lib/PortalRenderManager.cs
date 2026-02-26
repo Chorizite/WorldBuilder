@@ -289,7 +289,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var lbOrigin = new Vector3(
                     lbGlobalX * 192f + _landscapeDoc.Region!.MapOffset.X,
                     lbGlobalY * 192f + _landscapeDoc.Region!.MapOffset.Y,
-                    0
+                    RenderConstants.ObjectZOffset
                 );
 
                 // Generate debug portal data (existing functionality)

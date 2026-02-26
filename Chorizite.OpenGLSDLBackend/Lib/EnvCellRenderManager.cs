@@ -331,7 +331,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             // Calculate world position
                             var localPos = new Vector3(
                                 new Vector2(lbGlobalX * lbSizeUnits + (float)envCell.Position.Origin[0], lbGlobalY * lbSizeUnits + (float)envCell.Position.Origin[1]) + regionInfo.MapOffset,
-                                envCell.Position.Origin[2]
+                                (float)envCell.Position.Origin[2] + RenderConstants.ObjectZOffset
                             );
 
                             var rotation = new Quaternion(
@@ -377,7 +377,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                                     var stabWorldPos = new Vector3(
                                         new Vector2(lbGlobalX * lbSizeUnits + (float)stab.Frame.Origin[0], lbGlobalY * lbSizeUnits + (float)stab.Frame.Origin[1]) + regionInfo.MapOffset,
-                                        stab.Frame.Origin[2]
+                                        (float)stab.Frame.Origin[2] + RenderConstants.ObjectZOffset
                                     );
 
                                     var stabWorldRot = new Quaternion(stab.Frame.Orientation[0], stab.Frame.Orientation[1], stab.Frame.Orientation[2], stab.Frame.Orientation[3]);
