@@ -36,7 +36,7 @@ public class Camera3D : CameraBase {
             NotifyChanged();
         }
     }
-    private float _nearPlane = 0.1f;
+    private float _nearPlane = 0.5f;
     private float _farPlane = 1000.0f;
     private float _moveSpeed = 10.0f;
     private float _lookSensitivity = 0.3f;
