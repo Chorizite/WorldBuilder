@@ -3,11 +3,20 @@ precision highp float;
 
 out vec4 FragColor;
 
+uniform int uWriteFarDepth;
+
 void main() {
-    // Write far depth to clear the depth buffer in the portal region.
-    // This punches through the building exterior's depth so interior
-    // geometry at any depth can be rendered through the stencil mask.
-    gl_FragDepth = 1.0;
+    if (uWriteFarDepth != 0) {
+        // Write far depth to clear the depth buffer in the portal region.
+        // This punches through the building exterior's depth so interior
+        // geometry at any depth can be rendered through the stencil mask.
+        gl_FragDepth = 1.0;
+    } else {
+        // Default depth is used if gl_FragDepth is not written.
+        // However, in some GL implementations, if you write to gl_FragDepth in one branch,
+        // you should write to it in all branches.
+        gl_FragDepth = gl_FragCoord.z;
+    }
 
     // Color writes are suppressed via ColorMask(false) on the CPU side.
     // Output is required by GLSL but will not be written to the framebuffer.

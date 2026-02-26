@@ -829,10 +829,10 @@ public class GameScene : IDisposable {
                 _gl.ColorMask(false, false, false, false);
                 _gl.DepthMask(false);
                 _gl.Enable(EnableCap.DepthTest);
-                _gl.DepthFunc(DepthFunction.Always);
+                _gl.DepthFunc(DepthFunction.Less);
 
                 foreach (var (lbKey, building) in buildingsWithCurrentCell) {
-                    _portalManager?.RenderBuildingStencilMask(building, snapshotVP);
+                    _portalManager?.RenderBuildingStencilMask(building, snapshotVP, false);
                 }
 
                 _gl.ColorMask(true, true, true, false);
@@ -917,10 +917,10 @@ public class GameScene : IDisposable {
                     _gl.ColorMask(false, false, false, false);
                     _gl.DepthMask(false);
                     _gl.Enable(EnableCap.DepthTest);
-                    _gl.DepthFunc(DepthFunction.Always);
+                    _gl.DepthFunc(DepthFunction.Less);
 
                     foreach (var (lbKey, building) in visiblePortals) {
-                        _portalManager.RenderBuildingStencilMask(building, snapshotVP);
+                        _portalManager.RenderBuildingStencilMask(building, snapshotVP, false);
                     }
 
                     // Step 2: Clear depth to far plane ONLY where stencil==1.
@@ -933,7 +933,7 @@ public class GameScene : IDisposable {
                     _gl.DepthFunc(DepthFunction.Always);
 
                     foreach (var (lbKey, building) in visiblePortals) {
-                        _portalManager.RenderBuildingStencilMask(building, snapshotVP);
+                        _portalManager.RenderBuildingStencilMask(building, snapshotVP, true);
                     }
 
                     // Re-enable backface culling for depth repair

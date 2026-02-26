@@ -266,11 +266,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Renders the stencil mask for a single building's portal polygons.
         /// Caller is responsible for setting up stencil state before calling.
         /// </summary>
-        public unsafe void RenderBuildingStencilMask(BuildingPortalGPU building, Matrix4x4 viewProjection) {
+        public unsafe void RenderBuildingStencilMask(BuildingPortalGPU building, Matrix4x4 viewProjection, bool writeFarDepth = false) {
             if (_stencilShader == null || building.VAO == 0) return;
 
             _stencilShader.Bind();
             _stencilShader.SetUniform("uViewProjection", viewProjection);
+            _stencilShader.SetUniform("uWriteFarDepth", writeFarDepth ? 1 : 0);
 
             _gl.BindVertexArray(building.VAO);
             _gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)building.VertexCount);
