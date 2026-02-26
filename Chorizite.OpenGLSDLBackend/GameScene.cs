@@ -807,23 +807,6 @@ public class GameScene : IDisposable {
             _staticObjectManager?.Render(pass1RenderPass);
         }
 
-        // Pass 2: Transparent Scenery & Static Objects (exterior)
-        if (_state.EnableTransparencyPass) {
-            _sceneryShader?.Bind();
-            _sceneryShader?.SetUniform("uRenderPass", 1);
-            _gl.DepthMask(false);
-
-            if (_state.ShowScenery) {
-                _sceneryManager?.Render(1);
-            }
-
-            if (_state.ShowStaticObjects || _state.ShowBuildings) {
-                _staticObjectManager?.Render(1);
-            }
-
-            _gl.DepthMask(true);
-        }
-
         // Portal Stencil Rendering: fix terrain clipping over EnvCells
         if (_state.ShowEnvCells && _envCellManager != null) {
             bool didStencil = false;
@@ -863,7 +846,7 @@ public class GameScene : IDisposable {
                     _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
                     _gl.StencilMask(0x00);
                     _gl.DepthMask(true);
-                    // ColorMask still false, DepthFunc still Always
+                    _gl.DepthFunc(DepthFunction.Always);
 
                     foreach (var (lbKey, building) in visiblePortals) {
                         _portalManager.RenderBuildingStencilMask(building, snapshotVP);
@@ -889,6 +872,10 @@ public class GameScene : IDisposable {
 
                     if (_state.ShowStaticObjects || _state.ShowBuildings) {
                         _staticObjectManager?.Render(pass1RenderPass);
+                    }
+
+                    if (_state.ShowScenery) {
+                        _sceneryManager?.Render(pass1RenderPass);
                     }
 
                     // Step 4: Render EnvCells through stencil with normal depth test.
@@ -931,6 +918,23 @@ public class GameScene : IDisposable {
                 _gl.Disable(EnableCap.StencilTest);
                 _gl.StencilMask(0xFF);
             }
+        }
+
+        // Pass 2: Transparent Scenery & Static Objects (exterior)
+        if (_state.EnableTransparencyPass) {
+            _sceneryShader?.Bind();
+            _sceneryShader?.SetUniform("uRenderPass", 1);
+            _gl.DepthMask(false);
+
+            if (_state.ShowScenery) {
+                _sceneryManager?.Render(1);
+            }
+
+            if (_state.ShowStaticObjects || _state.ShowBuildings) {
+                _staticObjectManager?.Render(1);
+            }
+
+            _gl.DepthMask(true);
         }
 
         if (_state.ShowDebugShapes) {
