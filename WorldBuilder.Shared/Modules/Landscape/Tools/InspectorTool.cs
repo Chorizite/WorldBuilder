@@ -22,6 +22,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         [ObservableProperty] private bool _selectStaticObjects = true;
         [ObservableProperty] private bool _selectScenery = false;
         [ObservableProperty] private bool _selectPortals = true;
+        [ObservableProperty] private bool _selectEnvCells = true;
+        [ObservableProperty] private bool _selectEnvCellStaticObjects = true;
 
         [ObservableProperty] private bool _showBoundingBoxes = true;
 
@@ -58,7 +60,27 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         public Vector4 PortalColor {
-            get => new Vector4(1f, 0f, 1f, 1f);
+            get => LandscapeColorsSettings.Instance.Portal;
+            set {
+                LandscapeColorsSettings.Instance.Portal = value;
+                OnPropertyChanged(nameof(PortalColor));
+            }
+        }
+
+        public Vector4 EnvCellColor {
+            get => LandscapeColorsSettings.Instance.EnvCell;
+            set {
+                LandscapeColorsSettings.Instance.EnvCell = value;
+                OnPropertyChanged(nameof(EnvCellColor));
+            }
+        }
+
+        public Vector4 EnvCellStaticObjectColor {
+            get => LandscapeColorsSettings.Instance.EnvCellStaticObject;
+            set {
+                LandscapeColorsSettings.Instance.EnvCellStaticObject = value;
+                OnPropertyChanged(nameof(EnvCellStaticObjectColor));
+            }
         }
 
         public void Activate(LandscapeToolContext context) {
@@ -74,7 +96,17 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         private void OnColorsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
-            OnPropertyChanged(e.PropertyName);
+            if (string.IsNullOrEmpty(e.PropertyName)) {
+                OnPropertyChanged(nameof(VertexColor));
+                OnPropertyChanged(nameof(BuildingColor));
+                OnPropertyChanged(nameof(StaticObjectColor));
+                OnPropertyChanged(nameof(SceneryColor));
+                OnPropertyChanged(nameof(PortalColor));
+                OnPropertyChanged(nameof(EnvCellColor));
+                OnPropertyChanged(nameof(EnvCellStaticObjectColor));
+            } else {
+                OnPropertyChanged(e.PropertyName + "Color");
+            }
         }
 
         private void ClearHover() {
@@ -144,6 +176,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 }
             }
 
+            if (SelectEnvCells || SelectEnvCellStaticObjects) {
+                var ray = GetRay(e, _context.Camera);
+                if (_context.RaycastEnvCells != null && _context.RaycastEnvCells(ray.Origin, ray.Direction, SelectEnvCells, SelectEnvCellStaticObjects, out var envCellHit)) {
+                    if (envCellHit.Distance < bestHit.Distance) {
+                        bestHit = envCellHit;
+                    }
+                }
+            }
+
             if (SelectVertices) {
                 if (_context.RaycastTerrain != null) {
                     var terrainHit = _context.RaycastTerrain((float)e.Position.X, (float)e.Position.Y);
@@ -161,13 +202,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                         Vector3 vertexPos = new Vector3(vX, vY, vHeight);
                         if (Vector3.Distance(terrainHit.HitPosition, vertexPos) <= 1.5f) {
                             if (terrainHit.Distance < bestHit.Distance) {
+                                uint vertexIndex = (uint)(_context.Document.Region?.GetVertexIndex(vx, vy) ?? 0);
                                 bestHit = new SceneRaycastHit {
                                     Hit = true,
                                     Type = InspectorSelectionType.Vertex,
                                     Distance = terrainHit.Distance,
                                     Position = terrainHit.HitPosition,
                                     VertexX = vx,
-                                    VertexY = vy
+                                    VertexY = vy,
+                                    InstanceId = InstanceIdConstants.Encode(vertexIndex, InspectorSelectionType.Vertex)
                                 };
                             }
                         }

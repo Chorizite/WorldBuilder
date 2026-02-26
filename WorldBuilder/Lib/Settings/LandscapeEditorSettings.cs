@@ -99,6 +99,11 @@ namespace WorldBuilder.Lib.Settings {
         [SettingOrder(3)]
         private float _movementSpeed = 1000f;
         public float MovementSpeed { get => _movementSpeed; set => SetProperty(ref _movementSpeed, value); }
+
+        [SettingDescription("Prevent camera from going below the terrain")]
+        [SettingOrder(4)]
+        private bool _enableTerrainCollision = true;
+        public bool EnableTerrainCollision { get => _enableTerrainCollision; set => SetProperty(ref _enableTerrainCollision, value); }
     }
 
     [SettingCategory("Rendering", ParentCategory = "Landscape Editor", Order = 1)]
@@ -131,6 +136,11 @@ namespace WorldBuilder.Lib.Settings {
         [SettingOrder(5)]
         private bool _showBuildings = true;
         public bool ShowBuildings { get => _showBuildings; set => SetProperty(ref _showBuildings, value); }
+
+        [SettingDescription("Render building interior cells visible from outside")]
+        [SettingOrder(5)]
+        private bool _showEnvCells = true;
+        public bool ShowEnvCells { get => _showEnvCells; set => SetProperty(ref _showEnvCells, value); }
 
         [SettingDescription("Render portals (semi-transparent magenta polys)")]
         [SettingOrder(5)]

@@ -111,7 +111,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _settings.Landscape.PropertyChanged += OnLandscapeSettingsPropertyChanged;
             _settings.Landscape.Rendering.PropertyChanged += OnRenderingSettingsPropertyChanged;
             _settings.Landscape.Grid.PropertyChanged += OnGridSettingsPropertyChanged;
-            
+
             EditorState.PropertyChanged += OnEditorStatePropertyChanged;
         }
 
@@ -276,6 +276,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         }
         else if (e.Selection.Type == InspectorSelectionType.Portal) {
             PropertiesPanel.SelectedItem = new PortalViewModel(e.Selection.LandblockId, e.Selection.ObjectId, e.Selection.InstanceId, _dats, _portalService);
+        }
+        else if (e.Selection.Type == InspectorSelectionType.EnvCell) {
+            PropertiesPanel.SelectedItem = new EnvCellViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.Rotation);
+        }
+        else if (e.Selection.Type == InspectorSelectionType.EnvCellStaticObject) {
+            PropertiesPanel.SelectedItem = new EnvCellStaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.Rotation);
         }
         else if (e.Selection.Type == InspectorSelectionType.Vertex) {
             PropertiesPanel.SelectedItem = new LandscapeVertexViewModel(e.Selection.VertexX, e.Selection.VertexY, ActiveDocument!, _dats, CommandHistory);
@@ -543,11 +549,13 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         EditorState.ShowScenery = _settings.Landscape.Rendering.ShowScenery;
         EditorState.ShowStaticObjects = _settings.Landscape.Rendering.ShowStaticObjects;
         EditorState.ShowBuildings = _settings.Landscape.Rendering.ShowBuildings;
+        EditorState.ShowEnvCells = _settings.Landscape.Rendering.ShowEnvCells;
         EditorState.ShowPortals = _settings.Landscape.Rendering.ShowPortals;
         EditorState.ShowSkybox = _settings.Landscape.Rendering.ShowSkybox;
         EditorState.ShowUnwalkableSlopes = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
         EditorState.ObjectRenderDistance = _settings.Landscape.Rendering.ObjectRenderDistance;
         EditorState.MaxDrawDistance = _settings.Landscape.Camera.MaxDrawDistance;
+        EditorState.EnableTerrainCollision = _settings.Landscape.Camera.EnableTerrainCollision;
         EditorState.EnableTransparencyPass = _settings.Landscape.Rendering.EnableTransparencyPass;
         EditorState.TimeOfDay = _settings.Landscape.Rendering.TimeOfDay;
         EditorState.LightIntensity = _settings.Landscape.Rendering.LightIntensity;
@@ -567,11 +575,13 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             case nameof(EditorState.ShowScenery): _settings.Landscape.Rendering.ShowScenery = EditorState.ShowScenery; break;
             case nameof(EditorState.ShowStaticObjects): _settings.Landscape.Rendering.ShowStaticObjects = EditorState.ShowStaticObjects; break;
             case nameof(EditorState.ShowBuildings): _settings.Landscape.Rendering.ShowBuildings = EditorState.ShowBuildings; break;
+            case nameof(EditorState.ShowEnvCells): _settings.Landscape.Rendering.ShowEnvCells = EditorState.ShowEnvCells; break;
             case nameof(EditorState.ShowPortals): _settings.Landscape.Rendering.ShowPortals = EditorState.ShowPortals; break;
             case nameof(EditorState.ShowSkybox): _settings.Landscape.Rendering.ShowSkybox = EditorState.ShowSkybox; break;
             case nameof(EditorState.ShowUnwalkableSlopes): _settings.Landscape.Rendering.ShowUnwalkableSlopes = EditorState.ShowUnwalkableSlopes; break;
             case nameof(EditorState.ObjectRenderDistance): _settings.Landscape.Rendering.ObjectRenderDistance = EditorState.ObjectRenderDistance; break;
             case nameof(EditorState.MaxDrawDistance): _settings.Landscape.Camera.MaxDrawDistance = EditorState.MaxDrawDistance; break;
+            case nameof(EditorState.EnableTerrainCollision): _settings.Landscape.Camera.EnableTerrainCollision = EditorState.EnableTerrainCollision; break;
             case nameof(EditorState.EnableTransparencyPass): _settings.Landscape.Rendering.EnableTransparencyPass = EditorState.EnableTransparencyPass; break;
             case nameof(EditorState.TimeOfDay): _settings.Landscape.Rendering.TimeOfDay = EditorState.TimeOfDay; break;
             case nameof(EditorState.LightIntensity): _settings.Landscape.Rendering.LightIntensity = EditorState.LightIntensity; break;
@@ -590,7 +600,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     }
 
     private void OnLandscapeSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
-        if (e.PropertyName == nameof(LandscapeEditorSettings.Rendering) || 
+        if (e.PropertyName == nameof(LandscapeEditorSettings.Rendering) ||
             e.PropertyName == nameof(LandscapeEditorSettings.Grid) ||
             e.PropertyName == nameof(LandscapeEditorSettings.Camera)) {
             SyncSettingsToState();

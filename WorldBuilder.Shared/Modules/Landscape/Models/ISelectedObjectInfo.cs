@@ -1,10 +1,12 @@
 using System.Numerics;
+using WorldBuilder.Shared.Modules.Landscape.Models;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     public interface ISelectedObjectInfo {
         InspectorSelectionType Type { get; }
         uint LandblockId { get; }
-        uint InstanceId { get; }
+        ulong InstanceId { get; }
+        ushort SecondaryId { get; }
         uint ObjectId { get; }
         Vector3 Position { get; }
         Quaternion Rotation { get; }

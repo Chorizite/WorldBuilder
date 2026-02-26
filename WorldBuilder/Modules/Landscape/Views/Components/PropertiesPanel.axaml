@@ -134,7 +134,7 @@
                                 <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CellIdHex}" VerticalAlignment="Center" />
                                 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Portal Index: " Opacity="0.7" VerticalAlignment="Center" />
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PortalIndex}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding InstanceIdHex}" VerticalAlignment="Center" />
                                 
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="Landblock: " Opacity="0.7" VerticalAlignment="Center" />
                                 <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LandblockIdHex}" VerticalAlignment="Center" />
@@ -150,6 +150,60 @@
 
                                 <TextBlock Grid.Row="6" Grid.Column="0" Text="Other Portal: " Opacity="0.7" VerticalAlignment="Center" />
                                 <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding OtherPortalId}" VerticalAlignment="Center" />
+                            </Grid>
+                        </StackPanel>
+                    </DataTemplate>
+
+                    <DataTemplate DataType="vm:EnvCellViewModel">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Interior Cell" FontWeight="Bold" />
+                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto">
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Cell ID: " Opacity="0.7" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ObjectIdHex}" VerticalAlignment="Center" />
+                                
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Instance ID: " Opacity="0.7" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding InstanceIdHex}" VerticalAlignment="Center" />
+                                
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Landblock: " Opacity="0.7" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LandblockIdHex}" VerticalAlignment="Center" />
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Position: " Opacity="0.7" />
+                                <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="{Binding X, StringFormat='\{0:F2\}'}" />
+                                    <TextBlock Text="{Binding Y, StringFormat='\{0:F2\}'}" />
+                                    <TextBlock Text="{Binding Z, StringFormat='\{0:F2\}'}" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </DataTemplate>
+
+                    <DataTemplate DataType="vm:EnvCellStaticObjectViewModel">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Cell Object" FontWeight="Bold" />
+                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto">
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Model ID: " Opacity="0.7" VerticalAlignment="Center" />
+                                <comp:DataIdControl Grid.Row="0" Grid.Column="1" 
+                                                   DataId="{Binding ObjectId}" 
+                                                   Dats="{Binding #Root.((vm:PropertiesPanelViewModel)DataContext).Dats}" />
+                                
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Cell Index: " Opacity="0.7" VerticalAlignment="Center" />
+                                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding SecondaryId}" VerticalAlignment="Center" />
+                                    <TextBlock Text="(Custom)" IsVisible="{Binding IsCustom}" VerticalAlignment="Center" Opacity="0.7" FontSize="11" />
+                                </StackPanel>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Instance ID: " Opacity="0.7" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding InstanceIdHex}" VerticalAlignment="Center" />
+                                
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Landblock: " Opacity="0.7" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LandblockIdHex}" VerticalAlignment="Center" />
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Position: " Opacity="0.7" />
+                                <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="{Binding X, StringFormat='\{0:F2\}'}" />
+                                    <TextBlock Text="{Binding Y, StringFormat='\{0:F2\}'}" />
+                                    <TextBlock Text="{Binding Z, StringFormat='\{0:F2\}'}" />
+                                </StackPanel>
                             </Grid>
                         </StackPanel>
                     </DataTemplate>

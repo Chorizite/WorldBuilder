@@ -13,7 +13,8 @@ namespace WorldBuilder.Modules.Landscape.ViewModels;
 public partial class LandscapeVertexViewModel : ViewModelBase, ISelectedObjectInfo {
     public InspectorSelectionType Type => InspectorSelectionType.Vertex;
     public uint LandblockId { get; }
-    public uint InstanceId => 0;
+    public ulong InstanceId => 0;
+    public ushort SecondaryId => 0;
     public uint ObjectId => 0;
     public Vector3 Position { get; }
     public Quaternion Rotation => Quaternion.Identity;

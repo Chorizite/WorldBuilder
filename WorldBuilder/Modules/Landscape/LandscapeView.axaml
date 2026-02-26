@@ -75,6 +75,9 @@
           <ToggleButton IsChecked="{Binding EditorState.ShowBuildings}" ToolTip.Tip="Toggle Buildings">
             <icons:MaterialIcon Kind="Home" />
           </ToggleButton>
+          <ToggleButton IsChecked="{Binding EditorState.ShowEnvCells}" ToolTip.Tip="Toggle EnvCells">
+            <icons:MaterialIcon Kind="OfficeBuilding" />
+          </ToggleButton>
           <ToggleButton IsChecked="{Binding EditorState.ShowStaticObjects}" ToolTip.Tip="Toggle Static Objects">
             <icons:MaterialIcon Kind="Cube" />
           </ToggleButton>
@@ -86,6 +89,9 @@
           </ToggleButton>
           <ToggleButton IsChecked="{Binding EditorState.ShowUnwalkableSlopes}" ToolTip.Tip="Toggle Unwalkable Slopes">
             <icons:MaterialIcon Kind="Terrain" />
+          </ToggleButton>
+          <ToggleButton IsChecked="{Binding EditorState.EnableTerrainCollision}" ToolTip.Tip="Toggle Camera Collision">
+            <icons:MaterialIcon Kind="Wall" />
           </ToggleButton>
           <Button Command="{Binding ResetCamera}" ToolTip.Tip="Reset Camera">
             <icons:MaterialIcon Kind="Target" />

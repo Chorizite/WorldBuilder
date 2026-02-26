@@ -82,6 +82,11 @@ public class GameScene : IDisposable {
             _staticObjectManager.LightIntensity = _state.LightIntensity;
         }
 
+        if (_envCellManager != null) {
+            _envCellManager.RenderDistance = _state.ObjectRenderDistance;
+            _envCellManager.SetVisibilityFilters(_state.ShowEnvCells);
+        }
+
         if (_portalManager != null) {
             _portalManager.RenderDistance = _state.ObjectRenderDistance;
             _portalManager.ShowPortals = _state.ShowPortals;
@@ -103,6 +108,7 @@ public class GameScene : IDisposable {
     private bool _ownsMeshManager;
     private SceneryRenderManager? _sceneryManager;
     private StaticObjectRenderManager? _staticObjectManager;
+    private EnvCellRenderManager? _envCellManager;
     private SkyboxRenderManager? _skyboxManager = null;
     private DebugRenderer? _debugRenderer;
     private LandscapeDocument? _landscapeDoc;
@@ -116,6 +122,7 @@ public class GameScene : IDisposable {
     private float _lastTerrainUploadTime;
     private float _lastSceneryUploadTime;
     private float _lastStaticObjectUploadTime;
+    private float _lastEnvCellUploadTime;
 
     /// <summary>
     /// Gets the number of pending terrain uploads.
@@ -153,6 +160,16 @@ public class GameScene : IDisposable {
     public int PendingStaticObjectGenerations => _staticObjectManager?.QueuedGenerations ?? 0;
 
     /// <summary>
+    /// Gets the number of pending EnvCell uploads.
+    /// </summary>
+    public int PendingEnvCellUploads => _envCellManager?.QueuedUploads ?? 0;
+
+    /// <summary>
+    /// Gets the number of pending EnvCell generations.
+    /// </summary>
+    public int PendingEnvCellGenerations => _envCellManager?.QueuedGenerations ?? 0;
+
+    /// <summary>
     /// Gets the time spent on the last terrain upload in ms.
     /// </summary>
     public float LastTerrainUploadTime => _lastTerrainUploadTime;
@@ -166,6 +183,11 @@ public class GameScene : IDisposable {
     /// Gets the time spent on the last static object upload in ms.
     /// </summary>
     public float LastStaticObjectUploadTime => _lastStaticObjectUploadTime;
+
+    /// <summary>
+    /// Gets the time spent on the last EnvCell upload in ms.
+    /// </summary>
+    public float LastEnvCellUploadTime => _lastEnvCellUploadTime;
 
     /// <summary>
     /// Gets the 2D camera.
@@ -248,6 +270,10 @@ public class GameScene : IDisposable {
             _staticObjectManager.Initialize(_sceneryShader);
         }
 
+        if (_envCellManager != null && _sceneryShader != null) {
+            _envCellManager.Initialize(_sceneryShader);
+        }
+
         if (_skyboxManager != null && _sceneryShader != null) {
             _skyboxManager.Initialize(_sceneryShader);
         }
@@ -264,6 +290,10 @@ public class GameScene : IDisposable {
 
         if (_staticObjectManager != null) {
             _staticObjectManager.Dispose();
+        }
+
+        if (_envCellManager != null) {
+            _envCellManager.Dispose();
         }
 
         if (_portalManager != null) {
@@ -307,6 +337,13 @@ public class GameScene : IDisposable {
             _staticObjectManager.Initialize(_sceneryShader);
         }
 
+        _envCellManager = new EnvCellRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager, _cullingFrustum);
+        _envCellManager.RenderDistance = _state.ObjectRenderDistance;
+        _envCellManager.SetVisibilityFilters(_state.ShowEnvCells);
+        if (_initialized && _sceneryShader != null) {
+            _envCellManager.Initialize(_sceneryShader);
+        }
+
         _portalManager = new PortalRenderManager(_gl, _log, landscapeDoc, dats, _portalService, _graphicsDevice, _cullingFrustum);
         _portalManager.RenderDistance = _state.ObjectRenderDistance;
         _portalManager.ShowPortals = _state.ShowPortals;
@@ -338,6 +375,7 @@ public class GameScene : IDisposable {
             context.RaycastStaticObject = RaycastStaticObjects;
             context.RaycastScenery = RaycastScenery;
             context.RaycastPortals = RaycastPortals;
+            context.RaycastEnvCells = RaycastEnvCells;
         }
     }
 
@@ -454,7 +492,7 @@ public class GameScene : IDisposable {
         _currentCamera.Update(deltaTime);
         _cullingFrustum.Update(_currentCamera.ViewProjectionMatrix);
 
-        if (_is3DMode && _terrainManager != null) {
+        if (_is3DMode && _state.EnableTerrainCollision && _terrainManager != null) {
             var terrainHeight = _terrainManager.GetHeight(_currentCamera.Position.X, _currentCamera.Position.Y);
             if (_currentCamera.Position.Z < terrainHeight + 1f) {
                 _currentCamera.Position = new Vector3(_currentCamera.Position.X, _currentCamera.Position.Y, terrainHeight + 1f);
@@ -472,6 +510,10 @@ public class GameScene : IDisposable {
         _staticObjectManager?.Update(deltaTime, _currentCamera);
         _lastStaticObjectUploadTime = _staticObjectManager?.ProcessUploads(remainingTime) ?? 0;
         remainingTime = Math.Max(0, remainingTime - _lastStaticObjectUploadTime);
+
+        _envCellManager?.Update(deltaTime, _currentCamera);
+        _lastEnvCellUploadTime = _envCellManager?.ProcessUploads(remainingTime) ?? 0;
+        remainingTime = Math.Max(0, remainingTime - _lastEnvCellUploadTime);
 
         _portalManager?.Update(deltaTime, _currentCamera);
         _portalManager?.ProcessUploads(remainingTime);
@@ -498,6 +540,7 @@ public class GameScene : IDisposable {
         _terrainManager?.InvalidateLandblock(lbX, lbY);
         _sceneryManager?.InvalidateLandblock(lbX, lbY);
         _staticObjectManager?.InvalidateLandblock(lbX, lbY);
+        _envCellManager?.InvalidateLandblock(lbX, lbY);
         _portalManager?.OnLandblockChanged(this, new LandblockChangedEventArgs(new[] { (lbX, lbY) }));
     }
 
@@ -528,23 +571,25 @@ public class GameScene : IDisposable {
         _debugRenderer.DrawSphere(pos, 1.5f, color);
     }
 
-    public void SetHoveredObject(InspectorSelectionType type, uint landblockId, uint instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
+    public void SetHoveredObject(InspectorSelectionType type, uint landblockId, ulong instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
         SetObjectHighlight(ref _hoveredVertex, type, landblockId, instanceId, objectId, vx, vy, (m, val) => {
             if (m is SceneryRenderManager srm) srm.HoveredInstance = (SelectedStaticObject?)val;
             if (m is StaticObjectRenderManager sorm) sorm.HoveredInstance = (SelectedStaticObject?)val;
-            if (m is PortalRenderManager prm) prm.HoveredPortal = ((uint, uint)?)val;
+            if (m is EnvCellRenderManager ecrm) ecrm.HoveredInstance = (SelectedStaticObject?)val;
+            if (m is PortalRenderManager prm) prm.HoveredPortal = ((uint, ulong)?)val;
         });
     }
 
-    public void SetSelectedObject(InspectorSelectionType type, uint landblockId, uint instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
+    public void SetSelectedObject(InspectorSelectionType type, uint landblockId, ulong instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
         SetObjectHighlight(ref _selectedVertex, type, landblockId, instanceId, objectId, vx, vy, (m, val) => {
             if (m is SceneryRenderManager srm) srm.SelectedInstance = (SelectedStaticObject?)val;
             if (m is StaticObjectRenderManager sorm) sorm.SelectedInstance = (SelectedStaticObject?)val;
-            if (m is PortalRenderManager prm) prm.SelectedPortal = ((uint, uint)?)val;
+            if (m is EnvCellRenderManager ecrm) ecrm.SelectedInstance = (SelectedStaticObject?)val;
+            if (m is PortalRenderManager prm) prm.SelectedPortal = ((uint, ulong)?)val;
         });
     }
 
-    private void SetObjectHighlight(ref (int x, int y)? vertexStorage, InspectorSelectionType type, uint landblockId, uint instanceId, uint objectId, int vx, int vy, Action<object, object?> setter) {
+    private void SetObjectHighlight(ref (int x, int y)? vertexStorage, InspectorSelectionType type, uint landblockId, ulong instanceId, uint objectId, int vx, int vy, Action<object, object?> setter) {
         vertexStorage = (type == InspectorSelectionType.Vertex && (vx != 0 || vy != 0)) ? (vx, vy) : null;
 
         if (_sceneryManager != null) {
@@ -554,6 +599,10 @@ public class GameScene : IDisposable {
         if (_staticObjectManager != null) {
             var val = ((type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId } : (object?)null;
             setter(_staticObjectManager, val);
+        }
+        if (_envCellManager != null) {
+            var val = ((type == InspectorSelectionType.EnvCell || type == InspectorSelectionType.EnvCellStaticObject) && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId } : (object?)null;
+            setter(_envCellManager, val);
         }
         if (_portalManager != null) {
             var val = (type == InspectorSelectionType.Portal && landblockId != 0) ? (object)(objectId, instanceId) : (object?)null;
@@ -587,6 +636,15 @@ public class GameScene : IDisposable {
         hit = SceneRaycastHit.NoHit;
 
         if (_portalManager != null && _portalManager.Raycast(origin, direction, out hit)) {
+            return true;
+        }
+        return false;
+    }
+
+    public bool RaycastEnvCells(Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit) {
+        hit = SceneRaycastHit.NoHit;
+
+        if (_envCellManager != null && _envCellManager.Raycast(origin, direction, includeCells, includeStaticObjects, out hit)) {
             return true;
         }
         return false;
@@ -657,6 +715,11 @@ public class GameScene : IDisposable {
             _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
         }
 
+        if (_state.ShowEnvCells) {
+            _envCellManager?.SetVisibilityFilters(_state.ShowEnvCells);
+            _envCellManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
+        }
+
         if (_state.ShowSkybox) {
             // Draw skybox before everything else
             //_skyboxManager?.Render(snapshotView, snapshotProj, snapshotPos, snapshotFov, (float)_width / _height);
@@ -696,6 +759,10 @@ public class GameScene : IDisposable {
             _staticObjectManager?.Render(pass1RenderPass);
         }
 
+        if (_state.ShowEnvCells) {
+            _envCellManager?.Render(pass1RenderPass);
+        }
+
         // Pass 2: Transparent Scenery & Static Objects
         if (_state.EnableTransparencyPass) {
             _sceneryShader?.Bind();
@@ -709,6 +776,10 @@ public class GameScene : IDisposable {
             if (_state.ShowStaticObjects || _state.ShowBuildings) {
                 _staticObjectManager?.Render(1);
             }
+
+            if (_state.ShowEnvCells) {
+                _envCellManager?.Render(1);
+            }
         }
 
         if (_state.ShowDebugShapes) {
@@ -719,10 +790,14 @@ public class GameScene : IDisposable {
                 debugSettings.SelectBuildings = _inspectorTool.SelectBuildings && _state.ShowBuildings;
                 debugSettings.SelectStaticObjects = _inspectorTool.SelectStaticObjects && _state.ShowStaticObjects;
                 debugSettings.SelectScenery = _inspectorTool.SelectScenery && _state.ShowScenery;
+                debugSettings.SelectEnvCells = _inspectorTool.SelectEnvCells && _state.ShowEnvCells;
+                debugSettings.SelectEnvCellStaticObjects = _inspectorTool.SelectEnvCellStaticObjects && _state.ShowEnvCells;
+                debugSettings.SelectPortals = _inspectorTool.SelectPortals && _state.ShowPortals;
             }
 
             _sceneryManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
             _staticObjectManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
+            _envCellManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
 
             if (_inspectorTool != null && _inspectorTool.SelectVertices && _landscapeDoc?.Region != null) {
                 var region = _landscapeDoc.Region;
@@ -830,6 +905,7 @@ public class GameScene : IDisposable {
         _portalManager?.Dispose();
         _sceneryManager?.Dispose();
         _staticObjectManager?.Dispose();
+        _envCellManager?.Dispose();
         _skyboxManager?.Dispose();
         _debugRenderer?.Dispose();
         if (_ownsMeshManager) {

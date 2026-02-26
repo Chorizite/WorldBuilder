@@ -1,15 +1,14 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Numerics;
 using WorldBuilder.ViewModels;
-
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 
-public partial class SceneryViewModel : ViewModelBase, ISelectedObjectInfo {
-    public InspectorSelectionType Type => InspectorSelectionType.Scenery;
-    public ushort SecondaryId => InstanceIdConstants.GetSecondaryId(InstanceId);
+public partial class EnvCellViewModel : ViewModelBase, ISelectedObjectInfo {
+    public InspectorSelectionType Type => InspectorSelectionType.EnvCell;
+    public ushort SecondaryId => 0;
     public int VertexX => 0;
     public int VertexY => 0;
 
@@ -27,7 +26,7 @@ public partial class SceneryViewModel : ViewModelBase, ISelectedObjectInfo {
     public string InstanceIdHex => $"0x{InstanceId:X16}";
     public string LandblockIdHex => $"0x{LandblockId:X8}";
 
-    public SceneryViewModel(uint objectId, ulong instanceId, uint landblockId, Vector3 position, Quaternion rotation) {
+    public EnvCellViewModel(uint objectId, ulong instanceId, uint landblockId, Vector3 position, Quaternion rotation) {
         ObjectId = objectId;
         InstanceId = instanceId;
         LandblockId = landblockId;

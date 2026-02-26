@@ -9,6 +9,7 @@ namespace WorldBuilder.Shared.Lib {
         [ObservableProperty] private bool _showScenery = true;
         [ObservableProperty] private bool _showStaticObjects = true;
         [ObservableProperty] private bool _showBuildings = true;
+        [ObservableProperty] private bool _showEnvCells = true;
         [ObservableProperty] private bool _showPortals = true;
         [ObservableProperty] private bool _showSkybox = true;
         [ObservableProperty] private bool _showDebugShapes = true;
@@ -17,7 +18,7 @@ namespace WorldBuilder.Shared.Lib {
         [ObservableProperty] private bool _enableTransparencyPass = true;
         [ObservableProperty] private float _timeOfDay = 0.5f;
         [ObservableProperty] private float _lightIntensity = 1.0f;
-        
+
         [ObservableProperty] private bool _showLandblockGrid = true;
         [ObservableProperty] private bool _showCellGrid = true;
         [ObservableProperty] private Vector3 _landblockGridColor = new(1, 0, 1);
@@ -27,5 +28,6 @@ namespace WorldBuilder.Shared.Lib {
 
         [ObservableProperty] private int _objectRenderDistance = 12;
         [ObservableProperty] private float _maxDrawDistance = 40000f;
+        [ObservableProperty] private bool _enableTerrainCollision = true;
     }
 }

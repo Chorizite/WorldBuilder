@@ -93,7 +93,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.Hit = true;
                                 hit.Distance = d;
                                 hit.Type = InspectorSelectionType.Scenery;
-                                hit.ObjectId = inst.ObjectId;
+                                hit.ObjectId = (uint)inst.ObjectId;
                                 hit.InstanceId = inst.InstanceId;
                                 hit.Position = inst.WorldPosition;
                                 hit.Rotation = inst.Rotation;
@@ -271,7 +271,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                         var instance = new SceneryInstance {
                             ObjectId = obj.ObjectId,
-                            InstanceId = (uint)scenery.Count,
+                            InstanceId = InstanceIdConstants.Encode((uint)scenery.Count, InspectorSelectionType.Scenery),
                             IsSetup = isSetup,
                             WorldPosition = worldOrigin,
                             Rotation = quat,

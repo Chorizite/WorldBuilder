@@ -46,6 +46,6 @@ namespace WorldBuilder.Shared.Models {
         /// </summary>
         [MemoryPackInclude]
         [MemoryPackOrder(5)]
-        public List<uint> DeletedInstanceIds { get; init; } = [];
+        public List<ulong> DeletedInstanceIds { get; init; } = [];
     }
 }

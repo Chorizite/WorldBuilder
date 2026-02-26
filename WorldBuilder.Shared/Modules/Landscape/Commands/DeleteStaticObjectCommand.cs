@@ -21,7 +21,7 @@ public partial class DeleteStaticObjectCommand : BaseCommand<bool> {
     [MemoryPackOrder(12)] public uint LandblockId { get; set; }
 
     /// <summary>The instance ID of the object to delete.</summary>
-    [MemoryPackOrder(13)] public uint InstanceId { get; set; }
+    [MemoryPackOrder(13)] public ulong InstanceId { get; set; }
 
     /// <summary>The previous state of the object, for undo purposes.</summary>
     [MemoryPackOrder(14)] public StaticObject? PreviousState { get; set; }

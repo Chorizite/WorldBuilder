@@ -49,8 +49,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public bool ShowPortals { get; set; } = true;
         public int RenderDistance { get; set; } = 12;
 
-        public (uint CellId, uint PortalIndex)? HoveredPortal { get; set; }
-        public (uint CellId, uint PortalIndex)? SelectedPortal { get; set; }
+        public (uint CellId, ulong PortalIndex)? HoveredPortal { get; set; }
+        public (uint CellId, ulong PortalIndex)? SelectedPortal { get; set; }
 
         private Vector3 _cameraPosition;
         private int _cameraLbX;
@@ -160,7 +160,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public void SubmitDebugShapes(DebugRenderer? debug) {
             if (debug == null || !ShowPortals || _landscapeDoc.Region == null) return;
 
-            var magenta = new Vector4(1f, 0f, 1f, 1f);
+            var portalColor = LandscapeColorsSettings.Instance.Portal;
             var hoverColor = LandscapeColorsSettings.Instance.Hover;
             var selectionColor = LandscapeColorsSettings.Instance.Selection;
 
@@ -168,11 +168,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (!lb.Ready) continue;
 
                 foreach (var portal in lb.Portals) {
-                    var color = magenta;
-                    if (HoveredPortal.HasValue && HoveredPortal.Value.CellId == portal.CellId && HoveredPortal.Value.PortalIndex == portal.PortalIndex) {
+                    var color = portalColor;
+                    if (HoveredPortal.HasValue && HoveredPortal.Value.CellId == portal.CellId && InstanceIdConstants.GetRawId(HoveredPortal.Value.PortalIndex) == portal.PortalIndex) {
                         color = hoverColor;
                     }
-                    if (SelectedPortal.HasValue && SelectedPortal.Value.CellId == portal.CellId && SelectedPortal.Value.PortalIndex == portal.PortalIndex) {
+                    if (SelectedPortal.HasValue && SelectedPortal.Value.CellId == portal.CellId && InstanceIdConstants.GetRawId(SelectedPortal.Value.PortalIndex) == portal.PortalIndex) {
                         color = selectionColor;
                     }
 
@@ -225,7 +225,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     Position = rayOrigin + rayDirection * closestDistance,
                     LandblockId = closestLandblockId,
                     ObjectId = closestPortal.CellId,
-                    InstanceId = closestPortal.PortalIndex
+                    InstanceId = InstanceIdConstants.Encode((uint)closestPortal.PortalIndex, InspectorSelectionType.Portal)
                 };
                 return true;
             }

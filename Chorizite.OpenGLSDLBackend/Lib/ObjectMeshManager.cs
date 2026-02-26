@@ -44,7 +44,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     /// Contains vertex data and per-batch index/texture info, but NO GPU resources.
     /// </summary>
     public class ObjectMeshData {
-        public uint ObjectId { get; set; }
+        public ulong ObjectId { get; set; }
         public bool IsSetup { get; set; }
         public VertexPositionNormalTexture[] Vertices { get; set; } = Array.Empty<VertexPositionNormalTexture>();
         public List<MeshBatchData> Batches { get; set; } = new();
@@ -53,7 +53,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public ObjectMeshData? EnvCellGeometry { get; set; }
 
         /// <summary>For Setup objects: parts with their local transforms.</summary>
-        public List<(uint GfxObjId, Matrix4x4 Transform)> SetupParts { get; set; } = new();
+        public List<(ulong GfxObjId, Matrix4x4 Transform)> SetupParts { get; set; } = new();
 
         /// <summary>Per-format texture atlas data (to be uploaded to GPU on main thread).</summary>
         public Dictionary<(int Width, int Height, TextureFormat Format), List<TextureBatchData>> TextureBatches { get; set; } = new();
@@ -100,7 +100,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public int VertexCount { get; set; }
         public List<ObjectRenderBatch> Batches { get; set; } = new();
         public bool IsSetup { get; set; }
-        public List<(uint GfxObjId, Matrix4x4 Transform)> SetupParts { get; set; } = new();
+        public List<(ulong GfxObjId, Matrix4x4 Transform)> SetupParts { get; set; } = new();
 
         /// <summary>CPU-side vertex positions for raycasting.</summary>
         public Vector3[] CPUPositions { get; set; } = Array.Empty<Vector3>();
@@ -142,13 +142,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private readonly IDatReaderWriter _dats;
         private readonly ILogger<ObjectMeshManager> _logger;
-        private readonly Dictionary<uint, ObjectRenderData> _renderData = new();
-        private readonly ConcurrentDictionary<uint, int> _usageCount = new();
-        private readonly ConcurrentDictionary<uint, (Vector3 Min, Vector3 Max)?> _boundsCache = new();
-        private readonly ConcurrentDictionary<uint, Task<ObjectMeshData?>> _preparationTasks = new();
+        private readonly Dictionary<ulong, ObjectRenderData> _renderData = new();
+        private readonly ConcurrentDictionary<ulong, int> _usageCount = new();
+        private readonly ConcurrentDictionary<ulong, (Vector3 Min, Vector3 Max)?> _boundsCache = new();
+        private readonly ConcurrentDictionary<ulong, Task<ObjectMeshData?>> _preparationTasks = new();
 
         // LRU Cache for Unused objects
-        private readonly LinkedList<uint> _lruList = new();
+        private readonly LinkedList<ulong> _lruList = new();
         private readonly long _maxGpuMemory = 512 * 1024 * 1024; // 512MB
         private long _currentGpuMemory = 0;
 
@@ -165,7 +165,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Get existing GPU render data for an object, or null if not yet uploaded.
         /// Increments reference count.
         /// </summary>
-        public ObjectRenderData? GetRenderData(uint id) {
+        public ObjectRenderData? GetRenderData(ulong id) {
             if (_renderData.TryGetValue(id, out var data)) {
                 _usageCount.AddOrUpdate(id, 1, (_, count) => count + 1);
 
@@ -182,27 +182,27 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>
         /// Check if GPU render data exists for an object.
         /// </summary>
-        public bool HasRenderData(uint id) => _renderData.ContainsKey(id);
+        public bool HasRenderData(ulong id) => _renderData.ContainsKey(id);
 
         /// <summary>
         /// Get existing GPU render data without modifying reference count.
         /// Use this for render-loop lookups where you don't want to affect lifecycle.
         /// </summary>
-        public ObjectRenderData? TryGetRenderData(uint id) {
+        public ObjectRenderData? TryGetRenderData(ulong id) {
             return _renderData.TryGetValue(id, out var data) ? data : null;
         }
 
         /// <summary>
         /// Increment reference count for an object (e.g. when a landblock starts using it).
         /// </summary>
-        public void IncrementRefCount(uint id) {
+        public void IncrementRefCount(ulong id) {
             _usageCount.AddOrUpdate(id, 1, (_, count) => count + 1);
         }
 
         /// <summary>
         /// Decrement reference count and unload GPU resources if no longer needed.
         /// </summary>
-        public void DecrementRefCount(uint id) {
+        public void DecrementRefCount(ulong id) {
             var newCount = _usageCount.AddOrUpdate(id, 0, (_, c) => c - 1);
             if (newCount <= 0) {
                 // Instead of unloading, move to LRU
@@ -217,7 +217,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>
         /// Decrement reference count and unload if no longer needed.
         /// </summary>
-        public void ReleaseRenderData(uint id) {
+        public void ReleaseRenderData(ulong id) {
             if (_usageCount.TryGetValue(id, out var count) && count > 0) {
                 var newCount = _usageCount.AddOrUpdate(id, 0, (_, c) => c - 1);
                 if (newCount <= 0) {
@@ -249,7 +249,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Phase 1 (Background Thread): Prepare CPU-side mesh data from DAT asynchronously.
         /// Returns an existing task if this object is already being prepared.
         /// </summary>
-        public Task<ObjectMeshData?> PrepareMeshDataAsync(uint id, bool isSetup, CancellationToken ct = default) {
+        public Task<ObjectMeshData?> PrepareMeshDataAsync(ulong id, bool isSetup, CancellationToken ct = default) {
             if (HasRenderData(id)) return Task.FromResult<ObjectMeshData?>(null);
 
             // Clean up stale cancelled/faulted tasks that may have been left behind
@@ -272,9 +272,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// This loads vertices, indices, and texture data but creates NO GPU resources.
         /// Thread-safe: only reads from DAT files.
         /// </summary>
-        public ObjectMeshData? PrepareMeshData(uint id, bool isSetup, CancellationToken ct = default) {
+        public ObjectMeshData? PrepareMeshData(ulong id, bool isSetup, CancellationToken ct = default) {
             try {
-                var resolutions = _dats.ResolveId(id).ToList();
+                // Use the low 32 bits as the DAT file ID
+                var datId = (uint)(id & 0xFFFFFFFFu);
+                var resolutions = _dats.ResolveId(datId).ToList();
                 var selectedResolution = resolutions.OrderByDescending(r => r.Database == _dats.Portal).FirstOrDefault();
                 if (selectedResolution == null) return null;
 
@@ -282,15 +284,27 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var db = selectedResolution.Database;
 
                 if (type == DBObjType.Setup) {
-                    if (!db.TryGet<Setup>(id, out var setup)) return null;
+                    if (!db.TryGet<Setup>(datId, out var setup)) return null;
                     return PrepareSetupMeshData(id, setup, ct);
                 }
                 else if (type == DBObjType.GfxObj) {
-                    if (!db.TryGet<GfxObj>(id, out var gfxObj)) return null;
+                    if (!db.TryGet<GfxObj>(datId, out var gfxObj)) return null;
                     return PrepareGfxObjMeshData(id, gfxObj, Vector3.One, ct);
                 }
                 else if (type == DBObjType.EnvCell) {
-                    if (!db.TryGet<EnvCell>(id, out var envCell)) return null;
+                    if (!db.TryGet<EnvCell>(datId, out var envCell)) return null;
+
+                    // If bit 32 is set, this is a request for the cell's synthetic geometry only
+                    if ((id & 0x1_0000_0000UL) != 0) {
+                        uint envId = 0x0D000000u | envCell.EnvironmentId;
+                        if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
+                            if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
+                                return PrepareCellStructMeshData(id, cellStruct, envCell.Surfaces, Matrix4x4.Identity, ct);
+                            }
+                        }
+                        return null;
+                    }
+
                     return PrepareEnvCellMeshData(id, envCell, ct);
                 }
                 return null;
@@ -300,7 +314,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 return null;
             }
             catch (Exception ex) {
-                _logger.LogError(ex, "Error preparing mesh data for 0x{Id:X8}", id);
+                _logger.LogError(ex, "Error preparing mesh data for 0x{Id:X16}", id);
                 return null;
             }
         }
@@ -317,20 +331,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
                 _preparationTasks.TryRemove(meshData.ObjectId, out _);
                 if (meshData.IsSetup) {
-                    var setupParts = new List<(uint GfxObjId, Matrix4x4 Transform)>(meshData.SetupParts);
-
-                    // Upload EnvCell geometry if present
+                    // Upload EnvCell geometry if present to ensure it's in _renderData
                     if (meshData.EnvCellGeometry != null) {
-                        var geomData = UploadMeshData(meshData.EnvCellGeometry);
-                        if (geomData != null) {
-                            setupParts.Insert(0, (meshData.EnvCellGeometry.ObjectId, Matrix4x4.Identity));
-                        }
+                        UploadMeshData(meshData.EnvCellGeometry);
                     }
 
                     // Setup objects are multi-part - each part needs its own render data
                     var data = new ObjectRenderData {
                         IsSetup = true,
-                        SetupParts = setupParts,
+                        SetupParts = meshData.SetupParts,
                         Batches = new List<ObjectRenderBatch>(),
                         BoundingBox = meshData.BoundingBox,
                         SelectionSphere = meshData.SelectionSphere,
@@ -341,7 +350,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     _currentGpuMemory += data.MemorySize;
 
                     // Increment ref counts for all parts
-                    foreach (var (partId, _) in setupParts) {
+                    foreach (var (partId, _) in meshData.SetupParts) {
                         IncrementRefCount(partId);
                     }
 
@@ -367,14 +376,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>
         /// Gets bounding box for an object (for frustum culling).
         /// </summary>
-        public (Vector3 Min, Vector3 Max)? GetBounds(uint id, bool isSetup) {
+        public (Vector3 Min, Vector3 Max)? GetBounds(ulong id, bool isSetup) {
             if (_boundsCache.TryGetValue(id, out var cachedBounds)) {
                 return cachedBounds;
             }
 
             try {
                 (Vector3 Min, Vector3 Max)? result = null;
-                var resolutions = _dats.ResolveId(id).ToList();
+                uint datId = (uint)(id & 0xFFFFFFFFu);
+                var resolutions = _dats.ResolveId(datId).ToList();
                 var selectedResolution = resolutions.OrderByDescending(r => r.Database == _dats.Portal).FirstOrDefault();
                 if (selectedResolution == null) return null;
 
@@ -385,23 +395,41 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     var min = new Vector3(float.MaxValue);
                     var max = new Vector3(float.MinValue);
                     bool hasBounds = false;
-                    var parts = new List<(uint GfxObjId, Matrix4x4 Transform)>();
+                    var parts = new List<(ulong GfxObjId, Matrix4x4 Transform)>();
 
-                    CollectParts(id, Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds, CancellationToken.None);
+                    CollectParts(datId, Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds, CancellationToken.None);
                     result = hasBounds ? (min, max) : null;
                 }
                 else if (type == DBObjType.EnvCell) {
-                    if (!db.TryGet<EnvCell>(id, out var envCell)) return null;
-                    var min = new Vector3(float.MaxValue);
-                    var max = new Vector3(float.MinValue);
-                    bool hasBounds = false;
-                    var parts = new List<(uint GfxObjId, Matrix4x4 Transform)>();
+                    if (!db.TryGet<EnvCell>(datId, out var envCell)) return null;
 
-                    CollectParts(id, Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds, CancellationToken.None);
-                    result = hasBounds ? (min, max) : null;
+                    // If bit 32 is set, this is a request for the cell's synthetic geometry only
+                    if ((id & 0x1_0000_0000UL) != 0) {
+                        uint envId = 0x0D000000u | envCell.EnvironmentId;
+                        if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
+                            if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
+                                var min = new Vector3(float.MaxValue);
+                                var max = new Vector3(float.MinValue);
+                                foreach (var vert in cellStruct.VertexArray.Vertices.Values) {
+                                    min = Vector3.Min(min, vert.Origin);
+                                    max = Vector3.Max(max, vert.Origin);
+                                }
+                                result = (min, max);
+                            }
+                        }
+                    }
+                    else {
+                        var min = new Vector3(float.MaxValue);
+                        var max = new Vector3(float.MinValue);
+                        bool hasBounds = false;
+                        var parts = new List<(ulong GfxObjId, Matrix4x4 Transform)>();
+
+                        CollectParts(datId, Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds, CancellationToken.None);
+                        result = hasBounds ? (min, max) : null;
+                    }
                 }
                 else {
-                    if (!db.TryGet<GfxObj>(id, out var gfxObj)) return null;
+                    if (!db.TryGet<GfxObj>(datId, out var gfxObj)) return null;
                     result = ComputeBounds(gfxObj, Vector3.One);
                 }
                 _boundsCache[id] = result;
@@ -415,13 +443,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Private: Background Preparation
 
-        private ObjectMeshData? PrepareSetupMeshData(uint id, Setup setup, CancellationToken ct) {
-            var parts = new List<(uint GfxObjId, Matrix4x4 Transform)>();
+        private ObjectMeshData? PrepareSetupMeshData(ulong id, Setup setup, CancellationToken ct) {
+            var parts = new List<(ulong GfxObjId, Matrix4x4 Transform)>();
             var min = new Vector3(float.MaxValue);
             var max = new Vector3(float.MinValue);
             bool hasBounds = false;
 
-            CollectParts(id, Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds, ct);
+            CollectParts((uint)(id & 0xFFFFFFFFu), Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds, ct);
 
             return new ObjectMeshData {
                 ObjectId = id,
@@ -432,7 +460,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             };
         }
 
-        private void CollectParts(uint id, Matrix4x4 currentTransform, List<(uint GfxObjId, Matrix4x4 Transform)> parts, ref Vector3 min, ref Vector3 max, ref bool hasBounds, CancellationToken ct) {
+        private void CollectParts(uint id, Matrix4x4 currentTransform, List<(ulong GfxObjId, Matrix4x4 Transform)> parts, ref Vector3 min, ref Vector3 max, ref bool hasBounds, CancellationToken ct) {
             ct.ThrowIfCancellationRequested();
             var resolutions = _dats.ResolveId(id).ToList();
             var selectedResolution = resolutions.OrderByDescending(r => r.Database == _dats.Portal).FirstOrDefault();
@@ -449,7 +477,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     var partId = setup.Parts[i];
                     var transform = Matrix4x4.Identity;
                     if (placementFrame.Frames != null && i < placementFrame.Frames.Count) {
-                        transform = Matrix4x4.CreateFromQuaternion(placementFrame.Frames[i].Orientation)
+                        var orientation = placementFrame.Frames[i].Orientation;
+                        transform = Matrix4x4.CreateFromQuaternion(orientation)
                             * Matrix4x4.CreateTranslation(placementFrame.Frames[i].Origin);
                     }
 
@@ -459,10 +488,41 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             else if (type == DBObjType.EnvCell) {
                 if (!db.TryGet<EnvCell>(id, out var envCell)) return;
 
+                // Calculate the inverse transform of the cell to localize its contents
+                var cellOrientation = new System.Numerics.Quaternion(
+                    (float)envCell.Position.Orientation[0], // X
+                    (float)envCell.Position.Orientation[1], // Y
+                    (float)envCell.Position.Orientation[2], // Z
+                    (float)envCell.Position.Orientation[3]  // W
+                );
+                var cellTransform = Matrix4x4.CreateFromQuaternion(cellOrientation) *
+                                    Matrix4x4.CreateTranslation(envCell.Position.Origin);
+                if (!Matrix4x4.Invert(cellTransform, out var invertCellTransform)) {
+                    invertCellTransform = Matrix4x4.Identity;
+                }
+
+                // Include cell geometry
+                uint envId = 0x0D000000u | envCell.EnvironmentId;
+                if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
+                    if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
+                        foreach (var vert in cellStruct.VertexArray.Vertices.Values) {
+                            var transformed = Vector3.Transform(vert.Origin, currentTransform);
+                            min = Vector3.Min(min, transformed);
+                            max = Vector3.Max(max, transformed);
+                        }
+                        hasBounds = true;
+                    }
+                }
+
                 foreach (var stab in envCell.StaticObjects) {
-                    var transform = Matrix4x4.CreateFromQuaternion(stab.Frame.Orientation)
+                    var orientation = stab.Frame.Orientation;
+                    var transform = Matrix4x4.CreateFromQuaternion(orientation)
                                     * Matrix4x4.CreateTranslation(stab.Frame.Origin);
-                    CollectParts(stab.Id, transform * currentTransform, parts, ref min, ref max, ref hasBounds, ct);
+
+                    // Localize static object transform relative to the cell
+                    var localizedTransform = transform * invertCellTransform;
+
+                    CollectParts(stab.Id, localizedTransform * currentTransform, parts, ref min, ref max, ref hasBounds, ct);
                 }
             }
             else if (type == DBObjType.GfxObj) {
@@ -490,7 +550,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        private ObjectMeshData? PrepareGfxObjMeshData(uint id, GfxObj gfxObj, Vector3 scale, CancellationToken ct) {
+        private ObjectMeshData? PrepareGfxObjMeshData(ulong id, GfxObj gfxObj, Vector3 scale, CancellationToken ct) {
             var vertices = new List<VertexPositionNormalTexture>();
             var UVLookup = new Dictionary<(ushort vertId, ushort uvIdx, bool isNeg), ushort>();
             var batchesByFormat = new Dictionary<(int Width, int Height, TextureFormat Format), List<TextureBatchData>>();
@@ -647,14 +707,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             };
         }
 
-        private ObjectMeshData? PrepareEnvCellMeshData(uint id, EnvCell envCell, CancellationToken ct) {
-            var parts = new List<(uint GfxObjId, Matrix4x4 Transform)>();
+        private ObjectMeshData? PrepareEnvCellMeshData(ulong id, EnvCell envCell, CancellationToken ct) {
+            var parts = new List<(ulong GfxObjId, Matrix4x4 Transform)>();
             var min = new Vector3(float.MaxValue);
             var max = new Vector3(float.MinValue);
             bool hasBounds = false;
 
             // Calculate the inverse transform of the cell to localize its contents
-            var cellTransform = Matrix4x4.CreateFromQuaternion(envCell.Position.Orientation) *
+            var cellOrientation = new System.Numerics.Quaternion(
+                (float)envCell.Position.Orientation[0], // X
+                (float)envCell.Position.Orientation[1], // Y
+                (float)envCell.Position.Orientation[2], // Z
+                (float)envCell.Position.Orientation[3]  // W
+            );
+            var cellTransform = Matrix4x4.CreateFromQuaternion(cellOrientation) *
                                 Matrix4x4.CreateTranslation(envCell.Position.Origin);
             if (!Matrix4x4.Invert(cellTransform, out var invertCellTransform)) {
                 invertCellTransform = Matrix4x4.Identity;
@@ -662,7 +728,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             // Add static objects
             foreach (var stab in envCell.StaticObjects) {
-                var transform = Matrix4x4.CreateFromQuaternion(stab.Frame.Orientation)
+                var orientation = stab.Frame.Orientation;
+                var transform = Matrix4x4.CreateFromQuaternion(orientation)
                                 * Matrix4x4.CreateTranslation(stab.Frame.Origin);
 
                 // Localize static object transform relative to the cell
@@ -676,9 +743,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             ObjectMeshData? cellGeometry = null;
             if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
                 if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
-                    // Environment cell geometry is already local, so we pass Identity
-                    cellGeometry = PrepareCellStructMeshData(id | 0x80000000u, cellStruct, envCell.Surfaces, Matrix4x4.Identity, ct);
+                    // Use bit 32 for synthetic cell geometry ID (guaranteed no collision with 32-bit DAT IDs)
+                    var cellGeomId = id | 0x1_0000_0000UL;
+                    cellGeometry = PrepareCellStructMeshData(cellGeomId, cellStruct, envCell.Surfaces, Matrix4x4.Identity, ct);
                     if (cellGeometry != null) {
+                        parts.Add((cellGeomId, Matrix4x4.Identity));
                         min = Vector3.Min(min, cellGeometry.BoundingBox.Min);
                         max = Vector3.Max(max, cellGeometry.BoundingBox.Max);
                         hasBounds = true;
@@ -696,7 +765,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             };
         }
 
-        private ObjectMeshData? PrepareCellStructMeshData(uint id, CellStruct cellStruct, List<ushort> surfaceOverrides, Matrix4x4 transform, CancellationToken ct) {
+        private ObjectMeshData? PrepareCellStructMeshData(ulong id, CellStruct cellStruct, List<ushort> surfaceOverrides, Matrix4x4 transform, CancellationToken ct) {
             var vertices = new List<VertexPositionNormalTexture>();
             var UVLookup = new Dictionary<(ushort vertId, ushort uvIdx, bool isNeg), ushort>();
             var batchesByFormat = new Dictionary<(int Width, int Height, TextureFormat Format), List<TextureBatchData>>();
@@ -1073,14 +1142,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #region Raycasting
 
         public bool IntersectMesh(ObjectRenderData renderData, Matrix4x4 transform, Vector3 rayOrigin, Vector3 rayDirection, out float distance) {
+            return IntersectMeshInternal(renderData, transform, rayOrigin, rayDirection, 0, out distance);
+        }
+
+        private bool IntersectMeshInternal(ObjectRenderData renderData, Matrix4x4 transform, Vector3 rayOrigin, Vector3 rayDirection, int depth, out float distance) {
             distance = float.MaxValue;
             bool hit = false;
+
+            if (depth > 32) return false; // Prevent stack overflow from circular setups
 
             if (renderData.IsSetup) {
                 foreach (var part in renderData.SetupParts) {
                     var partData = TryGetRenderData(part.GfxObjId);
                     if (partData != null) {
-                        if (IntersectMesh(partData, part.Transform * transform, rayOrigin, rayDirection, out float d)) {
+                        if (IntersectMeshInternal(partData, part.Transform * transform, rayOrigin, rayDirection, depth + 1, out float d)) {
                             if (d < distance) {
                                 distance = d;
                                 hit = true;
@@ -1141,7 +1216,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return (min, max);
         }
 
-        private void UnloadObject(uint key) {
+        private void UnloadObject(ulong key) {
             if (!_renderData.TryGetValue(key, out var data)) return;
 
             var gl = _graphicsDevice.GL;

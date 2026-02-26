@@ -25,7 +25,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         public uint LandblockId { get; set; }
         
         /// <summary>The instance ID of the hit object.</summary>
-        public uint InstanceId { get; set; }
+        public ulong InstanceId { get; set; }
+
+        /// <summary>The secondary ID of the hit object (if applicable).</summary>
+        public ushort SecondaryId { get; set; }
         
         /// <summary>The object ID (from dats) of the hit object.</summary>
         public uint ObjectId { get; set; }
