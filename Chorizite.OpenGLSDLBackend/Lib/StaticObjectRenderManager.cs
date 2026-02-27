@@ -104,7 +104,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             All = StaticObjects | Buildings
         }
 
-        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, RaycastTarget targets, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false) {
+        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, RaycastTarget targets, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false, float maxDistance = float.MaxValue) {
             hit = SceneRaycastHit.NoHit;
 
             // Early exit: Don't collide with exteriors if we are inside
@@ -123,14 +123,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                         // Broad phase: Bounding Box
                         if (instance.BoundingBox.Max != instance.BoundingBox.Min) {
-                            if (!GeometryUtils.RayIntersectsBox(rayOrigin, rayDirection, instance.BoundingBox.Min, instance.BoundingBox.Max, out _)) {
+                            if (!GeometryUtils.RayIntersectsBox(rayOrigin, rayDirection, instance.BoundingBox.Min, instance.BoundingBox.Max, out float boxDist)) {
+                                continue;
+                            }
+                            if (boxDist > maxDistance) {
                                 continue;
                             }
                         }
 
                         // Narrow phase: Mesh-precise raycast
                         if (MeshManager.IntersectMesh(renderData, instance.Transform, rayOrigin, rayDirection, out float d, out Vector3 normal)) {
-                            if (d < hit.Distance) {
+                            if (d < hit.Distance && d <= maxDistance) {
                                 hit.Hit = true;
                                 hit.Distance = d;
                                 hit.Type = instance.IsBuilding ? InspectorSelectionType.Building : InspectorSelectionType.StaticObject;

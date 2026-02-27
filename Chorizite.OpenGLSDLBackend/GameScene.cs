@@ -420,8 +420,8 @@ public class GameScene : IDisposable {
     public void SetToolContext(LandscapeToolContext? context) {
         if (context != null) {
             context.RaycastStaticObject = (Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit) => RaycastStaticObjects(origin, direction, includeBuildings, includeStaticObjects, out hit);
-            context.RaycastScenery = RaycastScenery;
-            context.RaycastPortals = RaycastPortals;
+            context.RaycastScenery = (Vector3 origin, Vector3 direction, out SceneRaycastHit hit) => RaycastScenery(origin, direction, out hit);
+            context.RaycastPortals = (Vector3 origin, Vector3 direction, out SceneRaycastHit hit) => RaycastPortals(origin, direction, out hit);
             context.RaycastEnvCells = (Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit) => RaycastEnvCells(origin, direction, includeCells, includeStaticObjects, out hit);
         }
     }
@@ -551,7 +551,7 @@ public class GameScene : IDisposable {
 
                     if (_currentEnvCellId != 0) {
                         // Inside: Collide with EnvCells and EnvCellStaticObjects
-                        if (RaycastEnvCells(oldPos, normalizedDir, true, true, out hit, true)) {
+                        if (RaycastEnvCells(oldPos, normalizedDir, true, true, out hit, true, moveDist + 0.5f)) {
                             if (hit.Distance <= moveDist + 0.5f) {
                                 hasHit = true;
                             }
@@ -559,7 +559,7 @@ public class GameScene : IDisposable {
                     }
                     else {
                         // Outside: Collide with Buildings and StaticObjects
-                        if (RaycastStaticObjects(oldPos, normalizedDir, true, true, out hit, true)) {
+                        if (RaycastStaticObjects(oldPos, normalizedDir, true, true, out hit, true, moveDist + 0.5f)) {
                             if (hit.Distance <= moveDist + 0.5f) {
                                 hasHit = true;
                             }
@@ -713,41 +713,41 @@ public class GameScene : IDisposable {
         }
     }
 
-    public bool RaycastStaticObjects(Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, bool isCollision = false) {
+    public bool RaycastStaticObjects(Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, bool isCollision = false, float maxDistance = float.MaxValue) {
         hit = SceneRaycastHit.NoHit;
 
         var targets = StaticObjectRenderManager.RaycastTarget.None;
         if (includeBuildings) targets |= StaticObjectRenderManager.RaycastTarget.Buildings;
         if (includeStaticObjects) targets |= StaticObjectRenderManager.RaycastTarget.StaticObjects;
 
-        if (_staticObjectManager != null && _staticObjectManager.Raycast(origin, direction, targets, out hit, _currentEnvCellId, isCollision)) {
+        if (_staticObjectManager != null && _staticObjectManager.Raycast(origin, direction, targets, out hit, _currentEnvCellId, isCollision, maxDistance)) {
             return true;
         }
         return false;
     }
 
-    public bool RaycastScenery(Vector3 origin, Vector3 direction, out SceneRaycastHit hit) {
+    public bool RaycastScenery(Vector3 origin, Vector3 direction, out SceneRaycastHit hit, float maxDistance = float.MaxValue) {
         hit = SceneRaycastHit.NoHit;
 
-        if (_sceneryManager != null && _sceneryManager.Raycast(origin, direction, out hit)) {
+        if (_sceneryManager != null && _sceneryManager.Raycast(origin, direction, out hit, maxDistance)) {
             return true;
         }
         return false;
     }
 
-    public bool RaycastPortals(Vector3 origin, Vector3 direction, out SceneRaycastHit hit) {
+    public bool RaycastPortals(Vector3 origin, Vector3 direction, out SceneRaycastHit hit, float maxDistance = float.MaxValue) {
         hit = SceneRaycastHit.NoHit;
 
-        if (_portalManager != null && _portalManager.Raycast(origin, direction, out hit)) {
+        if (_portalManager != null && _portalManager.Raycast(origin, direction, out hit, maxDistance)) {
             return true;
         }
         return false;
     }
 
-    public bool RaycastEnvCells(Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, bool isCollision = false) {
+    public bool RaycastEnvCells(Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, bool isCollision = false, float maxDistance = float.MaxValue) {
         hit = SceneRaycastHit.NoHit;
 
-        if (_envCellManager != null && _envCellManager.Raycast(origin, direction, includeCells, includeStaticObjects, out hit, _currentEnvCellId, isCollision)) {
+        if (_envCellManager != null && _envCellManager.Raycast(origin, direction, includeCells, includeStaticObjects, out hit, _currentEnvCellId, isCollision, maxDistance)) {
             return true;
         }
         return false;
@@ -840,15 +840,15 @@ public class GameScene : IDisposable {
                     _gl.DepthFunc(DepthFunction.Always);
                     _portalManager?.RenderBuildingStencilMask(building, snapshotVP, true);
 
-                    // c. Render this building's EnvCells where Stencil == 3.
+                    // c. Render ALL EnvCells where Stencil == 3 (GPU will depth/stencil cull).
                     _gl.ColorMask(true, true, true, false);
                     _gl.DepthFunc(DepthFunction.Less);
                     _sceneryShader?.Bind();
-                    _envCellManager!.Render(pass1RenderPass, building.EnvCellIds);
+                    _envCellManager!.Render(pass1RenderPass, null);
 
                     if (_state.EnableTransparencyPass) {
                         _gl.DepthMask(false);
-                        _envCellManager!.Render(1, building.EnvCellIds);
+                        _envCellManager!.Render(1, null);
                         _gl.DepthMask(true);
                     }
 
@@ -963,7 +963,7 @@ public class GameScene : IDisposable {
             // StencilFunc still Equal,1; DepthFunc still Less
         }
 
-        // Render EnvCells building by building to apply individual portal masks
+        // Render EnvCells through portal masks with normal depth test.
         if (didStencil) {
             // Step 5: Render EnvCells through portal masks with normal depth test.
             _gl.StencilFunc(StencilFunction.Equal, 1, 0xFF);
@@ -971,15 +971,13 @@ public class GameScene : IDisposable {
             _gl.ColorMask(true, true, true, false);
             _gl.DepthFunc(DepthFunction.Less);
 
-            foreach (var (lbKey, building) in _visibleBuildingPortals) {
-                _sceneryShader?.Bind();
-                _envCellManager!.Render(pass1RenderPass, building.EnvCellIds);
+            _sceneryShader?.Bind();
+            _envCellManager!.Render(pass1RenderPass, null);
 
-                if (_state.EnableTransparencyPass) {
-                    _gl.DepthMask(false);
-                    _envCellManager!.Render(1, building.EnvCellIds);
-                    _gl.DepthMask(true);
-                }
+            if (_state.EnableTransparencyPass) {
+                _gl.DepthMask(false);
+                _envCellManager!.Render(1, null);
+                _gl.DepthMask(true);
             }
         }
         else {
