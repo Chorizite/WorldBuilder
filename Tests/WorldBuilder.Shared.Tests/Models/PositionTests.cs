@@ -146,7 +146,7 @@ namespace WorldBuilder.Shared.Tests.Models {
         [Fact]
         public void ToLandblockString_ReturnsCorrectFormat() {
             var pos = new Position(0x7D64, 0x0014, 67.197197f, 95.557037f, 12.004999f);
-            string expected = "0x7D640014 [67.197197 95.557037 12.004999]";
+            string expected = "0x7D640014 [67.197 95.557 12.005]";
             Assert.Equal(expected, pos.ToLandblockString());
         }
 
@@ -154,7 +154,7 @@ namespace WorldBuilder.Shared.Tests.Models {
         public void ToLandblockString_WithRotation_ReturnsCorrectFormat() {
             var pos = new Position(0x7D64, 0x0014, 67.197197f, 95.557037f, 12.004999f);
             pos.Rotation = new Quaternion(-0.521528f, 0.000000f, 0.000000f, 0.853234f);
-            string expected = "0x7D640014 [67.197197 95.557037 12.004999] -0.521528 0.000000 0.000000 0.853234";
+            string expected = "0x7D640014 [67.197 95.557 12.005] -0.521528 0.000000 0.000000 0.853234";
             Assert.Equal(expected, pos.ToLandblockString());
         }
 

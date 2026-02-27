@@ -65,23 +65,35 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             int lbX = (int)Math.Floor(mapPos.X / lbSize);
             int lbY = (int)Math.Floor(mapPos.Y / lbSize);
 
+            if (lbX < 0 || lbY < 0 || lbX >= LandscapeDoc.Region.MapWidthInLandblocks || lbY >= LandscapeDoc.Region.MapHeightInLandblocks) return 0;
+
             var key = GeometryUtils.PackKey(lbX, lbY);
 
             if (_landblocks.TryGetValue(key, out var lb)) {
-                if (!lb.InstancesReady) return 0;
+                if (!lb.InstancesReady || !lb.MeshDataReady) return 0xFFFFFFFF; // Data or meshes not ready
                 lock (lb) {
-                    foreach (var instance in lb.Instances) {
-                        var type = InstanceIdConstants.GetType(instance.InstanceId);
-                        if (type != InspectorSelectionType.EnvCell) continue;
-                        if (onlyEntryCells && !instance.IsEntryCell) continue;
+                    // Check both active and pending instances to avoid race conditions
+                    if (CheckInstances(lb.Instances, pos, onlyEntryCells, out var cellId)) return cellId;
+                    if (lb.PendingInstances != null && CheckInstances(lb.PendingInstances, pos, onlyEntryCells, out cellId)) return cellId;
+                }
+                return 0; // Definitely not in an EnvCell in this loaded landblock
+            }
+            return 0xFFFFFFFF; // Landblock not loaded yet
+        }
 
-                        if (instance.BoundingBox.Contains(pos)) {
-                            return InstanceIdConstants.GetRawId(instance.InstanceId);
-                        }
-                    }
+        private bool CheckInstances(List<SceneryInstance> instances, Vector3 pos, bool onlyEntryCells, out uint cellId) {
+            cellId = 0;
+            foreach (var instance in instances) {
+                var type = InstanceIdConstants.GetType(instance.InstanceId);
+                if (type != InspectorSelectionType.EnvCell) continue;
+                if (onlyEntryCells && !instance.IsEntryCell) continue;
+
+                if (instance.BoundingBox.Contains(pos)) {
+                    cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
+                    return true;
                 }
             }
-            return 0;
+            return false;
         }
 
         public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit) {

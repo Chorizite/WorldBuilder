@@ -230,6 +230,28 @@ public class GameScene : IDisposable {
     public uint CurrentEnvCellId => _currentEnvCellId;
 
     /// <summary>
+    /// Teleports the camera to a specific position and optionally sets the environment cell ID.
+    /// </summary>
+    /// <param name="position">The global position to teleport to.</param>
+    /// <param name="cellId">The environment cell ID (0 for outside).</param>
+    public void Teleport(Vector3 position, uint? cellId = null) {
+        _currentCamera.Position = position;
+        if (cellId.HasValue) {
+            // Only set _currentEnvCellId if it's actually an EnvCell (>= 0x0100)
+            if ((cellId.Value & 0xFFFF) >= 0x0100) {
+                _currentEnvCellId = cellId.Value;
+            }
+            else {
+                _currentEnvCellId = 0;
+            }
+        }
+        else {
+            _currentEnvCellId = GetEnvCellAt(position, false);
+        }
+        _log.LogInformation("Teleported to {Position} in cell {CellId:X8}", position, _currentEnvCellId);
+    }
+
+    /// <summary>
     /// Creates a new GameScene.
     /// </summary>
     public GameScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILoggerFactory loggerFactory, IPortalService portalService) {
@@ -404,10 +426,9 @@ public class GameScene : IDisposable {
     }
 
     private void CenterCameraOnLandscape(ITerrainInfo region) {
-        _camera3D.Position = new Vector3(-701.20f, -5347.16f, 2000f);
-        _camera3D.Pitch = -89.9f;
-        _camera3D.Yaw = 0;
-
+        _camera3D.Position = new Vector3(25.493f, 55.090f, 60.164f);
+        _camera3D.Rotation = new Quaternion(-0.164115f, 0.077225f, -0.418708f, 0.889824f);
+        
         SyncCameraZ();
     }
 
@@ -553,10 +574,16 @@ public class GameScene : IDisposable {
 
             // Update current cell ID based on portal transition rules
             if (_currentEnvCellId == 0) {
-                _currentEnvCellId = GetEnvCellAt(newPos, true);
+                var newCell = GetEnvCellAt(newPos, true);
+                if (newCell != 0xFFFFFFFF) {
+                    _currentEnvCellId = newCell;
+                }
             }
             else {
-                _currentEnvCellId = GetEnvCellAt(newPos, false);
+                var newCell = GetEnvCellAt(newPos, false);
+                if (newCell != 0xFFFFFFFF) {
+                    _currentEnvCellId = newCell;
+                }
             }
 
             // Always enforce terrain height if outside and camera collision is enabled
