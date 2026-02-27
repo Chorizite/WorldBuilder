@@ -28,6 +28,7 @@ namespace WorldBuilder.Shared.Lib {
 
         [ObservableProperty] private int _objectRenderDistance = 12;
         [ObservableProperty] private float _maxDrawDistance = 40000f;
+        [ObservableProperty] private float _mouseSensitivity = 1.0f;
         [ObservableProperty] private bool _enableCameraCollision = true;
     }
 }

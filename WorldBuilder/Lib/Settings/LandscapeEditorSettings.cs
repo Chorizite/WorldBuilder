@@ -87,10 +87,10 @@ namespace WorldBuilder.Lib.Settings {
         public int FieldOfView { get => _fieldOfView; set => SetProperty(ref _fieldOfView, value); }
 
         [SettingDescription("Mouse look sensitivity multiplier")]
-        [SettingRange(0.1, 5.0, 0.1, 0.5)]
+        [SettingRange(0.1, 2.0, 0.05, 0.2)]
         [SettingFormat("{0:F2}")]
         [SettingOrder(2)]
-        private float _mouseSensitivity = 0.2f;
+        private float _mouseSensitivity = 1.0f;
         public float MouseSensitivity { get => _mouseSensitivity; set => SetProperty(ref _mouseSensitivity, value); }
 
         [SettingDescription("Camera movement speed in units per second")]
