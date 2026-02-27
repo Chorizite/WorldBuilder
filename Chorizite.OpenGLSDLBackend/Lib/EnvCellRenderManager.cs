@@ -34,8 +34,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private bool _showEnvCells = true;
 
-        // Grouped instances by cell ID for efficient filtered rendering
-        private readonly Dictionary<uint, Dictionary<ulong, List<Matrix4x4>>> _cellBatches = new();
+        // Grouped instances by gfxObjId for efficient batching across cells
+        private readonly Dictionary<ulong, Dictionary<uint, List<Matrix4x4>>> _batchedByGfxObj = new();
 
         protected override bool RenderHighlightsWhenEmpty => true;
 
@@ -197,7 +197,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _visibleGroups.Clear();
             _visibleGfxObjIds.Clear();
             _poolIndex = 0;
-            _cellBatches.Clear();
+            _batchedByGfxObj.Clear();
 
             var cellVisibility = new Dictionary<uint, bool>();
 
@@ -235,28 +235,33 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         if (!_frustum.Intersects(instance.BoundingBox)) continue;
                     }
 
-                    // If we get here, it's visible, so batch it
-                    if (!_cellBatches.TryGetValue(cellId, out var cellGroups)) {
-                        cellGroups = new Dictionary<ulong, List<Matrix4x4>>();
-                        _cellBatches[cellId] = cellGroups;
-                    }
-
+                    // If we get here, it's visible, so batch it by gfxObjId instead of cellId
                     if (instance.IsSetup) {
                         var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
                         if (renderData is { IsSetup: true }) {
                             foreach (var (partId, partTransform) in renderData.SetupParts) {
-                                if (!cellGroups.TryGetValue(partId, out var list)) {
+                                if (!_batchedByGfxObj.TryGetValue(partId, out var cellDict)) {
+                                    cellDict = new Dictionary<uint, List<Matrix4x4>>();
+                                    _batchedByGfxObj[partId] = cellDict;
+                                }
+
+                                if (!cellDict.TryGetValue(cellId, out var list)) {
                                     list = GetPooledList();
-                                    cellGroups[partId] = list;
+                                    cellDict[cellId] = list;
                                 }
                                 list.Add(partTransform * instance.Transform);
                             }
                         }
                     }
                     else {
-                        if (!cellGroups.TryGetValue(instance.ObjectId, out var list)) {
+                        if (!_batchedByGfxObj.TryGetValue(instance.ObjectId, out var cellDict)) {
+                            cellDict = new Dictionary<uint, List<Matrix4x4>>();
+                            _batchedByGfxObj[instance.ObjectId] = cellDict;
+                        }
+
+                        if (!cellDict.TryGetValue(cellId, out var list)) {
                             list = GetPooledList();
-                            cellGroups[instance.ObjectId] = list;
+                            cellDict[cellId] = list;
                         }
                         list.Add(instance.Transform);
                     }
@@ -278,19 +283,37 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             _shader.SetUniform("uRenderPass", renderPass);
 
-            if (filter == null) {
-                foreach (var cellId in _cellBatches.Keys) {
-                    RenderCell(cellId);
+            // Iterate through gfxObjId first to achieve batching across cells
+            foreach (var (gfxObjId, cellDict) in _batchedByGfxObj) {
+                // Gather transforms for this gfxObjId across all filtered cells
+                var pooledList = GetPooledList();
+                
+                if (filter == null) {
+                    // If no filter, include transforms from all cells for this gfxObjId
+                    foreach (var (cellId, transforms) in cellDict) {
+                        pooledList.AddRange(transforms);
+                    }
                 }
-            }
-            else {
-                foreach (var cellId in filter) {
-                    RenderCell(cellId);
+                else {
+                    // If filter exists, only include transforms from filtered cells
+                    foreach (var cellId in filter) {
+                        if (cellDict.TryGetValue(cellId, out var transforms)) {
+                            pooledList.AddRange(transforms);
+                        }
+                    }
+                }
+
+                // If we have transforms to render, do the batch render
+                if (pooledList.Count > 0) {
+                    var renderData = MeshManager.TryGetRenderData(gfxObjId);
+                    if (renderData != null && !renderData.IsSetup) {
+                        RenderObjectBatches(_shader!, renderData, pooledList);
+                    }
                 }
             }
 
             // Draw highlighted / selected objects on top
-            if (RenderHighlightsWhenEmpty || _cellBatches.Count > 0) {
+            if (RenderHighlightsWhenEmpty || _batchedByGfxObj.Count > 0) {
                 Gl.DepthFunc(GLEnum.Lequal);
                 if (SelectedInstance.HasValue) {
                     RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection);
@@ -304,17 +327,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("uHighlightColor", Vector4.Zero);
             _shader.SetUniform("uRenderPass", renderPass);
             Gl.BindVertexArray(0);
-        }
-
-        private void RenderCell(uint cellId) {
-            if (_cellBatches.TryGetValue(cellId, out var groups)) {
-                foreach (var (gfxObjId, transforms) in groups) {
-                    var renderData = MeshManager.TryGetRenderData(gfxObjId);
-                    if (renderData != null && !renderData.IsSetup) {
-                        RenderObjectBatches(_shader!, renderData, transforms);
-                    }
-                }
-            }
         }
 
         protected override void PopulatePartGroups(ObjectLandblock lb, List<SceneryInstance> instances) {
