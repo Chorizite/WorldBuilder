@@ -418,7 +418,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var building in lb.BuildingPortals) {
                 if (building.VAO != 0) _gl.DeleteVertexArray(building.VAO);
                 if (building.VBO != 0) {
-                    GpuMemoryTracker.TrackDeallocation(building.VertexCount * sizeof(Vector3));
+                    GpuMemoryTracker.TrackDeallocation(building.VertexCount * sizeof(Vector3), GpuResourceType.Buffer);
                     _gl.DeleteBuffer(building.VBO);
                 }
             }
@@ -452,7 +452,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                         _gl.BindVertexArray(0);
 
-                        GpuMemoryTracker.TrackAllocation(pending.Vertices.Length * sizeof(Vector3));
+                        GpuMemoryTracker.TrackAllocation(pending.Vertices.Length * sizeof(Vector3), GpuResourceType.Buffer);
                     }
 
                     lb.BuildingPortals.Add(new BuildingPortalGPU {
@@ -477,7 +477,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     _gl.DeleteVertexArray(building.VAO);
                 }
                 if (building.VBO != 0) {
-                    GpuMemoryTracker.TrackDeallocation(building.VertexCount * sizeof(Vector3));
+                    GpuMemoryTracker.TrackDeallocation(building.VertexCount * sizeof(Vector3), GpuResourceType.Buffer);
                     _gl.DeleteBuffer(building.VBO);
                 }
             }

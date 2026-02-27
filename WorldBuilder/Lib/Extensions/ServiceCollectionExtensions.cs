@@ -116,6 +116,7 @@ namespace WorldBuilder.Lib.Extensions {
 
             collection.AddSingleton<TextureService>();
             collection.AddSingleton<MeshManagerService>();
+            collection.AddSingleton<SurfaceManagerService>();
 
             // Register shared services from the project's service provider
             // to ensure they are the same instances used by the project module.

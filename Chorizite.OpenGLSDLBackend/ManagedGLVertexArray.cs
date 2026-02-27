@@ -26,6 +26,7 @@ namespace Chorizite.OpenGLSDLBackend {
             if (_vaoId == 0) {
                 throw new Exception("Failed to generate vertex array.");
             }
+            GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.VAO);
 
             SetVertexBuffer(buffer, format);
         }
@@ -67,7 +68,11 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public void Dispose() {
-            GL.DeleteVertexArray(_vaoId);
+            if (_vaoId != 0) {
+                GL.DeleteVertexArray(_vaoId);
+                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.VAO);
+                _vaoId = 0;
+            }
             GLHelpers.CheckErrors();
         }
     }

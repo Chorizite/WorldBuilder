@@ -32,7 +32,8 @@ namespace WorldBuilder.Services {
         public long GetRamUsage() {
             try {
                 return Process.GetCurrentProcess().WorkingSet64;
-            } catch {
+            }
+            catch {
                 return 0;
             }
         }
@@ -43,7 +44,7 @@ namespace WorldBuilder.Services {
         /// <returns>VRAM usage in bytes.</returns>
         public long GetVramUsage() {
             // TODO: this isnt working in our setup, cause opengl ES maybe?
-            
+
             // Prefer manual tracking as driver extensions are often unreliable or missing
             var trackedMemory = GpuMemoryTracker.AllocatedBytes;
             if (trackedMemory > 0) return trackedMemory;
@@ -55,9 +56,9 @@ namespace WorldBuilder.Services {
                 // Try NVIDIA extension (GL_NVX_gpu_memory_info)
                 // GL_GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX = 0x9048
                 // GL_GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX = 0x9049
-                gl.GetInteger((GLEnum)0x9048, out int totalMemoryKb); 
+                gl.GetInteger((GLEnum)0x9048, out int totalMemoryKb);
                 gl.GetInteger((GLEnum)0x9049, out int availableMemoryKb);
-                
+
                 if (totalMemoryKb > 0 && availableMemoryKb > 0) {
                     return (long)(totalMemoryKb - availableMemoryKb) * 1024;
                 }
@@ -70,12 +71,19 @@ namespace WorldBuilder.Services {
                         return Math.Max(0, total - free);
                     }
                 }
-            } catch {
+            }
+            catch {
                 // Ignore errors if extensions are not supported
             }
 
             return 0;
         }
+
+        /// <summary>
+        /// Gets detailed GPU resource information.
+        /// </summary>
+        /// <returns>An enumerable of GpuResourceDetails.</returns>
+        public IEnumerable<GpuResourceDetails> GetGpuResourceDetails() => GpuMemoryTracker.GetDetails();
 
         /// <summary>
         /// Gets the total VRAM in bytes.
@@ -94,7 +102,8 @@ namespace WorldBuilder.Services {
                 if (totalMemoryKb > 0) {
                     return (long)totalMemoryKb * 1024;
                 }
-            } catch {
+            }
+            catch {
                 // Ignore errors if extensions are not supported
             }
 
@@ -126,7 +135,8 @@ namespace WorldBuilder.Services {
                 if (freeMem[0] > 0) {
                     return (long)freeMem[0] * 1024;
                 }
-            } catch {
+            }
+            catch {
                 // Ignore errors if extensions are not supported
             }
 

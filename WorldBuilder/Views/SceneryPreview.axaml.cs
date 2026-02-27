@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Threading;
 using Chorizite.OpenGLSDLBackend;
+using Chorizite.OpenGLSDLBackend.Lib;
 using DatReaderWriter.Enums;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -24,6 +25,7 @@ public partial class SceneryPreview : Base3DViewport {
     private GameScene? _gameScene;
     private LandscapeDocument? _previewDoc;
     private PreviewRegionInfo? _previewRegion;
+    private LandSurfaceManager? _cachedSurfaceManager;
 
     private TerrainTextureType _cachedTexture;
     private byte _cachedSceneryIndex;
@@ -144,10 +146,21 @@ public partial class SceneryPreview : Base3DViewport {
             var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
             var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
             var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _cachedDats);
+            var surfaceManagerService = projectManager?.GetProjectService<SurfaceManagerService>();
+
+            if (_previewDoc != null && _previewRegion != null && surfaceManagerService != null) {
+                if (_cachedSurfaceManager != null) {
+                    // Release the old one if it's different
+                    surfaceManagerService.ReleaseSurfaceManager(_cachedDats, _previewDoc.RegionId);
+                }
+                _cachedSurfaceManager = surfaceManagerService.GetSurfaceManager(Renderer!.GraphicsDevice, _cachedDats, _previewRegion.Region, _previewDoc.RegionId);
+            }
 
             var documentManager = projectManager?.GetProjectService<IDocumentManager>();
-            _gameScene.SetLandscape(_previewDoc, _cachedDats, documentManager!, meshManager);
-            _gameScene.InvalidateLandblock(0, 0);
+            if (_previewDoc != null && documentManager != null) {
+                _gameScene.SetLandscape(_previewDoc, _cachedDats, documentManager, meshManager, _cachedSurfaceManager);
+                _gameScene.InvalidateLandblock(0, 0);
+            }
         }
         _needsUpdate = false;
     }
@@ -189,8 +202,18 @@ public partial class SceneryPreview : Base3DViewport {
     }
 
     protected override void OnGlDestroy() {
+        if (_gameScene != null && _previewDoc != null && _cachedDats != null) {
+            var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
+            var surfaceManagerService = projectManager?.GetProjectService<SurfaceManagerService>();
+            if (surfaceManagerService != null && _cachedSurfaceManager != null) {
+                surfaceManagerService.ReleaseSurfaceManager(_cachedDats, _previewDoc.RegionId);
+                _cachedSurfaceManager = null;
+            }
+        }
         _gameScene?.Dispose();
         _gameScene = null;
+        _previewDoc?.Dispose();
+        _previewDoc = null;
     }
 
     protected override void OnGlKeyDown(Avalonia.Input.KeyEventArgs e) { }

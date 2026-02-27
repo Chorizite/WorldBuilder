@@ -322,7 +322,7 @@ public class GameScene : IDisposable {
         }
     }
 
-    public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats, IDocumentManager documentManager, ObjectMeshManager? meshManager = null, bool centerCamera = true) {
+    public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats, IDocumentManager documentManager, ObjectMeshManager? meshManager = null, LandSurfaceManager? surfaceManager = null, bool centerCamera = true) {
         _landscapeDoc = landscapeDoc;
         _currentEnvCellId = 0;
         if (_terrainManager != null) {
@@ -355,7 +355,7 @@ public class GameScene : IDisposable {
         _ownsMeshManager = meshManager == null;
         _meshManager = meshManager ?? new ObjectMeshManager(_graphicsDevice, dats, _loggerFactory.CreateLogger<ObjectMeshManager>());
 
-        _terrainManager = new TerrainRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, documentManager, _cullingFrustum);
+        _terrainManager = new TerrainRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, documentManager, _cullingFrustum, surfaceManager);
         _terrainManager.ShowUnwalkableSlopes = _state.ShowUnwalkableSlopes;
         _terrainManager.ScreenHeight = _height;
         _terrainManager.RenderDistance = (int)Math.Ceiling(_state.MaxDrawDistance / 1536f);
@@ -1292,6 +1292,10 @@ public class GameScene : IDisposable {
     #endregion
 
     public void Dispose() {
+        if (_state != null) {
+            _state.PropertyChanged -= OnStatePropertyChanged;
+        }
+
         _terrainManager?.Dispose();
         _portalManager?.Dispose();
         _sceneryManager?.Dispose();
@@ -1302,5 +1306,10 @@ public class GameScene : IDisposable {
         if (_ownsMeshManager) {
             _meshManager?.Dispose();
         }
+
+        (_shader as IDisposable)?.Dispose();
+        (_terrainShader as IDisposable)?.Dispose();
+        (_sceneryShader as IDisposable)?.Dispose();
+        (_stencilShader as IDisposable)?.Dispose();
     }
 }

@@ -32,6 +32,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
             // Generate the buffer
             bufferId = GL.GenBuffer();
+            GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
             GLHelpers.CheckErrors();
 
             // Allocate the buffer with the specified size but no initial data
@@ -40,7 +41,7 @@ namespace Chorizite.OpenGLSDLBackend {
             GL.BufferData(BufferTargetARB.ElementArrayBuffer, (uint)Size, (void*)0, Usage.ToGL());
             GLHelpers.CheckErrors();
 
-            GpuMemoryTracker.TrackAllocation(Size);
+            GpuMemoryTracker.TrackAllocation(Size, GpuResourceType.Buffer);
         }
 
         /// <inheritdoc />
@@ -148,8 +149,9 @@ namespace Chorizite.OpenGLSDLBackend {
         public unsafe void Dispose() {
             if (bufferId != 0) {
                 GL.DeleteBuffer(bufferId);
+                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
                 GLHelpers.CheckErrors();
-                GpuMemoryTracker.TrackDeallocation(Size);
+                GpuMemoryTracker.TrackDeallocation(Size, GpuResourceType.Buffer);
                 bufferId = 0;
             }
         }

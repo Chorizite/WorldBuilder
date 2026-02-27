@@ -281,20 +281,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (count <= _instanceBufferCapacity) return;
 
             if (_instanceBufferCapacity > 0) {
-                GpuMemoryTracker.TrackDeallocation(_instanceBufferCapacity * sizeof(Matrix4x4));
+                GpuMemoryTracker.TrackDeallocation(_instanceBufferCapacity * sizeof(Matrix4x4), GpuResourceType.Buffer);
             }
 
             _instanceBufferCapacity = Math.Max(count, 256);
             _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVBO);
             _gl.BufferData(GLEnum.ArrayBuffer, (nuint)(_instanceBufferCapacity * sizeof(Matrix4x4)),
                 (void*)null, GLEnum.DynamicDraw);
-            GpuMemoryTracker.TrackAllocation(_instanceBufferCapacity * sizeof(Matrix4x4));
+            GpuMemoryTracker.TrackAllocation(_instanceBufferCapacity * sizeof(Matrix4x4), GpuResourceType.Buffer);
         }
 
         public void Dispose() {
             if (_instanceVBO != 0) {
                 _gl.DeleteBuffer(_instanceVBO);
-                GpuMemoryTracker.TrackDeallocation(_instanceBufferCapacity * Marshal.SizeOf<Matrix4x4>());
+                GpuMemoryTracker.TrackDeallocation(_instanceBufferCapacity * Marshal.SizeOf<Matrix4x4>(), GpuResourceType.Buffer);
             }
         }
     }

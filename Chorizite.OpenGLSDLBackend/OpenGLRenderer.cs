@@ -58,7 +58,10 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public override void Dispose() {
-
+            (UIShader as IDisposable)?.Dispose();
+            (TextShader as IDisposable)?.Dispose();
+            DrawList?.Dispose();
+            FontManager?.Dispose();
         }
     }
 }

@@ -602,6 +602,12 @@ namespace WorldBuilder.Shared.Models {
                 chunk.Dispose();
             }
             LoadedChunks.Clear();
+            _initLock.Dispose();
+            _dbLock.Dispose();
+            foreach (var semaphore in _chunkLocks.Values) {
+                semaphore.Dispose();
+            }
+            _chunkLocks.Clear();
         }
     }
 }

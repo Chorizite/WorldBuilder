@@ -637,10 +637,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public override void Dispose() {
             LandscapeDoc.LandblockChanged -= OnLandblockChanged;
+            foreach (var lb in _landblocks.Values) {
+                UnloadLandblockResources(lb);
+            }
             _landblocks.Clear();
             _preparedMeshes.Clear();
             _pendingGeneration.Clear();
             _outOfRangeTimers.Clear();
+            foreach (var cts in _generationCTS.Values) {
+                cts.Cancel();
+                cts.Dispose();
+            }
+            _generationCTS.Clear();
+            _listPool.Clear();
             base.Dispose();
         }
     }

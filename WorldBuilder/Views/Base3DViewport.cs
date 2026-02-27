@@ -78,7 +78,7 @@ namespace WorldBuilder.Views {
                     if (point.HasValue) {
                         var scaling = topLevel.RenderScaling;
                         var bounds = _viewport.Bounds;
-                        
+
                         if (bounds.Width > 0 && bounds.Height > 0) {
                             InputScale = new Vector2((float)scaling, (float)scaling);
                         }
@@ -153,6 +153,8 @@ namespace WorldBuilder.Views {
             OnGlDestroy();
             RenderTarget?.Dispose();
             RenderTarget = null;
+            Renderer?.Dispose();
+            Renderer = null;
         }
 
         protected abstract void OnGlInit(GL gl, PixelSize canvasSize);
