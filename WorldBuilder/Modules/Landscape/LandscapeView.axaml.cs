@@ -13,7 +13,9 @@ namespace WorldBuilder.Modules.Landscape;
 public partial class LandscapeView : UserControl {
     private DispatcherTimer? _updateTimer;
     private TextBlock? _locationText;
+    private Button? _copyButton;
     private RenderView? _renderView;
+    private string? _lastLocationString;
 
     public LandscapeView() {
         InitializeComponent();
@@ -25,13 +27,29 @@ public partial class LandscapeView : UserControl {
 
     private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e) {
         _locationText = this.FindControl<TextBlock>("LocationText");
+        _copyButton = this.FindControl<Button>("CopyLocationButton");
+        if (_copyButton != null) {
+            _copyButton.Click += OnCopyLocationClicked;
+        }
         _renderView = this.FindControl<RenderView>("RenderView");
         TryInitializeToolContext();
         StartUpdateTimer();
     }
 
     private void OnDetachedFromVisualTree(object? sender, VisualTreeAttachmentEventArgs e) {
+        if (_copyButton != null) {
+            _copyButton.Click -= OnCopyLocationClicked;
+        }
         StopUpdateTimer();
+    }
+
+    private async void OnCopyLocationClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e) {
+        if (!string.IsNullOrEmpty(_lastLocationString)) {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel?.Clipboard != null) {
+                await topLevel.Clipboard.SetTextAsync(_lastLocationString);
+            }
+        }
     }
 
     private void StartUpdateTimer() {
@@ -59,8 +77,10 @@ public partial class LandscapeView : UserControl {
             loc.CellId = (ushort)(cellId & 0xFFFF);
             loc.LandblockId = (ushort)(cellId >> 16);
         }
+        loc.Rotation = _renderView.Camera.Rotation;
+        _lastLocationString = loc.ToLandblockString();
 
-        _locationText.Text = loc.ToString() + $" (IsOutside: {loc.IsOutside})";
+        _locationText.Text = loc.ToMapString() + $" | {_lastLocationString}";
     }
 
     protected override void OnDataContextChanged(EventArgs e) {

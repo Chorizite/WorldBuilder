@@ -150,4 +150,10 @@ public class Camera2D : CameraBase {
 
     /// <inheritdoc/>
     public override Vector3 Forward => new Vector3(0, 0, -1);
+
+    /// <inheritdoc/>
+    public override Quaternion Rotation {
+        get => Quaternion.Identity;
+        set { /* Not supported in 2D */ }
+    }
 }

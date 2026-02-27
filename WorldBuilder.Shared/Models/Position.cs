@@ -32,7 +32,7 @@ namespace WorldBuilder.Shared.Models {
         );
 
         private static readonly Regex LandblockRegex = new Regex(
-            @"(?:Your location is:\s*)?0x(?<LandblockId>[0-9A-Fa-f]{4})(?<CellId>[0-9A-Fa-f]{4})\s*\[\s*(?<LocalX>-?\d+\.?\d*)\s+(?<LocalY>-?\d+\.?\d*)\s+(?<LocalZ>-?\d+\.?\d*)\s*\](?:\s+(?<QuatX>-?\d+\.?\d*)\s+(?<QuatY>-?\d+\.?\d*)\s+(?<QuatZ>-?\d+\.?\d*)\s+(?<QuatW>-?\d+\.?\d*))?",
+            @"(?:Your location is:\s*)?0x(?<LandblockId>[0-9A-Fa-f]{4})(?<CellId>[0-9A-Fa-f]{4})\s*\[\s*(?<LocalX>-?\d+\.?\d*)\s+(?<LocalY>-?\d+\.?\d*)\s+(?<LocalZ>-?\d+\.?\d*)\s*\](?:\s+\[?\s*(?<QuatX>-?\d+\.?\d*)\s+(?<QuatY>-?\d+\.?\d*)\s+(?<QuatZ>-?\d+\.?\d*)\s+(?<QuatW>-?\d+\.?\d*)\s*\]?)?",
             RegexOptions.IgnoreCase | RegexOptions.Compiled
         );
 
@@ -648,7 +648,7 @@ namespace WorldBuilder.Shared.Models {
                 return $"Out of Bounds ({_localX:F1}, {_localY:F1}, {_localZ:F1})";
             }
 
-            string result = $"0x{_landblockId:X4}{_cellId:X4} [{_localX:F6} {_localY:F6} {_localZ:F6}]";
+            string result = $"0x{_landblockId:X4}{_cellId:X4} [{_localX:F3} {_localY:F3} {_localZ:F3}]";
 
             if (Rotation.HasValue) {
                 var q = Rotation.Value;

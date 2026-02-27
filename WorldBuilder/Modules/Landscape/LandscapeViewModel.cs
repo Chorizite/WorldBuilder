@@ -424,13 +424,25 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         _isRestoringCamera = true;
         try {
             var projectSettings = _settings.Project;
-            _gameScene.Camera3D.Position = projectSettings.LandscapeCameraPosition;
+
+            // Try restoring from string first if available
+            if (!string.IsNullOrEmpty(projectSettings.LandscapeCameraLocationString) &&
+                Position.TryParse(projectSettings.LandscapeCameraLocationString, out var pos, ActiveDocument?.Region)) {
+                _gameScene.Teleport(pos!.GlobalPosition, (uint)((pos.LandblockId << 16) | pos.CellId));
+                if (pos.Rotation.HasValue) {
+                    _gameScene.CurrentCamera.Rotation = pos.Rotation.Value;
+                }
+            }
+            else {
+                _gameScene.Camera3D.Position = projectSettings.LandscapeCameraPosition;
+                _gameScene.Camera2D.Position = projectSettings.LandscapeCameraPosition;
+            }
+
             _gameScene.Camera3D.Yaw = projectSettings.LandscapeCameraYaw;
             _gameScene.Camera3D.Pitch = projectSettings.LandscapeCameraPitch;
             _gameScene.Camera3D.MoveSpeed = projectSettings.LandscapeCameraMovementSpeed;
             _gameScene.Camera3D.FieldOfView = projectSettings.LandscapeCameraFieldOfView;
 
-            _gameScene.Camera2D.Position = projectSettings.LandscapeCameraPosition;
             _gameScene.Camera2D.Zoom = projectSettings.LandscapeCameraZoom;
             _gameScene.Camera2D.FieldOfView = projectSettings.LandscapeCameraFieldOfView;
 
@@ -445,7 +457,18 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         if (_isRestoringCamera || _settings?.Project == null || _gameScene == null) return;
 
         var projectSettings = _settings.Project;
-        projectSettings.LandscapeCameraPosition = _gameScene.Camera.Position;
+        var pos = _gameScene.Camera.Position;
+        projectSettings.LandscapeCameraPosition = pos;
+
+        // Save location string
+        var loc = Position.FromGlobal(pos, ActiveDocument?.Region);
+        if (_gameScene.CurrentEnvCellId != 0) {
+            loc.CellId = (ushort)(_gameScene.CurrentEnvCellId & 0xFFFF);
+            loc.LandblockId = (ushort)(_gameScene.CurrentEnvCellId >> 16);
+        }
+        loc.Rotation = _gameScene.Camera.Rotation;
+        projectSettings.LandscapeCameraLocationString = loc.ToLandblockString();
+
         projectSettings.LandscapeCameraIs3D = _gameScene.Is3DMode;
         projectSettings.LandscapeCameraYaw = _gameScene.Camera3D.Yaw;
         projectSettings.LandscapeCameraPitch = _gameScene.Camera3D.Pitch;
@@ -645,9 +668,8 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         }
 
         if (vm.Result && Position.TryParse(vm.InputText, out var pos, ActiveDocument?.Region)) {
-            if (Camera is Chorizite.OpenGLSDLBackend.ICamera choriziteCamera) {
-                choriziteCamera.Position = pos!.GlobalPosition;
-            }
+            uint cellId = (uint)((pos!.LandblockId << 16) | pos.CellId);
+            _gameScene?.Teleport(pos.GlobalPosition, cellId);
         }
     }
 

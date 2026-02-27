@@ -126,5 +126,8 @@ public abstract class CameraBase : ICamera {
 
     /// <inheritdoc/>
     public abstract Vector3 Forward { get; }
+
+    /// <inheritdoc/>
+    public abstract Quaternion Rotation { get; set; }
 }
 

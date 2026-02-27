@@ -39,6 +39,11 @@ public interface ICamera : WorldBuilder.Shared.Models.ICamera {
     new Vector3 Position { get; set; }
 
     /// <summary>
+    /// Gets or sets the camera rotation as a quaternion.
+    /// </summary>
+    new Quaternion Rotation { get; set; }
+
+    /// <summary>
     /// Updates the camera state based on elapsed time.
     /// </summary>
     /// <param name="deltaTime">Time elapsed since last update in seconds.</param>

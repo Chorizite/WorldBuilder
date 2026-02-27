@@ -130,6 +130,29 @@ public class Camera3D : CameraBase {
         }
     }
 
+    /// <inheritdoc/>
+    public override Quaternion Rotation {
+        get {
+            float yawRad = MathF.PI * _yaw / 180.0f;
+            float pitchRad = MathF.PI * _pitch / 180.0f;
+
+            // Yaw 0 is North (+Y), Pitch 0 is horizon
+            var qYaw = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, -yawRad);
+            var qPitch = Quaternion.CreateFromAxisAngle(Vector3.UnitX, pitchRad);
+
+            return qYaw * qPitch;
+        }
+        set {
+            // Extract Yaw and Pitch from Quaternion
+            var forward = Vector3.Transform(new Vector3(0, 1, 0), value);
+            _yaw = MathF.Atan2(forward.X, forward.Y) * 180f / MathF.PI;
+            _pitch = MathF.Asin(Math.Clamp(forward.Z, -1f, 1f)) * 180f / MathF.PI;
+
+            InvalidateMatrices();
+            NotifyChanged();
+        }
+    }
+
     /// <summary>
     /// Gets the right direction vector.
     /// </summary>
