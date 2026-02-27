@@ -83,12 +83,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private bool CheckInstances(List<SceneryInstance> instances, Vector3 pos, bool onlyEntryCells, out uint cellId) {
             cellId = 0;
+            // Add a small vertical epsilon to account for the rendering Z-offset (0.02f)
+            // and floating point precision.
+            var testPos = pos + new Vector3(0, 0, 0.1f);
             foreach (var instance in instances) {
                 var type = InstanceIdConstants.GetType(instance.InstanceId);
                 if (type != InspectorSelectionType.EnvCell) continue;
                 if (onlyEntryCells && !instance.IsEntryCell) continue;
 
-                if (instance.BoundingBox.Contains(pos)) {
+                // Expand the bounding box slightly (0.1 units) for the containment test
+                // to handle precision issues and teleporting to boundaries.
+                var bbox = instance.BoundingBox;
+                if (testPos.X >= bbox.Min.X - 0.1f && testPos.X <= bbox.Max.X + 0.1f &&
+                    testPos.Y >= bbox.Min.Y - 0.1f && testPos.Y <= bbox.Max.Y + 0.1f &&
+                    testPos.Z >= bbox.Min.Z - 0.1f && testPos.Z <= bbox.Max.Z + 0.1f) {
                     cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
                     return true;
                 }
@@ -378,92 +386,92 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     var cellId = cellsToProcess.Dequeue();
 
                     if (cellDb != null && cellDb.TryGet<EnvCell>(cellId, out var envCell)) {
-                        // Check if this cell should be rendered
-                        if (envCell.Flags.HasFlag(EnvCellFlags.SeenOutside)) {
-                            numVisibleCells++;
+                        // We always add the cell to instances so GetEnvCellAt can find it,
+                        // even if it's not marked SeenOutside. Portal-based rendering
+                        // will handle occluding it if it's not visible.
+                        numVisibleCells++;
 
-                            // Calculate world position
-                            var datPos = new Vector3((float)envCell.Position.Origin.X, (float)envCell.Position.Origin.Y, (float)envCell.Position.Origin.Z);
-                            var worldPos = new Vector3(
-                                new Vector2(lbGlobalX * lbSizeUnits + datPos.X, lbGlobalY * lbSizeUnits + datPos.Y) + regionInfo.MapOffset,
-                                datPos.Z + RenderConstants.ObjectZOffset
-                            );
+                        // Calculate world position
+                        var datPos = new Vector3((float)envCell.Position.Origin.X, (float)envCell.Position.Origin.Y, (float)envCell.Position.Origin.Z);
+                        var worldPos = new Vector3(
+                            new Vector2(lbGlobalX * lbSizeUnits + datPos.X, lbGlobalY * lbSizeUnits + datPos.Y) + regionInfo.MapOffset,
+                            datPos.Z + RenderConstants.ObjectZOffset
+                        );
 
-                            var rotation = new System.Numerics.Quaternion(
-                                (float)envCell.Position.Orientation.X,
-                                (float)envCell.Position.Orientation.Y,
-                                (float)envCell.Position.Orientation.Z,
-                                (float)envCell.Position.Orientation.W
-                            );
+                        var rotation = new System.Numerics.Quaternion(
+                            (float)envCell.Position.Orientation.X,
+                            (float)envCell.Position.Orientation.Y,
+                            (float)envCell.Position.Orientation.Z,
+                            (float)envCell.Position.Orientation.W
+                        );
 
-                            var transform = Matrix4x4.CreateFromQuaternion(rotation)
-                                * Matrix4x4.CreateTranslation(worldPos);
+                        var transform = Matrix4x4.CreateFromQuaternion(rotation)
+                            * Matrix4x4.CreateTranslation(worldPos);
 
-                            // Add the cell geometry itself
-                            uint envId = 0x0D000000u | envCell.EnvironmentId;
-                            if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
-                                if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
-                                    // Use synthetic ID for cell geometry (bit 32 set)
-                                    var cellGeomId = (ulong)cellId | 0x1_0000_0000UL;
-                                    var bounds = MeshManager.GetBounds(cellGeomId, false);
-                                    var localBbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max) : default;
-                                    var bbox = localBbox.Transform(transform);
+                        // Add the cell geometry itself
+                        uint envId = 0x0D000000u | envCell.EnvironmentId;
+                        if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
+                            if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
+                                // Use synthetic ID for cell geometry (bit 32 set)
+                                var cellGeomId = (ulong)cellId | 0x1_0000_0000UL;
+                                var bounds = MeshManager.GetBounds(cellGeomId, false);
+                                var localBbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max) : default;
+                                var bbox = localBbox.Transform(transform);
 
-                                    instances.Add(new SceneryInstance {
-                                        ObjectId = cellGeomId,
-                                        InstanceId = InstanceIdConstants.Encode(cellId, InspectorSelectionType.EnvCell),
-                                        IsSetup = false,
-                                        IsBuilding = true,
-                                        IsEntryCell = entryCellIds.Contains(cellId),
-                                        WorldPosition = worldPos,
-                                        LocalPosition = datPos,
-                                        Rotation = rotation,
-                                        Scale = Vector3.One,
-                                        Transform = transform,
-                                        LocalBoundingBox = localBbox,
-                                        BoundingBox = bbox
-                                    });
-                                }
+                                instances.Add(new SceneryInstance {
+                                    ObjectId = cellGeomId,
+                                    InstanceId = InstanceIdConstants.Encode(cellId, InspectorSelectionType.EnvCell),
+                                    IsSetup = false,
+                                    IsBuilding = true,
+                                    IsEntryCell = entryCellIds.Contains(cellId),
+                                    WorldPosition = worldPos,
+                                    LocalPosition = datPos,
+                                    Rotation = rotation,
+                                    Scale = Vector3.One,
+                                    Transform = transform,
+                                    LocalBoundingBox = localBbox,
+                                    BoundingBox = bbox
+                                });
                             }
+                        }
 
-                            // Add static objects within the cell
-                            if (envCell.StaticObjects.Count > 0) {
-                                for (ushort i = 0; i < envCell.StaticObjects.Count; i++) {
-                                    var stab = envCell.StaticObjects[i];
+                        // Add static objects within the cell
+                        if (envCell.StaticObjects.Count > 0) {
+                            for (ushort i = 0; i < envCell.StaticObjects.Count; i++) {
+                                var stab = envCell.StaticObjects[i];
 
-                                    var datStabPos = new Vector3((float)stab.Frame.Origin.X, (float)stab.Frame.Origin.Y, (float)stab.Frame.Origin.Z);
-                                    var stabWorldPos = new Vector3(
-                                        new Vector2(lbGlobalX * lbSizeUnits + datStabPos.X, lbGlobalY * lbSizeUnits + datStabPos.Y) + regionInfo.MapOffset,
-                                        datStabPos.Z + RenderConstants.ObjectZOffset
-                                    );
+                                var datStabPos = new Vector3((float)stab.Frame.Origin.X, (float)stab.Frame.Origin.Y, (float)stab.Frame.Origin.Z);
+                                var stabWorldPos = new Vector3(
+                                    new Vector2(lbGlobalX * lbSizeUnits + datStabPos.X, lbGlobalY * lbSizeUnits + datStabPos.Y) + regionInfo.MapOffset,
+                                    datStabPos.Z + RenderConstants.ObjectZOffset
+                                );
 
-                                    var stabWorldRot = new System.Numerics.Quaternion(
-                                        (float)stab.Frame.Orientation.X,
-                                        (float)stab.Frame.Orientation.Y,
-                                        (float)stab.Frame.Orientation.Z,
-                                        (float)stab.Frame.Orientation.W
-                                    );
-                                    var stabWorldTransform = Matrix4x4.CreateFromQuaternion(stabWorldRot) * Matrix4x4.CreateTranslation(stabWorldPos);
+                                var stabWorldRot = new System.Numerics.Quaternion(
+                                    (float)stab.Frame.Orientation.X,
+                                    (float)stab.Frame.Orientation.Y,
+                                    (float)stab.Frame.Orientation.Z,
+                                    (float)stab.Frame.Orientation.W
+                                );
+                                var stabWorldTransform = Matrix4x4.CreateFromQuaternion(stabWorldRot) * Matrix4x4.CreateTranslation(stabWorldPos);
 
-                                    var isSetup = (stab.Id >> 24) == 0x02;
-                                    var bounds = MeshManager.GetBounds(stab.Id, isSetup);
-                                    var localBbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max) : default;
-                                    var bbox = localBbox.Transform(stabWorldTransform);
+                                var isSetup = (stab.Id >> 24) == 0x02;
+                                var bounds = MeshManager.GetBounds(stab.Id, isSetup);
+                                var localBbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max) : default;
+                                var bbox = localBbox.Transform(stabWorldTransform);
 
-                                    instances.Add(new SceneryInstance {
-                                        ObjectId = stab.Id,
-                                        InstanceId = InstanceIdConstants.EncodeEnvCellStaticObject(cellId, i, false),
-                                        IsSetup = isSetup,
-                                        IsBuilding = false,
-                                        WorldPosition = stabWorldPos,
-                                        LocalPosition = datStabPos,
-                                        Rotation = stabWorldRot,
-                                        Scale = Vector3.One,
-                                        Transform = stabWorldTransform,
-                                        LocalBoundingBox = localBbox,
-                                        BoundingBox = bbox
-                                    });
-                                }
+                                instances.Add(new SceneryInstance {
+                                    ObjectId = stab.Id,
+                                    InstanceId = InstanceIdConstants.EncodeEnvCellStaticObject(cellId, i, false),
+                                    IsSetup = isSetup,
+                                    IsBuilding = false,
+                                    WorldPosition = stabWorldPos,
+                                    LocalPosition = datStabPos,
+                                    Rotation = stabWorldRot,
+                                    Scale = Vector3.One,
+                                    Transform = stabWorldTransform,
+                                    LocalBoundingBox = localBbox,
+                                    BoundingBox = bbox
+                                });
                             }
                         }
 
