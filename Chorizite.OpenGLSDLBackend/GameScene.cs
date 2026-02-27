@@ -840,15 +840,15 @@ public class GameScene : IDisposable {
                     _gl.DepthFunc(DepthFunction.Always);
                     _portalManager?.RenderBuildingStencilMask(building, snapshotVP, true);
 
-                    // c. Render ALL EnvCells where Stencil == 3 (GPU will depth/stencil cull).
+                    // c. Render this building's EnvCells where Stencil == 3 (GPU will depth/stencil cull).
                     _gl.ColorMask(true, true, true, false);
                     _gl.DepthFunc(DepthFunction.Less);
                     _sceneryShader?.Bind();
-                    _envCellManager!.Render(pass1RenderPass, null);
+                    _envCellManager!.Render(pass1RenderPass, building.EnvCellIds);
 
                     if (_state.EnableTransparencyPass) {
                         _gl.DepthMask(false);
-                        _envCellManager!.Render(1, null);
+                        _envCellManager!.Render(1, building.EnvCellIds);
                         _gl.DepthMask(true);
                     }
 
