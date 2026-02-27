@@ -109,6 +109,8 @@ namespace WorldBuilder.Views {
             private set => SetValue(PreviewDetailsProperty, value);
         }
 
+        private uint _lastUpdateId;
+
         public static readonly DirectProperty<DatObjectPreview, Bitmap?> TextureBitmapProperty =
             AvaloniaProperty.RegisterDirect<DatObjectPreview, Bitmap?>(nameof(TextureBitmap), o => o.TextureBitmap);
 
@@ -116,11 +118,7 @@ namespace WorldBuilder.Views {
         public Bitmap? TextureBitmap {
             get => _textureBitmap;
             private set {
-                var old = _textureBitmap;
                 SetAndRaise(TextureBitmapProperty, ref _textureBitmap, value);
-                if (old != null && !ReferenceEquals(old, value)) {
-                    old.Dispose();
-                }
             }
         }
 
@@ -256,28 +254,36 @@ namespace WorldBuilder.Views {
         }
 
         private async void UpdatePreview() {
-            if (Dats == null || DataId == 0) {
-                Is3D = false;
-                Is2D = false;
-                IsSetup = false;
-                IsPreviewable = false;
-                HasData = false;
-                DataObjectType = DBObjType.Unknown;
-                PreviewDetails = null;
-                TextureBitmap = null;
+            var updateId = ++_lastUpdateId;
+            var dataId = DataId;
+            var dats = Dats;
+
+            if (dats == null || dataId == 0) {
+                if (updateId == _lastUpdateId) {
+                    Is3D = false;
+                    Is2D = false;
+                    IsSetup = false;
+                    IsPreviewable = false;
+                    HasData = false;
+                    DataObjectType = DBObjType.Unknown;
+                    PreviewDetails = null;
+                    TextureBitmap = null;
+                }
                 return;
             }
 
-            var resolutions = Dats.ResolveId(DataId).ToList();
+            var resolutions = dats.ResolveId(dataId).ToList();
             if (resolutions.Count == 0) {
-                Is3D = false;
-                Is2D = false;
-                IsSetup = false;
-                IsPreviewable = false;
-                HasData = false;
-                DataObjectType = DBObjType.Unknown;
-                PreviewDetails = null;
-                TextureBitmap = null;
+                if (updateId == _lastUpdateId) {
+                    Is3D = false;
+                    Is2D = false;
+                    IsSetup = false;
+                    IsPreviewable = false;
+                    HasData = false;
+                    DataObjectType = DBObjType.Unknown;
+                    PreviewDetails = null;
+                    TextureBitmap = null;
+                }
                 return;
             }
 
@@ -289,6 +295,8 @@ namespace WorldBuilder.Views {
                     selectedResolution = matching;
                 }
             }
+
+            if (updateId != _lastUpdateId) return;
 
             HasData = true;
             var type = selectedResolution.Type;
@@ -305,40 +313,49 @@ namespace WorldBuilder.Views {
             if (Is2D) {
                 var textureService = WorldBuilder.App.ProjectManager?.GetProjectService<TextureService>();
                 if (textureService != null) {
+                    Bitmap? bitmap = null;
                     if (DataObjectType == DBObjType.Surface) {
-                        if (db.TryGet<Surface>(DataId, out var surface)) {
+                        if (db.TryGet<Surface>(dataId, out var surface)) {
                             bool isClipMap = surface.Type.HasFlag(SurfaceType.Base1ClipMap);
                             if (surface.OrigTextureId != 0) {
-                                TextureBitmap = await textureService.GetTextureAsync(surface.OrigTextureId, surface.OrigPaletteId, isClipMap);
+                                bitmap = await textureService.GetTextureAsync(surface.OrigTextureId, surface.OrigPaletteId, isClipMap);
                             }
                             else if (surface.Type.HasFlag(SurfaceType.Base1Solid)) {
-                                TextureBitmap = textureService.CreateSolidColorBitmap(surface.ColorValue);
+                                bitmap = textureService.CreateSolidColorBitmap(surface.ColorValue);
                             }
                         }
                     }
                     else {
-                        TextureBitmap = await textureService.GetTextureAsync(DataId);
+                        bitmap = await textureService.GetTextureAsync(dataId);
+                    }
+
+                    if (updateId == _lastUpdateId) {
+                        TextureBitmap = bitmap;
                     }
                 }
 
-                if (DataObjectType == DBObjType.RenderSurface) {
-                    if (db.TryGet<RenderSurface>(DataId, out var surf)) {
-                        PreviewDetails = $"{surf.Width}x{surf.Height} {surf.Format}";
+                if (updateId == _lastUpdateId) {
+                    if (DataObjectType == DBObjType.RenderSurface) {
+                        if (db.TryGet<RenderSurface>(dataId, out var surf)) {
+                            PreviewDetails = $"{surf.Width}x{surf.Height} {surf.Format}";
+                        }
                     }
-                }
-                else if (DataObjectType == DBObjType.SurfaceTexture) {
-                    if (db.TryGet<SurfaceTexture>(DataId, out var surfTex)) {
-                        PreviewDetails = $"{surfTex.Textures.Count} textures";
+                    else if (DataObjectType == DBObjType.SurfaceTexture) {
+                        if (db.TryGet<SurfaceTexture>(dataId, out var surfTex)) {
+                            PreviewDetails = $"{surfTex.Textures.Count} textures";
+                        }
                     }
-                }
-                else if (DataObjectType == DBObjType.Surface) {
-                    if (db.TryGet<Surface>(DataId, out var surface)) {
-                        PreviewDetails = $"{surface.Type}";
+                    else if (DataObjectType == DBObjType.Surface) {
+                        if (db.TryGet<Surface>(dataId, out var surface)) {
+                            PreviewDetails = $"{surface.Type}";
+                        }
                     }
                 }
             }
             else {
-                TextureBitmap = null;
+                if (updateId == _lastUpdateId) {
+                    TextureBitmap = null;
+                }
             }
         }
     }

@@ -24,7 +24,7 @@ using WorldBuilder.Shared.Services;
 using DatPixelFormat = DatReaderWriter.Enums.PixelFormat;
 
 namespace WorldBuilder.Services {
-    public class TextureService {
+    public class TextureService : IDisposable {
         private readonly IDatReaderWriter _dats;
         private readonly ILogger<TextureService> _logger;
         private readonly Dictionary<long, Bitmap?> _textureCache = new();
@@ -118,7 +118,9 @@ namespace WorldBuilder.Services {
                 if (_textureCache.Count >= MaxCacheSize) {
                     var oldestKey = _lruList.First!.Value;
                     _lruList.RemoveFirst();
-                    _textureCache.Remove(oldestKey);
+                    if (_textureCache.Remove(oldestKey, out var evictedBitmap)) {
+                        evictedBitmap?.Dispose();
+                    }
                 }
 
                 if (_textureCache.TryAdd(key, bitmap)) {
@@ -128,6 +130,16 @@ namespace WorldBuilder.Services {
         }
 
         public Bitmap CreateSolidColorBitmap(ColorARGB color, int width = 32, int height = 32) {
+            uint colorVal = (uint)(color.Red | (color.Green << 8) | (color.Blue << 16) | (color.Alpha << 24));
+            var cacheKey = ((long)colorVal << 32) | ((long)width << 16) | (uint)height;
+            lock (_textureCache) {
+                if (_textureCache.TryGetValue(cacheKey, out var cachedBitmap) && cachedBitmap != null) {
+                    _lruList.Remove(cacheKey);
+                    _lruList.AddLast(cacheKey);
+                    return cachedBitmap;
+                }
+            }
+
             var wb = new WriteableBitmap(new Avalonia.PixelSize(width, height), new Avalonia.Vector(96, 96), Avalonia.Platform.PixelFormat.Rgba8888, Avalonia.Platform.AlphaFormat.Unpremul);
 
             using (var locked = wb.Lock()) {
@@ -140,7 +152,18 @@ namespace WorldBuilder.Services {
                 }
             }
 
+            AddToCache(cacheKey, wb);
             return wb;
+        }
+
+        public void Dispose() {
+            lock (_textureCache) {
+                foreach (var bitmap in _textureCache.Values) {
+                    bitmap?.Dispose();
+                }
+                _textureCache.Clear();
+                _lruList.Clear();
+            }
         }
 
         private Bitmap? CreateBitmapFromSurface(RenderSurface surface, uint paletteId = 0, bool isClipMap = false) {
