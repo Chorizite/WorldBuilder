@@ -44,6 +44,7 @@ namespace Chorizite.OpenGLSDLBackend {
             if (NativePtr == 0) {
                 throw new InvalidOperationException("Failed to generate texture array.");
             }
+            GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Texture);
 
             GLHelpers.CheckErrors();
 
@@ -85,7 +86,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
             GLHelpers.CheckErrors();
 
-            GpuMemoryTracker.TrackAllocation(CalculateTotalSize());
+            GpuMemoryTracker.TrackAllocation(CalculateTotalSize(), GpuResourceType.Texture);
         }
 
         private long CalculateTotalSize() {
@@ -292,7 +293,8 @@ namespace Chorizite.OpenGLSDLBackend {
             if (NativePtr != 0) {
                 GL.DeleteTexture((uint)NativePtr);
                 GLHelpers.CheckErrors();
-                GpuMemoryTracker.TrackDeallocation(CalculateTotalSize());
+                GpuMemoryTracker.TrackDeallocation(CalculateTotalSize(), GpuResourceType.Texture);
+                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Texture);
                 NativePtr = 0;
             }
         }

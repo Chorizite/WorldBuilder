@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Chorizite.OpenGLSDLBackend;
+using Chorizite.OpenGLSDLBackend.Lib;
 using DatReaderWriter;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -27,6 +28,7 @@ public partial class RenderView : Base3DViewport {
     private GameScene? _gameScene;
     private Vector2 _lastPointerPosition;
     private LandscapeDocument? _cachedLandscapeDocument;
+    private LandSurfaceManager? _cachedSurfaceManager;
     private EditorState? _cachedEditorState;
     private bool _cachedIs3DCamera = true;
 
@@ -63,6 +65,14 @@ public partial class RenderView : Base3DViewport {
     }
 
     protected override void OnGlDestroy() {
+        if (_gameScene != null && _cachedLandscapeDocument != null && Dats != null) {
+            var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
+            var surfaceManagerService = projectManager?.GetProjectService<SurfaceManagerService>();
+            if (surfaceManagerService != null && _cachedSurfaceManager != null) {
+                surfaceManagerService.ReleaseSurfaceManager(Dats, _cachedLandscapeDocument.RegionId);
+                _cachedSurfaceManager = null;
+            }
+        }
         _gameScene?.Dispose();
         _gameScene = null;
     }
@@ -210,8 +220,16 @@ public partial class RenderView : Base3DViewport {
             var documentManager = projectManager?.GetProjectService<IDocumentManager>();
             var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
             var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _pendingDatReader);
+            var surfaceManagerService = projectManager?.GetProjectService<SurfaceManagerService>();
 
-            _gameScene.SetLandscape(_pendingLandscapeDocument, _pendingDatReader, documentManager!, meshManager, centerCamera: false);
+            if (surfaceManagerService != null && _pendingLandscapeDocument.Region != null) {
+                if (_cachedSurfaceManager != null && _cachedLandscapeDocument != null) {
+                    surfaceManagerService.ReleaseSurfaceManager(_pendingDatReader, _cachedLandscapeDocument.RegionId);
+                }
+                _cachedSurfaceManager = surfaceManagerService.GetSurfaceManager(Renderer!.GraphicsDevice, _pendingDatReader, _pendingLandscapeDocument.Region.Region, _pendingLandscapeDocument.RegionId);
+            }
+
+            _gameScene.SetLandscape(_pendingLandscapeDocument, _pendingDatReader, documentManager!, meshManager, _cachedSurfaceManager, centerCamera: false);
             _pendingLandscapeDocument = null;
             _pendingDatReader = null;
         }

@@ -27,6 +27,7 @@ namespace Chorizite.OpenGLSDLBackend {
         public ManagedGLTexture(OpenGLGraphicsDevice device, byte[]? source, int width, int height) {
             _device = device;
             _texture = GL.GenTexture();
+            GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Texture);
             Width = width;
             Height = height;
             GL.BindTexture(GLEnum.Texture2D, _texture);
@@ -59,7 +60,7 @@ namespace Chorizite.OpenGLSDLBackend {
             GL.BindTexture(GLEnum.Texture2D, 0);
             GLHelpers.CheckErrors();
 
-            GpuMemoryTracker.TrackAllocation(CalculateSize());
+            GpuMemoryTracker.TrackAllocation(CalculateSize(), GpuResourceType.Texture);
         }
 
         private long CalculateSize() {
@@ -134,7 +135,8 @@ namespace Chorizite.OpenGLSDLBackend {
         protected void ReleaseTexture() {
             if (_texture != 0) {
                 GL.DeleteTexture(_texture);
-                GpuMemoryTracker.TrackDeallocation(CalculateSize());
+                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Texture);
+                GpuMemoryTracker.TrackDeallocation(CalculateSize(), GpuResourceType.Texture);
             }
             GLHelpers.CheckErrors();
             _texture = 0;

@@ -70,6 +70,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     [ObservableProperty] private string _vramUsage = "0 MB";
 
     /// <summary>
+    /// Gets the current VRAM details formatted for a tooltip.
+    /// </summary>
+    [ObservableProperty] private string _vramDetailsTooltip = "";
+
+    /// <summary>
     /// Gets the current frame render time in milliseconds.
     /// </summary>
     [ObservableProperty] private string _renderTime = "0.00 ms";
@@ -180,9 +185,13 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
                     else {
                         VramUsage = vramStr;
                     }
+
+                    var vramDetails = _performanceService.GetGpuResourceDetails().ToList();
+                    VramDetailsTooltip = string.Join("\n", vramDetails.Select(d => $"{d.Type}: {d.Count} objects, {FormatBytes(d.Bytes)}"));
                 }
                 else {
                     VramUsage = "N/A";
+                    VramDetailsTooltip = "";
                 }
 
                 await Task.Delay(1000, _cts.Token);
@@ -222,11 +231,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     [RelayCommand]
     private async Task Open() {
         var localPath = await ProjectSelectionViewModel.OpenProjectFileDialog(_settings, TopLevel);
-        
+
         if (localPath == null) {
             return;
         }
-        
+
         // Send message to open the project
         WeakReferenceMessenger.Default.Send(new OpenProjectMessage(localPath));
     }

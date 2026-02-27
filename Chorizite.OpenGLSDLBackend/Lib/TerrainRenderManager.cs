@@ -23,6 +23,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly LandscapeDocument _landscapeDoc;
         private readonly IDocumentManager _documentManager;
         private readonly ConcurrentDictionary<ushort, TerrainChunk> _chunks = new();
+        private readonly CancellationTokenSource _cts = new();
 
         // Job queues
         private readonly ConcurrentDictionary<ushort, TerrainChunk> _pendingGeneration = new();
@@ -78,11 +79,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly IDatReaderWriter _dats;
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private LandSurfaceManager? _surfaceManager;
+        private bool _ownsSurfaceManager;
 
         public static uint CurrentVAO;
 
         public TerrainRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc, IDatReaderWriter dats,
-            OpenGLGraphicsDevice graphicsDevice, IDocumentManager documentManager, Frustum frustum) {
+            OpenGLGraphicsDevice graphicsDevice, IDocumentManager documentManager, Frustum frustum, LandSurfaceManager? surfaceManager = null) {
             _gl = gl;
             _log = log;
             _landscapeDoc = landscapeDoc;
@@ -90,6 +92,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _graphicsDevice = graphicsDevice;
             _documentManager = documentManager;
             _frustum = frustum;
+            _surfaceManager = surfaceManager;
+            _ownsSurfaceManager = surfaceManager == null;
             log.LogTrace($"Initialized TerrainRenderManager");
 
             _landscapeDoc.LandblockChanged += OnLandblockChanged;
@@ -142,7 +146,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             return TerrainUtils.GetHeight(regionInfo.Region, entries, (uint)lbX, (uint)lbY, localPos);
         }
-        
+
         private void OnLandblockChanged(object? sender, LandblockChangedEventArgs e) {
             if (e.AffectedLandblocks == null) {
                 _log.LogTrace("LandblockChanged: All landblocks invalidated");
@@ -164,7 +168,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             // Initialize Surface Manager
             if (_landscapeDoc.Region is ITerrainInfo regionInfo) {
-                _surfaceManager = new LandSurfaceManager(_graphicsDevice, _dats, regionInfo.Region, _log);
+                if (_surfaceManager == null) {
+                    _surfaceManager = new LandSurfaceManager(_graphicsDevice, _dats, regionInfo.Region, _log);
+                    _ownsSurfaceManager = true;
+                }
                 _chunkSizeInUnits = regionInfo.LandblockSizeInUnits * LandblocksPerChunk;
             }
         }
@@ -258,14 +265,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 System.Threading.Interlocked.Increment(ref _activeGenerations);
-                Task.Run(() => {
+                Task.Run(async () => {
                     try {
-                        GenerateChunk(chunkToGenerate);
+                        await GenerateChunk(chunkToGenerate, _cts.Token);
                     }
                     finally {
                         System.Threading.Interlocked.Decrement(ref _activeGenerations);
                     }
-                });
+                }, _cts.Token);
             }
         }
 
@@ -330,7 +337,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     finally {
                         System.Threading.Interlocked.Decrement(ref _activePartialUpdates);
                     }
-                });
+                }, _cts.Token);
             }
         }
 
@@ -341,6 +348,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var tempIndices = new uint[TerrainGeometryGenerator.IndicesPerLandblock]; // Unused but required by signature
 
                 while (chunk.TryGetNextDirty(out int lx, out int ly)) {
+                    if (_cts.Token.IsCancellationRequested) return;
+
                     int vertexOffset = chunk.LandblockVertexOffsets[ly * 8 + lx];
                     if (vertexOffset == -1) continue; // No geometry for this block
 
@@ -438,9 +447,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        private async void GenerateChunk(TerrainChunk chunk) {
+        private async Task GenerateChunk(TerrainChunk chunk, CancellationToken ct) {
             try {
-                var landscapeChunk = await _landscapeDoc!.GetOrLoadChunkAsync(chunk.GetChunkId(), _dats!, _documentManager, default);
+                var landscapeChunk = await _landscapeDoc!.GetOrLoadChunkAsync(chunk.GetChunkId(), _dats!, _documentManager, ct);
+
+                if (ct.IsCancellationRequested) return;
 
                 var vertices = new VertexLandscape[MaxVertices];
                 var indices = new uint[MaxIndices];
@@ -463,12 +474,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     _log.LogWarning("Cannot generate chunk {CX},{CY}: Region is null", chunk.ChunkX, chunk.ChunkY);
                 }
 
+                if (ct.IsCancellationRequested) return;
+
                 if (vCount > 0) {
                     chunk.GeneratedVertices = vertices.AsMemory(0, vCount);
                     chunk.GeneratedIndices = indices.AsMemory(0, iCount);
                 }
 
                 _uploadQueue.Enqueue(chunk);
+            }
+            catch (OperationCanceledException) {
+                // Ignore
             }
             catch (Exception ex) {
                 _log.LogError(ex, "Error generating chunk {CX},{CY}", chunk.ChunkX, chunk.ChunkY);
@@ -494,7 +510,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _gl.BufferData(BufferTargetARB.ArrayBuffer, (nuint)(vertices.Length * VertexLandscape.Size), vPtr,
                     BufferUsageARB.StaticDraw);
             }
-            GpuMemoryTracker.TrackAllocation(vertices.Length * VertexLandscape.Size);
+            GpuMemoryTracker.TrackAllocation(vertices.Length * VertexLandscape.Size, GpuResourceType.Buffer);
 
             chunk.EBO = _gl.GenBuffer();
             _gl.BindBuffer(BufferTargetARB.ElementArrayBuffer, chunk.EBO);
@@ -503,7 +519,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _gl.BufferData(BufferTargetARB.ElementArrayBuffer, (nuint)(indices.Length * sizeof(uint)), iPtr,
                     BufferUsageARB.StaticDraw);
             }
-            GpuMemoryTracker.TrackAllocation(indices.Length * sizeof(uint));
+            GpuMemoryTracker.TrackAllocation(indices.Length * sizeof(uint), GpuResourceType.Buffer);
 
             // Set up attributes based on VertexLandscape.Format
             // 0: Pos (3 float)
@@ -652,6 +668,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void Dispose() {
+            _cts.Cancel();
+            _cts.Dispose();
             _landscapeDoc.LandblockChanged -= OnLandblockChanged;
             foreach (var chunk in _chunks.Values) {
                 chunk.Dispose();
@@ -659,6 +677,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             _chunks.Clear();
             _pendingGeneration.Clear();
+            if (_ownsSurfaceManager) {
+                _surfaceManager?.Dispose();
+            }
         }
     }
 }

@@ -29,6 +29,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
             // Generate and bind the framebuffer
             _fboId = _gl.GenFramebuffer();
+            GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.FBO);
             _gl.BindFramebuffer(FramebufferTarget.Framebuffer, _fboId);
 
             // Attach the texture as the color attachment
@@ -43,6 +44,7 @@ namespace Chorizite.OpenGLSDLBackend {
             // Create and attach a depth-stencil renderbuffer if requested
             if (true || hasDepthStencil) {
                 _depthStencilRenderbuffer = _gl.GenRenderbuffer();
+                GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.RBO);
                 _gl.BindRenderbuffer(RenderbufferTarget.Renderbuffer, _depthStencilRenderbuffer);
                 _gl.RenderbufferStorage(
                     RenderbufferTarget.Renderbuffer,
@@ -56,7 +58,7 @@ namespace Chorizite.OpenGLSDLBackend {
                     RenderbufferTarget.Renderbuffer,
                     _depthStencilRenderbuffer
                 );
-                GpuMemoryTracker.TrackAllocation(_width * _height * 4); // Depth24Stencil8 is 4 bytes per pixel
+                GpuMemoryTracker.TrackAllocation(_width * _height * 4, GpuResourceType.RBO); // Depth24Stencil8 is 4 bytes per pixel
             }
 
             // Check framebuffer completeness
@@ -80,10 +82,14 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public void Dispose() {
-            _gl.DeleteFramebuffer(_fboId);
+            if (_fboId != 0) {
+                _gl.DeleteFramebuffer(_fboId);
+                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.FBO);
+            }
             if (_depthStencilRenderbuffer != 0) {
                 _gl.DeleteRenderbuffer(_depthStencilRenderbuffer);
-                GpuMemoryTracker.TrackDeallocation(_width * _height * 4);
+                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.RBO);
+                GpuMemoryTracker.TrackDeallocation(_width * _height * 4, GpuResourceType.RBO);
             }
         }
     }

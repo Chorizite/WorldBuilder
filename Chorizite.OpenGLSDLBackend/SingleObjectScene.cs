@@ -17,6 +17,7 @@ namespace Chorizite.OpenGLSDLBackend {
         private readonly ILoggerFactory _loggerFactory;
         private readonly ILogger _log;
         private readonly IDatReaderWriter _dats;
+        private readonly CancellationTokenSource _cts = new();
 
         private Camera3D _camera;
         private IShader? _shader;
@@ -385,9 +386,13 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public override void Dispose() {
             base.Dispose();
+            _cts.Cancel();
+            _cts.Dispose();
             _loadCts?.Cancel();
             _loadCts?.Dispose();
             _debugRenderer?.Dispose();
+            (_shader as IDisposable)?.Dispose();
+            (_lineShader as IDisposable)?.Dispose();
             ReleaseCurrentObject();
             if (_ownsMeshManager) {
                 MeshManager.Dispose();

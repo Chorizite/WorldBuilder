@@ -43,6 +43,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
 
         public void Dispose() {
             EditsRental?.Dispose();
+            EditsDetached?.Dispose();
         }
     }
 }

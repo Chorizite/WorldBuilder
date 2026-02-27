@@ -13,7 +13,7 @@ using System.Xml.Linq;
 
 namespace Chorizite.OpenGLSDLBackend {
 
-    public unsafe class GLSLShader : BaseShader {
+    public unsafe class GLSLShader : BaseShader, IDisposable {
         private OpenGLGraphicsDevice _device;
         private Dictionary<string, int> _uniformLocations = [];
         private Dictionary<int, object> _uniformValues = [];
@@ -30,6 +30,11 @@ namespace Chorizite.OpenGLSDLBackend {
             _device = device;
 
             Load();
+        }
+
+        public override void Dispose() {
+            Unload();
+            base.Dispose();
         }
 
         private int GetUniformLocation(uint program, string name) {
@@ -181,6 +186,7 @@ namespace Chorizite.OpenGLSDLBackend {
             _uniformLocations.Clear();
             _uniformValues.Clear();
 
+            GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Shader);
             Program = prog;
             NeedsLoad = false;
         }
@@ -218,6 +224,7 @@ namespace Chorizite.OpenGLSDLBackend {
         protected override void Unload() {
             if (Program != 0) {
                 GL.DeleteProgram((uint)Program);
+                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Shader);
                 GLHelpers.CheckErrors();
                 Program = 0;
             }
