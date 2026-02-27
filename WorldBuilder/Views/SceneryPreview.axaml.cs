@@ -82,6 +82,7 @@ public partial class SceneryPreview : Base3DViewport {
         var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
         if (settings != null) {
             _gameScene.State.EnableTransparencyPass = settings.Landscape.Rendering.EnableTransparencyPass;
+            _gameScene.State.MouseSensitivity = settings.Landscape.Camera.MouseSensitivity;
         }
 
         _needsUpdate = true;

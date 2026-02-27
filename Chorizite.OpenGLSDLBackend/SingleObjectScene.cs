@@ -48,6 +48,11 @@ namespace Chorizite.OpenGLSDLBackend {
         public bool ShowWireframe { get; set; }
         public bool ShowCulling { get; set; }
 
+        public float MouseSensitivity {
+            get => _camera.LookSensitivity;
+            set => _camera.LookSensitivity = value;
+        }
+
         public bool IsAutoCamera {
             get => _isAutoCamera;
             set {

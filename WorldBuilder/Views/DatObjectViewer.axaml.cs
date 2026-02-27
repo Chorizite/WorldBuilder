@@ -196,6 +196,7 @@ namespace WorldBuilder.Views {
             var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
             if (settings != null) {
                 _scene.EnableTransparencyPass = settings.Landscape.Rendering.EnableTransparencyPass;
+                _scene.MouseSensitivity = settings.Landscape.Camera.MouseSensitivity;
             }
 
             _scene.Initialize();

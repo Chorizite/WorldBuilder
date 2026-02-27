@@ -100,6 +100,7 @@ public class GameScene : IDisposable {
             _skyboxManager.LightIntensity = _state.LightIntensity;
         }
 
+        _camera3D.LookSensitivity = _state.MouseSensitivity;
         _camera3D.FarPlane = _state.MaxDrawDistance;
     }
 

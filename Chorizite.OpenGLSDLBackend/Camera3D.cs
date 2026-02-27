@@ -39,7 +39,7 @@ public class Camera3D : CameraBase {
     private float _nearPlane = 0.5f;
     private float _farPlane = 1000.0f;
     private float _moveSpeed = 10.0f;
-    private float _lookSensitivity = 0.3f;
+    private float _lookSensitivity = 1.0f;
     private bool _isLooking;
 
     /// <summary>
@@ -235,8 +235,8 @@ public class Camera3D : CameraBase {
     /// <inheritdoc/>
     public override void HandlePointerMoved(Vector2 position, Vector2 delta) {
         if (_isLooking) {
-            _yaw += delta.X * _lookSensitivity;
-            _pitch -= delta.Y * _lookSensitivity;
+            _yaw += delta.X * _lookSensitivity * 0.2f;
+            _pitch -= delta.Y * _lookSensitivity * 0.2f;
 
             // Clamp pitch to prevent flipping
             _pitch = Math.Clamp(_pitch, -89.0f, 89.0f);
