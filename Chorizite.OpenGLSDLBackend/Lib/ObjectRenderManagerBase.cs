@@ -54,11 +54,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected bool _initialized;
 
         // Grouped instances for rendering
-        protected readonly Dictionary<ulong, List<Matrix4x4>> _visibleGroups = new();
+        protected readonly Dictionary<ulong, List<InstanceData>> _visibleGroups = new();
         protected readonly List<ulong> _visibleGfxObjIds = new();
 
         // List pool for rendering
-        protected readonly List<List<Matrix4x4>> _listPool = new();
+        protected readonly List<List<InstanceData>> _listPool = new();
         protected int _poolIndex = 0;
 
         // Statistics
@@ -296,6 +296,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         if (!ShouldIncludeInstance(instance)) continue;
 
                         if (_frustum.Intersects(instance.BoundingBox)) {
+                            var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
                             if (instance.IsSetup) {
                                 var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
                                 if (renderData is { IsSetup: true }) {
@@ -305,7 +306,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                             _visibleGroups[partId] = list;
                                             _visibleGfxObjIds.Add(partId);
                                         }
-                                        list.Add(partTransform * instance.Transform);
+                                        list.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = cellId });
                                     }
                                 }
                             }
@@ -315,7 +316,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     _visibleGroups[instance.ObjectId] = list;
                                     _visibleGfxObjIds.Add(instance.ObjectId);
                                 }
-                                list.Add(instance.Transform);
+                                list.Add(new InstanceData { Transform = instance.Transform, CellId = cellId });
                             }
                         }
                     }
@@ -401,7 +402,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Returns part group enumerables to iterate during fast-path rendering (landblock fully inside frustum).
         /// Default returns StaticPartGroups only. Override to include BuildingPartGroups or filter.
         /// </summary>
-        protected virtual IEnumerable<KeyValuePair<ulong, List<Matrix4x4>>> GetFastPathGroups(ObjectLandblock lb) {
+        protected virtual IEnumerable<KeyValuePair<ulong, List<InstanceData>>> GetFastPathGroups(ObjectLandblock lb) {
             return lb.StaticPartGroups;
         }
 
@@ -419,24 +420,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             lb.StaticPartGroups.Clear();
             lb.BuildingPartGroups.Clear();
             foreach (var instance in instances) {
+                var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
                 if (instance.IsSetup) {
                     var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
                     if (renderData is { IsSetup: true }) {
                         foreach (var (partId, partTransform) in renderData.SetupParts) {
                             if (!lb.StaticPartGroups.TryGetValue(partId, out var list)) {
-                                list = new List<Matrix4x4>();
+                                list = new List<InstanceData>();
                                 lb.StaticPartGroups[partId] = list;
                             }
-                            list.Add(partTransform * instance.Transform);
+                            list.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = cellId });
                         }
                     }
                 }
                 else {
                     if (!lb.StaticPartGroups.TryGetValue(instance.ObjectId, out var list)) {
-                        list = new List<Matrix4x4>();
+                        list = new List<InstanceData>();
                         lb.StaticPartGroups[instance.ObjectId] = list;
                     }
-                    list.Add(instance.Transform);
+                    list.Add(new InstanceData { Transform = instance.Transform, CellId = cellId });
                 }
             }
         }
@@ -602,13 +604,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return null;
         }
 
-        protected List<Matrix4x4> GetPooledList() {
+        protected List<InstanceData> GetPooledList() {
             if (_poolIndex < _listPool.Count) {
                 var list = _listPool[_poolIndex++];
                 list.Clear();
                 return list;
             }
-            var newList = new List<Matrix4x4>();
+            var newList = new List<InstanceData>();
             _listPool.Add(newList);
             _poolIndex++;
             return newList;
@@ -626,12 +628,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             foreach (var (partId, partTransform) in renderData.SetupParts) {
                                 var partRenderData = MeshManager.TryGetRenderData(partId);
                                 if (partRenderData != null) {
-                                    RenderObjectBatches(_shader!, partRenderData, new List<Matrix4x4> { partTransform * instance.Transform });
+                                    RenderObjectBatches(_shader!, partRenderData, new List<InstanceData> { new InstanceData { Transform = partTransform * instance.Transform, CellId = InstanceIdConstants.GetRawId(instance.InstanceId) } });
                                 }
                             }
                         }
                         else {
-                            RenderObjectBatches(_shader!, renderData, new List<Matrix4x4> { instance.Transform });
+                            RenderObjectBatches(_shader!, renderData, new List<InstanceData> { new InstanceData { Transform = instance.Transform, CellId = InstanceIdConstants.GetRawId(instance.InstanceId) } });
                         }
                     }
                 }

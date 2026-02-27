@@ -182,7 +182,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Protected: Overrides
 
-        protected override IEnumerable<KeyValuePair<ulong, List<Matrix4x4>>> GetFastPathGroups(ObjectLandblock lb) {
+        protected override IEnumerable<KeyValuePair<ulong, List<InstanceData>>> GetFastPathGroups(ObjectLandblock lb) {
             if (_showBuildings) {
                 foreach (var kvp in lb.BuildingPartGroups) {
                     yield return kvp;
@@ -206,24 +206,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             lb.BuildingPartGroups.Clear();
             foreach (var instance in instances) {
                 var targetGroup = instance.IsBuilding ? lb.BuildingPartGroups : lb.StaticPartGroups;
+                var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
                 if (instance.IsSetup) {
                     var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
                     if (renderData is { IsSetup: true }) {
                         foreach (var (partId, partTransform) in renderData.SetupParts) {
                             if (!targetGroup.TryGetValue(partId, out var list)) {
-                                list = new List<Matrix4x4>();
+                                list = new List<InstanceData>();
                                 targetGroup[partId] = list;
                             }
-                            list.Add(partTransform * instance.Transform);
+                            list.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = cellId });
                         }
                     }
                 }
                 else {
                     if (!targetGroup.TryGetValue(instance.ObjectId, out var list)) {
-                        list = new List<Matrix4x4>();
+                        list = new List<InstanceData>();
                         targetGroup[instance.ObjectId] = list;
                     }
-                    list.Add(instance.Transform);
+                    list.Add(new InstanceData { Transform = instance.Transform, CellId = cellId });
                 }
             }
         }

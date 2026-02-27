@@ -326,12 +326,12 @@ namespace Chorizite.OpenGLSDLBackend {
                 foreach (var part in data.SetupParts) {
                     var partData = MeshManager.TryGetRenderData(part.GfxObjId);
                     if (partData != null) {
-                        RenderObjectBatches(_shader!, partData, new List<Matrix4x4> { part.Transform * transform }, ShowCulling);
+                        RenderObjectBatches(_shader!, partData, new List<InstanceData> { new InstanceData { Transform = part.Transform * transform, CellId = 0 } }, ShowCulling);
                     }
                 }
             }
             else {
-                RenderObjectBatches(_shader!, data, new List<Matrix4x4> { transform }, ShowCulling);
+                RenderObjectBatches(_shader!, data, new List<InstanceData> { new InstanceData { Transform = transform, CellId = 0 } }, ShowCulling);
             }
         }
 
