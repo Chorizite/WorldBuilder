@@ -277,11 +277,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         obj.Position[2] + RenderConstants.ObjectZOffset
                     );
 
-                    var rotation = new Quaternion(obj.Position[4], obj.Position[5], obj.Position[6], obj.Position[3]);
-
-                    var transform = Matrix4x4.CreateFromQuaternion(rotation)
-                        * Matrix4x4.CreateTranslation(worldPos);
-
+                                            var rotation = new Quaternion(obj.Position[4], obj.Position[5], obj.Position[6], obj.Position[3]);
+                    
+                                            var transform = Matrix4x4.CreateFromQuaternion(rotation)
+                                                * Matrix4x4.CreateTranslation(worldPos);
                     var bounds = MeshManager.GetBounds(obj.SetupId, isSetup);
                     var localBbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max) : default;
                     var bbox = localBbox.Transform(transform);

@@ -383,17 +383,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             numVisibleCells++;
 
                             // Calculate world position
-                            var datPos = new Vector3((float)envCell.Position.Origin[0], (float)envCell.Position.Origin[1], (float)envCell.Position.Origin[2]);
+                            var datPos = new Vector3((float)envCell.Position.Origin.X, (float)envCell.Position.Origin.Y, (float)envCell.Position.Origin.Z);
                             var worldPos = new Vector3(
                                 new Vector2(lbGlobalX * lbSizeUnits + datPos.X, lbGlobalY * lbSizeUnits + datPos.Y) + regionInfo.MapOffset,
                                 datPos.Z + RenderConstants.ObjectZOffset
                             );
 
-                            var rotation = new Quaternion(
-                                envCell.Position.Orientation[0], // X
-                                envCell.Position.Orientation[1], // Y
-                                envCell.Position.Orientation[2], // Z
-                                envCell.Position.Orientation[3]  // W
+                            var rotation = new System.Numerics.Quaternion(
+                                (float)envCell.Position.Orientation.X,
+                                (float)envCell.Position.Orientation.Y,
+                                (float)envCell.Position.Orientation.Z,
+                                (float)envCell.Position.Orientation.W
                             );
 
                             var transform = Matrix4x4.CreateFromQuaternion(rotation)
@@ -431,13 +431,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 for (ushort i = 0; i < envCell.StaticObjects.Count; i++) {
                                     var stab = envCell.StaticObjects[i];
 
-                                    var datStabPos = new Vector3((float)stab.Frame.Origin[0], (float)stab.Frame.Origin[1], (float)stab.Frame.Origin[2]);
+                                    var datStabPos = new Vector3((float)stab.Frame.Origin.X, (float)stab.Frame.Origin.Y, (float)stab.Frame.Origin.Z);
                                     var stabWorldPos = new Vector3(
                                         new Vector2(lbGlobalX * lbSizeUnits + datStabPos.X, lbGlobalY * lbSizeUnits + datStabPos.Y) + regionInfo.MapOffset,
                                         datStabPos.Z + RenderConstants.ObjectZOffset
                                     );
 
-                                    var stabWorldRot = new Quaternion(stab.Frame.Orientation[0], stab.Frame.Orientation[1], stab.Frame.Orientation[2], stab.Frame.Orientation[3]);
+                                    var stabWorldRot = new System.Numerics.Quaternion(
+                                        (float)stab.Frame.Orientation.X,
+                                        (float)stab.Frame.Orientation.Y,
+                                        (float)stab.Frame.Orientation.Z,
+                                        (float)stab.Frame.Orientation.W
+                                    );
                                     var stabWorldTransform = Matrix4x4.CreateFromQuaternion(stabWorldRot) * Matrix4x4.CreateTranslation(stabWorldPos);
 
                                     var isSetup = (stab.Id >> 24) == 0x02;
