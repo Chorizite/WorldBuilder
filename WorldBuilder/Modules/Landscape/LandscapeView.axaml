@@ -32,6 +32,7 @@
                           Dats="{Binding Dats}"
                           BrushPosition="{Binding BrushPosition}"
                           BrushRadius="{Binding BrushRadius}"
+                          BrushShape="{Binding BrushShape}"
                           ShowBrush="{Binding ShowBrush}"
                           EditorState="{Binding EditorState}"
                           Is3DCamera="{Binding Is3DCameraEnabled}" />

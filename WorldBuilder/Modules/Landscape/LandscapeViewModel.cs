@@ -61,6 +61,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
     [ObservableProperty] private Vector3 _brushPosition;
     [ObservableProperty] private float _brushRadius = 30f;
+    [ObservableProperty] private int _brushShape = 0;
     [ObservableProperty] private bool _showBrush;
 
     [ObservableProperty] private bool _is3DCameraEnabled = true;
@@ -522,19 +523,29 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
             if (hit.Hit) {
                 BrushPosition = hit.HitPosition;
+                var paintingTool = ActiveTool as ITexturePaintingTool;
+                
                 // Only show brush if tool is appropriate (e.g. BrushTool)
-                ShowBrush = ActiveTool is BrushTool || ActiveTool is RoadVertexTool || ActiveTool is RoadLineTool;
+                ShowBrush = ActiveTool is BrushTool || ActiveTool is RoadVertexTool || ActiveTool is RoadLineTool || (paintingTool?.IsEyeDropperActive == true);
 
                 if (ActiveTool is BrushTool brushTool) {
                     BrushPosition = hit.NearestVertice;
                     BrushRadius = brushTool.BrushRadius;
+                    BrushShape = brushTool.IsEyeDropperActive ? 2 : 0;
                 }
                 else if (ActiveTool is RoadVertexTool || ActiveTool is RoadLineTool) {
                     BrushPosition = hit.NearestVertice;
                     BrushRadius = BrushTool.GetWorldRadius(1);
+                    BrushShape = 0;
+                }
+                else if (paintingTool?.IsEyeDropperActive == true) {
+                    BrushPosition = hit.NearestVertice;
+                    BrushRadius = BrushTool.GetWorldRadius(1);
+                    BrushShape = 2; // Crosshair
                 }
                 else {
                     BrushPosition = hit.HitPosition;
+                    BrushShape = 0;
                 }
             }
             else {
@@ -658,6 +669,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     }
 
     public bool HandleHotkey(KeyEventArgs e) {
+        if (e.Key == Key.Escape) {
+            if (ActiveTool is ITexturePaintingTool paintingTool && paintingTool.IsEyeDropperActive) {
+                paintingTool.IsEyeDropperActive = false;
+                return true;
+            }
+        }
         if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.G) {
             _ = ShowGoToLocationPrompt();
             return true;

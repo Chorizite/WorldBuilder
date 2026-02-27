@@ -32,6 +32,13 @@
 
       <DataTemplate x:Key="TextureRibbonTemplate" x:DataType="tools:ITexturePaintingTool">
         <StackPanel Orientation="Horizontal" Spacing="8">
+          <HeaderedContentControl Header="Picker" Template="{StaticResource RibbonGroupTemplate}">
+            <ToggleButton IsChecked="{Binding IsEyeDropperActive}" ToolTip.Tip="Eye Dropper (Esc to cancel)"
+                          Width="32" Height="32" Padding="4">
+              <icons:MaterialIcon Kind="EyedropperVariant" Width="18" Height="18" />
+            </ToggleButton>
+          </HeaderedContentControl>
+
           <HeaderedContentControl Header="Texture" Template="{StaticResource RibbonGroupTemplate}">
             <ComboBox ItemsSource="{Binding AllTextures}" 
                       SelectedItem="{Binding Texture}"

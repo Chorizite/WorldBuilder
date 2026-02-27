@@ -20,6 +20,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         /// <summary>All available scenery for the currently selected texture.</summary>
         IEnumerable<SceneryItem> AllSceneries { get; }
+
+        /// <summary>Whether the eye dropper tool is currently active.</summary>
+        bool IsEyeDropperActive { get; set; }
     }
 
     /// <summary>

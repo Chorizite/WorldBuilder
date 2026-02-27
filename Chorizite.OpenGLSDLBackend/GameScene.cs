@@ -517,12 +517,13 @@ public class GameScene : IDisposable {
         SyncCameraZ();
     }
 
-    public void SetBrush(Vector3 position, float radius, Vector4 color, bool show) {
+    public void SetBrush(Vector3 position, float radius, Vector4 color, bool show, int shape = 0) {
         if (_terrainManager != null) {
             _terrainManager.BrushPosition = position;
             _terrainManager.BrushRadius = radius;
             _terrainManager.BrushColor = color;
             _terrainManager.ShowBrush = show;
+            _terrainManager.BrushShape = shape;
         }
     }
 
