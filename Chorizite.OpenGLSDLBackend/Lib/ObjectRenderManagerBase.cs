@@ -105,20 +105,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var region = LandscapeDoc.Region;
             var lbSize = region.CellSizeInUnits * region.LandblockCellLength;
 
+            var oldCameraLbX = _cameraLbX;
+            var oldCameraLbY = _cameraLbY;
+            
             _cameraPosition = cameraPosition;
             var pos = new Vector2(cameraPosition.X, cameraPosition.Y) - region.MapOffset;
             _cameraLbX = (int)Math.Floor(pos.X / lbSize);
             _cameraLbY = (int)Math.Floor(pos.Y / lbSize);
             _lbSizeInUnits = lbSize;
 
+            // Log camera landblock changes (should only happen when moving, not panning)
+            if (_cameraLbX != oldCameraLbX || _cameraLbY != oldCameraLbY) {
+                Log.LogInformation("Camera landblock changed: ({OldX},{OldY}) -> ({NewX},{NewY}) | Position: {Pos}", 
+                    oldCameraLbX, oldCameraLbY, _cameraLbX, _cameraLbY, cameraPosition);
+            }
+
             // Queue landblocks within render distance
             for (int x = _cameraLbX - RenderDistance; x <= _cameraLbX + RenderDistance; x++) {
                 for (int y = _cameraLbY - RenderDistance; y <= _cameraLbY + RenderDistance; y++) {
                     if (x < 0 || y < 0 || x >= region.MapWidthInLandblocks || y >= region.MapHeightInLandblocks)
-                        continue;
-
-                    // Skip landblocks outside the camera frustum
-                    if (GetLandblockFrustumResult(x, y) == FrustumTestResult.Outside)
                         continue;
 
                     var key = GeometryUtils.PackKey(x, y);
@@ -133,26 +138,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         };
                         if (_landblocks.TryAdd(key, lb)) {
                             _pendingGeneration[key] = lb;
+                            Log.LogInformation("Queued landblock ({X},{Y}) for generation | Total pending: {Pending}", x, y, _pendingGeneration.Count);
                         }
-                    }
-                }
-            }
-
-            // Clean up landblocks that are no longer in frustum and not yet loaded
-            foreach (var (key, lb) in _landblocks) {
-                if (!lb.GpuReady && GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) {
-                    if (_landblocks.TryRemove(key, out _)) {
-                        _pendingGeneration.TryRemove(key, out _);
-                        if (_generationCTS.TryRemove(key, out var cts)) {
-                            cts.Cancel();
-                            cts.Dispose();
-                        }
-                        UnloadLandblockResources(lb);
                     }
                 }
             }
 
             // Unload landblocks outside render distance (with delay)
+            // Note: We only unload based on distance, not frustum. This ensures landblocks stay cached
+            // once loaded, so panning the camera doesn't cause constant reloads.
             var keysToRemove = new List<ushort>();
             foreach (var (key, lb) in _landblocks) {
                 if (Math.Abs(lb.GridX - _cameraLbX) > RenderDistance || Math.Abs(lb.GridY - _cameraLbY) > RenderDistance) {
@@ -166,6 +160,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Actually remove + release GPU resources
             foreach (var key in keysToRemove) {
                 if (_landblocks.TryRemove(key, out var lb)) {
+                    _outOfRangeTimers.TryGetValue(key, out var elapsed);
+                    Log.LogInformation("Unloading landblock ({X},{Y}) - out of range for {Elapsed}s | Total landblocks: {Total}", 
+                        lb.GridX, lb.GridY, elapsed, _landblocks.Count + 1);
                     if (_generationCTS.TryRemove(key, out var cts)) {
                         cts.Cancel();
                         cts.Dispose();
@@ -215,8 +212,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 int chosenDist = Math.Max(Math.Abs(lbToGenerate.GridX - _cameraLbX), Math.Abs(lbToGenerate.GridY - _cameraLbY));
 
-                // Skip if now out of range or not in frustum
-                if (chosenDist > RenderDistance || GetLandblockFrustumResult(lbToGenerate.GridX, lbToGenerate.GridY) == FrustumTestResult.Outside) {
+                // Skip if now out of range (don't skip based on frustum - that causes flickering when camera pans)
+                if (chosenDist > RenderDistance) {
                     if (_landblocks.TryRemove(bestKey, out _)) {
                         UnloadLandblockResources(lbToGenerate);
                     }
@@ -250,8 +247,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     continue;
                 }
 
-                // Skip if this landblock is no longer within render distance or no longer in frustum
-                if (!IsWithinRenderDistance(lb) || GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) {
+                // Skip if this landblock is no longer within render distance (don't skip based on frustum)
+                if (!IsWithinRenderDistance(lb)) {
                     if (_landblocks.TryRemove(key, out _)) {
                         UnloadLandblockResources(lb);
                     }
@@ -550,6 +547,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private void UploadLandblockMeshes(ObjectLandblock lb) {
             var instancesToUpload = lb.PendingInstances ?? lb.Instances;
+
+            Log.LogInformation("Uploading landblock ({X},{Y}) | Instances: {Count}", lb.GridX, lb.GridY, instancesToUpload.Count);
 
             // Upload any prepared mesh data that hasn't been uploaded yet
             var uniqueObjects = instancesToUpload

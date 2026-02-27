@@ -208,7 +208,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (!lb.GpuReady || lb.Instances.Count == 0 || !IsWithinRenderDistance(lb)) continue;
 
                 var testResult = GetLandblockFrustumResult(lb.GridX, lb.GridY);
-                if (testResult == FrustumTestResult.Outside) continue;
+                
+                // If a filter is provided (we're inside an EnvCell), don't skip landblocks based on frustum
+                // because the filtered cells might be inside this landblock even if the landblock box is outside
+                if (filter == null && testResult == FrustumTestResult.Outside) continue;
 
                 foreach (var instance in lb.Instances) {
                     var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
@@ -388,6 +391,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (!IsWithinRenderDistance(lb) || !_landblocks.ContainsKey(key)) return;
                 ct.ThrowIfCancellationRequested();
 
+                Log.LogInformation("Starting EnvCell generation for landblock ({X},{Y})", lb.GridX, lb.GridY);
+
                 if (LandscapeDoc.Region is not ITerrainInfo regionInfo) return;
 
                 var lbGlobalX = (uint)lb.GridX;
@@ -564,8 +569,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 lb.MeshDataReady = true;
                 _uploadQueue.Enqueue(lb);
+                
+                Log.LogInformation("Completed EnvCell generation for landblock ({X},{Y}) | Cells: {Cells} | Queued for upload", 
+                    lb.GridX, lb.GridY, numVisibleCells);
             }
             catch (OperationCanceledException) {
+                Log.LogInformation("EnvCell generation cancelled for landblock ({X},{Y})", lb.GridX, lb.GridY);
                 // Ignore cancellations
             }
             catch (Exception ex) {
