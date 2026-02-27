@@ -105,20 +105,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var region = LandscapeDoc.Region;
             var lbSize = region.CellSizeInUnits * region.LandblockCellLength;
 
-            var oldCameraLbX = _cameraLbX;
-            var oldCameraLbY = _cameraLbY;
-            
             _cameraPosition = cameraPosition;
             var pos = new Vector2(cameraPosition.X, cameraPosition.Y) - region.MapOffset;
             _cameraLbX = (int)Math.Floor(pos.X / lbSize);
             _cameraLbY = (int)Math.Floor(pos.Y / lbSize);
             _lbSizeInUnits = lbSize;
-
-            // Log camera landblock changes (should only happen when moving, not panning)
-            if (_cameraLbX != oldCameraLbX || _cameraLbY != oldCameraLbY) {
-                Log.LogInformation("Camera landblock changed: ({OldX},{OldY}) -> ({NewX},{NewY}) | Position: {Pos}", 
-                    oldCameraLbX, oldCameraLbY, _cameraLbX, _cameraLbY, cameraPosition);
-            }
 
             // Queue landblocks within render distance
             for (int x = _cameraLbX - RenderDistance; x <= _cameraLbX + RenderDistance; x++) {
@@ -138,7 +129,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         };
                         if (_landblocks.TryAdd(key, lb)) {
                             _pendingGeneration[key] = lb;
-                            Log.LogInformation("Queued landblock ({X},{Y}) for generation | Total pending: {Pending}", x, y, _pendingGeneration.Count);
                         }
                     }
                 }
@@ -160,9 +150,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Actually remove + release GPU resources
             foreach (var key in keysToRemove) {
                 if (_landblocks.TryRemove(key, out var lb)) {
-                    _outOfRangeTimers.TryGetValue(key, out var elapsed);
-                    Log.LogInformation("Unloading landblock ({X},{Y}) - out of range for {Elapsed}s | Total landblocks: {Total}", 
-                        lb.GridX, lb.GridY, elapsed, _landblocks.Count + 1);
                     if (_generationCTS.TryRemove(key, out var cts)) {
                         cts.Cancel();
                         cts.Dispose();
@@ -547,8 +534,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private void UploadLandblockMeshes(ObjectLandblock lb) {
             var instancesToUpload = lb.PendingInstances ?? lb.Instances;
-
-            Log.LogInformation("Uploading landblock ({X},{Y}) | Instances: {Count}", lb.GridX, lb.GridY, instancesToUpload.Count);
 
             // Upload any prepared mesh data that hasn't been uploaded yet
             var uniqueObjects = instancesToUpload

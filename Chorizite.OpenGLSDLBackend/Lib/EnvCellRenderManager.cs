@@ -391,8 +391,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (!IsWithinRenderDistance(lb) || !_landblocks.ContainsKey(key)) return;
                 ct.ThrowIfCancellationRequested();
 
-                Log.LogInformation("Starting EnvCell generation for landblock ({X},{Y})", lb.GridX, lb.GridY);
-
                 if (LandscapeDoc.Region is not ITerrainInfo regionInfo) return;
 
                 var lbGlobalX = (uint)lb.GridX;
@@ -569,12 +567,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 lb.MeshDataReady = true;
                 _uploadQueue.Enqueue(lb);
-                
-                Log.LogInformation("Completed EnvCell generation for landblock ({X},{Y}) | Cells: {Cells} | Queued for upload", 
-                    lb.GridX, lb.GridY, numVisibleCells);
             }
             catch (OperationCanceledException) {
-                Log.LogInformation("EnvCell generation cancelled for landblock ({X},{Y})", lb.GridX, lb.GridY);
                 // Ignore cancellations
             }
             catch (Exception ex) {

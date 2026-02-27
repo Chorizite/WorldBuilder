@@ -203,7 +203,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         var chunk = new TerrainChunk(_gl, uX, uY);
                         if (_chunks.TryAdd(chunkId, chunk)) {
                             _pendingGeneration[chunkId] = chunk;
-                            _log.LogInformation("Queued terrain chunk ({X},{Y}) for generation | Total pending: {Pending}", x, y, _pendingGeneration.Count);
                         }
                     }
                 }
@@ -228,7 +227,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             foreach (var key in chunkKeysToRemove) {
-                _log.LogInformation("Unloading terrain chunk ({X},{Y}) - out of range", _chunks[key].ChunkX, _chunks[key].ChunkY);
                 if (_chunks.TryRemove(key, out var chunk)) {
                     _pendingGeneration.TryRemove(key, out _);
                     chunk.Dispose();
@@ -468,8 +466,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private async Task GenerateChunk(TerrainChunk chunk, CancellationToken ct) {
             try {
-                _log.LogInformation("Starting terrain chunk generation for ({X},{Y})", chunk.ChunkX, chunk.ChunkY);
-                
                 var landscapeChunk = await _landscapeDoc!.GetOrLoadChunkAsync(chunk.GetChunkId(), _dats!, _documentManager, ct);
 
                 if (ct.IsCancellationRequested) return;
@@ -503,10 +499,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 _uploadQueue.Enqueue(chunk);
-                _log.LogInformation("Completed terrain chunk generation for ({X},{Y}) | Vertices: {V} | Queued for upload", chunk.ChunkX, chunk.ChunkY, vCount);
             }
             catch (OperationCanceledException) {
-                _log.LogInformation("Terrain chunk generation cancelled for ({X},{Y})", chunk.ChunkX, chunk.ChunkY);
                 // Ignore
             }
             catch (Exception ex) {
@@ -515,8 +509,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         private unsafe void UploadChunk(TerrainChunk chunk) {
-            _log.LogInformation("Uploading terrain chunk ({X},{Y})", chunk.ChunkX, chunk.ChunkY);
-            
             if (chunk.GeneratedVertices.Length == 0) {
                 //_log.LogWarning("Skipping upload for chunk {CX},{CY}: No vertices", chunk.ChunkX, chunk.ChunkY);
                 return;
