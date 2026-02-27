@@ -15,6 +15,7 @@ namespace Chorizite.OpenGLSDLBackend {
             Device = device;
         }
 
+        #if DEBUG
         private static bool _loggedVersion = false;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -42,6 +43,12 @@ namespace Chorizite.OpenGLSDLBackend {
                 throw new Exception(message);
             }
         }
+#else
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void CheckErrors(bool logErrors = false, string callerName = "",
+            string callerFile = "", int callerLine = 0) {
+        }
+#endif
 
         public static string GetErrorDetails(GLEnum error) {
             return error switch {
