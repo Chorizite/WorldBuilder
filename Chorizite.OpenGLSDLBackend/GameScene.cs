@@ -419,10 +419,10 @@ public class GameScene : IDisposable {
 
     public void SetToolContext(LandscapeToolContext? context) {
         if (context != null) {
-            context.RaycastStaticObject = RaycastStaticObjects;
+            context.RaycastStaticObject = (Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit) => RaycastStaticObjects(origin, direction, includeBuildings, includeStaticObjects, out hit);
             context.RaycastScenery = RaycastScenery;
             context.RaycastPortals = RaycastPortals;
-            context.RaycastEnvCells = RaycastEnvCells;
+            context.RaycastEnvCells = (Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit) => RaycastEnvCells(origin, direction, includeCells, includeStaticObjects, out hit);
         }
     }
 
@@ -551,7 +551,7 @@ public class GameScene : IDisposable {
 
                     if (_currentEnvCellId != 0) {
                         // Inside: Collide with EnvCells and EnvCellStaticObjects
-                        if (RaycastEnvCells(oldPos, normalizedDir, true, true, out hit)) {
+                        if (RaycastEnvCells(oldPos, normalizedDir, true, true, out hit, true)) {
                             if (hit.Distance <= moveDist + 0.5f) {
                                 hasHit = true;
                             }
@@ -559,7 +559,7 @@ public class GameScene : IDisposable {
                     }
                     else {
                         // Outside: Collide with Buildings and StaticObjects
-                        if (RaycastStaticObjects(oldPos, normalizedDir, true, true, out hit)) {
+                        if (RaycastStaticObjects(oldPos, normalizedDir, true, true, out hit, true)) {
                             if (hit.Distance <= moveDist + 0.5f) {
                                 hasHit = true;
                             }
@@ -713,14 +713,14 @@ public class GameScene : IDisposable {
         }
     }
 
-    public bool RaycastStaticObjects(Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit) {
+    public bool RaycastStaticObjects(Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, bool isCollision = false) {
         hit = SceneRaycastHit.NoHit;
 
         var targets = StaticObjectRenderManager.RaycastTarget.None;
         if (includeBuildings) targets |= StaticObjectRenderManager.RaycastTarget.Buildings;
         if (includeStaticObjects) targets |= StaticObjectRenderManager.RaycastTarget.StaticObjects;
 
-        if (_staticObjectManager != null && _staticObjectManager.Raycast(origin, direction, targets, out hit)) {
+        if (_staticObjectManager != null && _staticObjectManager.Raycast(origin, direction, targets, out hit, _currentEnvCellId, isCollision)) {
             return true;
         }
         return false;
@@ -744,10 +744,10 @@ public class GameScene : IDisposable {
         return false;
     }
 
-    public bool RaycastEnvCells(Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit) {
+    public bool RaycastEnvCells(Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, bool isCollision = false) {
         hit = SceneRaycastHit.NoHit;
 
-        if (_envCellManager != null && _envCellManager.Raycast(origin, direction, includeCells, includeStaticObjects, out hit)) {
+        if (_envCellManager != null && _envCellManager.Raycast(origin, direction, includeCells, includeStaticObjects, out hit, _currentEnvCellId, isCollision)) {
             return true;
         }
         return false;

@@ -104,11 +104,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return false;
         }
 
-        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit) {
+        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false) {
             hit = SceneRaycastHit.NoHit;
+
+            // Early exit: Don't collide with interiors if we are outside
+            if (isCollision && currentCellId == 0) return false;
+
+            ushort? targetLbKey = currentCellId != 0 ? (ushort)(currentCellId >> 16) : null;
 
             foreach (var (key, lb) in _landblocks) {
                 if (!lb.InstancesReady) continue;
+
+                // If we know which landblock we are in, only check that one
+                if (targetLbKey.HasValue && key != targetLbKey.Value) continue;
 
                 lock (lb) {
                     foreach (var instance in lb.Instances) {
