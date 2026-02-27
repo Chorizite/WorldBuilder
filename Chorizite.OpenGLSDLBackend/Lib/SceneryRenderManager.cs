@@ -71,7 +71,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public bool Raycast(Vector3 origin, Vector3 direction, out SceneRaycastHit hit) {
+        public bool Raycast(Vector3 origin, Vector3 direction, out SceneRaycastHit hit, float maxDistance = float.MaxValue) {
             hit = SceneRaycastHit.NoHit;
 
             foreach (var kvp in _landblocks) {
@@ -83,13 +83,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         if (renderData == null) continue;
 
                         // Broad phase: Bounding Box
-                        if (!GeometryUtils.RayIntersectsBox(origin, direction, inst.BoundingBox.Min, inst.BoundingBox.Max, out _)) {
+                        if (!GeometryUtils.RayIntersectsBox(origin, direction, inst.BoundingBox.Min, inst.BoundingBox.Max, out float boxDist)) {
+                            continue;
+                        }
+                        if (boxDist > maxDistance) {
                             continue;
                         }
 
                         // Narrow phase: Mesh-precise raycast
                         if (MeshManager.IntersectMesh(renderData, inst.Transform, origin, direction, out float d, out Vector3 normal)) {
-                            if (d < hit.Distance) {
+                            if (d < hit.Distance && d <= maxDistance) {
                                 hit.Hit = true;
                                 hit.Distance = d;
                                 hit.Type = InspectorSelectionType.Scenery;

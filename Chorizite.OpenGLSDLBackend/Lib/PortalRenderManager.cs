@@ -195,7 +195,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, out SceneRaycastHit hit) {
+        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, out SceneRaycastHit hit, float maxDistance = float.MaxValue) {
             hit = SceneRaycastHit.NoHit;
             if (!ShowPortals || _landscapeDoc.Region == null) return false;
 
@@ -206,7 +206,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var lb in _landblocks.Values) {
                 if (!lb.Ready) continue;
 
-                if (!RaycastingUtils.RayIntersectsBox(rayOrigin, rayDirection, lb.BoundingBox.Min, lb.BoundingBox.Max, out _)) {
+                if (!RaycastingUtils.RayIntersectsBox(rayOrigin, rayDirection, lb.BoundingBox.Min, lb.BoundingBox.Max, out float lbDist) || lbDist > maxDistance) {
                     continue;
                 }
 
@@ -215,12 +215,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var lbId = (uint)((lbGlobalX << 24) | (lbGlobalY << 16));
 
                 foreach (var portal in lb.Portals) {
-                    if (!RaycastingUtils.RayIntersectsBox(rayOrigin, rayDirection, portal.BoundingBox.Min, portal.BoundingBox.Max, out _)) {
+                    if (!RaycastingUtils.RayIntersectsBox(rayOrigin, rayDirection, portal.BoundingBox.Min, portal.BoundingBox.Max, out float pDist) || pDist > maxDistance) {
                         continue;
                     }
 
                     if (RaycastingUtils.RayIntersectsPolygon(rayOrigin, rayDirection, portal.Vertices, out float distance)) {
-                        if (distance < closestDistance) {
+                        if (distance < closestDistance && distance <= maxDistance) {
                             closestDistance = distance;
                             closestPortal = portal;
                             closestLandblockId = lbId;

@@ -34,6 +34,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private int _activeGenerations = 0;
         private int _activePartialUpdates = 0;
 
+        // Distance-based unloading
+        private const float UnloadDelay = 15f;
+        private readonly ConcurrentDictionary<ushort, float> _outOfRangeTimers = new();
+
         // Constants
         private const int MaxVertices = 24576;
         private const int MaxIndices = 24576;
@@ -191,9 +195,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 for (int y = chunkY - RenderDistance; y <= chunkY + RenderDistance; y++) {
                     if (x < 0 || y < 0) continue;
 
-                    // Skip chunks outside the camera frustum (using estimated bounds)
-                    if (IsChunkInFrustum(x, y) == FrustumTestResult.Outside) continue;
-
                     var uX = (uint)x;
                     var uY = (uint)y;
 
@@ -207,14 +208,30 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
-            // Clean up chunks that are no longer in frustum and not yet loaded
+            // Clean up chunks that are out of range (with delay)
+            // Note: We only unload based on distance, not frustum. This ensures chunks stay cached
+            // once loaded, so panning the camera doesn't cause constant reloads.
+            var chunkKeysToRemove = new List<ushort>();
             foreach (var (key, chunk) in _chunks) {
-                if (!chunk.IsGenerated && IsChunkInFrustum((int)chunk.ChunkX, (int)chunk.ChunkY) == FrustumTestResult.Outside) {
-                    if (_chunks.TryRemove(key, out _)) {
-                        _pendingGeneration.TryRemove(key, out _);
-                        chunk.Dispose();
+                int dx = (int)chunk.ChunkX - chunkX;
+                int dy = (int)chunk.ChunkY - chunkY;
+                if (Math.Abs(dx) > RenderDistance || Math.Abs(dy) > RenderDistance) {
+                    var elapsed = _outOfRangeTimers.AddOrUpdate(key, deltaTime, (_, e) => e + deltaTime);
+                    if (elapsed >= UnloadDelay) {
+                        chunkKeysToRemove.Add(key);
                     }
                 }
+                else {
+                    _outOfRangeTimers.TryRemove(key, out _);
+                }
+            }
+
+            foreach (var key in chunkKeysToRemove) {
+                if (_chunks.TryRemove(key, out var chunk)) {
+                    _pendingGeneration.TryRemove(key, out _);
+                    chunk.Dispose();
+                }
+                _outOfRangeTimers.TryRemove(key, out _);
             }
 
             while (_activeGenerations < 12 && !_pendingGeneration.IsEmpty) {
@@ -256,8 +273,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 int chosenDist = Math.Max(Math.Abs((int)chunkToGenerate.ChunkX - chunkX), Math.Abs((int)chunkToGenerate.ChunkY - chunkY));
 
-                // Skip if now out of range or not in frustum
-                if (chosenDist > RenderDistance || IsChunkInFrustum((int)chunkToGenerate.ChunkX, (int)chunkToGenerate.ChunkY) == FrustumTestResult.Outside) {
+                // Skip if now out of range (don't skip based on frustum - that causes flickering when camera pans)
+                if (chosenDist > RenderDistance) {
                     if (_chunks.TryRemove(bestKey, out _)) {
                         chunkToGenerate.Dispose();
                     }
@@ -312,8 +329,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 if (_uploadQueue.TryDequeue(out chunk)) {
-                    // Skip if this chunk is no longer in frustum
-                    if (IsChunkInFrustum((int)chunk.ChunkX, (int)chunk.ChunkY) == FrustumTestResult.Outside) {
+                    // Skip if this chunk is no longer in render distance (don't skip based on frustum)
+                    if (!IsWithinRenderDistance(chunk, (int)chunk.ChunkX, (int)chunk.ChunkY)) {
                         var chunkId = (ushort)((chunk.ChunkX << 8) | chunk.ChunkY);
                         if (_chunks.TryRemove(chunkId, out _)) {
                             chunk.Dispose();
@@ -677,6 +694,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             _chunks.Clear();
             _pendingGeneration.Clear();
+            _outOfRangeTimers.Clear();
             if (_ownsSurfaceManager) {
                 _surfaceManager?.Dispose();
             }

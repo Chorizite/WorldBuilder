@@ -104,8 +104,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             All = StaticObjects | Buildings
         }
 
-        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, RaycastTarget targets, out SceneRaycastHit hit) {
+        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, RaycastTarget targets, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false, float maxDistance = float.MaxValue) {
             hit = SceneRaycastHit.NoHit;
+
+            // Early exit: Don't collide with exteriors if we are inside
+            if (isCollision && currentCellId != 0) return false;
 
             foreach (var (key, lb) in _landblocks) {
                 if (!lb.InstancesReady) continue;
@@ -120,14 +123,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                         // Broad phase: Bounding Box
                         if (instance.BoundingBox.Max != instance.BoundingBox.Min) {
-                            if (!GeometryUtils.RayIntersectsBox(rayOrigin, rayDirection, instance.BoundingBox.Min, instance.BoundingBox.Max, out _)) {
+                            if (!GeometryUtils.RayIntersectsBox(rayOrigin, rayDirection, instance.BoundingBox.Min, instance.BoundingBox.Max, out float boxDist)) {
+                                continue;
+                            }
+                            if (boxDist > maxDistance) {
                                 continue;
                             }
                         }
 
                         // Narrow phase: Mesh-precise raycast
                         if (MeshManager.IntersectMesh(renderData, instance.Transform, rayOrigin, rayDirection, out float d, out Vector3 normal)) {
-                            if (d < hit.Distance) {
+                            if (d < hit.Distance && d <= maxDistance) {
                                 hit.Hit = true;
                                 hit.Distance = d;
                                 hit.Type = instance.IsBuilding ? InspectorSelectionType.Building : InspectorSelectionType.StaticObject;
@@ -179,7 +185,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Protected: Overrides
 
-        protected override IEnumerable<KeyValuePair<ulong, List<Matrix4x4>>> GetFastPathGroups(ObjectLandblock lb) {
+        protected override IEnumerable<KeyValuePair<ulong, List<InstanceData>>> GetFastPathGroups(ObjectLandblock lb) {
             if (_showBuildings) {
                 foreach (var kvp in lb.BuildingPartGroups) {
                     yield return kvp;
@@ -203,24 +209,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             lb.BuildingPartGroups.Clear();
             foreach (var instance in instances) {
                 var targetGroup = instance.IsBuilding ? lb.BuildingPartGroups : lb.StaticPartGroups;
+                var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
                 if (instance.IsSetup) {
                     var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
                     if (renderData is { IsSetup: true }) {
                         foreach (var (partId, partTransform) in renderData.SetupParts) {
                             if (!targetGroup.TryGetValue(partId, out var list)) {
-                                list = new List<Matrix4x4>();
+                                list = new List<InstanceData>();
                                 targetGroup[partId] = list;
                             }
-                            list.Add(partTransform * instance.Transform);
+                            list.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = cellId });
                         }
                     }
                 }
                 else {
                     if (!targetGroup.TryGetValue(instance.ObjectId, out var list)) {
-                        list = new List<Matrix4x4>();
+                        list = new List<InstanceData>();
                         targetGroup[instance.ObjectId] = list;
                     }
-                    list.Add(instance.Transform);
+                    list.Add(new InstanceData { Transform = instance.Transform, CellId = cellId });
                 }
             }
         }
@@ -277,10 +284,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         obj.Position[2] + RenderConstants.ObjectZOffset
                     );
 
-                                            var rotation = new Quaternion(obj.Position[4], obj.Position[5], obj.Position[6], obj.Position[3]);
-                    
-                                            var transform = Matrix4x4.CreateFromQuaternion(rotation)
-                                                * Matrix4x4.CreateTranslation(worldPos);
+                    var rotation = new Quaternion(obj.Position[4], obj.Position[5], obj.Position[6], obj.Position[3]);
+
+                    var transform = Matrix4x4.CreateFromQuaternion(rotation)
+                        * Matrix4x4.CreateTranslation(worldPos);
                     var bounds = MeshManager.GetBounds(obj.SetupId, isSetup);
                     var localBbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max) : default;
                     var bbox = localBbox.Transform(transform);

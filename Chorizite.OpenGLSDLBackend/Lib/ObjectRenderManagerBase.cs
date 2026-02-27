@@ -54,11 +54,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected bool _initialized;
 
         // Grouped instances for rendering
-        protected readonly Dictionary<ulong, List<Matrix4x4>> _visibleGroups = new();
+        protected readonly Dictionary<ulong, List<InstanceData>> _visibleGroups = new();
         protected readonly List<ulong> _visibleGfxObjIds = new();
 
         // List pool for rendering
-        protected readonly List<List<Matrix4x4>> _listPool = new();
+        protected readonly List<List<InstanceData>> _listPool = new();
         protected int _poolIndex = 0;
 
         // Statistics
@@ -117,10 +117,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (x < 0 || y < 0 || x >= region.MapWidthInLandblocks || y >= region.MapHeightInLandblocks)
                         continue;
 
-                    // Skip landblocks outside the camera frustum
-                    if (GetLandblockFrustumResult(x, y) == FrustumTestResult.Outside)
-                        continue;
-
                     var key = GeometryUtils.PackKey(x, y);
 
                     // Clear out-of-range timer if this landblock is back in range
@@ -138,21 +134,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
-            // Clean up landblocks that are no longer in frustum and not yet loaded
-            foreach (var (key, lb) in _landblocks) {
-                if (!lb.GpuReady && GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) {
-                    if (_landblocks.TryRemove(key, out _)) {
-                        _pendingGeneration.TryRemove(key, out _);
-                        if (_generationCTS.TryRemove(key, out var cts)) {
-                            cts.Cancel();
-                            cts.Dispose();
-                        }
-                        UnloadLandblockResources(lb);
-                    }
-                }
-            }
-
             // Unload landblocks outside render distance (with delay)
+            // Note: We only unload based on distance, not frustum. This ensures landblocks stay cached
+            // once loaded, so panning the camera doesn't cause constant reloads.
             var keysToRemove = new List<ushort>();
             foreach (var (key, lb) in _landblocks) {
                 if (Math.Abs(lb.GridX - _cameraLbX) > RenderDistance || Math.Abs(lb.GridY - _cameraLbY) > RenderDistance) {
@@ -215,8 +199,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 int chosenDist = Math.Max(Math.Abs(lbToGenerate.GridX - _cameraLbX), Math.Abs(lbToGenerate.GridY - _cameraLbY));
 
-                // Skip if now out of range or not in frustum
-                if (chosenDist > RenderDistance || GetLandblockFrustumResult(lbToGenerate.GridX, lbToGenerate.GridY) == FrustumTestResult.Outside) {
+                // Skip if now out of range (don't skip based on frustum - that causes flickering when camera pans)
+                if (chosenDist > RenderDistance) {
                     if (_landblocks.TryRemove(bestKey, out _)) {
                         UnloadLandblockResources(lbToGenerate);
                     }
@@ -250,8 +234,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     continue;
                 }
 
-                // Skip if this landblock is no longer within render distance or no longer in frustum
-                if (!IsWithinRenderDistance(lb) || GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) {
+                // Skip if this landblock is no longer within render distance (don't skip based on frustum)
+                if (!IsWithinRenderDistance(lb)) {
                     if (_landblocks.TryRemove(key, out _)) {
                         UnloadLandblockResources(lb);
                     }
@@ -263,7 +247,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return (float)sw.Elapsed.TotalMilliseconds;
         }
 
-        public virtual void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
+        public virtual void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null) {
             if (!_initialized || cameraPosition.Z > 4000) return;
 
             // Clear previous frame data
@@ -296,6 +280,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         if (!ShouldIncludeInstance(instance)) continue;
 
                         if (_frustum.Intersects(instance.BoundingBox)) {
+                            var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
                             if (instance.IsSetup) {
                                 var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
                                 if (renderData is { IsSetup: true }) {
@@ -305,7 +290,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                             _visibleGroups[partId] = list;
                                             _visibleGfxObjIds.Add(partId);
                                         }
-                                        list.Add(partTransform * instance.Transform);
+                                        list.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = cellId });
                                     }
                                 }
                             }
@@ -315,7 +300,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     _visibleGroups[instance.ObjectId] = list;
                                     _visibleGfxObjIds.Add(instance.ObjectId);
                                 }
-                                list.Add(instance.Transform);
+                                list.Add(new InstanceData { Transform = instance.Transform, CellId = cellId });
                             }
                         }
                     }
@@ -401,7 +386,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Returns part group enumerables to iterate during fast-path rendering (landblock fully inside frustum).
         /// Default returns StaticPartGroups only. Override to include BuildingPartGroups or filter.
         /// </summary>
-        protected virtual IEnumerable<KeyValuePair<ulong, List<Matrix4x4>>> GetFastPathGroups(ObjectLandblock lb) {
+        protected virtual IEnumerable<KeyValuePair<ulong, List<InstanceData>>> GetFastPathGroups(ObjectLandblock lb) {
             return lb.StaticPartGroups;
         }
 
@@ -419,24 +404,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             lb.StaticPartGroups.Clear();
             lb.BuildingPartGroups.Clear();
             foreach (var instance in instances) {
+                var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
                 if (instance.IsSetup) {
                     var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
                     if (renderData is { IsSetup: true }) {
                         foreach (var (partId, partTransform) in renderData.SetupParts) {
                             if (!lb.StaticPartGroups.TryGetValue(partId, out var list)) {
-                                list = new List<Matrix4x4>();
+                                list = new List<InstanceData>();
                                 lb.StaticPartGroups[partId] = list;
                             }
-                            list.Add(partTransform * instance.Transform);
+                            list.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = cellId });
                         }
                     }
                 }
                 else {
                     if (!lb.StaticPartGroups.TryGetValue(instance.ObjectId, out var list)) {
-                        list = new List<Matrix4x4>();
+                        list = new List<InstanceData>();
                         lb.StaticPartGroups[instance.ObjectId] = list;
                     }
-                    list.Add(instance.Transform);
+                    list.Add(new InstanceData { Transform = instance.Transform, CellId = cellId });
                 }
             }
         }
@@ -578,6 +564,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 lb.Instances = lb.PendingInstances;
                 lb.PendingInstances = null;
+
+                if (lb.PendingEnvCellBounds != null) {
+                    lb.EnvCellBounds = lb.PendingEnvCellBounds;
+                    lb.PendingEnvCellBounds = null;
+                }
             }
             else if (!lb.GpuReady) {
                 // First time load
@@ -597,13 +588,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return null;
         }
 
-        protected List<Matrix4x4> GetPooledList() {
+        protected List<InstanceData> GetPooledList() {
             if (_poolIndex < _listPool.Count) {
                 var list = _listPool[_poolIndex++];
                 list.Clear();
                 return list;
             }
-            var newList = new List<Matrix4x4>();
+            var newList = new List<InstanceData>();
             _listPool.Add(newList);
             _poolIndex++;
             return newList;
@@ -621,12 +612,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             foreach (var (partId, partTransform) in renderData.SetupParts) {
                                 var partRenderData = MeshManager.TryGetRenderData(partId);
                                 if (partRenderData != null) {
-                                    RenderObjectBatches(_shader!, partRenderData, new List<Matrix4x4> { partTransform * instance.Transform });
+                                    RenderObjectBatches(_shader!, partRenderData, new List<InstanceData> { new InstanceData { Transform = partTransform * instance.Transform, CellId = InstanceIdConstants.GetRawId(instance.InstanceId) } });
                                 }
                             }
                         }
                         else {
-                            RenderObjectBatches(_shader!, renderData, new List<Matrix4x4> { instance.Transform });
+                            RenderObjectBatches(_shader!, renderData, new List<InstanceData> { new InstanceData { Transform = instance.Transform, CellId = InstanceIdConstants.GetRawId(instance.InstanceId) } });
                         }
                     }
                 }

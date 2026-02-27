@@ -34,8 +34,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private bool _showEnvCells = true;
 
-        // Grouped instances by cell ID for efficient filtered rendering
-        private readonly Dictionary<uint, Dictionary<ulong, List<Matrix4x4>>> _cellBatches = new();
+        // Grouped instances by gfxObjId for efficient batching across cells
+        private readonly Dictionary<ulong, Dictionary<uint, List<InstanceData>>> _batchedByGfxObj = new();
 
         protected override bool RenderHighlightsWhenEmpty => true;
 
@@ -104,11 +104,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return false;
         }
 
-        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit) {
+        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false, float maxDistance = float.MaxValue) {
             hit = SceneRaycastHit.NoHit;
+
+            // Early exit: Don't collide with interiors if we are outside
+            if (isCollision && currentCellId == 0) return false;
+
+            ushort? targetLbKey = currentCellId != 0 ? (ushort)(currentCellId >> 16) : null;
 
             foreach (var (key, lb) in _landblocks) {
                 if (!lb.InstancesReady) continue;
+
+                // If we know which landblock we are in, only check that one
+                if (targetLbKey.HasValue && key != targetLbKey.Value) continue;
 
                 lock (lb) {
                     foreach (var instance in lb.Instances) {
@@ -121,14 +129,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                         // Broad phase: Bounding Box
                         if (instance.BoundingBox.Max != instance.BoundingBox.Min) {
-                            if (!GeometryUtils.RayIntersectsBox(rayOrigin, rayDirection, instance.BoundingBox.Min, instance.BoundingBox.Max, out _)) {
+                            if (!GeometryUtils.RayIntersectsBox(rayOrigin, rayDirection, instance.BoundingBox.Min, instance.BoundingBox.Max, out float boxDist)) {
+                                continue;
+                            }
+                            if (boxDist > maxDistance) {
                                 continue;
                             }
                         }
 
                         // Narrow phase: Mesh-precise raycast
                         if (MeshManager.IntersectMesh(renderData, instance.Transform, rayOrigin, rayDirection, out float d, out Vector3 normal)) {
-                            if (d < hit.Distance) {
+                            if (d < hit.Distance && d <= maxDistance) {
                                 hit.Hit = true;
                                 hit.Distance = d;
                                 hit.Type = type;
@@ -182,49 +193,84 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Protected: Overrides
 
-        public override void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
+        public override void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null) {
             if (!_initialized || cameraPosition.Z > 4000) return;
 
             // Clear previous frame data
             _visibleGroups.Clear();
             _visibleGfxObjIds.Clear();
             _poolIndex = 0;
-            _cellBatches.Clear();
+            _batchedByGfxObj.Clear();
+
+            var cellVisibility = new Dictionary<uint, bool>();
 
             foreach (var lb in _landblocks.Values) {
                 if (!lb.GpuReady || lb.Instances.Count == 0 || !IsWithinRenderDistance(lb)) continue;
 
                 var testResult = GetLandblockFrustumResult(lb.GridX, lb.GridY);
-                if (testResult == FrustumTestResult.Outside) continue;
+                
+                // If a filter is provided (we're inside an EnvCell), don't skip landblocks based on frustum
+                // because the filtered cells might be inside this landblock even if the landblock box is outside
+                if (filter == null && testResult == FrustumTestResult.Outside) continue;
 
                 foreach (var instance in lb.Instances) {
-                    if (testResult == FrustumTestResult.Inside || _frustum.Intersects(instance.BoundingBox)) {
-                        var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
-                        if (!_cellBatches.TryGetValue(cellId, out var cellGroups)) {
-                            cellGroups = new Dictionary<ulong, List<Matrix4x4>>();
-                            _cellBatches[cellId] = cellGroups;
+                    var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
+
+                    // Step 1: Push Portal Filtering into PrepareRenderBatches
+                    if (filter != null && !filter.Contains(cellId)) continue;
+
+                    if (testResult == FrustumTestResult.Inside) {
+                        // All good
+                    }
+                    else {
+                        // Slow path: Test hierarchical then individual
+
+                        // Step 2: Implement Hierarchical Frustum Culling
+                        if (!cellVisibility.TryGetValue(cellId, out var isCellVisible)) {
+                            if (lb.EnvCellBounds.TryGetValue(cellId, out var cellBox)) {
+                                isCellVisible = _frustum.Intersects(cellBox);
+                                cellVisibility[cellId] = isCellVisible;
+                            }
+                            else {
+                                isCellVisible = true;
+                            }
                         }
 
+                        if (!isCellVisible) continue;
+
+                        if (!_frustum.Intersects(instance.BoundingBox)) continue;
+                    }
+
+                        // If we get here, it's visible, so batch it by gfxObjId instead of cellId
                         if (instance.IsSetup) {
                             var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
                             if (renderData is { IsSetup: true }) {
                                 foreach (var (partId, partTransform) in renderData.SetupParts) {
-                                    if (!cellGroups.TryGetValue(partId, out var list)) {
-                                        list = GetPooledList();
-                                        cellGroups[partId] = list;
+                                    if (!_batchedByGfxObj.TryGetValue(partId, out var cellDict)) {
+                                        cellDict = new Dictionary<uint, List<InstanceData>>();
+                                        _batchedByGfxObj[partId] = cellDict;
                                     }
-                                    list.Add(partTransform * instance.Transform);
+
+                                    if (!cellDict.TryGetValue(cellId, out var list)) {
+                                        list = GetPooledList();
+                                        cellDict[cellId] = list;
+                                    }
+                                    list.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = cellId });
                                 }
                             }
                         }
                         else {
-                            if (!cellGroups.TryGetValue(instance.ObjectId, out var list)) {
-                                list = GetPooledList();
-                                cellGroups[instance.ObjectId] = list;
+                            if (!_batchedByGfxObj.TryGetValue(instance.ObjectId, out var cellDict)) {
+                                cellDict = new Dictionary<uint, List<InstanceData>>();
+                                _batchedByGfxObj[instance.ObjectId] = cellDict;
                             }
-                            list.Add(instance.Transform);
+
+                            if (!cellDict.TryGetValue(cellId, out var list)) {
+                                list = GetPooledList();
+                                cellDict[cellId] = list;
+                            }
+                            list.Add(new InstanceData { Transform = instance.Transform, CellId = cellId });
                         }
-                    }
                 }
             }
         }
@@ -242,20 +288,39 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             CurrentCullMode = null;
 
             _shader.SetUniform("uRenderPass", renderPass);
+            _shader.SetUniform("uFilterByCell", 0);
 
-            if (filter == null) {
-                foreach (var cellId in _cellBatches.Keys) {
-                    RenderCell(cellId);
+            // Iterate through gfxObjId first to achieve batching across cells
+            foreach (var (gfxObjId, cellDict) in _batchedByGfxObj) {
+                // Gather transforms for this gfxObjId across all filtered cells
+                var pooledList = GetPooledList();
+                
+                if (filter == null) {
+                    // If no filter, include transforms from all cells for this gfxObjId
+                    foreach (var (cellId, transforms) in cellDict) {
+                        pooledList.AddRange(transforms);
+                    }
                 }
-            }
-            else {
-                foreach (var cellId in filter) {
-                    RenderCell(cellId);
+                else {
+                    // If filter exists, only include transforms from filtered cells
+                    foreach (var cellId in filter) {
+                        if (cellDict.TryGetValue(cellId, out var transforms)) {
+                            pooledList.AddRange(transforms);
+                        }
+                    }
+                }
+
+                // If we have transforms to render, do the batch render
+                if (pooledList.Count > 0) {
+                    var renderData = MeshManager.TryGetRenderData(gfxObjId);
+                    if (renderData != null && !renderData.IsSetup) {
+                        RenderObjectBatches(_shader!, renderData, pooledList);
+                    }
                 }
             }
 
             // Draw highlighted / selected objects on top
-            if (RenderHighlightsWhenEmpty || _cellBatches.Count > 0) {
+            if (RenderHighlightsWhenEmpty || _batchedByGfxObj.Count > 0) {
                 Gl.DepthFunc(GLEnum.Lequal);
                 if (SelectedInstance.HasValue) {
                     RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection);
@@ -271,39 +336,29 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             Gl.BindVertexArray(0);
         }
 
-        private void RenderCell(uint cellId) {
-            if (_cellBatches.TryGetValue(cellId, out var groups)) {
-                foreach (var (gfxObjId, transforms) in groups) {
-                    var renderData = MeshManager.TryGetRenderData(gfxObjId);
-                    if (renderData != null && !renderData.IsSetup) {
-                        RenderObjectBatches(_shader!, renderData, transforms);
-                    }
-                }
-            }
-        }
-
         protected override void PopulatePartGroups(ObjectLandblock lb, List<SceneryInstance> instances) {
             lb.BuildingPartGroups.Clear(); // Using BuildingPartGroups for EnvCell parts
             foreach (var instance in instances) {
                 var targetGroup = lb.BuildingPartGroups;
+                var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
                 if (instance.IsSetup) {
                     var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
                     if (renderData is { IsSetup: true }) {
                         foreach (var (partId, partTransform) in renderData.SetupParts) {
                             if (!targetGroup.TryGetValue(partId, out var list)) {
-                                list = new List<Matrix4x4>();
+                                list = new List<InstanceData>();
                                 targetGroup[partId] = list;
                             }
-                            list.Add(partTransform * instance.Transform);
+                            list.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = cellId });
                         }
                     }
                 }
                 else {
                     if (!targetGroup.TryGetValue(instance.ObjectId, out var list)) {
-                        list = new List<Matrix4x4>();
+                        list = new List<InstanceData>();
                         targetGroup[instance.ObjectId] = list;
                     }
-                    list.Add(instance.Transform);
+                    list.Add(new InstanceData { Transform = instance.Transform, CellId = cellId });
                 }
             }
         }
@@ -353,6 +408,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var discoveredCellIds = new HashSet<uint>();
                 var entryCellIds = new HashSet<uint>();
                 var cellsToProcess = new Queue<uint>();
+                var envCellBounds = new Dictionary<uint, BoundingBox>();
 
                 var cellDb = LandscapeDoc.CellDatabase;
                 if (cellDb != null && mergedLb.Buildings.Count > 0) {
@@ -432,6 +488,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     LocalBoundingBox = localBbox,
                                     BoundingBox = bbox
                                 });
+
+                                envCellBounds[cellId] = bbox;
                             }
                         }
 
@@ -472,6 +530,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     LocalBoundingBox = localBbox,
                                     BoundingBox = bbox
                                 });
+
+                                if (envCellBounds.TryGetValue(cellId, out var currentBox)) {
+                                    envCellBounds[cellId] = currentBox.Union(bbox);
+                                }
+                                else {
+                                    envCellBounds[cellId] = bbox;
+                                }
                             }
                         }
 
@@ -488,6 +553,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 lb.PendingInstances = instances;
+                lb.PendingEnvCellBounds = envCellBounds;
 
                 lock (_tcsLock) {
                     lb.InstancesReady = true;

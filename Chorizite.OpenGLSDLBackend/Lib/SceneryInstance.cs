@@ -59,19 +59,30 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public List<SceneryInstance> Instances { get; set; } = new();
 
+        /// <summary>
+        /// Grouped bounding boxes for each EnvCell in this landblock.
+        /// Key: CellID, Value: Composite bounding box of the cell and all its static objects.
+        /// </summary>
+        public Dictionary<uint, BoundingBox> EnvCellBounds { get; set; } = new();
+
         public List<SceneryInstance>? PendingInstances { get; set; }
+
+        /// <summary>
+        /// Grouped bounding boxes for each EnvCell in this landblock (pending upload).
+        /// </summary>
+        public Dictionary<uint, BoundingBox>? PendingEnvCellBounds { get; set; }
 
         /// <summary>
         /// Grouped transforms for each GfxObj part for static objects, for efficient instanced rendering.
         /// Key: GfxObjId, Value: List of transforms
         /// </summary>
-        public Dictionary<ulong, List<Matrix4x4>> StaticPartGroups { get; set; } = new();
+        public Dictionary<ulong, List<InstanceData>> StaticPartGroups { get; set; } = new();
 
         /// <summary>
         /// Grouped transforms for each GfxObj part for buildings, for efficient instanced rendering.
         /// Key: GfxObjId, Value: List of transforms
         /// </summary>
-        public Dictionary<ulong, List<Matrix4x4>> BuildingPartGroups { get; set; } = new();
+        public Dictionary<ulong, List<InstanceData>> BuildingPartGroups { get; set; } = new();
 
         /// <summary>
         /// Whether instances (positions/bounding boxes) have been generated.
