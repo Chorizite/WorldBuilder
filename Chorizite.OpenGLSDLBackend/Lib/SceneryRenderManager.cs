@@ -96,6 +96,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.ObjectId = (uint)inst.ObjectId;
                                 hit.InstanceId = inst.InstanceId;
                                 hit.Position = inst.WorldPosition;
+                                hit.LocalPosition = inst.LocalPosition;
                                 hit.Rotation = inst.Rotation;
                                 hit.LandblockId = (uint)((kvp.Key << 16) | 0xFFFE);
                                 hit.Normal = normal;
@@ -275,6 +276,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             InstanceId = InstanceIdConstants.Encode((uint)scenery.Count, InspectorSelectionType.Scenery),
                             IsSetup = isSetup,
                             WorldPosition = worldOrigin,
+                            LocalPosition = new Vector3(lx, ly, z),
                             Rotation = quat,
                             Scale = scale,
                             Transform = transform,

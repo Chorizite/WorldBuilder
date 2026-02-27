@@ -16,21 +16,28 @@ public partial class EnvCellViewModel : ViewModelBase, ISelectedObjectInfo {
     [ObservableProperty] private ulong _instanceId;
     [ObservableProperty] private uint _landblockId;
     [ObservableProperty] private Vector3 _position;
+    [ObservableProperty] private Vector3 _localPosition;
     [ObservableProperty] private Quaternion _rotation;
 
-    public float X => Position.X;
-    public float Y => Position.Y;
-    public float Z => Position.Z;
+    public float X => LocalPosition.X;
+    public float Y => LocalPosition.Y;
+    public float Z => LocalPosition.Z;
+
+    public Vector3 RotationEuler => WorldBuilder.Shared.Numerics.GeometryUtils.QuaternionToEuler(Rotation);
+    public float RotationX => RotationEuler.X;
+    public float RotationY => RotationEuler.Y;
+    public float RotationZ => RotationEuler.Z;
 
     public string ObjectIdHex => $"0x{ObjectId:X8}";
     public string InstanceIdHex => $"0x{InstanceId:X16}";
     public string LandblockIdHex => $"0x{LandblockId:X8}";
 
-    public EnvCellViewModel(uint objectId, ulong instanceId, uint landblockId, Vector3 position, Quaternion rotation) {
+    public EnvCellViewModel(uint objectId, ulong instanceId, uint landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation) {
         ObjectId = objectId;
         InstanceId = instanceId;
         LandblockId = landblockId;
         Position = position;
+        LocalPosition = localPosition;
         Rotation = rotation;
     }
 }

@@ -17,6 +17,7 @@ public partial class LandscapeVertexViewModel : ViewModelBase, ISelectedObjectIn
     public ushort SecondaryId => 0;
     public uint ObjectId => 0;
     public Vector3 Position { get; }
+    public Vector3 LocalPosition { get; }
     public Quaternion Rotation => Quaternion.Identity;
 
     [ObservableProperty] private int _vertexX;
@@ -66,6 +67,7 @@ public partial class LandscapeVertexViewModel : ViewModelBase, ISelectedObjectIn
         float x = lbX * (cellSize * lbCellLen) + localVx * cellSize + mapOffset.X;
         float y = lbY * (cellSize * lbCellLen) + localVy * cellSize + mapOffset.Y;
         Position = new Vector3(x, y, Height);
+        LocalPosition = new Vector3(localVx * cellSize, localVy * cellSize, Height);
         LandblockId = region.GetLandblockId(lbX, lbY);
     }
 }

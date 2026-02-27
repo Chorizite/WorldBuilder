@@ -134,6 +134,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.ObjectId = (uint)instance.ObjectId;
                                 hit.InstanceId = instance.InstanceId;
                                 hit.Position = instance.WorldPosition;
+                                hit.LocalPosition = instance.LocalPosition;
                                 hit.Rotation = instance.Rotation;
                                 hit.LandblockId = (uint)((key << 16) | 0xFFFE);
                                 hit.Normal = normal;
@@ -270,6 +271,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (obj.SetupId == 0) continue;
 
                     var isSetup = (obj.SetupId >> 24) == 0x02;
+                    var localPos = new Vector3(obj.Position[0], obj.Position[1], obj.Position[2]);
                     var worldPos = new Vector3(
                         new Vector2(lbGlobalX * lbSizeUnits + obj.Position[0], lbGlobalY * lbSizeUnits + obj.Position[1]) + regionInfo.MapOffset,
                         obj.Position[2] + RenderConstants.ObjectZOffset
@@ -290,6 +292,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         IsSetup = isSetup,
                         IsBuilding = false,
                         WorldPosition = worldPos,
+                        LocalPosition = localPos,
                         Rotation = rotation,
                         Scale = Vector3.One,
                         Transform = transform,
@@ -303,6 +306,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (building.ModelId == 0) continue;
 
                     var isSetup = (building.ModelId >> 24) == 0x02;
+                    var localPos = new Vector3(building.Position[0], building.Position[1], building.Position[2]);
                     var worldPos = new Vector3(
                         new Vector2(lbGlobalX * lbSizeUnits + building.Position[0], lbGlobalY * lbSizeUnits + building.Position[1]) + regionInfo.MapOffset,
                         building.Position[2] + RenderConstants.ObjectZOffset
@@ -323,6 +327,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         IsSetup = isSetup,
                         IsBuilding = true,
                         WorldPosition = worldPos,
+                        LocalPosition = localPos,
                         Rotation = rotation,
                         Scale = Vector3.One,
                         Transform = transform,

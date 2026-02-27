@@ -72,6 +72,13 @@
                                     <TextBlock Text="{Binding Y, StringFormat='\{0:F2\}'}" />
                                     <TextBlock Text="{Binding Z, StringFormat='\{0:F2\}'}" />
                                 </StackPanel>
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Rotation: " Opacity="0.7" />
+                                <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="{Binding RotationX, StringFormat='\{0:F2\}°'}" />
+                                    <TextBlock Text="{Binding RotationY, StringFormat='\{0:F2\}°'}" />
+                                    <TextBlock Text="{Binding RotationZ, StringFormat='\{0:F2\}°'}" />
+                                </StackPanel>
                             </Grid>
                         </StackPanel>
                     </DataTemplate>
@@ -79,7 +86,7 @@
                     <DataTemplate DataType="vm:BuildingViewModel">
                         <StackPanel Spacing="4">
                             <TextBlock Text="Building" FontWeight="Bold" />
-                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto">
+                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto">
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Model ID: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:DataIdControl Grid.Row="0" Grid.Column="1" 
                                                    DataId="{Binding ModelId}" 
@@ -97,6 +104,13 @@
                                     <TextBlock Text="{Binding Y, StringFormat='\{0:F2\}'}" />
                                     <TextBlock Text="{Binding Z, StringFormat='\{0:F2\}'}" />
                                 </StackPanel>
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Rotation: " Opacity="0.7" />
+                                <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="{Binding RotationX, StringFormat='\{0:F2\}°'}" />
+                                    <TextBlock Text="{Binding RotationY, StringFormat='\{0:F2\}°'}" />
+                                    <TextBlock Text="{Binding RotationZ, StringFormat='\{0:F2\}°'}" />
+                                </StackPanel>
                             </Grid>
                         </StackPanel>
                     </DataTemplate>
@@ -104,7 +118,7 @@
                     <DataTemplate DataType="vm:SceneryViewModel">
                         <StackPanel Spacing="4">
                             <TextBlock Text="Scenery" FontWeight="Bold" />
-                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto">
+                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto">
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Model ID: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:DataIdControl Grid.Row="0" Grid.Column="1" 
                                                    DataId="{Binding ObjectId}" 
@@ -121,6 +135,13 @@
                                     <TextBlock Text="{Binding X, StringFormat='\{0:F2\}'}" />
                                     <TextBlock Text="{Binding Y, StringFormat='\{0:F2\}'}" />
                                     <TextBlock Text="{Binding Z, StringFormat='\{0:F2\}'}" />
+                                </StackPanel>
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Rotation: " Opacity="0.7" />
+                                <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="{Binding RotationX, StringFormat='\{0:F2\}°'}" />
+                                    <TextBlock Text="{Binding RotationY, StringFormat='\{0:F2\}°'}" />
+                                    <TextBlock Text="{Binding RotationZ, StringFormat='\{0:F2\}°'}" />
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
@@ -157,7 +178,7 @@
                     <DataTemplate DataType="vm:EnvCellViewModel">
                         <StackPanel Spacing="4">
                             <TextBlock Text="Interior Cell" FontWeight="Bold" />
-                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto">
+                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto">
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Cell ID: " Opacity="0.7" VerticalAlignment="Center" />
                                 <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ObjectIdHex}" VerticalAlignment="Center" />
                                 
@@ -173,6 +194,13 @@
                                     <TextBlock Text="{Binding Y, StringFormat='\{0:F2\}'}" />
                                     <TextBlock Text="{Binding Z, StringFormat='\{0:F2\}'}" />
                                 </StackPanel>
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Rotation: " Opacity="0.7" />
+                                <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="{Binding RotationX, StringFormat='\{0:F2\}°'}" />
+                                    <TextBlock Text="{Binding RotationY, StringFormat='\{0:F2\}°'}" />
+                                    <TextBlock Text="{Binding RotationZ, StringFormat='\{0:F2\}°'}" />
+                                </StackPanel>
                             </Grid>
                         </StackPanel>
                     </DataTemplate>
@@ -180,7 +208,7 @@
                     <DataTemplate DataType="vm:EnvCellStaticObjectViewModel">
                         <StackPanel Spacing="4">
                             <TextBlock Text="Cell Object" FontWeight="Bold" />
-                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto">
+                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto">
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Model ID: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:DataIdControl Grid.Row="0" Grid.Column="1" 
                                                    DataId="{Binding ObjectId}" 
@@ -203,6 +231,13 @@
                                     <TextBlock Text="{Binding X, StringFormat='\{0:F2\}'}" />
                                     <TextBlock Text="{Binding Y, StringFormat='\{0:F2\}'}" />
                                     <TextBlock Text="{Binding Z, StringFormat='\{0:F2\}'}" />
+                                </StackPanel>
+
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="Rotation: " Opacity="0.7" />
+                                <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="{Binding RotationX, StringFormat='\{0:F2\}°'}" />
+                                    <TextBlock Text="{Binding RotationY, StringFormat='\{0:F2\}°'}" />
+                                    <TextBlock Text="{Binding RotationZ, StringFormat='\{0:F2\}°'}" />
                                 </StackPanel>
                             </Grid>
                         </StackPanel>

@@ -25,6 +25,7 @@ public partial class PortalViewModel : ViewModelBase, ISelectedObjectInfo {
     [ObservableProperty] private uint _cellId;
     [ObservableProperty] private ulong _portalIndex;
     [ObservableProperty] private Vector3 _position;
+    [ObservableProperty] private Vector3 _localPosition;
     [ObservableProperty] private Quaternion _rotation;
 
     public string CellIdHex => $"0x{CellId:X8}";
@@ -38,10 +39,13 @@ public partial class PortalViewModel : ViewModelBase, ISelectedObjectInfo {
 
     public string OtherCellIdHex => $"0x{OtherCellId:X4}";
 
-    public PortalViewModel(uint landblockId, uint cellId, ulong portalIndex, IDatReaderWriter dats, IPortalService portalService) {
+    public PortalViewModel(uint landblockId, uint cellId, ulong portalIndex, Vector3 position, Vector3 localPosition, Quaternion rotation, IDatReaderWriter dats, IPortalService portalService) {
         LandblockId = landblockId;
         CellId = cellId;
         PortalIndex = portalIndex;
+        Position = position;
+        LocalPosition = localPosition;
+        Rotation = rotation;
 
         var regionId = (landblockId >> 16) & 0xFFFF;
         var portal = portalService.GetPortal(regionId, landblockId, cellId, InstanceIdConstants.GetRawId(portalIndex));

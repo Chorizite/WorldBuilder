@@ -128,6 +128,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.InstanceId = instance.InstanceId;
                                 hit.SecondaryId = InstanceIdConstants.GetSecondaryId(instance.InstanceId);
                                 hit.Position = instance.WorldPosition;
+                                hit.LocalPosition = instance.LocalPosition;
                                 hit.Rotation = instance.Rotation;
                                 hit.LandblockId = (uint)((key << 16) | 0xFFFE);
                                 hit.Normal = normal;
@@ -382,9 +383,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             numVisibleCells++;
 
                             // Calculate world position
-                            var localPos = new Vector3(
-                                new Vector2(lbGlobalX * lbSizeUnits + (float)envCell.Position.Origin[0], lbGlobalY * lbSizeUnits + (float)envCell.Position.Origin[1]) + regionInfo.MapOffset,
-                                (float)envCell.Position.Origin[2] + RenderConstants.ObjectZOffset
+                            var datPos = new Vector3((float)envCell.Position.Origin[0], (float)envCell.Position.Origin[1], (float)envCell.Position.Origin[2]);
+                            var worldPos = new Vector3(
+                                new Vector2(lbGlobalX * lbSizeUnits + datPos.X, lbGlobalY * lbSizeUnits + datPos.Y) + regionInfo.MapOffset,
+                                datPos.Z + RenderConstants.ObjectZOffset
                             );
 
                             var rotation = new Quaternion(
@@ -395,7 +397,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             );
 
                             var transform = Matrix4x4.CreateFromQuaternion(rotation)
-                                * Matrix4x4.CreateTranslation(localPos);
+                                * Matrix4x4.CreateTranslation(worldPos);
 
                             // Add the cell geometry itself
                             uint envId = 0x0D000000u | envCell.EnvironmentId;
@@ -413,7 +415,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                         IsSetup = false,
                                         IsBuilding = true,
                                         IsEntryCell = entryCellIds.Contains(cellId),
-                                        WorldPosition = localPos,
+                                        WorldPosition = worldPos,
+                                        LocalPosition = datPos,
                                         Rotation = rotation,
                                         Scale = Vector3.One,
                                         Transform = transform,
@@ -428,9 +431,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 for (ushort i = 0; i < envCell.StaticObjects.Count; i++) {
                                     var stab = envCell.StaticObjects[i];
 
+                                    var datStabPos = new Vector3((float)stab.Frame.Origin[0], (float)stab.Frame.Origin[1], (float)stab.Frame.Origin[2]);
                                     var stabWorldPos = new Vector3(
-                                        new Vector2(lbGlobalX * lbSizeUnits + (float)stab.Frame.Origin[0], lbGlobalY * lbSizeUnits + (float)stab.Frame.Origin[1]) + regionInfo.MapOffset,
-                                        (float)stab.Frame.Origin[2] + RenderConstants.ObjectZOffset
+                                        new Vector2(lbGlobalX * lbSizeUnits + datStabPos.X, lbGlobalY * lbSizeUnits + datStabPos.Y) + regionInfo.MapOffset,
+                                        datStabPos.Z + RenderConstants.ObjectZOffset
                                     );
 
                                     var stabWorldRot = new Quaternion(stab.Frame.Orientation[0], stab.Frame.Orientation[1], stab.Frame.Orientation[2], stab.Frame.Orientation[3]);
@@ -447,6 +451,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                         IsSetup = isSetup,
                                         IsBuilding = false,
                                         WorldPosition = stabWorldPos,
+                                        LocalPosition = datStabPos,
                                         Rotation = stabWorldRot,
                                         Scale = Vector3.One,
                                         Transform = stabWorldTransform,
