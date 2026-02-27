@@ -31,6 +31,8 @@ namespace WorldBuilder.Views {
         private bool _renderShowCulling = true;
         private Vector4 _renderBackgroundColor = new Vector4(0.15f, 0.15f, 0.2f, 1.0f);
 
+        public override DebugRenderSettings RenderSettings => new DebugRenderSettings();
+
         public static readonly StyledProperty<uint> FileIdProperty =
             AvaloniaProperty.Register<DatObjectViewer, uint>(nameof(FileId));
 

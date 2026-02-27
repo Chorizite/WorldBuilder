@@ -38,6 +38,8 @@ public partial class RenderView : Base3DViewport {
 
     public event Action? SceneInitialized;
 
+    public override DebugRenderSettings RenderSettings => new DebugRenderSettings();
+
     // Pending landscape update to be processed on the render thread
     private LandscapeDocument? _pendingLandscapeDocument;
     private WorldBuilder.Shared.Services.IDatReaderWriter? _pendingDatReader;
