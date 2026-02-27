@@ -14,6 +14,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                    (point.Z >= box.Min.Z && point.Z <= box.Max.Z);
         }
 
+        public static BoundingBox Union(this BoundingBox box, BoundingBox other) {
+            return new BoundingBox(Vector3.Min(box.Min, other.Min), Vector3.Max(box.Max, other.Max));
+        }
+
         public static BoundingBox Transform(this BoundingBox box, Matrix4x4 matrix) {
             var corners = new Vector3[8];
             corners[0] = new Vector3(box.Min.X, box.Min.Y, box.Min.Z);

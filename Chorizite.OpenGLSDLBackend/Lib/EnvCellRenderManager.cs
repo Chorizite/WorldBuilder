@@ -182,7 +182,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Protected: Overrides
 
-        public override void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
+        public override void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null) {
             if (!_initialized || cameraPosition.Z > 4000) return;
 
             // Clear previous frame data
@@ -191,6 +191,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _poolIndex = 0;
             _cellBatches.Clear();
 
+            var cellVisibility = new Dictionary<uint, bool>();
+
             foreach (var lb in _landblocks.Values) {
                 if (!lb.GpuReady || lb.Instances.Count == 0 || !IsWithinRenderDistance(lb)) continue;
 
@@ -198,32 +200,57 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (testResult == FrustumTestResult.Outside) continue;
 
                 foreach (var instance in lb.Instances) {
-                    if (testResult == FrustumTestResult.Inside || _frustum.Intersects(instance.BoundingBox)) {
-                        var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
-                        if (!_cellBatches.TryGetValue(cellId, out var cellGroups)) {
-                            cellGroups = new Dictionary<ulong, List<Matrix4x4>>();
-                            _cellBatches[cellId] = cellGroups;
+                    var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
+
+                    // Step 1: Push Portal Filtering into PrepareRenderBatches
+                    if (filter != null && !filter.Contains(cellId)) continue;
+
+                    if (testResult == FrustumTestResult.Inside) {
+                        // All good
+                    }
+                    else {
+                        // Slow path: Test hierarchical then individual
+
+                        // Step 2: Implement Hierarchical Frustum Culling
+                        if (!cellVisibility.TryGetValue(cellId, out var isCellVisible)) {
+                            if (lb.EnvCellBounds.TryGetValue(cellId, out var cellBox)) {
+                                isCellVisible = _frustum.Intersects(cellBox);
+                                cellVisibility[cellId] = isCellVisible;
+                            }
+                            else {
+                                isCellVisible = true;
+                            }
                         }
 
-                        if (instance.IsSetup) {
-                            var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
-                            if (renderData is { IsSetup: true }) {
-                                foreach (var (partId, partTransform) in renderData.SetupParts) {
-                                    if (!cellGroups.TryGetValue(partId, out var list)) {
-                                        list = GetPooledList();
-                                        cellGroups[partId] = list;
-                                    }
-                                    list.Add(partTransform * instance.Transform);
+                        if (!isCellVisible) continue;
+
+                        if (!_frustum.Intersects(instance.BoundingBox)) continue;
+                    }
+
+                    // If we get here, it's visible, so batch it
+                    if (!_cellBatches.TryGetValue(cellId, out var cellGroups)) {
+                        cellGroups = new Dictionary<ulong, List<Matrix4x4>>();
+                        _cellBatches[cellId] = cellGroups;
+                    }
+
+                    if (instance.IsSetup) {
+                        var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
+                        if (renderData is { IsSetup: true }) {
+                            foreach (var (partId, partTransform) in renderData.SetupParts) {
+                                if (!cellGroups.TryGetValue(partId, out var list)) {
+                                    list = GetPooledList();
+                                    cellGroups[partId] = list;
                                 }
+                                list.Add(partTransform * instance.Transform);
                             }
                         }
-                        else {
-                            if (!cellGroups.TryGetValue(instance.ObjectId, out var list)) {
-                                list = GetPooledList();
-                                cellGroups[instance.ObjectId] = list;
-                            }
-                            list.Add(instance.Transform);
+                    }
+                    else {
+                        if (!cellGroups.TryGetValue(instance.ObjectId, out var list)) {
+                            list = GetPooledList();
+                            cellGroups[instance.ObjectId] = list;
                         }
+                        list.Add(instance.Transform);
                     }
                 }
             }
@@ -353,6 +380,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var discoveredCellIds = new HashSet<uint>();
                 var entryCellIds = new HashSet<uint>();
                 var cellsToProcess = new Queue<uint>();
+                var envCellBounds = new Dictionary<uint, BoundingBox>();
 
                 var cellDb = LandscapeDoc.CellDatabase;
                 if (cellDb != null && mergedLb.Buildings.Count > 0) {
@@ -432,6 +460,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     LocalBoundingBox = localBbox,
                                     BoundingBox = bbox
                                 });
+
+                                envCellBounds[cellId] = bbox;
                             }
                         }
 
@@ -472,6 +502,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     LocalBoundingBox = localBbox,
                                     BoundingBox = bbox
                                 });
+
+                                if (envCellBounds.TryGetValue(cellId, out var currentBox)) {
+                                    envCellBounds[cellId] = currentBox.Union(bbox);
+                                }
+                                else {
+                                    envCellBounds[cellId] = bbox;
+                                }
                             }
                         }
 
@@ -488,6 +525,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 lb.PendingInstances = instances;
+                lb.PendingEnvCellBounds = envCellBounds;
 
                 lock (_tcsLock) {
                     lb.InstancesReady = true;

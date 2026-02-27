@@ -263,7 +263,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return (float)sw.Elapsed.TotalMilliseconds;
         }
 
-        public virtual void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
+        public virtual void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null) {
             if (!_initialized || cameraPosition.Z > 4000) return;
 
             // Clear previous frame data
@@ -578,6 +578,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 lb.Instances = lb.PendingInstances;
                 lb.PendingInstances = null;
+
+                if (lb.PendingEnvCellBounds != null) {
+                    lb.EnvCellBounds = lb.PendingEnvCellBounds;
+                    lb.PendingEnvCellBounds = null;
+                }
             }
             else if (!lb.GpuReady) {
                 // First time load
