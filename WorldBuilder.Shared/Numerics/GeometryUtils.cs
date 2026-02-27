@@ -168,5 +168,34 @@ namespace WorldBuilder.Shared.Numerics {
         }
 
         public static ushort PackKey(int x, int y) => (ushort)((x << 8) | y);
+
+        /// <summary>
+        /// Converts a quaternion to Euler angles (in degrees) using the ZYX convention.
+        /// </summary>
+        /// <param name="q">The quaternion to convert.</param>
+        /// <returns>A Vector3 containing the Euler angles (X, Y, Z) in degrees.</returns>
+        public static Vector3 QuaternionToEuler(Quaternion q) {
+            float x = q.X, y = q.Y, z = q.Z, w = q.W;
+            float roll, pitch, yaw;
+
+            // Roll (x-axis rotation)
+            float sinr_cosp = 2 * (w * x + y * z);
+            float cosr_cosp = 1 - 2 * (x * x + y * y);
+            roll = (float)Math.Atan2(sinr_cosp, cosr_cosp);
+
+            // Pitch (y-axis rotation)
+            float sinp = 2 * (w * y - z * x);
+            if (Math.Abs(sinp) >= 1)
+                pitch = (float)Math.CopySign(Math.PI / 2, sinp);
+            else
+                pitch = (float)Math.Asin(sinp);
+
+            // Yaw (z-axis rotation)
+            float siny_cosp = 2 * (w * z + x * y);
+            float cosy_cosp = 1 - 2 * (y * y + z * z);
+            yaw = (float)Math.Atan2(siny_cosp, cosy_cosp);
+
+            return new Vector3(roll, pitch, yaw) * (180.0f / (float)Math.PI);
+        }
     }
 }

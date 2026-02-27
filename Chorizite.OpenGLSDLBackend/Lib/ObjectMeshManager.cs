@@ -471,13 +471,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             if (type == DBObjType.Setup) {
                 if (!db.TryGet<Setup>(id, out var setup)) return;
-                var placementFrame = setup.PlacementFrames[0];
+
+                // Use Resting placement first, then default
+                if (!setup.PlacementFrames.TryGetValue(Placement.Resting, out var placementFrame)) {
+                    if (!setup.PlacementFrames.TryGetValue(Placement.Default, out placementFrame)) {
+                        placementFrame = setup.PlacementFrames.Values.FirstOrDefault();
+                    }
+                }
+                if (placementFrame == null) return;
 
                 for (int i = 0; i < setup.Parts.Count; i++) {
                     var partId = setup.Parts[i];
                     var transform = Matrix4x4.Identity;
                     if (placementFrame.Frames != null && i < placementFrame.Frames.Count) {
-                        var orientation = placementFrame.Frames[i].Orientation;
+                        var orientation = new System.Numerics.Quaternion(
+                            (float)placementFrame.Frames[i].Orientation.X,
+                            (float)placementFrame.Frames[i].Orientation.Y,
+                            (float)placementFrame.Frames[i].Orientation.Z,
+                            (float)placementFrame.Frames[i].Orientation.W
+                        );
                         transform = Matrix4x4.CreateFromQuaternion(orientation)
                             * Matrix4x4.CreateTranslation(placementFrame.Frames[i].Origin);
                     }
@@ -490,10 +502,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 // Calculate the inverse transform of the cell to localize its contents
                 var cellOrientation = new System.Numerics.Quaternion(
-                    (float)envCell.Position.Orientation[0], // X
-                    (float)envCell.Position.Orientation[1], // Y
-                    (float)envCell.Position.Orientation[2], // Z
-                    (float)envCell.Position.Orientation[3]  // W
+                    (float)envCell.Position.Orientation.X,
+                    (float)envCell.Position.Orientation.Y,
+                    (float)envCell.Position.Orientation.Z,
+                    (float)envCell.Position.Orientation.W
                 );
                 var cellTransform = Matrix4x4.CreateFromQuaternion(cellOrientation) *
                                     Matrix4x4.CreateTranslation(envCell.Position.Origin);
@@ -515,10 +527,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 foreach (var stab in envCell.StaticObjects) {
-                    var orientation = stab.Frame.Orientation;
+                    var orientation = new System.Numerics.Quaternion(
+                        (float)stab.Frame.Orientation.X,
+                        (float)stab.Frame.Orientation.Y,
+                        (float)stab.Frame.Orientation.Z,
+                        (float)stab.Frame.Orientation.W
+                    );
                     var transform = Matrix4x4.CreateFromQuaternion(orientation)
                                     * Matrix4x4.CreateTranslation(stab.Frame.Origin);
-
                     // Localize static object transform relative to the cell
                     var localizedTransform = transform * invertCellTransform;
 
@@ -715,10 +731,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             // Calculate the inverse transform of the cell to localize its contents
             var cellOrientation = new System.Numerics.Quaternion(
-                (float)envCell.Position.Orientation[0], // X
-                (float)envCell.Position.Orientation[1], // Y
-                (float)envCell.Position.Orientation[2], // Z
-                (float)envCell.Position.Orientation[3]  // W
+                (float)envCell.Position.Orientation.X,
+                (float)envCell.Position.Orientation.Y,
+                (float)envCell.Position.Orientation.Z,
+                (float)envCell.Position.Orientation.W
             );
             var cellTransform = Matrix4x4.CreateFromQuaternion(cellOrientation) *
                                 Matrix4x4.CreateTranslation(envCell.Position.Origin);
@@ -728,7 +744,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             // Add static objects
             foreach (var stab in envCell.StaticObjects) {
-                var orientation = stab.Frame.Orientation;
+                var orientation = new System.Numerics.Quaternion(
+                    (float)stab.Frame.Orientation.X,
+                    (float)stab.Frame.Orientation.Y,
+                    (float)stab.Frame.Orientation.Z,
+                    (float)stab.Frame.Orientation.W
+                );
                 var transform = Matrix4x4.CreateFromQuaternion(orientation)
                                 * Matrix4x4.CreateTranslation(stab.Frame.Origin);
 
@@ -1200,7 +1221,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                     if (worldDist < distance) {
                         distance = worldDist;
-                        
+
                         // Calculate normal in local space and transform to world space
                         Vector3 localNormal = Vector3.Normalize(Vector3.Cross(v1 - v0, v2 - v0));
                         normal = Vector3.Normalize(Vector3.TransformNormal(localNormal, transform));

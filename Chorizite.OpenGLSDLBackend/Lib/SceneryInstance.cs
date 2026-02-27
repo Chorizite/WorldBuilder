@@ -25,6 +25,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>World-space position.</summary>
         public Vector3 WorldPosition;
 
+        /// <summary>Local-space position (relative to landblock origin).</summary>
+        public Vector3 LocalPosition;
+
         /// <summary>Rotation quaternion.</summary>
         public Quaternion Rotation;
 

@@ -9,6 +9,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         ushort SecondaryId { get; }
         uint ObjectId { get; }
         Vector3 Position { get; }
+        Vector3 LocalPosition { get; }
         Quaternion Rotation { get; }
         int VertexX { get; }
         int VertexY { get; }

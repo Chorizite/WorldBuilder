@@ -265,23 +265,23 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
         if (e.Selection.Type == InspectorSelectionType.StaticObject || e.Selection.Type == InspectorSelectionType.Building) {
             if (e.Selection.Type == InspectorSelectionType.StaticObject) {
-                PropertiesPanel.SelectedItem = new StaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.Rotation);
+                PropertiesPanel.SelectedItem = new StaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
             }
             else {
-                PropertiesPanel.SelectedItem = new BuildingViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.Rotation);
+                PropertiesPanel.SelectedItem = new BuildingViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
             }
         }
         else if (e.Selection.Type == InspectorSelectionType.Scenery) {
-            PropertiesPanel.SelectedItem = new SceneryViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.Rotation);
+            PropertiesPanel.SelectedItem = new SceneryViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
         }
         else if (e.Selection.Type == InspectorSelectionType.Portal) {
-            PropertiesPanel.SelectedItem = new PortalViewModel(e.Selection.LandblockId, e.Selection.ObjectId, e.Selection.InstanceId, _dats, _portalService);
+            PropertiesPanel.SelectedItem = new PortalViewModel(e.Selection.LandblockId, e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation, _dats, _portalService);
         }
         else if (e.Selection.Type == InspectorSelectionType.EnvCell) {
-            PropertiesPanel.SelectedItem = new EnvCellViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.Rotation);
+            PropertiesPanel.SelectedItem = new EnvCellViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
         }
         else if (e.Selection.Type == InspectorSelectionType.EnvCellStaticObject) {
-            PropertiesPanel.SelectedItem = new EnvCellStaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.Rotation);
+            PropertiesPanel.SelectedItem = new EnvCellStaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
         }
         else if (e.Selection.Type == InspectorSelectionType.Vertex) {
             PropertiesPanel.SelectedItem = new LandscapeVertexViewModel(e.Selection.VertexX, e.Selection.VertexY, ActiveDocument!, _dats, CommandHistory);

@@ -230,11 +230,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             if (closestPortal != null) {
+                var pos = rayOrigin + rayDirection * closestDistance;
                 hit = new SceneRaycastHit {
                     Hit = true,
                     Type = InspectorSelectionType.Portal,
                     Distance = closestDistance,
-                    Position = rayOrigin + rayDirection * closestDistance,
+                    Position = pos,
+                    LocalPosition = pos,
+                    Rotation = Quaternion.Identity,
                     LandblockId = closestLandblockId,
                     ObjectId = closestPortal.CellId,
                     InstanceId = InstanceIdConstants.Encode((uint)closestPortal.PortalIndex, InspectorSelectionType.Portal)

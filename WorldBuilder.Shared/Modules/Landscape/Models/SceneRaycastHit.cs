@@ -17,6 +17,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         
         /// <summary>The world position of the hit object or point.</summary>
         public Vector3 Position { get; set; }
+
+        /// <summary>The local position of the hit object (relative to its parent landblock).</summary>
+        public Vector3 LocalPosition { get; set; }
         
         /// <summary>The rotation of the hit object (if applicable).</summary>
         public Quaternion Rotation { get; set; }
