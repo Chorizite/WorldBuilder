@@ -113,6 +113,11 @@ public partial class SceneryPreview : Base3DViewport {
                         };
                         var layer = new LandscapeLayer("Preview", true);
                         _previewDoc.LayerTree.Add(layer);
+
+                        // Ensure chunk 0 is loaded so SetVertex works
+                        var chunk = new LandscapeChunk(0);
+                        chunk.EditsDetached = new LandscapeChunkDocument(LandscapeChunkDocument.GetId(regionId, 0, 0));
+                        _previewDoc.LoadedChunks[0] = chunk;
                     }
                 }
             }
