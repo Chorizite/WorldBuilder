@@ -580,6 +580,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         EditorState.ObjectRenderDistance = _settings.Landscape.Rendering.ObjectRenderDistance;
         EditorState.MaxDrawDistance = _settings.Landscape.Camera.MaxDrawDistance;
         EditorState.MouseSensitivity = _settings.Landscape.Camera.MouseSensitivity;
+        EditorState.AltMouseLook = _settings.Landscape.Camera.AltMouseLook;
         EditorState.EnableCameraCollision = _settings.Landscape.Camera.EnableCameraCollision;
         EditorState.EnableTransparencyPass = _settings.Landscape.Rendering.EnableTransparencyPass;
         EditorState.TimeOfDay = _settings.Landscape.Rendering.TimeOfDay;
@@ -607,6 +608,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             case nameof(EditorState.ObjectRenderDistance): _settings.Landscape.Rendering.ObjectRenderDistance = EditorState.ObjectRenderDistance; break;
             case nameof(EditorState.MaxDrawDistance): _settings.Landscape.Camera.MaxDrawDistance = EditorState.MaxDrawDistance; break;
             case nameof(EditorState.MouseSensitivity): _settings.Landscape.Camera.MouseSensitivity = EditorState.MouseSensitivity; break;
+            case nameof(EditorState.AltMouseLook): _settings.Landscape.Camera.AltMouseLook = EditorState.AltMouseLook; break;
             case nameof(EditorState.EnableCameraCollision): _settings.Landscape.Camera.EnableCameraCollision = EditorState.EnableCameraCollision; break;
             case nameof(EditorState.EnableTransparencyPass): _settings.Landscape.Rendering.EnableTransparencyPass = EditorState.EnableTransparencyPass; break;
             case nameof(EditorState.TimeOfDay): _settings.Landscape.Rendering.TimeOfDay = EditorState.TimeOfDay; break;
