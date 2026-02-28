@@ -216,22 +216,28 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (!lb.GpuReady || lb.Instances.Count == 0 || !IsWithinRenderDistance(lb)) continue;
 
                 var testResult = GetLandblockFrustumResult(lb.GridX, lb.GridY);
+                var seenOutsideCells = lb.SeenOutsideCells;
 
-                // If no filter is provided (e.g., camera collision disabled and outdoors), 
-                // do not rely on the 192x192 landblock bound which may omit large dungeons spreading
-                // multiple physical landblock boundaries.
-                // Instead, verify if any of the precise EnvCell composite bounds intersect.
-                if (filter == null && testResult == FrustumTestResult.Outside) {
+                if (testResult == FrustumTestResult.Outside) {
                     bool anyCellVisible = false;
                     foreach (var kvp in lb.EnvCellBounds) {
+                        if (filter != null && !filter.Contains(kvp.Key)) {
+                            cellVisibility[kvp.Key] = false;
+                            continue;
+                        }
+
+                        if (isOutside && filter == null && seenOutsideCells != null && !seenOutsideCells.Contains(kvp.Key)) {
+                            // Filter out interior-only cells when outdoors
+                            cellVisibility[kvp.Key] = false;
+                            continue;
+                        }
+
                         bool isCellVisible = _frustum.Intersects(kvp.Value);
                         cellVisibility[kvp.Key] = isCellVisible;
                         if (isCellVisible) anyCellVisible = true;
                     }
                     if (!anyCellVisible) continue;
                 }
-
-                var seenOutsideCells = lb.SeenOutsideCells;
 
                 foreach (var instance in lb.Instances) {
                     var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);

@@ -825,6 +825,17 @@ public class GameScene : IDisposable {
                 _gl.DepthMask(false);
 
                 foreach (var (lbKey, building) in _otherBuildings) {
+                    // Read back the previous frame's occlusion query result.
+                    if (building.QueryId != 0) {
+                        _gl.GetQueryObject(building.QueryId, QueryObjectParameterName.ResultAvailable, out int available);
+                        if (available != 0) {
+                            _gl.GetQueryObject(building.QueryId, QueryObjectParameterName.Result, out int samplesPassed);
+                            building.WasVisible = samplesPassed > 0;
+                        }
+
+                        _gl.BeginQuery(QueryTarget.SamplesPassed, building.QueryId);
+                    }
+
                     // a. Mark Bit 2 (0x02) for this building's portals, BUT ONLY where Bit 1 (0x01) is set.
                     // We use Ref=3, Mask=0x02 to set Bit 2 while Bit 1 remains.
                     _gl.StencilFunc(StencilFunction.Equal, 3, 0x01); // Match Bit 1
@@ -833,7 +844,13 @@ public class GameScene : IDisposable {
                     _gl.Disable(EnableCap.CullFace);
                     _portalManager?.RenderBuildingStencilMask(building, snapshotVP, false);
 
+                    if (building.QueryId != 0) {
+                        _gl.EndQuery(QueryTarget.SamplesPassed);
+                    }
+
                     // b. Clear depth where Stencil == 3 (Inside our portal AND its portal).
+                    // This is necessary because building A's interior cells may have 
+                    // written depth into the doorway.
                     _gl.StencilFunc(StencilFunction.Equal, 3, 0x03);
                     _gl.StencilMask(0x00);
                     _gl.DepthMask(true);
@@ -841,6 +858,8 @@ public class GameScene : IDisposable {
                     _portalManager?.RenderBuildingStencilMask(building, snapshotVP, true);
 
                     // c. Render this building's EnvCells where Stencil == 3 (GPU will depth/stencil cull).
+                    // We render regardless of WasVisible here because we are inside and want to avoid
+                    // latency or logic bugs with portal-to-portal occlusion. Stencil/depth will cull.
                     _gl.ColorMask(true, true, true, false);
                     _gl.DepthFunc(DepthFunction.Less);
                     _envCellManager!.Render(pass1RenderPass, building.EnvCellIds);
@@ -919,7 +938,24 @@ public class GameScene : IDisposable {
             _gl.DepthFunc(DepthFunction.Less);
 
             foreach (var (lbKey, building) in _visibleBuildingPortals) {
+                // Read back the previous frame's occlusion query result to avoid CPU stall.
+                // If the portal became visible this frame, it will pass the depth test,
+                // the query will count it, and next frame its EnvCells will be rendered.
+                if (building.QueryId != 0) {
+                    _gl.GetQueryObject(building.QueryId, QueryObjectParameterName.ResultAvailable, out int available);
+                    if (available != 0) {
+                        _gl.GetQueryObject(building.QueryId, QueryObjectParameterName.Result, out int samplesPassed);
+                        building.WasVisible = samplesPassed > 0;
+                    }
+
+                    _gl.BeginQuery(QueryTarget.SamplesPassed, building.QueryId);
+                }
+
                 _portalManager?.RenderBuildingStencilMask(building, snapshotVP, false);
+
+                if (building.QueryId != 0) {
+                    _gl.EndQuery(QueryTarget.SamplesPassed);
+                }
             }
 
             // Step 2: Clear depth to far plane ONLY where stencil==1.
@@ -949,10 +985,6 @@ public class GameScene : IDisposable {
 
             if (_state.ShowStaticObjects || _state.ShowBuildings) {
                 _staticObjectManager?.Render(pass1RenderPass);
-            }
-
-            if (_state.ShowScenery) {
-                _sceneryManager?.Render(pass1RenderPass);
             }
 
             // Step 4: Prepare state for EnvCell rendering through stencil.
@@ -1079,7 +1111,11 @@ public class GameScene : IDisposable {
                 }
             }
             foreach (var (_, building) in _visibleBuildingPortals) {
-                foreach (var id in building.EnvCellIds) visibleEnvCells.Add(id);
+                // If we are inside, we always prepare all portal-visible building cells.
+                // If we are outside, we only prepare EnvCells for portals that were visible last frame (mountain occlusion).
+                if (isInside || building.WasVisible) {
+                    foreach (var id in building.EnvCellIds) visibleEnvCells.Add(id);
+                }
             }
         }
 

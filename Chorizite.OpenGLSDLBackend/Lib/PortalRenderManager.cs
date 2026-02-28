@@ -421,6 +421,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     GpuMemoryTracker.TrackDeallocation(building.VertexCount * sizeof(Vector3), GpuResourceType.Buffer);
                     _gl.DeleteBuffer(building.VBO);
                 }
+                if (building.QueryId != 0) _gl.DeleteQuery(building.QueryId);
             }
             lb.BuildingPortals.Clear();
 
@@ -460,7 +461,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         VAO = vao,
                         VBO = vbo,
                         VertexCount = pending.Vertices.Length,
-                        EnvCellIds = pending.EnvCellIds
+                        EnvCellIds = pending.EnvCellIds,
+                        QueryId = _gl.GenQuery()
                     });
                 }
                 lb.PendingBuildings = null;
@@ -479,6 +481,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (building.VBO != 0) {
                     GpuMemoryTracker.TrackDeallocation(building.VertexCount * sizeof(Vector3), GpuResourceType.Buffer);
                     _gl.DeleteBuffer(building.VBO);
+                }
+                if (building.QueryId != 0) {
+                    _gl.DeleteQuery(building.QueryId);
                 }
             }
             lb.BuildingPortals.Clear();
@@ -523,11 +528,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     /// GPU-uploaded portal polygon mesh for a single building.
     /// Used for stencil-based portal rendering.
     /// </summary>
-    internal sealed record BuildingPortalGPU {
+    internal sealed class BuildingPortalGPU {
         public int BuildingIndex { get; init; }
         public uint VAO { get; init; }
         public uint VBO { get; init; }
         public int VertexCount { get; init; }
         public HashSet<uint> EnvCellIds { get; init; } = new();
+        public uint QueryId { get; set; }
+        public bool WasVisible { get; set; } = true;
     }
 }
