@@ -569,6 +569,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     lb.EnvCellBounds = lb.PendingEnvCellBounds;
                     lb.PendingEnvCellBounds = null;
                 }
+
+                if (lb.PendingSeenOutsideCells != null) {
+                    lb.SeenOutsideCells = lb.PendingSeenOutsideCells;
+                    lb.PendingSeenOutsideCells = null;
+                }
             }
             else if (!lb.GpuReady) {
                 // First time load

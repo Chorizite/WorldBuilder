@@ -193,7 +193,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Protected: Overrides
 
-        public override void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null) {
+        public void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null, bool isOutside = false) {
             if (!_initialized || cameraPosition.Z > 4000) return;
 
             // Clear previous frame data
@@ -213,11 +213,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 // because the filtered cells might be inside this landblock even if the landblock box is outside
                 if (filter == null && testResult == FrustumTestResult.Outside) continue;
 
+                var seenOutsideCells = lb.SeenOutsideCells;
+
                 foreach (var instance in lb.Instances) {
                     var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
 
                     // Step 1: Push Portal Filtering into PrepareRenderBatches
                     if (filter != null && !filter.Contains(cellId)) continue;
+
+                    // Filter out interior-only cells when outdoors
+                    if (isOutside && filter == null && seenOutsideCells != null && !seenOutsideCells.Contains(cellId)) continue;
 
                     if (testResult == FrustumTestResult.Inside) {
                         // All good
@@ -404,6 +409,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var entryCellIds = new HashSet<uint>();
                 var cellsToProcess = new Queue<uint>();
                 var envCellBounds = new Dictionary<uint, BoundingBox>();
+                var seenOutsideCells = new HashSet<uint>();
 
                 var cellDb = LandscapeDoc.CellDatabase;
                 if (cellDb != null && mergedLb.Buildings.Count > 0) {
@@ -441,6 +447,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         // even if it's not marked SeenOutside. Portal-based rendering
                         // will handle occluding it if it's not visible.
                         numVisibleCells++;
+
+                        if (envCell.Flags.HasFlag(EnvCellFlags.SeenOutside)) {
+                            seenOutsideCells.Add(cellId);
+                        }
 
                         // Calculate world position
                         var datPos = new Vector3((float)envCell.Position.Origin.X, (float)envCell.Position.Origin.Y, (float)envCell.Position.Origin.Z);
@@ -549,6 +559,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 lb.PendingInstances = instances;
                 lb.PendingEnvCellBounds = envCellBounds;
+                lb.PendingSeenOutsideCells = seenOutsideCells;
 
                 lock (_tcsLock) {
                     lb.InstancesReady = true;

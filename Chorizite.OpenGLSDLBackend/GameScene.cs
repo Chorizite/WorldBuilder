@@ -1094,7 +1094,7 @@ public class GameScene : IDisposable {
 
         if (_state.ShowEnvCells && _envCellManager != null) {
             _envCellManager.SetVisibilityFilters(_state.ShowEnvCells);
-            _envCellManager.PrepareRenderBatches(snapshotVP, snapshotPos, visibleEnvCells);
+            _envCellManager.PrepareRenderBatches(snapshotVP, snapshotPos, visibleEnvCells, !isInside && _state.EnableCameraCollision);
         }
 
         if (_state.ShowSkybox) {
