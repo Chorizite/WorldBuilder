@@ -139,6 +139,9 @@
         <TabItem Header="History">
           <components:HistoryPanel DataContext="{Binding HistoryPanel}" />
         </TabItem>
+        <TabItem Header="Bookmarks">
+          <components:BookmarksPanel DataContext="{Binding BookmarksPanel}" />
+        </TabItem>
       </TabControl>
       <components:PropertiesPanel Grid.Row="1" Margin="4" DataContext="{Binding PropertiesPanel}" />
     </Grid>

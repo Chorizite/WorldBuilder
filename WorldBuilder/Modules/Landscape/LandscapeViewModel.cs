@@ -82,6 +82,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     public CommandHistory CommandHistory { get; } = new();
     public HistoryPanelViewModel HistoryPanel { get; }
     public LayersPanelViewModel LayersPanel { get; }
+    public BookmarksPanelViewModel BookmarksPanel { get; }
     public PropertiesPanelViewModel PropertiesPanel { get; }
 
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _saveDebounceTokens = new();
@@ -93,6 +94,8 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         get => _gameScene?.CurrentCamera ?? _camera;
         set => _camera = value;
     }
+
+    public GameScene GameScene => _gameScene!;
 
     public LandscapeViewModel(IProject project, IDatReaderWriter dats, IPortalService portalService, IDocumentManager documentManager, ILogger<LandscapeViewModel> log, IDialogService dialogService) {
         _project = project;
@@ -141,6 +144,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 PropertiesPanel.SelectedItem = LayersPanel.SelectedItem;
             }
         };
+        BookmarksPanel = new BookmarksPanelViewModel(this, _settings!);
 
         _ = LoadLandscapeAsync();
 
@@ -658,6 +662,10 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         }
         if (e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift) && e.Key == Key.Z) {
             CommandHistory.Redo();
+            return true;
+        }
+        if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.B) {
+            BookmarksPanel?.AddBookmark();
             return true;
         }
         return false;
