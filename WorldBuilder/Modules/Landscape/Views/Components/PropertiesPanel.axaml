@@ -54,7 +54,7 @@
                     <DataTemplate DataType="vm:StaticObjectViewModel">
                         <StackPanel Spacing="4">
                             <TextBlock Text="Static Object" FontWeight="Bold" />
-                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto">
+                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto">
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Model ID: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:DataIdControl Grid.Row="0" Grid.Column="1" 
                                                    DataId="{Binding ObjectId}" 
