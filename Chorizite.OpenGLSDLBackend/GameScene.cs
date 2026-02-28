@@ -892,11 +892,11 @@ public class GameScene : IDisposable {
                     _gl.DepthFunc(DepthFunction.Less);
                     _gl.Enable(EnableCap.CullFace);
                     _sceneryShader?.Bind();
-                    _envCellManager!.Render(pass1RenderPass, null);
+                    _envCellManager!.Render(pass1RenderPass, building.EnvCellIds);
 
                     if (_state.EnableTransparencyPass) {
                         _gl.DepthMask(false);
-                        _envCellManager!.Render(1, null);
+                        _envCellManager!.Render(1, building.EnvCellIds);
                         _gl.DepthMask(true);
                     }
 
