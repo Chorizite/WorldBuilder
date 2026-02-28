@@ -55,12 +55,8 @@ sealed class Program {
             .WithInterFont()
             .With(new Win32PlatformOptions() {
                 RenderingMode = new List<Win32RenderingMode>()  {
-                    Win32RenderingMode.AngleEgl
+                    Win32RenderingMode.Wgl
                 },
-            })
-            .With(new AngleOptions
-            {
-                GlProfiles = new[] { new GlVersion(GlProfileType.OpenGLES, 3, 0) }
             })
             .LogToTrace();
 }

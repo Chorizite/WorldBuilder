@@ -18,8 +18,18 @@ namespace Chorizite.OpenGLSDLBackend {
         public GL GL { get; }
         public DebugRenderSettings RenderSettings => _renderSettings;
 
+        public uint InstanceVBO { get; private set; }
+        private int _instanceBufferCapacity = 0;
+        private int _instanceBufferStride = 0;
+
         /// <inheritdoc />
         public override IntPtr NativeDevice { get; }
+
+        protected OpenGLGraphicsDevice() : base() {
+            _log = null!;
+            _renderSettings = null!;
+            GL = null!;
+        }
 
         public OpenGLGraphicsDevice(GL gl, ILogger log, DebugRenderSettings renderSettings) : base() {
             _log = log;
@@ -27,6 +37,24 @@ namespace Chorizite.OpenGLSDLBackend {
 
             GL = gl;
             GLHelpers.Init(this, log);
+
+            GL.GenBuffers(1, out uint instanceVbo);
+            InstanceVBO = instanceVbo;
+        }
+
+        public void EnsureInstanceBufferCapacity(int count, int stride, bool forceOrphan = false) {
+            if (count <= _instanceBufferCapacity && !forceOrphan) return;
+
+            if (_instanceBufferCapacity > 0) {
+                GpuMemoryTracker.TrackDeallocation(_instanceBufferCapacity * _instanceBufferStride);
+            }
+
+            _instanceBufferCapacity = Math.Max(count, 256);
+            _instanceBufferStride = stride;
+            GL.BindBuffer(GLEnum.ArrayBuffer, InstanceVBO);
+            GL.BufferData(GLEnum.ArrayBuffer, (nuint)(_instanceBufferCapacity * _instanceBufferStride),
+                (void*)null, GLEnum.DynamicDraw);
+            GpuMemoryTracker.TrackAllocation(_instanceBufferCapacity * _instanceBufferStride);
         }
 
         /// <inheritdoc />
@@ -254,6 +282,13 @@ namespace Chorizite.OpenGLSDLBackend {
 
         /// <inheritdoc />
         public override void Dispose() {
+            if (InstanceVBO != 0) {
+                GL.DeleteBuffer(InstanceVBO);
+                if (_instanceBufferCapacity > 0) {
+                    GpuMemoryTracker.TrackDeallocation(_instanceBufferCapacity * _instanceBufferStride);
+                }
+                InstanceVBO = 0;
+            }
         }
 
         public override IUniformBuffer CreateUniformBuffer(BufferUsage usage, int size) {

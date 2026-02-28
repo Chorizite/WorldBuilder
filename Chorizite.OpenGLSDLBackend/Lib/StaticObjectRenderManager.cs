@@ -158,7 +158,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             foreach (var lb in _landblocks.Values) {
                 if (!lb.InstancesReady || !IsWithinRenderDistance(lb)) continue;
-                if (GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) continue;
+                if (_frustum.TestBox(lb.BoundingBox) == FrustumTestResult.Outside) continue;
 
                 foreach (var instance in lb.Instances) {
                     if (instance.IsBuilding && !settings.SelectBuildings) continue;

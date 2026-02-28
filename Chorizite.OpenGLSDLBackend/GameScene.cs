@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
@@ -57,10 +58,13 @@ public class GameScene : IDisposable {
     }
 
     private void OnStatePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
-        SyncState();
+        _stateIsDirty = true;
     }
 
+    private bool _stateIsDirty = true;
     private void SyncState() {
+        if (!_stateIsDirty) return;
+
         if (_terrainManager != null) {
             _terrainManager.ShowUnwalkableSlopes = _state.ShowUnwalkableSlopes;
             // A landscape chunk is 8x8 landblocks. 8 * 192 = 1536 units.
@@ -102,6 +106,7 @@ public class GameScene : IDisposable {
 
         _camera3D.LookSensitivity = _state.MouseSensitivity;
         _camera3D.FarPlane = _state.MaxDrawDistance;
+        _stateIsDirty = false;
     }
 
     private TerrainRenderManager? _terrainManager;
@@ -600,8 +605,6 @@ public class GameScene : IDisposable {
             _currentEnvCellId = GetEnvCellAt(newPos, false);
         }
 
-        _cullingFrustum.Update(_currentCamera.ViewProjectionMatrix);
-
         _terrainManager?.Update(deltaTime, _currentCamera);
         _lastTerrainUploadTime = _terrainManager?.ProcessUploads(remainingTime) ?? 0;
         remainingTime = Math.Max(0, remainingTime - _lastTerrainUploadTime);
@@ -624,6 +627,23 @@ public class GameScene : IDisposable {
         _skyboxManager?.Update(deltaTime);
 
         SyncState();
+    }
+
+    private FrustumTestResult GetLandblockFrustumResult(int gridX, int gridY) {
+        if (_landscapeDoc?.Region == null) return FrustumTestResult.Outside;
+        var region = _landscapeDoc.Region;
+        var lbSize = region.CellSizeInUnits * region.LandblockCellLength;
+        var offset = region.MapOffset;
+        var minX = gridX * lbSize + offset.X;
+        var minY = gridY * lbSize + offset.Y;
+        var maxX = (gridX + 1) * lbSize + offset.X;
+        var maxY = (gridY + 1) * lbSize + offset.Y;
+
+        var box = new Chorizite.Core.Lib.BoundingBox(
+            new Vector3(minX, minY, -1000f),
+            new Vector3(maxX, maxY, 5000f)
+        );
+        return _cullingFrustum.TestBox(box);
     }
 
     /// <summary>
@@ -1124,25 +1144,31 @@ public class GameScene : IDisposable {
             }
         }
 
-        if (_state.ShowScenery) {
-            _sceneryManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
-        }
+        Parallel.Invoke(
+            () => {
+                if (_state.ShowScenery) {
+                    _sceneryManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
+                }
+            },
+            () => {
+                if (_state.ShowStaticObjects || _state.ShowBuildings) {
+                    _staticObjectManager?.SetVisibilityFilters(_state.ShowBuildings, _state.ShowStaticObjects);
+                    _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
+                }
+            },
+            () => {
+                if (_state.ShowEnvCells && _envCellManager != null) {
+                    _envCellManager.SetVisibilityFilters(_state.ShowEnvCells);
 
-        if (_state.ShowStaticObjects || _state.ShowBuildings) {
-            _staticObjectManager?.SetVisibilityFilters(_state.ShowBuildings, _state.ShowStaticObjects);
-            _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
-        }
+                    HashSet<uint>? envCellFilter = visibleEnvCells;
+                    if (!isInside && !_state.EnableCameraCollision) {
+                        envCellFilter = null; // Prepare all cells when collision is off and outside
+                    }
 
-        if (_state.ShowEnvCells && _envCellManager != null) {
-            _envCellManager.SetVisibilityFilters(_state.ShowEnvCells);
-
-            HashSet<uint>? envCellFilter = visibleEnvCells;
-            if (!isInside && !_state.EnableCameraCollision) {
-                envCellFilter = null; // Prepare all cells when collision is off and outside
+                    _envCellManager.PrepareRenderBatches(snapshotVP, snapshotPos, envCellFilter, !isInside && _state.EnableCameraCollision);
+                }
             }
-
-            _envCellManager.PrepareRenderBatches(snapshotVP, snapshotPos, envCellFilter, !isInside && _state.EnableCameraCollision);
-        }
+        );
 
         if (_state.ShowSkybox) {
             // Draw skybox before everything else
@@ -1247,6 +1273,8 @@ public class GameScene : IDisposable {
                 for (int lbX = camLbX - range; lbX <= camLbX + range; lbX++) {
                     for (int lbY = camLbY - range; lbY <= camLbY + range; lbY++) {
                         if (lbX < 0 || lbX >= region.MapWidthInLandblocks || lbY < 0 || lbY >= region.MapHeightInLandblocks) continue;
+
+                        if (GetLandblockFrustumResult(lbX, lbY) == FrustumTestResult.Outside) continue;
 
                         for (int vx = 0; vx < 8; vx++) {
                             for (int vy = 0; vy < 8; vy++) {

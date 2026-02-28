@@ -18,6 +18,8 @@ using WorldBuilder.Shared.Numerics;
 using WorldBuilder.Shared.Services;
 using BoundingBox = Chorizite.Core.Lib.BoundingBox;
 
+using System.Runtime.InteropServices;
+
 namespace Chorizite.OpenGLSDLBackend.Lib {
     public abstract class ObjectRenderManagerBase : BaseObjectRenderManager {
         protected readonly ILogger Log;
@@ -123,9 +125,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     _outOfRangeTimers.TryRemove(key, out _);
 
                     if (!_landblocks.ContainsKey(key)) {
+                        var minX = x * lbSize + region.MapOffset.X;
+                        var minY = y * lbSize + region.MapOffset.Y;
+                        var maxX = (x + 1) * lbSize + region.MapOffset.X;
+                        var maxY = (y + 1) * lbSize + region.MapOffset.Y;
+
                         var lb = new ObjectLandblock {
                             GridX = x,
-                            GridY = y
+                            GridY = y,
+                            BoundingBox = new BoundingBox(
+                                new Vector3(minX, minY, -1000f),
+                                new Vector3(maxX, maxY, 5000f)
+                            )
                         };
                         if (_landblocks.TryAdd(key, lb)) {
                             _pendingGeneration[key] = lb;
@@ -247,7 +258,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return (float)sw.Elapsed.TotalMilliseconds;
         }
 
-        public virtual void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null) {
+        public virtual void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null, bool isOutside = false) {
             if (!_initialized || cameraPosition.Z > 4000) return;
 
             // Clear previous frame data
@@ -255,23 +266,31 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _visibleGfxObjIds.Clear();
             _poolIndex = 0;
 
-            foreach (var lb in _landblocks.Values) {
-                if (!lb.GpuReady) continue;
-                if (lb.Instances.Count == 0) continue;
-                if (!IsWithinRenderDistance(lb)) continue;
+            if (LandscapeDoc.Region != null) {
+                var lbSize = LandscapeDoc.Region.CellSizeInUnits * LandscapeDoc.Region.LandblockCellLength;
+                var pos = new Vector2(cameraPosition.X, cameraPosition.Y) - LandscapeDoc.Region.MapOffset;
+                _cameraLbX = (int)Math.Floor(pos.X / lbSize);
+                _cameraLbY = (int)Math.Floor(pos.Y / lbSize);
+            }
 
-                var testResult = GetLandblockFrustumResult(lb.GridX, lb.GridY);
-                if (testResult == FrustumTestResult.Outside) continue;
+            var landblocks = _landblocks.Values.Where(lb => lb.GpuReady && lb.Instances.Count > 0 && IsWithinRenderDistance(lb)).ToList();
+
+            if (landblocks.Count == 0) return;
+
+            // Use thread-local storage to avoid locking when building visibility groups
+            var parallelResult = new ConcurrentDictionary<ulong, ConcurrentQueue<InstanceData>>();
+
+            Parallel.ForEach(landblocks, lb => {
+                var testResult = _frustum.TestBox(lb.BoundingBox);
+                if (testResult == FrustumTestResult.Outside) return;
 
                 if (testResult == FrustumTestResult.Inside) {
                     // Fast path: All instances in this landblock are visible
                     foreach (var (gfxObjId, transforms) in GetFastPathGroups(lb)) {
-                        if (!_visibleGroups.TryGetValue(gfxObjId, out var list)) {
-                            list = GetPooledList();
-                            _visibleGroups[gfxObjId] = list;
-                            _visibleGfxObjIds.Add(gfxObjId);
+                        var list = parallelResult.GetOrAdd(gfxObjId, _ => new ConcurrentQueue<InstanceData>());
+                        foreach (var transform in transforms) {
+                            list.Enqueue(transform);
                         }
-                        list.AddRange(transforms);
                     }
                 }
                 else {
@@ -285,26 +304,26 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
                                 if (renderData is { IsSetup: true }) {
                                     foreach (var (partId, partTransform) in renderData.SetupParts) {
-                                        if (!_visibleGroups.TryGetValue(partId, out var list)) {
-                                            list = GetPooledList();
-                                            _visibleGroups[partId] = list;
-                                            _visibleGfxObjIds.Add(partId);
-                                        }
-                                        list.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = cellId });
+                                        var list = parallelResult.GetOrAdd(partId, _ => new ConcurrentQueue<InstanceData>());
+                                        list.Enqueue(new InstanceData { Transform = partTransform * instance.Transform, CellId = cellId });
                                     }
                                 }
                             }
                             else {
-                                if (!_visibleGroups.TryGetValue(instance.ObjectId, out var list)) {
-                                    list = GetPooledList();
-                                    _visibleGroups[instance.ObjectId] = list;
-                                    _visibleGfxObjIds.Add(instance.ObjectId);
-                                }
-                                list.Add(new InstanceData { Transform = instance.Transform, CellId = cellId });
+                                var list = parallelResult.GetOrAdd(instance.ObjectId, _ => new ConcurrentQueue<InstanceData>());
+                                list.Enqueue(new InstanceData { Transform = instance.Transform, CellId = cellId });
                             }
                         }
                     }
                 }
+            });
+
+            // Merge parallel results into _visibleGroups
+            foreach (var kvp in parallelResult) {
+                var list = GetPooledList();
+                list.AddRange(kvp.Value);
+                _visibleGroups[kvp.Key] = list;
+                _visibleGfxObjIds.Add(kvp.Key);
             }
         }
 
@@ -338,12 +357,32 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             CurrentAtlas = 0;
             CurrentCullMode = null;
 
+            // 1. Gather all instance data and build draw calls
+            var allInstances = new List<InstanceData>();
+            var drawCalls = new List<(ObjectRenderData renderData, int count, int offset)>();
+
             foreach (var gfxObjId in _visibleGfxObjIds) {
                 if (_visibleGroups.TryGetValue(gfxObjId, out var transforms)) {
                     var renderData = MeshManager.TryGetRenderData(gfxObjId);
                     if (renderData != null && !renderData.IsSetup) {
-                        RenderObjectBatches(_shader, renderData, transforms);
+                        drawCalls.Add((renderData, transforms.Count, allInstances.Count));
+                        allInstances.AddRange(transforms);
                     }
+                }
+            }
+
+            if (allInstances.Count > 0) {
+                // 2. Upload all instance data in one go (with orphaning)
+                GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData), true);
+                Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
+                var span = CollectionsMarshal.AsSpan(allInstances);
+                fixed (InstanceData* ptr = span) {
+                    Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
+                }
+
+                // 3. Issue draw calls
+                foreach (var call in drawCalls) {
+                    RenderObjectBatches(_shader, call.renderData, call.count, call.offset);
                 }
             }
 
@@ -480,21 +519,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
         }
+        #endregion
 
-        protected FrustumTestResult GetLandblockFrustumResult(int gridX, int gridY) {
-            var offset = LandscapeDoc.Region?.MapOffset ?? Vector2.Zero;
-            var minX = gridX * _lbSizeInUnits + offset.X;
-            var minY = gridY * _lbSizeInUnits + offset.Y;
-            var maxX = (gridX + 1) * _lbSizeInUnits + offset.X;
-            var maxY = (gridY + 1) * _lbSizeInUnits + offset.Y;
-
-            var box = new BoundingBox(
-                new Vector3(minX, minY, -1000f),
-                new Vector3(maxX, maxY, 5000f)
-            );
-            return _frustum.TestBox(box);
-        }
-
+        #region Protected: Shared Helpers
         protected bool IsWithinRenderDistance(ObjectLandblock lb) {
             return Math.Abs(lb.GridX - _cameraLbX) <= RenderDistance
                 && Math.Abs(lb.GridY - _cameraLbY) <= RenderDistance;
@@ -574,6 +601,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     lb.SeenOutsideCells = lb.PendingSeenOutsideCells;
                     lb.PendingSeenOutsideCells = null;
                 }
+
+                lb.TotalEnvCellBounds = lb.PendingTotalEnvCellBounds;
+                lb.PendingTotalEnvCellBounds = default;
             }
             else if (!lb.GpuReady) {
                 // First time load

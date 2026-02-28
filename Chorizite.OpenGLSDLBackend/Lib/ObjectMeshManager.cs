@@ -246,6 +246,28 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         /// <summary>
+        /// Phase 1 (Background Thread): Prepare CPU-side mesh data for deduplicated EnvCell geometry.
+        /// </summary>
+        public Task<ObjectMeshData?> PrepareEnvCellGeomMeshDataAsync(ulong geomId, EnvCell envCell, CancellationToken ct = default) {
+            if (HasRenderData(geomId)) return Task.FromResult<ObjectMeshData?>(null);
+
+            return _preparationTasks.GetOrAdd(geomId, k => Task.Run(() => {
+                try {
+                    uint envId = 0x0D000000u | envCell.EnvironmentId;
+                    if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
+                        if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
+                            return PrepareCellStructMeshData(geomId, cellStruct, envCell.Surfaces, Matrix4x4.Identity, ct);
+                        }
+                    }
+                    return null;
+                }
+                finally {
+                    _preparationTasks.TryRemove(k, out _);
+                }
+            }));
+        }
+
+        /// <summary>
         /// Phase 1 (Background Thread): Prepare CPU-side mesh data from DAT asynchronously.
         /// Returns an existing task if this object is already being prepared.
         /// </summary>
@@ -1099,6 +1121,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // TexCoord (location 2)
             gl.EnableVertexAttribArray(2);
             gl.VertexAttribPointer(2, 2, GLEnum.Float, false, (uint)stride, (void*)(6 * sizeof(float)));
+
+            // Instance data (shared VBO)
+            gl.BindBuffer(GLEnum.ArrayBuffer, _graphicsDevice.InstanceVBO);
+            for (uint i = 0; i < 4; i++) {
+                var loc = 3 + i;
+                gl.EnableVertexAttribArray(loc);
+                gl.VertexAttribPointer(loc, 4, GLEnum.Float, false, (uint)sizeof(InstanceData), (void*)(i * 16));
+                gl.VertexAttribDivisor(loc, 1);
+            }
+            gl.EnableVertexAttribArray(8);
+            gl.VertexAttribIPointer(8, 1, GLEnum.UnsignedInt, (uint)sizeof(InstanceData), (void*)64);
+            gl.VertexAttribDivisor(8, 1);
 
             var renderBatches = new List<ObjectRenderBatch>();
 

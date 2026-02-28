@@ -18,10 +18,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected readonly OpenGLGraphicsDevice GraphicsDevice;
         protected readonly ObjectMeshManager MeshManager;
 
-        // Instance buffer (reused each frame)
-        protected uint InstanceVBO;
-        protected int InstanceBufferCapacity = 0;
-
         // Render state tracking (Static so all managers sharing a context see the same state)
         public static uint CurrentVAO;
         public static uint CurrentIBO;
@@ -32,7 +28,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             Gl = gl;
             GraphicsDevice = graphicsDevice;
             MeshManager = meshManager;
-            Gl.GenBuffers(1, out InstanceVBO);
             GLHelpers.CheckErrors();
         }
 
@@ -40,14 +35,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             List<InstanceData> instanceTransforms, bool showCulling = true) {
             if (renderData.Batches.Count == 0 || instanceTransforms.Count == 0) return;
 
-            if (CurrentVAO != renderData.VAO) {
-                Gl.BindVertexArray(renderData.VAO);
-                CurrentVAO = renderData.VAO;
-            }
-
             // Bind the instance VBO and upload per-instance data
-            EnsureInstanceBufferCapacity(instanceTransforms.Count);
-            Gl.BindBuffer(GLEnum.ArrayBuffer, InstanceVBO);
+            GraphicsDevice.EnsureInstanceBufferCapacity(instanceTransforms.Count, sizeof(InstanceData));
+            Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
 
             // Upload instance data: mat4 transform, uint CellId
             var transformsSpan = CollectionsMarshal.AsSpan(instanceTransforms);
@@ -55,17 +45,32 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(instanceTransforms.Count * sizeof(InstanceData)), ptr);
             }
 
-            // Setup instance matrix attributes (mat4 = 4 vec4s at locations 3-6)
+            RenderObjectBatches(shader, renderData, instanceTransforms.Count, 0, showCulling);
+        }
+
+        protected unsafe void RenderObjectBatches(IShader shader, ObjectRenderData renderData,
+            int instanceCount, int instanceOffset, bool showCulling = true) {
+            if (renderData.Batches.Count == 0 || instanceCount == 0) return;
+
+            if (CurrentVAO != renderData.VAO) {
+                Gl.BindVertexArray(renderData.VAO);
+                CurrentVAO = renderData.VAO;
+            }
+
+            // Update instance attribute offsets in the VAO for this specific draw call
+            // Locations are 3-6 (mat4) and 8 (uint CellId)
+            Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
+            var stride = (uint)sizeof(InstanceData);
+            var offset = (byte*)0 + (instanceOffset * sizeof(InstanceData));
+
             for (uint i = 0; i < 4; i++) {
                 var loc = 3 + i;
                 Gl.EnableVertexAttribArray(loc);
-                Gl.VertexAttribPointer(loc, 4, GLEnum.Float, false, (uint)sizeof(InstanceData), (void*)(i * 16));
+                Gl.VertexAttribPointer(loc, 4, GLEnum.Float, false, stride, (void*)(offset + (i * 16)));
                 Gl.VertexAttribDivisor(loc, 1);
             }
-            
-            // Setup CellId attribute at location 8
             Gl.EnableVertexAttribArray(8);
-            Gl.VertexAttribIPointer(8, 1, GLEnum.UnsignedInt, (uint)sizeof(InstanceData), (void*)64);
+            Gl.VertexAttribIPointer(8, 1, GLEnum.UnsignedInt, stride, (void*)(offset + 64));
             Gl.VertexAttribDivisor(8, 1);
 
             foreach (var batch in renderData.Batches) {
@@ -93,16 +98,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 Gl.DrawElementsInstanced(PrimitiveType.Triangles, (uint)batch.IndexCount,
-                    DrawElementsType.UnsignedShort, (void*)0, (uint)instanceTransforms.Count);
+                    DrawElementsType.UnsignedShort, (void*)0, (uint)instanceCount);
             }
-
-            // Clean up instance attributes
-            for (uint i = 0; i < 4; i++) {
-                Gl.DisableVertexAttribArray(3 + i);
-                Gl.VertexAttribDivisor(3 + i, 0);
-            }
-            Gl.DisableVertexAttribArray(8);
-            Gl.VertexAttribDivisor(8, 0);
         }
 
         protected void SetCullMode(CullMode mode) {
@@ -120,20 +117,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     Gl.CullFace(GLEnum.Back);
                     break;
             }
-        }
-
-        protected unsafe void EnsureInstanceBufferCapacity(int count) {
-            if (count <= InstanceBufferCapacity) return;
-
-            if (InstanceBufferCapacity > 0) {
-                GpuMemoryTracker.TrackDeallocation(InstanceBufferCapacity * sizeof(InstanceData));
-            }
-
-            InstanceBufferCapacity = Math.Max(count, 256);
-            Gl.BindBuffer(GLEnum.ArrayBuffer, InstanceVBO);
-            Gl.BufferData(GLEnum.ArrayBuffer, (nuint)(InstanceBufferCapacity * sizeof(InstanceData)),
-                (void*)null, GLEnum.DynamicDraw);
-            GpuMemoryTracker.TrackAllocation(InstanceBufferCapacity * sizeof(InstanceData));
         }
 
         protected void IncrementInstanceRefCounts(List<SceneryInstance> instances) {
@@ -159,11 +142,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public virtual void Dispose() {
-            if (InstanceVBO != 0) {
-                Gl.DeleteBuffer(InstanceVBO);
-                GpuMemoryTracker.TrackDeallocation(InstanceBufferCapacity * Marshal.SizeOf<InstanceData>());
-                InstanceVBO = 0;
-            }
         }
     }
 }

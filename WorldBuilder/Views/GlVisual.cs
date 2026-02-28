@@ -212,31 +212,15 @@ private class GlVisual : CompositionCustomVisualHandler {
                 // Apply manual scissor if we have a clip
                 gl.Enable(EnableCap.ScissorTest);
                 int scissorX = _position.X + _clip.X;
-                int scissorY = 0;
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
-                    scissorY = _position.Y + _clip.Y;
-                }
-                else {
-                    scissorY = _surfaceHeight - (_position.Y + _clip.Y + _clip.Height);
-                }
+                int scissorY = _surfaceHeight - (_position.Y + _clip.Y + _clip.Height);
                 gl.Scissor(scissorX, scissorY, (uint)Math.Max(0, _clip.Width), (uint)Math.Max(0, _clip.Height));
 
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
-                    destY = _position.Y;
-                    gl.BlitFramebuffer(
-                        0, 0, srcWidth, srcHeight,
-                        destX, destY + destH, destX + destW, destY,
-                        ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear
-                    );
-                }
-                else {
-                    destY = _surfaceHeight - (_position.Y + controlSize.Height);
-                    gl.BlitFramebuffer(
-                        0, 0, srcWidth, srcHeight,
-                        destX, destY, destX + destW, destY + destH,
-                        ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear
-                    );
-                }
+                destY = _surfaceHeight - (_position.Y + controlSize.Height);
+                gl.BlitFramebuffer(
+                    0, 0, srcWidth, srcHeight,
+                    destX, destY, destX + destW, destY + destH,
+                    ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear
+                );
             }
 
             private double CalculateFrameTime() {
