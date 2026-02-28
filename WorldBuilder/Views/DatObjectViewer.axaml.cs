@@ -26,6 +26,7 @@ namespace WorldBuilder.Views {
         private uint _renderFileId;
         private bool _renderIsSetup;
         private bool _renderIsAutoCamera = true;
+        private bool _renderIsManualRotate = false;
         private bool _renderShowWireframe;
         private Vector4 _renderWireframeColor = new Vector4(0.0f, 1.0f, 0.0f, 0.5f);
         private bool _renderShowCulling = true;
@@ -63,6 +64,14 @@ namespace WorldBuilder.Views {
         public bool IsAutoCamera {
             get => GetValue(IsAutoCameraProperty);
             set => SetValue(IsAutoCameraProperty, value);
+        }
+
+        public static readonly StyledProperty<bool> IsManualRotateProperty =
+            AvaloniaProperty.Register<DatObjectViewer, bool>(nameof(IsManualRotate), false);
+
+        public bool IsManualRotate {
+            get => GetValue(IsManualRotateProperty);
+            set => SetValue(IsManualRotateProperty, value);
         }
 
         public static readonly StyledProperty<bool> ShowWireframeProperty =
@@ -117,12 +126,13 @@ namespace WorldBuilder.Views {
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
             base.OnPropertyChanged(change);
-            if (change.Property == FileIdProperty || change.Property == IsSetupProperty || change.Property == DatsProperty || change.Property == IsAutoCameraProperty) {
+            if (change.Property == FileIdProperty || change.Property == IsSetupProperty || change.Property == DatsProperty || change.Property == IsAutoCameraProperty || change.Property == IsManualRotateProperty) {
                 // Sync values for render thread
                 _renderFileId = FileId;
                 _renderIsSetup = IsSetup;
                 _renderDats = Dats;
                 _renderIsAutoCamera = IsAutoCamera;
+                _renderIsManualRotate = IsManualRotate;
 
                 if (Dispatcher.UIThread.CheckAccess()) {
                     UpdateObject();
@@ -135,6 +145,12 @@ namespace WorldBuilder.Views {
             if (change.Property == IsAutoCameraProperty) {
                 if (_scene != null) {
                     _scene.IsAutoCamera = _renderIsAutoCamera;
+                }
+            }
+
+            if (change.Property == IsManualRotateProperty) {
+                if (_scene != null) {
+                    _scene.IsManualRotate = _renderIsManualRotate;
                 }
             }
 
@@ -191,6 +207,7 @@ namespace WorldBuilder.Views {
             _scene = new SingleObjectScene(_gl!, Renderer!.GraphicsDevice, loggerFactory, _renderDats!, meshManager);
             _scene.BackgroundColor = _renderBackgroundColor;
             _scene.IsAutoCamera = _renderIsAutoCamera;
+            _scene.IsManualRotate = _renderIsManualRotate;
             _scene.ShowWireframe = _renderShowWireframe;
             _scene.WireframeColor = _renderWireframeColor;
             _scene.ShowCulling = _renderShowCulling;
@@ -268,6 +285,11 @@ namespace WorldBuilder.Views {
             else if (props.PointerUpdateKind == PointerUpdateKind.RightButtonPressed) button = 1;
             else if (props.PointerUpdateKind == PointerUpdateKind.MiddleButtonPressed) button = 2;
 
+            // Handle RMB for manual rotation when in auto camera mode
+            if (button == 1 && IsAutoCamera) {
+                IsManualRotate = true;
+            }
+
             if (button != -1) {
                 _scene?.HandlePointerPressed(button, input.Position);
             }
@@ -281,6 +303,11 @@ namespace WorldBuilder.Views {
             if (props.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased) button = 0;
             else if (props.PointerUpdateKind == PointerUpdateKind.RightButtonReleased) button = 1;
             else if (props.PointerUpdateKind == PointerUpdateKind.MiddleButtonReleased) button = 2;
+
+            // Handle RMB release for manual rotation
+            if (button == 1) {
+                IsManualRotate = false;
+            }
 
             if (button != -1) {
                 _scene?.HandlePointerReleased(button, input.Position);
