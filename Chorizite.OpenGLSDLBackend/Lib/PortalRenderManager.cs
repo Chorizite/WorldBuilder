@@ -260,10 +260,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var (key, lb) in _landblocks) {
                 if (!lb.Ready || lb.BuildingPortals.Count == 0 || !IsWithinRenderDistance(lb)) continue;
 
-                // Simple landblock frustum test for performance
-                if (GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) continue;
+                // Use the precise bounding box of the landblock's portals for frustum testing
+                if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(lb.BoundingBox.Min, lb.BoundingBox.Max)) == FrustumTestResult.Outside) continue;
 
                 foreach (var building in lb.BuildingPortals) {
+                    if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(building.BoundingBox.Min, building.BoundingBox.Max)) == FrustumTestResult.Outside) continue;
                     results.Add((key, building));
                 }
             }
@@ -294,10 +295,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var (key, lb) in _landblocks) {
                 if (!lb.Ready || lb.BuildingPortals.Count == 0 || !IsWithinRenderDistance(lb)) continue;
 
-                // Simple landblock frustum test for performance
-                if (GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) continue;
+                // Use the precise bounding box of the landblock's portals for frustum testing
+                if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(lb.BoundingBox.Min, lb.BoundingBox.Max)) == FrustumTestResult.Outside) continue;
 
                 foreach (var building in lb.BuildingPortals) {
+                    if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(building.BoundingBox.Min, building.BoundingBox.Max)) == FrustumTestResult.Outside) continue;
                     yield return (key, building);
                 }
             }
@@ -381,10 +383,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 foreach (var group in buildingGroups) {
                     // Build triangle data from portal polygons (triangle fan per polygon)
                     var triangleVertices = new List<Vector3>();
+                    var buildingMin = new Vector3(float.MaxValue);
+                    var buildingMax = new Vector3(float.MinValue);
 
                     foreach (var portal in group.Portals) {
                         // Transform the portal vertices the same way as the debug portals
                         var verts = portal.Vertices.Select(v => v + lbOrigin).ToArray();
+
+                        // Accumulate building bounding box
+                        foreach (var v in verts) {
+                            buildingMin = Vector3.Min(buildingMin, v);
+                            buildingMax = Vector3.Max(buildingMax, v);
+                        }
 
                         // Triangle fan: vertex 0 is the hub
                         for (int i = 1; i < verts.Length - 1; i++) {
@@ -397,6 +407,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     pendingBuildings.Add(new PendingBuildingPortal {
                         BuildingIndex = group.BuildingIndex,
                         Vertices = triangleVertices.ToArray(),
+                        BoundingBox = new BoundingBox(buildingMin, buildingMax),
                         EnvCellIds = group.EnvCellIds
                     });
                 }
@@ -421,6 +432,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     GpuMemoryTracker.TrackDeallocation(building.VertexCount * sizeof(Vector3), GpuResourceType.Buffer);
                     _gl.DeleteBuffer(building.VBO);
                 }
+                if (building.QueryId != 0) _gl.DeleteQuery(building.QueryId);
             }
             lb.BuildingPortals.Clear();
 
@@ -460,7 +472,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         VAO = vao,
                         VBO = vbo,
                         VertexCount = pending.Vertices.Length,
-                        EnvCellIds = pending.EnvCellIds
+                        BoundingBox = pending.BoundingBox,
+                        EnvCellIds = pending.EnvCellIds,
+                        QueryId = _gl.GenQuery()
                     });
                 }
                 lb.PendingBuildings = null;
@@ -479,6 +493,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (building.VBO != 0) {
                     GpuMemoryTracker.TrackDeallocation(building.VertexCount * sizeof(Vector3), GpuResourceType.Buffer);
                     _gl.DeleteBuffer(building.VBO);
+                }
+                if (building.QueryId != 0) {
+                    _gl.DeleteQuery(building.QueryId);
                 }
             }
             lb.BuildingPortals.Clear();
@@ -513,6 +530,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private class PendingBuildingPortal {
             public int BuildingIndex;
             public Vector3[] Vertices = Array.Empty<Vector3>();
+            public BoundingBox BoundingBox;
             public HashSet<uint> EnvCellIds = new();
         }
 
@@ -523,11 +541,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     /// GPU-uploaded portal polygon mesh for a single building.
     /// Used for stencil-based portal rendering.
     /// </summary>
-    internal sealed record BuildingPortalGPU {
+    internal sealed class BuildingPortalGPU {
         public int BuildingIndex { get; init; }
         public uint VAO { get; init; }
         public uint VBO { get; init; }
         public int VertexCount { get; init; }
+        public BoundingBox BoundingBox { get; init; }
         public HashSet<uint> EnvCellIds { get; init; } = new();
+        public uint QueryId { get; set; }
+        public bool WasVisible { get; set; } = true;
     }
 }

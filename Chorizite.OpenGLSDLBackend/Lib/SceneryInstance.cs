@@ -65,12 +65,22 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         public Dictionary<uint, BoundingBox> EnvCellBounds { get; set; } = new();
 
+        /// <summary>
+        /// Set of EnvCell IDs in this landblock that have the SeenOutside flag.
+        /// </summary>
+        public HashSet<uint> SeenOutsideCells { get; set; } = new();
+
         public List<SceneryInstance>? PendingInstances { get; set; }
 
         /// <summary>
         /// Grouped bounding boxes for each EnvCell in this landblock (pending upload).
         /// </summary>
         public Dictionary<uint, BoundingBox>? PendingEnvCellBounds { get; set; }
+
+        /// <summary>
+        /// Set of EnvCell IDs in this landblock that have the SeenOutside flag (pending upload).
+        /// </summary>
+        public HashSet<uint>? PendingSeenOutsideCells { get; set; }
 
         /// <summary>
         /// Grouped transforms for each GfxObj part for static objects, for efficient instanced rendering.

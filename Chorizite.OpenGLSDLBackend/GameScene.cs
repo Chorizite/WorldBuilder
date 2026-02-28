@@ -86,7 +86,7 @@ public class GameScene : IDisposable {
         }
 
         if (_envCellManager != null) {
-            _envCellManager.RenderDistance = _state.ObjectRenderDistance;
+            _envCellManager.RenderDistance = _state.EnvCellRenderDistance;
             _envCellManager.SetVisibilityFilters(_state.ShowEnvCells);
         }
 
@@ -575,7 +575,7 @@ public class GameScene : IDisposable {
 
             // Update current cell ID based on portal transition rules
             if (_currentEnvCellId == 0) {
-                var newCell = GetEnvCellAt(newPos, true);
+                var newCell = GetEnvCellAt(newPos, _state.EnableCameraCollision);
                 if (newCell != 0xFFFFFFFF) {
                     _currentEnvCellId = newCell;
                 }
@@ -810,60 +810,7 @@ public class GameScene : IDisposable {
             }
         }
 
-        // Step 4: Render EnvCells of OTHER buildings, masked by our portals AND their own portals.
-        if (didInsideStencil) {
-            _otherBuildings.Clear();
-            foreach (var p in _visibleBuildingPortals) {
-                if (!p.Building.EnvCellIds.Contains(currentEnvCellId)) {
-                    _otherBuildings.Add(p);
-                }
-            }
-
-            if (_otherBuildings.Count > 0) {
-                _gl.Enable(EnableCap.StencilTest);
-                _gl.ColorMask(false, false, false, false);
-                _gl.DepthMask(false);
-
-                foreach (var (lbKey, building) in _otherBuildings) {
-                    // a. Mark Bit 2 (0x02) for this building's portals, BUT ONLY where Bit 1 (0x01) is set.
-                    // We use Ref=3, Mask=0x02 to set Bit 2 while Bit 1 remains.
-                    _gl.StencilFunc(StencilFunction.Equal, 3, 0x01); // Match Bit 1
-                    _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Replace);
-                    _gl.StencilMask(0x02); // Only write to Bit 2
-                    _gl.Disable(EnableCap.CullFace);
-                    _portalManager?.RenderBuildingStencilMask(building, snapshotVP, false);
-
-                    // b. Clear depth where Stencil == 3 (Inside our portal AND its portal).
-                    _gl.StencilFunc(StencilFunction.Equal, 3, 0x03);
-                    _gl.StencilMask(0x00);
-                    _gl.DepthMask(true);
-                    _gl.DepthFunc(DepthFunction.Always);
-                    _portalManager?.RenderBuildingStencilMask(building, snapshotVP, true);
-
-                    // c. Render this building's EnvCells where Stencil == 3 (GPU will depth/stencil cull).
-                    _gl.ColorMask(true, true, true, false);
-                    _gl.DepthFunc(DepthFunction.Less);
-                    _sceneryShader?.Bind();
-                    _envCellManager!.Render(pass1RenderPass, building.EnvCellIds);
-
-                    if (_state.EnableTransparencyPass) {
-                        _gl.DepthMask(false);
-                        _envCellManager!.Render(1, building.EnvCellIds);
-                        _gl.DepthMask(true);
-                    }
-
-                    // d. Reset Stencil back to 1 (clear Bit 2) for the next building.
-                    _gl.ColorMask(false, false, false, false);
-                    _gl.DepthMask(false);
-                    _gl.StencilMask(0x02);
-                    _gl.StencilFunc(StencilFunction.Always, 1, 0x02); // Replace Bit 2 with 0 (Ref=1 has Bit 2=0)
-                    _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Replace);
-                    _portalManager?.RenderBuildingStencilMask(building, snapshotVP, false);
-                }
-            }
-        }
-
-        // Step 5: Restrict exterior (Terrain/Scenery/etc) through portals.
+        // Step 4: Restrict exterior (Terrain/Scenery/StaticObjects) through portals.
         if (didInsideStencil) {
             _gl.Enable(EnableCap.StencilTest);
             _gl.StencilFunc(StencilFunction.Equal, 1, 0x01);
@@ -888,6 +835,81 @@ public class GameScene : IDisposable {
 
         if (_state.ShowStaticObjects || _state.ShowBuildings) {
             _staticObjectManager?.Render(pass1RenderPass);
+        }
+
+        // Step 5: Render EnvCells of OTHER buildings, masked by our portals AND their own portals.
+        if (didInsideStencil) {
+            _otherBuildings.Clear();
+            foreach (var p in _visibleBuildingPortals) {
+                if (!p.Building.EnvCellIds.Contains(currentEnvCellId)) {
+                    _otherBuildings.Add(p);
+                }
+            }
+
+            if (_otherBuildings.Count > 0) {
+                _gl.Enable(EnableCap.StencilTest);
+                _gl.ColorMask(false, false, false, false);
+                _gl.DepthMask(false);
+                _gl.DepthFunc(DepthFunction.Lequal);
+
+                foreach (var (lbKey, building) in _otherBuildings) {
+                    // Read back the previous frame's occlusion query result.
+                    if (building.QueryId != 0) {
+                        _gl.GetQueryObject(building.QueryId, QueryObjectParameterName.ResultAvailable, out int available);
+                        if (available != 0) {
+                            _gl.GetQueryObject(building.QueryId, QueryObjectParameterName.Result, out int samplesPassed);
+                            building.WasVisible = samplesPassed > 0;
+                        }
+
+                        _gl.BeginQuery(QueryTarget.SamplesPassed, building.QueryId);
+                    }
+
+                    // a. Mark Bit 2 (0x02) for this building's portals, BUT ONLY where Bit 1 (0x01) is set.
+                    // We use Ref=3, Mask=0x02 to set Bit 2 while Bit 1 remains.
+                    _gl.StencilFunc(StencilFunction.Equal, 3, 0x01); // Match Bit 1
+                    _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Replace);
+                    _gl.StencilMask(0x02); // Only write to Bit 2
+                    _gl.Disable(EnableCap.CullFace);
+                    _portalManager?.RenderBuildingStencilMask(building, snapshotVP, false);
+
+                    if (building.QueryId != 0) {
+                        _gl.EndQuery(QueryTarget.SamplesPassed);
+                    }
+
+                    // b. Clear depth where Stencil == 3 (Inside our portal AND its portal).
+                    // This is necessary because building A's interior cells may have 
+                    // written depth into the doorway.
+                    _gl.StencilFunc(StencilFunction.Equal, 3, 0x03);
+                    _gl.StencilMask(0x00);
+                    _gl.DepthMask(true);
+                    _gl.DepthFunc(DepthFunction.Always);
+                    _portalManager?.RenderBuildingStencilMask(building, snapshotVP, true);
+
+                    // c. Render this building's EnvCells where Stencil == 3 (GPU will depth/stencil cull).
+                    // We render regardless of WasVisible here because we are inside and want to avoid
+                    // latency or logic bugs with portal-to-portal occlusion. Stencil/depth will cull.
+                    _gl.ColorMask(true, true, true, false);
+                    _gl.DepthFunc(DepthFunction.Less);
+                    _gl.Enable(EnableCap.CullFace);
+                    _sceneryShader?.Bind();
+                    _envCellManager!.Render(pass1RenderPass, building.EnvCellIds);
+
+                    if (_state.EnableTransparencyPass) {
+                        _gl.DepthMask(false);
+                        _envCellManager!.Render(1, building.EnvCellIds);
+                        _gl.DepthMask(true);
+                    }
+
+                    // d. Reset Stencil back to 1 (clear Bit 2) for the next building.
+                    _gl.ColorMask(false, false, false, false);
+                    _gl.DepthMask(false);
+                    _gl.StencilMask(0x02);
+                    _gl.StencilFunc(StencilFunction.Always, 1, 0x02); // Replace Bit 2 with 0 (Ref=1 has Bit 2=0)
+                    _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Replace);
+                    _portalManager?.RenderBuildingStencilMask(building, snapshotVP, false);
+                }
+                _gl.DepthFunc(DepthFunction.Less);
+            }
         }
 
         if (didInsideStencil) {
@@ -920,8 +942,26 @@ public class GameScene : IDisposable {
             _gl.DepthFunc(DepthFunction.Less);
 
             foreach (var (lbKey, building) in _visibleBuildingPortals) {
+                // Read back the previous frame's occlusion query result to avoid CPU stall.
+                // If the portal became visible this frame, it will pass the depth test,
+                // the query will count it, and next frame its EnvCells will be rendered.
+                if (building.QueryId != 0) {
+                    _gl.GetQueryObject(building.QueryId, QueryObjectParameterName.ResultAvailable, out int available);
+                    if (available != 0) {
+                        _gl.GetQueryObject(building.QueryId, QueryObjectParameterName.Result, out int samplesPassed);
+                        building.WasVisible = samplesPassed > 0;
+                    }
+
+                    _gl.BeginQuery(QueryTarget.SamplesPassed, building.QueryId);
+                }
+
                 _portalManager?.RenderBuildingStencilMask(building, snapshotVP, false);
+
+                if (building.QueryId != 0) {
+                    _gl.EndQuery(QueryTarget.SamplesPassed);
+                }
             }
+            _gl.DepthFunc(DepthFunction.Less);
 
             // Step 2: Clear depth to far plane ONLY where stencil==1.
             // This removes terrain depth at portal openings so EnvCells
@@ -950,10 +990,6 @@ public class GameScene : IDisposable {
 
             if (_state.ShowStaticObjects || _state.ShowBuildings) {
                 _staticObjectManager?.Render(pass1RenderPass);
-            }
-
-            if (_state.ShowScenery) {
-                _sceneryManager?.Render(pass1RenderPass);
             }
 
             // Step 4: Prepare state for EnvCell rendering through stencil.
@@ -1080,7 +1116,11 @@ public class GameScene : IDisposable {
                 }
             }
             foreach (var (_, building) in _visibleBuildingPortals) {
-                foreach (var id in building.EnvCellIds) visibleEnvCells.Add(id);
+                // If we are inside, we always prepare all portal-visible building cells.
+                // If we are outside, we only prepare EnvCells for portals that were visible last frame (mountain occlusion).
+                if (isInside || building.WasVisible) {
+                    foreach (var id in building.EnvCellIds) visibleEnvCells.Add(id);
+                }
             }
         }
 
@@ -1095,7 +1135,13 @@ public class GameScene : IDisposable {
 
         if (_state.ShowEnvCells && _envCellManager != null) {
             _envCellManager.SetVisibilityFilters(_state.ShowEnvCells);
-            _envCellManager.PrepareRenderBatches(snapshotVP, snapshotPos, visibleEnvCells);
+
+            HashSet<uint>? envCellFilter = visibleEnvCells;
+            if (!isInside && !_state.EnableCameraCollision) {
+                envCellFilter = null; // Prepare all cells when collision is off and outside
+            }
+
+            _envCellManager.PrepareRenderBatches(snapshotVP, snapshotPos, envCellFilter, !isInside && _state.EnableCameraCollision);
         }
 
         if (_state.ShowSkybox) {
