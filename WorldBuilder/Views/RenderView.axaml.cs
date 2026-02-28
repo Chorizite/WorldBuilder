@@ -242,6 +242,8 @@ public partial class RenderView : Base3DViewport {
             }
             else if (Platform.IsMacOS) {
                 MacOSMouse.DisassociateMouseAndCursor();
+                // Clear any initial delta caused by disassociation
+                MacOSMouse.GetLastMouseDelta(out int rawDeltaX, out int rawDeltaY);
             }
             Cursor = new Cursor(StandardCursorType.None);
             ClearToolState();
