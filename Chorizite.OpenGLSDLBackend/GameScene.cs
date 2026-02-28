@@ -875,13 +875,16 @@ public class GameScene : IDisposable {
                 foreach (var (lbKey, building) in _otherBuildings) {
                     // Read back the previous frame's occlusion query result.
                     if (building.QueryId != 0) {
-                        _gl.GetQueryObject(building.QueryId, QueryObjectParameterName.ResultAvailable, out int available);
-                        if (available != 0) {
-                            _gl.GetQueryObject(building.QueryId, QueryObjectParameterName.Result, out int samplesPassed);
-                            building.WasVisible = samplesPassed > 0;
+                        if (building.QueryStarted) {
+                            _gl.GetQueryObject(building.QueryId, QueryObjectParameterName.ResultAvailable, out int available);
+                            if (available != 0) {
+                                _gl.GetQueryObject(building.QueryId, QueryObjectParameterName.Result, out int samplesPassed);
+                                building.WasVisible = samplesPassed > 0;
+                            }
                         }
 
                         _gl.BeginQuery(QueryTarget.SamplesPassed, building.QueryId);
+                        building.QueryStarted = true;
                     }
 
                     // a. Mark Bit 2 (0x02) for this building's portals, BUT ONLY where Bit 1 (0x01) is set.
@@ -966,13 +969,16 @@ public class GameScene : IDisposable {
                 // If the portal became visible this frame, it will pass the depth test,
                 // the query will count it, and next frame its EnvCells will be rendered.
                 if (building.QueryId != 0) {
-                    _gl.GetQueryObject(building.QueryId, QueryObjectParameterName.ResultAvailable, out int available);
-                    if (available != 0) {
-                        _gl.GetQueryObject(building.QueryId, QueryObjectParameterName.Result, out int samplesPassed);
-                        building.WasVisible = samplesPassed > 0;
+                    if (building.QueryStarted) {
+                        _gl.GetQueryObject(building.QueryId, QueryObjectParameterName.ResultAvailable, out int available);
+                        if (available != 0) {
+                            _gl.GetQueryObject(building.QueryId, QueryObjectParameterName.Result, out int samplesPassed);
+                            building.WasVisible = samplesPassed > 0;
+                        }
                     }
 
                     _gl.BeginQuery(QueryTarget.SamplesPassed, building.QueryId);
+                    building.QueryStarted = true;
                 }
 
                 _portalManager?.RenderBuildingStencilMask(building, snapshotVP, false);

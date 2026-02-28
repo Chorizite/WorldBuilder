@@ -549,6 +549,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public BoundingBox BoundingBox { get; init; }
         public HashSet<uint> EnvCellIds { get; init; } = new();
         public uint QueryId { get; set; }
+        public bool QueryStarted { get; set; }
         public bool WasVisible { get; set; } = true;
     }
 }
