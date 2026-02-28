@@ -15,7 +15,7 @@ namespace Chorizite.OpenGLSDLBackend {
             Device = device;
         }
 
-        #if DEBUG
+#if DEBUG
         private static bool _loggedVersion = false;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -32,11 +32,11 @@ namespace Chorizite.OpenGLSDLBackend {
                 }
                 string errorDetails = GetErrorDetails(error.Value);
                 string location = $"{System.IO.Path.GetFileName(callerFile)}::{callerName}:{callerLine}";
-                
+
                 var program = Device?.GL.GetInteger(GLEnum.CurrentProgram);
                 var vao = Device?.GL.GetInteger(GLEnum.VertexArrayBinding);
                 var activeTex = Device?.GL.GetInteger(GLEnum.ActiveTexture);
-                
+
                 string message = $"OpenGL Error: {error} ({errorDetails}) at {location}. Program: {program}, VAO: {vao}, ActiveTex: {activeTex}";
 
                 Logger?.LogError(message);
@@ -66,6 +66,7 @@ namespace Chorizite.OpenGLSDLBackend {
             };
         }
 
+#if DEBUG
         /// <summary>
         /// Checks for OpenGL errors and provides context-specific information
         /// </summary>
@@ -81,6 +82,13 @@ namespace Chorizite.OpenGLSDLBackend {
                 throw new Exception(message);
             }
         }
+#else
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void CheckErrorsWithContext(string context, string callerName = "",
+            string callerFile = "", int callerLine = 0) {
+        }
+#endif
+
 
         /// <summary>
         /// Gets detailed information about the current texture state for debugging
