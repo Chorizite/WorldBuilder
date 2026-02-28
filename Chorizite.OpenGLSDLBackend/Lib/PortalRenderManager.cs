@@ -260,8 +260,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var (key, lb) in _landblocks) {
                 if (!lb.Ready || lb.BuildingPortals.Count == 0 || !IsWithinRenderDistance(lb)) continue;
 
-                // Simple landblock frustum test for performance
-                if (GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) continue;
+                // Use the precise bounding box of the landblock's portals for frustum testing
+                if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(lb.BoundingBox.Min, lb.BoundingBox.Max)) == FrustumTestResult.Outside) continue;
 
                 foreach (var building in lb.BuildingPortals) {
                     results.Add((key, building));
@@ -294,8 +294,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var (key, lb) in _landblocks) {
                 if (!lb.Ready || lb.BuildingPortals.Count == 0 || !IsWithinRenderDistance(lb)) continue;
 
-                // Simple landblock frustum test for performance
-                if (GetLandblockFrustumResult(lb.GridX, lb.GridY) == FrustumTestResult.Outside) continue;
+                // Use the precise bounding box of the landblock's portals for frustum testing
+                if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(lb.BoundingBox.Min, lb.BoundingBox.Max)) == FrustumTestResult.Outside) continue;
 
                 foreach (var building in lb.BuildingPortals) {
                     yield return (key, building);

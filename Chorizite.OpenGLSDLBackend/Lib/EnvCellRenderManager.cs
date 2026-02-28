@@ -217,9 +217,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 var testResult = GetLandblockFrustumResult(lb.GridX, lb.GridY);
 
-                // If a filter is provided (we're inside an EnvCell), don't skip landblocks based on frustum
-                // because the filtered cells might be inside this landblock even if the landblock box is outside
-                if (filter == null && testResult == FrustumTestResult.Outside) continue;
+                // If no filter is provided (e.g., camera collision disabled and outdoors), 
+                // do not rely on the 192x192 landblock bound which may omit large dungeons spreading
+                // multiple physical landblock boundaries.
+                // Instead, verify if any of the precise EnvCell composite bounds intersect.
+                if (filter == null && testResult == FrustumTestResult.Outside) {
+                    bool anyCellVisible = false;
+                    foreach (var kvp in lb.EnvCellBounds) {
+                        bool isCellVisible = _frustum.Intersects(kvp.Value);
+                        cellVisibility[kvp.Key] = isCellVisible;
+                        if (isCellVisible) anyCellVisible = true;
+                    }
+                    if (!anyCellVisible) continue;
+                }
 
                 var seenOutsideCells = lb.SeenOutsideCells;
 
