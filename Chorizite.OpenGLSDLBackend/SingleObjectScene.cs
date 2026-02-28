@@ -29,6 +29,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
         private float _rotation;
         private bool _isAutoCamera = true;
+        private bool _isManualRotate = false;
 
         private CancellationTokenSource? _loadCts;
         private readonly ConcurrentQueue<ObjectMeshData> _stagedMeshData = new();
@@ -67,6 +68,11 @@ namespace Chorizite.OpenGLSDLBackend {
                     _camera.HandleKeyUp("E");
                 }
             }
+        }
+
+        public bool IsManualRotate {
+            get => _isManualRotate;
+            set => _isManualRotate = value;
         }
 
         public SingleObjectScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILoggerFactory loggerFactory, IDatReaderWriter dats, ObjectMeshManager? meshManager = null)
@@ -166,8 +172,8 @@ namespace Chorizite.OpenGLSDLBackend {
         public void Update(float deltaTime) {
             _camera.Update(deltaTime);
 
-            if (IsAutoCamera) {
-                // Spin object
+            if (IsAutoCamera && !IsManualRotate) {
+                // Automatic spin
                 _rotation += deltaTime * 1.0f;
             }
         }
@@ -189,7 +195,13 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public void HandlePointerMoved(Vector2 position, Vector2 delta) {
-            if (!IsAutoCamera) _camera.HandlePointerMoved(position, delta);
+            if (!IsAutoCamera) {
+                _camera.HandlePointerMoved(position, delta);
+            }
+            else if (IsManualRotate) {
+                // Manual spin
+                _rotation += delta.X * _camera.LookSensitivity * 0.0066f;
+            }
         }
 
         public void HandlePointerWheelChanged(float delta) {
