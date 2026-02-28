@@ -31,10 +31,54 @@ namespace WorldBuilder.Lib.Settings {
         private bool _isMaximized = false;
         public bool IsMaximized { get => _isMaximized; set => SetProperty(ref _isMaximized, value); }
 
+        [SettingHidden]
+        private ProjectGraphicsSettings _graphics = new();
+        public ProjectGraphicsSettings Graphics {
+            get => _graphics;
+            set {
+                if (_graphics != null) _graphics.PropertyChanged -= OnSubSettingsPropertyChanged;
+                if (SetProperty(ref _graphics, value) && _graphics != null) {
+                    _graphics.PropertyChanged += OnSubSettingsPropertyChanged;
+                }
+            }
+        }
+
+        [SettingHidden]
+        private ProjectExportSettings _export = new();
+        public ProjectExportSettings Export {
+            get => _export;
+            set {
+                if (_export != null) _export.PropertyChanged -= OnSubSettingsPropertyChanged;
+                if (SetProperty(ref _export, value) && _export != null) {
+                    _export.PropertyChanged += OnSubSettingsPropertyChanged;
+                }
+            }
+        }
+
+        [SettingHidden]
+        private LandscapeToolsSettings _landscapeTools = new();
+        public LandscapeToolsSettings LandscapeTools {
+            get => _landscapeTools;
+            set {
+                if (_landscapeTools != null) _landscapeTools.PropertyChanged -= OnSubSettingsPropertyChanged;
+                if (SetProperty(ref _landscapeTools, value) && _landscapeTools != null) {
+                    _landscapeTools.PropertyChanged += OnSubSettingsPropertyChanged;
+                }
+            }
+        }
+
+        private void OnSubSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
+            RequestSave();
+        }
+
         private CancellationTokenSource? _saveCts;
 
         public ProjectSettings() {
             PropertyChanged += (s, e) => RequestSave();
+
+            if (_graphics != null) _graphics.PropertyChanged += OnSubSettingsPropertyChanged;
+            if (_export != null) _export.PropertyChanged += OnSubSettingsPropertyChanged;
+            if (_landscapeTools != null) _landscapeTools.PropertyChanged += OnSubSettingsPropertyChanged;
         }
 
         [SettingHidden]
@@ -77,27 +121,6 @@ namespace WorldBuilder.Lib.Settings {
         private int _landscapeCameraFieldOfView = 60;
         public int LandscapeCameraFieldOfView { get => _landscapeCameraFieldOfView; set => SetProperty(ref _landscapeCameraFieldOfView, value); }
 
-        [SettingDisplayName("Overwrite DAT Files")]
-        [SettingDescription("Whether to overwrite existing DAT files when exporting.")]
-        private bool _overwriteDatFiles = true;
-        public bool OverwriteDatFiles { get => _overwriteDatFiles; set => SetProperty(ref _overwriteDatFiles, value); }
-
-        [SettingDescription("Last directory used for DAT export")]
-        [SettingPath(PathType.Folder, DialogTitle = "Select Last DAT Export Directory")]
-        private string _lastDatExportDirectory = string.Empty;
-        public string LastDatExportDirectory { get => _lastDatExportDirectory; set => SetProperty(ref _lastDatExportDirectory, value); }
-
-        [SettingDescription("Last portal iteration used for DAT export")]
-        private int _lastDatExportPortalIteration = 0;
-        public int LastDatExportPortalIteration { get => _lastDatExportPortalIteration; set => SetProperty(ref _lastDatExportPortalIteration, value); }
-
-        [SettingDisplayName("Anisotropic Filtering")]
-        [SettingDescription("Improves texture clarity at sharp viewing angles.")]
-        private bool _enableAnisotropicFiltering = true;
-        public bool EnableAnisotropicFiltering { 
-            get => _enableAnisotropicFiltering; 
-            set => SetProperty(ref _enableAnisotropicFiltering, value); 
-        }
 
         [JsonIgnore]
         [SettingHidden]
@@ -150,5 +173,47 @@ namespace WorldBuilder.Lib.Settings {
 
             return new ProjectSettings { FilePath = filePath };
         }
+    }
+
+    [SettingCategory("Graphics", ParentCategory = "Project", Order = 0)]
+    public partial class ProjectGraphicsSettings : ObservableObject {
+        [SettingDisplayName("Anisotropic Filtering")]
+        [SettingDescription("Improves texture clarity at sharp viewing angles.")]
+        private bool _enableAnisotropicFiltering = true;
+        public bool EnableAnisotropicFiltering { 
+            get => _enableAnisotropicFiltering; 
+            set => SetProperty(ref _enableAnisotropicFiltering, value); 
+        }
+    }
+
+    [SettingCategory("Export", ParentCategory = "Project", Order = 1)]
+    public partial class ProjectExportSettings : ObservableObject {
+        [SettingDisplayName("Overwrite DAT Files")]
+        [SettingDescription("Whether to overwrite existing DAT files when exporting.")]
+        private bool _overwriteDatFiles = true;
+        public bool OverwriteDatFiles { get => _overwriteDatFiles; set => SetProperty(ref _overwriteDatFiles, value); }
+
+        [SettingDescription("Last directory used for DAT export")]
+        [SettingPath(PathType.Folder, DialogTitle = "Select Last DAT Export Directory")]
+        private string _lastDatExportDirectory = string.Empty;
+        public string LastDatExportDirectory { get => _lastDatExportDirectory; set => SetProperty(ref _lastDatExportDirectory, value); }
+
+        [SettingDescription("Last portal iteration used for DAT export")]
+        private int _lastDatExportPortalIteration = 0;
+        public int LastDatExportPortalIteration { get => _lastDatExportPortalIteration; set => SetProperty(ref _lastDatExportPortalIteration, value); }
+    }
+
+    [SettingCategory("Landscape Tools", ParentCategory = "Project", Order = 2)]
+    public partial class LandscapeToolsSettings : ObservableObject {
+        [SettingDisplayName("Saved Brush Size")]
+        [SettingDescription("Default brush size for landscape tools.")]
+        [SettingRange(1.0, 50.0, 1.0, 5.0)]
+        private float _brushSize = 5.0f;
+        public float BrushSize { get => _brushSize; set => SetProperty(ref _brushSize, value); }
+
+        [SettingDisplayName("Saved Tool Filtering Option")]
+        [SettingDescription("Default filtering option used by the landscape brush tools.")]
+        private int _toolFilteringOption = 0; 
+        public int ToolFilteringOption { get => _toolFilteringOption; set => SetProperty(ref _toolFilteringOption, value); }
     }
 }
