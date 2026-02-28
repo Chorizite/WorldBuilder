@@ -575,7 +575,7 @@ public class GameScene : IDisposable {
 
             // Update current cell ID based on portal transition rules
             if (_currentEnvCellId == 0) {
-                var newCell = GetEnvCellAt(newPos, true);
+                var newCell = GetEnvCellAt(newPos, _state.EnableCameraCollision);
                 if (newCell != 0xFFFFFFFF) {
                     _currentEnvCellId = newCell;
                 }
