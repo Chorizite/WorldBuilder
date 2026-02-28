@@ -10,6 +10,8 @@ using Silk.NET.OpenGL;
 using System;
 using System.Numerics;
 using WorldBuilder.Lib;
+using WorldBuilder.Lib.Platform;
+using WorldBuilder.Lib.Settings;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
@@ -20,6 +22,7 @@ namespace WorldBuilder.Views {
         private GL? _gl;
         private SingleObjectScene? _scene;
         private Vector2 _lastPointerPosition;
+        private WorldBuilderSettings? _settings;
 
         // Thread-safe copies for the render thread
         private IDatReaderWriter? _renderDats;
@@ -31,6 +34,7 @@ namespace WorldBuilder.Views {
         private Vector4 _renderWireframeColor = new Vector4(0.0f, 1.0f, 0.0f, 0.5f);
         private bool _renderShowCulling = true;
         private Vector4 _renderBackgroundColor = new Vector4(0.15f, 0.15f, 0.2f, 1.0f);
+        private bool _renderAltMouseLook = false;
 
         public override DebugRenderSettings RenderSettings => new DebugRenderSettings();
 
@@ -102,6 +106,12 @@ namespace WorldBuilder.Views {
             InitializeComponent();
             InitializeBase3DView();
             _renderBackgroundColor = ExtractColor(ClearColor);
+
+            _settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
+            if (_settings != null) {
+                _settings.Landscape.Camera.PropertyChanged += OnCameraSettingsPropertyChanged;
+                _renderAltMouseLook = _settings.Landscape.Camera.AltMouseLook;
+            }
         }
 
         protected override void OnGlInit(GL gl, PixelSize canvasSize) {
@@ -183,6 +193,12 @@ namespace WorldBuilder.Views {
             }
         }
 
+        private void OnCameraSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
+            if (e.PropertyName == nameof(CameraSettings.AltMouseLook)) {
+                _renderAltMouseLook = _settings?.Landscape.Camera.AltMouseLook ?? false;
+            }
+        }
+
         private void UpdateObject() {
             if (_scene == null && _gl != null && _renderDats != null) {
                 InitializeScene();
@@ -246,7 +262,9 @@ namespace WorldBuilder.Views {
 
         protected override void OnGlPointerMoved(PointerEventArgs e, Vector2 mousePositionScaled) {
             var input = CreateInputEvent(e);
-            _scene?.HandlePointerMoved(input.Position, input.Delta);
+            if (PlatformMouse.OnPointerMoved(this, e, input)) {
+                _scene?.HandlePointerMoved(input.Position, input.Delta);
+            }
             _lastPointerPosition = mousePositionScaled;
         }
 
@@ -289,9 +307,10 @@ namespace WorldBuilder.Views {
             if (button == 1 && IsAutoCamera) {
                 IsManualRotate = true;
             }
-
             if (button != -1) {
                 _scene?.HandlePointerPressed(button, input.Position);
+                if (_renderAltMouseLook)
+                    PlatformMouse.OnPointerPressed(this, e, input);
             }
             _lastPointerPosition = input.Position;
         }
@@ -311,6 +330,8 @@ namespace WorldBuilder.Views {
 
             if (button != -1) {
                 _scene?.HandlePointerReleased(button, input.Position);
+                if (_renderAltMouseLook)
+                    PlatformMouse.OnPointerReleased(this, e);
             }
         }
     }
