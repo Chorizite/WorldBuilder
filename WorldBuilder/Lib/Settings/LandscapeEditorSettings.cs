@@ -55,6 +55,8 @@ namespace WorldBuilder.Lib.Settings {
             }
         }
 
+        public List<CameraBookmark> Bookmarks { get; set; } = new();
+
         public LandscapeEditorSettings() {
             if (_camera != null) _camera.PropertyChanged += OnSubSettingsPropertyChanged;
             if (_rendering != null) _rendering.PropertyChanged += OnSubSettingsPropertyChanged;
@@ -68,6 +70,17 @@ namespace WorldBuilder.Lib.Settings {
             else if (sender == _grid) OnPropertyChanged(nameof(Grid));
             else if (sender == _colors) OnPropertyChanged(nameof(Colors));
         }
+    }
+
+    public class CameraBookmark {
+        public string Name { get; set; } = "";
+        public float PositionX { get; set; }
+        public float PositionY { get; set; }
+        public float PositionZ { get; set; }
+        public float Yaw { get; set; }
+        public float Pitch { get; set; }
+        public float FieldOfView { get; set; } = float.NaN;
+        public bool IsPerspective { get; set; } = true;
     }
 
     [SettingCategory("Camera", ParentCategory = "Landscape Editor", Order = 0)]

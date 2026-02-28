@@ -10,6 +10,7 @@
     xmlns:landscape="clr-namespace:WorldBuilder.Modules.Landscape"
     xmlns:icons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
     xmlns:converters="clr-namespace:WorldBuilder.Converters"
+    xmlns:dialog="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
     d:DesignHeight="450"
     d:DesignWidth="800"
     x:CompileBindings="True"
@@ -21,6 +22,7 @@
     <UserControl.Resources>
         <converters:StringToKeyGestureConverter x:Key="StringToKeyGestureConverter" />
     </UserControl.Resources>
+    <dialog:DialogHost Identifier="MainDialogHost">
     <DockPanel>
         <!--  Menu Bar at the top  -->
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*, Auto">
@@ -84,4 +86,5 @@
             </ItemsControl>
         </DockPanel>
     </DockPanel>
+    </dialog:DialogHost>
 </UserControl>

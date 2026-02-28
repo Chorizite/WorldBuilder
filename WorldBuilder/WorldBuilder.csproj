@@ -27,6 +27,7 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
 		<PackageReference Include="HanumanInstitute.MvvmDialogs.Avalonia" />
 		<PackageReference Include="Velopack" />
+		<PackageReference Include="Xaml.Behaviors" />
 </ItemGroup>
 
 	<ItemGroup>

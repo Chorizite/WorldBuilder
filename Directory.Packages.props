@@ -48,6 +48,7 @@
     <PackageVersion Include="coverlet.collector" Version="8.0.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
     <PackageVersion Include="Velopack" Version="0.0.1298" />
+    <PackageVersion Include="Xaml.Behaviors" Version="11.3.9.5" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.extensibility.core" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
