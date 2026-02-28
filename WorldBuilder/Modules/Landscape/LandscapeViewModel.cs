@@ -257,6 +257,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         }
     }
 
+    public void ActivateCurrentTool() {
+        if (ActiveTool != null && _toolContext != null) {
+            ActiveTool.Activate(_toolContext);
+        }
+    }
+
     private void OnInspectorHovered(object? sender, InspectorSelectionEventArgs e) {
         _gameScene?.SetHoveredObject(e.Selection.Type, e.Selection.LandblockId, e.Selection.InstanceId, e.Selection.ObjectId, e.Selection.VertexX, e.Selection.VertexY);
     }

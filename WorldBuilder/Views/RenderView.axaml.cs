@@ -169,10 +169,9 @@ public partial class RenderView : Base3DViewport {
     protected override void OnGlPointerMoved(PointerEventArgs e, Vector2 mousePositionScaled) {
         var inputEvent = CreateInputEvent(e);
         if (Platform_OnPointerMoved(e, inputEvent)) {
-            _gameScene?.HandlePointerMoved(inputEvent);
+            _gameScene?.HandlePointerMoved(inputEvent, !_isCheckingBounds);
         }
         _lastPointerPosition = mousePositionScaled;
-
     }
 
     private bool _isCheckingBounds;
@@ -243,8 +242,11 @@ public partial class RenderView : Base3DViewport {
             }
             else if (Platform.IsMacOS) {
                 MacOSMouse.DisassociateMouseAndCursor();
+                // Clear any initial delta caused by disassociation
+                MacOSMouse.GetLastMouseDelta(out int rawDeltaX, out int rawDeltaY);
             }
             Cursor = new Cursor(StandardCursorType.None);
+            ClearToolState();
         }
     }
 
@@ -282,6 +284,7 @@ public partial class RenderView : Base3DViewport {
                 MacOSMouse.AssociateMouseAndCursor();
             }
             Cursor = new Cursor(StandardCursorType.Arrow);
+            ResumeToolState();
         }
     }
 
@@ -441,5 +444,24 @@ public partial class RenderView : Base3DViewport {
 
     public void InvalidateLandblock(int x, int y) {
         _gameScene?.InvalidateLandblock(x, y);
+    }
+
+    private bool _prevShowBrush;
+
+    private void ClearToolState() {
+        // Deactivate the current tool during AltMouseLook
+        if (DataContext is LandscapeViewModel vm && vm.ActiveTool != null) {
+            vm.ActiveTool.Deactivate();
+        }
+        _prevShowBrush = ShowBrush;
+        ShowBrush = false;
+    }
+
+    private void ResumeToolState() {
+        // Re-activate the current tool when AltMouseLook ends
+        if (DataContext is LandscapeViewModel vm && vm.ActiveTool != null) {
+            vm.ActivateCurrentTool();
+        }
+        ShowBrush = _prevShowBrush;
     }
 }

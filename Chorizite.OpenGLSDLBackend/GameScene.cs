@@ -1343,8 +1343,10 @@ public class GameScene : IDisposable {
         _currentCamera.HandlePointerReleased(button, e.Position);
     }
 
-    public void HandlePointerMoved(ViewportInputEvent e) {
-        OnPointerMoved?.Invoke(e);
+    public void HandlePointerMoved(ViewportInputEvent e, bool invoke = true) {
+        if (invoke) {
+            OnPointerMoved?.Invoke(e);
+        }
         _currentCamera.HandlePointerMoved(e.Position, e.Delta);
     }
 
