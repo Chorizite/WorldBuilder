@@ -98,14 +98,6 @@ namespace Chorizite.OpenGLSDLBackend {
             _lineShader = GraphicsDevice.CreateShader("InstancedLine", vertSourceLine, fragSourceLine);
             _debugRenderer.SetShader(_lineShader);
 
-            // Initialize instance buffer with identity matrix
-            Gl.BindBuffer(GLEnum.ArrayBuffer, InstanceVBO);
-            unsafe {
-                Gl.BufferData(GLEnum.ArrayBuffer, (nuint)sizeof(Matrix4x4), (void*)null, GLEnum.DynamicDraw);
-                var identity = Matrix4x4.Identity;
-                Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)sizeof(Matrix4x4), &identity);
-            }
-
             _initialized = true;
         }
 

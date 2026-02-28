@@ -95,9 +95,24 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public Dictionary<ulong, List<InstanceData>> BuildingPartGroups { get; set; } = new();
 
         /// <summary>
+        /// World-space bounding box of this landblock.
+        /// </summary>
+        public BoundingBox BoundingBox { get; set; }
+
+        /// <summary>
         /// Whether instances (positions/bounding boxes) have been generated.
         /// Useful for scenery manager to know it can proceed with collision detection.
         /// </summary>
+        /// <summary>
+        /// Total bounding box covering all EnvCells in this landblock.
+        /// </summary>
+        public BoundingBox TotalEnvCellBounds { get; set; }
+
+        /// <summary>
+        /// Total bounding box covering all EnvCells in this landblock (pending upload).
+        /// </summary>
+        public BoundingBox PendingTotalEnvCellBounds { get; set; }
+
         public bool InstancesReady { get; set; }
 
         /// <summary>
