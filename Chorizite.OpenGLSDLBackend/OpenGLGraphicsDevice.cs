@@ -25,6 +25,12 @@ namespace Chorizite.OpenGLSDLBackend {
         /// <inheritdoc />
         public override IntPtr NativeDevice { get; }
 
+        protected OpenGLGraphicsDevice() : base() {
+            _log = null!;
+            _renderSettings = null!;
+            GL = null!;
+        }
+
         public OpenGLGraphicsDevice(GL gl, ILogger log, DebugRenderSettings renderSettings) : base() {
             _log = log;
             _renderSettings = renderSettings;
