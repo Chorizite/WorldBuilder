@@ -34,8 +34,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private bool _showEnvCells = true;
 
-        // Grouped instances by gfxObjId for efficient batching across cells
-        private readonly Dictionary<ulong, Dictionary<uint, List<InstanceData>>> _batchedByGfxObj = new();
+        // Grouped instances by cellId for efficient portal-based rendering
+        private readonly Dictionary<uint, Dictionary<ulong, List<InstanceData>>> _batchedByCell = new();
 
         protected override bool RenderHighlightsWhenEmpty => true;
 
@@ -200,7 +200,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _visibleGroups.Clear();
             _visibleGfxObjIds.Clear();
             _poolIndex = 0;
-            _batchedByGfxObj.Clear();
+            _batchedByCell.Clear();
 
             var cellVisibility = new Dictionary<uint, bool>();
 
@@ -208,7 +208,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (!lb.GpuReady || lb.Instances.Count == 0 || !IsWithinRenderDistance(lb)) continue;
 
                 var testResult = GetLandblockFrustumResult(lb.GridX, lb.GridY);
-                
+
                 // If a filter is provided (we're inside an EnvCell), don't skip landblocks based on frustum
                 // because the filtered cells might be inside this landblock even if the landblock box is outside
                 if (filter == null && testResult == FrustumTestResult.Outside) continue;
@@ -241,36 +241,31 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         if (!_frustum.Intersects(instance.BoundingBox)) continue;
                     }
 
-                        // If we get here, it's visible, so batch it by gfxObjId instead of cellId
-                        if (instance.IsSetup) {
-                            var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
-                            if (renderData is { IsSetup: true }) {
-                                foreach (var (partId, partTransform) in renderData.SetupParts) {
-                                    if (!_batchedByGfxObj.TryGetValue(partId, out var cellDict)) {
-                                        cellDict = new Dictionary<uint, List<InstanceData>>();
-                                        _batchedByGfxObj[partId] = cellDict;
-                                    }
+                    // If we get here, it's visible, so batch it by cellId instead of gfxObjId
+                    if (!_batchedByCell.TryGetValue(cellId, out var gfxDict)) {
+                        gfxDict = new Dictionary<ulong, List<InstanceData>>();
+                        _batchedByCell[cellId] = gfxDict;
+                    }
 
-                                    if (!cellDict.TryGetValue(cellId, out var list)) {
-                                        list = GetPooledList();
-                                        cellDict[cellId] = list;
-                                    }
-                                    list.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = cellId });
+                    if (instance.IsSetup) {
+                        var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
+                        if (renderData is { IsSetup: true }) {
+                            foreach (var (partId, partTransform) in renderData.SetupParts) {
+                                if (!gfxDict.TryGetValue(partId, out var list)) {
+                                    list = GetPooledList();
+                                    gfxDict[partId] = list;
                                 }
+                                list.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = cellId });
                             }
                         }
-                        else {
-                            if (!_batchedByGfxObj.TryGetValue(instance.ObjectId, out var cellDict)) {
-                                cellDict = new Dictionary<uint, List<InstanceData>>();
-                                _batchedByGfxObj[instance.ObjectId] = cellDict;
-                            }
-
-                            if (!cellDict.TryGetValue(cellId, out var list)) {
-                                list = GetPooledList();
-                                cellDict[cellId] = list;
-                            }
-                            list.Add(new InstanceData { Transform = instance.Transform, CellId = cellId });
+                    }
+                    else {
+                        if (!gfxDict.TryGetValue(instance.ObjectId, out var list)) {
+                            list = GetPooledList();
+                            gfxDict[instance.ObjectId] = list;
                         }
+                        list.Add(new InstanceData { Transform = instance.Transform, CellId = cellId });
+                    }
                 }
             }
         }
@@ -290,37 +285,37 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("uRenderPass", renderPass);
             _shader.SetUniform("uFilterByCell", 0);
 
-            // Iterate through gfxObjId first to achieve batching across cells
-            foreach (var (gfxObjId, cellDict) in _batchedByGfxObj) {
-                // Gather transforms for this gfxObjId across all filtered cells
-                var pooledList = GetPooledList();
-                
-                if (filter == null) {
-                    // If no filter, include transforms from all cells for this gfxObjId
-                    foreach (var (cellId, transforms) in cellDict) {
-                        pooledList.AddRange(transforms);
-                    }
-                }
-                else {
-                    // If filter exists, only include transforms from filtered cells
-                    foreach (var cellId in filter) {
-                        if (cellDict.TryGetValue(cellId, out var transforms)) {
-                            pooledList.AddRange(transforms);
+            if (filter == null) {
+                // If no filter, include all cells
+                foreach (var (cellId, gfxDict) in _batchedByCell) {
+                    foreach (var (gfxObjId, transforms) in gfxDict) {
+                        if (transforms.Count > 0) {
+                            var renderData = MeshManager.TryGetRenderData(gfxObjId);
+                            if (renderData != null && !renderData.IsSetup) {
+                                RenderObjectBatches(_shader!, renderData, transforms);
+                            }
                         }
                     }
                 }
-
-                // If we have transforms to render, do the batch render
-                if (pooledList.Count > 0) {
-                    var renderData = MeshManager.TryGetRenderData(gfxObjId);
-                    if (renderData != null && !renderData.IsSetup) {
-                        RenderObjectBatches(_shader!, renderData, pooledList);
+            }
+            else {
+                // If filter exists, only include filtered cells
+                foreach (var cellId in filter) {
+                    if (_batchedByCell.TryGetValue(cellId, out var gfxDict)) {
+                        foreach (var (gfxObjId, transforms) in gfxDict) {
+                            if (transforms.Count > 0) {
+                                var renderData = MeshManager.TryGetRenderData(gfxObjId);
+                                if (renderData != null && !renderData.IsSetup) {
+                                    RenderObjectBatches(_shader!, renderData, transforms);
+                                }
+                            }
+                        }
                     }
                 }
             }
 
             // Draw highlighted / selected objects on top
-            if (RenderHighlightsWhenEmpty || _batchedByGfxObj.Count > 0) {
+            if (RenderHighlightsWhenEmpty || _batchedByCell.Count > 0) {
                 Gl.DepthFunc(GLEnum.Lequal);
                 if (SelectedInstance.HasValue) {
                     RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection);

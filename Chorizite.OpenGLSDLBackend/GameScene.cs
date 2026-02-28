@@ -86,7 +86,7 @@ public class GameScene : IDisposable {
         }
 
         if (_envCellManager != null) {
-            _envCellManager.RenderDistance = _state.ObjectRenderDistance;
+            _envCellManager.RenderDistance = _state.EnvCellRenderDistance;
             _envCellManager.SetVisibilityFilters(_state.ShowEnvCells);
         }
 
@@ -843,7 +843,6 @@ public class GameScene : IDisposable {
                     // c. Render this building's EnvCells where Stencil == 3 (GPU will depth/stencil cull).
                     _gl.ColorMask(true, true, true, false);
                     _gl.DepthFunc(DepthFunction.Less);
-                    _sceneryShader?.Bind();
                     _envCellManager!.Render(pass1RenderPass, building.EnvCellIds);
 
                     if (_state.EnableTransparencyPass) {
