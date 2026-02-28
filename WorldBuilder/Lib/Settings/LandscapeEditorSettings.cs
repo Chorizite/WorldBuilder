@@ -93,15 +93,20 @@ namespace WorldBuilder.Lib.Settings {
         private float _mouseSensitivity = 1.0f;
         public float MouseSensitivity { get => _mouseSensitivity; set => SetProperty(ref _mouseSensitivity, value); }
 
+        [SettingDescription("Alternative mouselook method uses platform-dependent code")]
+        [SettingOrder(3)]
+        private bool _altMouseLook = false;
+        public bool AltMouseLook { get => _altMouseLook; set => SetProperty(ref _altMouseLook, value); }
+
         [SettingDescription("Camera movement speed in units per second")]
         [SettingRange(1, 20000, 10, 50)]
         [SettingFormat("{0:F0}")]
-        [SettingOrder(3)]
+        [SettingOrder(4)]
         private float _movementSpeed = 1000f;
         public float MovementSpeed { get => _movementSpeed; set => SetProperty(ref _movementSpeed, value); }
 
         [SettingDescription("Prevent camera from going below terrain or passing through walls")]
-        [SettingOrder(4)]
+        [SettingOrder(5)]
         private bool _enableCameraCollision = true;
         public bool EnableCameraCollision { get => _enableCameraCollision; set => SetProperty(ref _enableCameraCollision, value); }
     }
