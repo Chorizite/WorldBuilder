@@ -65,20 +65,28 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             int lbX = (int)Math.Floor(mapPos.X / lbSize);
             int lbY = (int)Math.Floor(mapPos.Y / lbSize);
 
+            // Is the current XY position outside the map?
             if (lbX < 0 || lbY < 0 || lbX >= LandscapeDoc.Region.MapWidthInLandblocks || lbY >= LandscapeDoc.Region.MapHeightInLandblocks) return 0;
 
-            var key = GeometryUtils.PackKey(lbX, lbY);
+            // First, make sure the landblock at the specific XY position is actually loaded (e.g. not right after a teleport)
+            var currentPosKey = GeometryUtils.PackKey(lbX, lbY);
+            if (!_landblocks.TryGetValue(currentPosKey, out var currentLb) || !currentLb.InstancesReady || !currentLb.MeshDataReady) {
+                return 0xFFFFFFFF; // Data or meshes not ready for the area we are standing in
+            }
 
-            if (_landblocks.TryGetValue(key, out var lb)) {
-                if (!lb.InstancesReady || !lb.MeshDataReady) return 0xFFFFFFFF; // Data or meshes not ready
+            // A building can originate in one landblock, but its internal EnvCells can stretch into neighboring landblocks.
+            // Check all loaded landblocks for EnvCells that overlapping our position, not just the one under our XY.
+            foreach (var lb in _landblocks.Values) {
+                if (!lb.InstancesReady || !lb.MeshDataReady) continue;
+
                 lock (lb) {
                     // Check both active and pending instances to avoid race conditions
                     if (CheckInstances(lb.Instances, pos, onlyEntryCells, out var cellId)) return cellId;
                     if (lb.PendingInstances != null && CheckInstances(lb.PendingInstances, pos, onlyEntryCells, out cellId)) return cellId;
                 }
-                return 0; // Definitely not in an EnvCell in this loaded landblock
             }
-            return 0xFFFFFFFF; // Landblock not loaded yet
+
+            return 0; // Definitely not in an EnvCell in this loaded area
         }
 
         private bool CheckInstances(List<SceneryInstance> instances, Vector3 pos, bool onlyEntryCells, out uint cellId) {
