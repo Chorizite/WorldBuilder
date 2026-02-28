@@ -810,7 +810,34 @@ public class GameScene : IDisposable {
             }
         }
 
-        // Step 4: Render EnvCells of OTHER buildings, masked by our portals AND their own portals.
+        // Step 4: Restrict exterior (Terrain/Scenery/StaticObjects) through portals.
+        if (didInsideStencil) {
+            _gl.Enable(EnableCap.StencilTest);
+            _gl.StencilFunc(StencilFunction.Equal, 1, 0x01);
+            _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
+            _gl.StencilMask(0x00);
+            _gl.ColorMask(true, true, true, false);
+            _gl.DepthMask(true);
+            _gl.Enable(EnableCap.CullFace);
+            _gl.DepthFunc(DepthFunction.Less);
+        }
+
+        // Render terrain after EnvCells when inside, so that terrain only renders through portal openings 
+        // (where there are no interior walls to occlude it).
+        if (_terrainManager != null) {
+            _terrainManager.Render(snapshotView, snapshotProj, snapshotVP, snapshotPos, snapshotFov);
+            _sceneryShader?.Bind();
+        }
+
+        if (_state.ShowScenery) {
+            _sceneryManager?.Render(pass1RenderPass);
+        }
+
+        if (_state.ShowStaticObjects || _state.ShowBuildings) {
+            _staticObjectManager?.Render(pass1RenderPass);
+        }
+
+        // Step 5: Render EnvCells of OTHER buildings, masked by our portals AND their own portals.
         if (didInsideStencil) {
             _otherBuildings.Clear();
             foreach (var p in _visibleBuildingPortals) {
@@ -823,6 +850,7 @@ public class GameScene : IDisposable {
                 _gl.Enable(EnableCap.StencilTest);
                 _gl.ColorMask(false, false, false, false);
                 _gl.DepthMask(false);
+                _gl.DepthFunc(DepthFunction.Lequal);
 
                 foreach (var (lbKey, building) in _otherBuildings) {
                     // Read back the previous frame's occlusion query result.
@@ -862,11 +890,13 @@ public class GameScene : IDisposable {
                     // latency or logic bugs with portal-to-portal occlusion. Stencil/depth will cull.
                     _gl.ColorMask(true, true, true, false);
                     _gl.DepthFunc(DepthFunction.Less);
-                    _envCellManager!.Render(pass1RenderPass, building.EnvCellIds);
+                    _gl.Enable(EnableCap.CullFace);
+                    _sceneryShader?.Bind();
+                    _envCellManager!.Render(pass1RenderPass, null);
 
                     if (_state.EnableTransparencyPass) {
                         _gl.DepthMask(false);
-                        _envCellManager!.Render(1, building.EnvCellIds);
+                        _envCellManager!.Render(1, null);
                         _gl.DepthMask(true);
                     }
 
@@ -878,34 +908,8 @@ public class GameScene : IDisposable {
                     _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Replace);
                     _portalManager?.RenderBuildingStencilMask(building, snapshotVP, false);
                 }
+                _gl.DepthFunc(DepthFunction.Less);
             }
-        }
-
-        // Step 5: Restrict exterior (Terrain/Scenery/etc) through portals.
-        if (didInsideStencil) {
-            _gl.Enable(EnableCap.StencilTest);
-            _gl.StencilFunc(StencilFunction.Equal, 1, 0x01);
-            _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
-            _gl.StencilMask(0x00);
-            _gl.ColorMask(true, true, true, false);
-            _gl.DepthMask(true);
-            _gl.Enable(EnableCap.CullFace);
-            _gl.DepthFunc(DepthFunction.Less);
-        }
-
-        // Render terrain after EnvCells when inside, so that terrain only renders through portal openings 
-        // (where there are no interior walls to occlude it).
-        if (_terrainManager != null) {
-            _terrainManager.Render(snapshotView, snapshotProj, snapshotVP, snapshotPos, snapshotFov);
-            _sceneryShader?.Bind();
-        }
-
-        if (_state.ShowScenery) {
-            _sceneryManager?.Render(pass1RenderPass);
-        }
-
-        if (_state.ShowStaticObjects || _state.ShowBuildings) {
-            _staticObjectManager?.Render(pass1RenderPass);
         }
 
         if (didInsideStencil) {
@@ -957,6 +961,7 @@ public class GameScene : IDisposable {
                     _gl.EndQuery(QueryTarget.SamplesPassed);
                 }
             }
+            _gl.DepthFunc(DepthFunction.Less);
 
             // Step 2: Clear depth to far plane ONLY where stencil==1.
             // This removes terrain depth at portal openings so EnvCells
