@@ -91,6 +91,14 @@ namespace WorldBuilder.Lib.Settings {
         private int _lastDatExportPortalIteration = 0;
         public int LastDatExportPortalIteration { get => _lastDatExportPortalIteration; set => SetProperty(ref _lastDatExportPortalIteration, value); }
 
+        [SettingDisplayName("Anisotropic Filtering")]
+        [SettingDescription("Improves texture clarity at sharp viewing angles.")]
+        private bool _enableAnisotropicFiltering = true;
+        public bool EnableAnisotropicFiltering { 
+            get => _enableAnisotropicFiltering; 
+            set => SetProperty(ref _enableAnisotropicFiltering, value); 
+        }
+
         [JsonIgnore]
         [SettingHidden]
         public string? FilePath { get; set; }

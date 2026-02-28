@@ -55,6 +55,17 @@ namespace Chorizite.OpenGLSDLBackend {
             // GL.TexParameterI(GLEnum.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
             //  GLHelpers.CheckErrors();
 
+            if (_device.RenderSettings.EnableAnisotropicFiltering) 
+            {
+                float maxAnisotropy = 0f;
+                GL.GetFloat(GLEnum.MaxTextureMaxAnisotropy, out maxAnisotropy);
+
+                if (maxAnisotropy > 0) 
+                {
+                    GL.TexParameter(GLEnum.Texture2D, GLEnum.TextureMaxAnisotropy, maxAnisotropy);
+                }
+            }
+
             GL.GenerateMipmap(GLEnum.Texture2D);
             GLHelpers.CheckErrors();
             GL.BindTexture(GLEnum.Texture2D, 0);

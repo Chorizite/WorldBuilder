@@ -10,6 +10,7 @@ using System.Numerics;
 using System.Threading.Tasks;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Services;
+using WorldBuilder.Shared.Models;
 
 namespace WorldBuilder.Views {
     public partial class DatObjectPreview : UserControl {
@@ -20,6 +21,8 @@ namespace WorldBuilder.Views {
             get => GetValue(DataIdProperty);
             set => SetValue(DataIdProperty, value);
         }
+
+        public DebugRenderSettings RenderSettings => new DebugRenderSettings();
 
         public static readonly StyledProperty<IDatReaderWriter?> DatsProperty =
             AvaloniaProperty.Register<DatObjectPreview, IDatReaderWriter?>(nameof(Dats));

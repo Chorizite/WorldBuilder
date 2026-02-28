@@ -14,7 +14,7 @@ public class GameSceneTests {
 
     public GameSceneTests() {
         var mockGl = new Mock<GL>(MockBehavior.Loose, new object[] { null! });
-        var mockGraphicsDevice = new Mock<OpenGLGraphicsDevice>(MockBehavior.Loose, new object[] { null!, null! });
+        var mockGraphicsDevice = new Mock<OpenGLGraphicsDevice>(MockBehavior.Loose, new object[] { null!, null!, null! });
         var mockLoggerFactory = new Mock<ILoggerFactory>();
         var mockLogger = new Mock<ILogger>();
         var mockPortalService = new Mock<IPortalService>();

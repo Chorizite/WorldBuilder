@@ -1,5 +1,6 @@
 using System.Numerics;
 using WorldBuilder.Shared.Lib;
+using System.ComponentModel;
 
 namespace WorldBuilder.Shared.Models {
     public class DebugRenderSettings {
@@ -11,6 +12,7 @@ namespace WorldBuilder.Shared.Models {
         public bool SelectEnvCells { get; set; } = true;
         public bool SelectEnvCellStaticObjects { get; set; } = true;
         public bool SelectPortals { get; set; } = true;
+        public bool EnableAnisotropicFiltering { get; set; } = true;
 
         public Vector4 VertexColor { get; set; } = LandscapeColorsSettings.Instance.Vertex;
         public Vector4 BuildingColor { get; set; } = LandscapeColorsSettings.Instance.Building;

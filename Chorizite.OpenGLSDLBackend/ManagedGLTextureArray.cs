@@ -76,6 +76,17 @@ namespace Chorizite.OpenGLSDLBackend {
             GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureWrapS, (int)TextureWrapMode.MirroredRepeat);
             GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureWrapT, (int)TextureWrapMode.MirroredRepeat);
 
+            if (graphicsDevice.RenderSettings.EnableAnisotropicFiltering) 
+            {
+                float maxAnisotropy = 0f;
+                GL.GetFloat(GLEnum.MaxTextureMaxAnisotropy, out maxAnisotropy);
+
+                if (maxAnisotropy > 0) 
+                {
+                    GL.TexParameter(GLEnum.Texture2DArray, GLEnum.TextureMaxAnisotropy, maxAnisotropy);
+                }
+            }
+
             // Set texture swizzle for single-channel formats
             if (format == TextureFormat.A8) {
                 GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureSwizzleR, (int)GLEnum.One);

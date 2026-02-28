@@ -9,6 +9,7 @@ using Silk.NET.OpenGL;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using Rectangle = Chorizite.Core.Render.Rectangle;
+using WorldBuilder.Shared.Models;
 
 namespace Chorizite.OpenGLSDLBackend {
     unsafe public class OpenGLRenderer : BaseRenderer {
@@ -33,12 +34,12 @@ namespace Chorizite.OpenGLSDLBackend {
         public override IFontManager FontManager { get; }
 
 
-        public OpenGLRenderer(GL gl, ILogger log, IDatReaderInterface _dat, int width, int height) {
+        public OpenGLRenderer(GL gl, ILogger log, IDatReaderInterface _dat, int width, int height, DebugRenderSettings renderSettings) {
             _log = log;
             _initialWidth = width;
             _initialHeight = height;
 
-            GraphicsDevice = new OpenGLGraphicsDevice(gl, log) {
+            GraphicsDevice = new OpenGLGraphicsDevice(gl, log, renderSettings) {
                 Viewport = new Rectangle(0, 0, _initialWidth, _initialHeight)
             };
 

@@ -33,6 +33,8 @@ public partial class SceneryPreview : Base3DViewport {
     private bool _needsUpdate;
     private double _totalTime;
 
+    public override DebugRenderSettings RenderSettings => new DebugRenderSettings();
+    
     public static readonly StyledProperty<TerrainTextureType> TextureProperty =
         AvaloniaProperty.Register<SceneryPreview, TerrainTextureType>(nameof(Texture));
 

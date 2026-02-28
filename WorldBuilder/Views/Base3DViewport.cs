@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using WorldBuilder.Shared.Lib;
+using WorldBuilder.Shared.Models;
 
 namespace WorldBuilder.Views {
     public abstract partial class Base3DViewport : UserControl {
@@ -25,6 +26,7 @@ namespace WorldBuilder.Views {
 
         public RenderTarget? RenderTarget { get; protected set; }
         public OpenGLRenderer? Renderer { get; private set; }
+        public abstract DebugRenderSettings RenderSettings { get; }
 
         public static readonly StyledProperty<bool> IsTooltipProperty =
             AvaloniaProperty.Register<Base3DViewport, bool>(nameof(IsTooltip));
@@ -111,7 +113,7 @@ namespace WorldBuilder.Views {
 
         protected virtual void OnGlInitInternal(GL gl, PixelSize size) {
             _logger = new ColorConsoleLogger(GetType().Name, () => new ColorConsoleLoggerConfiguration());
-            Renderer = new OpenGLRenderer(gl, _logger, null!, size.Width, size.Height);
+            Renderer = new OpenGLRenderer(gl, _logger, null!, size.Width, size.Height, RenderSettings);
             _renderSize = size;
             OnGlInit(gl, size);
         }

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
 using PolygonMode = Silk.NET.OpenGL.PolygonMode;
 using PrimitiveType = Silk.NET.OpenGL.PrimitiveType;
+using WorldBuilder.Shared.Models;
 
 namespace Chorizite.OpenGLSDLBackend {
     /// <summary>
@@ -12,14 +13,17 @@ namespace Chorizite.OpenGLSDLBackend {
     /// </summary>
     public unsafe class OpenGLGraphicsDevice : BaseGraphicsDevice {
         private readonly ILogger _log;
+        private readonly DebugRenderSettings _renderSettings;
 
         public GL GL { get; }
+        public DebugRenderSettings RenderSettings => _renderSettings;
 
         /// <inheritdoc />
         public override IntPtr NativeDevice { get; }
 
-        public OpenGLGraphicsDevice(GL gl, ILogger log) : base() {
+        public OpenGLGraphicsDevice(GL gl, ILogger log, DebugRenderSettings renderSettings) : base() {
             _log = log;
+            _renderSettings = renderSettings;
 
             GL = gl;
             GLHelpers.Init(this, log);
