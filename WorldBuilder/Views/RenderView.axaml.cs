@@ -12,6 +12,7 @@ using System;
 using System.ComponentModel;
 using System.Numerics;
 using WorldBuilder.Lib;
+using WorldBuilder.Lib.Platform;
 using WorldBuilder.Lib.Settings;
 using WorldBuilder.Modules.Landscape;
 using WorldBuilder.Services;
@@ -167,8 +168,53 @@ public partial class RenderView : Base3DViewport {
 
     protected override void OnGlPointerMoved(PointerEventArgs e, Vector2 mousePositionScaled) {
         var inputEvent = CreateInputEvent(e);
-        _gameScene?.HandlePointerMoved(inputEvent);
+        if (Platform_OnPointerMoved(e, inputEvent)) {
+            _gameScene?.HandlePointerMoved(inputEvent);
+        }
         _lastPointerPosition = mousePositionScaled;
+
+    }
+
+    private bool _isCheckingBounds;
+    private bool _ignoreNextDelta;
+    private PixelPoint _initialMouselook;
+
+    private bool Platform_OnPointerMoved(PointerEventArgs e, ViewportInputEvent ve) {
+        if (!_isCheckingBounds) return true;
+
+        if (Platform.IsWindows || Platform.IsLinux) {
+            var currentPosition = e.GetPosition(this);
+            var hitTestResult = this.InputHitTest(currentPosition);
+
+            if (_ignoreNextDelta) {
+                const double SMALL_DELTA_THRESHOLD = 3.0;
+
+                if (Math.Abs(ve.Delta.X) > SMALL_DELTA_THRESHOLD || Math.Abs(ve.Delta.Y) > SMALL_DELTA_THRESHOLD) {
+                    _ignoreNextDelta = false;
+                }
+                return false;
+            }
+            if (hitTestResult == null) {
+                // Set flag to ignore the next delta caused by SetCursorPos
+                _ignoreNextDelta = true;
+                MouseLook_Reset();
+            }
+        }
+        else if (Platform.IsMacOS) {
+            // On macOS, when cursor is disassociated, use raw mouse delta
+            MacOSMouse.GetLastMouseDelta(out int rawDeltaX, out int rawDeltaY);
+            ve.Delta = new Vector2(rawDeltaX, rawDeltaY);
+        }
+        return true;
+    }
+
+    private void MouseLook_Reset() {
+        if (Platform.IsWindows) {
+            WindowsMouse.SetCursorPos(_initialMouselook.X, _initialMouselook.Y);
+        }
+        else if (Platform.IsLinux) {
+            LinuxX11Mouse.SetCursorPos(_initialMouselook.X, _initialMouselook.Y);
+        }
     }
 
     protected override void OnGlPointerPressed(PointerPressedEventArgs e) {
@@ -182,6 +228,23 @@ public partial class RenderView : Base3DViewport {
 
         if (inputEvent.IsRightDown) {
             e.Pointer.Capture(this);
+        }
+        if (_gameScene?.State.AltMouseLook ?? false) {
+            Platform_OnPointerPressed(e, inputEvent);
+        }
+    }
+
+    private void Platform_OnPointerPressed(PointerPressedEventArgs e, ViewportInputEvent ve) {
+        var point = e.GetCurrentPoint(this);
+        if (point.Properties.PointerUpdateKind == PointerUpdateKind.RightButtonPressed) {
+            _isCheckingBounds = true;
+            if (Platform.IsWindows || Platform.IsLinux) {
+                _initialMouselook = this.PointToScreen(point.Position);
+            }
+            else if (Platform.IsMacOS) {
+                MacOSMouse.DisassociateMouseAndCursor();
+            }
+            Cursor = new Cursor(StandardCursorType.None);
         }
     }
 
@@ -203,8 +266,24 @@ public partial class RenderView : Base3DViewport {
         if (e.InitialPressMouseButton == MouseButton.Right) {
             e.Pointer.Capture(null);
         }
+
+        if (_gameScene?.State.AltMouseLook ?? false) {
+            Platform_OnPointerReleased(e);
+        }
     }
 
+    private void Platform_OnPointerReleased(PointerReleasedEventArgs e) {
+        if (e.InitialPressMouseButton == MouseButton.Right) {
+            _isCheckingBounds = false;
+            if (Platform.IsWindows || Platform.IsLinux) {
+                MouseLook_Reset();
+            }
+            else if (Platform.IsMacOS) {
+                MacOSMouse.AssociateMouseAndCursor();
+            }
+            Cursor = new Cursor(StandardCursorType.Arrow);
+        }
+    }
 
     protected override void OnGlPointerWheelChanged(PointerWheelEventArgs e) {
         _gameScene?.HandlePointerWheelChanged((float)e.Delta.Y);
