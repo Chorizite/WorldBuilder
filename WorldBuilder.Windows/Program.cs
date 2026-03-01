@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Threading.Tasks;
 using Velopack;
+using WorldBuilder.Lib;
 
 namespace WorldBuilder.Windows;
 
@@ -26,6 +27,7 @@ sealed class Program {
             };
 
             SetAppVersion();
+            App.CommandLineOptions = CommandLineOptions.Parse(args);
 
             BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);

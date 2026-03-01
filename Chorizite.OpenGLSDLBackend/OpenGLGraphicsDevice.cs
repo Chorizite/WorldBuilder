@@ -36,7 +36,7 @@ namespace Chorizite.OpenGLSDLBackend {
             GL = null!;
         }
 
-        public OpenGLGraphicsDevice(GL gl, ILogger log, DebugRenderSettings renderSettings) : base() {
+        public OpenGLGraphicsDevice(GL gl, ILogger log, DebugRenderSettings renderSettings, bool allowBindless = true) : base() {
             _log = log;
             _renderSettings = renderSettings;
 
@@ -48,7 +48,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 GL.GetInteger(GLEnum.MinorVersion, out int minor);
                 HasOpenGL43 = major > 4 || (major == 4 && minor >= 3);
                 
-                if (GL.TryGetExtension(out ArbBindlessTexture ext)) {
+                if (allowBindless && GL.TryGetExtension(out ArbBindlessTexture ext)) {
                     BindlessExtension = ext;
                     HasBindless = true;
                 } else {

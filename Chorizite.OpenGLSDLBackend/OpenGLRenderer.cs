@@ -34,12 +34,12 @@ namespace Chorizite.OpenGLSDLBackend {
         public override IFontManager FontManager { get; }
 
 
-        public OpenGLRenderer(GL gl, ILogger log, IDatReaderInterface _dat, int width, int height, DebugRenderSettings renderSettings) {
+        public OpenGLRenderer(GL gl, ILogger log, IDatReaderInterface _dat, int width, int height, DebugRenderSettings renderSettings, bool allowBindless = true) {
             _log = log;
             _initialWidth = width;
             _initialHeight = height;
 
-            GraphicsDevice = new OpenGLGraphicsDevice(gl, log, renderSettings) {
+            GraphicsDevice = new OpenGLGraphicsDevice(gl, log, renderSettings, allowBindless) {
                 Viewport = new Rectangle(0, 0, _initialWidth, _initialHeight)
             };
 

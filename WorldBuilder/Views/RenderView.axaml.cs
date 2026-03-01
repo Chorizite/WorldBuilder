@@ -47,9 +47,6 @@ public partial class RenderView : Base3DViewport {
     private EditorState? _pendingEditorState;
     private bool? _pendingIs3DCamera;
 
-    // Static shared context manager for all RenderViews
-    private static SharedOpenGLContextManager? _sharedContextManager;
-
     public RenderView() {
         InitializeComponent();
         InitializeBase3DView();
@@ -60,10 +57,7 @@ public partial class RenderView : Base3DViewport {
             var service = WorldBuilder.App.Services?.GetService<SharedOpenGLContextManager>();
             if (service != null) return service;
 
-            if (_sharedContextManager == null) {
-                _sharedContextManager = new SharedOpenGLContextManager();
-            }
-            return _sharedContextManager;
+            throw new InvalidOperationException("SharedOpenGLContextManager service not available");
         }
     }
 

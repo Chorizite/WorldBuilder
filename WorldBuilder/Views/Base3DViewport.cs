@@ -113,7 +113,8 @@ namespace WorldBuilder.Views {
 
         protected virtual void OnGlInitInternal(GL gl, PixelSize size) {
             _logger = new ColorConsoleLogger(GetType().Name, () => new ColorConsoleLoggerConfiguration());
-            Renderer = new OpenGLRenderer(gl, _logger, null!, size.Width, size.Height, RenderSettings);
+            var allowBindless = RenderView.SharedContextManager.HasBindless;
+            Renderer = new OpenGLRenderer(gl, _logger, null!, size.Width, size.Height, RenderSettings, allowBindless);
             _renderSize = size;
             OnGlInit(gl, size);
         }
