@@ -32,6 +32,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
         }
 
+        public BrushTool() {
+            BrushRadius = GetWorldRadius(_brushSize);
+        }
+
         /// <summary>
         /// Calculates the world radius for a given brush size.
         /// </summary>
