@@ -100,6 +100,8 @@ public partial class RenderView : Base3DViewport {
             _gameScene.Initialize();
             _gameScene.Resize(canvasSize.Width, canvasSize.Height);
 
+            RestoreCamera(_gameScene);
+
             _gameScene.OnCameraChanged += (is3d) => {
                 Dispatcher.UIThread.Post(() => {
                     Is3DCamera = is3d;
@@ -375,6 +377,27 @@ public partial class RenderView : Base3DViewport {
 
     protected override void OnGlResize(PixelSize canvasSize) {
         _gameScene?.Resize(canvasSize.Width, canvasSize.Height);
+    }
+
+    private void RestoreCamera(GameScene scene) {
+        var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
+        var projectSettings = settings?.Project;
+        if (projectSettings == null) return;
+
+        if (!string.IsNullOrEmpty(projectSettings.LandscapeCameraLocationString) &&
+            Position.TryParse(projectSettings.LandscapeCameraLocationString, out var pos, _cachedLandscapeDocument?.Region)) {
+            scene.Teleport(pos!.GlobalPosition, (uint)((pos.LandblockId << 16) | pos.CellId));
+            if (pos.Rotation.HasValue) {
+                scene.CurrentCamera.Rotation = pos.Rotation.Value;
+            }
+        }
+
+        scene.Camera3D.MoveSpeed = projectSettings.LandscapeCameraMovementSpeed;
+        scene.Camera3D.FieldOfView = projectSettings.LandscapeCameraFieldOfView;
+        scene.Camera2D.FieldOfView = projectSettings.LandscapeCameraFieldOfView;
+
+        scene.SetCameraMode(projectSettings.LandscapeCameraIs3D);
+        scene.SyncZoomFromZ();
     }
 
     public void InvalidateLandblock(int x, int y) {

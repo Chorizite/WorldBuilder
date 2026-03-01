@@ -1,3 +1,4 @@
+using Chorizite.OpenGLSDLBackend;
 using Moq;
 using WorldBuilder.Modules.Landscape;
 using WorldBuilder.Shared.Models;
@@ -7,6 +8,8 @@ using HanumanInstitute.MvvmDialogs;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Modules.Landscape;
 using System.Linq;
+using WorldBuilder.Lib.Settings;
+using WorldBuilder.Shared.Modules.Landscape.Models;
 using Xunit;
 
 namespace WorldBuilder.Tests.Modules.Landscape {

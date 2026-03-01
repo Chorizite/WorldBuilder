@@ -439,6 +439,13 @@ public class GameScene : IDisposable {
     }
 
 
+    public void SyncZoomFromZ() {
+        var fovRad = MathF.PI * _camera3D.FieldOfView / 180.0f;
+        var tanHalfFov = MathF.Tan(fovRad / 2.0f);
+        float h = Math.Max(0.01f, _currentCamera.Position.Z);
+        _camera2D.Zoom = 10.0f / (h * tanHalfFov);
+    }
+
     /// <summary>
     /// Toggles between 2D and 3D camera modes.
     /// </summary>

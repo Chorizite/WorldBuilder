@@ -90,28 +90,12 @@ namespace WorldBuilder.Lib.Settings {
         public Dictionary<string, bool> LayerExpanded { get => _layerExpanded; set => SetProperty(ref _layerExpanded, value); }
 
         [SettingHidden]
-        private Vector3 _landscapeCameraPosition = new Vector3(25.493f, 55.090f, 60.164f); // This will be overwritten by the string anyway
-        public Vector3 LandscapeCameraPosition { get => _landscapeCameraPosition; set => SetProperty(ref _landscapeCameraPosition, value); }
-
-        [SettingHidden]
         private string _landscapeCameraLocationString = "0x7D640013 [55.090 60.164 25.493] -0.164115 0.077225 -0.418708 0.889824";
         public string LandscapeCameraLocationString { get => _landscapeCameraLocationString; set => SetProperty(ref _landscapeCameraLocationString, value); }
 
         [SettingHidden]
-        private float _landscapeCameraYaw = 0;
-        public float LandscapeCameraYaw { get => _landscapeCameraYaw; set => SetProperty(ref _landscapeCameraYaw, value); }
-
-        [SettingHidden]
-        private float _landscapeCameraPitch = -89.9f;
-        public float LandscapeCameraPitch { get => _landscapeCameraPitch; set => SetProperty(ref _landscapeCameraPitch, value); }
-
-        [SettingHidden]
         private bool _landscapeCameraIs3D = true;
         public bool LandscapeCameraIs3D { get => _landscapeCameraIs3D; set => SetProperty(ref _landscapeCameraIs3D, value); }
-
-        [SettingHidden]
-        private float _landscapeCameraZoom = 1.0f;
-        public float LandscapeCameraZoom { get => _landscapeCameraZoom; set => SetProperty(ref _landscapeCameraZoom, value); }
 
         [SettingHidden]
         private float _landscapeCameraMovementSpeed = 1000f;
