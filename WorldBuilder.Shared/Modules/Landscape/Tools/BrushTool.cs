@@ -27,15 +27,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             get => _brushSize;
             set {
                 if (SetProperty(ref _brushSize, value)) {
-                    OnPropertyChanged(nameof(BrushRadius));
+                    BrushRadius = GetWorldRadius(_brushSize);
                 }
             }
         }
-
-        /// <summary>
-        /// Gets the world radius of the brush based on the current BrushSize.
-        /// </summary>
-        public float BrushRadius => GetWorldRadius(_brushSize);
 
         /// <summary>
         /// Calculates the world radius for a given brush size.
@@ -44,6 +39,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <returns>The world radius.</returns>
         public static float GetWorldRadius(int size) {
             return ((Math.Max(1, size) - 1) / 2.0f) * CELL_SIZE + (CELL_SIZE * 0.55f);
+        }
+
+        /// <inheritdoc/>
+        public override void Activate(LandscapeToolContext context) {
+            base.Activate(context);
+            BrushRadius = GetWorldRadius(_brushSize);
+            OnPropertyChanged(nameof(ActiveDocument));
+            OnPropertyChanged(nameof(AllSceneries));
+            SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == 255);
         }
 
         public override bool OnPointerPressed(ViewportInputEvent e) {
@@ -80,13 +84,21 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 return true;
             }
 
-            if (!_isPainting) return false;
-
             var hit = Raycast(e.Position.X, e.Position.Y);
             if (hit.Hit) {
-                ApplyPaint(hit);
-                _lastHit = hit;
+                BrushPosition = hit.NearestVertice;
+                ShowBrush = true;
+                BrushShape = BrushShape.Circle;
+                BrushRadius = this.BrushRadius; // Sync radius
+
+                if (_isPainting) {
+                    ApplyPaint(hit);
+                    _lastHit = hit;
+                }
                 return true;
+            }
+            else {
+                ShowBrush = false;
             }
 
             return false;

@@ -54,6 +54,18 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 return true;
             }
 
+            var hit = Raycast(e.Position.X, e.Position.Y);
+            if (hit.Hit) {
+                BrushPosition = hit.HitPosition;
+                ShowBrush = true;
+                BrushShape = BrushShape.Circle;
+                BrushRadius = 1f; // Small radius for fill cursor
+                return true;
+            }
+            else {
+                ShowBrush = false;
+            }
+
             return false;
         }
     }

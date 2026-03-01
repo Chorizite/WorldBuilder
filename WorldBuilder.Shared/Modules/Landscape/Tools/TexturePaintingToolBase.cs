@@ -11,23 +11,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     /// <summary>
     /// Base class for tools that support texture and scenery painting.
     /// </summary>
-    public abstract class TexturePaintingToolBase : ObservableObject, ITexturePaintingTool {
-        /// <inheritdoc/>
-        public abstract string Name { get; }
-        /// <inheritdoc/>
-        public abstract string IconGlyph { get; }
-        
-        private bool _isActive;
-        /// <inheritdoc/>
-        public bool IsActive {
-            get => _isActive;
-            protected set => SetProperty(ref _isActive, value);
-        }
-
+    public abstract class TexturePaintingToolBase : LandscapeToolBase, ITexturePaintingTool {
         /// <inheritdoc/>
         public LandscapeDocument? ActiveDocument => Context?.Document;
-
-        protected LandscapeToolContext? Context;
 
         private TerrainTextureType _texture = TerrainTextureType.MudRichDirt;
         /// <inheritdoc/>
@@ -79,34 +65,17 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         /// <inheritdoc/>
-        public virtual void Activate(LandscapeToolContext context) {
-            Context = context;
-            IsActive = true;
+        public override void Activate(LandscapeToolContext context) {
+            base.Activate(context);
             OnPropertyChanged(nameof(ActiveDocument));
             OnPropertyChanged(nameof(AllSceneries));
             SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == 255);
         }
 
         /// <inheritdoc/>
-        public virtual void Deactivate() {
-            IsActive = false;
+        public override void Deactivate() {
+            base.Deactivate();
             IsEyeDropperActive = false;
-            Context = null;
-        }
-
-        /// <inheritdoc/>
-        public virtual void Update(double deltaTime) {
-        }
-
-        /// <inheritdoc/>
-        public abstract bool OnPointerPressed(ViewportInputEvent e);
-
-        /// <inheritdoc/>
-        public abstract bool OnPointerMoved(ViewportInputEvent e);
-
-        /// <inheritdoc/>
-        public virtual bool OnPointerReleased(ViewportInputEvent e) {
-            return false;
         }
 
         protected void UpdateEyeDropper(ViewportInputEvent e) {
@@ -114,6 +83,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
             var terrainHit = Context.RaycastTerrain((float)e.Position.X, (float)e.Position.Y);
             if (terrainHit.Hit) {
+                BrushPosition = terrainHit.NearestVertice;
+                ShowBrush = true;
+                BrushShape = BrushShape.Crosshair;
+                
                 int vx = (int)(terrainHit.LandblockX * terrainHit.LandblockCellLength + terrainHit.VerticeX);
                 int vy = (int)(terrainHit.LandblockY * terrainHit.LandblockCellLength + terrainHit.VerticeY);
                 
@@ -124,12 +97,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                     SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == (entry.Scenery ?? 255)) ?? AllSceneries.FirstOrDefault(s => s.Index == 255);
                 }
             }
-        }
-
-        protected TerrainRaycastHit Raycast(double x, double y) {
-            if (Context == null || Context.Document.Region == null) return new TerrainRaycastHit();
-
-            return TerrainRaycast.Raycast((float)x, (float)y, (int)Context.ViewportSize.X, (int)Context.ViewportSize.Y, Context.Camera, Context.Document.Region, Context.Document, Context.Logger);
+            else {
+                ShowBrush = false;
+            }
         }
     }
 }

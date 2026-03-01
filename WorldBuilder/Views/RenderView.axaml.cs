@@ -319,10 +319,10 @@ public partial class RenderView : Base3DViewport {
         set => SetValue(ShowBrushProperty, value);
     }
 
-    public static readonly StyledProperty<int> BrushShapeProperty =
-        AvaloniaProperty.Register<RenderView, int>(nameof(BrushShape), defaultValue: 0);
+    public static readonly StyledProperty<BrushShape> BrushShapeProperty =
+        AvaloniaProperty.Register<RenderView, BrushShape>(nameof(BrushShape), defaultValue: BrushShape.Circle);
 
-    public int BrushShape {
+    public BrushShape BrushShape {
         get => GetValue(BrushShapeProperty);
         set => SetValue(BrushShapeProperty, value);
     }

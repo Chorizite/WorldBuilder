@@ -60,7 +60,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public float BrushRadius { get; set; } = 30f;
         public Vector4 BrushColor { get; set; } = LandscapeColorsSettings.Instance.Brush;
         public bool ShowBrush { get; set; }
-        public int BrushShape { get; set; }
+        public BrushShape BrushShape { get; set; }
 
         public LandscapeDocument LandscapeDocument => _landscapeDoc;
 
@@ -607,7 +607,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("uBrushRadius", BrushRadius);
             _shader.SetUniform("uBrushColor", BrushColor);
             _shader.SetUniform("uShowBrush", ShowBrush ? 1 : 0);
-            _shader.SetUniform("uBrushShape", BrushShape);
+            _shader.SetUniform("uBrushShape", (int)BrushShape);
 
             // Grid uniforms
             _shader.SetUniform("uShowLandblockGrid", ShowLandblockGrid ? 1 : 0);

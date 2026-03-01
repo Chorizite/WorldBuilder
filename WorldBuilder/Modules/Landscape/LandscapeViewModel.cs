@@ -61,7 +61,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
     [ObservableProperty] private Vector3 _brushPosition;
     [ObservableProperty] private float _brushRadius = 30f;
-    [ObservableProperty] private int _brushShape = 0;
+    [ObservableProperty] private BrushShape _brushShape = BrushShape.Circle;
     [ObservableProperty] private bool _showBrush;
 
     [ObservableProperty] private bool _is3DCameraEnabled = true;
@@ -164,6 +164,9 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         if (oldValue is InspectorTool oldInspector) {
             oldInspector.PropertyChanged -= OnInspectorToolPropertyChanged;
         }
+        if (oldValue is INotifyPropertyChanged oldNotify) {
+            oldNotify.PropertyChanged -= OnToolPropertyChanged;
+        }
 
         oldValue?.Deactivate();
 
@@ -175,11 +178,35 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             IsDebugShapesEnabled = false;
         }
 
+        if (newValue is INotifyPropertyChanged newNotify) {
+            newNotify.PropertyChanged += OnToolPropertyChanged;
+            SyncBrushFromTool(newValue as ILandscapeTool);
+        }
+
         if (newValue != null && _toolContext != null) {
             newValue.Activate(_toolContext);
         }
 
         _gameScene?.SetInspectorTool(newValue as InspectorTool);
+    }
+
+    private void OnToolPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+        if (sender is ILandscapeTool tool) {
+            if (e.PropertyName == nameof(ILandscapeTool.ShowBrush) ||
+                e.PropertyName == nameof(ILandscapeTool.BrushPosition) ||
+                e.PropertyName == nameof(ILandscapeTool.BrushRadius) ||
+                e.PropertyName == nameof(ILandscapeTool.BrushShape)) {
+                SyncBrushFromTool(tool);
+            }
+        }
+    }
+
+    private void SyncBrushFromTool(ILandscapeTool? tool) {
+        if (tool == null) return;
+        ShowBrush = tool.ShowBrush;
+        BrushPosition = tool.BrushPosition;
+        BrushRadius = tool.BrushRadius;
+        BrushShape = tool.BrushShape;
     }
 
     private void OnInspectorToolPropertyChanged(object? sender, PropertyChangedEventArgs e) {
@@ -513,44 +540,6 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     public void OnPointerMoved(ViewportInputEvent e) {
         if (_toolContext != null) {
             _toolContext.ViewportSize = e.ViewportSize;
-        }
-
-        // Update brush preview
-        if (ActiveTool != null && ActiveDocument?.Region != null && Camera != null) {
-            var hit = TerrainRaycast.Raycast(e.Position.X, e.Position.Y,
-                (int)e.ViewportSize.X, (int)e.ViewportSize.Y,
-                Camera, ActiveDocument.Region, ActiveDocument);
-
-            if (hit.Hit) {
-                BrushPosition = hit.HitPosition;
-                var paintingTool = ActiveTool as ITexturePaintingTool;
-                
-                // Only show brush if tool is appropriate (e.g. BrushTool)
-                ShowBrush = ActiveTool is BrushTool || ActiveTool is RoadVertexTool || ActiveTool is RoadLineTool || (paintingTool?.IsEyeDropperActive == true);
-
-                if (ActiveTool is BrushTool brushTool) {
-                    BrushPosition = hit.NearestVertice;
-                    BrushRadius = brushTool.BrushRadius;
-                    BrushShape = brushTool.IsEyeDropperActive ? 2 : 0;
-                }
-                else if (ActiveTool is RoadVertexTool || ActiveTool is RoadLineTool) {
-                    BrushPosition = hit.NearestVertice;
-                    BrushRadius = BrushTool.GetWorldRadius(1);
-                    BrushShape = 0;
-                }
-                else if (paintingTool?.IsEyeDropperActive == true) {
-                    BrushPosition = hit.NearestVertice;
-                    BrushRadius = BrushTool.GetWorldRadius(1);
-                    BrushShape = 2; // Crosshair
-                }
-                else {
-                    BrushPosition = hit.HitPosition;
-                    BrushShape = 0;
-                }
-            }
-            else {
-                ShowBrush = false;
-            }
         }
 
         ActiveTool?.OnPointerMoved(e);
