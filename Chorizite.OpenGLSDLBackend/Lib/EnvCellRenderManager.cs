@@ -187,8 +187,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (debug == null || LandscapeDoc.Region == null || !settings.ShowBoundingBoxes) return;
 
             foreach (var lb in _landblocks.Values) {
-                if (!lb.InstancesReady || !IsWithinRenderDistance(lb)) continue;
-                if (_frustum.TestBox(lb.BoundingBox) == FrustumTestResult.Outside) continue;
+                if (!lb.InstancesReady || !IsWithinRenderDistance(lb) || lb.Instances.Count == 0) continue;
+                if (_frustum.TestBox(lb.TotalEnvCellBounds) == FrustumTestResult.Outside) continue;
 
                 foreach (var instance in lb.Instances) {
                     var type = InstanceIdConstants.GetType(instance.InstanceId);
@@ -240,7 +240,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             using var threadLocalGlobalGroups = new ThreadLocal<Dictionary<ulong, List<InstanceData>>>(() => new(), true);
 
             Parallel.ForEach(landblocks, lb => {
-                var testResult = _frustum.TestBox(lb.BoundingBox);
+                var testResult = _frustum.TestBox(lb.TotalEnvCellBounds);
                 if (testResult == FrustumTestResult.Outside) return;
 
                 var seenOutsideCells = lb.SeenOutsideCells;
@@ -375,7 +375,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 }
                                 else {
                                     if (list == transforms) continue;
-                                    
+
                                     // If we already have a list for this GfxObjId from another cell, we need to merge.
                                     if (list.Count > 0 && !IsPooled(list)) {
                                         var newList = GetPooledList();
