@@ -337,6 +337,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         internal unsafe void RenderBuildingStencilMask(BuildingPortalGPU building, Matrix4x4 viewProjection, bool writeFarDepth = false) {
             if (_stencilShader == null || building.VAO == 0) return;
 
+            _gl.Enable(EnableCap.DepthClamp);
+
             _stencilShader.Bind();
             _stencilShader.SetUniform("uViewProjection", viewProjection);
             _stencilShader.SetUniform("uWriteFarDepth", writeFarDepth ? 1 : 0);
@@ -344,6 +346,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _gl.BindVertexArray(building.VAO);
             _gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)building.VertexCount);
             _gl.BindVertexArray(0);
+
+            _gl.Disable(EnableCap.DepthClamp);
         }
 
         #endregion
@@ -357,7 +361,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var lbOrigin = new Vector3(
                     lbGlobalX * 192f + _landscapeDoc.Region!.MapOffset.X,
                     lbGlobalY * 192f + _landscapeDoc.Region!.MapOffset.Y,
-                    RenderConstants.ObjectZOffset
+                    0f
                 );
 
                 // Generate debug portal data (existing functionality)

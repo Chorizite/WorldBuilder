@@ -281,7 +281,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     var localPos = new Vector3(obj.Position[0], obj.Position[1], obj.Position[2]);
                     var worldPos = new Vector3(
                         new Vector2(lbGlobalX * lbSizeUnits + obj.Position[0], lbGlobalY * lbSizeUnits + obj.Position[1]) + regionInfo.MapOffset,
-                        obj.Position[2] + RenderConstants.ObjectZOffset
+                        obj.Position[2]
                     );
 
                     var rotation = new Quaternion(obj.Position[4], obj.Position[5], obj.Position[6], obj.Position[3]);
@@ -315,7 +315,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     var localPos = new Vector3(building.Position[0], building.Position[1], building.Position[2]);
                     var worldPos = new Vector3(
                         new Vector2(lbGlobalX * lbSizeUnits + building.Position[0], lbGlobalY * lbSizeUnits + building.Position[1]) + regionInfo.MapOffset,
-                        building.Position[2] + RenderConstants.ObjectZOffset
+                        building.Position[2]
                     );
 
                     var rotation = new Quaternion(building.Position[4], building.Position[5], building.Position[6], building.Position[3]);
