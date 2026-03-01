@@ -141,6 +141,30 @@ public partial class RenderView : Base3DViewport {
             return;
         }
 
+        // Handle Ctrl+Arrow key combinations for camera speed control
+        if ((e.KeyModifiers & KeyModifiers.Control) != 0 && _gameScene?.CurrentCamera is Camera3D camera3d) {
+            bool handled = false;
+            float speedMultiplier = (e.KeyModifiers & KeyModifiers.Shift) != 0 ? 2.0f : 1.0f;
+            
+            switch (e.Key) {
+                case Key.Up:
+                    camera3d.MoveSpeed += camera3d.MoveSpeed * 0.1f * speedMultiplier; // Same as mouse wheel up, doubled with Shift
+                    ShowSpeedFeedback(camera3d.MoveSpeed);
+                    handled = true;
+                    break;
+                case Key.Down:
+                    camera3d.MoveSpeed -= camera3d.MoveSpeed * 0.1f * speedMultiplier; // Same as mouse wheel down, doubled with Shift
+                    ShowSpeedFeedback(camera3d.MoveSpeed);
+                    handled = true;
+                    break;
+            }
+            
+            if (handled) {
+                e.Handled = true;
+                return;
+            }
+        }
+
         _gameScene?.HandleKeyDown(e.Key.ToString());
     }
 
