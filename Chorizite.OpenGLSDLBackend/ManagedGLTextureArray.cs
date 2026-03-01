@@ -308,6 +308,29 @@ namespace Chorizite.OpenGLSDLBackend {
             GLHelpers.CheckErrors();
         }
 
+        public void GenerateMipmaps() {
+            if (_isCompressed || !_needsMipmapRegeneration) return;
+
+            lock (_mipmapLock) {
+                if (_mipmapDirtyCount > 0) {
+                    BaseObjectRenderManager.CurrentAtlas = 0;
+                    GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
+                    try {
+                        GL.GenerateMipmap(GLEnum.Texture2DArray);
+                        GLHelpers.CheckErrorsWithContext("Generating mipmaps for texture array");
+                        _mipmapDirtyCount = 0;
+                        _needsMipmapRegeneration = false;
+                    }
+                    catch (Exception ex) {
+                        _logger.LogWarning(ex, "Failed to generate mipmaps for texture array (Slot={Slot}).", Slot);
+                    }
+                }
+                else {
+                    _needsMipmapRegeneration = false;
+                }
+            }
+        }
+
         public void Dispose() {
             if (BindlessHandle != 0 && _device.BindlessExtension != null) {
                 _device.BindlessExtension.MakeTextureHandleNonResident(BindlessHandle);

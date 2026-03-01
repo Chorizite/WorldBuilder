@@ -215,6 +215,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 Gl.BufferSubData(GLEnum.ShaderStorageBuffer, 0, (nuint)(totalDraws * sizeof(ModernBatchData)), ptr);
             }
 
+            // Ensure mipmaps are generated for any texture arrays used in this draw call
+            // Since we don't 'Bind()' them in the modern path, GenerateMipmap is never called
+            // unless we manually trigger it.
+            var uniqueTextureArrays = new HashSet<ManagedGLTextureArray>();
+            foreach (var call in drawCalls) {
+                foreach (var batch in call.renderData.Batches) {
+                    if (batch.Atlas.TextureArray is ManagedGLTextureArray managedArray) {
+                        uniqueTextureArrays.Add(managedArray);
+                    }
+                }
+            }
+            foreach (var array in uniqueTextureArrays) {
+                array.GenerateMipmaps();
+            }
+
             // 4. Draw
             var globalVao = MeshManager.GlobalBuffer!.VAO;
             if (CurrentVAO != globalVao) {
