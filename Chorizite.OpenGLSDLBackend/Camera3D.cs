@@ -223,7 +223,7 @@ public class Camera3D : CameraBase {
 
         if (movement != Vector3.Zero) {
             movement = Vector3.Normalize(movement);
-            float currentMoveSpeed = _shiftHeld ? _moveSpeed * _speedMultiplier * 2.0f : _moveSpeed;
+            float currentMoveSpeed = _shiftHeld ? _moveSpeed * _speedMultiplier : _moveSpeed;
             Position += movement * currentMoveSpeed * deltaTime;
         }
 
