@@ -151,6 +151,12 @@ namespace Chorizite.OpenGLSDLBackend {
                 return;
             }
 
+            if (_device.HasOpenGL43 && _device.HasBindless) {
+                string replacement = "#version 430 core\n#extension GL_ARB_bindless_texture : require";
+                vertShaderSource = vertShaderSource.Replace("#version 330 core", replacement);
+                fragShaderSource = fragShaderSource.Replace("#version 330 core", replacement);
+            }
+
             uint vertexShader = CompileShader(ShaderType.VertexShader, Name, vertShaderSource);
             uint fragmentShader = CompileShader(ShaderType.FragmentShader, Name, fragShaderSource);
 

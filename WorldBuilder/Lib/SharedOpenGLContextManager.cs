@@ -15,6 +15,16 @@ namespace WorldBuilder.Lib {
         private IGlContext? _masterContext;
         private GL? _masterGL;
 
+        /// <summary>
+        /// Gets the OpenGL version string of the master context.
+        /// </summary>
+        public string? GlVersion { get; private set; }
+
+        /// <summary>
+        /// Gets whether bindless texturing is supported by the master context.
+        /// </summary>
+        public bool HasBindless { get; private set; }
+
         // Track viewport dimensions per context to maintain independence between windows
         private readonly ConcurrentDictionary<IGlContext, (int width, int height)> _viewportDimensions = new();
 
@@ -28,7 +38,20 @@ namespace WorldBuilder.Lib {
         public void SetMasterContext(IGlContext context, GL gl) {
             _masterContext = context;
             _masterGL = gl;
-            _logger.LogInformation("Master context set for sharing");
+            try {
+                var version = gl.GetStringS(Silk.NET.OpenGL.StringName.Version);
+                GlVersion = string.IsNullOrWhiteSpace(version) ? "GL: Unknown" : version;
+
+                if (gl.TryGetExtension(out Silk.NET.OpenGL.Extensions.ARB.ArbBindlessTexture ext)) {
+                    HasBindless = true;
+                } else {
+                    HasBindless = false;
+                }
+            } catch {
+                GlVersion = "GL: Unknown";
+                HasBindless = false;
+            }
+            _logger.LogInformation("Master context set for sharing. Version: {Version}, Bindless: {HasBindless}", GlVersion, HasBindless);
         }
 
         /// <summary>

@@ -25,7 +25,13 @@
                 </StackPanel>
             </StackPanel>
             
-            <TextBlock Grid.Column="2" Text="v1.0.0-alpha" VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="15">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <TextBlock Text="{Binding GlVersion}" VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
+                    <TextBlock Text="(B)" IsVisible="{Binding HasBindless}" VerticalAlignment="Center" FontSize="11" Opacity="0.5" ToolTip.Tip="Bindless Textures Supported" Foreground="{DynamicResource SemiColorSuccess}" />
+                </StackPanel>
+                <TextBlock Text="v1.0.0-alpha" VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
+            </StackPanel>
         </Grid>
     </Border>
 </UserControl>

@@ -16,6 +16,7 @@
 		<PackageReference Include="Chorizite.DatReaderWriter.Extensions" />
 		<PackageReference Include="NAudio" />
 		<PackageReference Include="Silk.NET.OpenGL" />
+		<PackageReference Include="Silk.NET.OpenGL.Extensions.ARB" />
 		<PackageReference Include="SixLabors.ImageSharp" />
 		<PackageReference Include="Microsoft.Extensions.Logging" />
 	</ItemGroup>

@@ -10,6 +10,7 @@ namespace Chorizite.OpenGLSDLBackend {
     public class ManagedGLTextureArray : ITextureArray {
         private readonly bool[] _usedLayers;
         private readonly GL GL;
+        private readonly OpenGLGraphicsDevice _device;
         private readonly ILogger _logger;
         private static int _nextId = 0;
         private bool _needsMipmapRegeneration = false;
@@ -23,6 +24,7 @@ namespace Chorizite.OpenGLSDLBackend {
         public int Size { get; private set; }
         public TextureFormat Format { get; private set; }
         public nint NativePtr { get; private set; }
+        public ulong BindlessHandle { get; private set; }
 
         public ManagedGLTextureArray(OpenGLGraphicsDevice graphicsDevice, TextureFormat format, int width, int height,
             int size, ILogger logger) {
@@ -35,6 +37,7 @@ namespace Chorizite.OpenGLSDLBackend {
             Height = height;
             Size = size;
             _usedLayers = new bool[size];
+            _device = graphicsDevice;
             GL = graphicsDevice.GL;
             _logger = logger;
             _isCompressed = IsCompressedFormat(format);
@@ -98,6 +101,11 @@ namespace Chorizite.OpenGLSDLBackend {
             GLHelpers.CheckErrors();
 
             GpuMemoryTracker.TrackAllocation(CalculateTotalSize(), GpuResourceType.Texture);
+
+            if (_device.HasBindless && _device.BindlessExtension != null) {
+                BindlessHandle = _device.BindlessExtension.GetTextureHandle((uint)NativePtr);
+                _device.BindlessExtension.MakeTextureHandleResident(BindlessHandle);
+            }
         }
 
         private long CalculateTotalSize() {
@@ -301,6 +309,10 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public void Dispose() {
+            if (BindlessHandle != 0 && _device.BindlessExtension != null) {
+                _device.BindlessExtension.MakeTextureHandleNonResident(BindlessHandle);
+                BindlessHandle = 0;
+            }
             if (NativePtr != 0) {
                 GL.DeleteTexture((uint)NativePtr);
                 GLHelpers.CheckErrors();

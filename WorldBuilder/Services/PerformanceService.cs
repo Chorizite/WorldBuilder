@@ -25,6 +25,25 @@ namespace WorldBuilder.Services {
         /// </summary>
         public double RenderTime { get; set; }
 
+        private string? _glVersion;
+
+        /// <summary>
+        /// Gets the current OpenGL version.
+        /// </summary>
+        public string GetGlVersion() {
+            if (_glVersion != null && _glVersion != "GL: Unknown") return _glVersion;
+
+            _glVersion = _glContextManager.GlVersion ?? "GL: Unknown";
+            return _glVersion;
+        }
+
+        /// <summary>
+        /// Gets whether bindless texturing is supported by the context.
+        /// </summary>
+        public bool GetHasBindless() {
+            return _glContextManager.HasBindless;
+        }
+
         /// <summary>
         /// Gets the current process RAM usage in bytes.
         /// </summary>
