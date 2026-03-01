@@ -400,17 +400,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             if (allInstances.Count > 0) {
-                // Upload all instance data in one go (with orphaning)
-                GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData), true);
-                Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
-                var span = CollectionsMarshal.AsSpan(allInstances);
-                fixed (InstanceData* ptr = span) {
-                    Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
-                }
+                if (_useModernRendering) {
+                    RenderModernMDI(_shader, drawCalls, allInstances);
+                } else {
+                    // Upload all instance data in one go (with orphaning)
+                    GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData), true);
+                    Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
+                    var span = CollectionsMarshal.AsSpan(allInstances);
+                    fixed (InstanceData* ptr = span) {
+                        Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
+                    }
 
-                // Issue draw calls
-                foreach (var call in drawCalls) {
-                    RenderObjectBatches(_shader!, call.renderData, call.count, call.offset);
+                    // Issue draw calls
+                    foreach (var call in drawCalls) {
+                        RenderObjectBatches(_shader!, call.renderData, call.count, call.offset);
+                    }
                 }
             }
 

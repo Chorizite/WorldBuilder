@@ -60,6 +60,10 @@
 	  <EmbeddedResource Include="Shaders\PortalStencil.frag" />
 	  <None Remove="Shaders\Terrain.frag" />
 	  <None Remove="Shaders\Terrain.vert" />
+	  <None Remove="Shaders\StaticObjectModern.frag" />
+	  <EmbeddedResource Include="Shaders\StaticObjectModern.frag" />
+	  <None Remove="Shaders\StaticObjectModern.vert" />
+	  <EmbeddedResource Include="Shaders\StaticObjectModern.vert" />
 	</ItemGroup>
 	<ItemGroup>
 	  <None Update="Fonts\Apache License.txt">

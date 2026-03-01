@@ -17,6 +17,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected readonly GL Gl;
         protected readonly OpenGLGraphicsDevice GraphicsDevice;
         protected readonly ObjectMeshManager MeshManager;
+        protected readonly bool _useModernRendering;
 
         // Render state tracking (Static so all managers sharing a context see the same state)
         public static uint CurrentVAO;
@@ -24,10 +25,23 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public static uint CurrentAtlas;
         public static CullMode? CurrentCullMode;
 
+        // Modern rendering MDI buffers
+        private uint _mdiCommandBuffer;
+        private int _mdiCommandCapacity = 0;
+        private uint _modernInstanceBuffer;
+        private int _modernInstanceCapacity = 0;
+
         protected BaseObjectRenderManager(GL gl, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager) {
             Gl = gl;
             GraphicsDevice = graphicsDevice;
             MeshManager = meshManager;
+            _useModernRendering = graphicsDevice.HasOpenGL43 && graphicsDevice.HasBindless;
+
+            if (_useModernRendering) {
+                Gl.GenBuffers(1, out _mdiCommandBuffer);
+                Gl.GenBuffers(1, out _modernInstanceBuffer);
+            }
+
             GLHelpers.CheckErrors();
         }
 
@@ -102,6 +116,117 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
+        protected unsafe void RenderModernMDI(IShader shader, List<(ObjectRenderData renderData, int count, int offset)> drawCalls, List<InstanceData> allInstances, bool showCulling = true) {
+            if (drawCalls.Count == 0 || allInstances.Count == 0) return;
+
+            // Group batches by CullMode to minimize state changes
+            var batchesByCullMode = new Dictionary<CullMode, List<(ObjectRenderBatch batch, int instanceCount, int instanceOffset)>>();
+            int totalDraws = 0;
+
+            foreach (var call in drawCalls) {
+                foreach (var batch in call.renderData.Batches) {
+                    var cullMode = showCulling ? batch.CullMode : CullMode.None;
+                    if (!batchesByCullMode.TryGetValue(cullMode, out var list)) {
+                        list = new();
+                        batchesByCullMode[cullMode] = list;
+                    }
+                    list.Add((batch, call.count, call.offset));
+                    totalDraws++;
+                }
+            }
+
+            if (totalDraws == 0) return;
+
+            // Resize buffers if needed
+            if (totalDraws > _mdiCommandCapacity) {
+                _mdiCommandCapacity = Math.Max(_mdiCommandCapacity * 2, totalDraws);
+                Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _mdiCommandBuffer);
+                Gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_mdiCommandCapacity * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
+            }
+
+            int modernInstanceCount = 0;
+            foreach (var group in batchesByCullMode.Values) {
+                foreach (var item in group) {
+                    modernInstanceCount += item.instanceCount;
+                }
+            }
+
+            if (modernInstanceCount > _modernInstanceCapacity) {
+                _modernInstanceCapacity = Math.Max(Math.Max(_modernInstanceCapacity * 2, modernInstanceCount), 1024);
+                Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernInstanceBuffer);
+                Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_modernInstanceCapacity * sizeof(ModernInstanceData)), null, GLEnum.DynamicDraw);
+            }
+
+            var commands = new DrawElementsIndirectCommand[totalDraws];
+            var modernInstances = new ModernInstanceData[modernInstanceCount];
+
+            int cmdIndex = 0;
+            int instIndex = 0;
+
+            // Build commands and modern instance data
+            foreach (var group in batchesByCullMode) {
+                foreach (var item in group.Value) {
+                    commands[cmdIndex++] = new DrawElementsIndirectCommand {
+                        Count = (uint)item.batch.IndexCount,
+                        InstanceCount = (uint)item.instanceCount,
+                        FirstIndex = item.batch.FirstIndex,
+                        BaseVertex = item.batch.BaseVertex,
+                        BaseInstance = (uint)instIndex
+                    };
+
+                    for (int i = 0; i < item.instanceCount; i++) {
+                        var legacyInst = allInstances[item.instanceOffset + i];
+                        modernInstances[instIndex++] = new ModernInstanceData {
+                            Transform = legacyInst.Transform,
+                            TextureHandle = item.batch.BindlessTextureHandle,
+                            CellId = legacyInst.CellId,
+                            Pad = 0
+                        };
+                    }
+                }
+            }
+
+            // Upload commands
+            Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _mdiCommandBuffer);
+            fixed (DrawElementsIndirectCommand* ptr = commands) {
+                Gl.BufferSubData(GLEnum.DrawIndirectBuffer, 0, (nuint)(totalDraws * sizeof(DrawElementsIndirectCommand)), ptr);
+            }
+
+            // Upload instance data
+            Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernInstanceBuffer);
+            fixed (ModernInstanceData* ptr = modernInstances) {
+                Gl.BufferSubData(GLEnum.ShaderStorageBuffer, 0, (nuint)(modernInstanceCount * sizeof(ModernInstanceData)), ptr);
+            }
+
+            // Bind global VAO
+            var globalVao = MeshManager.GlobalBuffer!.VAO;
+            if (CurrentVAO != globalVao) {
+                Gl.BindVertexArray(globalVao);
+                CurrentVAO = globalVao;
+            }
+
+            // Bind instance SSBO (binding = 0)
+            Gl.BindBufferBase(GLEnum.ShaderStorageBuffer, 0, _modernInstanceBuffer);
+
+            // Dispatch per cull mode
+            int currentDrawOffset = 0;
+            foreach (var group in batchesByCullMode) {
+                if (CurrentCullMode != group.Key) {
+                    SetCullMode(group.Key);
+                    CurrentCullMode = group.Key;
+                }
+
+                int numDraws = group.Value.Count;
+                Gl.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort,
+                    (void*)(currentDrawOffset * sizeof(DrawElementsIndirectCommand)), (uint)numDraws, (uint)sizeof(DrawElementsIndirectCommand));
+                
+                currentDrawOffset += numDraws;
+            }
+
+            // Reset
+            CurrentIBO = 0; // Because global VAO bindings may change what we expect
+        }
+
         protected void SetCullMode(CullMode mode) {
             switch (mode) {
                 case CullMode.None:
@@ -142,6 +267,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public virtual void Dispose() {
+            if (_mdiCommandBuffer != 0) Gl.DeleteBuffer(_mdiCommandBuffer);
+            if (_modernInstanceBuffer != 0) Gl.DeleteBuffer(_modernInstanceBuffer);
         }
     }
 }
