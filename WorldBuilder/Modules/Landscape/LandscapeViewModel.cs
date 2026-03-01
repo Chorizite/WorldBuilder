@@ -490,26 +490,8 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         var pos = _gameScene.Camera.Position;
 
         // Save location string
-        var loc = Position.FromGlobal(pos, ActiveDocument?.Region);
-        if (_gameScene.CurrentEnvCellId != 0) {
-            // We are inside an EnvCell. Calculate local offset based on the EnvCell's base Landblock.
-            ushort baseLandblockId = (ushort)(_gameScene.CurrentEnvCellId >> 16);
-            ushort cellId = (ushort)(_gameScene.CurrentEnvCellId & 0xFFFF);
-            float landblockSizeInUnits = ActiveDocument?.Region?.LandblockSizeInUnits ?? 192f;
-            float mapOffset_X = ActiveDocument?.Region?.MapOffset.X ?? -24468f;
-            float mapOffset_Y = ActiveDocument?.Region?.MapOffset.Y ?? -24468f;
+        var loc = Position.FromGlobal(pos, ActiveDocument?.Region, _gameScene.CurrentEnvCellId != 0 ? _gameScene.CurrentEnvCellId : null);
 
-            float mapX = pos.X - mapOffset_X;
-            float mapY = pos.Y - mapOffset_Y;
-
-            int lbX = baseLandblockId >> 8;
-            int lbY = baseLandblockId & 0xFF;
-
-            float localX = mapX - (lbX * landblockSizeInUnits);
-            float localY = mapY - (lbY * landblockSizeInUnits);
-
-            loc = new Position(baseLandblockId, cellId, localX, localY, pos.Z);
-        }
         loc.Rotation = _gameScene.Camera.Rotation;
         projectSettings.LandscapeCameraLocationString = loc.ToLandblockString();
 

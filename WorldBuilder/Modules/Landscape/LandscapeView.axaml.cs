@@ -70,13 +70,9 @@ public partial class LandscapeView : UserControl {
         if (_locationText == null || _renderView?.Camera == null || _renderView.LandscapeDocument?.Region == null) return;
 
         var pos = _renderView.Camera.Position;
-        var loc = Position.FromGlobal(pos, _renderView.LandscapeDocument.Region);
-
         var cellId = _renderView.GetEnvCellAt(pos);
-        if (cellId != 0) {
-            loc.CellId = (ushort)(cellId & 0xFFFF);
-            loc.LandblockId = (ushort)(cellId >> 16);
-        }
+        var loc = Position.FromGlobal(pos, _renderView.LandscapeDocument.Region, cellId != 0 ? cellId : null);
+
         loc.Rotation = _renderView.Camera.Rotation;
         _lastLocationString = loc.ToLandblockString();
 

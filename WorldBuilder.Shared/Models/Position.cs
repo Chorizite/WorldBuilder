@@ -235,17 +235,17 @@ namespace WorldBuilder.Shared.Models {
         /// <summary>
         /// Creates a Position from global world coordinates.
         /// </summary>
-        public static Position FromGlobal(Vector3 globalPos, ITerrainInfo? region = null) {
+        public static Position FromGlobal(Vector3 globalPos, ITerrainInfo? region = null, uint? baseEnvCellId = null) {
             var pos = new Position();
-            pos.SetFromGlobal(globalPos, region);
+            pos.SetFromGlobal(globalPos, region, baseEnvCellId);
             return pos;
         }
 
         /// <summary>
         /// Creates a Position from global coordinates.
         /// </summary>
-        public static Position FromGlobal(float x, float y, float z, ITerrainInfo? region = null) {
-            return FromGlobal(new Vector3(x, y, z), region);
+        public static Position FromGlobal(float x, float y, float z, ITerrainInfo? region = null, uint? baseEnvCellId = null) {
+            return FromGlobal(new Vector3(x, y, z), region, baseEnvCellId);
         }
 
         /// <summary>
@@ -396,8 +396,8 @@ namespace WorldBuilder.Shared.Models {
         /// Sets LocalX with automatic landblock adjustment if it exceeds boundaries.
         /// </summary>
         private void SetLocalX(float value, ITerrainInfo? region = null) {
-            if (_cellId == 0) {
-                // Out of bounds - just set directly
+            if (_cellId == 0 || !IsOutside) {
+                // Out of bounds or inside - just set directly
                 _localX = value;
                 return;
             }
@@ -431,8 +431,8 @@ namespace WorldBuilder.Shared.Models {
         /// Sets LocalY with automatic landblock adjustment if it exceeds boundaries.
         /// </summary>
         private void SetLocalY(float value, ITerrainInfo? region = null) {
-            if (_cellId == 0) {
-                // Out of bounds - just set directly
+            if (_cellId == 0 || !IsOutside) {
+                // Out of bounds or inside - just set directly
                 _localY = value;
                 return;
             }
@@ -485,7 +485,7 @@ namespace WorldBuilder.Shared.Models {
         /// Updates local coordinates from a global position.
         /// This is the core method that maintains local coordinates as source of truth.
         /// </summary>
-        private void SetFromGlobal(Vector3 globalPos, ITerrainInfo? region = null) {
+        private void SetFromGlobal(Vector3 globalPos, ITerrainInfo? region = null, uint? baseEnvCellId = null) {
             float mapOffset_X = region?.MapOffset.X ?? DefaultMapOffset.X;
             float mapOffset_Y = region?.MapOffset.Y ?? DefaultMapOffset.Y;
             float landblockSizeInUnits = region?.LandblockSizeInUnits ?? DefaultLandblockSizeInUnits;
@@ -511,29 +511,49 @@ namespace WorldBuilder.Shared.Models {
                 return;
             }
 
-            // Calculate landblock coordinates
-            int lbX = (int)(mapX / landblockSizeInUnits);
-            int lbY = (int)(mapY / landblockSizeInUnits);
+            int lbX, lbY;
 
-            // Calculate local position within landblock
-            float localLbX = mapX - (lbX * landblockSizeInUnits);
-            float localLbY = mapY - (lbY * landblockSizeInUnits);
+            if (baseEnvCellId.HasValue && baseEnvCellId.Value != 0) {
+                // We are inside an EnvCell. Calculate local offset based on the EnvCell's base Landblock.
+                ushort baseLandblockId = (ushort)(baseEnvCellId.Value >> 16);
+                ushort cellId = (ushort)(baseEnvCellId.Value & 0xFFFF);
+                lbX = baseLandblockId >> 8;
+                lbY = baseLandblockId & 0xFF;
 
-            // Calculate cell coordinates
-            float cellSize = landblockSizeInUnits / 8f;
-            int cellX = (int)(localLbX / cellSize);
-            int cellY = (int)(localLbY / cellSize);
+                float localLbX = mapX - (lbX * landblockSizeInUnits);
+                float localLbY = mapY - (lbY * landblockSizeInUnits);
 
-            // Clamp cell coordinates to valid range
-            cellX = Math.Clamp(cellX, 0, 7);
-            cellY = Math.Clamp(cellY, 0, 7);
+                _landblockId = baseLandblockId;
+                _cellId = cellId;
+                _localX = localLbX;
+                _localY = localLbY;
+                _localZ = globalPos.Z;
+            }
+            else {
+                // Calculate landblock coordinates
+                lbX = (int)(mapX / landblockSizeInUnits);
+                lbY = (int)(mapY / landblockSizeInUnits);
 
-            // Update source of truth - local coordinates
-            _landblockId = region?.GetLandblockId(lbX, lbY) ?? (ushort)((lbX << 8) + lbY);
-            _cellId = (ushort)((cellX * 8) + cellY + 1);
-            _localX = localLbX;
-            _localY = localLbY;
-            _localZ = globalPos.Z;
+                // Calculate local position within landblock
+                float localLbX = mapX - (lbX * landblockSizeInUnits);
+                float localLbY = mapY - (lbY * landblockSizeInUnits);
+
+                // Calculate cell coordinates
+                float cellSize = landblockSizeInUnits / 8f;
+                int cellX = (int)(localLbX / cellSize);
+                int cellY = (int)(localLbY / cellSize);
+
+                // Clamp cell coordinates to valid range
+                cellX = Math.Clamp(cellX, 0, 7);
+                cellY = Math.Clamp(cellY, 0, 7);
+
+                // Update source of truth - local coordinates
+                _landblockId = region?.GetLandblockId(lbX, lbY) ?? (ushort)((lbX << 8) + lbY);
+                _cellId = (ushort)((cellX * 8) + cellY + 1);
+                _localX = localLbX;
+                _localY = localLbY;
+                _localZ = globalPos.Z;
+            }
         }
 
         private float LocalToGlobalX(ushort landblockId, float localX, ITerrainInfo? region = null) {
