@@ -1,5 +1,7 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using DatReaderWriter.Enums;
+using Chorizite.Core.Render;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
     /// <summary>
@@ -11,21 +13,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public uint Count;
         public uint InstanceCount;
         public uint FirstIndex;
-        public uint BaseVertex;
+        public int BaseVertex;
         public uint BaseInstance;
-    }
-
-    /// <summary>
-    /// Per-instance data for modern rendering.
-    /// Consists of a 4x4 transform matrix and associated metadata.
-    /// </summary>
-    [StructLayout(LayoutKind.Sequential, Pack = 16)]
-    public struct ModernInstanceData {
-        public Matrix4x4 Transform; // 64 bytes
-        public uint CellId;         // 4 bytes
-        private uint _pad1;         // 4 bytes
-        private uint _pad2;         // 4 bytes
-        private uint _pad3;         // 4 bytes -> total 80 bytes
     }
 
     /// <summary>
@@ -38,5 +27,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public ulong TextureHandle; // 8 bytes
         public uint TextureIndex;   // 4 bytes
         public uint Padding;        // 4 bytes
+    }
+
+    public struct LandblockMdiCommand {
+        public ulong ObjectId;
+        public DrawElementsIndirectCommand Command;
+        public ModernBatchData BatchData;
+        public uint TextureIndex;
+        public ManagedGLTextureArray Atlas;
+        public uint VAO;
+        public uint IBO;
     }
 }

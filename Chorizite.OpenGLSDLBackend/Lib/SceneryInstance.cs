@@ -1,4 +1,5 @@
 using Chorizite.Core.Lib;
+using System;
 using System.Collections.Generic;
 using System.Numerics;
 
@@ -124,5 +125,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Whether GPU resources have been uploaded.
         /// </summary>
         public bool GpuReady { get; set; }
+
+        // Optimized rendering data
+        public int InstanceBufferOffset { get; set; } = -1;
+        public int InstanceCount { get; set; }
+        
+        /// <summary>
+        /// Pre-calculated draw commands and batch data for this landblock.
+        /// Keyed by CullMode to allow grouped rendering.
+        /// </summary>
+        public Dictionary<DatReaderWriter.Enums.CullMode, List<LandblockMdiCommand>> MdiCommands { get; set; } = new();
     }
 }
