@@ -13,13 +13,19 @@ layout(location = 2) in vec2 aTexCoord;
 
 struct ModernInstanceData {
     mat4 Transform;
-    uvec2 TextureHandle; // 64-bit split into two 32-bit uints for compatibility
     uint CellId;
-    uint Pad;
+};
+
+struct ModernBatchData {
+    uvec2 TextureHandle;
 };
 
 layout(std430, binding = 0) readonly buffer InstanceBuffer {
     ModernInstanceData Instances[];
+};
+
+layout(std430, binding = 1) readonly buffer BatchBuffer {
+    ModernBatchData Batches[];
 };
 
 uniform mat4 uViewProjection;
@@ -29,6 +35,7 @@ uniform vec3 uSunlightColor;
 uniform vec3 uAmbientColor;
 uniform float uSpecularPower;
 
+uniform int uDrawIDOffset;
 uniform int uFilterByCell;
 uniform int uActiveCellCount;
 uniform uint uActiveCells[256];
@@ -60,7 +67,7 @@ void main() {
     gl_Position = uViewProjection * worldPos;
     Normal = normalize(mat3(inst.Transform) * aNormal);
     TexCoord = aTexCoord;
-    TextureHandle = inst.TextureHandle;
+    TextureHandle = Batches[gl_DrawIDARB + uDrawIDOffset].TextureHandle;
     
     float diff = max(dot(Normal, normalize(uLightDirection)), 0.0);
     LightingColor = clamp(uAmbientColor + uSunlightColor * diff, 0.0, 1.0);

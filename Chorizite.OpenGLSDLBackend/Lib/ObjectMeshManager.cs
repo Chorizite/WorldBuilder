@@ -162,6 +162,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Shared atlases grouped by (Width, Height, Format)
         private readonly Dictionary<(int Width, int Height, TextureFormat Format), List<TextureAtlasManager>> _globalAtlases = new();
 
+        private class BindlessTextureCacheEntry {
+            public uint TextureId;
+            public ulong BindlessHandle;
+            public int RefCount;
+        }
+        private readonly Dictionary<TextureAtlasManager.TextureKey, BindlessTextureCacheEntry> _bindlessTextures = new();
+
         public GlobalMeshBuffer? GlobalBuffer { get; }
         private readonly bool _useModernRendering;
 
@@ -1177,38 +1184,50 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         batchBaseVertex = appended.baseVertex;
                         firstIndex = (uint)appended.firstIndex;
                         
-                        // Create individual texture for bindless
-                        gl.GenTextures(1, out modernTexId);
-                        gl.BindTexture(GLEnum.Texture2D, modernTexId);
+                        if (_bindlessTextures.TryGetValue(batch.Key, out var cacheEntry)) {
+                            modernTexId = cacheEntry.TextureId;
+                            bindlessHandle = cacheEntry.BindlessHandle;
+                            cacheEntry.RefCount++;
+                        } else {
+                            // Create individual texture for bindless
+                            gl.GenTextures(1, out modernTexId);
+                            gl.BindTexture(GLEnum.Texture2D, modernTexId);
 
-                        bool generateMipmaps = !format.Format.IsCompressed();
+                            bool generateMipmaps = !format.Format.IsCompressed();
 
-                        int minFilter = generateMipmaps ? (int)GLEnum.LinearMipmapLinear : (int)GLEnum.Linear;
-                        gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureMinFilter, minFilter);
-                        gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureMagFilter, (int)GLEnum.Linear);
-                        gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureWrapS, (int)GLEnum.Repeat);
-                        gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureWrapT, (int)GLEnum.Repeat);
-                        
-                        if (!generateMipmaps) {
-                            gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureMaxLevel, 0);
-                        }
-
-                        fixed (byte* ptr = batch.TextureData) {
-                            if (format.Format.IsCompressed()) {
-                                gl.CompressedTexImage2D(GLEnum.Texture2D, 0, format.Format.ToCompressedGL(), 
-                                    (uint)format.Width, (uint)format.Height, 0, (uint)batch.TextureData.Length, ptr);
-                            } else {
-                                gl.TexImage2D(GLEnum.Texture2D, 0, (int)format.Format.ToGL(), (uint)format.Width, (uint)format.Height, 0, 
-                                    batch.UploadPixelFormat ?? format.Format.ToPixelFormat(), batch.UploadPixelType ?? format.Format.ToPixelType(), ptr);
+                            int minFilter = generateMipmaps ? (int)GLEnum.LinearMipmapLinear : (int)GLEnum.Linear;
+                            gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureMinFilter, minFilter);
+                            gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureMagFilter, (int)GLEnum.Linear);
+                            gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureWrapS, (int)GLEnum.Repeat);
+                            gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureWrapT, (int)GLEnum.Repeat);
+                            
+                            if (!generateMipmaps) {
+                                gl.TexParameter(GLEnum.Texture2D, GLEnum.TextureMaxLevel, 0);
                             }
+
+                            fixed (byte* ptr = batch.TextureData) {
+                                if (format.Format.IsCompressed()) {
+                                    gl.CompressedTexImage2D(GLEnum.Texture2D, 0, format.Format.ToCompressedGL(), 
+                                        (uint)format.Width, (uint)format.Height, 0, (uint)batch.TextureData.Length, ptr);
+                                } else {
+                                    gl.TexImage2D(GLEnum.Texture2D, 0, (int)format.Format.ToGL(), (uint)format.Width, (uint)format.Height, 0, 
+                                        batch.UploadPixelFormat ?? format.Format.ToPixelFormat(), batch.UploadPixelType ?? format.Format.ToPixelType(), ptr);
+                                }
+                            }
+                            if (generateMipmaps) {
+                                gl.GenerateMipmap(GLEnum.Texture2D);
+                            }
+                            GLHelpers.CheckErrors();
+                            
+                            bindlessHandle = _graphicsDevice.BindlessExtension!.GetTextureHandle(modernTexId);
+                            _graphicsDevice.BindlessExtension!.MakeTextureHandleResident(bindlessHandle);
+
+                            _bindlessTextures[batch.Key] = new BindlessTextureCacheEntry {
+                                TextureId = modernTexId,
+                                BindlessHandle = bindlessHandle,
+                                RefCount = 1
+                            };
                         }
-                        if (generateMipmaps) {
-                            gl.GenerateMipmap(GLEnum.Texture2D);
-                        }
-                        GLHelpers.CheckErrors();
-                        
-                        bindlessHandle = _graphicsDevice.BindlessExtension!.GetTextureHandle(modernTexId);
-                        _graphicsDevice.BindlessExtension!.MakeTextureHandleResident(bindlessHandle);
                     } else {
                         // Find or create a shared atlas with free space
                         if (!_globalAtlases.TryGetValue(format, out var atlasList)) {
@@ -1386,10 +1405,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             } else {
                 foreach (var batch in data.Batches) {
                     if (batch.ModernTextureId != 0) {
-                        if (batch.BindlessTextureHandle != 0) {
-                            _graphicsDevice.BindlessExtension!.MakeTextureHandleNonResident(batch.BindlessTextureHandle);
+                        if (_bindlessTextures.TryGetValue(batch.Key, out var cacheEntry)) {
+                            cacheEntry.RefCount--;
+                            if (cacheEntry.RefCount <= 0) {
+                                if (cacheEntry.BindlessHandle != 0) {
+                                    _graphicsDevice.BindlessExtension!.MakeTextureHandleNonResident(cacheEntry.BindlessHandle);
+                                }
+                                gl.DeleteTexture(cacheEntry.TextureId);
+                                _bindlessTextures.Remove(batch.Key);
+                            }
                         }
-                        gl.DeleteTexture(batch.ModernTextureId);
                     }
                 }
             }
@@ -1424,15 +1449,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             GpuMemoryTracker.TrackDeallocation(batch.IndexCount * sizeof(ushort), GpuResourceType.Buffer);
                         }
                     }
-                } else {
-                    foreach (var batch in data.Batches) {
-                        if (batch.ModernTextureId != 0) {
-                            if (batch.BindlessTextureHandle != 0) {
-                                _graphicsDevice.BindlessExtension!.MakeTextureHandleNonResident(batch.BindlessTextureHandle);
-                            }
-                            gl.DeleteTexture(batch.ModernTextureId);
-                        }
-                    }
                 }
             }
             _renderData.Clear();
@@ -1445,6 +1461,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _globalAtlases.Clear();
 
             if (_useModernRendering) {
+                foreach (var cacheEntry in _bindlessTextures.Values) {
+                    if (cacheEntry.BindlessHandle != 0) {
+                        _graphicsDevice.BindlessExtension!.MakeTextureHandleNonResident(cacheEntry.BindlessHandle);
+                    }
+                    gl.DeleteTexture(cacheEntry.TextureId);
+                }
+                _bindlessTextures.Clear();
+
                 GlobalBuffer?.Dispose();
             }
         }
