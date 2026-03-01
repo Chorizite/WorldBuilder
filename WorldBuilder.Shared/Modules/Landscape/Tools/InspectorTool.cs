@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using System;
 using System.Numerics;
 using System.Linq;
@@ -5,16 +6,12 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
-using CommunityToolkit.Mvvm.ComponentModel;
-
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {
-    public partial class InspectorTool : ObservableObject, ILandscapeTool {
-        private LandscapeToolContext? _context;
+    public partial class InspectorTool : LandscapeToolBase {
         private SceneRaycastHit _lastHoveredHit;
 
-        public string Name => "Inspector";
-        public string IconGlyph => "Magnify"; // Material Design Icon
-        public bool IsActive { get; private set; }
+        public override string Name => "Inspector";
+        public override string IconGlyph => "Magnify"; // Material Design Icon
 
         // Settings
         [ObservableProperty] private bool _selectVertices = false;
@@ -83,14 +80,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
         }
 
-        public void Activate(LandscapeToolContext context) {
-            _context = context;
-            IsActive = true;
+        public override void Activate(LandscapeToolContext context) {
+            base.Activate(context);
             LandscapeColorsSettings.Instance.PropertyChanged += OnColorsChanged;
         }
 
-        public void Deactivate() {
-            IsActive = false;
+        public override void Deactivate() {
+            base.Deactivate();
             LandscapeColorsSettings.Instance.PropertyChanged -= OnColorsChanged;
             ClearHover();
         }
@@ -112,46 +108,43 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private void ClearHover() {
             if (_lastHoveredHit.Type != InspectorSelectionType.None) {
                 _lastHoveredHit = SceneRaycastHit.NoHit;
-                _context?.NotifyInspectorHovered(SceneRaycastHit.NoHit);
+                Context?.NotifyInspectorHovered(SceneRaycastHit.NoHit);
             }
         }
 
-        public void Update(double deltaTime) {
-        }
-
-        public bool OnPointerPressed(ViewportInputEvent e) {
-            if (_context == null || !e.IsLeftDown) return false;
+        public override bool OnPointerPressed(ViewportInputEvent e) {
+            if (Context == null || !e.IsLeftDown) return false;
 
             var hit = PerformRaycast(e);
             if (hit.Hit) {
-                _context.NotifyInspectorSelected(hit);
+                Context.NotifyInspectorSelected(hit);
                 return true;
             }
             else {
-                _context.NotifyInspectorSelected(SceneRaycastHit.NoHit);
+                Context.NotifyInspectorSelected(SceneRaycastHit.NoHit);
             }
             return false;
         }
 
-        public bool OnPointerMoved(ViewportInputEvent e) {
-            if (_context == null) return false;
+        public override bool OnPointerMoved(ViewportInputEvent e) {
+            if (Context == null) return false;
 
             var hit = PerformRaycast(e);
             if (hit.Type != _lastHoveredHit.Type || hit.LandblockId != _lastHoveredHit.LandblockId || hit.InstanceId != _lastHoveredHit.InstanceId || hit.ObjectId != _lastHoveredHit.ObjectId || hit.VertexX != _lastHoveredHit.VertexX || hit.VertexY != _lastHoveredHit.VertexY) {
                 _lastHoveredHit = hit;
-                _context.NotifyInspectorHovered(hit);
+                Context.NotifyInspectorHovered(hit);
             }
             return false;
         }
 
         private SceneRaycastHit PerformRaycast(ViewportInputEvent e) {
-            if (_context == null) return SceneRaycastHit.NoHit;
+            if (Context == null) return SceneRaycastHit.NoHit;
 
             SceneRaycastHit bestHit = SceneRaycastHit.NoHit;
 
             if (SelectBuildings || SelectStaticObjects) {
-                var ray = GetRay(e, _context.Camera);
-                if (_context.RaycastStaticObject != null && _context.RaycastStaticObject(ray.Origin, ray.Direction, SelectBuildings, SelectStaticObjects, out var objectHit)) {
+                var ray = GetRay(e, Context.Camera);
+                if (Context.RaycastStaticObject != null && Context.RaycastStaticObject(ray.Origin, ray.Direction, SelectBuildings, SelectStaticObjects, out var objectHit)) {
                     if (objectHit.Distance < bestHit.Distance) {
                         bestHit = objectHit;
                     }
@@ -159,8 +152,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             if (SelectScenery) {
-                var ray = GetRay(e, _context.Camera);
-                if (_context.RaycastScenery != null && _context.RaycastScenery(ray.Origin, ray.Direction, out var sceneryHit)) {
+                var ray = GetRay(e, Context.Camera);
+                if (Context.RaycastScenery != null && Context.RaycastScenery(ray.Origin, ray.Direction, out var sceneryHit)) {
                     if (sceneryHit.Distance < bestHit.Distance) {
                         bestHit = sceneryHit;
                     }
@@ -168,8 +161,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             if (SelectPortals) {
-                var ray = GetRay(e, _context.Camera);
-                if (_context.RaycastPortals != null && _context.RaycastPortals(ray.Origin, ray.Direction, out var portalHit)) {
+                var ray = GetRay(e, Context.Camera);
+                if (Context.RaycastPortals != null && Context.RaycastPortals(ray.Origin, ray.Direction, out var portalHit)) {
                     if (portalHit.Distance < bestHit.Distance) {
                         bestHit = portalHit;
                     }
@@ -177,8 +170,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             if (SelectEnvCells || SelectEnvCellStaticObjects) {
-                var ray = GetRay(e, _context.Camera);
-                if (_context.RaycastEnvCells != null && _context.RaycastEnvCells(ray.Origin, ray.Direction, SelectEnvCells, SelectEnvCellStaticObjects, out var envCellHit)) {
+                var ray = GetRay(e, Context.Camera);
+                if (Context.RaycastEnvCells != null && Context.RaycastEnvCells(ray.Origin, ray.Direction, SelectEnvCells, SelectEnvCellStaticObjects, out var envCellHit)) {
                     if (envCellHit.Distance < bestHit.Distance) {
                         bestHit = envCellHit;
                     }
@@ -186,12 +179,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             if (SelectVertices) {
-                if (_context.RaycastTerrain != null) {
-                    var terrainHit = _context.RaycastTerrain((float)e.Position.X, (float)e.Position.Y);
+                if (Context.RaycastTerrain != null) {
+                    var terrainHit = Context.RaycastTerrain((float)e.Position.X, (float)e.Position.Y);
                     if (terrainHit.Hit) {
                         int vx = (int)(terrainHit.LandblockX * terrainHit.LandblockCellLength + terrainHit.VerticeX);
                         int vy = (int)(terrainHit.LandblockY * terrainHit.LandblockCellLength + terrainHit.VerticeY);
-                        float vHeight = _context.Document.GetHeight(vx, vy);
+                        float vHeight = Context.Document.GetHeight(vx, vy);
                         
                         float cellSize = terrainHit.CellSize;
                         int lbCellLen = terrainHit.LandblockCellLength;
@@ -202,7 +195,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                         Vector3 vertexPos = new Vector3(vX, vY, vHeight);
                         if (Vector3.Distance(terrainHit.HitPosition, vertexPos) <= 1.5f) {
                             if (terrainHit.Distance < bestHit.Distance) {
-                                uint vertexIndex = (uint)(_context.Document.Region?.GetVertexIndex(vx, vy) ?? 0);
+                                uint vertexIndex = (uint)(Context.Document.Region?.GetVertexIndex(vx, vy) ?? 0);
                                 bestHit = new SceneRaycastHit {
                                     Hit = true,
                                     Type = InspectorSelectionType.Vertex,
@@ -232,7 +225,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             return (ray.Origin.ToVector3(), ray.Direction.ToVector3());
         }
 
-        public bool OnPointerReleased(ViewportInputEvent e) {
+        public override bool OnPointerReleased(ViewportInputEvent e) {
             return false;
         }
     }

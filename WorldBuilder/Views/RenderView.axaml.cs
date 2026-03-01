@@ -319,6 +319,14 @@ public partial class RenderView : Base3DViewport {
         set => SetValue(ShowBrushProperty, value);
     }
 
+    public static readonly StyledProperty<BrushShape> BrushShapeProperty =
+        AvaloniaProperty.Register<RenderView, BrushShape>(nameof(BrushShape), defaultValue: BrushShape.Circle);
+
+    public BrushShape BrushShape {
+        get => GetValue(BrushShapeProperty);
+        set => SetValue(BrushShapeProperty, value);
+    }
+
     public static readonly StyledProperty<EditorState?> EditorStateProperty =
         AvaloniaProperty.Register<RenderView, EditorState?>(nameof(EditorState));
 
@@ -351,8 +359,9 @@ public partial class RenderView : Base3DViewport {
         }
         else if (change.Property == BrushPositionProperty ||
                  change.Property == BrushRadiusProperty ||
+                 change.Property == BrushShapeProperty ||
                  change.Property == ShowBrushProperty) {
-            _gameScene?.SetBrush(BrushPosition, BrushRadius, LandscapeColorsSettings.Instance.Brush, ShowBrush);
+            _gameScene?.SetBrush(BrushPosition, BrushRadius, LandscapeColorsSettings.Instance.Brush, ShowBrush, BrushShape);
         }
         else if (change.Property == EditorStateProperty) {
             _cachedEditorState = EditorState;

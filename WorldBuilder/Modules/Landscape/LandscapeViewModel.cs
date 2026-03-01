@@ -61,6 +61,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
     [ObservableProperty] private Vector3 _brushPosition;
     [ObservableProperty] private float _brushRadius = 30f;
+    [ObservableProperty] private BrushShape _brushShape = BrushShape.Circle;
     [ObservableProperty] private bool _showBrush;
 
     [ObservableProperty] private bool _is3DCameraEnabled = true;
@@ -163,6 +164,9 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         if (oldValue is InspectorTool oldInspector) {
             oldInspector.PropertyChanged -= OnInspectorToolPropertyChanged;
         }
+        if (oldValue is INotifyPropertyChanged oldNotify) {
+            oldNotify.PropertyChanged -= OnToolPropertyChanged;
+        }
 
         oldValue?.Deactivate();
 
@@ -174,11 +178,35 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             IsDebugShapesEnabled = false;
         }
 
+        if (newValue is INotifyPropertyChanged newNotify) {
+            newNotify.PropertyChanged += OnToolPropertyChanged;
+            SyncBrushFromTool(newValue as ILandscapeTool);
+        }
+
         if (newValue != null && _toolContext != null) {
             newValue.Activate(_toolContext);
         }
 
         _gameScene?.SetInspectorTool(newValue as InspectorTool);
+    }
+
+    private void OnToolPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+        if (sender is ILandscapeTool tool) {
+            if (e.PropertyName == nameof(ILandscapeTool.ShowBrush) ||
+                e.PropertyName == nameof(ILandscapeTool.BrushPosition) ||
+                e.PropertyName == nameof(ILandscapeTool.BrushRadius) ||
+                e.PropertyName == nameof(ILandscapeTool.BrushShape)) {
+                SyncBrushFromTool(tool);
+            }
+        }
+    }
+
+    private void SyncBrushFromTool(ILandscapeTool? tool) {
+        if (tool == null) return;
+        ShowBrush = tool.ShowBrush;
+        BrushPosition = tool.BrushPosition;
+        BrushRadius = tool.BrushRadius;
+        BrushShape = tool.BrushShape;
     }
 
     private void OnInspectorToolPropertyChanged(object? sender, PropertyChangedEventArgs e) {
@@ -514,34 +542,6 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _toolContext.ViewportSize = e.ViewportSize;
         }
 
-        // Update brush preview
-        if (ActiveTool != null && ActiveDocument?.Region != null && Camera != null) {
-            var hit = TerrainRaycast.Raycast(e.Position.X, e.Position.Y,
-                (int)e.ViewportSize.X, (int)e.ViewportSize.Y,
-                Camera, ActiveDocument.Region, ActiveDocument);
-
-            if (hit.Hit) {
-                BrushPosition = hit.HitPosition;
-                // Only show brush if tool is appropriate (e.g. BrushTool)
-                ShowBrush = ActiveTool is BrushTool || ActiveTool is RoadVertexTool || ActiveTool is RoadLineTool;
-
-                if (ActiveTool is BrushTool brushTool) {
-                    BrushPosition = hit.NearestVertice;
-                    BrushRadius = brushTool.BrushRadius;
-                }
-                else if (ActiveTool is RoadVertexTool || ActiveTool is RoadLineTool) {
-                    BrushPosition = hit.NearestVertice;
-                    BrushRadius = BrushTool.GetWorldRadius(1);
-                }
-                else {
-                    BrushPosition = hit.HitPosition;
-                }
-            }
-            else {
-                ShowBrush = false;
-            }
-        }
-
         ActiveTool?.OnPointerMoved(e);
     }
 
@@ -658,6 +658,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     }
 
     public bool HandleHotkey(KeyEventArgs e) {
+        if (e.Key == Key.Escape) {
+            if (ActiveTool is ITexturePaintingTool paintingTool && paintingTool.IsEyeDropperActive) {
+                paintingTool.IsEyeDropperActive = false;
+                return true;
+            }
+        }
         if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.G) {
             _ = ShowGoToLocationPrompt();
             return true;

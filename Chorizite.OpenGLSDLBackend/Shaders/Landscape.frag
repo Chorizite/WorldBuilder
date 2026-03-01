@@ -29,7 +29,7 @@ uniform vec3 uBrushPos;       // World position of the brush center
 uniform float uBrushRadius;   // Radius of the brush in world units
 uniform vec4 uBrushColor;     // Color of the brush overlay (RGBA)
 uniform bool uShowBrush;      // Toggle brush visibility
-uniform int uBrushShape;      // 0 = Circle, 1 = Square (for future use)
+uniform int uBrushShape;      // 0 = Circle, 1 = Square, 2 = Crosshair
 
 uniform bool uShowUnwalkableSlopes;
 uniform float uFloorZ;
@@ -201,6 +201,11 @@ float sdRoundedBox(in vec2 p, in vec2 b, in float r) {
     return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
 }
 
+float sdCross(in vec2 p, in float r, in float w) {
+    vec2 d = abs(p);
+    return min(max(d.x - w, d.y - r), max(d.y - w, d.x - r));
+}
+
 vec4 calculateBrush(vec2 worldPos) { 
     if (!uShowBrush) return vec4(0.0);
 
@@ -211,6 +216,11 @@ vec4 calculateBrush(vec2 worldPos) {
         // Rounded Box (Square)
         float cornerRadius = min(uBrushRadius * 0.25, 10.0);
         dist = sdRoundedBox(p, vec2(uBrushRadius), cornerRadius);
+    } else if (uBrushShape == 2) {
+        // Crosshair
+        float crossWidth = 1.0;
+        float crossSize = 12.0;
+        dist = sdCross(p, crossSize, crossWidth);
     } else {
         // Circle
         dist = sdCircle(p, uBrushRadius);
@@ -223,7 +233,7 @@ vec4 calculateBrush(vec2 worldPos) {
     float feather = 1.0 * pixelSize;
     float outline = 1.0 - smoothstep(lineWidth - feather, lineWidth, abs(dist));
     
-    float fill = (1.0 - smoothstep(0.0, feather, dist)) * 0.1;
+    float fill = (uBrushShape == 2) ? 0.0 : (1.0 - smoothstep(0.0, feather, dist)) * 0.1;
     float alpha = max(outline, fill);
     
     if (alpha <= 0.0) return vec4(0.0);
