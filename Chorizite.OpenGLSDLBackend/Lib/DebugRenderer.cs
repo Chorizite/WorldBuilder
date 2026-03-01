@@ -173,6 +173,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _gl.Enable(EnableCap.DepthTest);
             _gl.DepthFunc(GLEnum.Lequal);
             _gl.DepthMask(true);
+            _gl.ColorMask(true, true, true, false);
             _gl.Enable(EnableCap.Blend);
             _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 

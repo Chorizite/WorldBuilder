@@ -939,6 +939,7 @@ public class GameScene : IDisposable {
         if (didInsideStencil) {
             _gl.Disable(EnableCap.StencilTest);
             _gl.StencilMask(0xFF);
+            _gl.ColorMask(true, true, true, false);
         }
     }
 
@@ -1056,6 +1057,7 @@ public class GameScene : IDisposable {
         if (didStencil) {
             _gl.Disable(EnableCap.StencilTest);
             _gl.StencilMask(0xFF);
+            _gl.ColorMask(true, true, true, false);
         }
     }
 
