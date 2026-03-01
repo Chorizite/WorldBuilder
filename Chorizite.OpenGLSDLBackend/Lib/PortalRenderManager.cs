@@ -195,9 +195,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, out SceneRaycastHit hit, float maxDistance = float.MaxValue) {
+        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, out SceneRaycastHit hit, float maxDistance = float.MaxValue, bool ignoreVisibility = false) {
             hit = SceneRaycastHit.NoHit;
-            if (!ShowPortals || _landscapeDoc.Region == null) return false;
+            if ((!ShowPortals && !ignoreVisibility) || _landscapeDoc.Region == null) return false;
 
             float closestDistance = float.MaxValue;
             PortalData? closestPortal = null;
@@ -261,10 +261,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (!lb.Ready || lb.BuildingPortals.Count == 0 || !IsWithinRenderDistance(lb)) continue;
 
                 // Use the precise bounding box of the landblock's portals for frustum testing
-                if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(lb.BoundingBox.Min, lb.BoundingBox.Max)) == FrustumTestResult.Outside) continue;
+                if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(lb.BoundingBox.Min, lb.BoundingBox.Max), ignoreNearPlane: true) == FrustumTestResult.Outside) continue;
 
                 foreach (var building in lb.BuildingPortals) {
-                    if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(building.BoundingBox.Min, building.BoundingBox.Max)) == FrustumTestResult.Outside) continue;
+                    if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(building.BoundingBox.Min, building.BoundingBox.Max), ignoreNearPlane: true) == FrustumTestResult.Outside) continue;
                     results.Add((key, building));
                 }
             }
@@ -296,10 +296,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (!lb.Ready || lb.BuildingPortals.Count == 0 || !IsWithinRenderDistance(lb)) continue;
 
                 // Use the precise bounding box of the landblock's portals for frustum testing
-                if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(lb.BoundingBox.Min, lb.BoundingBox.Max)) == FrustumTestResult.Outside) continue;
+                if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(lb.BoundingBox.Min, lb.BoundingBox.Max), ignoreNearPlane: true) == FrustumTestResult.Outside) continue;
 
                 foreach (var building in lb.BuildingPortals) {
-                    if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(building.BoundingBox.Min, building.BoundingBox.Max)) == FrustumTestResult.Outside) continue;
+                    if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(building.BoundingBox.Min, building.BoundingBox.Max), ignoreNearPlane: true) == FrustumTestResult.Outside) continue;
                     yield return (key, building);
                 }
             }

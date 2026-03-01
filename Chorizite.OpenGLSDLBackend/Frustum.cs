@@ -43,8 +43,10 @@ namespace Chorizite.OpenGLSDLBackend {
             _planes[5] = new Plane(matrix.M14 - matrix.M13, matrix.M24 - matrix.M23, matrix.M34 - matrix.M33, matrix.M44 - matrix.M43);
         }
 
-        public bool Intersects(BoundingBox box) {
+        public bool Intersects(BoundingBox box, bool ignoreNearPlane = false) {
             for (int i = 0; i < 6; i++) {
+                if (ignoreNearPlane && i == 4) continue;
+
                 Vector3 positive = box.Min;
                 if (_planes[i].Normal.X >= 0) positive.X = box.Max.X;
                 if (_planes[i].Normal.Y >= 0) positive.Y = box.Max.Y;
@@ -57,9 +59,11 @@ namespace Chorizite.OpenGLSDLBackend {
             return true;
         }
 
-        public FrustumTestResult TestBox(BoundingBox box) {
+        public FrustumTestResult TestBox(BoundingBox box, bool ignoreNearPlane = false) {
             var result = FrustumTestResult.Inside;
             for (int i = 0; i < 6; i++) {
+                if (ignoreNearPlane && i == 4) continue;
+
                 Vector3 positive = box.Min;
                 Vector3 negative = box.Max;
                 if (_planes[i].Normal.X >= 0) {
