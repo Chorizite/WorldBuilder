@@ -180,7 +180,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var group in batchesByCullMode) {
                 foreach (var item in group.Value) {
                     _modernBatches[cmdIndex] = new ModernBatchData {
-                        TextureHandle = item.batch.BindlessTextureHandle
+                        TextureHandle = item.batch.BindlessTextureHandle,
+                        TextureIndex = (uint)item.batch.TextureIndex
                     };
 
                     _commands[cmdIndex] = new DrawElementsIndirectCommand {

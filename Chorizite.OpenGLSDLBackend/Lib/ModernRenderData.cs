@@ -30,11 +30,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
     /// <summary>
     /// Per-batch (draw call) data for modern rendering.
-    /// Consists of a bindless texture handle.
+    /// Consists of a bindless texture handle to a texture array and the layer index.
     /// Indexed by gl_DrawIDARB in the vertex shader.
     /// </summary>
     [StructLayout(LayoutKind.Sequential, Pack = 8)]
     public struct ModernBatchData {
         public ulong TextureHandle; // 8 bytes
+        public uint TextureIndex;   // 4 bytes
+        public uint Padding;        // 4 bytes
     }
 }

@@ -18,6 +18,8 @@ struct ModernInstanceData {
 
 struct ModernBatchData {
     uvec2 TextureHandle;
+    uint TextureIndex;
+    uint Padding;
 };
 
 layout(std430, binding = 0) readonly buffer InstanceBuffer {
@@ -43,6 +45,7 @@ uniform uint uActiveCells[256];
 out vec3 Normal;
 out vec2 TexCoord;
 out flat uvec2 TextureHandle;
+out flat uint TextureIndex;
 out vec3 LightingColor;
 
 void main() {
@@ -68,6 +71,7 @@ void main() {
     Normal = normalize(mat3(inst.Transform) * aNormal);
     TexCoord = aTexCoord;
     TextureHandle = Batches[gl_DrawIDARB + uDrawIDOffset].TextureHandle;
+    TextureIndex = Batches[gl_DrawIDARB + uDrawIDOffset].TextureIndex;
     
     float diff = max(dot(Normal, normalize(uLightDirection)), 0.0);
     LightingColor = clamp(uAmbientColor + uSunlightColor * diff, 0.0, 1.0);

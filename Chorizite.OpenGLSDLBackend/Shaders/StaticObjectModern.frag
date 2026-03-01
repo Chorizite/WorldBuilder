@@ -9,6 +9,7 @@ precision highp int;
 in vec3 Normal;
 in vec2 TexCoord;
 in flat uvec2 TextureHandle;
+in flat uint TextureIndex;
 in vec3 LightingColor;
 
 uniform int uRenderPass;
@@ -17,10 +18,11 @@ uniform vec4 uHighlightColor;
 out vec4 FragColor;
 
 void main() {
-    sampler2D tex = sampler2D(TextureHandle);
-    vec4 color = texture(tex, TexCoord);
-    
+    sampler2DArray tex = sampler2DArray(TextureHandle);
+    vec4 color = texture(tex, vec3(TexCoord, float(TextureIndex)));
+
     if (uRenderPass == 0) {
+
         // Opaque pass
         if (color.a < 0.95) discard;
     } else if (uRenderPass == 1) {
