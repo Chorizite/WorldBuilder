@@ -15,6 +15,17 @@ public class Camera2D : CameraBase {
     private float _maxZoom = 100.0f;
     private float _zoomSpeed = 0.1f;
     private bool _isPanning;
+    private float _panSpeed = 1000.0f;
+    private bool _shiftHeld;
+    private float _speedMultiplier = 2.0f; // speed multiplier when shift is held
+
+    // Movement state for keyboard panning
+    private bool _panUp;
+    private bool _panDown;
+    private bool _panLeft;
+    private bool _panRight;
+    private bool _zoomIn;
+    private bool _zoomOut;
 
     /// <summary>
     /// Gets or sets the zoom level (1.0 = default, higher = zoomed in).
@@ -67,6 +78,14 @@ public class Camera2D : CameraBase {
     }
 
     /// <summary>
+    /// Gets or sets the keyboard panning speed in units per second.
+    /// </summary>
+    public float PanSpeed {
+        get => _panSpeed;
+        set => _panSpeed = Math.Max(0.1f, value);
+    }
+
+    /// <summary>
     /// Creates a new 2D camera at the specified position.
     /// </summary>
     /// <param name="position">Initial camera position (X, Y in world space, Z ignored for view).</param>
@@ -102,7 +121,40 @@ public class Camera2D : CameraBase {
 
     /// <inheritdoc/>
     public override void Update(float deltaTime) {
-        // Camera2D doesn't have continuous updates, all controlled by input
+        // Handle keyboard panning
+        float currentPanSpeed = _shiftHeld ? _panSpeed * _speedMultiplier : _panSpeed;
+        
+        // Use the same worldScale factor as mouse panning for consistent speed
+        float worldScale = 20.0f / (_viewportHeight * _zoom);
+        float scaledSpeed = currentPanSpeed * worldScale;
+        
+        if (_panUp) {
+            _position.Y += scaledSpeed * deltaTime;
+        }
+        if (_panDown) {
+            _position.Y -= scaledSpeed * deltaTime;
+        }
+        if (_panLeft) {
+            _position.X -= scaledSpeed * deltaTime;
+        }
+        if (_panRight) {
+            _position.X += scaledSpeed * deltaTime;
+        }
+        
+        // Handle keyboard zooming
+        float currentZoomSpeed = _shiftHeld ? _speedMultiplier : 1.0f;
+        if (_zoomIn) {
+            float zoomFactor = 1.0f + (currentZoomSpeed * deltaTime);
+            Zoom *= zoomFactor;
+        }
+        if (_zoomOut) {
+            float zoomFactor = 1.0f - (currentZoomSpeed * deltaTime);
+            Zoom *= zoomFactor;
+        }
+        
+        if (_panUp || _panDown || _panLeft || _panRight) {
+            InvalidateMatrices();
+        }
     }
 
     /// <inheritdoc/>
@@ -140,12 +192,56 @@ public class Camera2D : CameraBase {
 
     /// <inheritdoc/>
     public override void HandleKeyDown(string key) {
-        // No key controls for 2D camera
+        switch (key.ToUpperInvariant()) {
+            case "W":
+                _panUp = true;
+                break;
+            case "S":
+                _panDown = true;
+                break;
+            case "A":
+                _panLeft = true;
+                break;
+            case "D":
+                _panRight = true;
+                break;
+            case "UP":
+                _zoomIn = true;
+                break;
+            case "DOWN":
+                _zoomOut = true;
+                break;
+            case "LEFTSHIFT":
+                _shiftHeld = true;
+                break;
+        }
     }
 
     /// <inheritdoc/>
     public override void HandleKeyUp(string key) {
-        // No key controls for 2D camera
+        switch (key.ToUpperInvariant()) {
+            case "W":
+                _panUp = false;
+                break;
+            case "S":
+                _panDown = false;
+                break;
+            case "A":
+                _panLeft = false;
+                break;
+            case "D":
+                _panRight = false;
+                break;
+            case "UP":
+                _zoomIn = false;
+                break;
+            case "DOWN":
+                _zoomOut = false;
+                break;
+            case "LEFTSHIFT":
+                _shiftHeld = false;
+                break;
+        }
     }
 
     /// <inheritdoc/>

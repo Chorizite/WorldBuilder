@@ -77,6 +77,15 @@ public class Camera3D : CameraBase {
     private bool _moveUp;
     private bool _moveDown;
 
+    // Turning state
+    private bool _turnLeft;
+    private bool _turnRight;
+    private bool _turnUp;
+    private bool _turnDown;
+    private float _turnSpeed = 90.0f; // degrees per second
+    private bool _shiftHeld;
+    private float _speedMultiplier = 2.0f; // speed multiplier when shift is held
+
     /// <summary>
     /// Gets or sets the field of view in degrees.
     /// </summary>
@@ -214,7 +223,23 @@ public class Camera3D : CameraBase {
 
         if (movement != Vector3.Zero) {
             movement = Vector3.Normalize(movement);
-            Position += movement * _moveSpeed * deltaTime;
+            float currentMoveSpeed = _shiftHeld ? _moveSpeed * _speedMultiplier : _moveSpeed;
+            Position += movement * currentMoveSpeed * deltaTime;
+        }
+
+        // Handle keyboard turning
+        float currentTurnSpeed = _shiftHeld ? _turnSpeed * _speedMultiplier : _turnSpeed;
+        if (_turnLeft) {
+            Yaw -= currentTurnSpeed * deltaTime;
+        }
+        if (_turnRight) {
+            Yaw += currentTurnSpeed * deltaTime;
+        }
+        if (_turnUp) {
+            Pitch += currentTurnSpeed * deltaTime;
+        }
+        if (_turnDown) {
+            Pitch -= currentTurnSpeed * deltaTime;
         }
     }
 
@@ -275,6 +300,21 @@ public class Camera3D : CameraBase {
             case "Q":
                 _moveDown = true;
                 break;
+            case "LEFT":
+                _turnLeft = true;
+                break;
+            case "RIGHT":
+                _turnRight = true;
+                break;
+            case "UP":
+                _turnUp = true;
+                break;
+            case "DOWN":
+                _turnDown = true;
+                break;
+            case "LEFTSHIFT":
+                _shiftHeld = true;
+                break;
             case "R":
                 Yaw = 0;
                 Pitch = 0;
@@ -302,6 +342,21 @@ public class Camera3D : CameraBase {
                 break;
             case "Q":
                 _moveDown = false;
+                break;
+            case "LEFT":
+                _turnLeft = false;
+                break;
+            case "RIGHT":
+                _turnRight = false;
+                break;
+            case "UP":
+                _turnUp = false;
+                break;
+            case "DOWN":
+                _turnDown = false;
+                break;
+            case "LEFTSHIFT":
+                _shiftHeld = false;
                 break;
         }
     }
