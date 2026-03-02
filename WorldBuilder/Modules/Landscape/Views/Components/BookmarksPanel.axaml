@@ -60,10 +60,12 @@
                         </ListBox.Styles>
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="viewmodels:Bookmark">
-                                <DockPanel ToolTip.Tip="{Binding Location}" Background="Transparent"
+                                <DockPanel Background="Transparent"
                                           PointerPressed="OnBookmarkItemPointerPressed"
                                           PointerMoved="OnBookmarkItemPointerMoved"
-                                          PointerReleased="OnBookmarkItemPointerReleased">
+                                          PointerReleased="OnBookmarkItemPointerReleased"
+                                          PointerEntered="OnBookmarkItemPointerEntered"
+                                          PointerExited="OnBookmarkItemPointerExited">
                                     <StackPanel Orientation="Horizontal">
                                         <!-- Padding fixes odd rendering bug with Spacing -->
                                         <TextBlock Text="📍" Padding="0,0,7,0" />

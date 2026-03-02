@@ -227,6 +227,19 @@ public partial class BookmarksPanel : UserControl {
         }
     }
 
+    private void OnBookmarkItemPointerEntered(object? sender, PointerEventArgs e) {
+        if (!_isDragging && sender is DockPanel dockPanel && dockPanel.DataContext is Bookmark bookmark) {
+            // Only show tooltip when not dragging
+            ToolTip.SetTip(dockPanel, bookmark.Location);
+        }
+    }
+
+    private void OnBookmarkItemPointerExited(object? sender, PointerEventArgs e) {
+        if (sender is DockPanel dockPanel) {
+            ToolTip.SetTip(dockPanel, null);
+        }
+    }
+
     private void BookmarkListBox_KeyDown(object? sender, KeyEventArgs e) {
         if (DataContext is BookmarksPanelViewModel viewModel) {
             var selectedItem = BookmarkListBox.SelectedItem;
