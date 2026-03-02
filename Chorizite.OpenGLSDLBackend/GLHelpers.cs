@@ -135,15 +135,9 @@ namespace Chorizite.OpenGLSDLBackend {
         /// </summary>
         public static bool ValidateTextureMipmapStatus(GL gl, GLEnum target, out string errorMessage) {
             try {
-                uint boundTexture = (uint)gl.GetInteger(GetPName.TextureBinding2DArray);
-                if (boundTexture == 0) {
-                    errorMessage = "No texture is currently bound";
-                    return false;
-                }
-
-                gl.GetTextureLevelParameter(boundTexture, 0, GetTextureParameter.TextureWidth, out int width);
-                gl.GetTextureLevelParameter(boundTexture, 0, GetTextureParameter.TextureHeight, out int height);
-                gl.GetTextureLevelParameter(boundTexture, 0, GetTextureParameter.TextureInternalFormat, out int format);
+                gl.GetTexLevelParameter(target, 0, GetTextureParameter.TextureWidth, out int width);
+                gl.GetTexLevelParameter(target, 0, GetTextureParameter.TextureHeight, out int height);
+                gl.GetTexLevelParameter(target, 0, GetTextureParameter.TextureInternalFormat, out int format);
 
                 if (width == 0 || height == 0) {
                     errorMessage = "Texture has zero dimensions";

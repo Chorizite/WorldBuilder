@@ -68,8 +68,8 @@ namespace Chorizite.OpenGLSDLBackend {
 
             GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
 
-            GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureWrapS, (int)TextureWrapMode.MirroredRepeat);
-            GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureWrapT, (int)TextureWrapMode.MirroredRepeat);
+            GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
+            GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
 
             if (graphicsDevice.RenderSettings.EnableAnisotropicFiltering) {
                 float maxAnisotropy = 0f;
@@ -129,7 +129,7 @@ namespace Chorizite.OpenGLSDLBackend {
                     $"Cannot bind texture array: NativePtr is invalid (Slot={Slot}, Size={Width}x{Height}x{Size}).");
             }
 
-            // GL.BindSampler((uint)slot, 0);
+            GL.BindSampler((uint)slot, 0);
             GL.ActiveTexture(GLEnum.Texture0 + slot);
             GLHelpers.CheckErrors(GL);
             GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
@@ -150,8 +150,19 @@ namespace Chorizite.OpenGLSDLBackend {
                         }
                         else {
                             try {
+                                bool wasResident = false;
+                                if (BindlessHandle != 0 && _device.BindlessExtension != null && _device.BindlessExtension.IsTextureHandleResident(BindlessHandle)) {
+                                    _device.BindlessExtension.MakeTextureHandleNonResident(BindlessHandle);
+                                    wasResident = true;
+                                }
+
                                 GL.GenerateMipmap(GLEnum.Texture2DArray);
                                 GLHelpers.CheckErrorsWithContext(GL, "Generating mipmaps for texture array");
+
+                                if (wasResident && BindlessHandle != 0 && _device.BindlessExtension != null) {
+                                    _device.BindlessExtension.MakeTextureHandleResident(BindlessHandle);
+                                }
+
                                 _mipmapDirtyCount = 0;
                                 _needsMipmapRegeneration = false;
                             }
@@ -328,8 +339,19 @@ namespace Chorizite.OpenGLSDLBackend {
                     }
 
                     try {
+                        bool wasResident = false;
+                        if (BindlessHandle != 0 && _device.BindlessExtension != null && _device.BindlessExtension.IsTextureHandleResident(BindlessHandle)) {
+                            _device.BindlessExtension.MakeTextureHandleNonResident(BindlessHandle);
+                            wasResident = true;
+                        }
+
                         GL.GenerateMipmap(GLEnum.Texture2DArray);
                         GLHelpers.CheckErrorsWithContext(GL, "Generating mipmaps for texture array");
+
+                        if (wasResident && BindlessHandle != 0 && _device.BindlessExtension != null) {
+                            _device.BindlessExtension.MakeTextureHandleResident(BindlessHandle);
+                        }
+
                         _mipmapDirtyCount = 0;
                         _needsMipmapRegeneration = false;
                     }
