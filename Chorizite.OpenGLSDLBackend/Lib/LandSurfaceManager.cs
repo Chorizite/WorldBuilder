@@ -10,9 +10,11 @@ using DatReaderWriter.Types;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Threading;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Services;
@@ -45,10 +47,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public List<TerrainAlphaMap> SideTerrainMaps { get; private set; }
         public List<RoadAlphaMap> RoadMaps { get; private set; }
         public List<TMTerrainDesc> TerrainDescriptors { get; private set; }
-        public Dictionary<uint, SurfaceInfo> SurfaceInfoByPalette { get; private set; }
-        public Dictionary<uint, TMI> SurfacesBySurfaceNumber { get; private set; }
+        public ConcurrentDictionary<uint, SurfaceInfo> SurfaceInfoByPalette { get; private set; }
+        public ConcurrentDictionary<uint, TMI> SurfacesBySurfaceNumber { get; private set; }
 
         private readonly ILogger _logger;
+        private readonly object _surfaceCreationLock = new();
 
         public LandSurfaceManager(OpenGLGraphicsDevice graphicsDevice,
             WorldBuilder.Shared.Services.IDatReaderWriter dats, Region region, ILogger logger) {
@@ -60,8 +63,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _alphaAtlasIndexLookup = new Dictionary<uint, int>(16);
             _textureBuffer = ArrayPool<byte>.Shared.Rent(512 * 512 * 4);
 
-            SurfaceInfoByPalette = new Dictionary<uint, SurfaceInfo>();
-            SurfacesBySurfaceNumber = new Dictionary<uint, TMI>();
+            SurfaceInfoByPalette = new ConcurrentDictionary<uint, SurfaceInfo>();
+            SurfacesBySurfaceNumber = new ConcurrentDictionary<uint, TMI>();
             _nextSurfaceNumber = 0;
 
             var texMerge = _region.TerrainInfo.LandSurfaces.TexMerge;
@@ -231,6 +234,24 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
+        public TMI? GetSurface(uint paletteCode) {
+            if (SurfaceInfoByPalette.TryGetValue(paletteCode, out var existingSurfaceInfo)) {
+                return existingSurfaceInfo.Surface;
+            }
+
+            lock (_surfaceCreationLock) {
+                if (SurfaceInfoByPalette.TryGetValue(paletteCode, out existingSurfaceInfo)) {
+                    return existingSurfaceInfo.Surface;
+                }
+
+                var surface = BuildTexture(paletteCode, 1);
+                if (surface != null && AddNewSurface(surface, paletteCode, out _)) {
+                    return surface;
+                }
+                return null;
+            }
+        }
+
         public bool SelectTerrain(uint landblockID, ReadOnlySpan<TerrainEntry> terrain, int x, int y,
             out uint surfaceNumber, out TMI.Rotation rotation) {
             surfaceNumber = 0;
@@ -251,9 +272,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var r4 = terrain[i + 1].Road ?? 0;
 
             var palCode = GetPalCode(r1, r2, r3, r4, t1, t2, t3, t4);
-            var paletteCodes = new List<uint> { palCode };
+            
+            if (SurfaceInfoByPalette.TryGetValue(palCode, out var existingSurfaceInfo)) {
+                surfaceNumber = existingSurfaceInfo.SurfaceNumber;
+                return true;
+            }
 
-            return SelectTerrain(out surfaceNumber, out rotation, paletteCodes);
+            lock (_surfaceCreationLock) {
+                if (SurfaceInfoByPalette.TryGetValue(palCode, out existingSurfaceInfo)) {
+                    surfaceNumber = existingSurfaceInfo.SurfaceNumber;
+                    return true;
+                }
+
+                var surface = BuildTexture(palCode, 1);
+                return surface != null && AddNewSurface(surface, palCode, out surfaceNumber);
+            }
         }
 
         public bool SelectTerrain(out uint surfaceNumber, out TMI.Rotation rotation, List<uint> paletteCodes) {
@@ -265,9 +298,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             var paletteCode = paletteCodes[0];
 
-            lock (SurfaceInfoByPalette) {
-                if (SurfaceInfoByPalette.TryGetValue(paletteCode, out var existingSurfaceInfo)) {
-                    existingSurfaceInfo.LandCellCount++;
+            if (SurfaceInfoByPalette.TryGetValue(paletteCode, out var existingSurfaceInfo)) {
+                surfaceNumber = existingSurfaceInfo.SurfaceNumber;
+                return true;
+            }
+
+            lock (_surfaceCreationLock) {
+                if (SurfaceInfoByPalette.TryGetValue(paletteCode, out existingSurfaceInfo)) {
                     surfaceNumber = existingSurfaceInfo.SurfaceNumber;
                     return true;
                 }
@@ -278,7 +315,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         private bool AddNewSurface(TMI surface, uint paletteCode, out uint surfaceNumber) {
-            surfaceNumber = _nextSurfaceNumber++;
+            surfaceNumber = (uint)Interlocked.Increment(ref _nextSurfaceNumber) - 1;
 
             var surfaceInfo = new SurfaceInfo {
                 Surface = surface,
@@ -287,20 +324,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 SurfaceNumber = surfaceNumber
             };
 
-            SurfacesBySurfaceNumber.Add(surfaceNumber, surface);
-            SurfaceInfoByPalette.Add(paletteCode, surfaceInfo);
+            SurfacesBySurfaceNumber.TryAdd(surfaceNumber, surface);
+            SurfaceInfoByPalette.TryAdd(paletteCode, surfaceInfo);
 
             return true;
         }
 
         public TMI? GetLandSurface(uint surfaceId) {
-            lock (SurfaceInfoByPalette) {
-                if (SurfacesBySurfaceNumber.TryGetValue(surfaceId, out var surface)) {
-                    return surface;
-                }
-
-                return null;
+            if (SurfacesBySurfaceNumber.TryGetValue(surfaceId, out var surface)) {
+                return surface;
             }
+
+            return null;
         }
 
         public static uint GetPalCode(int r1, int r2, int r3, int r4, int t1, int t2, int t3, int t4) {

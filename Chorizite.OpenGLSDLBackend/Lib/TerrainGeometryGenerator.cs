@@ -226,10 +226,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 int r4 = topLeft.Road ?? 0;
 
                 var palCode = LandSurfaceManager.GetPalCode(r1, r2, r3, r4, t1, t2, t3, t4);
-                var paletteCodes = new System.Collections.Generic.List<uint> { palCode };
-
-                surfaceManager.SelectTerrain(out var surfNum, out var rotation, paletteCodes);
-                var surfInfo = surfaceManager.GetLandSurface(surfNum);
+                var surfInfo = surfaceManager.GetSurface(palCode);
 
                 if (surfInfo != null) {
                     if (splitDirection == CellSplitDirection.SWtoNE) {
