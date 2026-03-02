@@ -24,7 +24,7 @@ public partial class LandscapeView : UserControl {
     // Setting Grid.MinWidth sets the starting width properly, but doesn't actually enforce a MinWidth constraint when dragging GridSplitter
     // https://github.com/AvaloniaUI/Avalonia/issues/5868
     // Unfortunately, the solution seems to be just manually managing it in code-behind.
-    // If we run into this problem with other GridSplitters, then recommended this code is abstracted away into a common pattern / custom control    
+    // If we run into this problem with other GridSplitters, then recommended this code is centralized into a reusable component
     private static readonly int RIGHT_PANELS_STARTING_WIDTH = 300;
     private static readonly int RIGHT_PANELS_MIN_WIDTH = 300;
     private static readonly int RIGHT_PANELS_MAX_WIDTH_PCT = 50;
@@ -73,12 +73,11 @@ public partial class LandscapeView : UserControl {
         if (_copyButton != null) {
             _copyButton.Click -= OnCopyLocationClicked;
         }
-        
+
         var rightPanels = this.FindControl<Grid>("RightPanels");
         if (rightPanels != null) {
             rightPanels.SizeChanged -= OnRightPanelSizeChanged;
         }
-        // Unsubscribe from GridSplitter events
         if (_rightSplitter != null) {
             _rightSplitter.DragCompleted -= OnSplitterDragCompleted;
         }
