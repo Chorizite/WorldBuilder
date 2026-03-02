@@ -1,9 +1,8 @@
 ﻿using System.Collections.ObjectModel;
-
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HanumanInstitute.MvvmDialogs;
-
+using WorldBuilder.Modules.Landscape.Behaviors;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.ViewModels;
@@ -19,10 +18,13 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
         [ObservableProperty]
         private Bookmark? _selectedBookmark;
 
+        public BookmarkDragDropHelper BookmarkDragDropHelper { get; }
+
         public BookmarksPanelViewModel(BookmarksManager bookmarksManager, LandscapeViewModel landScapeViewModel, IDialogService dialogService) {
             _bookmarksManager = bookmarksManager ?? throw new ArgumentNullException(nameof(bookmarksManager));
             _landScapeViewModel = landScapeViewModel ?? throw new ArgumentNullException(nameof(landScapeViewModel));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+            BookmarkDragDropHelper = new BookmarkDragDropHelper(_bookmarksManager);
         }
 
         [RelayCommand]
@@ -62,6 +64,8 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
             updatedBookmark.Location = loc.ToLandblockString();
 
             await _bookmarksManager.UpdateBookmark(bookmark, updatedBookmark);
+
+            SelectedBookmark = updatedBookmark;
         }
 
         [RelayCommand]
@@ -75,6 +79,8 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
             updatedBookmark.Name = newName;
 
             await _bookmarksManager.UpdateBookmark(bookmark, updatedBookmark);
+            
+            SelectedBookmark = updatedBookmark;
         }
 
         private async Task<string?> ShowRenameDialog(string currentName) {
@@ -98,6 +104,7 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
         public async Task MoveUp(Bookmark? bookmark) {
             if (bookmark != null) {
                 await _bookmarksManager.MoveBookmarkUp(bookmark);
+                SelectedBookmark = bookmark;
             }
         }
 
@@ -105,6 +112,7 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
         public async Task MoveDown(Bookmark? bookmark) {
             if (bookmark != null) {
                 await _bookmarksManager.MoveBookmarkDown(bookmark);
+                SelectedBookmark = bookmark;
             }
         }
 

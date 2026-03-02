@@ -145,6 +145,17 @@ namespace WorldBuilder.Services {
         }
 
         /// <summary>
+        /// Moves a bookmark to a specific index in the collection and saves to persistent storage.
+        /// </summary>
+        public async Task MoveBookmarkToIndex(Bookmark bookmark, int newIndex) {
+            var currentIndex = Bookmarks.IndexOf(bookmark);
+            if (currentIndex >= 0 && newIndex >= 0 && newIndex < Bookmarks.Count && currentIndex != newIndex) {
+                Bookmarks.Move(currentIndex, newIndex);
+                await SaveBookmarks();
+            }
+        }
+
+        /// <summary>
         /// Saves recent projects to persistent storage.
         /// </summary>
         private async Task SaveBookmarks() {
