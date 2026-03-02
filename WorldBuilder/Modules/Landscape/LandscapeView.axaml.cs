@@ -16,6 +16,16 @@ public partial class LandscapeView : UserControl {
     private Button? _copyButton;
     private RenderView? _renderView;
     private string? _lastLocationString;
+    private GridSplitter? _rightSplitter;
+
+    // Setting Grid.Width at DesignTime causes the content in the right column to not stretch to greater widths
+    // Setting Grid.MinWidth sets the starting width properly, but doesn't actually enforce a MinWidth constraint when dragging GridSplitter
+    // https://github.com/AvaloniaUI/Avalonia/issues/5868
+    // Unfortunately, the solution seems to be just manually managing it in code-behind.
+    // If we run into this problem with other GridSplitters, then recommended this code is abstracted away into a common pattern / custom control    
+    private static readonly int RIGHT_PANELS_STARTING_WIDTH = 300;
+    private static readonly int RIGHT_PANELS_MIN_WIDTH = 300;
+    private static readonly int RIGHT_PANELS_MAX_WIDTH_PCT = 50;
 
     public LandscapeView() {
         InitializeComponent();
@@ -32,6 +42,20 @@ public partial class LandscapeView : UserControl {
             _copyButton.Click += OnCopyLocationClicked;
         }
         _renderView = this.FindControl<RenderView>("RenderView");
+        _rightSplitter = this.FindControl<GridSplitter>("RightSplitter");
+
+        var rootLayoutGrid = this.FindControl<Grid>("RootLayoutGrid");
+        if (rootLayoutGrid != null && rootLayoutGrid.ColumnDefinitions.Count >= 4) {
+            var rightPanelsColumn = rootLayoutGrid.ColumnDefinitions[3];
+            rightPanelsColumn.Width = new GridLength(RIGHT_PANELS_STARTING_WIDTH);
+        }
+        
+        // Subscribe to right panel size changes
+        var rightPanels = this.FindControl<Grid>("RightPanels");
+        if (rightPanels != null) {
+            rightPanels.SizeChanged += OnRightPanelSizeChanged;
+        }
+        
         TryInitializeToolContext();
         StartUpdateTimer();
     }
@@ -40,6 +64,12 @@ public partial class LandscapeView : UserControl {
         if (_copyButton != null) {
             _copyButton.Click -= OnCopyLocationClicked;
         }
+        
+        var rightPanels = this.FindControl<Grid>("RightPanels");
+        if (rightPanels != null) {
+            rightPanels.SizeChanged -= OnRightPanelSizeChanged;
+        }
+        
         StopUpdateTimer();
     }
 
@@ -111,6 +141,29 @@ public partial class LandscapeView : UserControl {
             vm.InitializeToolContext(renderView.Camera, (x, y) => {
                 renderView.InvalidateLandblock(x, y);
             });
+        }
+    }
+
+    private void OnRightPanelSizeChanged(object? sender, SizeChangedEventArgs e) {
+        // Enforce minimum and maximum width properly when dragging GridSplitter, since setting MinWidth/MaxWidth in XAML doesn't work due to Avalonia issue #5868
+        if (_rightSplitter != null) {
+            var rightColumn = (_rightSplitter.Parent as Grid)?.ColumnDefinitions[3];
+            if (rightColumn != null) {
+                // Enforce minimum width
+                if (RIGHT_PANELS_MIN_WIDTH > 0 && e.NewSize.Width < RIGHT_PANELS_MIN_WIDTH) {
+                    rightColumn.Width = new GridLength(RIGHT_PANELS_MIN_WIDTH);
+                }
+                // Enforce maximum width
+                else if (RIGHT_PANELS_MAX_WIDTH_PCT > 0) {
+                    var topLevel = TopLevel.GetTopLevel(this);
+                    if (topLevel != null) {
+                        var maxAllowedWidth = topLevel.ClientSize.Width * RIGHT_PANELS_MAX_WIDTH_PCT / 100.0;
+                        if (e.NewSize.Width > maxAllowedWidth) {
+                            rightColumn.Width = new GridLength(maxAllowedWidth);
+                        }
+                    }
+                }
+            }
         }
     }
 }

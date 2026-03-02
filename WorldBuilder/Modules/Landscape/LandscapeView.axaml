@@ -12,7 +12,7 @@
              x:Class="WorldBuilder.Modules.Landscape.LandscapeView"
              x:DataType="vm:LandscapeViewModel">
 
-  <Grid ColumnDefinitions="Auto, *, Auto, Auto">
+  <Grid x:Name="RootLayoutGrid" ColumnDefinitions="Auto, *, Auto, Auto">
     <!-- Left Sidebar: Tools (Narrow) -->
     <components:ToolPanel Grid.Column="0" IsVisible="{Binding !IsReadOnly}" />
 
@@ -128,7 +128,7 @@
     </Grid>
 
     <!-- GridSplitter for resizable right panel -->
-    <GridSplitter Grid.Column="2" 
+    <GridSplitter x:Name="RightSplitter" Grid.Column="2" 
                   HorizontalAlignment="Center" 
                   VerticalAlignment="Stretch" 
                   Width="4" 
@@ -138,7 +138,7 @@
                   IsVisible="{Binding !IsReadOnly}" />
 
     <!-- Right Sidebar: Layers, History & Properties -->
-    <Grid Grid.Column="3" RowDefinitions="*, *" MinWidth="300" IsVisible="{Binding !IsReadOnly}">
+    <Grid x:Name="RightPanels" Grid.Column="3" RowDefinitions="*, *" IsVisible="{Binding !IsReadOnly}">
       <TabControl Grid.Row="0" Margin="4">
         <TabItem Header="Layers">
           <components:LayersPanel DataContext="{Binding LayersPanel}" />
