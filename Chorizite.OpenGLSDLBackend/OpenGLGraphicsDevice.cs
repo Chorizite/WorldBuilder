@@ -3,6 +3,7 @@ using Chorizite.Core.Render.Enums;
 using Chorizite.Core.Render.Vertex;
 using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
+using Silk.NET.OpenGL.Extensions.ARB;
 using PolygonMode = Silk.NET.OpenGL.PolygonMode;
 using PrimitiveType = Silk.NET.OpenGL.PrimitiveType;
 using WorldBuilder.Shared.Models;
@@ -18,6 +19,10 @@ namespace Chorizite.OpenGLSDLBackend {
         public GL GL { get; }
         public DebugRenderSettings RenderSettings => _renderSettings;
 
+        public bool HasBindless { get; private set; }
+        public bool HasOpenGL43 { get; private set; }
+        public ArbBindlessTexture? BindlessExtension { get; private set; }
+
         public uint InstanceVBO { get; private set; }
         private int _instanceBufferCapacity = 0;
         private int _instanceBufferStride = 0;
@@ -31,12 +36,28 @@ namespace Chorizite.OpenGLSDLBackend {
             GL = null!;
         }
 
-        public OpenGLGraphicsDevice(GL gl, ILogger log, DebugRenderSettings renderSettings) : base() {
+        public OpenGLGraphicsDevice(GL gl, ILogger log, DebugRenderSettings renderSettings, bool allowBindless = true) : base() {
             _log = log;
             _renderSettings = renderSettings;
 
             GL = gl;
             GLHelpers.Init(this, log);
+
+            try {
+                GL.GetInteger(GLEnum.MajorVersion, out int major);
+                GL.GetInteger(GLEnum.MinorVersion, out int minor);
+                HasOpenGL43 = major > 4 || (major == 4 && minor >= 3);
+                
+                if (allowBindless && GL.TryGetExtension(out ArbBindlessTexture ext)) {
+                    BindlessExtension = ext;
+                    HasBindless = true;
+                } else {
+                    HasBindless = false;
+                }
+            } catch {
+                HasOpenGL43 = false;
+                HasBindless = false;
+            }
 
             GL.GenBuffers(1, out uint instanceVbo);
             InstanceVBO = instanceVbo;

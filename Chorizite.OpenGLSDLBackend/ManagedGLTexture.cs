@@ -22,6 +22,7 @@ namespace Chorizite.OpenGLSDLBackend {
         public int Height { get; private set; }
 
         public TextureFormat Format => TextureFormat.RGBA8;
+        public ulong BindlessHandle { get; private set; }
 
         /// <inheritdoc/>
         public ManagedGLTexture(OpenGLGraphicsDevice device, byte[]? source, int width, int height) {
@@ -72,6 +73,11 @@ namespace Chorizite.OpenGLSDLBackend {
             GLHelpers.CheckErrors();
 
             GpuMemoryTracker.TrackAllocation(CalculateSize(), GpuResourceType.Texture);
+
+            if (_device.HasBindless && _device.BindlessExtension != null) {
+                BindlessHandle = _device.BindlessExtension.GetTextureHandle(_texture);
+                _device.BindlessExtension.MakeTextureHandleResident(BindlessHandle);
+            }
         }
 
         private long CalculateSize() {
@@ -144,6 +150,10 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         protected void ReleaseTexture() {
+            if (BindlessHandle != 0 && _device.BindlessExtension != null) {
+                _device.BindlessExtension.MakeTextureHandleNonResident(BindlessHandle);
+                BindlessHandle = 0;
+            }
             if (_texture != 0) {
                 GL.DeleteTexture(_texture);
                 GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Texture);

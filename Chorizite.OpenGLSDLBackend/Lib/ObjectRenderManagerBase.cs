@@ -46,6 +46,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected Vector3 _cameraPosition;
         protected int _cameraLbX;
         protected int _cameraLbY;
+        private int _lastRenderDistance;
 
         // Frustum culling
         protected readonly Frustum _frustum;
@@ -54,6 +55,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Render state
         protected IShader? _shader;
         protected bool _initialized;
+
+        // Active landblocks for rendering
+        protected readonly List<ObjectLandblock> _activeLandblocks = new();
+        protected bool _activeLandblocksDirty = true;
+        protected readonly List<ObjectLandblock> _visibleLandblocks = new();
+        protected readonly List<ObjectLandblock> _intersectingLandblocks = new();
 
         // Grouped instances for rendering
         protected readonly Dictionary<ulong, List<InstanceData>> _visibleGroups = new();
@@ -64,7 +71,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected int _poolIndex = 0;
 
         // Statistics
-        public int RenderDistance { get; set; } = 25;
+        private int _renderDistance = 25;
+        public int RenderDistance {
+            get => _renderDistance;
+            set {
+                if (_renderDistance != value) {
+                    _renderDistance = value;
+                    _activeLandblocksDirty = true;
+                }
+            }
+        }
         public int QueuedUploads => _uploadQueue.Count;
         public int QueuedGenerations => _pendingGeneration.Count;
         public int ActiveLandblocks => _landblocks.Count;
@@ -109,45 +125,52 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             _cameraPosition = cameraPosition;
             var pos = new Vector2(cameraPosition.X, cameraPosition.Y) - region.MapOffset;
-            _cameraLbX = (int)Math.Floor(pos.X / lbSize);
-            _cameraLbY = (int)Math.Floor(pos.Y / lbSize);
+            var newCameraLbX = (int)Math.Floor(pos.X / lbSize);
+            var newCameraLbY = (int)Math.Floor(pos.Y / lbSize);
             _lbSizeInUnits = lbSize;
 
-            // Queue landblocks within render distance
-            for (int x = _cameraLbX - RenderDistance; x <= _cameraLbX + RenderDistance; x++) {
-                for (int y = _cameraLbY - RenderDistance; y <= _cameraLbY + RenderDistance; y++) {
-                    if (x < 0 || y < 0 || x >= region.MapWidthInLandblocks || y >= region.MapHeightInLandblocks)
-                        continue;
+            bool cameraMovedLandblock = newCameraLbX != _cameraLbX || newCameraLbY != _cameraLbY;
+            bool renderDistanceChanged = RenderDistance != _lastRenderDistance;
+            _cameraLbX = newCameraLbX;
+            _cameraLbY = newCameraLbY;
+            _lastRenderDistance = RenderDistance;
 
-                    var key = GeometryUtils.PackKey(x, y);
+            // Only queue landblocks within render distance if the camera moved to a new landblock or it's the first time
+            if (cameraMovedLandblock || renderDistanceChanged || _landblocks.IsEmpty) {
+                _activeLandblocksDirty = true;
+                for (int x = _cameraLbX - RenderDistance; x <= _cameraLbX + RenderDistance; x++) {
+                    for (int y = _cameraLbY - RenderDistance; y <= _cameraLbY + RenderDistance; y++) {
+                        if (x < 0 || y < 0 || x >= region.MapWidthInLandblocks || y >= region.MapHeightInLandblocks)
+                            continue;
 
-                    // Clear out-of-range timer if this landblock is back in range
-                    _outOfRangeTimers.TryRemove(key, out _);
+                        var key = GeometryUtils.PackKey(x, y);
 
-                    if (!_landblocks.ContainsKey(key)) {
-                        var minX = x * lbSize + region.MapOffset.X;
-                        var minY = y * lbSize + region.MapOffset.Y;
-                        var maxX = (x + 1) * lbSize + region.MapOffset.X;
-                        var maxY = (y + 1) * lbSize + region.MapOffset.Y;
+                        // Clear out-of-range timer if this landblock is back in range
+                        _outOfRangeTimers.TryRemove(key, out _);
 
-                        var lb = new ObjectLandblock {
-                            GridX = x,
-                            GridY = y,
-                            BoundingBox = new BoundingBox(
-                                new Vector3(minX, minY, -1000f),
-                                new Vector3(maxX, maxY, 5000f)
-                            )
-                        };
-                        if (_landblocks.TryAdd(key, lb)) {
-                            _pendingGeneration[key] = lb;
+                        if (!_landblocks.ContainsKey(key)) {
+                            var minX = x * lbSize + region.MapOffset.X;
+                            var minY = y * lbSize + region.MapOffset.Y;
+                            var maxX = (x + 1) * lbSize + region.MapOffset.X;
+                            var maxY = (y + 1) * lbSize + region.MapOffset.Y;
+
+                            var lb = new ObjectLandblock {
+                                GridX = x,
+                                GridY = y,
+                                BoundingBox = new BoundingBox(
+                                    new Vector3(minX, minY, -1000f),
+                                    new Vector3(maxX, maxY, 5000f)
+                                )
+                            };
+                            if (_landblocks.TryAdd(key, lb)) {
+                                _pendingGeneration[key] = lb;
+                            }
                         }
                     }
                 }
             }
 
             // Unload landblocks outside render distance (with delay)
-            // Note: We only unload based on distance, not frustum. This ensures landblocks stay cached
-            // once loaded, so panning the camera doesn't cause constant reloads.
             var keysToRemove = new List<ushort>();
             foreach (var (key, lb) in _landblocks) {
                 if (Math.Abs(lb.GridX - _cameraLbX) > RenderDistance || Math.Abs(lb.GridY - _cameraLbY) > RenderDistance) {
@@ -169,6 +192,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
                 _outOfRangeTimers.TryRemove(key, out _);
                 _pendingGeneration.TryRemove(key, out _);
+                _activeLandblocksDirty = true;
+            }
+
+            // Update active landblocks for rendering
+            if (_activeLandblocksDirty) {
+                _activeLandblocks.Clear();
+                foreach (var lb in _landblocks.Values) {
+                    if (lb.GpuReady && lb.Instances.Count > 0 && IsWithinRenderDistance(lb)) {
+                        _activeLandblocks.Add(lb);
+                    }
+                }
+                _activeLandblocksDirty = false;
             }
 
             // Start background generation tasks — prioritize nearest landblocks
@@ -253,6 +288,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     continue;
                 }
                 UploadLandblockMeshes(lb);
+                _activeLandblocksDirty = true;
             }
 
             return (float)sw.Elapsed.TotalMilliseconds;
@@ -265,65 +301,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _visibleGroups.Clear();
             _visibleGfxObjIds.Clear();
             _poolIndex = 0;
+            _visibleLandblocks.Clear();
+            _intersectingLandblocks.Clear();
 
-            if (LandscapeDoc.Region != null) {
-                var lbSize = LandscapeDoc.Region.CellSizeInUnits * LandscapeDoc.Region.LandblockCellLength;
-                var pos = new Vector2(cameraPosition.X, cameraPosition.Y) - LandscapeDoc.Region.MapOffset;
-                _cameraLbX = (int)Math.Floor(pos.X / lbSize);
-                _cameraLbY = (int)Math.Floor(pos.Y / lbSize);
-            }
+            if (_activeLandblocks.Count == 0) return;
 
-            var landblocks = _landblocks.Values.Where(lb => lb.GpuReady && lb.Instances.Count > 0 && IsWithinRenderDistance(lb)).ToList();
-
-            if (landblocks.Count == 0) return;
-
-            // Use thread-local storage to avoid locking when building visibility groups
-            var parallelResult = new ConcurrentDictionary<ulong, ConcurrentQueue<InstanceData>>();
-
-            Parallel.ForEach(landblocks, lb => {
+            foreach (var lb in _activeLandblocks) {
                 var testResult = _frustum.TestBox(lb.BoundingBox);
-                if (testResult == FrustumTestResult.Outside) return;
+                if (testResult == FrustumTestResult.Outside) continue;
 
-                if (testResult == FrustumTestResult.Inside) {
-                    // Fast path: All instances in this landblock are visible
-                    foreach (var (gfxObjId, transforms) in GetFastPathGroups(lb)) {
-                        var list = parallelResult.GetOrAdd(gfxObjId, _ => new ConcurrentQueue<InstanceData>());
-                        foreach (var transform in transforms) {
-                            list.Enqueue(transform);
-                        }
-                    }
-                }
-                else {
-                    // Slow path: Test each instance individually
-                    foreach (var instance in lb.Instances) {
-                        if (!ShouldIncludeInstance(instance)) continue;
-
-                        if (_frustum.Intersects(instance.BoundingBox)) {
-                            var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
-                            if (instance.IsSetup) {
-                                var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
-                                if (renderData is { IsSetup: true }) {
-                                    foreach (var (partId, partTransform) in renderData.SetupParts) {
-                                        var list = parallelResult.GetOrAdd(partId, _ => new ConcurrentQueue<InstanceData>());
-                                        list.Enqueue(new InstanceData { Transform = partTransform * instance.Transform, CellId = cellId });
-                                    }
-                                }
-                            }
-                            else {
-                                var list = parallelResult.GetOrAdd(instance.ObjectId, _ => new ConcurrentQueue<InstanceData>());
-                                list.Enqueue(new InstanceData { Transform = instance.Transform, CellId = cellId });
-                            }
-                        }
-                    }
-                }
-            });
-
-            // Merge parallel results into _visibleGroups
-            foreach (var kvp in parallelResult) {
-                var list = GetPooledList();
-                list.AddRange(kvp.Value);
-                _visibleGroups[kvp.Key] = list;
-                _visibleGfxObjIds.Add(kvp.Key);
+                // Move all visible/partially visible landblocks to the fast consolidated path.
+                // Modern GPUs handle the extra instances that might be outside the frustum 
+                // much more efficiently than the CPU handles per-instance culling.
+                _visibleLandblocks.Add(lb);
             }
         }
 
@@ -338,7 +328,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("uRenderPass", renderPass);
             _shader.SetUniform("uHighlightColor", Vector4.Zero);
 
-            if (_visibleGfxObjIds.Count == 0) {
+            if (_visibleLandblocks.Count == 0 && _visibleGfxObjIds.Count == 0) {
                 if (RenderHighlightsWhenEmpty) {
                     Gl.DepthFunc(GLEnum.Lequal);
                     if (SelectedInstance.HasValue) {
@@ -352,37 +342,48 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 return;
             }
 
-            CurrentVAO = 0;
-            CurrentIBO = 0;
-            CurrentAtlas = 0;
-            CurrentCullMode = null;
-
-            // 1. Gather all instance data and build draw calls
-            var allInstances = new List<InstanceData>();
-            var drawCalls = new List<(ObjectRenderData renderData, int count, int offset)>();
-
-            foreach (var gfxObjId in _visibleGfxObjIds) {
-                if (_visibleGroups.TryGetValue(gfxObjId, out var transforms)) {
-                    var renderData = MeshManager.TryGetRenderData(gfxObjId);
-                    if (renderData != null && !renderData.IsSetup) {
-                        drawCalls.Add((renderData, transforms.Count, allInstances.Count));
-                        allInstances.AddRange(transforms);
-                    }
+            // 1. Render fully visible landblocks using the consolidated pipeline (extremely fast)
+            if (_visibleLandblocks.Count > 0) {
+                if (_useModernRendering) {
+                    RenderConsolidatedMDI(_shader, _visibleLandblocks);
+                } else {
+                    RenderConsolidated(_shader, _visibleLandblocks);
                 }
             }
 
-            if (allInstances.Count > 0) {
-                // 2. Upload all instance data in one go (with orphaning)
-                GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData), true);
-                Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
-                var span = CollectionsMarshal.AsSpan(allInstances);
-                fixed (InstanceData* ptr = span) {
-                    Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
+            // 2. Render intersecting landblocks using the consolidated buffer (slow path - needs per-frame upload)
+            if (_visibleGfxObjIds.Count > 0) {
+                // Gather all instance data and build draw calls
+                var allInstances = new List<InstanceData>();
+                var drawCalls = new List<(ObjectRenderData renderData, int count, int offset)>();
+
+                foreach (var gfxObjId in _visibleGfxObjIds) {
+                    if (_visibleGroups.TryGetValue(gfxObjId, out var transforms)) {
+                        var renderData = MeshManager.TryGetRenderData(gfxObjId);
+                        if (renderData != null && !renderData.IsSetup) {
+                            drawCalls.Add((renderData, transforms.Count, allInstances.Count));
+                            allInstances.AddRange(transforms);
+                        }
+                    }
                 }
 
-                // 3. Issue draw calls
-                foreach (var call in drawCalls) {
-                    RenderObjectBatches(_shader, call.renderData, call.count, call.offset);
+                if (allInstances.Count > 0) {
+                    // For now, intersecting chunks still use the "slow" way (dynamic upload)
+                    // but we could also use a reserved "scratch" area in the world buffer.
+                    if (_useModernRendering) {
+                        RenderModernMDI(_shader, drawCalls, allInstances);
+                    } else {
+                        GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData), true);
+                        Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
+                        var span = CollectionsMarshal.AsSpan(allInstances);
+                        fixed (InstanceData* ptr = span) {
+                            Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
+                        }
+
+                        foreach (var call in drawCalls) {
+                            RenderObjectBatches(_shader, call.renderData, call.count, call.offset);
+                        }
+                    }
                 }
             }
 
@@ -556,10 +557,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 lb.PendingInstances = null;
                 lb.GpuReady = false;
                 lb.MeshDataReady = false;
+
+                if (lb.InstanceBufferOffset >= 0) {
+                    FreeInstanceSlice(lb.InstanceBufferOffset, lb.InstanceCount);
+                    lb.InstanceBufferOffset = -1;
+                }
+                lb.MdiCommands.Clear();
+                lb.InstanceCount = 0;
             }
         }
 
-        private void UploadLandblockMeshes(ObjectLandblock lb) {
+        private unsafe void UploadLandblockMeshes(ObjectLandblock lb) {
             var instancesToUpload = lb.PendingInstances ?? lb.Instances;
 
             // Upload any prepared mesh data that hasn't been uploaded yet
@@ -581,6 +589,69 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             // Populate part groups via subclass hook
             PopulatePartGroups(lb, instancesToUpload);
+
+            // Free previous slice if we're re-uploading
+            if (lb.InstanceBufferOffset >= 0) {
+                FreeInstanceSlice(lb.InstanceBufferOffset, lb.InstanceCount);
+                lb.InstanceBufferOffset = -1;
+            }
+
+            // Consolidation for optimized rendering
+            var allInstances = new List<InstanceData>();
+            var localDrawCalls = new List<(ulong ObjectId, int Count, int Offset)>();
+
+            foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
+                localDrawCalls.Add((gfxObjId, transforms.Count, allInstances.Count));
+                allInstances.AddRange(transforms);
+            }
+            foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
+                localDrawCalls.Add((gfxObjId, transforms.Count, allInstances.Count));
+                allInstances.AddRange(transforms);
+            }
+
+            lb.InstanceCount = allInstances.Count;
+            if (lb.InstanceCount > 0) {
+                lb.InstanceBufferOffset = AllocateInstanceSlice(lb.InstanceCount);
+                if (lb.InstanceBufferOffset >= 0) {
+                    UploadInstanceData(lb.InstanceBufferOffset, allInstances);
+
+                    // Pre-calculate MDI commands and batch data
+                    lb.MdiCommands.Clear();
+                    foreach (var call in localDrawCalls) {
+                        var renderData = MeshManager.TryGetRenderData(call.ObjectId);
+                        if (renderData != null && !renderData.IsSetup) {
+                            foreach (var batch in renderData.Batches) {
+                                if (!lb.MdiCommands.TryGetValue(batch.CullMode, out var list)) {
+                                    list = new List<LandblockMdiCommand>();
+                                    lb.MdiCommands[batch.CullMode] = list;
+                                }
+
+                                list.Add(new LandblockMdiCommand {
+                                    ObjectId = call.ObjectId,
+                                    VAO = renderData.VAO,
+                                    IBO = batch.IBO,
+                                    TextureIndex = (uint)batch.TextureIndex,
+                                    Atlas = batch.Atlas.TextureArray as ManagedGLTextureArray ?? throw new Exception("Atlas.TextureArray must be ManagedGLTextureArray"),
+                                    Command = new DrawElementsIndirectCommand {
+                                        Count = (uint)batch.IndexCount,
+                                        InstanceCount = (uint)call.Count,
+                                        FirstIndex = batch.FirstIndex,
+                                        BaseVertex = (int)batch.BaseVertex,
+                                        BaseInstance = (uint)(lb.InstanceBufferOffset + call.Offset)
+                                    },
+                                    BatchData = new ModernBatchData {
+                                        TextureHandle = batch.BindlessTextureHandle,
+                                        TextureIndex = (uint)batch.TextureIndex
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
+                else {
+                    Log.LogWarning("Failed to allocate {Count} instances for landblock ({X},{Y}). Instance buffer may be full.", lb.InstanceCount, lb.GridX, lb.GridY);
+                }
+            }
 
             if (lb.PendingInstances != null) {
                 // Decrement ref counts for OLD instances
@@ -624,15 +695,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         protected List<InstanceData> GetPooledList() {
-            if (_poolIndex < _listPool.Count) {
-                var list = _listPool[_poolIndex++];
-                list.Clear();
-                return list;
+            lock (_listPool) {
+                if (_poolIndex < _listPool.Count) {
+                    var list = _listPool[_poolIndex++];
+                    list.Clear();
+                    return list;
+                }
+                var newList = new List<InstanceData>();
+                _listPool.Add(newList);
+                _poolIndex++;
+                return newList;
             }
-            var newList = new List<InstanceData>();
-            _listPool.Add(newList);
-            _poolIndex++;
-            return newList;
         }
 
         protected void RenderSelectedInstance(SelectedStaticObject selected, Vector4 highlightColor) {

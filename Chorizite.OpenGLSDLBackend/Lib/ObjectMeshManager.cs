@@ -1,6 +1,7 @@
 using Chorizite.Core.Lib;
 using Chorizite.Core.Render;
 using Chorizite.Core.Render.Enums;
+using Chorizite.OpenGLSDLBackend.Extensions;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
 using CullMode = DatReaderWriter.Enums.CullMode;
@@ -131,6 +132,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public uint SurfaceId { get; set; }
         public TextureAtlasManager.TextureKey Key { get; set; }
         public DatReaderWriter.Enums.CullMode CullMode { get; set; }
+
+        // Modern rendering path fields
+        public uint FirstIndex { get; set; }
+        public uint BaseVertex { get; set; }
+        public ulong BindlessTextureHandle { get; set; }
     }
 
     /// <summary>
@@ -155,10 +161,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Shared atlases grouped by (Width, Height, Format)
         private readonly Dictionary<(int Width, int Height, TextureFormat Format), List<TextureAtlasManager>> _globalAtlases = new();
 
+        public GlobalMeshBuffer? GlobalBuffer { get; }
+        private readonly bool _useModernRendering;
+
         public ObjectMeshManager(OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats, ILogger<ObjectMeshManager> logger) {
             _graphicsDevice = graphicsDevice;
             _dats = dats;
             _logger = logger;
+            _useModernRendering = _graphicsDevice.HasOpenGL43 && _graphicsDevice.HasBindless;
+            if (_useModernRendering) {
+                GlobalBuffer = new GlobalMeshBuffer(_graphicsDevice.GL);
+            }
         }
 
         /// <summary>
@@ -197,6 +210,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         public void IncrementRefCount(ulong id) {
             _usageCount.AddOrUpdate(id, 1, (_, count) => count + 1);
+        }
+
+        public void GenerateMipmaps() {
+            foreach (var atlasList in _globalAtlases.Values) {
+                foreach (var atlas in atlasList) {
+                    atlas.TextureArray.GenerateMipmaps();
+                }
+            }
         }
 
         /// <summary>
@@ -1101,38 +1122,46 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (meshData.Vertices.Length == 0) return null;
 
             var gl = _graphicsDevice.GL;
-            gl.GenVertexArrays(1, out uint vao);
-            gl.BindVertexArray(vao);
+            uint vao = 0, vbo = 0;
 
-            gl.GenBuffers(1, out uint vbo);
-            gl.BindBuffer(GLEnum.ArrayBuffer, vbo);
-            fixed (VertexPositionNormalTexture* ptr = meshData.Vertices) {
-                gl.BufferData(GLEnum.ArrayBuffer, (nuint)(meshData.Vertices.Length * VertexPositionNormalTexture.Size), ptr, GLEnum.StaticDraw);
+            if (_useModernRendering) {
+                // Everything goes into the global VBO/IBO
+                vao = GlobalBuffer!.VAO;
+                vbo = GlobalBuffer!.VBO;
+            } else {
+                gl.GenVertexArrays(1, out vao);
+                gl.BindVertexArray(vao);
+
+                gl.GenBuffers(1, out vbo);
+                gl.BindBuffer(GLEnum.ArrayBuffer, vbo);
+                fixed (VertexPositionNormalTexture* ptr = meshData.Vertices) {
+                    gl.BufferData(GLEnum.ArrayBuffer, (nuint)(meshData.Vertices.Length * VertexPositionNormalTexture.Size), ptr, GLEnum.StaticDraw);
+                }
+                GpuMemoryTracker.TrackAllocation(meshData.Vertices.Length * VertexPositionNormalTexture.Size, GpuResourceType.Buffer);
+
+                int stride = VertexPositionNormalTexture.Size;
+                // Position (location 0)
+                gl.EnableVertexAttribArray(0);
+                gl.VertexAttribPointer(0, 3, GLEnum.Float, false, (uint)stride, (void*)0);
+                // Normal (location 1)
+                gl.EnableVertexAttribArray(1);
+                gl.VertexAttribPointer(1, 3, GLEnum.Float, false, (uint)stride, (void*)(3 * sizeof(float)));
+                // TexCoord (location 2)
+                gl.EnableVertexAttribArray(2);
+                gl.VertexAttribPointer(2, 2, GLEnum.Float, false, (uint)stride, (void*)(6 * sizeof(float)));
+
+                // Instance data (shared VBO)
+                gl.BindBuffer(GLEnum.ArrayBuffer, _graphicsDevice.InstanceVBO);
+                for (uint i = 0; i < 4; i++) {
+                    var loc = 3 + i;
+                    gl.EnableVertexAttribArray(loc);
+                    gl.VertexAttribPointer(loc, 4, GLEnum.Float, false, (uint)sizeof(InstanceData), (void*)(i * 16));
+                    gl.VertexAttribDivisor(loc, 1);
+                }
+                gl.EnableVertexAttribArray(8);
+                gl.VertexAttribIPointer(8, 1, GLEnum.UnsignedInt, (uint)sizeof(InstanceData), (void*)64);
+                gl.VertexAttribDivisor(8, 1);
             }
-            GpuMemoryTracker.TrackAllocation(meshData.Vertices.Length * VertexPositionNormalTexture.Size, GpuResourceType.Buffer);
-
-            int stride = VertexPositionNormalTexture.Size;
-            // Position (location 0)
-            gl.EnableVertexAttribArray(0);
-            gl.VertexAttribPointer(0, 3, GLEnum.Float, false, (uint)stride, (void*)0);
-            // Normal (location 1)
-            gl.EnableVertexAttribArray(1);
-            gl.VertexAttribPointer(1, 3, GLEnum.Float, false, (uint)stride, (void*)(3 * sizeof(float)));
-            // TexCoord (location 2)
-            gl.EnableVertexAttribArray(2);
-            gl.VertexAttribPointer(2, 2, GLEnum.Float, false, (uint)stride, (void*)(6 * sizeof(float)));
-
-            // Instance data (shared VBO)
-            gl.BindBuffer(GLEnum.ArrayBuffer, _graphicsDevice.InstanceVBO);
-            for (uint i = 0; i < 4; i++) {
-                var loc = 3 + i;
-                gl.EnableVertexAttribArray(loc);
-                gl.VertexAttribPointer(loc, 4, GLEnum.Float, false, (uint)sizeof(InstanceData), (void*)(i * 16));
-                gl.VertexAttribDivisor(loc, 1);
-            }
-            gl.EnableVertexAttribArray(8);
-            gl.VertexAttribIPointer(8, 1, GLEnum.UnsignedInt, (uint)sizeof(InstanceData), (void*)64);
-            gl.VertexAttribDivisor(8, 1);
 
             var renderBatches = new List<ObjectRenderBatch>();
 
@@ -1140,37 +1169,53 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 foreach (var batch in batches) {
                     if (batch.Indices.Count == 0) continue;
 
+                    uint ibo = 0;
+                    TextureAtlasManager? atlasManager = null;
+                    int textureIndex = 0;
+                    uint firstIndex = 0;
+                    int batchBaseVertex = 0;
+
                     // Find or create a shared atlas with free space
                     if (!_globalAtlases.TryGetValue(format, out var atlasList)) {
                         atlasList = new List<TextureAtlasManager>();
                         _globalAtlases[format] = atlasList;
                     }
 
-                    TextureAtlasManager? atlasManager = atlasList.FirstOrDefault(a => a.FreeSlots > 0 || a.HasTexture(batch.Key));
+                    atlasManager = atlasList.FirstOrDefault(a => a.FreeSlots > 0 || a.HasTexture(batch.Key));
                     if (atlasManager == null) {
                         atlasManager = new TextureAtlasManager(_graphicsDevice, format.Width, format.Height, format.Format);
                         atlasList.Add(atlasManager);
                     }
 
-                    int textureIndex = atlasManager.AddTexture(batch.Key, batch.TextureData, batch.UploadPixelFormat, batch.UploadPixelType);
+                    textureIndex = atlasManager.AddTexture(batch.Key, batch.TextureData, batch.UploadPixelFormat, batch.UploadPixelType);
 
-                    gl.GenBuffers(1, out uint ibo);
-                    gl.BindBuffer(GLEnum.ElementArrayBuffer, ibo);
-                    var indexArray = batch.Indices.ToArray();
-                    fixed (ushort* iptr = indexArray) {
-                        gl.BufferData(GLEnum.ElementArrayBuffer, (nuint)(indexArray.Length * sizeof(ushort)), iptr, GLEnum.StaticDraw);
+                    if (_useModernRendering) {
+                        ibo = GlobalBuffer!.IBO;
+                        var appended = GlobalBuffer.Append(meshData.Vertices, batch.Indices.ToArray());
+                        batchBaseVertex = appended.baseVertex;
+                        firstIndex = (uint)appended.firstIndex;
+                    } else {
+                        gl.GenBuffers(1, out ibo);
+                        gl.BindBuffer(GLEnum.ElementArrayBuffer, ibo);
+                        var indexArray = batch.Indices.ToArray();
+                        fixed (ushort* iptr = indexArray) {
+                            gl.BufferData(GLEnum.ElementArrayBuffer, (nuint)(indexArray.Length * sizeof(ushort)), iptr, GLEnum.StaticDraw);
+                        }
+                        GpuMemoryTracker.TrackAllocation(indexArray.Length * sizeof(ushort), GpuResourceType.Buffer);
                     }
-                    GpuMemoryTracker.TrackAllocation(indexArray.Length * sizeof(ushort), GpuResourceType.Buffer);
 
                     renderBatches.Add(new ObjectRenderBatch {
                         IBO = ibo,
-                        IndexCount = indexArray.Length,
-                        Atlas = atlasManager,
+                        IndexCount = batch.Indices.Count,
+                        Atlas = atlasManager!,
                         TextureIndex = textureIndex,
                         TextureSize = (format.Width, format.Height),
                         TextureFormat = format.Format,
                         Key = batch.Key,
-                        CullMode = batch.CullMode
+                        CullMode = batch.CullMode,
+                        FirstIndex = firstIndex,
+                        BaseVertex = (uint)batchBaseVertex,
+                        BindlessTextureHandle = atlasManager.TextureArray.BindlessHandle,
                     });
                 }
             }
@@ -1186,7 +1231,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                              renderBatches.Sum(b => (long)b.IndexCount * sizeof(ushort))
             };
 
-            gl.BindVertexArray(0);
+            if (!_useModernRendering) {
+                gl.BindVertexArray(0);
+            }
             return renderData;
         }
 
@@ -1290,18 +1337,28 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (!_renderData.TryGetValue(key, out var data)) return;
 
             var gl = _graphicsDevice.GL;
-            if (data.VAO != 0) gl.DeleteVertexArray(data.VAO);
-            if (data.VBO != 0) {
-                gl.DeleteBuffer(data.VBO);
-                GpuMemoryTracker.TrackDeallocation(data.VertexCount * VertexPositionNormalTexture.Size, GpuResourceType.Buffer);
-            }
-
-            foreach (var batch in data.Batches) {
-                if (batch.IBO != 0) {
-                    gl.DeleteBuffer(batch.IBO);
-                    GpuMemoryTracker.TrackDeallocation(batch.IndexCount * sizeof(ushort), GpuResourceType.Buffer);
+            if (!_useModernRendering) {
+                if (data.VAO != 0) gl.DeleteVertexArray(data.VAO);
+                if (data.VBO != 0) {
+                    gl.DeleteBuffer(data.VBO);
+                    GpuMemoryTracker.TrackDeallocation(data.VertexCount * VertexPositionNormalTexture.Size, GpuResourceType.Buffer);
                 }
-                batch.Atlas.ReleaseTexture(batch.Key);
+
+                foreach (var batch in data.Batches) {
+                    if (batch.IBO != 0) {
+                        gl.DeleteBuffer(batch.IBO);
+                        GpuMemoryTracker.TrackDeallocation(batch.IndexCount * sizeof(ushort), GpuResourceType.Buffer);
+                    }
+                    if (batch.Atlas != null) {
+                        batch.Atlas.ReleaseTexture(batch.Key);
+                    }
+                }
+            } else {
+                foreach (var batch in data.Batches) {
+                    if (batch.Atlas != null) {
+                        batch.Atlas.ReleaseTexture(batch.Key);
+                    }
+                }
             }
 
             if (data.IsSetup) {
@@ -1322,15 +1379,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public void Dispose() {
             var gl = _graphicsDevice.GL;
             foreach (var data in _renderData.Values) {
-                if (data.VAO != 0) gl.DeleteVertexArray(data.VAO);
-                if (data.VBO != 0) {
-                    gl.DeleteBuffer(data.VBO);
-                    GpuMemoryTracker.TrackDeallocation(data.VertexCount * VertexPositionNormalTexture.Size, GpuResourceType.Buffer);
-                }
-                foreach (var batch in data.Batches) {
-                    if (batch.IBO != 0) {
-                        gl.DeleteBuffer(batch.IBO);
-                        GpuMemoryTracker.TrackDeallocation(batch.IndexCount * sizeof(ushort), GpuResourceType.Buffer);
+                if (!_useModernRendering) {
+                    if (data.VAO != 0) gl.DeleteVertexArray(data.VAO);
+                    if (data.VBO != 0) {
+                        gl.DeleteBuffer(data.VBO);
+                        GpuMemoryTracker.TrackDeallocation(data.VertexCount * VertexPositionNormalTexture.Size, GpuResourceType.Buffer);
+                    }
+                    foreach (var batch in data.Batches) {
+                        if (batch.IBO != 0) {
+                            gl.DeleteBuffer(batch.IBO);
+                            GpuMemoryTracker.TrackDeallocation(batch.IndexCount * sizeof(ushort), GpuResourceType.Buffer);
+                        }
                     }
                 }
             }
@@ -1342,6 +1401,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
             _globalAtlases.Clear();
+
+            if (_useModernRendering) {
+                GlobalBuffer?.Dispose();
+            }
         }
     }
 }

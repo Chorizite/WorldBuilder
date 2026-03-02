@@ -38,15 +38,20 @@ public partial class App : Application {
     private readonly ProjectManager? _projectManager;
 
     /// <summary>
-    /// Gets or sets the current application version.
+    /// Gets the current application version.
     /// </summary>
     public static string Version { get; set; } = "0.0.0";
+
+    /// <summary>
+    /// Gets or sets the command-line options for the application.
+    /// </summary>
+    public static CommandLineOptions CommandLineOptions { get; set; } = new();
 
     /// <summary>
     /// Initializes a new instance of the App class.
     /// </summary>
     public App() {
-        Services = ApplicationBootstrapper.BuildServiceProvider();
+        Services = ApplicationBootstrapper.BuildServiceProvider(CommandLineOptions);
         _projectManager = Services.GetService<ProjectManager>();
         ProjectManager = _projectManager;
     }

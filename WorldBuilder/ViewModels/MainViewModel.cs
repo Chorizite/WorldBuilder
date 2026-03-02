@@ -80,6 +80,16 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     [ObservableProperty] private string _renderTime = "0.00 ms";
 
     /// <summary>
+    /// Gets the current OpenGL version string.
+    /// </summary>
+    [ObservableProperty] private string _glVersion = "GL: Unknown";
+
+    /// <summary>
+    /// Gets whether the current context has bindless texturing support.
+    /// </summary>
+    [ObservableProperty] private bool _hasBindless;
+
+    /// <summary>
     /// Gets or sets the greeting message displayed in the main view.
     /// </summary>
     [ObservableProperty] private string _greeting = "Welcome to Avalonia!";
@@ -169,6 +179,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
                 var freeVram = _performanceService.GetFreeVram();
                 var totalVram = _performanceService.GetTotalVram();
 
+                GlVersion = _performanceService.GetGlVersion();
+                HasBindless = _performanceService.GetHasBindless();
                 RenderTime = $"{_performanceService.RenderTime:0.00} ms";
                 RamUsage = FormatBytes(ram);
                 if (vram > 0) {

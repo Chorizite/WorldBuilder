@@ -295,8 +295,12 @@ public class GameScene : IDisposable {
         _terrainShader = _graphicsDevice.CreateShader("Landscape", tVertSource, tFragSource);
 
         // Create scenery / static obj shader
-        var sVertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.StaticObject.vert");
-        var sFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.StaticObject.frag");
+        var useModernRendering = _graphicsDevice.HasOpenGL43 && _graphicsDevice.HasBindless;
+        var sVertName = useModernRendering ? "Shaders.StaticObjectModern.vert" : "Shaders.StaticObject.vert";
+        var sFragName = useModernRendering ? "Shaders.StaticObjectModern.frag" : "Shaders.StaticObject.frag";
+
+        var sVertSource = EmbeddedResourceReader.GetEmbeddedResource(sVertName);
+        var sFragSource = EmbeddedResourceReader.GetEmbeddedResource(sFragName);
         _sceneryShader = _graphicsDevice.CreateShader("StaticObject", sVertSource, sFragSource);
 
         // Create portal stencil shader
@@ -1225,6 +1229,7 @@ public class GameScene : IDisposable {
         _portalManager?.SubmitDebugShapes(_debugRenderer);
 
         // Pass 1: Opaque Scenery & Static Objects (exterior)
+        _meshManager?.GenerateMipmaps();
         _sceneryShader?.Bind();
         int pass1RenderPass = _state.EnableTransparencyPass ? 0 : 2;
 

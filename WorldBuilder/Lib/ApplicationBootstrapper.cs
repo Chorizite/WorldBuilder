@@ -12,11 +12,13 @@ namespace WorldBuilder.Lib {
         /// <summary>
         /// Configures and builds the main application service provider.
         /// </summary>
+        /// <param name="options">The command-line options</param>
         /// <returns>A configured IServiceProvider instance</returns>
-        public static IServiceProvider BuildServiceProvider() {
+        public static IServiceProvider BuildServiceProvider(CommandLineOptions options) {
             var services = new ServiceCollection();
 
             // Add core application services
+            services.AddSingleton(options);
             services.AddWorldBuilderCoreServices();
             services.AddWorldBuilderViewModels();
 

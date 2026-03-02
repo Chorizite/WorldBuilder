@@ -3,6 +3,7 @@ using System;
 using System.Diagnostics;
 using System.Reflection;
 using System.Threading.Tasks;
+using WorldBuilder.Lib;
 
 namespace WorldBuilder.Mac;
 
@@ -27,6 +28,8 @@ sealed class Program {
                 Console.WriteLine($"Version: {App.Version}");
             }
             catch { }
+
+            App.CommandLineOptions = CommandLineOptions.Parse(args);
 
             BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);

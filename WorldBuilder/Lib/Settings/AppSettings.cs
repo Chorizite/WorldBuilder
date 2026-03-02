@@ -56,5 +56,10 @@ namespace WorldBuilder.Lib.Settings {
         [SettingOrder(6)]
         private AppTheme _theme = AppTheme.Default;
         public AppTheme Theme { get => _theme; set => SetProperty(ref _theme, value); }
+
+        [SettingDescription("Allow using bindless texture pipeline if supported. (Requires Restart)")]
+        [SettingOrder(7)]
+        private bool _allowBindless = true;
+        public bool AllowBindless { get => _allowBindless; set => SetProperty(ref _allowBindless, value); }
     }
 }

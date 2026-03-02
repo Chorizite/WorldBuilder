@@ -3,6 +3,7 @@ using Chorizite.OpenGLSDLBackend;
 using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
 using System.Collections.Concurrent;
+using WorldBuilder.Services;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Views;
 
@@ -12,13 +13,27 @@ namespace WorldBuilder.Lib {
     /// </summary>
     public class SharedOpenGLContextManager {
         private readonly ILogger _logger;
+        private readonly WorldBuilderSettings _settings;
+        private readonly CommandLineOptions _commandLineOptions;
         private IGlContext? _masterContext;
         private GL? _masterGL;
+
+        /// <summary>
+        /// Gets the OpenGL version string of the master context.
+        /// </summary>
+        public string? GlVersion { get; private set; }
+
+        /// <summary>
+        /// Gets whether bindless texturing is supported and allowed by the master context.
+        /// </summary>
+        public bool HasBindless { get; private set; }
 
         // Track viewport dimensions per context to maintain independence between windows
         private readonly ConcurrentDictionary<IGlContext, (int width, int height)> _viewportDimensions = new();
 
-        public SharedOpenGLContextManager() {
+        public SharedOpenGLContextManager(WorldBuilderSettings settings, CommandLineOptions commandLineOptions) {
+            _settings = settings;
+            _commandLineOptions = commandLineOptions;
             _logger = new ColorConsoleLogger("SharedOpenGLContextManager", () => new ColorConsoleLoggerConfiguration());
         }
 
@@ -28,7 +43,21 @@ namespace WorldBuilder.Lib {
         public void SetMasterContext(IGlContext context, GL gl) {
             _masterContext = context;
             _masterGL = gl;
-            _logger.LogInformation("Master context set for sharing");
+            try {
+                var version = gl.GetStringS(Silk.NET.OpenGL.StringName.Version);
+                GlVersion = string.IsNullOrWhiteSpace(version) ? "GL: Unknown" : version;
+
+                if (!_commandLineOptions.DisableBindless && _settings.App.AllowBindless && gl.TryGetExtension(out Silk.NET.OpenGL.Extensions.ARB.ArbBindlessTexture ext)) {
+                    HasBindless = true;
+                } else {
+                    HasBindless = false;
+                }
+            } catch {
+                GlVersion = "GL: Unknown";
+                HasBindless = false;
+            }
+            _logger.LogInformation("Master context set for sharing. Version: {Version}, Bindless: {HasBindless} (Settings: {AllowBindless}, CMD: {DisableBindless})", 
+                GlVersion, HasBindless, _settings.App.AllowBindless, _commandLineOptions.DisableBindless);
         }
 
         /// <summary>
