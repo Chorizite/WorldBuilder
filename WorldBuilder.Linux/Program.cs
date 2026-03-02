@@ -1,5 +1,7 @@
 using Avalonia;
+using Avalonia.OpenGL;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
@@ -52,5 +54,11 @@ sealed class Program {
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .WithInterFont()
+            .With(new X11PlatformOptions {
+                GlProfiles = new List<GlVersion> { 
+                    new GlVersion(GlProfileType.OpenGL, 4, 3),
+                    new GlVersion(GlProfileType.OpenGL, 3, 3)
+                }
+            })
             .LogToTrace();
 }
