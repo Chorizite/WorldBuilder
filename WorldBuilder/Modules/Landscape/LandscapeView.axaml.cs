@@ -1,11 +1,12 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
-using System;
-using System.Numerics;
+using Microsoft.Extensions.DependencyInjection;
+
 using WorldBuilder.Shared.Models;
-using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Services;
 using WorldBuilder.Views;
 
 namespace WorldBuilder.Modules.Landscape;
@@ -17,6 +18,7 @@ public partial class LandscapeView : UserControl {
     private RenderView? _renderView;
     private string? _lastLocationString;
     private GridSplitter? _rightSplitter;
+    private WorldBuilderSettings? _settings;
 
     // Setting Grid.Width at DesignTime causes the content in the right column to not stretch to greater widths
     // Setting Grid.MinWidth sets the starting width properly, but doesn't actually enforce a MinWidth constraint when dragging GridSplitter
@@ -43,11 +45,15 @@ public partial class LandscapeView : UserControl {
         }
         _renderView = this.FindControl<RenderView>("RenderView");
         _rightSplitter = this.FindControl<GridSplitter>("RightSplitter");
+        _settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
 
         var rootLayoutGrid = this.FindControl<Grid>("RootLayoutGrid");
         if (rootLayoutGrid != null && rootLayoutGrid.ColumnDefinitions.Count >= 4) {
             var rightPanelsColumn = rootLayoutGrid.ColumnDefinitions[3];
-            rightPanelsColumn.Width = new GridLength(RIGHT_PANELS_STARTING_WIDTH);
+            
+            // Load saved width from settings
+            var savedWidth = _settings?.Landscape?.RightPanelWidth ?? RIGHT_PANELS_STARTING_WIDTH;
+            rightPanelsColumn.Width = new GridLength(savedWidth);
         }
         
         // Subscribe to right panel size changes
@@ -55,7 +61,10 @@ public partial class LandscapeView : UserControl {
         if (rightPanels != null) {
             rightPanels.SizeChanged += OnRightPanelSizeChanged;
         }
-        
+        if (_rightSplitter != null) {
+            _rightSplitter.DragCompleted += OnSplitterDragCompleted;
+        }
+
         TryInitializeToolContext();
         StartUpdateTimer();
     }
@@ -69,7 +78,10 @@ public partial class LandscapeView : UserControl {
         if (rightPanels != null) {
             rightPanels.SizeChanged -= OnRightPanelSizeChanged;
         }
-        
+        // Unsubscribe from GridSplitter events
+        if (_rightSplitter != null) {
+            _rightSplitter.DragCompleted -= OnSplitterDragCompleted;
+        }
         StopUpdateTimer();
     }
 
@@ -163,6 +175,24 @@ public partial class LandscapeView : UserControl {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    private void OnSplitterDragCompleted(object? sender, VectorEventArgs e) {
+        SaveRightPanelWidth();
+    }
+    
+    private void SaveRightPanelWidth() {
+        Console.WriteLine("SaveRightPanelWidth");
+        var rootLayoutGrid = this.FindControl<Grid>("RootLayoutGrid");
+        if (rootLayoutGrid != null && rootLayoutGrid.ColumnDefinitions.Count >= 4 && _settings != null) {
+            var rightPanelsColumn = rootLayoutGrid.ColumnDefinitions[3];
+            var currentWidth = rightPanelsColumn.Width.Value;
+            
+            if (Math.Abs(currentWidth - _settings.Landscape.RightPanelWidth) > 0.1) {
+                _settings.Landscape.RightPanelWidth = currentWidth;
+                _settings.Save();
             }
         }
     }

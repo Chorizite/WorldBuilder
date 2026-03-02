@@ -55,6 +55,10 @@ namespace WorldBuilder.Lib.Settings {
             }
         }
 
+        [SettingHidden]
+        private double _rightPanelWidth = 300.0;
+        public double RightPanelWidth { get => _rightPanelWidth; set => SetProperty(ref _rightPanelWidth, value); }
+
         public List<CameraBookmark> Bookmarks { get; set; } = new();
 
         public LandscapeEditorSettings() {
