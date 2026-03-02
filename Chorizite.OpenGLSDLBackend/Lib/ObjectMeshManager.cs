@@ -20,6 +20,11 @@ using WorldBuilder.Shared.Numerics;
 using WorldBuilder.Shared.Services;
 using PixelFormat = Silk.NET.OpenGL.PixelFormat;
 using BoundingBox = Chorizite.Core.Lib.BoundingBox;
+using BCnEncoder.Decoder;
+using BCnEncoder.Shared;
+using BCnEncoder.ImageSharp;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
     /// <summary>
@@ -673,13 +678,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         paletteId = renderSurface.DefaultPaletteId;
 
                         if (TextureHelpers.IsCompressedFormat(renderSurface.Format)) {
-                            textureFormat = renderSurface.Format switch {
-                                DatReaderWriter.Enums.PixelFormat.PFID_DXT1 => TextureFormat.DXT1,
-                                DatReaderWriter.Enums.PixelFormat.PFID_DXT3 => TextureFormat.DXT3,
-                                DatReaderWriter.Enums.PixelFormat.PFID_DXT5 => TextureFormat.DXT5,
+                            textureFormat = TextureFormat.RGBA8;
+                            uploadPixelFormat = PixelFormat.Rgba;
+                            textureData = new byte[texWidth * texHeight * 4];
+
+                            CompressionFormat compressionFormat = renderSurface.Format switch {
+                                DatReaderWriter.Enums.PixelFormat.PFID_DXT1 => CompressionFormat.Bc1,
+                                DatReaderWriter.Enums.PixelFormat.PFID_DXT3 => CompressionFormat.Bc2,
+                                DatReaderWriter.Enums.PixelFormat.PFID_DXT5 => CompressionFormat.Bc3,
                                 _ => throw new NotSupportedException($"Unsupported compressed format: {renderSurface.Format}")
                             };
-                            textureData = renderSurface.SourceData;
+
+                            var decoder = new BcDecoder();
+                            using (var image = decoder.DecodeRawToImageRgba32(renderSurface.SourceData, texWidth, texHeight, compressionFormat)) {
+                                image.CopyPixelDataTo(textureData);
+                            }
                         }
                         else {
                             textureFormat = TextureFormat.RGBA8;
@@ -904,13 +917,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         paletteId = renderSurface.DefaultPaletteId;
 
                         if (TextureHelpers.IsCompressedFormat(renderSurface.Format)) {
-                            textureFormat = renderSurface.Format switch {
-                                DatReaderWriter.Enums.PixelFormat.PFID_DXT1 => TextureFormat.DXT1,
-                                DatReaderWriter.Enums.PixelFormat.PFID_DXT3 => TextureFormat.DXT3,
-                                DatReaderWriter.Enums.PixelFormat.PFID_DXT5 => TextureFormat.DXT5,
+                            textureFormat = TextureFormat.RGBA8;
+                            uploadPixelFormat = PixelFormat.Rgba;
+                            textureData = new byte[texWidth * texHeight * 4];
+
+                            CompressionFormat compressionFormat = renderSurface.Format switch {
+                                DatReaderWriter.Enums.PixelFormat.PFID_DXT1 => CompressionFormat.Bc1,
+                                DatReaderWriter.Enums.PixelFormat.PFID_DXT3 => CompressionFormat.Bc2,
+                                DatReaderWriter.Enums.PixelFormat.PFID_DXT5 => CompressionFormat.Bc3,
                                 _ => throw new NotSupportedException($"Unsupported compressed format: {renderSurface.Format}")
                             };
-                            textureData = renderSurface.SourceData;
+
+                            var decoder = new BcDecoder();
+                            using (var image = decoder.DecodeRawToImageRgba32(renderSurface.SourceData, texWidth, texHeight, compressionFormat)) {
+                                image.CopyPixelDataTo(textureData);
+                            }
                         }
                         else {
                             textureFormat = TextureFormat.RGBA8;
@@ -1128,7 +1149,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 // Everything goes into the global VBO/IBO
                 vao = GlobalBuffer!.VAO;
                 vbo = GlobalBuffer!.VBO;
-            } else {
+            }
+            else {
                 gl.GenVertexArrays(1, out vao);
                 gl.BindVertexArray(vao);
 
@@ -1194,7 +1216,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         var appended = GlobalBuffer.Append(meshData.Vertices, batch.Indices.ToArray());
                         batchBaseVertex = appended.baseVertex;
                         firstIndex = (uint)appended.firstIndex;
-                    } else {
+                    }
+                    else {
                         gl.GenBuffers(1, out ibo);
                         gl.BindBuffer(GLEnum.ElementArrayBuffer, ibo);
                         var indexArray = batch.Indices.ToArray();
@@ -1353,7 +1376,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         batch.Atlas.ReleaseTexture(batch.Key);
                     }
                 }
-            } else {
+            }
+            else {
                 foreach (var batch in data.Batches) {
                     if (batch.Atlas != null) {
                         batch.Atlas.ReleaseTexture(batch.Key);
