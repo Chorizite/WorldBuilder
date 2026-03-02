@@ -119,6 +119,12 @@ namespace WorldBuilder.Services {
         public IEnumerable<GpuResourceDetails> GetGpuResourceDetails() => GpuMemoryTracker.GetDetails();
 
         /// <summary>
+        /// Gets detailed GPU named buffer information.
+        /// </summary>
+        /// <returns>An enumerable of NamedBufferDetails.</returns>
+        public IEnumerable<NamedBufferDetails> GetNamedBufferDetails() => GpuMemoryTracker.GetNamedBufferDetails();
+
+        /// <summary>
         /// Gets the total VRAM in bytes.
         /// </summary>
         /// <returns>Total VRAM in bytes, or 0 if unknown.</returns>

@@ -24,12 +24,18 @@ namespace Chorizite.OpenGLSDLBackend {
     public record GpuResourceDetails(GpuResourceType Type, int Count, long Bytes);
 
     /// <summary>
+    /// Details about a specific named buffer.
+    /// </summary>
+    public record NamedBufferDetails(string Name, long CapacityBytes, long UsedBytes);
+
+    /// <summary>
     /// Tracks manual VRAM allocations for buffers and textures.
     /// </summary>
     public static class GpuMemoryTracker {
         private static long _allocatedBytes;
         private static readonly long[] _allocatedBytesByType = new long[Enum.GetValues<GpuResourceType>().Length];
         private static readonly int[] _resourceCountsByType = new int[Enum.GetValues<GpuResourceType>().Length];
+        private static readonly ConcurrentDictionary<string, NamedBufferDetails> _namedBuffers = new();
 
         public static long AllocatedBytes => Interlocked.Read(ref _allocatedBytes);
 
@@ -52,6 +58,16 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public static void TrackResourceAllocation(GpuResourceType type) => Interlocked.Increment(ref _resourceCountsByType[(int)type]);
         public static void TrackResourceDeallocation(GpuResourceType type) => Interlocked.Decrement(ref _resourceCountsByType[(int)type]);
+
+        public static void TrackNamedBuffer(string name, long capacityBytes, long usedBytes) {
+            _namedBuffers[name] = new NamedBufferDetails(name, capacityBytes, usedBytes);
+        }
+
+        public static void UntrackNamedBuffer(string name) {
+            _namedBuffers.TryRemove(name, out _);
+        }
+
+        public static IEnumerable<NamedBufferDetails> GetNamedBufferDetails() => _namedBuffers.Values.OrderBy(b => b.Name);
 
         public static IEnumerable<GpuResourceDetails> GetDetails() {
             var types = Enum.GetValues<GpuResourceType>();

@@ -42,9 +42,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         protected override int MaxConcurrentGenerations => 21;
 
+        protected override bool UseInstanceBuffer => false;
+
         public EnvCellRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
             IDatReaderWriter dats, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager, Frustum frustum)
-            : base(gl, graphicsDevice, meshManager, log, landscapeDoc, frustum) {
+            : base(gl, graphicsDevice, meshManager, log, landscapeDoc, frustum, false, 1024) {
             _dats = dats;
         }
 
@@ -224,6 +226,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _visibleGfxObjIds.Clear();
             _poolIndex = 0;
             _batchedByCell.Clear();
+
+            NeedsPrepare = false;
 
             if (LandscapeDoc.Region != null) {
                 var lbSize = LandscapeDoc.Region.CellSizeInUnits * LandscapeDoc.Region.LandblockCellLength;
@@ -487,6 +491,26 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             lock (_tcsLock) {
                 _instanceReadyTcs.TryRemove(key, out _);
             }
+        }
+
+        private readonly ConcurrentDictionary<uint, bool> _hasBuildingsCache = new();
+
+        protected override float GetPriority(ObjectLandblock lb, Vector2 camDir2D, int cameraLbX, int cameraLbY) {
+            var priority = base.GetPriority(lb, camDir2D, cameraLbX, cameraLbY);
+
+            // Prioritize landblocks with buildings (since they contain EnvCells)
+            var lbId = ((uint)lb.GridX << 8 | (uint)lb.GridY) << 16 | 0xFFFE;
+            if (!_hasBuildingsCache.TryGetValue(lbId, out var hasBuildings)) {
+                var mergedLb = LandscapeDoc.GetMergedLandblock(lbId);
+                hasBuildings = mergedLb.Buildings.Count > 0;
+                _hasBuildingsCache[lbId] = hasBuildings;
+            }
+
+            if (hasBuildings) {
+                priority -= 10f; // Bonus for having buildings
+            }
+
+            return priority;
         }
 
         protected override async Task GenerateForLandblockAsync(ObjectLandblock lb, CancellationToken ct) {

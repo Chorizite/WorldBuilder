@@ -40,7 +40,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public StaticObjectRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
             IDatReaderWriter dats, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager, Frustum frustum)
-            : base(gl, graphicsDevice, meshManager, log, landscapeDoc, frustum) {
+            : base(gl, graphicsDevice, meshManager, log, landscapeDoc, frustum, true, 655360) {
             _dats = dats;
         }
 
@@ -51,8 +51,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Call before <see cref="ObjectRenderManagerBase.PrepareRenderBatches"/>.
         /// </summary>
         public void SetVisibilityFilters(bool showBuildings, bool showStaticObjects) {
+            if (_showBuildings == showBuildings && _showStaticObjects == showStaticObjects) return;
             _showBuildings = showBuildings;
             _showStaticObjects = showStaticObjects;
+
+            foreach (var lb in _landblocks.Values) {
+                if (lb.GpuReady) {
+                    BuildMdiCommands(lb);
+                }
+            }
         }
 
         /// <summary>
@@ -185,6 +192,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Protected: Overrides
 
+        protected override void BuildMdiCommands(ObjectLandblock lb) {
+            lb.MdiCommands.Clear();
+            if (lb.InstanceBufferOffset < 0) return;
+
+            int currentOffset = 0;
+            foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
+                if (_showStaticObjects) {
+                    AddMdiCommandsForGroup(lb, gfxObjId, transforms.Count, currentOffset);
+                }
+                currentOffset += transforms.Count;
+            }
+            foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
+                if (_showBuildings) {
+                    AddMdiCommandsForGroup(lb, gfxObjId, transforms.Count, currentOffset);
+                }
+                currentOffset += transforms.Count;
+            }
+        }
+
         protected override IEnumerable<KeyValuePair<ulong, List<InstanceData>>> GetFastPathGroups(ObjectLandblock lb) {
             if (_showBuildings) {
                 foreach (var kvp in lb.BuildingPartGroups) {
@@ -252,6 +278,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             lock (_tcsLock) {
                 _instanceReadyTcs.TryRemove(key, out _);
             }
+        }
+
+        protected override float GetPriority(ObjectLandblock lb, Vector2 camDir2D, int cameraLbX, int cameraLbY) {
+            var priority = base.GetPriority(lb, camDir2D, cameraLbX, cameraLbY);
+
+            // Prioritize landblocks with buildings
+            var lbId = ((uint)lb.GridX << 8 | (uint)lb.GridY) << 16 | 0xFFFE;
+            var mergedLb = LandscapeDoc.GetMergedLandblock(lbId);
+            if (mergedLb.Buildings.Count > 0) {
+                priority -= 10f; // Bonus for having buildings
+            }
+
+            return priority;
         }
 
         protected override async Task GenerateForLandblockAsync(ObjectLandblock lb, CancellationToken ct) {

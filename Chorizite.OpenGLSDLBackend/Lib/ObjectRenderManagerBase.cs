@@ -66,6 +66,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected readonly Dictionary<ulong, List<InstanceData>> _visibleGroups = new();
         protected readonly List<ulong> _visibleGfxObjIds = new();
 
+        public bool NeedsPrepare { get; protected set; } = true;
+
+        /// <summary>
+        /// Whether this manager uses the persistent instance buffer.
+        /// If false, instances are uploaded every frame during Render().
+        /// </summary>
+        protected virtual bool UseInstanceBuffer => true;
+
         // List pool for rendering
         protected readonly List<List<InstanceData>> _listPool = new();
         protected int _poolIndex = 0;
@@ -99,8 +107,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected virtual bool RenderHighlightsWhenEmpty => false;
 
         protected ObjectRenderManagerBase(GL gl, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager,
-            ILogger log, LandscapeDocument landscapeDoc, Frustum frustum)
-            : base(gl, graphicsDevice, meshManager) {
+            ILogger log, LandscapeDocument landscapeDoc, Frustum frustum, bool useInstanceBuffer = true, int initialCapacity = 1024 * 16384)
+            : base(gl, graphicsDevice, meshManager, useInstanceBuffer, initialCapacity) {
             Log = log;
             LandscapeDoc = landscapeDoc;
             _frustum = frustum;
@@ -113,6 +121,30 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public void Initialize(IShader shader) {
             _shader = shader;
             _initialized = true;
+        }
+
+        /// <summary>
+        /// Calculates the priority for background generation of a landblock.
+        /// Lower values = higher priority.
+        /// </summary>
+        protected virtual float GetPriority(ObjectLandblock lb, Vector2 camDir2D, int cameraLbX, int cameraLbY) {
+            float dx = lb.GridX - cameraLbX;
+            float dy = lb.GridY - cameraLbY;
+            float dist = MathF.Sqrt(dx * dx + dy * dy);
+
+            float priority = dist;
+            if (dist > 0.1f && camDir2D != Vector2.Zero) {
+                Vector2 dirToChunk = Vector2.Normalize(new Vector2(dx, dy));
+                float dot = Vector2.Dot(camDir2D, dirToChunk);
+                priority -= dot * 5f; // Bias towards camera forward direction
+            }
+
+            // Prioritize landblocks in frustum
+            if (_frustum.TestBox(lb.BoundingBox) != FrustumTestResult.Outside) {
+                priority -= 20f; // Large bonus for being in view
+            }
+
+            return priority;
         }
 
         public void Update(float deltaTime, ICamera camera) {
@@ -138,6 +170,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Only queue landblocks within render distance if the camera moved to a new landblock or it's the first time
             if (cameraMovedLandblock || renderDistanceChanged || _landblocks.IsEmpty) {
                 _activeLandblocksDirty = true;
+                NeedsPrepare = true;
                 for (int x = _cameraLbX - RenderDistance; x <= _cameraLbX + RenderDistance; x++) {
                     for (int y = _cameraLbY - RenderDistance; y <= _cameraLbY + RenderDistance; y++) {
                         if (x < 0 || y < 0 || x >= region.MapWidthInLandblocks || y >= region.MapHeightInLandblocks)
@@ -193,6 +226,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _outOfRangeTimers.TryRemove(key, out _);
                 _pendingGeneration.TryRemove(key, out _);
                 _activeLandblocksDirty = true;
+                NeedsPrepare = true;
             }
 
             // Update active landblocks for rendering
@@ -222,16 +256,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 foreach (var (key, lb) in _pendingGeneration) {
-                    float dx = lb.GridX - _cameraLbX;
-                    float dy = lb.GridY - _cameraLbY;
-                    float dist = MathF.Sqrt(dx * dx + dy * dy);
-
-                    float priority = dist;
-                    if (dist > 0.1f && camDir2D != Vector2.Zero) {
-                        Vector2 dirToChunk = Vector2.Normalize(new Vector2(dx, dy));
-                        float dot = Vector2.Dot(camDir2D, dirToChunk);
-                        priority -= dot * 1.5f;
-                    }
+                    float priority = GetPriority(lb, camDir2D, _cameraLbX, _cameraLbY);
 
                     if (priority < bestPriority) {
                         bestPriority = priority;
@@ -289,6 +314,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
                 UploadLandblockMeshes(lb);
                 _activeLandblocksDirty = true;
+                NeedsPrepare = true;
             }
 
             return (float)sw.Elapsed.TotalMilliseconds;
@@ -303,6 +329,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _poolIndex = 0;
             _visibleLandblocks.Clear();
             _intersectingLandblocks.Clear();
+
+            NeedsPrepare = false;
 
             if (_activeLandblocks.Count == 0) return;
 
@@ -590,66 +618,35 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Populate part groups via subclass hook
             PopulatePartGroups(lb, instancesToUpload);
 
-            // Free previous slice if we're re-uploading
-            if (lb.InstanceBufferOffset >= 0) {
-                FreeInstanceSlice(lb.InstanceBufferOffset, lb.InstanceCount);
-                lb.InstanceBufferOffset = -1;
-            }
-
-            // Consolidation for optimized rendering
-            var allInstances = new List<InstanceData>();
-            var localDrawCalls = new List<(ulong ObjectId, int Count, int Offset)>();
-
-            foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
-                localDrawCalls.Add((gfxObjId, transforms.Count, allInstances.Count));
-                allInstances.AddRange(transforms);
-            }
-            foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
-                localDrawCalls.Add((gfxObjId, transforms.Count, allInstances.Count));
-                allInstances.AddRange(transforms);
-            }
-
-            lb.InstanceCount = allInstances.Count;
-            if (lb.InstanceCount > 0) {
-                lb.InstanceBufferOffset = AllocateInstanceSlice(lb.InstanceCount);
+            if (UseInstanceBuffer) {
+                // Free previous slice if we're re-uploading
                 if (lb.InstanceBufferOffset >= 0) {
-                    UploadInstanceData(lb.InstanceBufferOffset, allInstances);
-
-                    // Pre-calculate MDI commands and batch data
-                    lb.MdiCommands.Clear();
-                    foreach (var call in localDrawCalls) {
-                        var renderData = MeshManager.TryGetRenderData(call.ObjectId);
-                        if (renderData != null && !renderData.IsSetup) {
-                            foreach (var batch in renderData.Batches) {
-                                if (!lb.MdiCommands.TryGetValue(batch.CullMode, out var list)) {
-                                    list = new List<LandblockMdiCommand>();
-                                    lb.MdiCommands[batch.CullMode] = list;
-                                }
-
-                                list.Add(new LandblockMdiCommand {
-                                    ObjectId = call.ObjectId,
-                                    VAO = renderData.VAO,
-                                    IBO = batch.IBO,
-                                    TextureIndex = (uint)batch.TextureIndex,
-                                    Atlas = batch.Atlas.TextureArray as ManagedGLTextureArray ?? throw new Exception("Atlas.TextureArray must be ManagedGLTextureArray"),
-                                    Command = new DrawElementsIndirectCommand {
-                                        Count = (uint)batch.IndexCount,
-                                        InstanceCount = (uint)call.Count,
-                                        FirstIndex = batch.FirstIndex,
-                                        BaseVertex = (int)batch.BaseVertex,
-                                        BaseInstance = (uint)(lb.InstanceBufferOffset + call.Offset)
-                                    },
-                                    BatchData = new ModernBatchData {
-                                        TextureHandle = batch.BindlessTextureHandle,
-                                        TextureIndex = (uint)batch.TextureIndex
-                                    }
-                                });
-                            }
-                        }
-                    }
+                    FreeInstanceSlice(lb.InstanceBufferOffset, lb.InstanceCount);
+                    lb.InstanceBufferOffset = -1;
                 }
-                else {
-                    Log.LogWarning("Failed to allocate {Count} instances for landblock ({X},{Y}). Instance buffer may be full.", lb.InstanceCount, lb.GridX, lb.GridY);
+
+                // Consolidation for optimized rendering
+                var allInstances = new List<InstanceData>();
+
+                foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
+                    allInstances.AddRange(transforms);
+                }
+                foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
+                    allInstances.AddRange(transforms);
+                }
+
+                lb.InstanceCount = allInstances.Count;
+                if (lb.InstanceCount > 0) {
+                    lb.InstanceBufferOffset = AllocateInstanceSlice(lb.InstanceCount);
+                    if (lb.InstanceBufferOffset >= 0) {
+                        UploadInstanceData(lb.InstanceBufferOffset, allInstances);
+
+                        // Pre-calculate MDI commands and batch data
+                        BuildMdiCommands(lb);
+                    }
+                    else {
+                        Log.LogWarning("Failed to allocate {Count} instances for landblock ({X},{Y}). Instance buffer may be full.", lb.InstanceCount, lb.GridX, lb.GridY);
+                    }
                 }
             }
 
@@ -682,6 +679,52 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             lb.GpuReady = true;
+        }
+
+        protected virtual void BuildMdiCommands(ObjectLandblock lb) {
+            lb.MdiCommands.Clear();
+            if (lb.InstanceBufferOffset < 0) return;
+
+            int currentOffset = 0;
+            foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
+                AddMdiCommandsForGroup(lb, gfxObjId, transforms.Count, currentOffset);
+                currentOffset += transforms.Count;
+            }
+            foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
+                AddMdiCommandsForGroup(lb, gfxObjId, transforms.Count, currentOffset);
+                currentOffset += transforms.Count;
+            }
+        }
+
+        protected void AddMdiCommandsForGroup(ObjectLandblock lb, ulong gfxObjId, int instanceCount, int groupOffset) {
+            var renderData = MeshManager.TryGetRenderData(gfxObjId);
+            if (renderData != null && !renderData.IsSetup) {
+                foreach (var batch in renderData.Batches) {
+                    if (!lb.MdiCommands.TryGetValue(batch.CullMode, out var list)) {
+                        list = new List<LandblockMdiCommand>();
+                        lb.MdiCommands[batch.CullMode] = list;
+                    }
+
+                    list.Add(new LandblockMdiCommand {
+                        ObjectId = gfxObjId,
+                        VAO = renderData.VAO,
+                        IBO = batch.IBO,
+                        TextureIndex = (uint)batch.TextureIndex,
+                        Atlas = batch.Atlas.TextureArray as ManagedGLTextureArray ?? throw new Exception("Atlas.TextureArray must be ManagedGLTextureArray"),
+                        Command = new DrawElementsIndirectCommand {
+                            Count = (uint)batch.IndexCount,
+                            InstanceCount = (uint)instanceCount,
+                            FirstIndex = batch.FirstIndex,
+                            BaseVertex = (int)batch.BaseVertex,
+                            BaseInstance = (uint)(lb.InstanceBufferOffset + groupOffset)
+                        },
+                        BatchData = new ModernBatchData {
+                            TextureHandle = batch.BindlessTextureHandle,
+                            TextureIndex = (uint)batch.TextureIndex
+                        }
+                    });
+                }
+            }
         }
 
         private ObjectRenderData? UploadPreparedMesh(ulong objectId) {

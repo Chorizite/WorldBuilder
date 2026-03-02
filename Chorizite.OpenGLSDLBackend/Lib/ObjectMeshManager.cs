@@ -169,7 +169,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // CPU-side cache for prepared mesh data (to avoid re-reading/decoding from DAT)
         private readonly Dictionary<ulong, ObjectMeshData> _cpuMeshCache = new();
         private readonly LinkedList<ulong> _cpuLruList = new();
-        private readonly int _maxCpuCacheSize = 10;
+        private readonly int _maxCpuCacheSize = 1000;
+
+        // Cache for decoded textures to avoid redundant BCn decoding
+        private readonly ConcurrentDictionary<uint, byte[]> _decodedTextureCache = new();
+        private readonly ThreadLocal<BcDecoder> _bcDecoder = new(() => new BcDecoder());
 
         public GlobalMeshBuffer? GlobalBuffer { get; }
         private readonly bool _useModernRendering;
@@ -286,21 +290,38 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public Task<ObjectMeshData?> PrepareEnvCellGeomMeshDataAsync(ulong geomId, EnvCell envCell, CancellationToken ct = default) {
             if (HasRenderData(geomId)) return Task.FromResult<ObjectMeshData?>(null);
 
-            return _preparationTasks.GetOrAdd(geomId, k => Task.Run(() => {
-                try {
-                    uint envId = 0x0D000000u | envCell.EnvironmentId;
-                    if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
-                        if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
-                            return PrepareCellStructMeshData(geomId, cellStruct, envCell.Surfaces, Matrix4x4.Identity, ct);
-                        }
-                    }
-                    return null;
+            // Check CPU cache first
+            lock (_cpuMeshCache) {
+                if (_cpuMeshCache.TryGetValue(geomId, out var cachedData)) {
+                    _cpuLruList.Remove(geomId);
+                    _cpuLruList.AddLast(geomId);
+                    return Task.FromResult<ObjectMeshData?>(cachedData);
                 }
-                finally {
-                    _preparationTasks.TryRemove(k, out _);
+            }
+
+            // Return existing task if already running or queued
+            if (_preparationTasks.TryGetValue(geomId, out var existing)) {
+                return existing;
+            }
+
+            var tcs = new TaskCompletionSource<ObjectMeshData?>();
+            var task = tcs.Task;
+            _preparationTasks[geomId] = task;
+
+            lock (_pendingRequests) {
+                // Special handling for EnvCell geometry - we need to store the cell data for the worker
+                _pendingEnvCellRequests[geomId] = envCell;
+                _pendingRequests.Add((geomId, false, tcs, ct));
+                if (_activeWorkers < MaxParallelLoads) {
+                    _activeWorkers++;
+                    Task.Run(ProcessQueueAsync);
                 }
-            }));
+            }
+
+            return task;
         }
+
+        private readonly ConcurrentDictionary<ulong, EnvCell> _pendingEnvCellRequests = new();
 
         public Task<ObjectMeshData?> PrepareMeshDataAsync(ulong id, bool isSetup, CancellationToken ct = default) {
             if (HasRenderData(id)) return Task.FromResult<ObjectMeshData?>(null);
@@ -368,7 +389,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 try {
-                    var data = PrepareMeshData(id, isSetup, ct);
+                    ObjectMeshData? data = null;
+                    if (_pendingEnvCellRequests.TryRemove(id, out var envCell)) {
+                        uint envId = 0x0D000000u | envCell.EnvironmentId;
+                        if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
+                            if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
+                                data = PrepareCellStructMeshData(id, cellStruct, envCell.Surfaces, Matrix4x4.Identity, ct);
+                            }
+                        }
+                    }
+                    else {
+                        data = PrepareMeshData(id, isSetup, ct);
+                    }
                     if (data != null) {
                         lock (_cpuMeshCache) {
                             if (_cpuMeshCache.Count >= _maxCpuCacheSize) {
@@ -779,18 +811,24 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         if (TextureHelpers.IsCompressedFormat(renderSurface.Format)) {
                             textureFormat = TextureFormat.RGBA8;
                             uploadPixelFormat = PixelFormat.Rgba;
-                            textureData = new byte[texWidth * texHeight * 4];
 
-                            CompressionFormat compressionFormat = renderSurface.Format switch {
-                                DatReaderWriter.Enums.PixelFormat.PFID_DXT1 => CompressionFormat.Bc1,
-                                DatReaderWriter.Enums.PixelFormat.PFID_DXT3 => CompressionFormat.Bc2,
-                                DatReaderWriter.Enums.PixelFormat.PFID_DXT5 => CompressionFormat.Bc3,
-                                _ => throw new NotSupportedException($"Unsupported compressed format: {renderSurface.Format}")
-                            };
+                            if (_decodedTextureCache.TryGetValue(renderSurfaceId, out textureData!)) {
+                                // use cached data
+                            }
+                            else {
+                                textureData = new byte[texWidth * texHeight * 4];
 
-                            var decoder = new BcDecoder();
-                            using (var image = decoder.DecodeRawToImageRgba32(renderSurface.SourceData, texWidth, texHeight, compressionFormat)) {
-                                image.CopyPixelDataTo(textureData);
+                                CompressionFormat compressionFormat = renderSurface.Format switch {
+                                    DatReaderWriter.Enums.PixelFormat.PFID_DXT1 => CompressionFormat.Bc1,
+                                    DatReaderWriter.Enums.PixelFormat.PFID_DXT3 => CompressionFormat.Bc2,
+                                    DatReaderWriter.Enums.PixelFormat.PFID_DXT5 => CompressionFormat.Bc3,
+                                    _ => throw new NotSupportedException($"Unsupported compressed format: {renderSurface.Format}")
+                                };
+
+                                using (var image = _bcDecoder.Value!.DecodeRawToImageRgba32(renderSurface.SourceData, texWidth, texHeight, compressionFormat)) {
+                                    image.CopyPixelDataTo(textureData);
+                                }
+                                _decodedTextureCache.TryAdd(renderSurfaceId, textureData);
                             }
                         }
                         else {
@@ -1018,18 +1056,24 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         if (TextureHelpers.IsCompressedFormat(renderSurface.Format)) {
                             textureFormat = TextureFormat.RGBA8;
                             uploadPixelFormat = PixelFormat.Rgba;
-                            textureData = new byte[texWidth * texHeight * 4];
 
-                            CompressionFormat compressionFormat = renderSurface.Format switch {
-                                DatReaderWriter.Enums.PixelFormat.PFID_DXT1 => CompressionFormat.Bc1,
-                                DatReaderWriter.Enums.PixelFormat.PFID_DXT3 => CompressionFormat.Bc2,
-                                DatReaderWriter.Enums.PixelFormat.PFID_DXT5 => CompressionFormat.Bc3,
-                                _ => throw new NotSupportedException($"Unsupported compressed format: {renderSurface.Format}")
-                            };
+                            if (_decodedTextureCache.TryGetValue(renderSurfaceId, out textureData!)) {
+                                // use cached data
+                            }
+                            else {
+                                textureData = new byte[texWidth * texHeight * 4];
 
-                            var decoder = new BcDecoder();
-                            using (var image = decoder.DecodeRawToImageRgba32(renderSurface.SourceData, texWidth, texHeight, compressionFormat)) {
-                                image.CopyPixelDataTo(textureData);
+                                CompressionFormat compressionFormat = renderSurface.Format switch {
+                                    DatReaderWriter.Enums.PixelFormat.PFID_DXT1 => CompressionFormat.Bc1,
+                                    DatReaderWriter.Enums.PixelFormat.PFID_DXT3 => CompressionFormat.Bc2,
+                                    DatReaderWriter.Enums.PixelFormat.PFID_DXT5 => CompressionFormat.Bc3,
+                                    _ => throw new NotSupportedException($"Unsupported compressed format: {renderSurface.Format}")
+                                };
+
+                                using (var image = _bcDecoder.Value!.DecodeRawToImageRgba32(renderSurface.SourceData, texWidth, texHeight, compressionFormat)) {
+                                    image.CopyPixelDataTo(textureData);
+                                }
+                                _decodedTextureCache.TryAdd(renderSurfaceId, textureData);
                             }
                         }
                         else {

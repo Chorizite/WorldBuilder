@@ -140,7 +140,7 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public SingleObjectScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILoggerFactory loggerFactory, IDatReaderWriter dats, ObjectMeshManager? meshManager = null)
-            : base(gl, graphicsDevice, meshManager ?? new ObjectMeshManager(graphicsDevice, dats, loggerFactory.CreateLogger<ObjectMeshManager>()), 1024) {
+            : base(gl, graphicsDevice, meshManager ?? new ObjectMeshManager(graphicsDevice, dats, loggerFactory.CreateLogger<ObjectMeshManager>()), true, 1024) {
             _loggerFactory = loggerFactory;
             _log = loggerFactory.CreateLogger<SingleObjectScene>();
             _dats = dats;
