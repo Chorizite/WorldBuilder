@@ -169,7 +169,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // CPU-side cache for prepared mesh data (to avoid re-reading/decoding from DAT)
         private readonly Dictionary<ulong, ObjectMeshData> _cpuMeshCache = new();
         private readonly LinkedList<ulong> _cpuLruList = new();
-        private readonly int _maxCpuCacheSize = 100;
+        private readonly int _maxCpuCacheSize = 10;
 
         public GlobalMeshBuffer? GlobalBuffer { get; }
         private readonly bool _useModernRendering;
@@ -455,6 +455,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public ObjectRenderData? UploadMeshData(ObjectMeshData meshData) {
             try {
                 if (_renderData.TryGetValue(meshData.ObjectId, out var existing)) {
+                    if (existing.IsSetup) {
+                        foreach (var (partId, _) in existing.SetupParts) {
+                            IncrementRefCount(partId);
+                            lock (_lruList) {
+                                _lruList.Remove(partId);
+                            }
+                        }
+                    }
+                    IncrementRefCount(meshData.ObjectId);
+                    lock (_lruList) {
+                        _lruList.Remove(meshData.ObjectId);
+                    }
                     return existing;
                 }
                 _preparationTasks.TryRemove(meshData.ObjectId, out _);
@@ -474,7 +486,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         MemorySize = 1024 // Small overhead for the setup itself
                     };
                     _renderData[meshData.ObjectId] = data;
-                    _usageCount.TryAdd(meshData.ObjectId, 1);
+                    IncrementRefCount(meshData.ObjectId);
                     _currentGpuMemory += data.MemorySize;
 
                     // Increment ref counts for all parts
@@ -490,8 +502,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     renderData.BoundingBox = meshData.BoundingBox;
                     renderData.SelectionSphere = meshData.SelectionSphere;
                     _renderData[meshData.ObjectId] = renderData;
-                    _usageCount.TryAdd(meshData.ObjectId, 1);
+                    IncrementRefCount(meshData.ObjectId);
                     _currentGpuMemory += renderData.MemorySize;
+
+                    // Clear texture data after upload to save RAM
+                    foreach (var batchList in meshData.TextureBatches.Values) {
+                        foreach (var batch in batchList) {
+                            batch.TextureData = Array.Empty<byte>();
+                        }
+                    }
                 }
                 return renderData;
             }

@@ -38,7 +38,7 @@ namespace WorldBuilder.Views {
                     _visual.SendHandlerMessage(new InvalidateMessage());
                 }
                 else {
-                    _glVisual?.TriggerInvalidate();
+                    Dispatcher.UIThread.Post(() => _visual.SendHandlerMessage(new InvalidateMessage()), DispatcherPriority.Render);
                 }
             }
         }

@@ -121,9 +121,20 @@ namespace WorldBuilder.Views {
             _renderIsEffectivelyVisible = IsEffectivelyVisible;
 
             _settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
+        }
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
+            base.OnAttachedToVisualTree(e);
             if (_settings != null) {
                 _settings.Landscape.Camera.PropertyChanged += OnCameraSettingsPropertyChanged;
                 _renderAltMouseLook = _settings.Landscape.Camera.AltMouseLook;
+            }
+        }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
+            base.OnDetachedFromVisualTree(e);
+            if (_settings != null) {
+                _settings.Landscape.Camera.PropertyChanged -= OnCameraSettingsPropertyChanged;
             }
         }
 
@@ -180,6 +191,7 @@ namespace WorldBuilder.Views {
                 if (_scene != null) {
                     _scene.ShowWireframe = _renderShowWireframe;
                 }
+                RequestRender();
             }
 
             if (change.Property == WireframeColorProperty) {
@@ -187,6 +199,7 @@ namespace WorldBuilder.Views {
                 if (_scene != null) {
                     _scene.WireframeColor = _renderWireframeColor;
                 }
+                RequestRender();
             }
 
             if (change.Property == IsTooltipProperty) {

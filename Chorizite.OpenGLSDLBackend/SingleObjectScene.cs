@@ -27,7 +27,7 @@ namespace Chorizite.OpenGLSDLBackend {
         private bool _isSetup;
         private bool _initialized;
 
-        private float _rotation;
+        private float _rotation = MathF.PI;
         private bool _isAutoCamera = true;
         private bool _isManualRotate = false;
 
@@ -54,14 +54,50 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public ICamera Camera => _camera;
 
-        public Vector4 BackgroundColor { get; set; } = new Vector4(0.15f, 0.15f, 0.2f, 1.0f); // Dark Blue-Grey
+        private Vector4 _backgroundColor = new Vector4(0.15f, 0.15f, 0.2f, 1.0f); // Dark Blue-Grey
+        public Vector4 BackgroundColor {
+            get => _backgroundColor;
+            set {
+                _backgroundColor = value;
+                NeedsRender = true;
+            }
+        }
 
-        public bool EnableTransparencyPass { get; set; } = true;
+        private bool _enableTransparencyPass = true;
+        public bool EnableTransparencyPass {
+            get => _enableTransparencyPass;
+            set {
+                _enableTransparencyPass = value;
+                NeedsRender = true;
+            }
+        }
 
-        public Vector4 WireframeColor { get; set; } = new Vector4(0.0f, 1.0f, 0.0f, 0.5f);
+        private Vector4 _wireframeColor = new Vector4(0.0f, 1.0f, 0.0f, 0.5f);
+        public Vector4 WireframeColor {
+            get => _wireframeColor;
+            set {
+                _wireframeColor = value;
+                NeedsRender = true;
+            }
+        }
 
-        public bool ShowWireframe { get; set; }
-        public bool ShowCulling { get; set; }
+        private bool _showWireframe;
+        public bool ShowWireframe {
+            get => _showWireframe;
+            set {
+                _showWireframe = value;
+                NeedsRender = true;
+            }
+        }
+
+        private bool _showCulling;
+        public bool ShowCulling {
+            get => _showCulling;
+            set {
+                _showCulling = value;
+                NeedsRender = true;
+            }
+        }
 
         public float SceneMouseSensitivity {
             get => _camera.LookSensitivity;
@@ -152,10 +188,12 @@ namespace Chorizite.OpenGLSDLBackend {
                 var meshData = await MeshManager.PrepareMeshDataAsync(fileId, isSetup, ct);
                 if (meshData != null && !ct.IsCancellationRequested) {
                     _stagedMeshData.Enqueue(meshData);
+                    NeedsRender = true;
 
                     // Stage EnvCell geometry if present
                     if (meshData.EnvCellGeometry != null) {
                         _stagedMeshData.Enqueue(meshData.EnvCellGeometry);
+                        NeedsRender = true;
                     }
 
                     // For Setup objects, also prepare each part's GfxObj on background thread
@@ -166,6 +204,7 @@ namespace Chorizite.OpenGLSDLBackend {
                                 var partData = await MeshManager.PrepareMeshDataAsync(partId, false, ct);
                                 if (partData != null) {
                                     _stagedMeshData.Enqueue(partData);
+                                    NeedsRender = true;
                                 }
                             }
                         }
@@ -275,7 +314,7 @@ namespace Chorizite.OpenGLSDLBackend {
             }
 
             bool shouldRender = NeedsRender || nextFrameNeeded;
-            NeedsRender = nextFrameNeeded; // Preserve for next frame if still loading
+            _needsRender = nextFrameNeeded; // Preserve for next frame if still loading
 
             if (!shouldRender && _currentFileId != 0) return;
 
@@ -460,6 +499,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public override void Dispose() {
             base.Dispose();
+            OnRequestRender = null;
             _cts.Cancel();
             _cts.Dispose();
             _loadCts?.Cancel();

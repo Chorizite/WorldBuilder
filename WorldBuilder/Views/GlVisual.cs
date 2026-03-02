@@ -32,7 +32,7 @@ namespace WorldBuilder.Views {
                 _parent = parent;
             }
 
-            public void TriggerInvalidate() => base.Invalidate();
+            private void TriggerInvalidate() => base.Invalidate();
 
             public override void OnRender(ImmediateDrawingContext drawingContext) {
                 try {
