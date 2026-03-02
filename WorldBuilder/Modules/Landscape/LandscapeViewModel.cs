@@ -494,7 +494,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         // Save location string
         var loc = Position.FromGlobal(pos, ActiveDocument?.Region, _gameScene.CurrentEnvCellId != 0 ? _gameScene.CurrentEnvCellId : null);
 
-        loc.Rotation = _gameScene.Camera.Rotation;
+        loc.Rotation = _gameScene.Camera3D.Rotation;    // Camera2D.rotation is always Quaterion.Identity, and we want to persist 3D camera rotation through saves
         projectSettings.LandscapeCameraLocationString = loc.ToLandblockString();
 
         projectSettings.LandscapeCameraIs3D = _gameScene.Is3DMode;
@@ -589,6 +589,10 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         EditorState.CellGridColor = _settings.Landscape.Grid.CellColor;
         EditorState.GridLineWidth = _settings.Landscape.Grid.LineWidth;
         EditorState.GridOpacity = _settings.Landscape.Grid.Opacity;
+
+        if (_settings.Project != null) {
+            Is3DCameraEnabled = _settings.Project.LandscapeCameraIs3D;
+        }
     }
 
     private void OnEditorStatePropertyChanged(object? sender, PropertyChangedEventArgs e) {
