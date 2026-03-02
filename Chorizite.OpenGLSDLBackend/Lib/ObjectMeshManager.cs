@@ -1128,7 +1128,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 // Everything goes into the global VBO/IBO
                 vao = GlobalBuffer!.VAO;
                 vbo = GlobalBuffer!.VBO;
-                // Wait, we append individual batches to the IBO, so baseVertex and firstIndex are per batch
             } else {
                 gl.GenVertexArrays(1, out vao);
                 gl.BindVertexArray(vao);
