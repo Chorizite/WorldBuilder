@@ -21,7 +21,22 @@ namespace WorldBuilder.Shared.Models {
 
         public event EventHandler<LandblockChangedEventArgs>? LandblockChanged;
 
+        private readonly ConcurrentDictionary<uint, MergedLandblock> _mergedLandblockCache = new();
+        private readonly ConcurrentDictionary<uint, ConcurrentDictionary<uint, Cell>> _mergedEnvCellCache = new();
+
         public void NotifyLandblockChanged(IEnumerable<(int x, int y)>? affectedLandblocks) {
+            if (affectedLandblocks == null) {
+                _mergedLandblockCache.Clear();
+                _mergedEnvCellCache.Clear();
+            }
+            else {
+                foreach (var (x, y) in affectedLandblocks) {
+                    var lbPrefix = (uint)((x << 24) | (y << 16));
+                    var lbId = lbPrefix | 0xFFFE;
+                    _mergedLandblockCache.TryRemove(lbId, out _);
+                    _mergedEnvCellCache.TryRemove(lbPrefix, out _);
+                }
+            }
             LandblockChanged?.Invoke(this, new LandblockChangedEventArgs(affectedLandblocks));
         }
 
@@ -435,6 +450,10 @@ namespace WorldBuilder.Shared.Models {
         }
 
         public MergedLandblock GetMergedLandblock(uint landblockId) {
+            if (_mergedLandblockCache.TryGetValue(landblockId, out var cached)) {
+                return cached;
+            }
+
             var merged = new MergedLandblock();
 
             // 1. Parse base from DAT
@@ -518,10 +537,17 @@ namespace WorldBuilder.Shared.Models {
                 }
             }
 
+            _mergedLandblockCache[landblockId] = merged;
             return merged;
         }
 
         public Cell GetMergedEnvCell(uint cellId) {
+            var lbPrefix = cellId & 0xFFFF0000;
+            var lbCache = _mergedEnvCellCache.GetOrAdd(lbPrefix, _ => new());
+            if (lbCache.TryGetValue(cellId, out var cached)) {
+                return cached;
+            }
+
             var properties = new Cell();
 
             if (CellDatabase != null && CellDatabase.TryGet<EnvCell>(cellId, out var cell)) {
@@ -593,6 +619,7 @@ namespace WorldBuilder.Shared.Models {
                 }
             }
 
+            lbCache[cellId] = properties;
             return properties;
         }
 

@@ -491,13 +491,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
+        private readonly ConcurrentDictionary<uint, bool> _hasBuildingsCache = new();
+
         protected override float GetPriority(ObjectLandblock lb, Vector2 camDir2D, int cameraLbX, int cameraLbY) {
             var priority = base.GetPriority(lb, camDir2D, cameraLbX, cameraLbY);
 
             // Prioritize landblocks with buildings (since they contain EnvCells)
             var lbId = ((uint)lb.GridX << 8 | (uint)lb.GridY) << 16 | 0xFFFE;
-            var mergedLb = LandscapeDoc.GetMergedLandblock(lbId);
-            if (mergedLb.Buildings.Count > 0) {
+            if (!_hasBuildingsCache.TryGetValue(lbId, out var hasBuildings)) {
+                var mergedLb = LandscapeDoc.GetMergedLandblock(lbId);
+                hasBuildings = mergedLb.Buildings.Count > 0;
+                _hasBuildingsCache[lbId] = hasBuildings;
+            }
+
+            if (hasBuildings) {
                 priority -= 10f; // Bonus for having buildings
             }
 
