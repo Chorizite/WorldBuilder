@@ -113,18 +113,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
 
     public string ExitHotkeyText => RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "Cmd+Q" : "Alt+F4";
 
-    // for designer use only
-    [Obsolete("Designer use only")]
-    internal MainViewModel() {
-        _settings = new WorldBuilderSettings();
-        _themeService = null!;
-        _dialogService = null!;
-        _serviceProvider = null!;
-        _project = null!;
-        _dats = null!;
-        _performanceService = null!;
-    }
-
     [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
     [UnconditionalSuppressMessage("Trimming", "IL2026")]
     [UnconditionalSuppressMessage("AOT", "IL3050")]
