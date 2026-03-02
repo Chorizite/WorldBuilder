@@ -42,9 +42,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         protected override int MaxConcurrentGenerations => 21;
 
+        protected override bool UseInstanceBuffer => false;
+
         public EnvCellRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
             IDatReaderWriter dats, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager, Frustum frustum)
-            : base(gl, graphicsDevice, meshManager, log, landscapeDoc, frustum) {
+            : base(gl, graphicsDevice, meshManager, log, landscapeDoc, frustum, false, 1024) {
             _dats = dats;
         }
 

@@ -22,7 +22,7 @@ namespace Chorizite.OpenGLSDLBackend;
 /// Manages the 3D scene including camera, objects, and rendering.
 /// </summary>
 public class GameScene : IDisposable {
-    private const uint MAX_GPU_UPDATE_TIME_PER_FRAME = 33; // max gpu time spent doing uploads per frame, in ms
+    private const uint MAX_GPU_UPDATE_TIME_PER_FRAME = 20; // max gpu time spent doing uploads per frame, in ms
     private readonly GL _gl;
     private readonly OpenGLGraphicsDevice _graphicsDevice;
     private readonly ILoggerFactory _loggerFactory;

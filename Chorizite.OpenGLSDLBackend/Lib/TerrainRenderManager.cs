@@ -532,6 +532,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _gl.BufferData(BufferTargetARB.ArrayBuffer, (nuint)(vertices.Length * VertexLandscape.Size), vPtr,
                     BufferUsageARB.StaticDraw);
             }
+            GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
             GpuMemoryTracker.TrackAllocation(vertices.Length * VertexLandscape.Size, GpuResourceType.Buffer);
 
             chunk.EBO = _gl.GenBuffer();
@@ -541,6 +542,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _gl.BufferData(BufferTargetARB.ElementArrayBuffer, (nuint)(indices.Length * sizeof(uint)), iPtr,
                     BufferUsageARB.StaticDraw);
             }
+            GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
             GpuMemoryTracker.TrackAllocation(indices.Length * sizeof(uint), GpuResourceType.Buffer);
 
             // Set up attributes based on VertexLandscape.Format
@@ -585,6 +587,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             chunk.GeneratedIndices = Memory<uint>.Empty;
 
             _gl.BindVertexArray(0);
+
+            UpdateGpuStats();
+        }
+
+        private void UpdateGpuStats() {
+            long totalBytes = 0;
+            foreach (var chunk in _chunks.Values) {
+                if (chunk.IsGenerated) {
+                    totalBytes += chunk.VertexCount * VertexLandscape.Size;
+                    totalBytes += (long)chunk.IndexCount * sizeof(uint);
+                }
+            }
+            GpuMemoryTracker.TrackNamedBuffer("Terrain Buffers", totalBytes, totalBytes);
         }
 
         public unsafe void Render(Matrix4x4 viewMatrix, Matrix4x4 projectionMatrix, Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, float fieldOfView) {
@@ -696,6 +711,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var chunk in _chunks.Values) {
                 chunk.Dispose();
             }
+            GpuMemoryTracker.UntrackNamedBuffer("Terrain Buffers");
 
             _chunks.Clear();
             _pendingGeneration.Clear();

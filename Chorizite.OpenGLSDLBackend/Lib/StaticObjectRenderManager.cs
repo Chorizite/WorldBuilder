@@ -40,7 +40,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public StaticObjectRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
             IDatReaderWriter dats, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager, Frustum frustum)
-            : base(gl, graphicsDevice, meshManager, log, landscapeDoc, frustum) {
+            : base(gl, graphicsDevice, meshManager, log, landscapeDoc, frustum, true, 655360) {
             _dats = dats;
         }
 

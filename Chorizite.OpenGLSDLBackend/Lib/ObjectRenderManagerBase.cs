@@ -68,6 +68,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public bool NeedsPrepare { get; protected set; } = true;
 
+        /// <summary>
+        /// Whether this manager uses the persistent instance buffer.
+        /// If false, instances are uploaded every frame during Render().
+        /// </summary>
+        protected virtual bool UseInstanceBuffer => true;
+
         // List pool for rendering
         protected readonly List<List<InstanceData>> _listPool = new();
         protected int _poolIndex = 0;
@@ -101,8 +107,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected virtual bool RenderHighlightsWhenEmpty => false;
 
         protected ObjectRenderManagerBase(GL gl, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager,
-            ILogger log, LandscapeDocument landscapeDoc, Frustum frustum)
-            : base(gl, graphicsDevice, meshManager) {
+            ILogger log, LandscapeDocument landscapeDoc, Frustum frustum, bool useInstanceBuffer = true, int initialCapacity = 1024 * 16384)
+            : base(gl, graphicsDevice, meshManager, useInstanceBuffer, initialCapacity) {
             Log = log;
             LandscapeDoc = landscapeDoc;
             _frustum = frustum;
@@ -612,66 +618,68 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Populate part groups via subclass hook
             PopulatePartGroups(lb, instancesToUpload);
 
-            // Free previous slice if we're re-uploading
-            if (lb.InstanceBufferOffset >= 0) {
-                FreeInstanceSlice(lb.InstanceBufferOffset, lb.InstanceCount);
-                lb.InstanceBufferOffset = -1;
-            }
-
-            // Consolidation for optimized rendering
-            var allInstances = new List<InstanceData>();
-            var localDrawCalls = new List<(ulong ObjectId, int Count, int Offset)>();
-
-            foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
-                localDrawCalls.Add((gfxObjId, transforms.Count, allInstances.Count));
-                allInstances.AddRange(transforms);
-            }
-            foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
-                localDrawCalls.Add((gfxObjId, transforms.Count, allInstances.Count));
-                allInstances.AddRange(transforms);
-            }
-
-            lb.InstanceCount = allInstances.Count;
-            if (lb.InstanceCount > 0) {
-                lb.InstanceBufferOffset = AllocateInstanceSlice(lb.InstanceCount);
+            if (UseInstanceBuffer) {
+                // Free previous slice if we're re-uploading
                 if (lb.InstanceBufferOffset >= 0) {
-                    UploadInstanceData(lb.InstanceBufferOffset, allInstances);
+                    FreeInstanceSlice(lb.InstanceBufferOffset, lb.InstanceCount);
+                    lb.InstanceBufferOffset = -1;
+                }
 
-                    // Pre-calculate MDI commands and batch data
-                    lb.MdiCommands.Clear();
-                    foreach (var call in localDrawCalls) {
-                        var renderData = MeshManager.TryGetRenderData(call.ObjectId);
-                        if (renderData != null && !renderData.IsSetup) {
-                            foreach (var batch in renderData.Batches) {
-                                if (!lb.MdiCommands.TryGetValue(batch.CullMode, out var list)) {
-                                    list = new List<LandblockMdiCommand>();
-                                    lb.MdiCommands[batch.CullMode] = list;
-                                }
+                // Consolidation for optimized rendering
+                var allInstances = new List<InstanceData>();
+                var localDrawCalls = new List<(ulong ObjectId, int Count, int Offset)>();
 
-                                list.Add(new LandblockMdiCommand {
-                                    ObjectId = call.ObjectId,
-                                    VAO = renderData.VAO,
-                                    IBO = batch.IBO,
-                                    TextureIndex = (uint)batch.TextureIndex,
-                                    Atlas = batch.Atlas.TextureArray as ManagedGLTextureArray ?? throw new Exception("Atlas.TextureArray must be ManagedGLTextureArray"),
-                                    Command = new DrawElementsIndirectCommand {
-                                        Count = (uint)batch.IndexCount,
-                                        InstanceCount = (uint)call.Count,
-                                        FirstIndex = batch.FirstIndex,
-                                        BaseVertex = (int)batch.BaseVertex,
-                                        BaseInstance = (uint)(lb.InstanceBufferOffset + call.Offset)
-                                    },
-                                    BatchData = new ModernBatchData {
-                                        TextureHandle = batch.BindlessTextureHandle,
-                                        TextureIndex = (uint)batch.TextureIndex
+                foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
+                    localDrawCalls.Add((gfxObjId, transforms.Count, allInstances.Count));
+                    allInstances.AddRange(transforms);
+                }
+                foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
+                    localDrawCalls.Add((gfxObjId, transforms.Count, allInstances.Count));
+                    allInstances.AddRange(transforms);
+                }
+
+                lb.InstanceCount = allInstances.Count;
+                if (lb.InstanceCount > 0) {
+                    lb.InstanceBufferOffset = AllocateInstanceSlice(lb.InstanceCount);
+                    if (lb.InstanceBufferOffset >= 0) {
+                        UploadInstanceData(lb.InstanceBufferOffset, allInstances);
+
+                        // Pre-calculate MDI commands and batch data
+                        lb.MdiCommands.Clear();
+                        foreach (var call in localDrawCalls) {
+                            var renderData = MeshManager.TryGetRenderData(call.ObjectId);
+                            if (renderData != null && !renderData.IsSetup) {
+                                foreach (var batch in renderData.Batches) {
+                                    if (!lb.MdiCommands.TryGetValue(batch.CullMode, out var list)) {
+                                        list = new List<LandblockMdiCommand>();
+                                        lb.MdiCommands[batch.CullMode] = list;
                                     }
-                                });
+
+                                    list.Add(new LandblockMdiCommand {
+                                        ObjectId = call.ObjectId,
+                                        VAO = renderData.VAO,
+                                        IBO = batch.IBO,
+                                        TextureIndex = (uint)batch.TextureIndex,
+                                        Atlas = batch.Atlas.TextureArray as ManagedGLTextureArray ?? throw new Exception("Atlas.TextureArray must be ManagedGLTextureArray"),
+                                        Command = new DrawElementsIndirectCommand {
+                                            Count = (uint)batch.IndexCount,
+                                            InstanceCount = (uint)call.Count,
+                                            FirstIndex = batch.FirstIndex,
+                                            BaseVertex = (int)batch.BaseVertex,
+                                            BaseInstance = (uint)(lb.InstanceBufferOffset + call.Offset)
+                                        },
+                                        BatchData = new ModernBatchData {
+                                            TextureHandle = batch.BindlessTextureHandle,
+                                            TextureIndex = (uint)batch.TextureIndex
+                                        }
+                                    });
+                                }
                             }
                         }
                     }
-                }
-                else {
-                    Log.LogWarning("Failed to allocate {Count} instances for landblock ({X},{Y}). Instance buffer may be full.", lb.InstanceCount, lb.GridX, lb.GridY);
+                    else {
+                        Log.LogWarning("Failed to allocate {Count} instances for landblock ({X},{Y}). Instance buffer may be full.", lb.InstanceCount, lb.GridX, lb.GridY);
+                    }
                 }
             }
 

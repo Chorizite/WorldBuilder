@@ -115,11 +115,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (VAO != 0) _gl.DeleteVertexArray(VAO);
             if (VBO != 0) {
                 _gl.DeleteBuffer(VBO);
-                GpuMemoryTracker.TrackDeallocation(VertexCount * VertexLandscape.Size);
+                GpuMemoryTracker.TrackDeallocation(VertexCount * VertexLandscape.Size, GpuResourceType.Buffer);
             }
             if (EBO != 0) {
                 _gl.DeleteBuffer(EBO);
-                GpuMemoryTracker.TrackDeallocation(IndexCount * sizeof(uint));
+                GpuMemoryTracker.TrackDeallocation(IndexCount * sizeof(uint), GpuResourceType.Buffer);
             }
             _disposed = true;
         }

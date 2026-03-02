@@ -225,7 +225,16 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
                     }
 
                     var vramDetails = _performanceService.GetGpuResourceDetails().ToList();
-                    VramDetailsTooltip = string.Join("\n", vramDetails.Select(d => $"{d.Type}: {d.Count} objects, {FormatBytes(d.Bytes)}"));
+                    var bufferDetails = _performanceService.GetNamedBufferDetails().ToList();
+                    
+                    var details = new List<string>();
+                    details.AddRange(vramDetails.Select(d => $"{d.Type}: {d.Count} objects, {FormatBytes(d.Bytes)}"));
+                    if (bufferDetails.Count > 0) {
+                        details.Add("");
+                        details.Add("Buffer Usage:");
+                        details.AddRange(bufferDetails.Select(b => $"{b.Name}: {FormatBytes(b.UsedBytes)} / {FormatBytes(b.CapacityBytes)} ({(b.CapacityBytes > 0 ? (b.UsedBytes * 100.0 / b.CapacityBytes).ToString("0.##") : "0")}%)"));
+                    }
+                    VramDetailsTooltip = string.Join("\n", details);
                 }
                 else {
                     VramUsage = "N/A";

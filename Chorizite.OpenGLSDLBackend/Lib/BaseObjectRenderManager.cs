@@ -28,7 +28,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Global instance buffers for all landblocks managed by this manager
         private uint _worldInstanceBuffer;
         private uint _worldInstanceSSBO;
-        private int _worldInstanceCapacity = 1024 * 4096; // 4M instances
+        private int _worldInstanceCapacity = 1024 * 16384; // 16M instances
         private readonly List<(int Offset, int Size)> _freeSlices = new();
         private readonly object _allocationLock = new();
 
@@ -44,38 +44,90 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private ModernBatchData[] _modernBatches = Array.Empty<ModernBatchData>();
         private readonly List<LandblockMdiCommand>[] _cullGroups = [new(), new(), new(), new()];
 
-        protected unsafe BaseObjectRenderManager(GL gl, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager, int initialCapacity = 1024 * 4096) {
+        protected unsafe BaseObjectRenderManager(GL gl, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager, bool createWorldBuffer = true, int initialCapacity = 1024 * 16384) {
             Gl = gl;
             GraphicsDevice = graphicsDevice;
             MeshManager = meshManager;
             _useModernRendering = graphicsDevice.HasOpenGL43 && graphicsDevice.HasBindless;
             _worldInstanceCapacity = initialCapacity;
 
-            // Initialize global instance buffer
-            Gl.GenBuffers(1, out _worldInstanceBuffer);
-            Gl.BindBuffer(GLEnum.ArrayBuffer, _worldInstanceBuffer);
-            Gl.BufferData(GLEnum.ArrayBuffer, (nuint)(_worldInstanceCapacity * sizeof(InstanceData)), null, GLEnum.DynamicDraw);
-            _freeSlices.Add((0, _worldInstanceCapacity));
+            if (createWorldBuffer) {
+                // Initialize global instance buffer
+                Gl.GenBuffers(1, out _worldInstanceBuffer);
+                Gl.BindBuffer(GLEnum.ArrayBuffer, _worldInstanceBuffer);
+                Gl.BufferData(GLEnum.ArrayBuffer, (nuint)(_worldInstanceCapacity * sizeof(InstanceData)), null, GLEnum.DynamicDraw);
+                GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
+                GpuMemoryTracker.TrackAllocation(_worldInstanceCapacity * sizeof(InstanceData), GpuResourceType.Buffer);
+                _freeSlices.Add((0, _worldInstanceCapacity));
+            }
 
             if (_useModernRendering) {
-                Gl.GenBuffers(1, out _worldInstanceSSBO);
-                Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _worldInstanceSSBO);
-                Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_worldInstanceCapacity * sizeof(InstanceData)), null, GLEnum.DynamicDraw);
+                if (createWorldBuffer) {
+                    Gl.GenBuffers(1, out _worldInstanceSSBO);
+                    Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _worldInstanceSSBO);
+                    Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_worldInstanceCapacity * sizeof(InstanceData)), null, GLEnum.DynamicDraw);
+                    GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
+                    GpuMemoryTracker.TrackAllocation(_worldInstanceCapacity * sizeof(InstanceData), GpuResourceType.Buffer);
+                }
 
                 Gl.GenBuffers(1, out _mdiCommandBuffer);
                 Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _mdiCommandBuffer);
                 Gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_mdiCommandCapacity * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
+                GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
+                GpuMemoryTracker.TrackAllocation(_mdiCommandCapacity * sizeof(DrawElementsIndirectCommand), GpuResourceType.Buffer);
                 
                 Gl.GenBuffers(1, out _modernBatchBuffer);
                 Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernBatchBuffer);
                 Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_mdiCommandCapacity * sizeof(ModernBatchData)), null, GLEnum.DynamicDraw);
+                GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
+                GpuMemoryTracker.TrackAllocation(_mdiCommandCapacity * sizeof(ModernBatchData), GpuResourceType.Buffer);
 
                 Gl.GenBuffers(1, out _modernInstanceBuffer);
                 Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernInstanceBuffer);
                 Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_modernInstanceCapacity * sizeof(InstanceData)), null, GLEnum.DynamicDraw);
+                GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
+                GpuMemoryTracker.TrackAllocation(_modernInstanceCapacity * sizeof(InstanceData), GpuResourceType.Buffer);
             }
 
             GLHelpers.CheckErrors(Gl);
+            UpdateGpuStats();
+        }
+
+        public virtual unsafe void UpdateGpuStats() {
+            var name = GetType().Name;
+            if (_worldInstanceBuffer != 0) {
+                int totalFree;
+                lock (_allocationLock) {
+                    totalFree = _freeSlices.Sum(s => s.Size);
+                }
+                GpuMemoryTracker.TrackNamedBuffer($"{name} World Instance VBO", 
+                    (long)_worldInstanceCapacity * sizeof(InstanceData), 
+                    (long)(_worldInstanceCapacity - totalFree) * sizeof(InstanceData));
+            }
+
+            if (_useModernRendering) {
+                if (_worldInstanceSSBO != 0) {
+                    int totalFree;
+                    lock (_allocationLock) {
+                        totalFree = _freeSlices.Sum(s => s.Size);
+                    }
+                    GpuMemoryTracker.TrackNamedBuffer($"{name} World Instance SSBO", 
+                        (long)_worldInstanceCapacity * sizeof(InstanceData), 
+                        (long)(_worldInstanceCapacity - totalFree) * sizeof(InstanceData));
+                }
+
+                GpuMemoryTracker.TrackNamedBuffer($"{name} MDI Command Buffer", 
+                    (long)_mdiCommandCapacity * sizeof(DrawElementsIndirectCommand), 
+                    0);
+                
+                GpuMemoryTracker.TrackNamedBuffer($"{name} Modern Batch Buffer", 
+                    (long)_mdiCommandCapacity * sizeof(ModernBatchData), 
+                    0);
+
+                GpuMemoryTracker.TrackNamedBuffer($"{name} Modern Instance Buffer", 
+                    (long)_modernInstanceCapacity * sizeof(InstanceData), 
+                    0);
+            }
         }
 
         protected int AllocateInstanceSlice(int count) {
@@ -87,6 +139,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         if (slice.Size > count) {
                             _freeSlices.Insert(i, (slice.Offset + count, slice.Size - count));
                         }
+                        UpdateGpuStats();
                         return slice.Offset;
                     }
                 }
@@ -123,6 +176,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         _freeSlices.RemoveAt(insertIdx);
                     }
                 }
+                UpdateGpuStats();
             }
         }
 
@@ -519,12 +573,39 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public virtual void Dispose() {
-            if (_mdiCommandBuffer != 0) Gl.DeleteBuffer(_mdiCommandBuffer);
-            if (_modernBatchBuffer != 0) Gl.DeleteBuffer(_modernBatchBuffer);
-            if (_modernInstanceBuffer != 0) Gl.DeleteBuffer(_modernInstanceBuffer);
-            if (_worldInstanceBuffer != 0) Gl.DeleteBuffer(_worldInstanceBuffer);
-            if (_worldInstanceSSBO != 0) Gl.DeleteBuffer(_worldInstanceSSBO);
+        public virtual unsafe void Dispose() {
+            var name = GetType().Name;
+            GpuMemoryTracker.UntrackNamedBuffer($"{name} World Instance VBO");
+            GpuMemoryTracker.UntrackNamedBuffer($"{name} World Instance SSBO");
+            GpuMemoryTracker.UntrackNamedBuffer($"{name} MDI Command Buffer");
+            GpuMemoryTracker.UntrackNamedBuffer($"{name} Modern Batch Buffer");
+            GpuMemoryTracker.UntrackNamedBuffer($"{name} Modern Instance Buffer");
+
+            if (_mdiCommandBuffer != 0) {
+                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+                GpuMemoryTracker.TrackDeallocation(_mdiCommandCapacity * sizeof(DrawElementsIndirectCommand), GpuResourceType.Buffer);
+                Gl.DeleteBuffer(_mdiCommandBuffer);
+            }
+            if (_modernBatchBuffer != 0) {
+                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+                GpuMemoryTracker.TrackDeallocation(_mdiCommandCapacity * sizeof(ModernBatchData), GpuResourceType.Buffer);
+                Gl.DeleteBuffer(_modernBatchBuffer);
+            }
+            if (_modernInstanceBuffer != 0) {
+                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+                GpuMemoryTracker.TrackDeallocation(_modernInstanceCapacity * sizeof(InstanceData), GpuResourceType.Buffer);
+                Gl.DeleteBuffer(_modernInstanceBuffer);
+            }
+            if (_worldInstanceBuffer != 0) {
+                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+                GpuMemoryTracker.TrackDeallocation(_worldInstanceCapacity * sizeof(InstanceData), GpuResourceType.Buffer);
+                Gl.DeleteBuffer(_worldInstanceBuffer);
+            }
+            if (_worldInstanceSSBO != 0) {
+                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+                GpuMemoryTracker.TrackDeallocation(_worldInstanceCapacity * sizeof(InstanceData), GpuResourceType.Buffer);
+                Gl.DeleteBuffer(_worldInstanceSSBO);
+            }
         }
     }
 }
