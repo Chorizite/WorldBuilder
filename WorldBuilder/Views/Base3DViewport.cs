@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Rendering.Composition;
+using Avalonia.Threading;
 using Chorizite.Core.Render;
 using Chorizite.OpenGLSDLBackend;
 using Microsoft.Extensions.Logging;
@@ -27,7 +28,20 @@ namespace WorldBuilder.Views {
         public RenderTarget? RenderTarget { get; protected set; }
         public OpenGLRenderer? Renderer { get; private set; }
         public abstract DebugRenderSettings RenderSettings { get; }
+        public bool RenderContinuously { get; set; } = true;
+        protected bool _renderRequested = true;
 
+        public void RequestRender() {
+            _renderRequested = true;
+            if (_visual != null && !RenderContinuously) {
+                if (Dispatcher.UIThread.CheckAccess()) {
+                    _visual.SendHandlerMessage(new InvalidateMessage());
+                }
+                else {
+                    _glVisual?.TriggerInvalidate();
+                }
+            }
+        }
         public static readonly StyledProperty<bool> IsTooltipProperty =
             AvaloniaProperty.Register<Base3DViewport, bool>(nameof(IsTooltip));
 
@@ -122,7 +136,8 @@ namespace WorldBuilder.Views {
                 Renderer = new OpenGLRenderer(gl, _logger, null!, size.Width, size.Height, RenderSettings, allowBindless, existingDevice);
                 _renderSize = size;
                 OnGlInit(gl, size);
-            } catch (Exception ex) {
+            }
+            catch (Exception ex) {
                 _logger.LogError(ex, "Failed to initialize viewport");
                 throw;
             }
@@ -305,6 +320,9 @@ namespace WorldBuilder.Views {
         #endregion
 
         public class DisposeMessage {
+        }
+
+        public class InvalidateMessage {
         }
 
         public class PositionMessage {

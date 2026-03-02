@@ -166,8 +166,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Shared atlases grouped by (Width, Height, Format)
         private readonly Dictionary<(int Width, int Height, TextureFormat Format), List<TextureAtlasManager>> _globalAtlases = new();
 
+        // CPU-side cache for prepared mesh data (to avoid re-reading/decoding from DAT)
+        private readonly Dictionary<ulong, ObjectMeshData> _cpuMeshCache = new();
+        private readonly LinkedList<ulong> _cpuLruList = new();
+        private readonly int _maxCpuCacheSize = 100;
+
         public GlobalMeshBuffer? GlobalBuffer { get; }
         private readonly bool _useModernRendering;
+
+        private readonly List<(ulong Id, bool IsSetup, TaskCompletionSource<ObjectMeshData?> Tcs, CancellationToken Ct)> _pendingRequests = new();
+        private int _activeWorkers = 0;
+        private const int MaxParallelLoads = 4;
 
         public ObjectMeshManager(OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats, ILogger<ObjectMeshManager> logger) {
             _graphicsDevice = graphicsDevice;
@@ -293,26 +302,97 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }));
         }
 
-        /// <summary>
-        /// Phase 1 (Background Thread): Prepare CPU-side mesh data from DAT asynchronously.
-        /// Returns an existing task if this object is already being prepared.
-        /// </summary>
         public Task<ObjectMeshData?> PrepareMeshDataAsync(ulong id, bool isSetup, CancellationToken ct = default) {
             if (HasRenderData(id)) return Task.FromResult<ObjectMeshData?>(null);
 
-            // Clean up stale cancelled/faulted tasks that may have been left behind
-            if (_preparationTasks.TryGetValue(id, out var existing) && (existing.IsCanceled || existing.IsFaulted)) {
+            // Check CPU cache first
+            lock (_cpuMeshCache) {
+                if (_cpuMeshCache.TryGetValue(id, out var cachedData)) {
+                    _cpuLruList.Remove(id);
+                    _cpuLruList.AddLast(id);
+                    return Task.FromResult<ObjectMeshData?>(cachedData);
+                }
+            }
+
+            // Return existing task if already running or queued
+            if (_preparationTasks.TryGetValue(id, out var existing)) {
+                if (!existing.IsFaulted && !existing.IsCanceled) {
+                    lock (_pendingRequests) {
+                        int idx = _pendingRequests.FindIndex(r => r.Id == id);
+                        if (idx >= 0) {
+                            var req = _pendingRequests[idx];
+                            _pendingRequests.RemoveAt(idx);
+                            _pendingRequests.Add(req);
+                        }
+                    }
+                    return existing;
+                }
                 _preparationTasks.TryRemove(id, out _);
             }
 
-            return _preparationTasks.GetOrAdd(id, k => Task.Run(() => {
+            var tcs = new TaskCompletionSource<ObjectMeshData?>();
+            var task = tcs.Task;
+            _preparationTasks[id] = task;
+
+            lock (_pendingRequests) {
+                _pendingRequests.Add((id, isSetup, tcs, ct));
+                if (_activeWorkers < MaxParallelLoads) {
+                    _activeWorkers++;
+                    Task.Run(ProcessQueueAsync);
+                }
+            }
+
+            return task;
+        }
+
+        private async Task ProcessQueueAsync() {
+            while (true) {
+                ulong id;
+                bool isSetup;
+                TaskCompletionSource<ObjectMeshData?> tcs;
+                CancellationToken ct;
+
+                lock (_pendingRequests) {
+                    // Filter out cancelled requests
+                    _pendingRequests.RemoveAll(r => r.Ct.IsCancellationRequested);
+
+                    if (_pendingRequests.Count == 0) {
+                        _activeWorkers--;
+                        return;
+                    }
+
+                    // LIFO: Pick the most recent request
+                    var index = _pendingRequests.Count - 1;
+                    (id, isSetup, tcs, ct) = _pendingRequests[index];
+                    _pendingRequests.RemoveAt(index);
+                }
+
                 try {
-                    return PrepareMeshData(id, isSetup, CancellationToken.None);
+                    var data = PrepareMeshData(id, isSetup, ct);
+                    if (data != null) {
+                        lock (_cpuMeshCache) {
+                            if (_cpuMeshCache.Count >= _maxCpuCacheSize) {
+                                var oldest = _cpuLruList.First!.Value;
+                                _cpuLruList.RemoveFirst();
+                                _cpuMeshCache.Remove(oldest);
+                            }
+                            _cpuMeshCache[id] = data;
+                            _cpuLruList.AddLast(id);
+                        }
+                    }
+                    tcs.TrySetResult(data);
+                }
+                catch (OperationCanceledException) {
+                    tcs.TrySetCanceled(ct);
+                }
+                catch (Exception ex) {
+                    _logger.LogError(ex, "Error preparing mesh data for 0x{Id:X8}", id);
+                    tcs.TrySetException(ex);
                 }
                 finally {
-                    _preparationTasks.TryRemove(k, out _);
+                    _preparationTasks.TryRemove(id, out _);
                 }
-            }));
+            }
         }
 
         /// <summary>

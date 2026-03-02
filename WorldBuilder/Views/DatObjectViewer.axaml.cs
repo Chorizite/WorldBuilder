@@ -35,6 +35,9 @@ namespace WorldBuilder.Views {
         private bool _renderShowCulling = true;
         private Vector4 _renderBackgroundColor = new Vector4(0.15f, 0.15f, 0.2f, 1.0f);
         private bool _renderAltMouseLook = false;
+        private bool _renderIsTooltip = false;
+        private bool _renderIsPointerOver = false;
+        private bool _renderIsEffectivelyVisible = false;
 
         public override DebugRenderSettings RenderSettings => new DebugRenderSettings();
 
@@ -105,7 +108,17 @@ namespace WorldBuilder.Views {
         public DatObjectViewer() {
             InitializeComponent();
             InitializeBase3DView();
+            RenderContinuously = false;
             _renderBackgroundColor = ExtractColor(ClearColor);
+            _renderIsTooltip = IsTooltip;
+            _renderIsSetup = IsSetup;
+            _renderIsAutoCamera = IsAutoCamera;
+            _renderIsManualRotate = IsManualRotate;
+            _renderShowWireframe = ShowWireframe;
+            _renderWireframeColor = WireframeColor;
+            _renderShowCulling = ShowCulling;
+            _renderIsPointerOver = IsPointerOver;
+            _renderIsEffectivelyVisible = IsEffectivelyVisible;
 
             _settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
             if (_settings != null) {
@@ -139,11 +152,12 @@ namespace WorldBuilder.Views {
             if (change.Property == IsAutoCameraProperty || change.Property == IsManualRotateProperty) {
                 _renderIsAutoCamera = IsAutoCamera;
                 _renderIsManualRotate = IsManualRotate;
-                
+
                 if (_scene != null) {
                     _scene.IsAutoCamera = _renderIsAutoCamera;
                     _scene.IsManualRotate = _renderIsManualRotate;
                 }
+                RequestRender();
             }
 
             if (change.Property == FileIdProperty || change.Property == IsSetupProperty || change.Property == DatsProperty) {
@@ -158,6 +172,7 @@ namespace WorldBuilder.Views {
                 else {
                     Dispatcher.UIThread.Post(UpdateObject);
                 }
+                RequestRender();
             }
 
             if (change.Property == ShowWireframeProperty) {
@@ -174,11 +189,25 @@ namespace WorldBuilder.Views {
                 }
             }
 
+            if (change.Property == IsTooltipProperty) {
+                _renderIsTooltip = IsTooltip;
+                if (_scene != null) {
+                    _scene.IsTooltip = _renderIsTooltip;
+                }
+                RequestRender();
+            }
+
+            if (change.Property == IsVisibleProperty) {
+                _renderIsEffectivelyVisible = IsEffectivelyVisible;
+                RequestRender();
+            }
+
             if (change.Property == ShowCullingProperty) {
                 _renderShowCulling = ShowCulling;
                 if (_scene != null) {
                     _scene.ShowCulling = _renderShowCulling;
                 }
+                RequestRender();
             }
 
             if (change.Property == ClearColorProperty) {
@@ -188,6 +217,7 @@ namespace WorldBuilder.Views {
                 else {
                     Dispatcher.UIThread.Post(UpdateBackgroundColor);
                 }
+                RequestRender();
             }
         }
 
@@ -226,7 +256,10 @@ namespace WorldBuilder.Views {
             var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _renderDats!);
 
             _scene = new SingleObjectScene(_gl!, Renderer!.GraphicsDevice, loggerFactory, _renderDats!, meshManager);
+            _scene.OnRequestRender += () => RequestRender();
             _scene.BackgroundColor = _renderBackgroundColor;
+            _scene.IsTooltip = _renderIsTooltip;
+            _scene.IsSetup = _renderIsSetup;
             _scene.IsAutoCamera = _renderIsAutoCamera;
             _scene.IsManualRotate = _renderIsManualRotate;
             _scene.ShowWireframe = _renderShowWireframe;
@@ -236,7 +269,7 @@ namespace WorldBuilder.Views {
             var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
             if (settings != null) {
                 _scene.EnableTransparencyPass = settings.Landscape.Rendering.EnableTransparencyPass;
-                _scene.MouseSensitivity = settings.Landscape.Camera.MouseSensitivity;
+                _scene.SceneMouseSensitivity = settings.Landscape.Camera.MouseSensitivity;
             }
 
             _scene.Initialize();
@@ -244,8 +277,19 @@ namespace WorldBuilder.Views {
 
         protected override void OnGlRender(double frameTime) {
             if (_scene == null) return;
-            _scene.Update((float)frameTime);
+
+            // Only update scene (spin camera, etc) if we are actually visible
+            if (_renderIsEffectivelyVisible) {
+                _scene.IsHovered = _renderIsPointerOver;
+                _scene.Update((float)frameTime);
+            }
+
             _scene.Render();
+
+            // If the scene still needs rendering (e.g. spinning or loading), request another frame
+            if (_scene.NeedsRender && _renderIsEffectivelyVisible) {
+                RequestRender();
+            }
         }
 
         protected override void OnGlResize(PixelSize canvasSize) {
@@ -271,6 +315,16 @@ namespace WorldBuilder.Views {
                 _scene?.HandlePointerMoved(input.Position, input.Delta);
             }
             _lastPointerPosition = mousePositionScaled;
+        }
+
+        protected override void OnPointerEntered(PointerEventArgs e) {
+            base.OnPointerEntered(e);
+            _renderIsPointerOver = true;
+        }
+
+        protected override void OnPointerExited(PointerEventArgs e) {
+            base.OnPointerExited(e);
+            _renderIsPointerOver = false;
         }
 
         private ViewportInputEvent CreateInputEvent(PointerEventArgs e) {
