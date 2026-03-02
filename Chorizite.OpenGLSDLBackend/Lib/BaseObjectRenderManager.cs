@@ -198,8 +198,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         CurrentIBO = cmd.IBO;
                     }
 
-                    Gl.DrawElementsInstanced(PrimitiveType.Triangles, cmd.Command.Count,
-                        DrawElementsType.UnsignedShort, (void*)0, cmd.Command.InstanceCount);
+                    if (_useModernRendering) {
+                        Gl.DrawElementsInstancedBaseVertex(PrimitiveType.Triangles, cmd.Command.Count,
+                            DrawElementsType.UnsignedShort, (void*)(cmd.Command.FirstIndex * sizeof(ushort)), cmd.Command.InstanceCount, (int)cmd.Command.BaseVertex);
+                    } else {
+                        Gl.DrawElementsInstanced(PrimitiveType.Triangles, cmd.Command.Count,
+                            DrawElementsType.UnsignedShort, (void*)0, cmd.Command.InstanceCount);
+                    }
                 }
             }
         }
@@ -333,8 +338,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     CurrentIBO = batch.IBO;
                 }
 
-                Gl.DrawElementsInstanced(PrimitiveType.Triangles, (uint)batch.IndexCount,
-                    DrawElementsType.UnsignedShort, (void*)0, (uint)instanceCount);
+                if (_useModernRendering) {
+                    Gl.DrawElementsInstancedBaseVertex(PrimitiveType.Triangles, (uint)batch.IndexCount,
+                        DrawElementsType.UnsignedShort, (void*)(batch.FirstIndex * sizeof(ushort)), (uint)instanceCount, (int)batch.BaseVertex);
+                } else {
+                    Gl.DrawElementsInstanced(PrimitiveType.Triangles, (uint)batch.IndexCount,
+                        DrawElementsType.UnsignedShort, (void*)0, (uint)instanceCount);
+                }
             }
         }
 

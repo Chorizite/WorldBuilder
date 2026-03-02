@@ -89,8 +89,12 @@ namespace Chorizite.OpenGLSDLBackend {
         public void Initialize() {
             if (_initialized) return;
 
-            var vertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.StaticObject.vert");
-            var fragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.StaticObject.frag");
+            var useModernRendering = GraphicsDevice.HasOpenGL43 && GraphicsDevice.HasBindless;
+            var sVertName = useModernRendering ? "Shaders.StaticObjectModern.vert" : "Shaders.StaticObject.vert";
+            var sFragName = useModernRendering ? "Shaders.StaticObjectModern.frag" : "Shaders.StaticObject.frag";
+
+            var vertSource = EmbeddedResourceReader.GetEmbeddedResource(sVertName);
+            var fragSource = EmbeddedResourceReader.GetEmbeddedResource(sFragName);
             _shader = GraphicsDevice.CreateShader("StaticObject", vertSource, fragSource);
 
             if (_shader is GLSLShader glsl && glsl.Program == 0) {
@@ -325,17 +329,38 @@ namespace Chorizite.OpenGLSDLBackend {
             }
         }
 
-        private void RenderCurrentObject(ObjectRenderData data, Matrix4x4 transform) {
+        private unsafe void RenderCurrentObject(ObjectRenderData data, Matrix4x4 transform) {
+            var drawCalls = new List<(ObjectRenderData renderData, int count, int offset)>();
+            var allInstances = new List<InstanceData>();
+
             if (data.IsSetup) {
                 foreach (var part in data.SetupParts) {
                     var partData = MeshManager.TryGetRenderData(part.GfxObjId);
                     if (partData != null) {
-                        RenderObjectBatches(_shader!, partData, new List<InstanceData> { new InstanceData { Transform = part.Transform * transform, CellId = 0 } }, ShowCulling);
+                        drawCalls.Add((partData, 1, allInstances.Count));
+                        allInstances.Add(new InstanceData { Transform = part.Transform * transform, CellId = 0 });
                     }
                 }
             }
             else {
-                RenderObjectBatches(_shader!, data, new List<InstanceData> { new InstanceData { Transform = transform, CellId = 0 } }, ShowCulling);
+                drawCalls.Add((data, 1, 0));
+                allInstances.Add(new InstanceData { Transform = transform, CellId = 0 });
+            }
+
+            if (_useModernRendering) {
+                RenderModernMDI(_shader!, drawCalls, allInstances, ShowCulling);
+            }
+            else {
+                GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData));
+                Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
+                var span = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(allInstances);
+                fixed (InstanceData* ptr = span) {
+                    Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
+                }
+
+                foreach (var call in drawCalls) {
+                    RenderObjectBatches(_shader!, call.renderData, call.count, call.offset, ShowCulling);
+                }
             }
         }
 
