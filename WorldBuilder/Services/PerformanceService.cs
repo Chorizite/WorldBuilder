@@ -45,6 +45,20 @@ namespace WorldBuilder.Services {
         }
 
         /// <summary>
+        /// Gets whether OpenGL 4.3 or higher is supported by the context.
+        /// </summary>
+        public bool GetHasOpenGL43() {
+            return _glContextManager.HasOpenGL43;
+        }
+
+        /// <summary>
+        /// Gets whether the modern rendering pipeline is supported (requires OpenGL 4.3+ and Bindless).
+        /// </summary>
+        public bool IsModernPipelineSupported() {
+            return _glContextManager.IsModernPipelineSupported;
+        }
+
+        /// <summary>
         /// Gets the current process RAM usage in bytes.
         /// </summary>
         /// <returns>RAM usage in bytes.</returns>

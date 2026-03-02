@@ -85,9 +85,24 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     [ObservableProperty] private string _glVersion = "GL: Unknown";
 
     /// <summary>
+    /// Gets the current OpenGL details formatted for a tooltip.
+    /// </summary>
+    [ObservableProperty] private string _glDetailsTooltip = "";
+
+    /// <summary>
+    /// Gets whether the current context supports OpenGL 4.3 or higher.
+    /// </summary>
+    [ObservableProperty] private bool _hasOpenGL43;
+
+    /// <summary>
     /// Gets whether the current context has bindless texturing support.
     /// </summary>
     [ObservableProperty] private bool _hasBindless;
+
+    /// <summary>
+    /// Gets whether the modern rendering pipeline is being used.
+    /// </summary>
+    [ObservableProperty] private bool _isModernPipelineSupported;
 
     /// <summary>
     /// Gets or sets the greeting message displayed in the main view.
@@ -181,6 +196,17 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
 
                 GlVersion = _performanceService.GetGlVersion();
                 HasBindless = _performanceService.GetHasBindless();
+                HasOpenGL43 = _performanceService.GetHasOpenGL43();
+                IsModernPipelineSupported = _performanceService.IsModernPipelineSupported();
+
+                var glDetails = new List<string> {
+                    $"Version: {GlVersion}",
+                    $"OpenGL 4.3+: {(HasOpenGL43 ? "Yes" : "No")}",
+                    $"Bindless Textures: {(HasBindless ? "Yes" : "No")}",
+                    $"Modern Pipeline: {(IsModernPipelineSupported ? "Active" : "Inactive (Requires 4.3+ & Bindless)")}"
+                };
+                GlDetailsTooltip = string.Join("\n", glDetails);
+
                 RenderTime = $"{_performanceService.RenderTime:0.00} ms";
                 RamUsage = FormatBytes(ram);
                 if (vram > 0) {
