@@ -7,6 +7,8 @@ using Silk.NET.OpenGL.Extensions.ARB;
 using PolygonMode = Silk.NET.OpenGL.PolygonMode;
 using PrimitiveType = Silk.NET.OpenGL.PrimitiveType;
 using WorldBuilder.Shared.Models;
+using System.Collections.Concurrent;
+using System.Numerics;
 
 namespace Chorizite.OpenGLSDLBackend {
     /// <summary>
@@ -81,9 +83,9 @@ namespace Chorizite.OpenGLSDLBackend {
         /// <inheritdoc />
         public override void Clear(ColorVec color, ClearFlags flags, float depth, int stencil) {
             GL.ClearColor(color.R, color.G, color.B, color.A);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
             GL.Clear((uint)Convert(flags));
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         /// <inheritdoc />
@@ -106,17 +108,65 @@ namespace Chorizite.OpenGLSDLBackend {
         /// <inheritdoc />
         public override void DrawElements(Core.Render.Enums.PrimitiveType type, int numElements, int indiceOffset = 0) {
             GL.DrawElements(Convert(type), (uint)numElements, GLEnum.UnsignedInt, (void*)(indiceOffset * sizeof(uint)));
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
-        /// <inheritdoc />
         public override IShader CreateShader(string name, string vertexCode, string fragmentCode) {
-            return new GLSLShader(this, name, vertexCode, fragmentCode, _log);
+            var key = $"{GL.GetHashCode()}_{name}_{vertexCode.GetHashCode()}_{fragmentCode.GetHashCode()}";
+            return _shaderCache.AddOrUpdate(key, 
+                (k) => new SharedShader(new GLSLShader(this, name, vertexCode, fragmentCode, _log), () => _shaderCache.TryRemove(key, out _)),
+                (k, existing) => {
+                    if (existing is SharedShader shared) shared.Increment();
+                    return existing;
+                });
         }
 
         /// <inheritdoc />
         public override IShader CreateShader(string name, string shaderDirectory) {
-            return new GLSLShader(this, name, shaderDirectory, _log);
+            var key = $"{GL.GetHashCode()}_{name}";
+            return _shaderCache.AddOrUpdate(key, 
+                (k) => new SharedShader(new GLSLShader(this, name, shaderDirectory, _log), () => _shaderCache.TryRemove(key, out _)),
+                (k, existing) => {
+                    if (existing is SharedShader shared) shared.Increment();
+                    return existing;
+                });
+        }
+
+        private static readonly ConcurrentDictionary<string, IShader> _shaderCache = new();
+
+        private class SharedShader : IShader, IDisposable {
+            private readonly IShader _shader;
+            private readonly Action _onDispose;
+            private int _refCount = 1;
+
+            public string Name => _shader.Name;
+            public uint ProgramId => _shader.ProgramId;
+
+            public SharedShader(IShader shader, Action onDispose) {
+                _shader = shader;
+                _onDispose = onDispose;
+            }
+
+            public void Increment() => _refCount++;
+
+            public void Bind() => _shader.Bind();
+            public void Unbind() => _shader.Unbind();
+            public void Load(string vertexSource, string fragmentSource) => _shader.Load(vertexSource, fragmentSource);
+
+            public void SetUniform(string name, int value) => _shader.SetUniform(name, value);
+            public void SetUniform(string name, float value) => _shader.SetUniform(name, value);
+            public void SetUniform(string name, Vector2 value) => _shader.SetUniform(name, value);
+            public void SetUniform(string name, Vector3 value) => _shader.SetUniform(name, value);
+            public void SetUniform(string name, Vector4 value) => _shader.SetUniform(name, value);
+            public void SetUniform(string name, Matrix4x4 value) => _shader.SetUniform(name, value);
+            public void SetUniform(string name, float[] values) => _shader.SetUniform(name, values);
+
+            public void Dispose() {
+                if (--_refCount == 0) {
+                    (_shader as IDisposable)?.Dispose();
+                    _onDispose();
+                }
+            }
         }
 
         /// <inheritdoc />
@@ -147,9 +197,9 @@ namespace Chorizite.OpenGLSDLBackend {
         /// <inheritdoc />
         public override void BeginFrame() {
             GL.Viewport(Viewport.X, Viewport.Y, (uint)Viewport.Width, (uint)Viewport.Height);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         /// <inheritdoc />
@@ -162,22 +212,22 @@ namespace Chorizite.OpenGLSDLBackend {
                 case RenderState.AlphaBlend:
                     if (enabled) GL.Enable(EnableCap.Blend);
                     else GL.Disable(EnableCap.Blend);
-                    GLHelpers.CheckErrors();
+                    GLHelpers.CheckErrors(GL);
                     break;
                 case RenderState.DepthTest:
                     if (enabled) GL.Enable(EnableCap.DepthTest);
                     else GL.Disable(EnableCap.DepthTest);
-                    GLHelpers.CheckErrors();
+                    GLHelpers.CheckErrors(GL);
                     break;
                 case RenderState.ScissorTest:
                     if (enabled) GL.Enable(EnableCap.ScissorTest);
                     else GL.Disable(EnableCap.ScissorTest);
-                    GLHelpers.CheckErrors();
+                    GLHelpers.CheckErrors(GL);
                     break;
                 case RenderState.DepthWrite:
                     if (enabled) GL.DepthMask(true);
                     else GL.DepthMask(false);
-                    GLHelpers.CheckErrors();
+                    GLHelpers.CheckErrors(GL);
                     break;
                 case RenderState.Fog:
                     break;
@@ -189,23 +239,23 @@ namespace Chorizite.OpenGLSDLBackend {
         /// <inheritdoc />
         protected override void SetBlendFactorInternal(BlendFactor srcBlendFactor, BlendFactor dstBlendFactor) {
             GL.BlendFunc(Convert(srcBlendFactor), Convert(dstBlendFactor));
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         protected override void SetScissorRectInternal(Rectangle scissor) {
             var gtop = (int)Viewport.Height - scissor.Y - scissor.Height;
             GL.Scissor(scissor.X, gtop, (uint)scissor.Width, (uint)scissor.Height);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         protected override void SetViewportInternal(Rectangle viewport) {
             GL.Viewport(viewport.X, viewport.Y, (uint)viewport.Width, (uint)viewport.Height);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         protected override void SetPolygonModeInternal(Core.Render.Enums.PolygonMode polygonMode) {
             GL.PolygonMode(GLEnum.FrontAndBack, Convert(polygonMode));
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         protected override void SetCullModeInternal(CullMode cullMode) {

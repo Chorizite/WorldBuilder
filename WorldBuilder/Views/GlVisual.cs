@@ -14,7 +14,7 @@ using System.Runtime.InteropServices;
 
 namespace WorldBuilder.Views {
     public abstract partial class Base3DViewport {
-private class GlVisual : CompositionCustomVisualHandler {
+        private class GlVisual : CompositionCustomVisualHandler {
             private bool _contentInitialized;
             private IGlContext? _gl;
             private PixelSize _lastSize;
@@ -32,11 +32,17 @@ private class GlVisual : CompositionCustomVisualHandler {
                 _parent = parent;
             }
 
+            private void TriggerInvalidate() => base.Invalidate();
+
             public override void OnRender(ImmediateDrawingContext drawingContext) {
                 try {
                     var frameTime = CalculateFrameTime();
-                    RegisterForNextAnimationFrameUpdate();
-                    
+
+                    if (_parent.RenderContinuously || _parent._renderRequested) {
+                        RegisterForNextAnimationFrameUpdate();
+                    }
+                    _parent._renderRequested = false;
+
                     var perfService = WorldBuilder.App.Services?.GetService<PerformanceService>();
                     if (perfService != null) {
                         perfService.FrameTime = frameTime * 1000.0;
@@ -86,13 +92,17 @@ private class GlVisual : CompositionCustomVisualHandler {
 
                         // Render to FBO (with scissor disabled to avoid clipping our internal render)
                         SilkGl.Disable(EnableCap.ScissorTest);
-                        
+
                         var sw = System.Diagnostics.Stopwatch.StartNew();
                         _parent.OnGlRenderInternal(frameTime);
                         sw.Stop();
-                        
+
                         if (perfService != null) {
                             perfService.RenderTime = sw.Elapsed.TotalMilliseconds;
+                        }
+
+                        if (_parent._renderRequested) {
+                            RegisterForNextAnimationFrameUpdate();
                         }
 
                         // Restore scissor before blitting to prevent drawing outside our bounds
@@ -122,12 +132,10 @@ private class GlVisual : CompositionCustomVisualHandler {
                 _gl = glContext;
                 SilkGl = GL.GetApi(glContext.GlInterface.GetProcAddress);
 
-                // Register master context for RenderView
-                if (_parent is RenderView) {
-                    var sharedContextManager = RenderView.SharedContextManager;
-                    if (sharedContextManager.GetMasterContext().context == null) {
-                        sharedContextManager.SetMasterContext(glContext, SilkGl);
-                    }
+                // Register master context
+                var sharedContextManager = RenderView.SharedContextManager;
+                if (sharedContextManager.GetMasterContext().context == null) {
+                    sharedContextManager.SetMasterContext(glContext, SilkGl);
                 }
 
                 _parent._logger.LogDebug("New OpenGL context assigned: {ContextHashCode}", glContext.GetHashCode());
@@ -178,15 +186,15 @@ private class GlVisual : CompositionCustomVisualHandler {
 
             private void RestoreGlState(GL gl, GlState state) {
                 gl.Viewport(state.Viewport[0], state.Viewport[1], (uint)state.Viewport[2], (uint)state.Viewport[3]);
-                
+
                 if (state.Scissor) gl.Enable(EnableCap.ScissorTest); else gl.Disable(EnableCap.ScissorTest);
                 gl.Scissor(state.ScissorBox[0], state.ScissorBox[1], (uint)state.ScissorBox[2], (uint)state.ScissorBox[3]);
-                
+
                 if (state.DepthTest) gl.Enable(EnableCap.DepthTest); else gl.Disable(EnableCap.DepthTest);
                 if (state.CullFace) gl.Enable(EnableCap.CullFace); else gl.Disable(EnableCap.CullFace);
                 gl.CullFace((TriangleFace)state.CullFaceMode);
                 gl.FrontFace((FrontFaceDirection)state.FrontFace);
-                
+
                 if (state.Blend) gl.Enable(EnableCap.Blend); else gl.Disable(EnableCap.Blend);
                 gl.BlendFunc((BlendingFactor)state.BlendSrc, (BlendingFactor)state.BlendDst);
                 gl.BlendEquation((BlendEquationModeEXT)state.BlendEquation);
@@ -231,7 +239,9 @@ private class GlVisual : CompositionCustomVisualHandler {
             }
 
             public override void OnAnimationFrameUpdate() {
-                Invalidate();
+                if (_parent.RenderContinuously || _parent._renderRequested) {
+                    TriggerInvalidate();
+                }
                 base.OnAnimationFrameUpdate();
             }
 
@@ -245,6 +255,9 @@ private class GlVisual : CompositionCustomVisualHandler {
                     _surfaceHeight = pos.SurfaceHeight;
                     _controlSize = pos.Size;
                     _clip = pos.Clip;
+                }
+                else if (message is Base3DViewport.InvalidateMessage) {
+                    TriggerInvalidate();
                 }
                 base.OnMessage(message);
             }

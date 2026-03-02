@@ -20,6 +20,11 @@ using WorldBuilder.Shared.Numerics;
 using WorldBuilder.Shared.Services;
 using PixelFormat = Silk.NET.OpenGL.PixelFormat;
 using BoundingBox = Chorizite.Core.Lib.BoundingBox;
+using BCnEncoder.Decoder;
+using BCnEncoder.Shared;
+using BCnEncoder.ImageSharp;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
     /// <summary>
@@ -161,8 +166,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Shared atlases grouped by (Width, Height, Format)
         private readonly Dictionary<(int Width, int Height, TextureFormat Format), List<TextureAtlasManager>> _globalAtlases = new();
 
+        // CPU-side cache for prepared mesh data (to avoid re-reading/decoding from DAT)
+        private readonly Dictionary<ulong, ObjectMeshData> _cpuMeshCache = new();
+        private readonly LinkedList<ulong> _cpuLruList = new();
+        private readonly int _maxCpuCacheSize = 10;
+
         public GlobalMeshBuffer? GlobalBuffer { get; }
         private readonly bool _useModernRendering;
+
+        private readonly List<(ulong Id, bool IsSetup, TaskCompletionSource<ObjectMeshData?> Tcs, CancellationToken Ct)> _pendingRequests = new();
+        private int _activeWorkers = 0;
+        private const int MaxParallelLoads = 4;
 
         public ObjectMeshManager(OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats, ILogger<ObjectMeshManager> logger) {
             _graphicsDevice = graphicsDevice;
@@ -288,26 +302,97 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }));
         }
 
-        /// <summary>
-        /// Phase 1 (Background Thread): Prepare CPU-side mesh data from DAT asynchronously.
-        /// Returns an existing task if this object is already being prepared.
-        /// </summary>
         public Task<ObjectMeshData?> PrepareMeshDataAsync(ulong id, bool isSetup, CancellationToken ct = default) {
             if (HasRenderData(id)) return Task.FromResult<ObjectMeshData?>(null);
 
-            // Clean up stale cancelled/faulted tasks that may have been left behind
-            if (_preparationTasks.TryGetValue(id, out var existing) && (existing.IsCanceled || existing.IsFaulted)) {
+            // Check CPU cache first
+            lock (_cpuMeshCache) {
+                if (_cpuMeshCache.TryGetValue(id, out var cachedData)) {
+                    _cpuLruList.Remove(id);
+                    _cpuLruList.AddLast(id);
+                    return Task.FromResult<ObjectMeshData?>(cachedData);
+                }
+            }
+
+            // Return existing task if already running or queued
+            if (_preparationTasks.TryGetValue(id, out var existing)) {
+                if (!existing.IsFaulted && !existing.IsCanceled) {
+                    lock (_pendingRequests) {
+                        int idx = _pendingRequests.FindIndex(r => r.Id == id);
+                        if (idx >= 0) {
+                            var req = _pendingRequests[idx];
+                            _pendingRequests.RemoveAt(idx);
+                            _pendingRequests.Add(req);
+                        }
+                    }
+                    return existing;
+                }
                 _preparationTasks.TryRemove(id, out _);
             }
 
-            return _preparationTasks.GetOrAdd(id, k => Task.Run(() => {
+            var tcs = new TaskCompletionSource<ObjectMeshData?>();
+            var task = tcs.Task;
+            _preparationTasks[id] = task;
+
+            lock (_pendingRequests) {
+                _pendingRequests.Add((id, isSetup, tcs, ct));
+                if (_activeWorkers < MaxParallelLoads) {
+                    _activeWorkers++;
+                    Task.Run(ProcessQueueAsync);
+                }
+            }
+
+            return task;
+        }
+
+        private async Task ProcessQueueAsync() {
+            while (true) {
+                ulong id;
+                bool isSetup;
+                TaskCompletionSource<ObjectMeshData?> tcs;
+                CancellationToken ct;
+
+                lock (_pendingRequests) {
+                    // Filter out cancelled requests
+                    _pendingRequests.RemoveAll(r => r.Ct.IsCancellationRequested);
+
+                    if (_pendingRequests.Count == 0) {
+                        _activeWorkers--;
+                        return;
+                    }
+
+                    // LIFO: Pick the most recent request
+                    var index = _pendingRequests.Count - 1;
+                    (id, isSetup, tcs, ct) = _pendingRequests[index];
+                    _pendingRequests.RemoveAt(index);
+                }
+
                 try {
-                    return PrepareMeshData(id, isSetup, CancellationToken.None);
+                    var data = PrepareMeshData(id, isSetup, ct);
+                    if (data != null) {
+                        lock (_cpuMeshCache) {
+                            if (_cpuMeshCache.Count >= _maxCpuCacheSize) {
+                                var oldest = _cpuLruList.First!.Value;
+                                _cpuLruList.RemoveFirst();
+                                _cpuMeshCache.Remove(oldest);
+                            }
+                            _cpuMeshCache[id] = data;
+                            _cpuLruList.AddLast(id);
+                        }
+                    }
+                    tcs.TrySetResult(data);
+                }
+                catch (OperationCanceledException) {
+                    tcs.TrySetCanceled(ct);
+                }
+                catch (Exception ex) {
+                    _logger.LogError(ex, "Error preparing mesh data for 0x{Id:X8}", id);
+                    tcs.TrySetException(ex);
                 }
                 finally {
-                    _preparationTasks.TryRemove(k, out _);
+                    _preparationTasks.TryRemove(id, out _);
                 }
-            }));
+            }
         }
 
         /// <summary>
@@ -370,6 +455,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public ObjectRenderData? UploadMeshData(ObjectMeshData meshData) {
             try {
                 if (_renderData.TryGetValue(meshData.ObjectId, out var existing)) {
+                    if (existing.IsSetup) {
+                        foreach (var (partId, _) in existing.SetupParts) {
+                            IncrementRefCount(partId);
+                            lock (_lruList) {
+                                _lruList.Remove(partId);
+                            }
+                        }
+                    }
+                    IncrementRefCount(meshData.ObjectId);
+                    lock (_lruList) {
+                        _lruList.Remove(meshData.ObjectId);
+                    }
                     return existing;
                 }
                 _preparationTasks.TryRemove(meshData.ObjectId, out _);
@@ -389,7 +486,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         MemorySize = 1024 // Small overhead for the setup itself
                     };
                     _renderData[meshData.ObjectId] = data;
-                    _usageCount.TryAdd(meshData.ObjectId, 1);
+                    IncrementRefCount(meshData.ObjectId);
                     _currentGpuMemory += data.MemorySize;
 
                     // Increment ref counts for all parts
@@ -405,8 +502,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     renderData.BoundingBox = meshData.BoundingBox;
                     renderData.SelectionSphere = meshData.SelectionSphere;
                     _renderData[meshData.ObjectId] = renderData;
-                    _usageCount.TryAdd(meshData.ObjectId, 1);
+                    IncrementRefCount(meshData.ObjectId);
                     _currentGpuMemory += renderData.MemorySize;
+
+                    // Clear texture data after upload to save RAM
+                    foreach (var batchList in meshData.TextureBatches.Values) {
+                        foreach (var batch in batchList) {
+                            batch.TextureData = Array.Empty<byte>();
+                        }
+                    }
                 }
                 return renderData;
             }
@@ -673,13 +777,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         paletteId = renderSurface.DefaultPaletteId;
 
                         if (TextureHelpers.IsCompressedFormat(renderSurface.Format)) {
-                            textureFormat = renderSurface.Format switch {
-                                DatReaderWriter.Enums.PixelFormat.PFID_DXT1 => TextureFormat.DXT1,
-                                DatReaderWriter.Enums.PixelFormat.PFID_DXT3 => TextureFormat.DXT3,
-                                DatReaderWriter.Enums.PixelFormat.PFID_DXT5 => TextureFormat.DXT5,
+                            textureFormat = TextureFormat.RGBA8;
+                            uploadPixelFormat = PixelFormat.Rgba;
+                            textureData = new byte[texWidth * texHeight * 4];
+
+                            CompressionFormat compressionFormat = renderSurface.Format switch {
+                                DatReaderWriter.Enums.PixelFormat.PFID_DXT1 => CompressionFormat.Bc1,
+                                DatReaderWriter.Enums.PixelFormat.PFID_DXT3 => CompressionFormat.Bc2,
+                                DatReaderWriter.Enums.PixelFormat.PFID_DXT5 => CompressionFormat.Bc3,
                                 _ => throw new NotSupportedException($"Unsupported compressed format: {renderSurface.Format}")
                             };
-                            textureData = renderSurface.SourceData;
+
+                            var decoder = new BcDecoder();
+                            using (var image = decoder.DecodeRawToImageRgba32(renderSurface.SourceData, texWidth, texHeight, compressionFormat)) {
+                                image.CopyPixelDataTo(textureData);
+                            }
                         }
                         else {
                             textureFormat = TextureFormat.RGBA8;
@@ -904,13 +1016,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         paletteId = renderSurface.DefaultPaletteId;
 
                         if (TextureHelpers.IsCompressedFormat(renderSurface.Format)) {
-                            textureFormat = renderSurface.Format switch {
-                                DatReaderWriter.Enums.PixelFormat.PFID_DXT1 => TextureFormat.DXT1,
-                                DatReaderWriter.Enums.PixelFormat.PFID_DXT3 => TextureFormat.DXT3,
-                                DatReaderWriter.Enums.PixelFormat.PFID_DXT5 => TextureFormat.DXT5,
+                            textureFormat = TextureFormat.RGBA8;
+                            uploadPixelFormat = PixelFormat.Rgba;
+                            textureData = new byte[texWidth * texHeight * 4];
+
+                            CompressionFormat compressionFormat = renderSurface.Format switch {
+                                DatReaderWriter.Enums.PixelFormat.PFID_DXT1 => CompressionFormat.Bc1,
+                                DatReaderWriter.Enums.PixelFormat.PFID_DXT3 => CompressionFormat.Bc2,
+                                DatReaderWriter.Enums.PixelFormat.PFID_DXT5 => CompressionFormat.Bc3,
                                 _ => throw new NotSupportedException($"Unsupported compressed format: {renderSurface.Format}")
                             };
-                            textureData = renderSurface.SourceData;
+
+                            var decoder = new BcDecoder();
+                            using (var image = decoder.DecodeRawToImageRgba32(renderSurface.SourceData, texWidth, texHeight, compressionFormat)) {
+                                image.CopyPixelDataTo(textureData);
+                            }
                         }
                         else {
                             textureFormat = TextureFormat.RGBA8;
@@ -1128,7 +1248,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 // Everything goes into the global VBO/IBO
                 vao = GlobalBuffer!.VAO;
                 vbo = GlobalBuffer!.VBO;
-            } else {
+            }
+            else {
                 gl.GenVertexArrays(1, out vao);
                 gl.BindVertexArray(vao);
 
@@ -1194,7 +1315,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         var appended = GlobalBuffer.Append(meshData.Vertices, batch.Indices.ToArray());
                         batchBaseVertex = appended.baseVertex;
                         firstIndex = (uint)appended.firstIndex;
-                    } else {
+                    }
+                    else {
                         gl.GenBuffers(1, out ibo);
                         gl.BindBuffer(GLEnum.ElementArrayBuffer, ibo);
                         var indexArray = batch.Indices.ToArray();
@@ -1353,7 +1475,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         batch.Atlas.ReleaseTexture(batch.Key);
                     }
                 }
-            } else {
+            }
+            else {
                 foreach (var batch in data.Batches) {
                     if (batch.Atlas != null) {
                         batch.Atlas.ReleaseTexture(batch.Key);

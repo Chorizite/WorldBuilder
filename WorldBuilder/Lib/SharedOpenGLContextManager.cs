@@ -5,6 +5,7 @@ using Silk.NET.OpenGL;
 using System.Collections.Concurrent;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Lib;
+using WorldBuilder.Shared.Models;
 using WorldBuilder.Views;
 
 namespace WorldBuilder.Lib {
@@ -47,6 +48,13 @@ namespace WorldBuilder.Lib {
             _logger = new ColorConsoleLogger("SharedOpenGLContextManager", () => new ColorConsoleLoggerConfiguration());
         }
 
+        private OpenGLGraphicsDevice? _sharedGraphicsDevice;
+
+        /// <summary>
+        /// Gets the shared graphics device for this context.
+        /// </summary>
+        public OpenGLGraphicsDevice? SharedGraphicsDevice => _sharedGraphicsDevice;
+
         /// <summary>
         /// Sets the master context from which other contexts will share resources
         /// </summary>
@@ -66,6 +74,20 @@ namespace WorldBuilder.Lib {
                 } else {
                     HasBindless = false;
                 }
+
+                var sharedSettings = new DebugRenderSettings {
+                    ShowBoundingBoxes = true,
+                    SelectVertices = true,
+                    SelectBuildings = true,
+                    SelectStaticObjects = true,
+                    SelectScenery = true,
+                    SelectEnvCells = true,
+                    SelectEnvCellStaticObjects = true,
+                    SelectPortals = true,
+                    EnableAnisotropicFiltering = true
+                };
+
+                _sharedGraphicsDevice = new OpenGLGraphicsDevice(gl, _logger, sharedSettings, HasBindless);
             } catch {
                 GlVersion = "GL: Unknown";
                 HasOpenGL43 = false;

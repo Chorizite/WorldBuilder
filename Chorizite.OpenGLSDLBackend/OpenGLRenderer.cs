@@ -34,14 +34,13 @@ namespace Chorizite.OpenGLSDLBackend {
         public override IFontManager FontManager { get; }
 
 
-        public OpenGLRenderer(GL gl, ILogger log, IDatReaderInterface _dat, int width, int height, DebugRenderSettings renderSettings, bool allowBindless = true) {
+        public OpenGLRenderer(GL gl, ILogger log, IDatReaderInterface _dat, int width, int height, DebugRenderSettings renderSettings, bool allowBindless = true, OpenGLGraphicsDevice? existingDevice = null) {
             _log = log;
             _initialWidth = width;
             _initialHeight = height;
 
-            GraphicsDevice = new OpenGLGraphicsDevice(gl, log, renderSettings, allowBindless) {
-                Viewport = new Rectangle(0, 0, _initialWidth, _initialHeight)
-            };
+            GraphicsDevice = existingDevice ?? new OpenGLGraphicsDevice(gl, log, renderSettings, allowBindless);
+            GraphicsDevice.Viewport = new Rectangle(0, 0, _initialWidth, _initialHeight);
 
             UIShader = GraphicsDevice.CreateShader("UIShader", EmbeddedResourceReader.GetEmbeddedResource("Shaders.UI.vert"), EmbeddedResourceReader.GetEmbeddedResource("Shaders.UI.frag"));
             TextShader = GraphicsDevice.CreateShader("TextShader", EmbeddedResourceReader.GetEmbeddedResource("Shaders.Text.vert"), EmbeddedResourceReader.GetEmbeddedResource("Shaders.Text.frag"));

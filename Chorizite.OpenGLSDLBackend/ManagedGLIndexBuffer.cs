@@ -33,13 +33,13 @@ namespace Chorizite.OpenGLSDLBackend {
             // Generate the buffer
             bufferId = GL.GenBuffer();
             GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             // Allocate the buffer with the specified size but no initial data
             GL.BindBuffer(GLEnum.ElementArrayBuffer, bufferId);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
             GL.BufferData(BufferTargetARB.ElementArrayBuffer, (uint)Size, (void*)0, Usage.ToGL());
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             GpuMemoryTracker.TrackAllocation(Size, GpuResourceType.Buffer);
         }
@@ -53,14 +53,14 @@ namespace Chorizite.OpenGLSDLBackend {
         public unsafe void SetData(Span<uint> data) {
             uint dataSize = (uint)data.Length * sizeof(uint);
             GL.BindBuffer(GLEnum.ElementArrayBuffer, bufferId);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             fixed (uint* dataPtr = &data[0]) {
                 GL.BufferData(GLEnum.ElementArrayBuffer, dataSize, (void*)dataPtr, Usage.ToGL());
             }
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
             GL.BindBuffer(GLEnum.ElementArrayBuffer, 0);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
 
@@ -86,7 +86,7 @@ namespace Chorizite.OpenGLSDLBackend {
             }
 
             GL.BindBuffer(GLEnum.ElementArrayBuffer, bufferId);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             fixed (uint* dataPtr = &data[sourceOffsetElements]) {
                 GL.BufferSubData(
@@ -94,7 +94,7 @@ namespace Chorizite.OpenGLSDLBackend {
                     destinationOffsetBytes,
                     dataSizeBytes,
                     (void*)dataPtr);
-                GLHelpers.CheckErrors();
+                GLHelpers.CheckErrors(GL);
             }
         }
 
@@ -121,7 +121,7 @@ namespace Chorizite.OpenGLSDLBackend {
             }
 
             GL.BindBuffer(GLEnum.ElementArrayBuffer, bufferId);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             fixed (uint* dataPtr = &data[sourceOffsetElements]) {
                 GL.BufferSubData(
@@ -129,7 +129,7 @@ namespace Chorizite.OpenGLSDLBackend {
                     destinationOffsetBytes,
                     dataSizeBytes,
                     (void*)dataPtr);
-                GLHelpers.CheckErrors();
+                GLHelpers.CheckErrors(GL);
             }
         }
 
@@ -137,20 +137,20 @@ namespace Chorizite.OpenGLSDLBackend {
         public void Bind() {
             BaseObjectRenderManager.CurrentIBO = 0;
             GL.BindBuffer(GLEnum.ElementArrayBuffer, bufferId);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         /// <inheritdoc />
         public void Unbind() {
             GL.BindBuffer(GLEnum.ElementArrayBuffer, 0);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         public unsafe void Dispose() {
             if (bufferId != 0) {
                 GL.DeleteBuffer(bufferId);
                 GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
-                GLHelpers.CheckErrors();
+                GLHelpers.CheckErrors(GL);
                 GpuMemoryTracker.TrackDeallocation(Size, GpuResourceType.Buffer);
                 bufferId = 0;
             }

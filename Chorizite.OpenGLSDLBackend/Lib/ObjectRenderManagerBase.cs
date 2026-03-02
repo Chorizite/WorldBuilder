@@ -320,10 +320,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public virtual unsafe void Render(int renderPass) {
             if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || _cameraPosition.Z > 4000) return;
 
-            CurrentVAO = 0;
-            CurrentIBO = 0;
-            CurrentAtlas = 0;
-            CurrentCullMode = null;
+            BaseObjectRenderManager.CurrentVAO = 0;
+            BaseObjectRenderManager.CurrentIBO = 0;
+            BaseObjectRenderManager.CurrentAtlas = 0;
+            BaseObjectRenderManager.CurrentCullMode = null;
 
             _shader.SetUniform("uRenderPass", renderPass);
             _shader.SetUniform("uHighlightColor", Vector4.Zero);
@@ -708,7 +708,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        protected void RenderSelectedInstance(SelectedStaticObject selected, Vector4 highlightColor) {
+        protected unsafe void RenderSelectedInstance(SelectedStaticObject selected, Vector4 highlightColor) {
             if (_landblocks.TryGetValue(selected.LandblockKey, out var lb)) {
                 var instance = lb.Instances.FirstOrDefault(i => i.InstanceId == selected.InstanceId);
                 if (instance.ObjectId != 0) {
@@ -716,16 +716,38 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (renderData != null) {
                         _shader!.SetUniform("uHighlightColor", highlightColor);
                         _shader!.SetUniform("uRenderPass", 2); // Single pass mode for highlighting
+
+                        var drawCalls = new List<(ObjectRenderData renderData, int count, int offset)>();
+                        var allInstances = new List<InstanceData>();
+
                         if (renderData.IsSetup) {
                             foreach (var (partId, partTransform) in renderData.SetupParts) {
                                 var partRenderData = MeshManager.TryGetRenderData(partId);
                                 if (partRenderData != null) {
-                                    RenderObjectBatches(_shader!, partRenderData, new List<InstanceData> { new InstanceData { Transform = partTransform * instance.Transform, CellId = InstanceIdConstants.GetRawId(instance.InstanceId) } });
+                                    drawCalls.Add((partRenderData, 1, allInstances.Count));
+                                    allInstances.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = InstanceIdConstants.GetRawId(instance.InstanceId) });
                                 }
                             }
                         }
                         else {
-                            RenderObjectBatches(_shader!, renderData, new List<InstanceData> { new InstanceData { Transform = instance.Transform, CellId = InstanceIdConstants.GetRawId(instance.InstanceId) } });
+                            drawCalls.Add((renderData, 1, 0));
+                            allInstances.Add(new InstanceData { Transform = instance.Transform, CellId = InstanceIdConstants.GetRawId(instance.InstanceId) });
+                        }
+
+                        if (_useModernRendering) {
+                            RenderModernMDI(_shader!, drawCalls, allInstances);
+                        }
+                        else {
+                            GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData));
+                            Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
+                            var span = CollectionsMarshal.AsSpan(allInstances);
+                            fixed (InstanceData* ptr = span) {
+                                Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
+                            }
+
+                            foreach (var call in drawCalls) {
+                                RenderObjectBatches(_shader!, call.renderData, call.count, call.offset);
+                            }
                         }
                     }
                 }

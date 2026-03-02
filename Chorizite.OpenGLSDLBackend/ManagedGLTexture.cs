@@ -32,7 +32,7 @@ namespace Chorizite.OpenGLSDLBackend {
             Width = width;
             Height = height;
             GL.BindTexture(GLEnum.Texture2D, _texture);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             // Get the pixel data from the ImageSharp bitmap
             byte[] pixelData = new byte[width * height * 4];
@@ -40,21 +40,21 @@ namespace Chorizite.OpenGLSDLBackend {
 
             fixed (byte* data = &pixelData[0]) {
                 GL.TexImage2D(GLEnum.Texture2D, 0, (int)InternalFormat.Rgba8, (uint)width, (uint)height, 0, PixelFormat.Rgba, (PixelType)0x1401, data);
-                GLHelpers.CheckErrors();
+                GLHelpers.CheckErrors(GL);
             }
             GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
             GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
             GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
             GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
             //  GL.TexParameterI(GLEnum.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapNearest);
             // GL.TexParameterI(GLEnum.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
 
-            //  GLHelpers.CheckErrors();
+            //  GLHelpers.CheckErrors(GL);
 
             //  GL.TexParameterI(GLEnum.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
             // GL.TexParameterI(GLEnum.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
-            //  GLHelpers.CheckErrors();
+            //  GLHelpers.CheckErrors(GL);
 
             if (_device.RenderSettings.EnableAnisotropicFiltering) 
             {
@@ -68,9 +68,9 @@ namespace Chorizite.OpenGLSDLBackend {
             }
 
             GL.GenerateMipmap(GLEnum.Texture2D);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
             GL.BindTexture(GLEnum.Texture2D, 0);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             GpuMemoryTracker.TrackAllocation(CalculateSize(), GpuResourceType.Texture);
 
@@ -108,7 +108,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
             BaseObjectRenderManager.CurrentAtlas = 0;
             GL.BindTexture(GLEnum.Texture2D, _texture);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             fixed (byte* ptr = data) {
                 GL.TexSubImage2D(
@@ -122,15 +122,15 @@ namespace Chorizite.OpenGLSDLBackend {
                     PixelType.UnsignedByte,
                     ptr
                 );
-                GLHelpers.CheckErrors();
+                GLHelpers.CheckErrors(GL);
             }
 
             // Generate mipmaps if needed
             GL.GenerateMipmap(GLEnum.Texture2D);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             GL.BindTexture(GLEnum.Texture2D, 0);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         public void Bind(int slot = 0) {
@@ -139,14 +139,14 @@ namespace Chorizite.OpenGLSDLBackend {
             }
             GL.BindSampler((uint)slot, 0);
             GL.ActiveTexture(GLEnum.Texture0 + slot);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
             GL.BindTexture(GLEnum.Texture2D, (uint)NativePtr);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         public void Unbind() {
             GL.BindTexture(GLEnum.Texture2D, 0);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         protected void ReleaseTexture() {
@@ -159,7 +159,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Texture);
                 GpuMemoryTracker.TrackDeallocation(CalculateSize(), GpuResourceType.Texture);
             }
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
             _texture = 0;
         }
 

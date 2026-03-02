@@ -1,4 +1,4 @@
-﻿using Chorizite.Core.Render;
+using Chorizite.Core.Render;
 using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
 using System;
@@ -40,7 +40,6 @@ namespace Chorizite.OpenGLSDLBackend {
         private int GetUniformLocation(uint program, string name) {
             if (!_uniformLocations.ContainsKey(name)) {
                 _uniformLocations.Add(name, GL.GetUniformLocation(program, name));
-                GLHelpers.CheckErrors();
             }
             return _uniformLocations[name];
         }
@@ -57,7 +56,6 @@ namespace Chorizite.OpenGLSDLBackend {
 
             // Use the matrix directly without creating a new float array
             GL.UniformMatrix4(loc, 1, false, (float*)&m);
-            GLHelpers.CheckErrors();
         }
 
         public override void SetUniform(string location, int v) {
@@ -70,7 +68,6 @@ namespace Chorizite.OpenGLSDLBackend {
             _uniformValues[loc] = v;
 
             GL.Uniform1(loc, v);
-            GLHelpers.CheckErrors();
         }
 
         public override void SetUniform(string location, Vector2 vec) {
@@ -83,7 +80,6 @@ namespace Chorizite.OpenGLSDLBackend {
             _uniformValues[loc] = vec;
 
             GL.Uniform2(loc, vec);
-            GLHelpers.CheckErrors();
         }
 
         public override void SetUniform(string location, Vector3 vec) {
@@ -96,7 +92,6 @@ namespace Chorizite.OpenGLSDLBackend {
             _uniformValues[loc] = vec;
 
             GL.Uniform3(loc, vec);
-            GLHelpers.CheckErrors();
         }
 
 
@@ -107,7 +102,6 @@ namespace Chorizite.OpenGLSDLBackend {
             // Arrays are trickier to cache, for now we skip caching them
             fixed (float* v = &vecs[0].X) {
                 GL.Uniform3(loc, (uint)vecs.Length, v);
-                GLHelpers.CheckErrors();
             }
         }
 
@@ -121,7 +115,6 @@ namespace Chorizite.OpenGLSDLBackend {
             _uniformValues[loc] = vec;
 
             GL.Uniform4(loc, vec);
-            GLHelpers.CheckErrors();
         }
 
         public override void SetUniform(string location, float v) {
@@ -134,13 +127,11 @@ namespace Chorizite.OpenGLSDLBackend {
             _uniformValues[loc] = v;
 
             GL.Uniform1(loc, v);
-            GLHelpers.CheckErrors();
         }
 
         public override void SetUniform(string location, float[] vs) {
             fixed (float* v = &vs[0]) {
                 GL.Uniform1(GetUniformLocation((uint)Program, location), (uint)vs.Length, v);
-                GLHelpers.CheckErrors();
             }
         }
 
@@ -161,16 +152,16 @@ namespace Chorizite.OpenGLSDLBackend {
             uint fragmentShader = CompileShader(ShaderType.FragmentShader, Name, fragShaderSource);
 
             var prog = GL.CreateProgram();
-            GLHelpers.CheckErrors(true);
+            GLHelpers.CheckErrors(GL, true);
             GL.AttachShader(prog, vertexShader);
-            GLHelpers.CheckErrors(true);
+            GLHelpers.CheckErrors(GL, true);
             GL.AttachShader(prog, fragmentShader);
-            GLHelpers.CheckErrors(true);
+            GLHelpers.CheckErrors(GL, true);
             GL.LinkProgram(prog);
-            GLHelpers.CheckErrors(true);
+            GLHelpers.CheckErrors(GL, true);
 
             GL.GetProgram(prog, GLEnum.LinkStatus, out int success);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
             if (success != 1) {
                 var infoLog = GL.GetProgramInfoLog(prog);
                 _log.LogError($"Error: shader {Name} link failed: {infoLog}");
@@ -182,9 +173,9 @@ namespace Chorizite.OpenGLSDLBackend {
             }
 
             GL.DeleteShader(vertexShader);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
             GL.DeleteShader(fragmentShader);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             if (Program != 0) {
                 Unload();
@@ -194,20 +185,21 @@ namespace Chorizite.OpenGLSDLBackend {
 
             GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Shader);
             Program = prog;
+            ProgramId = prog;
             NeedsLoad = false;
         }
 
         private uint CompileShader(ShaderType shaderType, string name, string shaderSource) {
             uint shader = GL.CreateShader(shaderType);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             GL.ShaderSource(shader, shaderSource);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
             GL.CompileShader(shader);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             GL.GetShader(shader, ShaderParameterName.CompileStatus, out int success);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
             if (success != 1) {
                 var infoLog = GL.GetShaderInfoLog(shader);
                 _log.LogError($"Error: {name}:{shaderType} compilation failed: {infoLog}");
@@ -219,20 +211,21 @@ namespace Chorizite.OpenGLSDLBackend {
         public override void Bind() {
             SetActive();
             GL.UseProgram((uint)Program);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         public override void Unbind() {
             GL.UseProgram(0);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         protected override void Unload() {
             if (Program != 0) {
                 GL.DeleteProgram((uint)Program);
                 GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Shader);
-                GLHelpers.CheckErrors();
+                GLHelpers.CheckErrors(GL);
                 Program = 0;
+                ProgramId = 0;
             }
         }
     }

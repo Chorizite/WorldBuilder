@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Rendering.Composition;
+using Avalonia.Threading;
 using Chorizite.Core.Render;
 using Chorizite.OpenGLSDLBackend;
 using Microsoft.Extensions.Logging;
@@ -27,7 +28,20 @@ namespace WorldBuilder.Views {
         public RenderTarget? RenderTarget { get; protected set; }
         public OpenGLRenderer? Renderer { get; private set; }
         public abstract DebugRenderSettings RenderSettings { get; }
+        public bool RenderContinuously { get; set; } = true;
+        protected bool _renderRequested = true;
 
+        public void RequestRender() {
+            _renderRequested = true;
+            if (_visual != null && !RenderContinuously) {
+                if (Dispatcher.UIThread.CheckAccess()) {
+                    _visual.SendHandlerMessage(new InvalidateMessage());
+                }
+                else {
+                    Dispatcher.UIThread.Post(() => _visual.SendHandlerMessage(new InvalidateMessage()), DispatcherPriority.Render);
+                }
+            }
+        }
         public static readonly StyledProperty<bool> IsTooltipProperty =
             AvaloniaProperty.Register<Base3DViewport, bool>(nameof(IsTooltip));
 
@@ -37,7 +51,7 @@ namespace WorldBuilder.Views {
         }
 
         public static readonly StyledProperty<IBrush?> ClearColorProperty =
-            AvaloniaProperty.Register<Base3DViewport, IBrush?>(nameof(ClearColor), new SolidColorBrush(Color.FromRgb(38, 38, 51)));
+            AvaloniaProperty.Register<Base3DViewport, IBrush?>(nameof(ClearColor));
 
         public IBrush? ClearColor {
             get => GetValue(ClearColorProperty);
@@ -47,6 +61,7 @@ namespace WorldBuilder.Views {
         public Vector2 InputScale { get; private set; }
 
         protected Base3DViewport() {
+            ClearColor = new SolidColorBrush(Color.FromRgb(38, 38, 51));
             this.AttachedToVisualTree += OnAttachedToVisualTree;
             this.EffectiveViewportChanged += (s, e) => UpdateScreenPosition();
         }
@@ -113,10 +128,19 @@ namespace WorldBuilder.Views {
 
         protected virtual void OnGlInitInternal(GL gl, PixelSize size) {
             _logger = new ColorConsoleLogger(GetType().Name, () => new ColorConsoleLoggerConfiguration());
-            var allowBindless = RenderView.SharedContextManager.HasBindless;
-            Renderer = new OpenGLRenderer(gl, _logger, null!, size.Width, size.Height, RenderSettings, allowBindless);
-            _renderSize = size;
-            OnGlInit(gl, size);
+            try {
+                var sharedContextManager = RenderView.SharedContextManager;
+                var allowBindless = sharedContextManager.HasBindless;
+                var existingDevice = sharedContextManager.SharedGraphicsDevice;
+
+                Renderer = new OpenGLRenderer(gl, _logger, null!, size.Width, size.Height, RenderSettings, allowBindless, existingDevice);
+                _renderSize = size;
+                OnGlInit(gl, size);
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Failed to initialize viewport");
+                throw;
+            }
         }
 
         protected virtual void OnGlResizeInternal(PixelSize size) {
@@ -296,6 +320,9 @@ namespace WorldBuilder.Views {
         #endregion
 
         public class DisposeMessage {
+        }
+
+        public class InvalidateMessage {
         }
 
         public class PositionMessage {

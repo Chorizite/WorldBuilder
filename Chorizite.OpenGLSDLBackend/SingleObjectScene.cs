@@ -27,7 +27,7 @@ namespace Chorizite.OpenGLSDLBackend {
         private bool _isSetup;
         private bool _initialized;
 
-        private float _rotation;
+        private float _rotation = MathF.PI;
         private bool _isAutoCamera = true;
         private bool _isManualRotate = false;
 
@@ -36,23 +36,83 @@ namespace Chorizite.OpenGLSDLBackend {
         private uint _loadingFileId;
         private bool _loadingIsSetup;
 
+        private bool _needsRender = true;
+        public bool NeedsRender {
+            get => _needsRender;
+            set {
+                _needsRender = value;
+                if (value) OnRequestRender?.Invoke();
+            }
+        }
+        public bool IsHovered { get; set; }
+        public bool IsTooltip { get; set; }
+
+        public event Action? OnRequestRender;
+
         private DebugRenderer? _debugRenderer;
         private IShader? _lineShader;
 
         public ICamera Camera => _camera;
 
-        public Vector4 BackgroundColor { get; set; } = new Vector4(0.15f, 0.15f, 0.2f, 1.0f); // Dark Blue-Grey
+        private Vector4 _backgroundColor = new Vector4(0.15f, 0.15f, 0.2f, 1.0f); // Dark Blue-Grey
+        public Vector4 BackgroundColor {
+            get => _backgroundColor;
+            set {
+                _backgroundColor = value;
+                NeedsRender = true;
+            }
+        }
 
-        public bool EnableTransparencyPass { get; set; } = true;
+        private bool _enableTransparencyPass = true;
+        public bool EnableTransparencyPass {
+            get => _enableTransparencyPass;
+            set {
+                _enableTransparencyPass = value;
+                NeedsRender = true;
+            }
+        }
 
-        public Vector4 WireframeColor { get; set; } = new Vector4(0.0f, 1.0f, 0.0f, 0.5f);
+        private Vector4 _wireframeColor = new Vector4(0.0f, 1.0f, 0.0f, 0.5f);
+        public Vector4 WireframeColor {
+            get => _wireframeColor;
+            set {
+                _wireframeColor = value;
+                NeedsRender = true;
+            }
+        }
 
-        public bool ShowWireframe { get; set; }
-        public bool ShowCulling { get; set; }
+        private bool _showWireframe;
+        public bool ShowWireframe {
+            get => _showWireframe;
+            set {
+                _showWireframe = value;
+                NeedsRender = true;
+            }
+        }
 
-        public float MouseSensitivity {
+        private bool _showCulling;
+        public bool ShowCulling {
+            get => _showCulling;
+            set {
+                _showCulling = value;
+                NeedsRender = true;
+            }
+        }
+
+        public float SceneMouseSensitivity {
             get => _camera.LookSensitivity;
-            set => _camera.LookSensitivity = value;
+            set {
+                _camera.LookSensitivity = value;
+                NeedsRender = true;
+            }
+        }
+
+        public bool IsSetup {
+            get => _isSetup;
+            set {
+                _isSetup = value;
+                NeedsRender = true;
+            }
         }
 
         public bool IsAutoCamera {
@@ -67,16 +127,20 @@ namespace Chorizite.OpenGLSDLBackend {
                     _camera.HandleKeyUp("Q");
                     _camera.HandleKeyUp("E");
                 }
+                NeedsRender = true;
             }
         }
 
         public bool IsManualRotate {
             get => _isManualRotate;
-            set => _isManualRotate = value;
+            set {
+                _isManualRotate = value;
+                NeedsRender = true;
+            }
         }
 
         public SingleObjectScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILoggerFactory loggerFactory, IDatReaderWriter dats, ObjectMeshManager? meshManager = null)
-            : base(gl, graphicsDevice, meshManager ?? new ObjectMeshManager(graphicsDevice, dats, loggerFactory.CreateLogger<ObjectMeshManager>())) {
+            : base(gl, graphicsDevice, meshManager ?? new ObjectMeshManager(graphicsDevice, dats, loggerFactory.CreateLogger<ObjectMeshManager>()), 1024) {
             _loggerFactory = loggerFactory;
             _log = loggerFactory.CreateLogger<SingleObjectScene>();
             _dats = dats;
@@ -89,11 +153,15 @@ namespace Chorizite.OpenGLSDLBackend {
         public void Initialize() {
             if (_initialized) return;
 
-            var vertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.StaticObject.vert");
-            var fragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.StaticObject.frag");
+            var useModernRendering = GraphicsDevice.HasOpenGL43 && GraphicsDevice.HasBindless;
+            var sVertName = useModernRendering ? "Shaders.StaticObjectModern.vert" : "Shaders.StaticObject.vert";
+            var sFragName = useModernRendering ? "Shaders.StaticObjectModern.frag" : "Shaders.StaticObject.frag";
+
+            var vertSource = EmbeddedResourceReader.GetEmbeddedResource(sVertName);
+            var fragSource = EmbeddedResourceReader.GetEmbeddedResource(sFragName);
             _shader = GraphicsDevice.CreateShader("StaticObject", vertSource, fragSource);
 
-            if (_shader is GLSLShader glsl && glsl.Program == 0) {
+            if (_shader.ProgramId == 0) {
                 _log.LogError("Failed to initialize StaticObject shader.");
                 return;
             }
@@ -120,10 +188,12 @@ namespace Chorizite.OpenGLSDLBackend {
                 var meshData = await MeshManager.PrepareMeshDataAsync(fileId, isSetup, ct);
                 if (meshData != null && !ct.IsCancellationRequested) {
                     _stagedMeshData.Enqueue(meshData);
+                    NeedsRender = true;
 
                     // Stage EnvCell geometry if present
                     if (meshData.EnvCellGeometry != null) {
                         _stagedMeshData.Enqueue(meshData.EnvCellGeometry);
+                        NeedsRender = true;
                     }
 
                     // For Setup objects, also prepare each part's GfxObj on background thread
@@ -134,6 +204,7 @@ namespace Chorizite.OpenGLSDLBackend {
                                 var partData = await MeshManager.PrepareMeshDataAsync(partId, false, ct);
                                 if (partData != null) {
                                     _stagedMeshData.Enqueue(partData);
+                                    NeedsRender = true;
                                 }
                             }
                         }
@@ -173,8 +244,11 @@ namespace Chorizite.OpenGLSDLBackend {
             _camera.Update(deltaTime);
 
             if (IsAutoCamera && !IsManualRotate) {
-                // Automatic spin
-                _rotation += deltaTime * 1.0f;
+                // Spin if hovered, or if not a tooltip (auto-spin for details view)
+                if (IsHovered || !IsTooltip) {
+                    _rotation += deltaTime * 1.0f;
+                    if (deltaTime > 0) NeedsRender = true;
+                }
             }
         }
 
@@ -201,6 +275,7 @@ namespace Chorizite.OpenGLSDLBackend {
             else if (IsManualRotate) {
                 // Manual spin
                 _rotation += delta.X * _camera.LookSensitivity * 0.0066f;
+                NeedsRender = true;
             }
         }
 
@@ -211,15 +286,49 @@ namespace Chorizite.OpenGLSDLBackend {
         public void Render() {
             if (!_initialized || _shader == null || (_shader is GLSLShader glsl && glsl.Program == 0)) return;
 
+            // Check if we need to swap objects
+            if (_loadingFileId != 0 && _loadingFileId != _currentFileId) {
+                ReleaseCurrentObject();
+                _currentFileId = _loadingFileId;
+                _isSetup = _loadingIsSetup;
+                _loadingFileId = 0;
+                NeedsRender = true;
+
+                // If the object is already loaded, center the camera immediately
+                var existingData = MeshManager.TryGetRenderData(_currentFileId);
+                if (existingData != null) {
+                    CenterCameraOnObject(existingData);
+                }
+            }
+
+            // Handle staged mesh data - THROTTLED to 1 per frame to avoid hitches
+            bool nextFrameNeeded = !_stagedMeshData.IsEmpty || _loadingFileId != 0;
+
+            if (_stagedMeshData.TryDequeue(out var meshData)) {
+                var renderData = MeshManager.UploadMeshData(meshData);
+                nextFrameNeeded = true;
+
+                if (renderData != null && meshData.ObjectId == _currentFileId) {
+                    CenterCameraOnObject(renderData);
+                }
+            }
+
+            bool shouldRender = NeedsRender || nextFrameNeeded;
+            _needsRender = nextFrameNeeded; // Preserve for next frame if still loading
+
+            if (!shouldRender && _currentFileId != 0) return;
+
+            MeshManager.GenerateMipmaps();
+
             // Preserve the current viewport and scissor state
             Span<int> currentViewport = stackalloc int[4];
             Gl.GetInteger(GetPName.Viewport, currentViewport);
             bool wasScissorEnabled = Gl.IsEnabled(EnableCap.ScissorTest);
 
             try {
-                CurrentVAO = 0;
-                CurrentIBO = 0;
-                CurrentAtlas = 0;
+                BaseObjectRenderManager.CurrentVAO = 0;
+                BaseObjectRenderManager.CurrentIBO = 0;
+                BaseObjectRenderManager.CurrentAtlas = 0;
                 CurrentCullMode = null;
 
                 Gl.Disable(EnableCap.ScissorTest);
@@ -232,28 +341,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 Gl.ClearColor(BackgroundColor.X, BackgroundColor.Y, BackgroundColor.Z, BackgroundColor.W);
                 Gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-                // Check if we need to swap objects
-                if (_loadingFileId != 0 && _loadingFileId != _currentFileId) {
-                    ReleaseCurrentObject();
-                    _currentFileId = _loadingFileId;
-                    _isSetup = _loadingIsSetup;
-                    _loadingFileId = 0;
-
-                    // If the object is already loaded, center the camera immediately
-                    var existingData = MeshManager.TryGetRenderData(_currentFileId);
-                    if (existingData != null) {
-                        CenterCameraOnObject(existingData);
-                    }
-                }
-
-                // Handle staged mesh data
-                while (_stagedMeshData.TryDequeue(out var meshData)) {
-                    var renderData = MeshManager.UploadMeshData(meshData);
-
-                    if (renderData != null && meshData.ObjectId == _currentFileId) {
-                        CenterCameraOnObject(renderData);
-                    }
-                }
+                // (Logic moved up for throttling)
 
                 if (_currentFileId == 0) return;
 
@@ -325,17 +413,38 @@ namespace Chorizite.OpenGLSDLBackend {
             }
         }
 
-        private void RenderCurrentObject(ObjectRenderData data, Matrix4x4 transform) {
+        private unsafe void RenderCurrentObject(ObjectRenderData data, Matrix4x4 transform) {
+            var drawCalls = new List<(ObjectRenderData renderData, int count, int offset)>();
+            var allInstances = new List<InstanceData>();
+
             if (data.IsSetup) {
                 foreach (var part in data.SetupParts) {
                     var partData = MeshManager.TryGetRenderData(part.GfxObjId);
                     if (partData != null) {
-                        RenderObjectBatches(_shader!, partData, new List<InstanceData> { new InstanceData { Transform = part.Transform * transform, CellId = 0 } }, ShowCulling);
+                        drawCalls.Add((partData, 1, allInstances.Count));
+                        allInstances.Add(new InstanceData { Transform = part.Transform * transform, CellId = 0 });
                     }
                 }
             }
             else {
-                RenderObjectBatches(_shader!, data, new List<InstanceData> { new InstanceData { Transform = transform, CellId = 0 } }, ShowCulling);
+                drawCalls.Add((data, 1, 0));
+                allInstances.Add(new InstanceData { Transform = transform, CellId = 0 });
+            }
+
+            if (_useModernRendering) {
+                RenderModernMDI(_shader!, drawCalls, allInstances, ShowCulling);
+            }
+            else {
+                GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData));
+                Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
+                var span = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(allInstances);
+                fixed (InstanceData* ptr = span) {
+                    Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
+                }
+
+                foreach (var call in drawCalls) {
+                    RenderObjectBatches(_shader!, call.renderData, call.count, call.offset, ShowCulling);
+                }
             }
         }
 
@@ -390,6 +499,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public override void Dispose() {
             base.Dispose();
+            OnRequestRender = null;
             _cts.Cancel();
             _cts.Dispose();
             _loadCts?.Cancel();

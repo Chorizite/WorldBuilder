@@ -38,17 +38,17 @@ namespace Chorizite.OpenGLSDLBackend {
                 throw new Exception("Failed to generate vertex buffer.");
             }
             GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             // Allocate the buffer with the specified size but no initial data
             GL.BindBuffer(GLEnum.ArrayBuffer, bufferId);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
             GL.BufferData(
                 GLEnum.ArrayBuffer,
                 (uint)Size,
                 (void*)0, // No initial data
                 Usage.ToGL());
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             GpuMemoryTracker.TrackAllocation(Size, GpuResourceType.Buffer);
         }
@@ -68,7 +68,7 @@ namespace Chorizite.OpenGLSDLBackend {
             }
 
             GL.BindBuffer(GLEnum.ArrayBuffer, bufferId);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             // Map the buffer for writing
             void* mappedPtr = GL.MapBufferRange(
@@ -90,7 +90,7 @@ namespace Chorizite.OpenGLSDLBackend {
             finally {
                 // Unmap the buffer
                 GL.UnmapBuffer(GLEnum.ArrayBuffer);
-                GLHelpers.CheckErrors();
+                GLHelpers.CheckErrors(GL);
             }
         }
 
@@ -116,7 +116,7 @@ namespace Chorizite.OpenGLSDLBackend {
             }
 
             GL.BindBuffer(GLEnum.ArrayBuffer, bufferId);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             // Map the specific range of the buffer
             void* mappedPtr = GL.MapBufferRange(
@@ -138,25 +138,25 @@ namespace Chorizite.OpenGLSDLBackend {
             finally {
                 // Unmap the buffer
                 GL.UnmapBuffer(GLEnum.ArrayBuffer);
-                GLHelpers.CheckErrors();
+                GLHelpers.CheckErrors(GL);
             }
         }
 
         public void Bind() {
             GL.BindBuffer(GLEnum.ArrayBuffer, bufferId);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         public void Unbind() {
             GL.BindBuffer(GLEnum.ArrayBuffer, 0);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         public unsafe void Dispose() {
             if (bufferId != 0) {
                 GL.DeleteBuffer(bufferId);
                 GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
-                GLHelpers.CheckErrors();
+                GLHelpers.CheckErrors(GL);
                 GpuMemoryTracker.TrackDeallocation(Size, GpuResourceType.Buffer);
                 bufferId = 0;
             }

@@ -35,6 +35,9 @@ namespace WorldBuilder.Views {
         private bool _renderShowCulling = true;
         private Vector4 _renderBackgroundColor = new Vector4(0.15f, 0.15f, 0.2f, 1.0f);
         private bool _renderAltMouseLook = false;
+        private bool _renderIsTooltip = false;
+        private bool _renderIsPointerOver = false;
+        private bool _renderIsEffectivelyVisible = false;
 
         public override DebugRenderSettings RenderSettings => new DebugRenderSettings();
 
@@ -105,12 +108,33 @@ namespace WorldBuilder.Views {
         public DatObjectViewer() {
             InitializeComponent();
             InitializeBase3DView();
+            RenderContinuously = false;
             _renderBackgroundColor = ExtractColor(ClearColor);
+            _renderIsTooltip = IsTooltip;
+            _renderIsSetup = IsSetup;
+            _renderIsAutoCamera = IsAutoCamera;
+            _renderIsManualRotate = IsManualRotate;
+            _renderShowWireframe = ShowWireframe;
+            _renderWireframeColor = WireframeColor;
+            _renderShowCulling = ShowCulling;
+            _renderIsPointerOver = IsPointerOver;
+            _renderIsEffectivelyVisible = IsEffectivelyVisible;
 
             _settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
+        }
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
+            base.OnAttachedToVisualTree(e);
             if (_settings != null) {
                 _settings.Landscape.Camera.PropertyChanged += OnCameraSettingsPropertyChanged;
                 _renderAltMouseLook = _settings.Landscape.Camera.AltMouseLook;
+            }
+        }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
+            base.OnDetachedFromVisualTree(e);
+            if (_settings != null) {
+                _settings.Landscape.Camera.PropertyChanged -= OnCameraSettingsPropertyChanged;
             }
         }
 
@@ -136,13 +160,22 @@ namespace WorldBuilder.Views {
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
             base.OnPropertyChanged(change);
-            if (change.Property == FileIdProperty || change.Property == IsSetupProperty || change.Property == DatsProperty || change.Property == IsAutoCameraProperty || change.Property == IsManualRotateProperty) {
+            if (change.Property == IsAutoCameraProperty || change.Property == IsManualRotateProperty) {
+                _renderIsAutoCamera = IsAutoCamera;
+                _renderIsManualRotate = IsManualRotate;
+
+                if (_scene != null) {
+                    _scene.IsAutoCamera = _renderIsAutoCamera;
+                    _scene.IsManualRotate = _renderIsManualRotate;
+                }
+                RequestRender();
+            }
+
+            if (change.Property == FileIdProperty || change.Property == IsSetupProperty || change.Property == DatsProperty) {
                 // Sync values for render thread
                 _renderFileId = FileId;
                 _renderIsSetup = IsSetup;
                 _renderDats = Dats;
-                _renderIsAutoCamera = IsAutoCamera;
-                _renderIsManualRotate = IsManualRotate;
 
                 if (Dispatcher.UIThread.CheckAccess()) {
                     UpdateObject();
@@ -150,18 +183,7 @@ namespace WorldBuilder.Views {
                 else {
                     Dispatcher.UIThread.Post(UpdateObject);
                 }
-            }
-
-            if (change.Property == IsAutoCameraProperty) {
-                if (_scene != null) {
-                    _scene.IsAutoCamera = _renderIsAutoCamera;
-                }
-            }
-
-            if (change.Property == IsManualRotateProperty) {
-                if (_scene != null) {
-                    _scene.IsManualRotate = _renderIsManualRotate;
-                }
+                RequestRender();
             }
 
             if (change.Property == ShowWireframeProperty) {
@@ -169,6 +191,7 @@ namespace WorldBuilder.Views {
                 if (_scene != null) {
                     _scene.ShowWireframe = _renderShowWireframe;
                 }
+                RequestRender();
             }
 
             if (change.Property == WireframeColorProperty) {
@@ -176,6 +199,20 @@ namespace WorldBuilder.Views {
                 if (_scene != null) {
                     _scene.WireframeColor = _renderWireframeColor;
                 }
+                RequestRender();
+            }
+
+            if (change.Property == IsTooltipProperty) {
+                _renderIsTooltip = IsTooltip;
+                if (_scene != null) {
+                    _scene.IsTooltip = _renderIsTooltip;
+                }
+                RequestRender();
+            }
+
+            if (change.Property == IsVisibleProperty) {
+                _renderIsEffectivelyVisible = IsEffectivelyVisible;
+                RequestRender();
             }
 
             if (change.Property == ShowCullingProperty) {
@@ -183,13 +220,24 @@ namespace WorldBuilder.Views {
                 if (_scene != null) {
                     _scene.ShowCulling = _renderShowCulling;
                 }
+                RequestRender();
             }
 
             if (change.Property == ClearColorProperty) {
-                _renderBackgroundColor = ExtractColor(ClearColor);
-                if (_scene != null) {
-                    _scene.BackgroundColor = _renderBackgroundColor;
+                if (Dispatcher.UIThread.CheckAccess()) {
+                    UpdateBackgroundColor();
                 }
+                else {
+                    Dispatcher.UIThread.Post(UpdateBackgroundColor);
+                }
+                RequestRender();
+            }
+        }
+
+        private void UpdateBackgroundColor() {
+            _renderBackgroundColor = ExtractColor(ClearColor);
+            if (_scene != null) {
+                _scene.BackgroundColor = _renderBackgroundColor;
             }
         }
 
@@ -221,7 +269,10 @@ namespace WorldBuilder.Views {
             var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _renderDats!);
 
             _scene = new SingleObjectScene(_gl!, Renderer!.GraphicsDevice, loggerFactory, _renderDats!, meshManager);
+            _scene.OnRequestRender += () => RequestRender();
             _scene.BackgroundColor = _renderBackgroundColor;
+            _scene.IsTooltip = _renderIsTooltip;
+            _scene.IsSetup = _renderIsSetup;
             _scene.IsAutoCamera = _renderIsAutoCamera;
             _scene.IsManualRotate = _renderIsManualRotate;
             _scene.ShowWireframe = _renderShowWireframe;
@@ -231,7 +282,7 @@ namespace WorldBuilder.Views {
             var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
             if (settings != null) {
                 _scene.EnableTransparencyPass = settings.Landscape.Rendering.EnableTransparencyPass;
-                _scene.MouseSensitivity = settings.Landscape.Camera.MouseSensitivity;
+                _scene.SceneMouseSensitivity = settings.Landscape.Camera.MouseSensitivity;
             }
 
             _scene.Initialize();
@@ -239,8 +290,19 @@ namespace WorldBuilder.Views {
 
         protected override void OnGlRender(double frameTime) {
             if (_scene == null) return;
-            _scene.Update((float)frameTime);
+
+            // Only update scene (spin camera, etc) if we are actually visible
+            if (_renderIsEffectivelyVisible) {
+                _scene.IsHovered = _renderIsPointerOver;
+                _scene.Update((float)frameTime);
+            }
+
             _scene.Render();
+
+            // If the scene still needs rendering (e.g. spinning or loading), request another frame
+            if (_scene.NeedsRender && _renderIsEffectivelyVisible) {
+                RequestRender();
+            }
         }
 
         protected override void OnGlResize(PixelSize canvasSize) {
@@ -266,6 +328,16 @@ namespace WorldBuilder.Views {
                 _scene?.HandlePointerMoved(input.Position, input.Delta);
             }
             _lastPointerPosition = mousePositionScaled;
+        }
+
+        protected override void OnPointerEntered(PointerEventArgs e) {
+            base.OnPointerEntered(e);
+            _renderIsPointerOver = true;
+        }
+
+        protected override void OnPointerExited(PointerEventArgs e) {
+            base.OnPointerExited(e);
+            _renderIsPointerOver = false;
         }
 
         private ViewportInputEvent CreateInputEvent(PointerEventArgs e) {
