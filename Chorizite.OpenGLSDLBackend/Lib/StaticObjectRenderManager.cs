@@ -254,6 +254,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
+        protected override float GetPriority(ObjectLandblock lb, Vector2 camDir2D, int cameraLbX, int cameraLbY) {
+            var priority = base.GetPriority(lb, camDir2D, cameraLbX, cameraLbY);
+
+            // Prioritize landblocks with buildings
+            var lbId = ((uint)lb.GridX << 8 | (uint)lb.GridY) << 16 | 0xFFFE;
+            var mergedLb = LandscapeDoc.GetMergedLandblock(lbId);
+            if (mergedLb.Buildings.Count > 0) {
+                priority -= 10f; // Bonus for having buildings
+            }
+
+            return priority;
+        }
+
         protected override async Task GenerateForLandblockAsync(ObjectLandblock lb, CancellationToken ct) {
             try {
                 var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);

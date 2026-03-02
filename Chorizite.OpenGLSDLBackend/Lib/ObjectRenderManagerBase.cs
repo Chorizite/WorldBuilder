@@ -66,6 +66,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected readonly Dictionary<ulong, List<InstanceData>> _visibleGroups = new();
         protected readonly List<ulong> _visibleGfxObjIds = new();
 
+        public bool NeedsPrepare { get; protected set; } = true;
+
         // List pool for rendering
         protected readonly List<List<InstanceData>> _listPool = new();
         protected int _poolIndex = 0;
@@ -115,6 +117,30 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _initialized = true;
         }
 
+        /// <summary>
+        /// Calculates the priority for background generation of a landblock.
+        /// Lower values = higher priority.
+        /// </summary>
+        protected virtual float GetPriority(ObjectLandblock lb, Vector2 camDir2D, int cameraLbX, int cameraLbY) {
+            float dx = lb.GridX - cameraLbX;
+            float dy = lb.GridY - cameraLbY;
+            float dist = MathF.Sqrt(dx * dx + dy * dy);
+
+            float priority = dist;
+            if (dist > 0.1f && camDir2D != Vector2.Zero) {
+                Vector2 dirToChunk = Vector2.Normalize(new Vector2(dx, dy));
+                float dot = Vector2.Dot(camDir2D, dirToChunk);
+                priority -= dot * 5f; // Bias towards camera forward direction
+            }
+
+            // Prioritize landblocks in frustum
+            if (_frustum.TestBox(lb.BoundingBox) != FrustumTestResult.Outside) {
+                priority -= 20f; // Large bonus for being in view
+            }
+
+            return priority;
+        }
+
         public void Update(float deltaTime, ICamera camera) {
             var cameraPosition = camera.Position;
             var viewProjectionMatrix = camera.ViewProjectionMatrix;
@@ -138,6 +164,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Only queue landblocks within render distance if the camera moved to a new landblock or it's the first time
             if (cameraMovedLandblock || renderDistanceChanged || _landblocks.IsEmpty) {
                 _activeLandblocksDirty = true;
+                NeedsPrepare = true;
                 for (int x = _cameraLbX - RenderDistance; x <= _cameraLbX + RenderDistance; x++) {
                     for (int y = _cameraLbY - RenderDistance; y <= _cameraLbY + RenderDistance; y++) {
                         if (x < 0 || y < 0 || x >= region.MapWidthInLandblocks || y >= region.MapHeightInLandblocks)
@@ -193,6 +220,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _outOfRangeTimers.TryRemove(key, out _);
                 _pendingGeneration.TryRemove(key, out _);
                 _activeLandblocksDirty = true;
+                NeedsPrepare = true;
             }
 
             // Update active landblocks for rendering
@@ -222,16 +250,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 foreach (var (key, lb) in _pendingGeneration) {
-                    float dx = lb.GridX - _cameraLbX;
-                    float dy = lb.GridY - _cameraLbY;
-                    float dist = MathF.Sqrt(dx * dx + dy * dy);
-
-                    float priority = dist;
-                    if (dist > 0.1f && camDir2D != Vector2.Zero) {
-                        Vector2 dirToChunk = Vector2.Normalize(new Vector2(dx, dy));
-                        float dot = Vector2.Dot(camDir2D, dirToChunk);
-                        priority -= dot * 1.5f;
-                    }
+                    float priority = GetPriority(lb, camDir2D, _cameraLbX, _cameraLbY);
 
                     if (priority < bestPriority) {
                         bestPriority = priority;
@@ -289,6 +308,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
                 UploadLandblockMeshes(lb);
                 _activeLandblocksDirty = true;
+                NeedsPrepare = true;
             }
 
             return (float)sw.Elapsed.TotalMilliseconds;
@@ -303,6 +323,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _poolIndex = 0;
             _visibleLandblocks.Clear();
             _intersectingLandblocks.Clear();
+
+            NeedsPrepare = false;
 
             if (_activeLandblocks.Count == 0) return;
 

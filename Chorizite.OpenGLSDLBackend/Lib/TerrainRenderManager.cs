@@ -258,7 +258,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (dist > 0.1f && camDir2D != Vector2.Zero) {
                         Vector2 dirToChunk = Vector2.Normalize(new Vector2(dx, dy));
                         float dot = Vector2.Dot(camDir2D, dirToChunk);
-                        priority -= dot * 1.5f;
+                        priority -= dot * 5f; // Increased bias for direction
+                    }
+
+                    // Prioritize chunks in frustum
+                    if (IsChunkInFrustum((int)chunk.ChunkX, (int)chunk.ChunkY) != FrustumTestResult.Outside) {
+                        priority -= 20f; // Large bonus for being in view
                     }
 
                     if (priority < bestPriority) {

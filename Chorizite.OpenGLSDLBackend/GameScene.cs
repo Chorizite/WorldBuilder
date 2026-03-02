@@ -107,6 +107,7 @@ public class GameScene : IDisposable {
         _camera3D.LookSensitivity = _state.MouseSensitivity;
         _camera3D.FarPlane = _state.MaxDrawDistance;
         _stateIsDirty = false;
+        _forcePrepareBatches = true;
     }
 
     private TerrainRenderManager? _terrainManager;
@@ -122,6 +123,10 @@ public class GameScene : IDisposable {
     private DebugRenderer? _debugRenderer;
     private LandscapeDocument? _landscapeDoc;
     private readonly Frustum _cullingFrustum = new();
+
+    private Vector3 _lastPrepareCameraPos;
+    private Quaternion _lastPrepareCameraRot;
+    private bool _forcePrepareBatches = true;
 
     private (int x, int y)? _hoveredVertex;
     private (int x, int y)? _selectedVertex;
@@ -424,6 +429,7 @@ public class GameScene : IDisposable {
         if (centerCamera && landscapeDoc.Region != null) {
             CenterCameraOnLandscape(landscapeDoc.Region);
         }
+        _forcePrepareBatches = true;
     }
 
     public void SetToolContext(LandscapeToolContext? context) {
@@ -551,7 +557,7 @@ public class GameScene : IDisposable {
     /// Updates the scene.
     /// </summary>
     public void Update(float deltaTime) {
-        float remainingTime = MAX_GPU_UPDATE_TIME_PER_FRAME;
+        float totalBudget = MAX_GPU_UPDATE_TIME_PER_FRAME;
         Vector3 oldPos = _currentCamera.Position;
         _currentCamera.Update(deltaTime);
         Vector3 newPos = _currentCamera.Position;
@@ -643,25 +649,34 @@ public class GameScene : IDisposable {
         }
 
         _terrainManager?.Update(deltaTime, _currentCamera);
-        _lastTerrainUploadTime = _terrainManager?.ProcessUploads(remainingTime) ?? 0;
-        remainingTime = Math.Max(0, remainingTime - _lastTerrainUploadTime);
-
         _sceneryManager?.Update(deltaTime, _currentCamera);
-        _lastSceneryUploadTime = _sceneryManager?.ProcessUploads(remainingTime) ?? 0;
-        remainingTime = Math.Max(0, remainingTime - _lastSceneryUploadTime);
-
         _staticObjectManager?.Update(deltaTime, _currentCamera);
-        _lastStaticObjectUploadTime = _staticObjectManager?.ProcessUploads(remainingTime) ?? 0;
-        remainingTime = Math.Max(0, remainingTime - _lastStaticObjectUploadTime);
-
         _envCellManager?.Update(deltaTime, _currentCamera);
-        _lastEnvCellUploadTime = _envCellManager?.ProcessUploads(remainingTime) ?? 0;
-        remainingTime = Math.Max(0, remainingTime - _lastEnvCellUploadTime);
-
         _portalManager?.Update(deltaTime, _currentCamera);
-        _portalManager?.ProcessUploads(remainingTime);
-
         _skyboxManager?.Update(deltaTime);
+
+        // Fair budget distribution for GPU uploads
+        // We prioritize Terrain and Buildings/EnvCells over Scenery
+        float terrainBudget = totalBudget * 0.4f;
+        float structuralBudget = totalBudget * 0.4f;
+        float sceneryBudget = totalBudget * 0.2f;
+
+        _lastTerrainUploadTime = _terrainManager?.ProcessUploads(terrainBudget) ?? 0;
+        float remainingTerrain = terrainBudget - _lastTerrainUploadTime;
+
+        // Static objects and EnvCells share structural budget
+        float structuralStart = structuralBudget + remainingTerrain;
+        _lastStaticObjectUploadTime = _staticObjectManager?.ProcessUploads(structuralStart) ?? 0;
+        float remainingStructural = structuralStart - _lastStaticObjectUploadTime;
+
+        _lastEnvCellUploadTime = _envCellManager?.ProcessUploads(remainingStructural) ?? 0;
+        remainingStructural -= _lastEnvCellUploadTime;
+
+        // Scenery gets leftovers
+        _lastSceneryUploadTime = _sceneryManager?.ProcessUploads(sceneryBudget + remainingStructural) ?? 0;
+        float remainingScenery = (sceneryBudget + remainingStructural) - _lastSceneryUploadTime;
+
+        _portalManager?.ProcessUploads(remainingScenery);
 
         SyncState();
     }
@@ -702,6 +717,7 @@ public class GameScene : IDisposable {
         _staticObjectManager?.InvalidateLandblock(lbX, lbY);
         _envCellManager?.InvalidateLandblock(lbX, lbY);
         _portalManager?.OnLandblockChanged(this, new LandblockChangedEventArgs(new[] { (lbX, lbY) }));
+        _forcePrepareBatches = true;
     }
 
     public void SetInspectorTool(InspectorTool? tool) {
@@ -1161,63 +1177,77 @@ public class GameScene : IDisposable {
         var snapshotView = _currentCamera.ViewMatrix;
         var snapshotProj = _currentCamera.ProjectionMatrix;
         var snapshotPos = _currentCamera.Position;
+        var snapshotRot = _currentCamera.Rotation;
         var snapshotFov = _currentCamera.FieldOfView;
 
         // Detect if we are inside an EnvCell to handle depth sorting and terrain clipping correctly.
         uint currentEnvCellId = _currentEnvCellId;
         bool isInside = currentEnvCellId != 0;
 
-        _cullingFrustum.Update(snapshotVP);
+        bool cameraMoved = Vector3.DistanceSquared(snapshotPos, _lastPrepareCameraPos) > 0.0001f ||
+                           Math.Abs(Quaternion.Dot(snapshotRot, _lastPrepareCameraRot)) < 0.9999f;
 
-        HashSet<uint>? visibleEnvCells = null;
-        if (_state.ShowEnvCells && _envCellManager != null) {
-            visibleEnvCells = new HashSet<uint>();
-            if (isInside) {
-                _portalManager?.GetBuildingPortalsByCellId(currentEnvCellId, _buildingsWithCurrentCell);
-                foreach (var (_, building) in _buildingsWithCurrentCell) {
-                    foreach (var id in building.EnvCellIds) visibleEnvCells.Add(id);
-                }
-            }
-            _portalManager?.GetVisibleBuildingPortals(_visibleBuildingPortals);
-            for (int i = _visibleBuildingPortals.Count - 1; i >= 0; i--) {
-                if (_visibleBuildingPortals[i].Building.VertexCount <= 0) {
-                    _visibleBuildingPortals.RemoveAt(i);
-                }
-            }
-            foreach (var (_, building) in _visibleBuildingPortals) {
-                // If we are inside, we always prepare all portal-visible building cells.
-                // If we are outside, we only prepare EnvCells for portals that were visible last frame (mountain occlusion).
-                if (isInside || building.WasVisible) {
-                    foreach (var id in building.EnvCellIds) visibleEnvCells.Add(id);
-                }
-            }
-        }
+        bool needsPrepare = cameraMoved || _forcePrepareBatches ||
+                            (_sceneryManager?.NeedsPrepare ?? false) ||
+                            (_staticObjectManager?.NeedsPrepare ?? false) ||
+                            (_envCellManager?.NeedsPrepare ?? false);
 
-        Parallel.Invoke(
-            () => {
-                if (_state.ShowScenery) {
-                    _sceneryManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
-                }
-            },
-            () => {
-                if (_state.ShowStaticObjects || _state.ShowBuildings) {
-                    _staticObjectManager?.SetVisibilityFilters(_state.ShowBuildings, _state.ShowStaticObjects);
-                    _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
-                }
-            },
-            () => {
-                if (_state.ShowEnvCells && _envCellManager != null) {
-                    _envCellManager.SetVisibilityFilters(_state.ShowEnvCells);
+        if (needsPrepare) {
+            _cullingFrustum.Update(snapshotVP);
 
-                    HashSet<uint>? envCellFilter = visibleEnvCells;
-                    if (!isInside && !_state.EnableCameraCollision) {
-                        envCellFilter = null; // Prepare all cells when collision is off and outside
+            HashSet<uint>? visibleEnvCells = null;
+            if (_state.ShowEnvCells && _envCellManager != null) {
+                visibleEnvCells = new HashSet<uint>();
+                if (isInside) {
+                    _portalManager?.GetBuildingPortalsByCellId(currentEnvCellId, _buildingsWithCurrentCell);
+                    foreach (var (_, building) in _buildingsWithCurrentCell) {
+                        foreach (var id in building.EnvCellIds) visibleEnvCells.Add(id);
                     }
-
-                    _envCellManager.PrepareRenderBatches(snapshotVP, snapshotPos, envCellFilter, !isInside && _state.EnableCameraCollision);
+                }
+                _portalManager?.GetVisibleBuildingPortals(_visibleBuildingPortals);
+                for (int i = _visibleBuildingPortals.Count - 1; i >= 0; i--) {
+                    if (_visibleBuildingPortals[i].Building.VertexCount <= 0) {
+                        _visibleBuildingPortals.RemoveAt(i);
+                    }
+                }
+                foreach (var (_, building) in _visibleBuildingPortals) {
+                    // If we are inside, we always prepare all portal-visible building cells.
+                    // If we are outside, we only prepare EnvCells for portals that were visible last frame (mountain occlusion).
+                    if (isInside || building.WasVisible) {
+                        foreach (var id in building.EnvCellIds) visibleEnvCells.Add(id);
+                    }
                 }
             }
-        );
+
+            Parallel.Invoke(
+                () => {
+                    if (_state.ShowScenery) {
+                        _sceneryManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
+                    }
+                },
+                () => {
+                    if (_state.ShowStaticObjects || _state.ShowBuildings) {
+                        _staticObjectManager?.SetVisibilityFilters(_state.ShowBuildings, _state.ShowStaticObjects);
+                        _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
+                    }
+                },
+                () => {
+                    if (_state.ShowEnvCells && _envCellManager != null) {
+                        _envCellManager.SetVisibilityFilters(_state.ShowEnvCells);
+
+                        HashSet<uint>? envCellFilter = visibleEnvCells;
+                        if (!isInside && !_state.EnableCameraCollision) {
+                            envCellFilter = null; // Prepare all cells when collision is off and outside
+                        }
+
+                        _envCellManager.PrepareRenderBatches(snapshotVP, snapshotPos, envCellFilter, !isInside && _state.EnableCameraCollision);
+                    }
+                }
+            );
+            _lastPrepareCameraPos = snapshotPos;
+            _lastPrepareCameraRot = snapshotRot;
+            _forcePrepareBatches = false;
+        }
 
         if (_state.ShowSkybox) {
             // Draw skybox before everything else
