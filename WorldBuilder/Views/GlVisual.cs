@@ -122,12 +122,10 @@ private class GlVisual : CompositionCustomVisualHandler {
                 _gl = glContext;
                 SilkGl = GL.GetApi(glContext.GlInterface.GetProcAddress);
 
-                // Register master context for RenderView
-                if (_parent is RenderView) {
-                    var sharedContextManager = RenderView.SharedContextManager;
-                    if (sharedContextManager.GetMasterContext().context == null) {
-                        sharedContextManager.SetMasterContext(glContext, SilkGl);
-                    }
+                // Register master context
+                var sharedContextManager = RenderView.SharedContextManager;
+                if (sharedContextManager.GetMasterContext().context == null) {
+                    sharedContextManager.SetMasterContext(glContext, SilkGl);
                 }
 
                 _parent._logger.LogDebug("New OpenGL context assigned: {ContextHashCode}", glContext.GetHashCode());

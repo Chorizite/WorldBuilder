@@ -41,7 +41,7 @@ namespace Chorizite.OpenGLSDLBackend {
             GL = graphicsDevice.GL;
             _logger = logger;
             _isCompressed = IsCompressedFormat(format);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             NativePtr = (nint)GL.GenTexture();
             if (NativePtr == 0) {
@@ -49,17 +49,17 @@ namespace Chorizite.OpenGLSDLBackend {
             }
             GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Texture);
 
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             int maxDimension = Math.Max(width, height);
             int mipLevels = (int)Math.Floor(Math.Log2(maxDimension)) + 1;
 
             GL.TexStorage3D(GLEnum.Texture2DArray, (uint)mipLevels, format.ToGL(), (uint)width, (uint)height,
                 (uint)size);
-            GLHelpers.CheckErrorsWithContext(
+            GLHelpers.CheckErrorsWithContext(GL, 
                 $"Creating texture array storage (Format={format}, Size={width}x{height}x{size}, MipLevels={mipLevels})");
 
             if (_isCompressed) {
@@ -98,7 +98,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureSwizzleA, (int)GLEnum.Red);
             }
 
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             GpuMemoryTracker.TrackAllocation(CalculateTotalSize(), GpuResourceType.Texture);
 
@@ -139,22 +139,18 @@ namespace Chorizite.OpenGLSDLBackend {
                     $"Cannot bind texture array: NativePtr is invalid (Slot={Slot}, Size={Width}x{Height}x{Size}).");
             }
 
-            if (slot == 0) {
-                BaseObjectRenderManager.CurrentAtlas = 0;
-            }
-
-            GL.BindSampler((uint)slot, 0);
+            // GL.BindSampler((uint)slot, 0);
             GL.ActiveTexture(GLEnum.Texture0 + slot);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
             GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             if (!_isCompressed && _needsMipmapRegeneration) {
                 lock (_mipmapLock) {
                     if (_mipmapDirtyCount > 0) {
                         try {
                             GL.GenerateMipmap(GLEnum.Texture2DArray);
-                            GLHelpers.CheckErrorsWithContext("Generating mipmaps for texture array");
+                            GLHelpers.CheckErrorsWithContext(GL, "Generating mipmaps for texture array");
                             _mipmapDirtyCount = 0;
                             _needsMipmapRegeneration = false;
                         }
@@ -208,7 +204,7 @@ namespace Chorizite.OpenGLSDLBackend {
             // Ensure the texture is bound before uploading
             BaseObjectRenderManager.CurrentAtlas = 0;
             GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             if (layer < 0 || layer >= Size) {
                 throw new ArgumentOutOfRangeException(nameof(layer),
@@ -231,7 +227,7 @@ namespace Chorizite.OpenGLSDLBackend {
                         pixelFormat, pixelType, pixelsPtr);
                 }
 
-                GLHelpers.CheckErrorsWithContext(
+                GLHelpers.CheckErrorsWithContext(GL, 
                     $"Uploading layer {layer} for {Format} {Width}x{Height} (Compressed={_isCompressed}) {uploadPixelFormat} // {uploadPixelType} (Slot={Slot})");
                 _needsMipmapRegeneration = true;
 
@@ -305,7 +301,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public void Unbind() {
             GL.BindTexture(GLEnum.Texture2DArray, 0);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         public void GenerateMipmaps() {
@@ -317,7 +313,7 @@ namespace Chorizite.OpenGLSDLBackend {
                     GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
                     try {
                         GL.GenerateMipmap(GLEnum.Texture2DArray);
-                        GLHelpers.CheckErrorsWithContext("Generating mipmaps for texture array");
+                        GLHelpers.CheckErrorsWithContext(GL, "Generating mipmaps for texture array");
                         _mipmapDirtyCount = 0;
                         _needsMipmapRegeneration = false;
                     }
@@ -338,7 +334,7 @@ namespace Chorizite.OpenGLSDLBackend {
             }
             if (NativePtr != 0) {
                 GL.DeleteTexture((uint)NativePtr);
-                GLHelpers.CheckErrors();
+                GLHelpers.CheckErrors(GL);
                 GpuMemoryTracker.TrackDeallocation(CalculateTotalSize(), GpuResourceType.Texture);
                 GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Texture);
                 NativePtr = 0;

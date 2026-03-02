@@ -21,7 +21,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
             // Generate the vertex array
             _vaoId = GL.GenVertexArray();
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
 
             if (_vaoId == 0) {
                 throw new Exception("Failed to generate vertex array.");
@@ -33,17 +33,17 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public void SetVertexBuffer(IVertexBuffer buffer, VertexFormat format) {
             GL.BindVertexArray(_vaoId);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
             buffer.Bind();
             for (int i = 0; i < format.Attributes.Length; i++) {
                 var attr = format.Attributes[i];
                 GL.EnableVertexAttribArray((uint)i);
-                GLHelpers.CheckErrors();
+                GLHelpers.CheckErrors(GL);
                 GL.VertexAttribPointer((uint)i, attr.Size, Convert(attr.Type), attr.Normalized, (uint)format.Stride, attr.Offset);
-                GLHelpers.CheckErrors();
+                GLHelpers.CheckErrors(GL);
             }
             GL.BindVertexArray(0);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         private GLEnum Convert(Core.Render.Enums.VertexAttribType type) => type switch {
@@ -56,15 +56,13 @@ namespace Chorizite.OpenGLSDLBackend {
         };
 
         public void Bind() {
-            BaseObjectRenderManager.CurrentVAO = 0;
-            TerrainRenderManager.CurrentVAO = 0;
             GL.BindVertexArray(_vaoId);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         public void Unbind() {
             GL.BindVertexArray(0);
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
 
         public void Dispose() {
@@ -73,7 +71,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.VAO);
                 _vaoId = 0;
             }
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(GL);
         }
     }
 }

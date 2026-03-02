@@ -136,31 +136,27 @@ namespace WorldBuilder.Views {
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
             base.OnPropertyChanged(change);
-            if (change.Property == FileIdProperty || change.Property == IsSetupProperty || change.Property == DatsProperty || change.Property == IsAutoCameraProperty || change.Property == IsManualRotateProperty) {
+            if (change.Property == IsAutoCameraProperty || change.Property == IsManualRotateProperty) {
+                _renderIsAutoCamera = IsAutoCamera;
+                _renderIsManualRotate = IsManualRotate;
+                
+                if (_scene != null) {
+                    _scene.IsAutoCamera = _renderIsAutoCamera;
+                    _scene.IsManualRotate = _renderIsManualRotate;
+                }
+            }
+
+            if (change.Property == FileIdProperty || change.Property == IsSetupProperty || change.Property == DatsProperty) {
                 // Sync values for render thread
                 _renderFileId = FileId;
                 _renderIsSetup = IsSetup;
                 _renderDats = Dats;
-                _renderIsAutoCamera = IsAutoCamera;
-                _renderIsManualRotate = IsManualRotate;
 
                 if (Dispatcher.UIThread.CheckAccess()) {
                     UpdateObject();
                 }
                 else {
                     Dispatcher.UIThread.Post(UpdateObject);
-                }
-            }
-
-            if (change.Property == IsAutoCameraProperty) {
-                if (_scene != null) {
-                    _scene.IsAutoCamera = _renderIsAutoCamera;
-                }
-            }
-
-            if (change.Property == IsManualRotateProperty) {
-                if (_scene != null) {
-                    _scene.IsManualRotate = _renderIsManualRotate;
                 }
             }
 
@@ -186,10 +182,19 @@ namespace WorldBuilder.Views {
             }
 
             if (change.Property == ClearColorProperty) {
-                _renderBackgroundColor = ExtractColor(ClearColor);
-                if (_scene != null) {
-                    _scene.BackgroundColor = _renderBackgroundColor;
+                if (Dispatcher.UIThread.CheckAccess()) {
+                    UpdateBackgroundColor();
                 }
+                else {
+                    Dispatcher.UIThread.Post(UpdateBackgroundColor);
+                }
+            }
+        }
+
+        private void UpdateBackgroundColor() {
+            _renderBackgroundColor = ExtractColor(ClearColor);
+            if (_scene != null) {
+                _scene.BackgroundColor = _renderBackgroundColor;
             }
         }
 

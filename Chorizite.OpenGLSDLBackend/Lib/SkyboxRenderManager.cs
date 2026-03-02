@@ -236,7 +236,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _gl.VertexAttribPointer(loc, 4, GLEnum.Float, false, (uint)sizeof(Matrix4x4), (void*)(i * 16));
                 _gl.VertexAttribDivisor(loc, 1);
             }
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(_gl);
 
             foreach (var batch in renderData.Batches) {
                 // For skybox, we generally want no culling to ensure everything is visible from inside the "sphere"

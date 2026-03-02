@@ -320,10 +320,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public virtual unsafe void Render(int renderPass) {
             if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || _cameraPosition.Z > 4000) return;
 
-            CurrentVAO = 0;
-            CurrentIBO = 0;
-            CurrentAtlas = 0;
-            CurrentCullMode = null;
+            BaseObjectRenderManager.CurrentVAO = 0;
+            BaseObjectRenderManager.CurrentIBO = 0;
+            BaseObjectRenderManager.CurrentAtlas = 0;
+            BaseObjectRenderManager.CurrentCullMode = null;
 
             _shader.SetUniform("uRenderPass", renderPass);
             _shader.SetUniform("uHighlightColor", Vector4.Zero);

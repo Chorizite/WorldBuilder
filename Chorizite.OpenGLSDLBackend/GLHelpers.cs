@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Silk.NET.Core.Native;
 using Silk.NET.OpenGL;
 using System;
@@ -19,23 +19,23 @@ namespace Chorizite.OpenGLSDLBackend {
         private static bool _loggedVersion = false;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void CheckErrors(bool logErrors = false, [CallerMemberName] string callerName = "",
+        public static void CheckErrors(GL gl, bool logErrors = false, [CallerMemberName] string callerName = "",
             [CallerFilePath] string callerFile = "", [CallerLineNumber] int callerLine = 0) {
-            var error = Device?.GL.GetError();
-            if (error.HasValue && error.Value != GLEnum.NoError) {
-                if (!_loggedVersion && Device != null) {
+            var error = gl.GetError();
+            if (error != GLEnum.NoError) {
+                if (!_loggedVersion) {
                     _loggedVersion = true;
-                    var version = Device.GL.GetStringS(GLEnum.Version);
-                    var vendor = Device.GL.GetStringS(GLEnum.Vendor);
-                    var renderer = Device.GL.GetStringS(GLEnum.Renderer);
+                    var version = gl.GetStringS(GLEnum.Version);
+                    var vendor = gl.GetStringS(GLEnum.Vendor);
+                    var renderer = gl.GetStringS(GLEnum.Renderer);
                     Logger?.LogInformation($"GL Version: {version}, Vendor: {vendor}, Renderer: {renderer}");
                 }
-                string errorDetails = GetErrorDetails(error.Value);
+                string errorDetails = GetErrorDetails(error);
                 string location = $"{System.IO.Path.GetFileName(callerFile)}::{callerName}:{callerLine}";
 
-                var program = Device?.GL.GetInteger(GLEnum.CurrentProgram);
-                var vao = Device?.GL.GetInteger(GLEnum.VertexArrayBinding);
-                var activeTex = Device?.GL.GetInteger(GLEnum.ActiveTexture);
+                var program = gl.GetInteger(GLEnum.CurrentProgram);
+                var vao = gl.GetInteger(GLEnum.VertexArrayBinding);
+                var activeTex = gl.GetInteger(GLEnum.ActiveTexture);
 
                 string message = $"OpenGL Error: {error} ({errorDetails}) at {location}. Program: {program}, VAO: {vao}, ActiveTex: {activeTex}";
 
@@ -45,7 +45,7 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 #else
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void CheckErrors(bool logErrors = false, string callerName = "",
+        public static void CheckErrors(GL gl, bool logErrors = false, string callerName = "",
             string callerFile = "", int callerLine = 0) {
         }
 #endif
@@ -70,11 +70,11 @@ namespace Chorizite.OpenGLSDLBackend {
         /// <summary>
         /// Checks for OpenGL errors and provides context-specific information
         /// </summary>
-        public static void CheckErrorsWithContext(string context, [CallerMemberName] string callerName = "",
+        public static void CheckErrorsWithContext(GL gl, string context, [CallerMemberName] string callerName = "",
             [CallerFilePath] string callerFile = "", [CallerLineNumber] int callerLine = 0) {
-            var error = Device?.GL.GetError();
-            if (error.HasValue && error.Value != GLEnum.NoError) {
-                string errorDetails = GetErrorDetails(error.Value);
+            var error = gl.GetError();
+            if (error != GLEnum.NoError) {
+                string errorDetails = GetErrorDetails(error);
                 string location = $"{System.IO.Path.GetFileName(callerFile)}::{callerName}:{callerLine}";
                 string message = $"OpenGL Error: {error} ({errorDetails})\nContext: {context}\nLocation: {location}";
 
@@ -84,7 +84,7 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 #else
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void CheckErrorsWithContext(string context, string callerName = "",
+        public static void CheckErrorsWithContext(GL gl, string context, string callerName = "",
             string callerFile = "", int callerLine = 0) {
         }
 #endif
@@ -114,10 +114,6 @@ namespace Chorizite.OpenGLSDLBackend {
                 gl.GetTexParameter(target, GetTextureParameter.TextureMagFilter, out int magFilter);
                 info.AppendLine($"  Min Filter: {(TextureMinFilter)minFilter}");
                 info.AppendLine($"  Mag Filter: {(TextureMagFilter)magFilter}");
-
-                // Check if texture is immutable
-                //gl.GetTexParameter(target, GetTextureParameter.TextureImmutableFormat, out int immutable);
-                //info.AppendLine($"  Immutable: {immutable != 0}");
 
                 // Get max mipmap level
                 gl.GetTexParameter(target, GetTextureParameter.TextureMaxLevelSgis, out int maxLevel);
@@ -161,11 +157,6 @@ namespace Chorizite.OpenGLSDLBackend {
                     return false;
                 }
 
-                //gl.GetTexParameter(target, GetTextureParameter.TextureImmutableFormat, out int immutable);
-                //if (immutable == 0) {
-                //    errorMessage = "Texture is mutable (not using glTexStorage), which can cause issues with mipmap generation";
-                // Not necessarily fatal, but worth noting
-                //}
                 errorMessage = String.Empty;
                 return true;
             }

@@ -44,11 +44,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private ModernBatchData[] _modernBatches = Array.Empty<ModernBatchData>();
         private readonly List<LandblockMdiCommand>[] _cullGroups = [new(), new(), new(), new()];
 
-        protected unsafe BaseObjectRenderManager(GL gl, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager) {
+        protected unsafe BaseObjectRenderManager(GL gl, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager, int initialCapacity = 1024 * 4096) {
             Gl = gl;
             GraphicsDevice = graphicsDevice;
             MeshManager = meshManager;
             _useModernRendering = graphicsDevice.HasOpenGL43 && graphicsDevice.HasBindless;
+            _worldInstanceCapacity = initialCapacity;
 
             // Initialize global instance buffer
             Gl.GenBuffers(1, out _worldInstanceBuffer);
@@ -74,7 +75,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_modernInstanceCapacity * sizeof(InstanceData)), null, GLEnum.DynamicDraw);
             }
 
-            GLHelpers.CheckErrors();
+            GLHelpers.CheckErrors(Gl);
         }
 
         protected int AllocateInstanceSlice(int count) {
@@ -296,6 +297,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             int instanceCount, int instanceOffset, uint instanceVbo, bool showCulling = true) {
             if (renderData.Batches.Count == 0 || instanceCount == 0) return;
 
+            shader.Bind();
             shader.SetUniform("uFilterByCell", 0);
 
             if (CurrentVAO != renderData.VAO) {
@@ -371,6 +373,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected unsafe void RenderModernMDI(IShader shader, List<(ObjectRenderData renderData, int count, int offset)> drawCalls, List<InstanceData> allInstances, bool showCulling = true) {
             if (drawCalls.Count == 0 || allInstances.Count == 0) return;
 
+            shader.Bind();
             shader.SetUniform("uFilterByCell", 0);
 
             var batchesByCullMode = new Dictionary<CullMode, List<(ObjectRenderBatch batch, int instanceCount, int instanceOffset)>>();

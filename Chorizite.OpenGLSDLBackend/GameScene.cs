@@ -1116,6 +1116,11 @@ public class GameScene : IDisposable {
         _gl.GetInteger(GetPName.Viewport, currentViewport);
         bool wasScissorEnabled = _gl.IsEnabled(EnableCap.ScissorTest);
 
+        BaseObjectRenderManager.CurrentVAO = 0;
+        BaseObjectRenderManager.CurrentIBO = 0;
+        BaseObjectRenderManager.CurrentAtlas = 0;
+        BaseObjectRenderManager.CurrentCullMode = null;
+
         // Ensure we can clear the alpha channel to 1.0f (fully opaque)
         _gl.ColorMask(true, true, true, true);
         _gl.ClearColor(0.2f, 0.2f, 0.3f, 1.0f);
@@ -1140,7 +1145,6 @@ public class GameScene : IDisposable {
         _gl.Disable(EnableCap.CullFace);
         _gl.CullFace(GLEnum.Back);
         _gl.FrontFace(GLEnum.CW);
-        _gl.Disable(EnableCap.ScissorTest);
         _gl.Enable(EnableCap.Blend);
         _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 

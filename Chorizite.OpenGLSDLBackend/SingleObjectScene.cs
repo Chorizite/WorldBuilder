@@ -76,7 +76,7 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public SingleObjectScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILoggerFactory loggerFactory, IDatReaderWriter dats, ObjectMeshManager? meshManager = null)
-            : base(gl, graphicsDevice, meshManager ?? new ObjectMeshManager(graphicsDevice, dats, loggerFactory.CreateLogger<ObjectMeshManager>())) {
+            : base(gl, graphicsDevice, meshManager ?? new ObjectMeshManager(graphicsDevice, dats, loggerFactory.CreateLogger<ObjectMeshManager>()), 1024) {
             _loggerFactory = loggerFactory;
             _log = loggerFactory.CreateLogger<SingleObjectScene>();
             _dats = dats;
@@ -97,7 +97,7 @@ namespace Chorizite.OpenGLSDLBackend {
             var fragSource = EmbeddedResourceReader.GetEmbeddedResource(sFragName);
             _shader = GraphicsDevice.CreateShader("StaticObject", vertSource, fragSource);
 
-            if (_shader is GLSLShader glsl && glsl.Program == 0) {
+            if (_shader.ProgramId == 0) {
                 _log.LogError("Failed to initialize StaticObject shader.");
                 return;
             }
@@ -221,9 +221,9 @@ namespace Chorizite.OpenGLSDLBackend {
             bool wasScissorEnabled = Gl.IsEnabled(EnableCap.ScissorTest);
 
             try {
-                CurrentVAO = 0;
-                CurrentIBO = 0;
-                CurrentAtlas = 0;
+                BaseObjectRenderManager.CurrentVAO = 0;
+                BaseObjectRenderManager.CurrentIBO = 0;
+                BaseObjectRenderManager.CurrentAtlas = 0;
                 CurrentCullMode = null;
 
                 Gl.Disable(EnableCap.ScissorTest);
