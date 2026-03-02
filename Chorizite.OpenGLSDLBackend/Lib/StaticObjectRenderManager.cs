@@ -51,8 +51,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Call before <see cref="ObjectRenderManagerBase.PrepareRenderBatches"/>.
         /// </summary>
         public void SetVisibilityFilters(bool showBuildings, bool showStaticObjects) {
+            if (_showBuildings == showBuildings && _showStaticObjects == showStaticObjects) return;
             _showBuildings = showBuildings;
             _showStaticObjects = showStaticObjects;
+
+            foreach (var lb in _landblocks.Values) {
+                if (lb.GpuReady) {
+                    BuildMdiCommands(lb);
+                }
+            }
         }
 
         /// <summary>
@@ -184,6 +191,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #endregion
 
         #region Protected: Overrides
+
+        protected override void BuildMdiCommands(ObjectLandblock lb) {
+            lb.MdiCommands.Clear();
+            if (lb.InstanceBufferOffset < 0) return;
+
+            int currentOffset = 0;
+            foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
+                if (_showStaticObjects) {
+                    AddMdiCommandsForGroup(lb, gfxObjId, transforms.Count, currentOffset);
+                }
+                currentOffset += transforms.Count;
+            }
+            foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
+                if (_showBuildings) {
+                    AddMdiCommandsForGroup(lb, gfxObjId, transforms.Count, currentOffset);
+                }
+                currentOffset += transforms.Count;
+            }
+        }
 
         protected override IEnumerable<KeyValuePair<ulong, List<InstanceData>>> GetFastPathGroups(ObjectLandblock lb) {
             if (_showBuildings) {

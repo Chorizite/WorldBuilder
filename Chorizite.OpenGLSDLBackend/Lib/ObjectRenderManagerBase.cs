@@ -627,14 +627,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 // Consolidation for optimized rendering
                 var allInstances = new List<InstanceData>();
-                var localDrawCalls = new List<(ulong ObjectId, int Count, int Offset)>();
 
                 foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
-                    localDrawCalls.Add((gfxObjId, transforms.Count, allInstances.Count));
                     allInstances.AddRange(transforms);
                 }
                 foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
-                    localDrawCalls.Add((gfxObjId, transforms.Count, allInstances.Count));
                     allInstances.AddRange(transforms);
                 }
 
@@ -645,37 +642,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         UploadInstanceData(lb.InstanceBufferOffset, allInstances);
 
                         // Pre-calculate MDI commands and batch data
-                        lb.MdiCommands.Clear();
-                        foreach (var call in localDrawCalls) {
-                            var renderData = MeshManager.TryGetRenderData(call.ObjectId);
-                            if (renderData != null && !renderData.IsSetup) {
-                                foreach (var batch in renderData.Batches) {
-                                    if (!lb.MdiCommands.TryGetValue(batch.CullMode, out var list)) {
-                                        list = new List<LandblockMdiCommand>();
-                                        lb.MdiCommands[batch.CullMode] = list;
-                                    }
-
-                                    list.Add(new LandblockMdiCommand {
-                                        ObjectId = call.ObjectId,
-                                        VAO = renderData.VAO,
-                                        IBO = batch.IBO,
-                                        TextureIndex = (uint)batch.TextureIndex,
-                                        Atlas = batch.Atlas.TextureArray as ManagedGLTextureArray ?? throw new Exception("Atlas.TextureArray must be ManagedGLTextureArray"),
-                                        Command = new DrawElementsIndirectCommand {
-                                            Count = (uint)batch.IndexCount,
-                                            InstanceCount = (uint)call.Count,
-                                            FirstIndex = batch.FirstIndex,
-                                            BaseVertex = (int)batch.BaseVertex,
-                                            BaseInstance = (uint)(lb.InstanceBufferOffset + call.Offset)
-                                        },
-                                        BatchData = new ModernBatchData {
-                                            TextureHandle = batch.BindlessTextureHandle,
-                                            TextureIndex = (uint)batch.TextureIndex
-                                        }
-                                    });
-                                }
-                            }
-                        }
+                        BuildMdiCommands(lb);
                     }
                     else {
                         Log.LogWarning("Failed to allocate {Count} instances for landblock ({X},{Y}). Instance buffer may be full.", lb.InstanceCount, lb.GridX, lb.GridY);
@@ -712,6 +679,52 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             lb.GpuReady = true;
+        }
+
+        protected virtual void BuildMdiCommands(ObjectLandblock lb) {
+            lb.MdiCommands.Clear();
+            if (lb.InstanceBufferOffset < 0) return;
+
+            int currentOffset = 0;
+            foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
+                AddMdiCommandsForGroup(lb, gfxObjId, transforms.Count, currentOffset);
+                currentOffset += transforms.Count;
+            }
+            foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
+                AddMdiCommandsForGroup(lb, gfxObjId, transforms.Count, currentOffset);
+                currentOffset += transforms.Count;
+            }
+        }
+
+        protected void AddMdiCommandsForGroup(ObjectLandblock lb, ulong gfxObjId, int instanceCount, int groupOffset) {
+            var renderData = MeshManager.TryGetRenderData(gfxObjId);
+            if (renderData != null && !renderData.IsSetup) {
+                foreach (var batch in renderData.Batches) {
+                    if (!lb.MdiCommands.TryGetValue(batch.CullMode, out var list)) {
+                        list = new List<LandblockMdiCommand>();
+                        lb.MdiCommands[batch.CullMode] = list;
+                    }
+
+                    list.Add(new LandblockMdiCommand {
+                        ObjectId = gfxObjId,
+                        VAO = renderData.VAO,
+                        IBO = batch.IBO,
+                        TextureIndex = (uint)batch.TextureIndex,
+                        Atlas = batch.Atlas.TextureArray as ManagedGLTextureArray ?? throw new Exception("Atlas.TextureArray must be ManagedGLTextureArray"),
+                        Command = new DrawElementsIndirectCommand {
+                            Count = (uint)batch.IndexCount,
+                            InstanceCount = (uint)instanceCount,
+                            FirstIndex = batch.FirstIndex,
+                            BaseVertex = (int)batch.BaseVertex,
+                            BaseInstance = (uint)(lb.InstanceBufferOffset + groupOffset)
+                        },
+                        BatchData = new ModernBatchData {
+                            TextureHandle = batch.BindlessTextureHandle,
+                            TextureIndex = (uint)batch.TextureIndex
+                        }
+                    });
+                }
+            }
         }
 
         private ObjectRenderData? UploadPreparedMesh(ulong objectId) {

@@ -138,8 +138,6 @@ namespace WorldBuilder.Views {
                     sharedContextManager.SetMasterContext(glContext, SilkGl);
                 }
 
-                _parent._logger.LogDebug("New OpenGL context assigned: {ContextHashCode}", glContext.GetHashCode());
-
                 // Initialize with a valid size
                 var initSize = initialSize.Width > 0 && initialSize.Height > 0 ? initialSize : new PixelSize(1, 1);
                 _parent.OnGlInitInternal(SilkGl, initSize);
@@ -148,7 +146,6 @@ namespace WorldBuilder.Views {
                 var version = SilkGl.GetStringS(StringName.Version);
                 var vendor = SilkGl.GetStringS(StringName.Vendor);
                 var renderer = SilkGl.GetStringS(StringName.Renderer);
-                _parent._logger.LogTrace("OpenGL Version: {Version} // {Vendor} // {Renderer}", version, vendor, renderer);
             }
 
             private GlState SaveGlState(GL gl) {
