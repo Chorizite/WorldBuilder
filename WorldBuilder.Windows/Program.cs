@@ -57,8 +57,12 @@ sealed class Program {
             .WithInterFont()
             .With(new Win32PlatformOptions() {
                 RenderingMode = new List<Win32RenderingMode>()  {
-                    Win32RenderingMode.Wgl
+                    Win32RenderingMode.Wgl,
                 },
+                WglProfiles = new List<GlVersion> { 
+                    new GlVersion(GlProfileType.OpenGL, 4, 3),
+                    new GlVersion(GlProfileType.OpenGL, 3, 3)
+                }
             })
             .LogToTrace();
 }

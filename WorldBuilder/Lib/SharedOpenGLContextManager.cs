@@ -24,9 +24,19 @@ namespace WorldBuilder.Lib {
         public string? GlVersion { get; private set; }
 
         /// <summary>
+        /// Gets whether the master context supports OpenGL 4.3 or higher.
+        /// </summary>
+        public bool HasOpenGL43 { get; private set; }
+
+        /// <summary>
         /// Gets whether bindless texturing is supported and allowed by the master context.
         /// </summary>
         public bool HasBindless { get; private set; }
+
+        /// <summary>
+        /// Gets whether the modern rendering pipeline is supported (requires OpenGL 4.3+ and Bindless).
+        /// </summary>
+        public bool IsModernPipelineSupported => HasOpenGL43 && HasBindless;
 
         // Track viewport dimensions per context to maintain independence between windows
         private readonly ConcurrentDictionary<IGlContext, (int width, int height)> _viewportDimensions = new();
@@ -47,6 +57,10 @@ namespace WorldBuilder.Lib {
                 var version = gl.GetStringS(Silk.NET.OpenGL.StringName.Version);
                 GlVersion = string.IsNullOrWhiteSpace(version) ? "GL: Unknown" : version;
 
+                gl.GetInteger(GLEnum.MajorVersion, out int major);
+                gl.GetInteger(GLEnum.MinorVersion, out int minor);
+                HasOpenGL43 = major > 4 || (major == 4 && minor >= 3);
+
                 if (!_commandLineOptions.DisableBindless && _settings.App.AllowBindless && gl.TryGetExtension(out Silk.NET.OpenGL.Extensions.ARB.ArbBindlessTexture ext)) {
                     HasBindless = true;
                 } else {
@@ -54,6 +68,7 @@ namespace WorldBuilder.Lib {
                 }
             } catch {
                 GlVersion = "GL: Unknown";
+                HasOpenGL43 = false;
                 HasBindless = false;
             }
             _logger.LogInformation("Master context set for sharing. Version: {Version}, Bindless: {HasBindless} (Settings: {AllowBindless}, CMD: {DisableBindless})", 
