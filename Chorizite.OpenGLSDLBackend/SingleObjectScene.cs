@@ -215,6 +215,8 @@ namespace Chorizite.OpenGLSDLBackend {
         public void Render() {
             if (!_initialized || _shader == null || (_shader is GLSLShader glsl && glsl.Program == 0)) return;
 
+            MeshManager.GenerateMipmaps();
+
             // Preserve the current viewport and scissor state
             Span<int> currentViewport = stackalloc int[4];
             Gl.GetInteger(GetPName.Viewport, currentViewport);
