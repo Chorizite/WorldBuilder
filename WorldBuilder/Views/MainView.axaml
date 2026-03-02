@@ -16,9 +16,6 @@
     x:CompileBindings="True"
     x:DataType="vm:MainViewModel"
     mc:Ignorable="d">
-    <Design.DataContext>
-        <vm:MainViewModel />
-    </Design.DataContext>
     <UserControl.Resources>
         <converters:StringToKeyGestureConverter x:Key="StringToKeyGestureConverter" />
     </UserControl.Resources>

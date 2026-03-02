@@ -11,12 +11,8 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="WorldBuilder.Modules.Landscape.LandscapeView"
              x:DataType="vm:LandscapeViewModel">
-  <Design.DataContext>
-    <!-- This only sets the DataContext for the previewer in an IDE,
-         to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
-  </Design.DataContext>
 
-  <Grid ColumnDefinitions="Auto, *, Auto">
+  <Grid ColumnDefinitions="Auto, *, Auto, Auto">
     <!-- Left Sidebar: Tools (Narrow) -->
     <components:ToolPanel Grid.Column="0" IsVisible="{Binding !IsReadOnly}" />
 
@@ -131,8 +127,18 @@
       </Panel>
     </Grid>
 
+    <!-- GridSplitter for resizable right panel -->
+    <GridSplitter Grid.Column="2" 
+                  HorizontalAlignment="Center" 
+                  VerticalAlignment="Stretch" 
+                  Width="4" 
+                  MinWidth="2"
+                  Background="Transparent"
+                  ResizeDirection="Columns"
+                  IsVisible="{Binding !IsReadOnly}" />
+
     <!-- Right Sidebar: Layers, History & Properties -->
-    <Grid Grid.Column="2" RowDefinitions="*, *" Width="300" IsVisible="{Binding !IsReadOnly}">
+    <Grid Grid.Column="3" RowDefinitions="*, *" MinWidth="300" IsVisible="{Binding !IsReadOnly}">
       <TabControl Grid.Row="0" Margin="4">
         <TabItem Header="Layers">
           <components:LayersPanel DataContext="{Binding LayersPanel}" />
