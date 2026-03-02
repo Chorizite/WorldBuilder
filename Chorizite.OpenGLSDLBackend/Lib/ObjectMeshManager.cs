@@ -212,6 +212,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _usageCount.AddOrUpdate(id, 1, (_, count) => count + 1);
         }
 
+        public void GenerateMipmaps() {
+            foreach (var atlasList in _globalAtlases.Values) {
+                foreach (var atlas in atlasList) {
+                    atlas.TextureArray.GenerateMipmaps();
+                }
+            }
+        }
+
         /// <summary>
         /// Decrement reference count and unload GPU resources if no longer needed.
         /// </summary>

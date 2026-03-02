@@ -46,6 +46,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected Vector3 _cameraPosition;
         protected int _cameraLbX;
         protected int _cameraLbY;
+        private int _lastRenderDistance;
 
         // Frustum culling
         protected readonly Frustum _frustum;
@@ -57,6 +58,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         // Active landblocks for rendering
         protected readonly List<ObjectLandblock> _activeLandblocks = new();
+        protected bool _activeLandblocksDirty = true;
         protected readonly List<ObjectLandblock> _visibleLandblocks = new();
         protected readonly List<ObjectLandblock> _intersectingLandblocks = new();
 
@@ -69,7 +71,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected int _poolIndex = 0;
 
         // Statistics
-        public int RenderDistance { get; set; } = 25;
+        private int _renderDistance = 25;
+        public int RenderDistance {
+            get => _renderDistance;
+            set {
+                if (_renderDistance != value) {
+                    _renderDistance = value;
+                    _activeLandblocksDirty = true;
+                }
+            }
+        }
         public int QueuedUploads => _uploadQueue.Count;
         public int QueuedGenerations => _pendingGeneration.Count;
         public int ActiveLandblocks => _landblocks.Count;
@@ -119,11 +130,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _lbSizeInUnits = lbSize;
 
             bool cameraMovedLandblock = newCameraLbX != _cameraLbX || newCameraLbY != _cameraLbY;
+            bool renderDistanceChanged = RenderDistance != _lastRenderDistance;
             _cameraLbX = newCameraLbX;
             _cameraLbY = newCameraLbY;
+            _lastRenderDistance = RenderDistance;
 
             // Only queue landblocks within render distance if the camera moved to a new landblock or it's the first time
-            if (cameraMovedLandblock || _landblocks.IsEmpty) {
+            if (cameraMovedLandblock || renderDistanceChanged || _landblocks.IsEmpty) {
+                _activeLandblocksDirty = true;
                 for (int x = _cameraLbX - RenderDistance; x <= _cameraLbX + RenderDistance; x++) {
                     for (int y = _cameraLbY - RenderDistance; y <= _cameraLbY + RenderDistance; y++) {
                         if (x < 0 || y < 0 || x >= region.MapWidthInLandblocks || y >= region.MapHeightInLandblocks)
@@ -178,14 +192,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
                 _outOfRangeTimers.TryRemove(key, out _);
                 _pendingGeneration.TryRemove(key, out _);
+                _activeLandblocksDirty = true;
             }
 
             // Update active landblocks for rendering
-            _activeLandblocks.Clear();
-            foreach (var lb in _landblocks.Values) {
-                if (lb.GpuReady && lb.Instances.Count > 0 && IsWithinRenderDistance(lb)) {
-                    _activeLandblocks.Add(lb);
+            if (_activeLandblocksDirty) {
+                _activeLandblocks.Clear();
+                foreach (var lb in _landblocks.Values) {
+                    if (lb.GpuReady && lb.Instances.Count > 0 && IsWithinRenderDistance(lb)) {
+                        _activeLandblocks.Add(lb);
+                    }
                 }
+                _activeLandblocksDirty = false;
             }
 
             // Start background generation tasks — prioritize nearest landblocks
@@ -270,6 +288,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     continue;
                 }
                 UploadLandblockMeshes(lb);
+                _activeLandblocksDirty = true;
             }
 
             return (float)sw.Elapsed.TotalMilliseconds;
@@ -628,6 +647,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             }
                         }
                     }
+                }
+                else {
+                    Log.LogWarning("Failed to allocate {Count} instances for landblock ({X},{Y}). Instance buffer may be full.", lb.InstanceCount, lb.GridX, lb.GridY);
                 }
             }
 

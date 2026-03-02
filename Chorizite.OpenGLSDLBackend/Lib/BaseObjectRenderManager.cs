@@ -28,8 +28,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Global instance buffers for all landblocks managed by this manager
         private uint _worldInstanceBuffer;
         private uint _worldInstanceSSBO;
-        private int _worldInstanceCapacity = 1024 * 512; // 512k instances
+        private int _worldInstanceCapacity = 1024 * 4096; // 4M instances
         private readonly List<(int Offset, int Size)> _freeSlices = new();
+        private readonly object _allocationLock = new();
 
         // Modern rendering MDI buffers
         private uint _mdiCommandBuffer;
@@ -77,22 +78,51 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         protected int AllocateInstanceSlice(int count) {
-            for (int i = 0; i < _freeSlices.Count; i++) {
-                var slice = _freeSlices[i];
-                if (slice.Size >= count) {
-                    _freeSlices.RemoveAt(i);
-                    if (slice.Size > count) {
-                        _freeSlices.Insert(i, (slice.Offset + count, slice.Size - count));
+            lock (_allocationLock) {
+                for (int i = 0; i < _freeSlices.Count; i++) {
+                    var slice = _freeSlices[i];
+                    if (slice.Size >= count) {
+                        _freeSlices.RemoveAt(i);
+                        if (slice.Size > count) {
+                            _freeSlices.Insert(i, (slice.Offset + count, slice.Size - count));
+                        }
+                        return slice.Offset;
                     }
-                    return slice.Offset;
                 }
             }
             return -1;
         }
 
         protected void FreeInstanceSlice(int offset, int count) {
-            if (offset < 0) return;
-            _freeSlices.Add((offset, count));
+            if (offset < 0 || count <= 0) return;
+            
+            lock (_allocationLock) {
+                // Insert and maintain sorted order by offset to allow merging
+                int insertIdx = 0;
+                while (insertIdx < _freeSlices.Count && _freeSlices[insertIdx].Offset < offset) {
+                    insertIdx++;
+                }
+                _freeSlices.Insert(insertIdx, (offset, count));
+
+                // Merge with next slice if contiguous
+                if (insertIdx + 1 < _freeSlices.Count) {
+                    var next = _freeSlices[insertIdx + 1];
+                    if (offset + count == next.Offset) {
+                        _freeSlices[insertIdx] = (offset, count + next.Size);
+                        _freeSlices.RemoveAt(insertIdx + 1);
+                    }
+                }
+
+                // Merge with previous slice if contiguous
+                if (insertIdx > 0) {
+                    var prev = _freeSlices[insertIdx - 1];
+                    var current = _freeSlices[insertIdx];
+                    if (prev.Offset + prev.Size == current.Offset) {
+                        _freeSlices[insertIdx - 1] = (prev.Offset, prev.Size + current.Size);
+                        _freeSlices.RemoveAt(insertIdx);
+                    }
+                }
+            }
         }
 
         protected unsafe void UploadInstanceData(int offset, List<InstanceData> data) {

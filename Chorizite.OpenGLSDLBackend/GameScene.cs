@@ -1229,6 +1229,7 @@ public class GameScene : IDisposable {
         _portalManager?.SubmitDebugShapes(_debugRenderer);
 
         // Pass 1: Opaque Scenery & Static Objects (exterior)
+        _meshManager?.GenerateMipmaps();
         _sceneryShader?.Bind();
         int pass1RenderPass = _state.EnableTransparencyPass ? 0 : 2;
 
