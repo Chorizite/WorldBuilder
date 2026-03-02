@@ -184,7 +184,6 @@ public partial class LandscapeView : UserControl {
     }
     
     private void SaveRightPanelWidth() {
-        Console.WriteLine("SaveRightPanelWidth");
         var rootLayoutGrid = this.FindControl<Grid>("RootLayoutGrid");
         if (rootLayoutGrid != null && rootLayoutGrid.ColumnDefinitions.Count >= 4 && _settings != null) {
             var rightPanelsColumn = rootLayoutGrid.ColumnDefinitions[3];
