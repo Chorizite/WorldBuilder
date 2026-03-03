@@ -788,6 +788,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     bool isSolid = poly.Stippling.HasFlag(StipplingType.NoPos) || surface.Type.HasFlag(SurfaceType.Base1Solid);
                     bool isClipMap = surface.Type.HasFlag(SurfaceType.Base1ClipMap);
                     uint paletteId = 0;
+                    bool isDxt3or5 = false;
 
                     if (isSolid) {
                         texWidth = texHeight = 32;
@@ -811,6 +812,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         paletteId = renderSurface.DefaultPaletteId;
 
                         if (TextureHelpers.IsCompressedFormat(renderSurface.Format)) {
+                            isDxt3or5 = renderSurface.Format == DatReaderWriter.Enums.PixelFormat.PFID_DXT3 || renderSurface.Format == DatReaderWriter.Enums.PixelFormat.PFID_DXT5;
                             textureFormat = TextureFormat.RGBA8;
                             uploadPixelFormat = PixelFormat.Rgba;
 
@@ -879,14 +881,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         return;
                     }
 
-                    var isTransparent = isSolid ? surface.ColorValue.Alpha < 255 : 
-                        (surface.Type.HasFlag(SurfaceType.Translucent) || 
+                    var isTransparent = isSolid ? surface.ColorValue.Alpha < 255 :
+                        (surface.Type.HasFlag(SurfaceType.Translucent) ||
                          surface.Type.HasFlag(SurfaceType.Additive) ||
                          (surface.Translucency > 0.0f && surface.Translucency < 1.0f) ||
-                         textureFormat == TextureFormat.DXT3 ||
-                         textureFormat == TextureFormat.DXT5 ||
                          textureFormat == TextureFormat.A8 ||
-                         textureFormat == TextureFormat.Rgba32f);
+                         textureFormat == TextureFormat.Rgba32f ||
+                         isDxt3or5);
 
                     var format = (texWidth, texHeight, textureFormat);
                     var key = new TextureAtlasManager.TextureKey {
@@ -1045,6 +1046,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     bool isSolid = poly.Stippling.HasFlag(StipplingType.NoPos) || surface.Type.HasFlag(SurfaceType.Base1Solid);
                     bool isClipMap = surface.Type.HasFlag(SurfaceType.Base1ClipMap);
                     uint paletteId = 0;
+                    bool isDxt3or5 = false;
 
                     if (isSolid) {
                         texWidth = texHeight = 32;
@@ -1066,6 +1068,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         paletteId = renderSurface.DefaultPaletteId;
 
                         if (TextureHelpers.IsCompressedFormat(renderSurface.Format)) {
+                            isDxt3or5 = renderSurface.Format == DatReaderWriter.Enums.PixelFormat.PFID_DXT3 || renderSurface.Format == DatReaderWriter.Enums.PixelFormat.PFID_DXT5;
                             textureFormat = TextureFormat.RGBA8;
                             uploadPixelFormat = PixelFormat.Rgba;
 
@@ -1131,14 +1134,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         return;
                     }
 
-                    var isTransparent = isSolid ? surface.ColorValue.Alpha < 255 : 
-                        (surface.Type.HasFlag(SurfaceType.Translucent) || 
+                    var isTransparent = isSolid ? surface.ColorValue.Alpha < 255 :
+                        (surface.Type.HasFlag(SurfaceType.Translucent) ||
                          surface.Type.HasFlag(SurfaceType.Additive) ||
                          (surface.Translucency > 0.0f && surface.Translucency < 1.0f) ||
-                         textureFormat == TextureFormat.DXT3 ||
-                         textureFormat == TextureFormat.DXT5 ||
                          textureFormat == TextureFormat.A8 ||
-                         textureFormat == TextureFormat.Rgba32f);
+                         textureFormat == TextureFormat.Rgba32f ||
+                         isDxt3or5);
 
                     var format = (texWidth, texHeight, textureFormat);
                     var key = new TextureAtlasManager.TextureKey {

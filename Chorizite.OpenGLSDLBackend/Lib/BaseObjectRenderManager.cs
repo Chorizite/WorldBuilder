@@ -75,7 +75,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 Gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_mdiCommandCapacity * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
                 GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
                 GpuMemoryTracker.TrackAllocation(_mdiCommandCapacity * sizeof(DrawElementsIndirectCommand), GpuResourceType.Buffer);
-                
+
                 Gl.GenBuffers(1, out _modernBatchBuffer);
                 Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernBatchBuffer);
                 Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_mdiCommandCapacity * sizeof(ModernBatchData)), null, GLEnum.DynamicDraw);
@@ -100,8 +100,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 lock (_allocationLock) {
                     totalFree = _freeSlices.Sum(s => s.Size);
                 }
-                GpuMemoryTracker.TrackNamedBuffer($"{name} World Instance VBO", 
-                    (long)_worldInstanceCapacity * sizeof(InstanceData), 
+                GpuMemoryTracker.TrackNamedBuffer($"{name} World Instance VBO",
+                    (long)_worldInstanceCapacity * sizeof(InstanceData),
                     (long)(_worldInstanceCapacity - totalFree) * sizeof(InstanceData));
             }
 
@@ -111,21 +111,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     lock (_allocationLock) {
                         totalFree = _freeSlices.Sum(s => s.Size);
                     }
-                    GpuMemoryTracker.TrackNamedBuffer($"{name} World Instance SSBO", 
-                        (long)_worldInstanceCapacity * sizeof(InstanceData), 
+                    GpuMemoryTracker.TrackNamedBuffer($"{name} World Instance SSBO",
+                        (long)_worldInstanceCapacity * sizeof(InstanceData),
                         (long)(_worldInstanceCapacity - totalFree) * sizeof(InstanceData));
                 }
 
-                GpuMemoryTracker.TrackNamedBuffer($"{name} MDI Command Buffer", 
-                    (long)_mdiCommandCapacity * sizeof(DrawElementsIndirectCommand), 
-                    0);
-                
-                GpuMemoryTracker.TrackNamedBuffer($"{name} Modern Batch Buffer", 
-                    (long)_mdiCommandCapacity * sizeof(ModernBatchData), 
+                GpuMemoryTracker.TrackNamedBuffer($"{name} MDI Command Buffer",
+                    (long)_mdiCommandCapacity * sizeof(DrawElementsIndirectCommand),
                     0);
 
-                GpuMemoryTracker.TrackNamedBuffer($"{name} Modern Instance Buffer", 
-                    (long)_modernInstanceCapacity * sizeof(InstanceData), 
+                GpuMemoryTracker.TrackNamedBuffer($"{name} Modern Batch Buffer",
+                    (long)_mdiCommandCapacity * sizeof(ModernBatchData),
+                    0);
+
+                GpuMemoryTracker.TrackNamedBuffer($"{name} Modern Instance Buffer",
+                    (long)_modernInstanceCapacity * sizeof(InstanceData),
                     0);
             }
         }
@@ -149,7 +149,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         protected void FreeInstanceSlice(int offset, int count) {
             if (offset < 0 || count <= 0) return;
-            
+
             lock (_allocationLock) {
                 // Insert and maintain sorted order by offset to allow merging
                 int insertIdx = 0;
@@ -218,7 +218,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (renderPass == 1) {
                     // Transparent pass: sort by BaseInstance (order in buffer / landblock order)
                     group.Sort((a, b) => a.Command.BaseInstance.CompareTo(b.Command.BaseInstance));
-                } else {
+                }
+                else {
                     // Opaque pass: sort front-to-back for state efficiency
                     group.Sort((a, b) => a.SortKey.CompareTo(b.SortKey));
                 }
@@ -233,7 +234,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 uint? lastTextureIndex = null;
 
                 foreach (var cmd in group) {
-                    if (renderPass == 0 && cmd.IsTransparent) continue;
                     if (renderPass == 1 && !cmd.IsTransparent) continue;
 
                     bool vaoChanged = false;
@@ -260,7 +260,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             Gl.VertexAttribDivisor(8, 1);
                         }
                         Gl.VertexAttribIPointer(8, 1, GLEnum.UnsignedInt, stride, (void*)(offset + 64));
-                        
+
                         lastBaseInstance = cmd.Command.BaseInstance;
                     }
 
@@ -297,9 +297,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 foreach (var kvp in lb.MdiCommands) {
                     var idx = (int)kvp.Key;
                     if (idx < 0 || idx >= 4) continue;
-                    
+
                     foreach (var cmd in kvp.Value) {
-                        if (renderPass == 0 && cmd.IsTransparent) continue;
                         if (renderPass == 1 && !cmd.IsTransparent) continue;
                         _cullGroups[idx].Add(cmd);
                         totalDraws++;
@@ -368,7 +367,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 int numDraws = group.Count;
                 Gl.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort,
                     (void*)(currentDrawOffset * sizeof(DrawElementsIndirectCommand)), (uint)numDraws, (uint)sizeof(DrawElementsIndirectCommand));
-                
+
                 currentDrawOffset += numDraws;
             }
             shader.SetUniform("uDrawIDOffset", 0);
@@ -407,8 +406,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             Gl.VertexAttribIPointer(8, 1, GLEnum.UnsignedInt, stride, (void*)(offset + 64));
 
             foreach (var batch in renderData.Batches) {
-                if (renderPass == 0 && batch.IsTransparent) continue;
-                if (renderPass == 1 && !batch.IsTransparent) continue;
+                if (batch.IsTransparent && renderPass == 0) {
+                    // Transparent batches should be rendered in both passes
+                }
+                else if (batch.IsTransparent != (renderPass == 1)) continue;
 
                 var cullMode = showCulling ? batch.CullMode : CullMode.None;
                 if (CurrentCullMode != cullMode) {
@@ -466,8 +467,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             foreach (var call in drawCalls) {
                 foreach (var batch in call.renderData.Batches) {
-                    if (renderPass == 0 && batch.IsTransparent) continue;
-                    if (renderPass == 1 && !batch.IsTransparent) continue;
+                    if (batch.IsTransparent && renderPass == 0) {
+                        // Transparent batches should be rendered in both passes
+                    }
+                    else if (batch.IsTransparent != (renderPass == 1)) continue;
 
                     var cullMode = showCulling ? batch.CullMode : CullMode.None;
                     if (!batchesByCullMode.TryGetValue(cullMode, out var list)) {
@@ -564,7 +567,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 int numDraws = group.Value.Count;
                 Gl.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedShort,
                     (void*)(currentDrawOffset * sizeof(DrawElementsIndirectCommand)), (uint)numDraws, (uint)sizeof(DrawElementsIndirectCommand));
-                
+
                 currentDrawOffset += numDraws;
             }
             shader.SetUniform("uDrawIDOffset", 0);

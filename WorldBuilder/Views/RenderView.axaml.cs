@@ -31,6 +31,7 @@ public partial class RenderView : Base3DViewport {
     private LandscapeDocument? _cachedLandscapeDocument;
     private LandSurfaceManager? _cachedSurfaceManager;
     private EditorState? _cachedEditorState;
+    private WorldBuilder.Shared.Services.IDatReaderWriter? _cachedDats;
     private bool _cachedIs3DCamera = true;
 
     public WorldBuilder.Shared.Models.ICamera? Camera => _gameScene?.Camera;
@@ -62,11 +63,11 @@ public partial class RenderView : Base3DViewport {
     }
 
     protected override void OnGlDestroy() {
-        if (_gameScene != null && _cachedLandscapeDocument != null && Dats != null) {
+        if (_gameScene != null && _cachedLandscapeDocument != null && _cachedDats != null) {
             var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
             var surfaceManagerService = projectManager?.GetProjectService<SurfaceManagerService>();
             if (surfaceManagerService != null && _cachedSurfaceManager != null) {
-                surfaceManagerService.ReleaseSurfaceManager(Dats, _cachedLandscapeDocument.RegionId);
+                surfaceManagerService.ReleaseSurfaceManager(_cachedDats, _cachedLandscapeDocument.RegionId);
                 _cachedSurfaceManager = null;
             }
         }
@@ -82,8 +83,8 @@ public partial class RenderView : Base3DViewport {
                 builder.AddProvider(new ColorConsoleLoggerProvider());
                 builder.SetMinimumLevel(LogLevel.Debug);
             });
-            var portalService = WorldBuilder.App.Services?.GetService<ProjectManager>()?.GetProjectService<IPortalService>() ?? 
-                                WorldBuilder.App.Services?.GetService<IPortalService>() ?? 
+            var portalService = WorldBuilder.App.Services?.GetService<ProjectManager>()?.GetProjectService<IPortalService>() ??
+                                WorldBuilder.App.Services?.GetService<IPortalService>() ??
                                 new PortalService(Dats ?? WorldBuilder.App.Services?.GetService<ProjectManager>()?.GetProjectService<IDatReaderWriter>()!);
             var perfService = WorldBuilder.App.Services?.GetService<PerformanceService>();
             _gameScene = new GameScene(gl, Renderer.GraphicsDevice, loggerFactory, portalService, perfService);
@@ -140,7 +141,7 @@ public partial class RenderView : Base3DViewport {
         if ((e.KeyModifiers & KeyModifiers.Control) != 0 && _gameScene?.CurrentCamera is Camera3D camera3d) {
             bool handled = false;
             float speedMultiplier = (e.KeyModifiers & KeyModifiers.Shift) != 0 ? 2.0f : 1.0f;
-            
+
             switch (e.Key) {
                 case Key.Up:
                     camera3d.MoveSpeed += camera3d.MoveSpeed * 0.1f * speedMultiplier; // Same as mouse wheel up, doubled with Shift
@@ -153,7 +154,7 @@ public partial class RenderView : Base3DViewport {
                     handled = true;
                     break;
             }
-            
+
             if (handled) {
                 e.Handled = true;
                 return;
@@ -239,7 +240,7 @@ public partial class RenderView : Base3DViewport {
 
     protected override void OnGlPointerWheelChanged(PointerWheelEventArgs e) {
         float multiplier = (e.KeyModifiers & KeyModifiers.Shift) != 0 ? 2.0f : 1.0f;
-        
+
         _gameScene?.HandlePointerWheelChanged((float)e.Delta.Y * multiplier);
 
         if (_gameScene?.CurrentCamera is Camera3D cam3d) {
@@ -249,7 +250,7 @@ public partial class RenderView : Base3DViewport {
 
     private void ShowSpeedFeedback(float speed) {
         SpeedFeedbackText.Text = $"Camera Speed: {speed:F0}";
-        
+
         SpeedFeedbackPopup.IsVisible = true;
 
         _speedFeedbackTimer?.Stop();
@@ -391,7 +392,8 @@ public partial class RenderView : Base3DViewport {
 
         if (change.Property == LandscapeDocumentProperty || change.Property == DatsProperty) {
             _cachedLandscapeDocument = LandscapeDocument;
-            var dats = Dats;
+            _cachedDats = Dats;
+            var dats = _cachedDats;
 
 
             if (_cachedLandscapeDocument != null && dats != null) {
