@@ -71,7 +71,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             object lockObj = new object();
 
             var localRegion = region;
-            Parallel.ForEach(validBlocks, block => {
+            var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = System.Environment.ProcessorCount };
+            Parallel.ForEach(validBlocks, parallelOptions, block => {
                 var landblockID = localRegion!.GetLandblockId((int)block.lx, (int)block.ly);
                 var (lbMinZ, lbMaxZ) = GenerateLandblockGeometry(
                     block.lx, block.ly, landblockID,

@@ -40,7 +40,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         protected override bool RenderHighlightsWhenEmpty => true;
 
-        protected override int MaxConcurrentGenerations => 21;
+        protected override int MaxConcurrentGenerations => Math.Max(4, System.Environment.ProcessorCount * 2);
 
         protected override bool UseInstanceBuffer => false;
 
@@ -243,7 +243,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             using var threadLocalBatchedByCell = new ThreadLocal<Dictionary<uint, Dictionary<ulong, List<InstanceData>>>>(() => new(), true);
             using var threadLocalGlobalGroups = new ThreadLocal<Dictionary<ulong, List<InstanceData>>>(() => new(), true);
 
-            Parallel.ForEach(landblocks, lb => {
+            var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = System.Environment.ProcessorCount };
+            Parallel.ForEach(landblocks, parallelOptions, lb => {
                 var testResult = _frustum.TestBox(lb.TotalEnvCellBounds);
                 if (testResult == FrustumTestResult.Outside) return;
 

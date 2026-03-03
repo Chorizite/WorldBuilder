@@ -98,7 +98,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public Vector3 LightDirection { get; set; } = Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f));
 
         /// <summary>Maximum number of concurrent background generation tasks.</summary>
-        protected virtual int MaxConcurrentGenerations => 12;
+        protected virtual int MaxConcurrentGenerations => Math.Max(4, System.Environment.ProcessorCount);
 
         /// <summary>
         /// When true, highlighted/selected objects are rendered even when the visible list

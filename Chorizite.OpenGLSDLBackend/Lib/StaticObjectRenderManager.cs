@@ -36,7 +36,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private bool _showBuildings = true;
         private bool _showStaticObjects = true;
 
-        protected override int MaxConcurrentGenerations => 21;
+        protected override int MaxConcurrentGenerations => Math.Max(4, System.Environment.ProcessorCount * 2);
 
         public StaticObjectRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
             IDatReaderWriter dats, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager, Frustum frustum)
