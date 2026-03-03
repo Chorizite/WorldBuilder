@@ -50,9 +50,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public bool IsGenerated { get; set; }
 
         // GPU Resources
-        public uint VAO { get; set; }
-        public uint VBO { get; set; }
-        public uint EBO { get; set; }
+        public int GlobalSlotIndex { get; set; } = -1;
+        public int BaseVertex { get; set; }
+        public int FirstIndex { get; set; }
         public int IndexCount { get; set; }
         public int VertexCount { get; set; }
 
@@ -112,15 +112,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public void Dispose() {
             if (_disposed) return;
-            if (VAO != 0) _gl.DeleteVertexArray(VAO);
-            if (VBO != 0) {
-                _gl.DeleteBuffer(VBO);
-                GpuMemoryTracker.TrackDeallocation(VertexCount * VertexLandscape.Size, GpuResourceType.Buffer);
-            }
-            if (EBO != 0) {
-                _gl.DeleteBuffer(EBO);
-                GpuMemoryTracker.TrackDeallocation(IndexCount * sizeof(uint), GpuResourceType.Buffer);
-            }
             _disposed = true;
         }
     }
