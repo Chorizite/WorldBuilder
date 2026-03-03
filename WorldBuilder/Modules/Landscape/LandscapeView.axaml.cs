@@ -18,6 +18,7 @@ public partial class LandscapeView : UserControl {
     private RenderView? _renderView;
     private string? _lastLocationString;
     private GridSplitter? _rightSplitter;
+    private GridSplitter? _sideBarSplitter;
     private WorldBuilderSettings? _settings;
 
     // Setting Grid.Width at DesignTime causes the content in the right column to not stretch to greater widths
@@ -28,6 +29,10 @@ public partial class LandscapeView : UserControl {
     private static readonly int RIGHT_PANELS_STARTING_WIDTH = 300;
     private static readonly int RIGHT_PANELS_MIN_WIDTH = 300;
     private static readonly int RIGHT_PANELS_MAX_WIDTH_PCT = 50;
+    
+    private static readonly int PROPERTIES_PANEL_STARTING_HEIGHT_PCT = 50;
+    private static readonly int PROPERTIES_PANEL_MIN_TOP_DIST = 75;
+    private static readonly int PROPERTIES_PANEL_MAX_BOTTOM_DIST = 100;
 
     public LandscapeView() {
         InitializeComponent();
@@ -45,6 +50,7 @@ public partial class LandscapeView : UserControl {
         }
         _renderView = this.FindControl<RenderView>("RenderView");
         _rightSplitter = this.FindControl<GridSplitter>("RightSplitter");
+        _sideBarSplitter = this.FindControl<GridSplitter>("SideBarSplitter");
         _settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
 
         var rootLayoutGrid = this.FindControl<Grid>("RootLayoutGrid");
@@ -55,14 +61,34 @@ public partial class LandscapeView : UserControl {
             var savedWidth = _settings?.Landscape?.RightPanelWidth ?? RIGHT_PANELS_STARTING_WIDTH;
             rightPanelsColumn.Width = new GridLength(savedWidth);
         }
-        
+        var rightPanelsGrid = this.FindControl<Grid>("RightPanels");
+        if (rightPanelsGrid != null && rightPanelsGrid.RowDefinitions.Count >= 3) {
+            var propertiesPanelRow = rightPanelsGrid.RowDefinitions[2];
+            var topRow = rightPanelsGrid.RowDefinitions[0]; // TabControl
+
+            // Load saved height from settings
+            var savedHeightPercent = _settings?.Landscape?.PropertiesPanelHeight ?? PROPERTIES_PANEL_STARTING_HEIGHT_PCT / 100.0;
+
+            // Set both rows to star sizing
+            topRow.Height = new GridLength(1.0 - savedHeightPercent, GridUnitType.Star);    // Remaining space for TabControl
+            propertiesPanelRow.Height = new GridLength(savedHeightPercent, GridUnitType.Star);
+        }
+
         // Subscribe to right panel size changes
         var rightPanels = this.FindControl<Grid>("RightPanels");
         if (rightPanels != null) {
             rightPanels.SizeChanged += OnRightPanelSizeChanged;
         }
+        var propertiesPanel = this.FindControl<UserControl>("PropertiesPanel");
+        if (propertiesPanel != null) {
+            propertiesPanel.SizeChanged += OnPropertiesPanelSizeChanged;
+        }
+
         if (_rightSplitter != null) {
             _rightSplitter.DragCompleted += OnSplitterDragCompleted;
+        }
+        if (_sideBarSplitter != null) {
+            _sideBarSplitter.DragCompleted += OnSideBarSplitterDragCompleted;
         }
 
         TryInitializeToolContext();
@@ -78,9 +104,19 @@ public partial class LandscapeView : UserControl {
         if (rightPanels != null) {
             rightPanels.SizeChanged -= OnRightPanelSizeChanged;
         }
+
+        var propertiesPanel = this.FindControl<UserControl>("PropertiesPanel");
+        if (propertiesPanel != null) {
+            propertiesPanel.SizeChanged -= OnPropertiesPanelSizeChanged;
+        }
+        
         if (_rightSplitter != null) {
             _rightSplitter.DragCompleted -= OnSplitterDragCompleted;
         }
+        if (_sideBarSplitter != null) {
+            _sideBarSplitter.DragCompleted -= OnSideBarSplitterDragCompleted;
+        }
+        
         StopUpdateTimer();
     }
 
@@ -177,11 +213,60 @@ public partial class LandscapeView : UserControl {
             }
         }
     }
+    
+    private void OnPropertiesPanelSizeChanged(object? sender, SizeChangedEventArgs e) {
+        // Enforce minimum and maximum height properly when dragging GridSplitter, since setting MinHeight/MaxHeight in XAML doesn't work due to Avalonia issue #5868
+        if (_sideBarSplitter != null) {
+            var rightPanelsGrid = _sideBarSplitter.Parent as Grid;
+            if (rightPanelsGrid != null && rightPanelsGrid.RowDefinitions.Count >= 3) {
+                var totalHeight = rightPanelsGrid.Bounds.Height;
+                
+                if (totalHeight > 0) {
+                    var bottomRow = rightPanelsGrid.RowDefinitions[2];
+                    var currentHeight = e.NewSize.Height;
+                    var currentHeightPercent = (currentHeight / totalHeight) * 100.0;
+                    
+                    // Apply constraints using pixel values during dragging
+                    if (currentHeight < PROPERTIES_PANEL_MAX_BOTTOM_DIST) {
+                        bottomRow.Height = new GridLength(PROPERTIES_PANEL_MAX_BOTTOM_DIST);
+                    }
+                    else if (currentHeight > totalHeight - PROPERTIES_PANEL_MIN_TOP_DIST) {
+                        var maxHeight = totalHeight - PROPERTIES_PANEL_MIN_TOP_DIST;
+                        bottomRow.Height = new GridLength(maxHeight);
+                    }
+                }
+            }
+        }
+    }
 
     private void OnSplitterDragCompleted(object? sender, VectorEventArgs e) {
         SaveRightPanelWidth();
     }
     
+    private void OnSideBarSplitterDragCompleted(object? sender, VectorEventArgs e) {
+        var rightPanelsGrid = this.FindControl<Grid>("RightPanels");
+        if (rightPanelsGrid != null && rightPanelsGrid.RowDefinitions.Count >= 3) {
+            var topRow = rightPanelsGrid.RowDefinitions[0]; // TabControl
+            var bottomRow = rightPanelsGrid.RowDefinitions[2]; // PropertiesPanel
+            var totalHeight = rightPanelsGrid.Bounds.Height;
+            var splitterHeight = 4.0; // Fixed height of the splitter row
+            
+            if (totalHeight > 0) {
+                var currentHeight = bottomRow.Height.Value;
+                var availableHeightForStars = totalHeight - splitterHeight;
+                
+                // Calculate star values for both rows
+                var bottomStarValue = currentHeight / availableHeightForStars;
+                var topStarValue = 1.0 - bottomStarValue; // Remaining space for TabControl
+                
+                // Set both rows to star sizing
+                topRow.Height = new GridLength(topStarValue, GridUnitType.Star);
+                bottomRow.Height = new GridLength(bottomStarValue, GridUnitType.Star);
+            }
+        }
+        SavePropertiesPanelHeight();
+    }
+
     private void SaveRightPanelWidth() {
         var rootLayoutGrid = this.FindControl<Grid>("RootLayoutGrid");
         if (rootLayoutGrid != null && rootLayoutGrid.ColumnDefinitions.Count >= 4 && _settings != null) {
@@ -190,6 +275,18 @@ public partial class LandscapeView : UserControl {
             
             if (Math.Abs(currentWidth - _settings.Landscape.RightPanelWidth) > 0.1) {
                 _settings.Landscape.RightPanelWidth = currentWidth;
+                _settings.Save();
+            }
+        }
+    }
+
+    private void SavePropertiesPanelHeight() {
+        var rightPanelsGrid = this.FindControl<Grid>("RightPanels");
+        if (rightPanelsGrid != null && rightPanelsGrid.RowDefinitions.Count >= 3 && _settings != null) {
+            var bottomRow = rightPanelsGrid.RowDefinitions[2];
+            // Read the star value directly (already in percentage format)
+            if (bottomRow.Height.IsStar) {
+                _settings.Landscape.PropertiesPanelHeight = bottomRow.Height.Value;
                 _settings.Save();
             }
         }

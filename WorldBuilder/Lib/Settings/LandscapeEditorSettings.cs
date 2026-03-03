@@ -59,6 +59,10 @@ namespace WorldBuilder.Lib.Settings {
         private double _rightPanelWidth = 300.0;
         public double RightPanelWidth { get => _rightPanelWidth; set => SetProperty(ref _rightPanelWidth, value); }
 
+        [SettingHidden]
+        private double _propertiesPanelHeight = 0.50;
+        public double PropertiesPanelHeight { get => _propertiesPanelHeight; set => SetProperty(ref _propertiesPanelHeight, value); }
+
         public LandscapeEditorSettings() {
             if (_camera != null) _camera.PropertyChanged += OnSubSettingsPropertyChanged;
             if (_rendering != null) _rendering.PropertyChanged += OnSubSettingsPropertyChanged;
