@@ -11,9 +11,9 @@ public class GpuResourceManager {
     public float LastStaticObjectUploadTime => _lastStaticObjectUploadTime;
     public float LastEnvCellUploadTime => _lastEnvCellUploadTime;
 
-    public void ProcessUploads(float totalBudget, TerrainRenderManager? terrainManager, 
-        StaticObjectRenderManager? staticObjectManager, EnvCellRenderManager? envCellManager, 
-        SceneryRenderManager? sceneryManager, PortalRenderManager? portalManager) {
+    public void ProcessUploads(float totalBudget, IRenderManager? terrainManager, 
+        IRenderManager? staticObjectManager, IRenderManager? envCellManager, 
+        IRenderManager? sceneryManager, IRenderManager? portalManager) {
         
         // Fair budget distribution for GPU uploads
         // We prioritize Terrain and Buildings/EnvCells over Scenery

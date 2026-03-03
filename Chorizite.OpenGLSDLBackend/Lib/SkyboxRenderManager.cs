@@ -19,7 +19,7 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Services;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
-    public unsafe class SkyboxRenderManager : IDisposable {
+    public unsafe class SkyboxRenderManager : IDisposable, IRenderManager {
         private readonly GL _gl;
         private readonly ILogger _log;
         private readonly LandscapeDocument _landscapeDoc;
@@ -29,6 +29,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private IShader? _shader;
         private bool _initialized;
+
+        private Matrix4x4 _viewMatrix;
+        private Matrix4x4 _projectionMatrix;
+        private Vector3 _cameraPosition;
+        private float _cameraFov;
+        private float _aspectRatio;
+        private ManagedGLUniformBuffer? _sceneDataBuffer;
+
+        public bool NeedsPrepare => false;
+        public int QueuedUploads => _pendingUploads.Count;
+        public int QueuedGenerations => 0;
 
         // Instance buffer
         private uint _instanceVBO;
@@ -59,10 +70,41 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _gl.GenBuffers(1, out _instanceVBO);
         }
 
-        public void Update(float deltaTime) {
+        public void Initialize(IShader shader, ManagedGLUniformBuffer sceneDataBuffer) {
+            Initialize(shader);
+            _sceneDataBuffer = sceneDataBuffer;
+        }
+
+        public void Update(float deltaTime, ICamera camera) {
+            _viewMatrix = camera.ViewMatrix;
+            _projectionMatrix = camera.ProjectionMatrix;
+            _cameraPosition = camera.Position;
+            _cameraFov = camera.FieldOfView;
+
             // Process pending GPU uploads from the main thread
             while (_pendingUploads.TryDequeue(out var meshData)) {
                 _meshManager.UploadMeshData(meshData);
+            }
+        }
+
+        public float ProcessUploads(float timeBudgetMs) {
+            return 0; // Uploads happen in Update currently
+        }
+
+        public void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) { }
+
+        public void Render(RenderPass renderPass) {
+            if (renderPass != RenderPass.SinglePass) return;
+            if (_sceneDataBuffer != null) {
+                Render(_viewMatrix, _projectionMatrix, _cameraPosition, _cameraFov, _aspectRatio, _sceneDataBuffer);
+            }
+        }
+
+        public void InvalidateLandblock(int lbX, int lbY) { }
+
+        public void Resize(int width, int height) {
+            if (height > 0) {
+                _aspectRatio = width / (float)height;
             }
         }
 
@@ -109,7 +151,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             sceneDataBuffer.SetData(ref sceneData);
             sceneDataBuffer.Bind(0);
 
-            _shader.SetUniform("uRenderPass", 2);
+            _shader.SetUniform("uRenderPass", (int)RenderPass.SinglePass);
 
             var skyTimes = dayGroup.SkyTime.OrderBy(s => s.Begin).ToList();
             SkyTimeOfDay? t1 = null;

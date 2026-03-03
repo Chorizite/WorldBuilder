@@ -70,7 +70,7 @@ public class VisibilityManager {
         }
     }
 
-    public void RenderInsideOut(uint currentEnvCellId, int pass1RenderPass, Matrix4x4 snapshotVP, Matrix4x4 snapshotView, Matrix4x4 snapshotProj, Vector3 snapshotPos, float snapshotFov, 
+    public void RenderInsideOut(uint currentEnvCellId, RenderPass pass1RenderPass, Matrix4x4 snapshotVP, Matrix4x4 snapshotView, Matrix4x4 snapshotProj, Vector3 snapshotPos, float snapshotFov, 
         EditorState state, PortalRenderManager? portalManager, EnvCellRenderManager? envCellManager, TerrainRenderManager? terrainManager, 
         SceneryRenderManager? sceneryManager, StaticObjectRenderManager? staticObjectManager, IShader? sceneryShader) {
         
@@ -121,7 +121,7 @@ public class VisibilityManager {
 
             if (state.EnableTransparencyPass) {
                 _gl.DepthMask(false);
-                envCellManager!.Render(1, _currentEnvCellIds);
+                envCellManager!.Render(RenderPass.Transparent, _currentEnvCellIds);
                 _gl.DepthMask(true);
             }
         }
@@ -215,7 +215,7 @@ public class VisibilityManager {
 
                     if (state.EnableTransparencyPass) {
                         _gl.DepthMask(false);
-                        envCellManager!.Render(1, building.EnvCellIds);
+                        envCellManager!.Render(RenderPass.Transparent, building.EnvCellIds);
                         _gl.DepthMask(true);
                     }
 
@@ -238,7 +238,7 @@ public class VisibilityManager {
         }
     }
 
-    public void RenderOutsideIn(int pass1RenderPass, Matrix4x4 snapshotVP, Vector3 snapshotPos,
+    public void RenderOutsideIn(RenderPass pass1RenderPass, Matrix4x4 snapshotVP, Vector3 snapshotPos,
         EditorState state, PortalRenderManager? portalManager, EnvCellRenderManager? envCellManager, StaticObjectRenderManager? staticObjectManager, IShader? sceneryShader) {
         
         bool didStencil = false;
@@ -337,7 +337,7 @@ public class VisibilityManager {
 
             if (state.EnableTransparencyPass) {
                 _gl.DepthMask(false);
-                envCellManager!.Render(1, null);
+                envCellManager!.Render(RenderPass.Transparent, null);
                 _gl.DepthMask(true);
             }
         }
@@ -346,7 +346,7 @@ public class VisibilityManager {
 
             if (state.EnableTransparencyPass) {
                 _gl.DepthMask(false);
-                envCellManager!.Render(1, null);
+                envCellManager!.Render(RenderPass.Transparent, null);
                 _gl.DepthMask(true);
             }
         }
@@ -358,11 +358,11 @@ public class VisibilityManager {
         }
     }
 
-    public void RenderEnvCellsFallback(EnvCellRenderManager? envCellManager, int pass1RenderPass, EditorState state) {
+    public void RenderEnvCellsFallback(EnvCellRenderManager? envCellManager, RenderPass pass1RenderPass, EditorState state) {
         envCellManager?.Render(pass1RenderPass);
         if (state.EnableTransparencyPass) {
             _gl.DepthMask(false);
-            envCellManager?.Render(1);
+            envCellManager?.Render(RenderPass.Transparent);
             _gl.DepthMask(true);
         }
     }

@@ -195,7 +195,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public unsafe void RenderConsolidated(IShader shader, List<ObjectLandblock> landblocks, int renderPass) {
+        public unsafe void RenderConsolidated(IShader shader, List<ObjectLandblock> landblocks, RenderPass renderPass) {
             if (landblocks.Count == 0) return;
 
             shader.SetUniform("uFilterByCell", 0);
@@ -217,7 +217,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (group.Count == 0) continue;
 
                 // Sort to minimize state changes using pre-calculated sort key
-                if (renderPass == 1) {
+                if (renderPass == RenderPass.Transparent) {
                     // Transparent pass: sort by BaseInstance (order in buffer / landblock order)
                     group.Sort((a, b) => a.Command.BaseInstance.CompareTo(b.Command.BaseInstance));
                 }
@@ -236,7 +236,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 uint? lastTextureIndex = null;
 
                 foreach (var cmd in group) {
-                    if (renderPass == 1 && !cmd.IsTransparent) continue;
+                    if (renderPass == RenderPass.Transparent && !cmd.IsTransparent) continue;
 
                     bool vaoChanged = false;
                     if (CurrentVAO != cmd.VAO) {
@@ -288,7 +288,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public unsafe void RenderConsolidatedMDI(IShader shader, List<ObjectLandblock> landblocks, int renderPass) {
+        public unsafe void RenderConsolidatedMDI(IShader shader, List<ObjectLandblock> landblocks, RenderPass renderPass) {
             if (landblocks.Count == 0) return;
 
             shader.SetUniform("uFilterByCell", 0);
@@ -302,7 +302,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         if (idx < 0 || idx >= 4) continue;
 
                         foreach (var cmd in kvp.Value) {
-                            if (renderPass == 1 && !cmd.IsTransparent) continue;
+                            if (renderPass == RenderPass.Transparent && !cmd.IsTransparent) continue;
                             _cullGroups[idx].Add(cmd);
                             totalDraws++;
                         }
@@ -378,7 +378,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         protected unsafe void RenderObjectBatches(IShader shader, ObjectRenderData renderData,
-            int instanceCount, int instanceOffset, uint instanceVbo, int renderPass, bool showCulling = true) {
+            int instanceCount, int instanceOffset, uint instanceVbo, RenderPass renderPass, bool showCulling = true) {
             if (renderData.Batches.Count == 0 || instanceCount == 0) return;
 
             shader.Bind();
@@ -410,10 +410,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             Gl.VertexAttribIPointer(8, 1, GLEnum.UnsignedInt, stride, (void*)(offset + 64));
 
             foreach (var batch in renderData.Batches) {
-                if (batch.IsTransparent && renderPass == 0) {
+                if (batch.IsTransparent && renderPass == RenderPass.Opaque) {
                     // Transparent batches should be rendered in both passes
                 }
-                else if (batch.IsTransparent != (renderPass == 1)) continue;
+                else if (batch.IsTransparent != (renderPass == RenderPass.Transparent)) continue;
 
                 var cullMode = showCulling ? batch.CullMode : CullMode.None;
                 if (CurrentCullMode != cullMode) {
@@ -441,7 +441,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         protected unsafe void RenderObjectBatches(IShader shader, ObjectRenderData renderData,
-            List<InstanceData> instanceTransforms, int renderPass, bool showCulling = true) {
+            List<InstanceData> instanceTransforms, RenderPass renderPass, bool showCulling = true) {
             if (renderData.Batches.Count == 0 || instanceTransforms.Count == 0) return;
 
             GraphicsDevice.UpdateInstanceBuffer(instanceTransforms);
@@ -450,11 +450,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         protected unsafe void RenderObjectBatches(IShader shader, ObjectRenderData renderData,
-            int instanceCount, int instanceOffset, int renderPass, bool showCulling = true) {
+            int instanceCount, int instanceOffset, RenderPass renderPass, bool showCulling = true) {
             RenderObjectBatches(shader, renderData, instanceCount, instanceOffset, GraphicsDevice.InstanceVBO, renderPass, showCulling);
         }
 
-        protected unsafe void RenderModernMDI(IShader shader, List<(ObjectRenderData renderData, int count, int offset)> drawCalls, List<InstanceData> allInstances, int renderPass, bool showCulling = true) {
+        protected unsafe void RenderModernMDI(IShader shader, List<(ObjectRenderData renderData, int count, int offset)> drawCalls, List<InstanceData> allInstances, RenderPass renderPass, bool showCulling = true) {
             if (drawCalls.Count == 0 || allInstances.Count == 0) return;
 
             shader.Bind();
@@ -465,10 +465,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             foreach (var call in drawCalls) {
                 foreach (var batch in call.renderData.Batches) {
-                    if (batch.IsTransparent && renderPass == 0) {
+                    if (batch.IsTransparent && renderPass == RenderPass.Opaque) {
                         // Transparent batches should be rendered in both passes
                     }
-                    else if (batch.IsTransparent != (renderPass == 1)) continue;
+                    else if (batch.IsTransparent != (renderPass == RenderPass.Transparent)) continue;
 
                     var cullMode = showCulling ? batch.CullMode : CullMode.None;
                     if (!batchesByCullMode.TryGetValue(cullMode, out var list)) {

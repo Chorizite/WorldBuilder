@@ -126,6 +126,8 @@ public class GameScene : IDisposable {
     private DebugRenderer? _debugRenderer;
     private LandscapeDocument? _landscapeDoc;
 
+    private readonly List<IRenderManager> _renderManagers = new();
+
     private Vector3 _lastPrepareCameraPos;
     private Quaternion _lastPrepareCameraRot;
     private bool _forcePrepareBatches = true;
@@ -297,52 +299,26 @@ public class GameScene : IDisposable {
 
         _initialized = true;
 
-        if (_terrainManager != null && _terrainShader != null) {
-            _terrainManager.Initialize(_terrainShader);
-        }
-
-        if (_sceneryManager != null && _sceneryShader != null) {
-            _sceneryManager.Initialize(_sceneryShader);
-        }
-
-        if (_staticObjectManager != null && _sceneryShader != null) {
-            _staticObjectManager.Initialize(_sceneryShader);
-        }
-
-        if (_envCellManager != null && _sceneryShader != null) {
-            _envCellManager.Initialize(_sceneryShader);
-        }
-
-        if (_skyboxManager != null && _sceneryShader != null) {
-            _skyboxManager.Initialize(_sceneryShader);
+        foreach (var manager in _renderManagers) {
+            if (manager is TerrainRenderManager trm && _terrainShader != null) {
+                trm.Initialize(_terrainShader);
+            }
+            else if (manager is PortalRenderManager prm && _stencilShader != null) {
+                prm.InitializeStencilShader(_stencilShader);
+            }
+            else if (_sceneryShader != null) {
+                manager.Initialize(_sceneryShader);
+            }
         }
     }
 
     public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats, IDocumentManager documentManager, ObjectMeshManager? meshManager = null, LandSurfaceManager? surfaceManager = null, bool centerCamera = true) {
         _landscapeDoc = landscapeDoc;
         _currentEnvCellId = 0;
-        if (_terrainManager != null) {
-            _terrainManager.Dispose();
+        foreach (var manager in _renderManagers) {
+            manager.Dispose();
         }
-        if (_sceneryManager != null) {
-            _sceneryManager.Dispose();
-        }
-
-        if (_staticObjectManager != null) {
-            _staticObjectManager.Dispose();
-        }
-
-        if (_envCellManager != null) {
-            _envCellManager.Dispose();
-        }
-
-        if (_portalManager != null) {
-            _portalManager.Dispose();
-        }
-
-        if (_skyboxManager != null) {
-            _skyboxManager.Dispose();
-        }
+        _renderManagers.Clear();
 
         if (_meshManager != null && _ownsMeshManager) {
             _meshManager.Dispose();
@@ -398,15 +374,20 @@ public class GameScene : IDisposable {
             _sceneryManager.Initialize(_sceneryShader);
         }
 
-        //_skyboxManager = new SkyboxRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager);
+        _skyboxManager = new SkyboxRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager);
+        _skyboxManager.Resize(_width, _height);
+        _skyboxManager.TimeOfDay = _state.TimeOfDay;
+        _skyboxManager.LightIntensity = _state.LightIntensity;
         if (_initialized && _sceneryShader != null) {
-            _skyboxManager?.Initialize(_sceneryShader);
+            _skyboxManager.Initialize(_sceneryShader, _sceneDataBuffer!);
         }
 
-        if (_skyboxManager != null) {
-            _skyboxManager.TimeOfDay = _state.TimeOfDay;
-            _skyboxManager.LightIntensity = _state.LightIntensity;
-        }
+        _renderManagers.Add(_terrainManager);
+        _renderManagers.Add(_staticObjectManager);
+        _renderManagers.Add(_envCellManager);
+        _renderManagers.Add(_portalManager);
+        _renderManagers.Add(_sceneryManager);
+        if (_skyboxManager != null) _renderManagers.Add(_skyboxManager);
 
         if (centerCamera && landscapeDoc.Region != null) {
             CenterCameraOnLandscape(landscapeDoc.Region);
@@ -513,12 +494,9 @@ public class GameScene : IDisposable {
     public void Update(float deltaTime) {
         _cameraController.Update(deltaTime, _state, ref _currentEnvCellId, _terrainManager, _staticObjectManager, _envCellManager, _portalManager);
 
-        _terrainManager?.Update(deltaTime, _cameraController.CurrentCamera);
-        _sceneryManager?.Update(deltaTime, _cameraController.CurrentCamera);
-        _staticObjectManager?.Update(deltaTime, _cameraController.CurrentCamera);
-        _envCellManager?.Update(deltaTime, _cameraController.CurrentCamera);
-        _portalManager?.Update(deltaTime, _cameraController.CurrentCamera);
-        _skyboxManager?.Update(deltaTime);
+        foreach (var manager in _renderManagers) {
+            manager.Update(deltaTime, (ICamera)_cameraController.CurrentCamera);
+        }
 
         _gpuResourceManager.ProcessUploads(MAX_GPU_UPDATE_TIME_PER_FRAME, _terrainManager, _staticObjectManager, _envCellManager, _sceneryManager, _portalManager);
 
@@ -536,17 +514,20 @@ public class GameScene : IDisposable {
         _width = width;
         _height = height;
         _cameraController.Resize(width, height);
-        if (_terrainManager != null) {
-            _terrainManager.ScreenHeight = height;
+        foreach (var manager in _renderManagers) {
+            if (manager is TerrainRenderManager trm) {
+                trm.ScreenHeight = height;
+            }
+            if (manager is SkyboxRenderManager srm) {
+                srm.Resize(width, height);
+            }
         }
     }
 
     public void InvalidateLandblock(int lbX, int lbY) {
-        _terrainManager?.InvalidateLandblock(lbX, lbY);
-        _sceneryManager?.InvalidateLandblock(lbX, lbY);
-        _staticObjectManager?.InvalidateLandblock(lbX, lbY);
-        _envCellManager?.InvalidateLandblock(lbX, lbY);
-        _portalManager?.OnLandblockChanged(this, new LandblockChangedEventArgs(new[] { (lbX, lbY) }));
+        foreach (var manager in _renderManagers) {
+            manager.InvalidateLandblock(lbX, lbY);
+        }
         _forcePrepareBatches = true;
     }
 
@@ -727,11 +708,7 @@ public class GameScene : IDisposable {
         bool cameraMoved = Vector3.DistanceSquared(snapshotPos, _lastPrepareCameraPos) > 0.0001f ||
                            Math.Abs(Quaternion.Dot(snapshotRot, _lastPrepareCameraRot)) < 0.9999f;
 
-        bool needsPrepare = cameraMoved || _forcePrepareBatches ||
-                            (_sceneryManager?.NeedsPrepare ?? false) ||
-                            (_staticObjectManager?.NeedsPrepare ?? false) ||
-                            (_envCellManager?.NeedsPrepare ?? false) ||
-                            (_portalManager?.NeedsPrepare ?? false);
+        bool needsPrepare = cameraMoved || _forcePrepareBatches || _renderManagers.Any(m => m.NeedsPrepare);
 
         if (needsPrepare) {
             _visibilityManager.UpdateFrustum(snapshotVP);
@@ -762,6 +739,9 @@ public class GameScene : IDisposable {
 
                         _envCellManager.PrepareRenderBatches(snapshotVP, snapshotPos, envCellFilter, !isInside && _state.EnableCameraCollision);
                     }
+                },
+                () => {
+                    _terrainManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
                 }
             );
             _lastPrepareCameraPos = snapshotPos;
@@ -781,7 +761,7 @@ public class GameScene : IDisposable {
 
         // Render Terrain (only if not inside, otherwise we render it after EnvCells)
         if (!isInside && _terrainManager != null) {
-            _terrainManager.Render(snapshotView, snapshotProj, snapshotVP, snapshotPos, snapshotFov);
+            _terrainManager.Render(RenderPass.Opaque);
         }
 
         // Render Portals (debug outlines)
@@ -791,10 +771,10 @@ public class GameScene : IDisposable {
         _meshManager?.GenerateMipmaps();
         _terrainManager?.GenerateMipmaps();
         _sceneryShader?.Bind();
-        int pass1RenderPass = _state.EnableTransparencyPass ? 0 : 2;
+        RenderPass pass1RenderPass = _state.EnableTransparencyPass ? RenderPass.Opaque : RenderPass.SinglePass;
 
         if (_sceneryShader != null) {
-            _sceneryShader.SetUniform("uRenderPass", pass1RenderPass);
+            _sceneryShader.SetUniform("uRenderPass", (int)pass1RenderPass);
             _sceneryShader.SetUniform("uHighlightColor", Vector4.Zero);
         }
 
@@ -829,15 +809,15 @@ public class GameScene : IDisposable {
         // Pass 2: Transparent Scenery & Static Objects (exterior)
         if (_state.EnableTransparencyPass) {
             _sceneryShader?.Bind();
-            _sceneryShader?.SetUniform("uRenderPass", 1);
+            _sceneryShader?.SetUniform("uRenderPass", (int)RenderPass.Transparent);
             _gl.DepthMask(false);
 
             if (_state.ShowScenery) {
-                _sceneryManager?.Render(1);
+                _sceneryManager?.Render(RenderPass.Transparent);
             }
 
             if (_state.ShowStaticObjects || _state.ShowBuildings) {
-                _staticObjectManager?.Render(1);
+                _staticObjectManager?.Render(RenderPass.Transparent);
             }
 
             _gl.DepthMask(true);
@@ -953,12 +933,10 @@ public class GameScene : IDisposable {
             _state.PropertyChanged -= OnStatePropertyChanged;
         }
 
-        _terrainManager?.Dispose();
-        _portalManager?.Dispose();
-        _sceneryManager?.Dispose();
-        _staticObjectManager?.Dispose();
-        _envCellManager?.Dispose();
-        _skyboxManager?.Dispose();
+        foreach (var manager in _renderManagers) {
+            manager.Dispose();
+        }
+        _renderManagers.Clear();
         _debugRenderer?.Dispose();
         if (_ownsMeshManager) {
             _meshManager?.Dispose();
