@@ -179,17 +179,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var lb in _landblocks.Values) {
                 if (!lb.Ready) continue;
 
-                foreach (var portal in lb.Portals) {
-                    var color = portalColor;
-                    if (HoveredPortal.HasValue && HoveredPortal.Value.CellId == portal.CellId && InstanceIdConstants.GetRawId(HoveredPortal.Value.PortalIndex) == portal.PortalIndex) {
-                        color = hoverColor;
-                    }
-                    if (SelectedPortal.HasValue && SelectedPortal.Value.CellId == portal.CellId && InstanceIdConstants.GetRawId(SelectedPortal.Value.PortalIndex) == portal.PortalIndex) {
-                        color = selectionColor;
-                    }
+                lock (lb) {
+                    foreach (var portal in lb.Portals) {
+                        var color = portalColor;
+                        if (HoveredPortal.HasValue && HoveredPortal.Value.CellId == portal.CellId && InstanceIdConstants.GetRawId(HoveredPortal.Value.PortalIndex) == portal.PortalIndex) {
+                            color = hoverColor;
+                        }
+                        if (SelectedPortal.HasValue && SelectedPortal.Value.CellId == portal.CellId && InstanceIdConstants.GetRawId(SelectedPortal.Value.PortalIndex) == portal.PortalIndex) {
+                            color = selectionColor;
+                        }
 
-                    for (int i = 0; i < portal.Vertices.Length; i++) {
-                        debug.DrawLine(portal.Vertices[i], portal.Vertices[(i + 1) % portal.Vertices.Length], color, 5.0f);
+                        for (int i = 0; i < portal.Vertices.Length; i++) {
+                            debug.DrawLine(portal.Vertices[i], portal.Vertices[(i + 1) % portal.Vertices.Length], color, 5.0f);
+                        }
                     }
                 }
             }
@@ -206,24 +208,26 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var lb in _landblocks.Values) {
                 if (!lb.Ready) continue;
 
-                if (!RaycastingUtils.RayIntersectsBox(rayOrigin, rayDirection, lb.BoundingBox.Min, lb.BoundingBox.Max, out float lbDist) || lbDist > maxDistance) {
-                    continue;
-                }
-
-                var lbGlobalX = (uint)lb.GridX;
-                var lbGlobalY = (uint)lb.GridY;
-                var lbId = (uint)((lbGlobalX << 24) | (lbGlobalY << 16));
-
-                foreach (var portal in lb.Portals) {
-                    if (!RaycastingUtils.RayIntersectsBox(rayOrigin, rayDirection, portal.BoundingBox.Min, portal.BoundingBox.Max, out float pDist) || pDist > maxDistance) {
+                lock (lb) {
+                    if (!RaycastingUtils.RayIntersectsBox(rayOrigin, rayDirection, lb.BoundingBox.Min, lb.BoundingBox.Max, out float lbDist) || lbDist > maxDistance) {
                         continue;
                     }
 
-                    if (RaycastingUtils.RayIntersectsPolygon(rayOrigin, rayDirection, portal.Vertices, out float distance)) {
-                        if (distance < closestDistance && distance <= maxDistance) {
-                            closestDistance = distance;
-                            closestPortal = portal;
-                            closestLandblockId = lbId;
+                    var lbGlobalX = (uint)lb.GridX;
+                    var lbGlobalY = (uint)lb.GridY;
+                    var lbId = (uint)((lbGlobalX << 24) | (lbGlobalY << 16));
+
+                    foreach (var portal in lb.Portals) {
+                        if (!RaycastingUtils.RayIntersectsBox(rayOrigin, rayDirection, portal.BoundingBox.Min, portal.BoundingBox.Max, out float pDist) || pDist > maxDistance) {
+                            continue;
+                        }
+
+                        if (RaycastingUtils.RayIntersectsPolygon(rayOrigin, rayDirection, portal.Vertices, out float distance)) {
+                            if (distance < closestDistance && distance <= maxDistance) {
+                                closestDistance = distance;
+                                closestPortal = portal;
+                                closestLandblockId = lbId;
+                            }
                         }
                     }
                 }
@@ -258,14 +262,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         internal void GetVisibleBuildingPortals(List<(ushort LbKey, BuildingPortalGPU Building)> results) {
             results.Clear();
             foreach (var (key, lb) in _landblocks) {
-                if (!lb.Ready || lb.BuildingPortals.Count == 0 || !IsWithinRenderDistance(lb)) continue;
+                lock (lb) {
+                    if (!lb.Ready || lb.BuildingPortals.Count == 0 || !IsWithinRenderDistance(lb)) continue;
 
-                // Use the precise bounding box of the landblock's portals for frustum testing
-                if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(lb.BoundingBox.Min, lb.BoundingBox.Max), ignoreNearPlane: true) == FrustumTestResult.Outside) continue;
+                    // Use the precise bounding box of the landblock's portals for frustum testing
+                    if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(lb.BoundingBox.Min, lb.BoundingBox.Max), ignoreNearPlane: true) == FrustumTestResult.Outside) continue;
 
-                foreach (var building in lb.BuildingPortals) {
-                    if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(building.BoundingBox.Min, building.BoundingBox.Max), ignoreNearPlane: true) == FrustumTestResult.Outside) continue;
-                    results.Add((key, building));
+                    foreach (var building in lb.BuildingPortals) {
+                        if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(building.BoundingBox.Min, building.BoundingBox.Max), ignoreNearPlane: true) == FrustumTestResult.Outside) continue;
+                        results.Add((key, building));
+                    }
                 }
             }
         }
@@ -277,10 +283,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         internal void GetBuildingPortalsByCellId(uint cellId, List<(ushort LbKey, BuildingPortalGPU Building)> results) {
             results.Clear();
             foreach (var (key, lb) in _landblocks) {
-                if (!lb.Ready) continue;
-                foreach (var building in lb.BuildingPortals) {
-                    if (building.EnvCellIds.Contains(cellId)) {
-                        results.Add((key, building));
+                lock (lb) {
+                    if (!lb.Ready) continue;
+                    foreach (var building in lb.BuildingPortals) {
+                        if (building.EnvCellIds.Contains(cellId)) {
+                            results.Add((key, building));
+                        }
                     }
                 }
             }
@@ -293,14 +301,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         internal IEnumerable<(ushort LbKey, BuildingPortalGPU Building)> GetVisibleBuildingPortals() {
             foreach (var (key, lb) in _landblocks) {
-                if (!lb.Ready || lb.BuildingPortals.Count == 0 || !IsWithinRenderDistance(lb)) continue;
+                lock (lb) {
+                    if (!lb.Ready || lb.BuildingPortals.Count == 0 || !IsWithinRenderDistance(lb)) continue;
 
-                // Use the precise bounding box of the landblock's portals for frustum testing
-                if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(lb.BoundingBox.Min, lb.BoundingBox.Max), ignoreNearPlane: true) == FrustumTestResult.Outside) continue;
+                    // Use the precise bounding box of the landblock's portals for frustum testing
+                    if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(lb.BoundingBox.Min, lb.BoundingBox.Max), ignoreNearPlane: true) == FrustumTestResult.Outside) continue;
 
-                foreach (var building in lb.BuildingPortals) {
-                    if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(building.BoundingBox.Min, building.BoundingBox.Max), ignoreNearPlane: true) == FrustumTestResult.Outside) continue;
-                    yield return (key, building);
+                    foreach (var building in lb.BuildingPortals) {
+                        if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(building.BoundingBox.Min, building.BoundingBox.Max), ignoreNearPlane: true) == FrustumTestResult.Outside) continue;
+                        yield return (key, building);
+                    }
                 }
             }
         }
@@ -311,10 +321,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         internal IEnumerable<(ushort LbKey, BuildingPortalGPU Building)> GetBuildingPortalsByCellId(uint cellId) {
             foreach (var (key, lb) in _landblocks) {
-                if (!lb.Ready) continue;
-                foreach (var building in lb.BuildingPortals) {
-                    if (building.EnvCellIds.Contains(cellId)) {
-                        yield return (key, building);
+                lock (lb) {
+                    if (!lb.Ready) continue;
+                    foreach (var building in lb.BuildingPortals) {
+                        if (building.EnvCellIds.Contains(cellId)) {
+                            yield return (key, building);
+                        }
                     }
                 }
             }

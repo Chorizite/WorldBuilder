@@ -192,24 +192,26 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (!lb.InstancesReady || !IsWithinRenderDistance(lb) || lb.Instances.Count == 0) continue;
                 if (_frustum.TestBox(lb.TotalEnvCellBounds) == FrustumTestResult.Outside) continue;
 
-                foreach (var instance in lb.Instances) {
-                    var type = InstanceIdConstants.GetType(instance.InstanceId);
-                    if (type == InspectorSelectionType.EnvCell && !settings.SelectEnvCells) continue;
-                    if (type == InspectorSelectionType.EnvCellStaticObject && !settings.SelectEnvCellStaticObjects) continue;
+                lock (lb) {
+                    foreach (var instance in lb.Instances) {
+                        var type = InstanceIdConstants.GetType(instance.InstanceId);
+                        if (type == InspectorSelectionType.EnvCell && !settings.SelectEnvCells) continue;
+                        if (type == InspectorSelectionType.EnvCellStaticObject && !settings.SelectEnvCellStaticObjects) continue;
 
-                    // Skip if instance is outside frustum
-                    if (!_frustum.Intersects(instance.BoundingBox)) continue;
+                        // Skip if instance is outside frustum
+                        if (!_frustum.Intersects(instance.BoundingBox)) continue;
 
-                    var isSelected = SelectedInstance.HasValue && SelectedInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && SelectedInstance.Value.InstanceId == instance.InstanceId;
-                    var isHovered = HoveredInstance.HasValue && HoveredInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && HoveredInstance.Value.InstanceId == instance.InstanceId;
+                        var isSelected = SelectedInstance.HasValue && SelectedInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && SelectedInstance.Value.InstanceId == instance.InstanceId;
+                        var isHovered = HoveredInstance.HasValue && HoveredInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && HoveredInstance.Value.InstanceId == instance.InstanceId;
 
-                    Vector4 color;
-                    if (isSelected) color = LandscapeColorsSettings.Instance.Selection;
-                    else if (isHovered) color = LandscapeColorsSettings.Instance.Hover;
-                    else if (type == InspectorSelectionType.EnvCell) color = settings.EnvCellColor;
-                    else color = settings.EnvCellStaticObjectColor;
+                        Vector4 color;
+                        if (isSelected) color = LandscapeColorsSettings.Instance.Selection;
+                        else if (isHovered) color = LandscapeColorsSettings.Instance.Hover;
+                        else if (type == InspectorSelectionType.EnvCell) color = settings.EnvCellColor;
+                        else color = settings.EnvCellStaticObjectColor;
 
-                    debug.DrawBox(instance.LocalBoundingBox, instance.Transform, color);
+                        debug.DrawBox(instance.LocalBoundingBox, instance.Transform, color);
+                    }
                 }
             }
         }
@@ -245,43 +247,45 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = System.Environment.ProcessorCount };
             Parallel.ForEach(landblocks, parallelOptions, lb => {
-                var testResult = _frustum.TestBox(lb.TotalEnvCellBounds);
-                if (testResult == FrustumTestResult.Outside) return;
+                lock (lb) {
+                    var testResult = _frustum.TestBox(lb.TotalEnvCellBounds);
+                    if (testResult == FrustumTestResult.Outside) return;
 
-                var seenOutsideCells = lb.SeenOutsideCells;
-                var lbBatchedByCell = threadLocalBatchedByCell.Value!;
-                var lbGlobalGroups = threadLocalGlobalGroups.Value!;
+                    var seenOutsideCells = lb.SeenOutsideCells;
+                    var lbBatchedByCell = threadLocalBatchedByCell.Value!;
+                    var lbGlobalGroups = threadLocalGlobalGroups.Value!;
 
-                // Fast path: Landblock is fully inside frustum
-                if (testResult == FrustumTestResult.Inside) {
-                    foreach (var (gfxObjId, instances) in lb.BuildingPartGroups) {
-                        foreach (var instanceData in instances) {
-                            if (filter != null && !filter.Contains(instanceData.CellId)) continue;
-                            if (isOutside && filter == null && seenOutsideCells != null && !seenOutsideCells.Contains(instanceData.CellId)) continue;
+                    // Fast path: Landblock is fully inside frustum
+                    if (testResult == FrustumTestResult.Inside) {
+                        foreach (var (gfxObjId, instances) in lb.BuildingPartGroups) {
+                            foreach (var instanceData in instances) {
+                                if (filter != null && !filter.Contains(instanceData.CellId)) continue;
+                                if (isOutside && filter == null && seenOutsideCells != null && !seenOutsideCells.Contains(instanceData.CellId)) continue;
 
-                            AddToGroups(lbBatchedByCell, lbGlobalGroups, instanceData.CellId, gfxObjId, instanceData);
+                                AddToGroups(lbBatchedByCell, lbGlobalGroups, instanceData.CellId, gfxObjId, instanceData);
+                            }
+                        }
+                        return;
+                    }
+
+                    // Slow path: Test each cell individually using EnvCellBounds
+                    var visibleCells = new HashSet<uint>();
+                    foreach (var kvp in lb.EnvCellBounds) {
+                        var cellId = kvp.Key;
+                        if (filter != null && !filter.Contains(cellId)) continue;
+                        if (isOutside && filter == null && seenOutsideCells != null && !seenOutsideCells.Contains(cellId)) continue;
+
+                        if (_frustum.Intersects(kvp.Value)) {
+                            visibleCells.Add(cellId);
                         }
                     }
-                    return;
-                }
 
-                // Slow path: Test each cell individually using EnvCellBounds
-                var visibleCells = new HashSet<uint>();
-                foreach (var kvp in lb.EnvCellBounds) {
-                    var cellId = kvp.Key;
-                    if (filter != null && !filter.Contains(cellId)) continue;
-                    if (isOutside && filter == null && seenOutsideCells != null && !seenOutsideCells.Contains(cellId)) continue;
-
-                    if (_frustum.Intersects(kvp.Value)) {
-                        visibleCells.Add(cellId);
-                    }
-                }
-
-                if (visibleCells.Count > 0) {
-                    foreach (var (gfxObjId, instances) in lb.BuildingPartGroups) {
-                        foreach (var instanceData in instances) {
-                            if (visibleCells.Contains(instanceData.CellId)) {
-                                AddToGroups(lbBatchedByCell, lbGlobalGroups, instanceData.CellId, gfxObjId, instanceData);
+                    if (visibleCells.Count > 0) {
+                        foreach (var (gfxObjId, instances) in lb.BuildingPartGroups) {
+                            foreach (var instanceData in instances) {
+                                if (visibleCells.Contains(instanceData.CellId)) {
+                                    AddToGroups(lbBatchedByCell, lbGlobalGroups, instanceData.CellId, gfxObjId, instanceData);
+                                }
                             }
                         }
                     }

@@ -43,10 +43,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         private readonly bool[] _dirtyLandblocks = new bool[64];
         private readonly object _dirtyLock = new();
+        private readonly object _lock = new();
+
+        public object Lock => _lock;
 
         public ConcurrentQueue<PendingPartialUpdate> PendingPartialUpdates { get; } = new();
 
-        public BoundingBox Bounds { get; set; }
+        private BoundingBox _bounds;
+        public BoundingBox Bounds {
+            get {
+                lock (_lock) {
+                    return _bounds;
+                }
+            }
+            set {
+                lock (_lock) {
+                    _bounds = value;
+                }
+            }
+        }
         public bool IsGenerated { get; set; }
 
         // GPU Resources

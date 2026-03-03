@@ -54,19 +54,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (!lb.GpuReady || !IsWithinRenderDistance(lb)) continue;
                 if (_frustum.TestBox(lb.BoundingBox) == FrustumTestResult.Outside) continue;
 
-                foreach (var instance in lb.Instances) {
-                    // Skip if instance is outside frustum
-                    if (!_frustum.Intersects(instance.BoundingBox)) continue;
+                lock (lb) {
+                    foreach (var instance in lb.Instances) {
+                        // Skip if instance is outside frustum
+                        if (!_frustum.Intersects(instance.BoundingBox)) continue;
 
-                    var isSelected = SelectedInstance.HasValue && SelectedInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && SelectedInstance.Value.InstanceId == instance.InstanceId;
-                    var isHovered = HoveredInstance.HasValue && HoveredInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && HoveredInstance.Value.InstanceId == instance.InstanceId;
+                        var isSelected = SelectedInstance.HasValue && SelectedInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && SelectedInstance.Value.InstanceId == instance.InstanceId;
+                        var isHovered = HoveredInstance.HasValue && HoveredInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && HoveredInstance.Value.InstanceId == instance.InstanceId;
 
-                    Vector4 color;
-                    if (isSelected) color = LandscapeColorsSettings.Instance.Selection;
-                    else if (isHovered) color = LandscapeColorsSettings.Instance.Hover;
-                    else color = settings.SceneryColor;
+                        Vector4 color;
+                        if (isSelected) color = LandscapeColorsSettings.Instance.Selection;
+                        else if (isHovered) color = LandscapeColorsSettings.Instance.Hover;
+                        else color = settings.SceneryColor;
 
-                    debug.DrawBox(instance.LocalBoundingBox, instance.Transform, color);
+                        debug.DrawBox(instance.LocalBoundingBox, instance.Transform, color);
+                    }
                 }
             }
         }
