@@ -45,6 +45,7 @@ namespace WorldBuilder.Shared.Models {
         private readonly HashSet<string> _layerIds = [];
         private readonly SemaphoreSlim _initLock = new(1, 1);
         private readonly SemaphoreSlim _dbLock = new(1, 1);
+        private readonly SemaphoreSlim _ioSemaphore = new(Math.Max(2, System.Environment.ProcessorCount / 2));
         private readonly ConcurrentDictionary<ushort, SemaphoreSlim> _chunkLocks = new();
 
         /// <summary>
@@ -251,13 +252,8 @@ namespace WorldBuilder.Shared.Models {
         /// </summary>
         /// <param name="affectedVertices">Optional list of vertex indices to recalculate. If null, the entire cache is recalculated.</param>
         public void RecalculateTerrainCache(IEnumerable<uint>? affectedVertices = null) {
-            _initLock.Wait();
-            try {
-                RecalculateTerrainCacheInternal(affectedVertices);
-            }
-            finally {
-                _initLock.Release();
-            }
+            // No lock needed: recalculations build a new array and atomically swap it (chunk.MergedEntries = newEntries)
+            RecalculateTerrainCacheInternal(affectedVertices);
         }
 
         /// <summary>
@@ -266,13 +262,7 @@ namespace WorldBuilder.Shared.Models {
         /// <param name="affectedVertices">Optional list of vertex indices to recalculate. If null, the entire cache is recalculated.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         public async Task RecalculateTerrainCacheAsync(IEnumerable<uint>? affectedVertices = null) {
-            await _initLock.WaitAsync();
-            try {
-                await Task.Run(() => RecalculateTerrainCacheInternal(affectedVertices));
-            }
-            finally {
-                _initLock.Release();
-            }
+            await Task.Run(() => RecalculateTerrainCacheInternal(affectedVertices));
         }
 
         /// <summary>
@@ -339,19 +329,31 @@ namespace WorldBuilder.Shared.Models {
         private void RecalculateTerrainCacheInternal(IEnumerable<uint>? affectedVertices = null) {
             if (affectedVertices == null) {
                 foreach (var chunk in LoadedChunks.Values) {
-                    RecalculateChunkInternal(chunk);
+                    RecalculateChunkFull(chunk);
                 }
             }
             else {
-                foreach (var chunkId in GetAffectedChunks(affectedVertices)) {
+                // Group affected vertices by chunk for incremental updates
+                var affectedByChunk = new Dictionary<ushort, HashSet<ushort>>();
+                foreach (var vertexIndex in affectedVertices) {
+                    foreach (var (chunkId, localIndex) in _coords.GetAffectedChunksWithBoundaries(vertexIndex, Region!)) {
+                        if (!affectedByChunk.TryGetValue(chunkId, out var localIndices)) {
+                            localIndices = new HashSet<ushort>();
+                            affectedByChunk[chunkId] = localIndices;
+                        }
+                        localIndices.Add(localIndex);
+                    }
+                }
+
+                foreach (var (chunkId, localIndices) in affectedByChunk) {
                     if (LoadedChunks.TryGetValue(chunkId, out var chunk)) {
-                        RecalculateChunkInternal(chunk);
+                        RecalculateChunkIncremental(chunk, localIndices);
                     }
                 }
             }
         }
 
-        private void RecalculateChunkInternal(LandscapeChunk chunk) {
+        private void RecalculateChunkFull(LandscapeChunk chunk) {
             var newEntries = new TerrainEntry[chunk.BaseEntries.Length];
             Array.Copy(chunk.BaseEntries, newEntries, chunk.BaseEntries.Length);
 
@@ -369,6 +371,39 @@ namespace WorldBuilder.Shared.Models {
             }
 
             // Atomically swap the merged entries to prevent the renderer from seeing a partial state
+            chunk.MergedEntries = newEntries;
+        }
+
+        /// <summary>
+        /// Incrementally updates only the affected vertex indices, avoiding a full array copy.
+        /// </summary>
+        private void RecalculateChunkIncremental(LandscapeChunk chunk, HashSet<ushort> affectedLocalIndices) {
+            // Work on a copy of the current merged entries to maintain atomic swap
+            var entries = chunk.MergedEntries;
+            var newEntries = new TerrainEntry[entries.Length];
+            Array.Copy(entries, newEntries, entries.Length);
+
+            // Reset affected vertices back to base values, then re-merge
+            foreach (var localIndex in affectedLocalIndices) {
+                if (localIndex < newEntries.Length) {
+                    newEntries[localIndex] = chunk.BaseEntries[localIndex];
+                }
+            }
+
+            // Re-apply only visible layer edits for the affected vertices
+            foreach (var layer in GetAllLayers()) {
+                if (!IsItemVisible(layer)) continue;
+
+                if (chunk.Edits != null && chunk.Edits.LayerEdits.TryGetValue(layer.Id, out var layerEdits)) {
+                    foreach (var localIndex in affectedLocalIndices) {
+                        if (localIndex < newEntries.Length && layerEdits.Vertices.TryGetValue(localIndex, out var entry)) {
+                            newEntries[localIndex].Merge(entry);
+                        }
+                    }
+                }
+            }
+
+            // Atomically swap
             chunk.MergedEntries = newEntries;
         }
 

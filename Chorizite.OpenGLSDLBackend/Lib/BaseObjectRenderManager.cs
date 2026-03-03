@@ -39,6 +39,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private uint _modernInstanceBuffer; // Scratch buffer for non-consolidated modern draws
         private int _modernInstanceCapacity = 1024 * 16;
 
+        // MDI dirty tracking — when false, RenderConsolidatedMDI skips buffer orphaning
+        // and reuses the previously uploaded GPU buffers. This avoids driver-specific issues
+        // with constant BufferData(null) orphaning when the app is idle/backgrounded.
+        protected bool _mdiDirty = true;
+        private int _lastOpaqueDrawCount;
+        private int _lastTransparentDrawCount;
+
         // Reusable arrays to avoid allocations per frame
         private DrawElementsIndirectCommand[] _commands = Array.Empty<DrawElementsIndirectCommand>();
         private ModernBatchData[] _modernBatches = Array.Empty<ModernBatchData>();
@@ -288,63 +295,97 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
+        /// <summary>
+        /// Marks the MDI buffers as dirty, requiring re-upload on next render.
+        /// Call this when visible landblocks or their MDI commands change.
+        /// </summary>
+        public void MarkMdiDirty() {
+            _mdiDirty = true;
+        }
+
         public unsafe void RenderConsolidatedMDI(IShader shader, List<ObjectLandblock> landblocks, RenderPass renderPass) {
             if (landblocks.Count == 0) return;
 
             shader.SetUniform("uFilterByCell", 0);
 
-            for (int i = 0; i < 4; i++) _cullGroups[i].Clear();
-            int totalDraws = 0;
-            foreach (var lb in landblocks) {
-                lock (lb) {
-                    foreach (var kvp in lb.MdiCommands) {
-                        var idx = (int)kvp.Key;
-                        if (idx < 0 || idx >= 4) continue;
+            // Check if we can skip the buffer upload entirely (same data as last frame)
+            ref int lastDrawCount = ref (renderPass == RenderPass.Transparent ? ref _lastTransparentDrawCount : ref _lastOpaqueDrawCount);
+            bool needsUpload = _mdiDirty;
 
-                        foreach (var cmd in kvp.Value) {
-                            if (renderPass == RenderPass.Transparent && !cmd.IsTransparent) continue;
-                            _cullGroups[idx].Add(cmd);
-                            totalDraws++;
+            if (needsUpload) {
+                for (int i = 0; i < 4; i++) _cullGroups[i].Clear();
+                int totalDraws = 0;
+                foreach (var lb in landblocks) {
+                    lock (lb) {
+                        foreach (var kvp in lb.MdiCommands) {
+                            var idx = (int)kvp.Key;
+                            if (idx < 0 || idx >= 4) continue;
+
+                            foreach (var cmd in kvp.Value) {
+                                if (renderPass == RenderPass.Transparent && !cmd.IsTransparent) continue;
+                                _cullGroups[idx].Add(cmd);
+                                totalDraws++;
+                            }
                         }
                     }
                 }
-            }
 
-            if (totalDraws == 0) return;
-
-            if (totalDraws > _mdiCommandCapacity) {
-                _mdiCommandCapacity = Math.Max(_mdiCommandCapacity * 2, totalDraws);
-                Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _mdiCommandBuffer);
-                Gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_mdiCommandCapacity * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
-                Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernBatchBuffer);
-                Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_mdiCommandCapacity * sizeof(ModernBatchData)), null, GLEnum.DynamicDraw);
-            }
-
-            if (_commands.Length < totalDraws) Array.Resize(ref _commands, Math.Max(_commands.Length * 2, totalDraws));
-            if (_modernBatches.Length < totalDraws) Array.Resize(ref _modernBatches, Math.Max(_modernBatches.Length * 2, totalDraws));
-
-            int cmdIndex = 0;
-            for (int i = 0; i < 4; i++) {
-                foreach (var cmd in _cullGroups[i]) {
-                    _commands[cmdIndex] = cmd.Command;
-                    _modernBatches[cmdIndex] = cmd.BatchData;
-                    cmdIndex++;
+                if (totalDraws == 0) {
+                    lastDrawCount = 0;
+                    return;
                 }
-            }
 
-            // Upload commands and batch data (with orphaning)
-            Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _mdiCommandBuffer);
-            // Orphan only what we need to avoid excess memory allocation/driver overhead
-            Gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(totalDraws * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
-            fixed (DrawElementsIndirectCommand* ptr = _commands) {
-                Gl.BufferSubData(GLEnum.DrawIndirectBuffer, 0, (nuint)(totalDraws * sizeof(DrawElementsIndirectCommand)), ptr);
-            }
+                if (totalDraws > _mdiCommandCapacity) {
+                    _mdiCommandCapacity = Math.Max(_mdiCommandCapacity * 2, totalDraws);
+                    Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _mdiCommandBuffer);
+                    Gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_mdiCommandCapacity * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
+                    Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernBatchBuffer);
+                    Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_mdiCommandCapacity * sizeof(ModernBatchData)), null, GLEnum.DynamicDraw);
+                }
 
-            Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernBatchBuffer);
-            // Orphan only what we need to avoid excess memory allocation/driver overhead
-            Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(totalDraws * sizeof(ModernBatchData)), null, GLEnum.DynamicDraw);
-            fixed (ModernBatchData* ptr = _modernBatches) {
-                Gl.BufferSubData(GLEnum.ShaderStorageBuffer, 0, (nuint)(totalDraws * sizeof(ModernBatchData)), ptr);
+                if (_commands.Length < totalDraws) Array.Resize(ref _commands, Math.Max(_commands.Length * 2, totalDraws));
+                if (_modernBatches.Length < totalDraws) Array.Resize(ref _modernBatches, Math.Max(_modernBatches.Length * 2, totalDraws));
+
+                int cmdIndex = 0;
+                for (int i = 0; i < 4; i++) {
+                    foreach (var cmd in _cullGroups[i]) {
+                        _commands[cmdIndex] = cmd.Command;
+                        _modernBatches[cmdIndex] = cmd.BatchData;
+                        cmdIndex++;
+                    }
+                }
+
+                // Upload commands and batch data
+                Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _mdiCommandBuffer);
+                fixed (DrawElementsIndirectCommand* ptr = _commands) {
+                    Gl.BufferSubData(GLEnum.DrawIndirectBuffer, 0, (nuint)(totalDraws * sizeof(DrawElementsIndirectCommand)), ptr);
+                }
+
+                Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernBatchBuffer);
+                fixed (ModernBatchData* ptr = _modernBatches) {
+                    Gl.BufferSubData(GLEnum.ShaderStorageBuffer, 0, (nuint)(totalDraws * sizeof(ModernBatchData)), ptr);
+                }
+
+                lastDrawCount = totalDraws;
+            }
+            else {
+                // Nothing changed — reuse previously uploaded buffers
+                if (lastDrawCount == 0) return;
+
+                // Rebuild cull groups just for draw offsets (lightweight, no GPU ops)
+                for (int i = 0; i < 4; i++) _cullGroups[i].Clear();
+                foreach (var lb in landblocks) {
+                    lock (lb) {
+                        foreach (var kvp in lb.MdiCommands) {
+                            var idx = (int)kvp.Key;
+                            if (idx < 0 || idx >= 4) continue;
+                            foreach (var cmd in kvp.Value) {
+                                if (renderPass == RenderPass.Transparent && !cmd.IsTransparent) continue;
+                                _cullGroups[idx].Add(cmd);
+                            }
+                        }
+                    }
+                }
             }
 
             var globalVao = MeshManager.GlobalBuffer!.VAO;

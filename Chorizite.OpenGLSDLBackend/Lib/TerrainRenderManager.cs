@@ -38,6 +38,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private const float UnloadDelay = 15f;
         private readonly ConcurrentDictionary<ushort, float> _outOfRangeTimers = new();
 
+        // Reusable per-frame lists to reduce GC pressure
+        private readonly List<ushort> _chunkKeysToRemove = new();
+        private readonly List<TerrainChunk> _visibleChunksBuffer = new();
+
+        // Thread-local buffer for GetHeight to avoid per-call allocation
+        [ThreadStatic] private static TerrainEntry[]? t_heightEntries;
+
         // Constants
         private const int MaxVertices = 24576;
         private const int MaxIndices = 24576;
@@ -139,8 +146,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             if (!_landscapeDoc.LoadedChunks.TryGetValue(chunkId, out var chunk)) return 0; // Chunk not loaded
 
-            // Get 9x9 entries for the landblock
-            var entries = new TerrainEntry[81];
+            // Get 9x9 entries for the landblock (reuse thread-local buffer)
+            var entries = t_heightEntries ??= new TerrainEntry[81];
             int localLbX = lbX % 8;
             int localLbY = lbY % 8;
 
@@ -233,14 +240,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Clean up chunks that are out of range (with delay)
             // Note: We only unload based on distance, not frustum. This ensures chunks stay cached
             // once loaded, so panning the camera doesn't cause constant reloads.
-            var chunkKeysToRemove = new List<ushort>();
+            _chunkKeysToRemove.Clear();
             foreach (var (key, chunk) in _chunks) {
                 int dx = (int)chunk.ChunkX - chunkX;
                 int dy = (int)chunk.ChunkY - chunkY;
                 if (Math.Abs(dx) > RenderDistance || Math.Abs(dy) > RenderDistance) {
                     var elapsed = _outOfRangeTimers.AddOrUpdate(key, deltaTime, (_, e) => e + deltaTime);
                     if (elapsed >= UnloadDelay) {
-                        chunkKeysToRemove.Add(key);
+                        _chunkKeysToRemove.Add(key);
                     }
                 }
                 else {
@@ -248,7 +255,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
-            foreach (var key in chunkKeysToRemove) {
+            foreach (var key in _chunkKeysToRemove) {
                 if (_chunks.TryRemove(key, out var chunk)) {
                     _pendingGeneration.TryRemove(key, out _);
                     ReleaseChunk(chunk);
@@ -257,7 +264,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _outOfRangeTimers.TryRemove(key, out _);
             }
 
-            while (_activeGenerations < 12 && !_pendingGeneration.IsEmpty) {
+            int maxGenerations = Math.Max(2, System.Environment.ProcessorCount);
+            while (_activeGenerations < maxGenerations && !_pendingGeneration.IsEmpty) {
                 // Pick the nearest pending chunk (Euclidean distance with view direction bias)
                 TerrainChunk? nearest = null;
                 float bestPriority = float.MaxValue;
@@ -375,7 +383,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         private void DispatchPartialUpdates() {
-            while (_activePartialUpdates < 8 && _partialUpdateQueue.TryDequeue(out var chunk)) {
+            int maxPartialUpdates = Math.Max(2, System.Environment.ProcessorCount / 2);
+            while (_activePartialUpdates < maxPartialUpdates && _partialUpdateQueue.TryDequeue(out var chunk)) {
                 System.Threading.Interlocked.Increment(ref _activePartialUpdates);
                 Task.Run(() => {
                     try {
@@ -748,17 +757,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             BaseObjectRenderManager.CurrentVAO = _globalVAO;
 
             if (_graphicsDevice.HasOpenGL43) {
-                var visibleChunks = new List<TerrainChunk>();
+                _visibleChunksBuffer.Clear();
                 foreach (var chunk in _chunks.Values) {
                     if (!chunk.IsGenerated || chunk.IndexCount == 0) continue;
                     if (_frustum.TestBox(chunk.Bounds) == FrustumTestResult.Outside) continue;
-                    visibleChunks.Add(chunk);
+                    _visibleChunksBuffer.Add(chunk);
                 }
 
-                if (visibleChunks.Count > 0) {
-                    if (visibleChunks.Count > _drawIndirectCapacity) {
+                if (_visibleChunksBuffer.Count > 0) {
+                    if (_visibleChunksBuffer.Count > _drawIndirectCapacity) {
                         if (_drawIndirectBuffer != 0) _gl.DeleteBuffer(_drawIndirectBuffer);
-                        _drawIndirectCapacity = Math.Max(256, visibleChunks.Count * 2);
+                        _drawIndirectCapacity = Math.Max(256, _visibleChunksBuffer.Count * 2);
                         _gl.GenBuffers(1, out _drawIndirectBuffer);
                         _gl.BindBuffer(GLEnum.DrawIndirectBuffer, _drawIndirectBuffer);
                         _gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_drawIndirectCapacity * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
@@ -767,9 +776,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         _gl.BindBuffer(GLEnum.DrawIndirectBuffer, _drawIndirectBuffer);
                     }
 
-                    var commands = new DrawElementsIndirectCommand[visibleChunks.Count];
-                    for (int i = 0; i < visibleChunks.Count; i++) {
-                        var chunk = visibleChunks[i];
+                    var commands = new DrawElementsIndirectCommand[_visibleChunksBuffer.Count];
+                    for (int i = 0; i < _visibleChunksBuffer.Count; i++) {
+                        var chunk = _visibleChunksBuffer[i];
                         commands[i] = new DrawElementsIndirectCommand {
                             Count = (uint)chunk.IndexCount,
                             InstanceCount = 1,
@@ -781,10 +790,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                     fixed (DrawElementsIndirectCommand* pCmds = commands) {
                         _gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_drawIndirectCapacity * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
-                        _gl.BufferSubData(GLEnum.DrawIndirectBuffer, 0, (nuint)(visibleChunks.Count * sizeof(DrawElementsIndirectCommand)), pCmds);
+                        _gl.BufferSubData(GLEnum.DrawIndirectBuffer, 0, (nuint)(_visibleChunksBuffer.Count * sizeof(DrawElementsIndirectCommand)), pCmds);
                     }
 
-                    _gl.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, (void*)0, (uint)visibleChunks.Count, (uint)sizeof(DrawElementsIndirectCommand));
+                    _gl.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, (void*)0, (uint)_visibleChunksBuffer.Count, (uint)sizeof(DrawElementsIndirectCommand));
 
                     _gl.BindBuffer(GLEnum.DrawIndirectBuffer, 0);
                 }

@@ -122,6 +122,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             base.PrepareRenderBatches(viewProjectionMatrix, cameraPosition, filter, isOutside);
         }
 
+        /// <summary>
+        /// Gate scenery generation on static objects being ready for this landblock.
+        /// This prevents task dispatch spin loops when both managers are invalidated simultaneously (e.g., during painting).
+        /// </summary>
+        protected override bool IsReadyForGeneration(ushort key, ObjectLandblock lb) {
+            return _staticObjectManager.IsLandblockReady(key);
+        }
+
         protected override async Task GenerateForLandblockAsync(ObjectLandblock lb, CancellationToken ct) {
             try {
                 var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
@@ -140,18 +148,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var chunkY = (uint)(lbGlobalY / LandscapeChunk.LandblocksPerChunk);
                 var chunkId = LandscapeChunk.GetId(chunkX, chunkY);
                 await LandscapeDoc.GetOrLoadChunkAsync(chunkId, _dats, _documentManager, ct);
-
-                // Wait for static objects to be ready for this landblock
-                using (var cts = CancellationTokenSource.CreateLinkedTokenSource(ct)) {
-                    cts.CancelAfter(15000);
-                    try {
-                        await _staticObjectManager.WaitForInstancesAsync(key, cts.Token);
-                    }
-                    catch (OperationCanceledException) {
-                        if (ct.IsCancellationRequested) throw;
-                        Log.LogWarning("Timed out waiting for static objects for landblock ({X},{Y})", lb.GridX, lb.GridY);
-                    }
-                }
 
                 var buildings = _staticObjectManager.GetLandblockInstances(key) ?? new List<SceneryInstance>();
                 var pendingBuildings = _staticObjectManager.GetPendingLandblockInstances(key);
