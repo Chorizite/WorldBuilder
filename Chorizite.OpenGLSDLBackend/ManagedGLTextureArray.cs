@@ -25,6 +25,7 @@ namespace Chorizite.OpenGLSDLBackend {
         public TextureFormat Format { get; private set; }
         public nint NativePtr { get; private set; }
         public ulong BindlessHandle { get; private set; }
+        public long TotalSizeInBytes => CalculateTotalSize();
 
         public ManagedGLTextureArray(OpenGLGraphicsDevice graphicsDevice, TextureFormat format, int width, int height,
             int size, ILogger logger) {
@@ -98,7 +99,7 @@ namespace Chorizite.OpenGLSDLBackend {
             }
         }
 
-        private long CalculateTotalSize() {
+        public long CalculateTotalSize() {
             int maxDimension = Math.Max(Width, Height);
             int mipLevels = (int)Math.Floor(Math.Log2(maxDimension)) + 1;
             long layerSize = GetExpectedDataSize();

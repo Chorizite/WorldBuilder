@@ -78,6 +78,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             AlphaAtlas = _graphicsDevice.CreateTextureArray(TextureFormat.RGBA8, 512, 512, 16)
                          ?? throw new Exception("Unable to create alpha atlas.");
 
+            if (TerrainAtlas is ManagedGLTextureArray managedTerrainAtlas) {
+                GpuMemoryTracker.TrackNamedBuffer("Terrain Atlas", managedTerrainAtlas.TotalSizeInBytes, managedTerrainAtlas.TotalSizeInBytes);
+            }
+            if (AlphaAtlas is ManagedGLTextureArray managedAlphaAtlas) {
+                GpuMemoryTracker.TrackNamedBuffer("Alpha Atlas", managedAlphaAtlas.TotalSizeInBytes, managedAlphaAtlas.TotalSizeInBytes);
+            }
+
             LoadTextures();
 
             ArrayPool<byte>.Shared.Return(_textureBuffer);
@@ -131,56 +138,54 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _alphaAtlasIndexLookup.Add(texGid, layerIndex);
         }
 
-        public void FillVertexData(uint landblockID, uint cellX, uint cellY, float baseLandblockX, float baseLandblockY,
-            ref VertexLandscape v, int heightIdx, TMI surfInfo, int cornerIndex) {
-            v.PackedBase = VertexLandscape.PackTexCoord(0, 0, 255, 255);
-            v.PackedOverlay0 = VertexLandscape.PackTexCoord(-1, -1, 255, 255);
-            v.PackedOverlay1 = VertexLandscape.PackTexCoord(-1, -1, 255, 255);
-            v.PackedOverlay2 = VertexLandscape.PackTexCoord(-1, -1, 255, 255);
-            v.PackedRoad0 = VertexLandscape.PackTexCoord(-1, -1, 255, 255);
-            v.PackedRoad1 = VertexLandscape.PackTexCoord(-1, -1, 255, 255);
+        public void FillCellData(TMI surfInfo, uint splitDirection, ref uint data0, ref uint data1, ref uint data2, ref uint data3) {
+            uint texBase = 255, alphaBase = 255, rotBase = 0;
+            uint texOvl0 = 255, alphaOvl0 = 255, rotOvl0 = 0;
+            uint texOvl1 = 255, alphaOvl1 = 255, rotOvl1 = 0;
+            uint texOvl2 = 255, alphaOvl2 = 255, rotOvl2 = 0;
+            uint texRd0 = 255, alphaRd0 = 255, rotRd0 = 0;
+            uint texRd1 = 255, alphaRd1 = 255, rotRd1 = 0;
 
-            if (surfInfo?.TerrainBase == null) return;
+            if (surfInfo?.TerrainBase != null) {
+                texBase = (uint)GetTextureAtlasIndex((uint)surfInfo.TerrainBase.TextureId);
+            }
 
-            var baseIndex = GetTextureAtlasIndex((uint)surfInfo.TerrainBase.TextureId);
-            var baseUV = LandUVs[cornerIndex];
-            v.SetBase(baseUV.X, baseUV.Y, (byte)baseIndex, 255);
+            if (surfInfo != null) {
+                for (int i = 0; i < surfInfo.TerrainOverlays.Count && i < 3; i++) {
+                    if (surfInfo.TerrainOverlays[i] == null || (uint)surfInfo.TerrainOverlays[i].TextureId == 0) continue;
 
-            for (int i = 0; i < surfInfo.TerrainOverlays.Count && i < 3; i++) {
-                if (surfInfo.TerrainOverlays[i] == null || (uint)surfInfo.TerrainOverlays[i].TextureId == 0) continue;
+                    uint texIdx = (uint)GetTextureAtlasIndex((uint)surfInfo.TerrainOverlays[i].TextureId);
+                    uint rotIdx = (uint)surfInfo.TerrainRotations[i];
+                    uint alphaIdx = 255;
 
-                var overlayIndex = (byte)GetTextureAtlasIndex((uint)surfInfo.TerrainOverlays[i].TextureId);
-                var rotIndex = (byte)surfInfo.TerrainRotations[i];
-                var rotatedUV = LandUVsRotated[rotIndex][cornerIndex];
-                byte alphaIndex = 255;
+                    if (i < surfInfo.TerrainAlphaOverlays.Count && surfInfo.TerrainAlphaOverlays[i] != null) {
+                        alphaIdx = (uint)GetAlphaAtlasIndex(surfInfo.TerrainAlphaOverlays[i].TextureId);
+                    }
 
-                if (i < surfInfo.TerrainAlphaOverlays.Count && surfInfo.TerrainAlphaOverlays[i] != null) {
-                    alphaIndex = (byte)GetAlphaAtlasIndex(surfInfo.TerrainAlphaOverlays[i].TextureId);
+                    if (i == 0) { texOvl0 = texIdx; alphaOvl0 = alphaIdx; rotOvl0 = rotIdx; }
+                    else if (i == 1) { texOvl1 = texIdx; alphaOvl1 = alphaIdx; rotOvl1 = rotIdx; }
+                    else if (i == 2) { texOvl2 = texIdx; alphaOvl2 = alphaIdx; rotOvl2 = rotIdx; }
                 }
 
-                switch (i) {
-                    case 0: v.SetOverlay0(rotatedUV.X, rotatedUV.Y, overlayIndex, alphaIndex); break;
-                    case 1: v.SetOverlay1(rotatedUV.X, rotatedUV.Y, overlayIndex, alphaIndex); break;
-                    case 2: v.SetOverlay2(rotatedUV.X, rotatedUV.Y, overlayIndex, alphaIndex); break;
+                if (surfInfo.RoadOverlay != null && (uint)surfInfo.RoadOverlay.TextureId != 0) {
+                    texRd0 = (uint)GetTextureAtlasIndex((uint)surfInfo.RoadOverlay.TextureId);
+                    rotRd0 = (uint)surfInfo.RoadRotations[0];
+                    if (surfInfo.RoadAlphaOverlays.Count > 0 && surfInfo.RoadAlphaOverlays[0] != null) {
+                        alphaRd0 = (uint)GetAlphaAtlasIndex(surfInfo.RoadAlphaOverlays[0].TextureId);
+                    }
+
+                    if (surfInfo.RoadAlphaOverlays.Count > 1 && surfInfo.RoadAlphaOverlays[1] != null) {
+                        rotRd1 = (uint)surfInfo.RoadRotations[1];
+                        alphaRd1 = (uint)GetAlphaAtlasIndex(surfInfo.RoadAlphaOverlays[1].TextureId);
+                        texRd1 = texRd0;
+                    }
                 }
             }
 
-            if (surfInfo.RoadOverlay != null && (uint)surfInfo.RoadOverlay.TextureId != 0) {
-                var roadOverlayIndex = (byte)GetTextureAtlasIndex((uint)surfInfo.RoadOverlay.TextureId);
-                var rotIndex = (byte)surfInfo.RoadRotations[0];
-                var rotatedUV = LandUVsRotated[rotIndex][cornerIndex];
-                byte alphaIndex = surfInfo.RoadAlphaOverlays[0] != null
-                    ? (byte)GetAlphaAtlasIndex(surfInfo.RoadAlphaOverlays[0].TextureId)
-                    : (byte)255;
-                v.SetRoad0(rotatedUV.X, rotatedUV.Y, roadOverlayIndex, alphaIndex);
-
-                if (surfInfo.RoadAlphaOverlays[1] != null) {
-                    var rotIndex2 = (byte)surfInfo.RoadRotations[1];
-                    var rotatedUV2 = LandUVsRotated[rotIndex2][cornerIndex];
-                    byte alphaIndex2 = (byte)GetAlphaAtlasIndex(surfInfo.RoadAlphaOverlays[1].TextureId);
-                    v.SetRoad1(rotatedUV2.X, rotatedUV2.Y, roadOverlayIndex, alphaIndex2);
-                }
-            }
+            data0 = (texBase | (alphaBase << 8)) | ((texOvl0 | (alphaOvl0 << 8)) << 16);
+            data1 = (texOvl1 | (alphaOvl1 << 8)) | ((texOvl2 | (alphaOvl2 << 8)) << 16);
+            data2 = (texRd0 | (alphaRd0 << 8)) | ((texRd1 | (alphaRd1 << 8)) << 16);
+            data3 = rotBase | (rotOvl0 << 2) | (rotOvl1 << 4) | (rotOvl2 << 6) | (rotRd0 << 8) | (rotRd1 << 10) | ((splitDirection & 1) << 12);
         }
 
         public int GetTextureAtlasIndex(uint texGID) {
@@ -272,7 +277,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var r4 = terrain[i + 1].Road ?? 0;
 
             var palCode = GetPalCode(r1, r2, r3, r4, t1, t2, t3, t4);
-            
+
             if (SurfaceInfoByPalette.TryGetValue(palCode, out var existingSurfaceInfo)) {
                 surfaceNumber = existingSurfaceInfo.SurfaceNumber;
                 return true;
@@ -571,6 +576,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void Dispose() {
+            GpuMemoryTracker.UntrackNamedBuffer("Terrain Atlas");
+            GpuMemoryTracker.UntrackNamedBuffer("Alpha Atlas");
             TerrainAtlas?.Dispose();
             AlphaAtlas?.Dispose();
         }

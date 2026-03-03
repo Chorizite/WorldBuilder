@@ -44,6 +44,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private const int LandblocksPerChunk = 8;
         private float _chunkSizeInUnits;
 
+        private uint _globalVAO;
+        private uint _globalVBO;
+        private uint _globalEBO;
+        private uint _drawIndirectBuffer;
+        private int _drawIndirectCapacity = 0;
+        private int _globalCapacitySlots = 0;
+        private int _nextFreeSlot = 0;
+        private readonly Queue<int> _freeSlots = new();
+
         // Render state
         private IShader? _shader;
         private bool _initialized;
@@ -229,6 +238,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var key in chunkKeysToRemove) {
                 if (_chunks.TryRemove(key, out var chunk)) {
                     _pendingGeneration.TryRemove(key, out _);
+                    ReleaseChunk(chunk);
                     chunk.Dispose();
                 }
                 _outOfRangeTimers.TryRemove(key, out _);
@@ -281,6 +291,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 // Skip if now out of range (don't skip based on frustum - that causes flickering when camera pans)
                 if (chosenDist > RenderDistance) {
                     if (_chunks.TryRemove(bestKey, out _)) {
+                        ReleaseChunk(chunkToGenerate);
                         chunkToGenerate.Dispose();
                     }
                     continue;
@@ -338,6 +349,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (!IsWithinRenderDistance(chunk, (int)chunk.ChunkX, (int)chunk.ChunkY)) {
                         var chunkId = (ushort)((chunk.ChunkX << 8) | chunk.ChunkY);
                         if (_chunks.TryRemove(chunkId, out _)) {
+                            ReleaseChunk(chunk);
                             chunk.Dispose();
                         }
                         continue;
@@ -417,11 +429,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             int initialCount = _readyForUploadQueue.Count;
             int processed = 0;
 
+            if (initialCount > 0) {
+                _gl.BindVertexArray(_globalVAO);
+                _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _globalVBO);
+            }
+
             while (processed < initialCount && sw.Elapsed.TotalMilliseconds < timeBudgetMs) {
                 if (_readyForUploadQueue.TryDequeue(out var chunk)) {
-                    _gl.BindVertexArray(chunk.VAO);
-                    _gl.BindBuffer(BufferTargetARB.ArrayBuffer, chunk.VBO);
-
                     bool boundsChanged = false;
                     while (chunk.PendingPartialUpdates.TryDequeue(out var update)) {
                         int vertexOffset = chunk.LandblockVertexOffsets[update.LocalY * 8 + update.LocalX];
@@ -433,7 +447,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                         // Upload vertices
                         fixed (VertexLandscape* vPtr = update.Vertices) {
-                            _gl.BufferSubData(BufferTargetARB.ArrayBuffer, (nint)(vertexOffset * VertexLandscape.Size), (nuint)(update.Vertices.Length * VertexLandscape.Size), vPtr);
+                            _gl.BufferSubData(BufferTargetARB.ArrayBuffer, (nint)((chunk.BaseVertex + vertexOffset) * VertexLandscape.Size), (nuint)(update.Vertices.Length * VertexLandscape.Size), vPtr);
                         }
 
                         if (sw.Elapsed.TotalMilliseconds > timeBudgetMs) {
@@ -466,6 +480,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 else {
                     break;
                 }
+            }
+
+            if (initialCount > 0) {
+                _gl.BindVertexArray(0);
+                BaseObjectRenderManager.CurrentVAO = 0;
             }
         }
 
@@ -513,6 +532,84 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
+        private unsafe void EnsureCapacity(int requiredSlots) {
+            if (requiredSlots <= _globalCapacitySlots) return;
+
+            // Make sure we do not corrupt another bound VAO when we bind EBOs
+            _gl.BindVertexArray(0);
+
+            int newCapacity = Math.Max(256, _globalCapacitySlots * 2);
+            while (newCapacity < requiredSlots) newCapacity *= 2;
+
+            _log.LogDebug($"Resizing terrain global buffers to {newCapacity} slots...");
+
+            uint newVbo = _gl.GenBuffer();
+            _gl.BindBuffer(BufferTargetARB.ArrayBuffer, newVbo);
+            _gl.BufferData(BufferTargetARB.ArrayBuffer, (nuint)(newCapacity * MaxVertices * VertexLandscape.Size), null, BufferUsageARB.StaticDraw);
+
+            if (_globalVBO != 0) {
+                _gl.BindBuffer(BufferTargetARB.CopyReadBuffer, _globalVBO);
+                _gl.BindBuffer(BufferTargetARB.CopyWriteBuffer, newVbo);
+                _gl.CopyBufferSubData((GLEnum)BufferTargetARB.CopyReadBuffer, (GLEnum)BufferTargetARB.CopyWriteBuffer, 0, 0, (nuint)(_globalCapacitySlots * MaxVertices * VertexLandscape.Size));
+                _gl.DeleteBuffer(_globalVBO);
+            }
+
+            _globalVBO = newVbo;
+
+            uint newEbo = _gl.GenBuffer();
+            _gl.BindBuffer(BufferTargetARB.ElementArrayBuffer, newEbo);
+            _gl.BufferData(BufferTargetARB.ElementArrayBuffer, (nuint)(newCapacity * MaxIndices * sizeof(uint)), null, BufferUsageARB.StaticDraw);
+
+            if (_globalEBO != 0) {
+                _gl.BindBuffer(BufferTargetARB.CopyReadBuffer, _globalEBO);
+                _gl.BindBuffer(BufferTargetARB.CopyWriteBuffer, newEbo);
+                _gl.CopyBufferSubData((GLEnum)BufferTargetARB.CopyReadBuffer, (GLEnum)BufferTargetARB.CopyWriteBuffer, 0, 0, (nuint)(_globalCapacitySlots * MaxIndices * sizeof(uint)));
+                _gl.DeleteBuffer(_globalEBO);
+            }
+
+            _globalEBO = newEbo;
+            _globalCapacitySlots = newCapacity;
+
+            // Recreate VAO
+            if (_globalVAO != 0) {
+                _gl.DeleteVertexArray(_globalVAO);
+            }
+
+            _globalVAO = _gl.GenVertexArray();
+            _gl.BindVertexArray(_globalVAO);
+
+            _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _globalVBO);
+            _gl.BindBuffer(BufferTargetARB.ElementArrayBuffer, _globalEBO);
+
+            // Set up attributes
+            _gl.EnableVertexAttribArray(0);
+            _gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetPosition);
+
+            _gl.EnableVertexAttribArray(1);
+            _gl.VertexAttribIPointer(1, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetData0);
+
+            _gl.EnableVertexAttribArray(2);
+            _gl.VertexAttribIPointer(2, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetData1);
+
+            _gl.EnableVertexAttribArray(3);
+            _gl.VertexAttribIPointer(3, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetData2);
+
+            _gl.EnableVertexAttribArray(4);
+            _gl.VertexAttribIPointer(4, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetData3);
+
+            _gl.BindVertexArray(0);
+
+            UpdateGpuStats();
+        }
+
+        private void ReleaseChunk(TerrainChunk chunk) {
+            if (chunk.GlobalSlotIndex >= 0) {
+                _freeSlots.Enqueue(chunk.GlobalSlotIndex);
+                chunk.GlobalSlotIndex = -1;
+                UpdateGpuStats();
+            }
+        }
+
         private unsafe void UploadChunk(TerrainChunk chunk) {
             if (chunk.GeneratedVertices.Length == 0) {
                 //_log.LogWarning("Skipping upload for chunk {CX},{CY}: No vertices", chunk.ChunkX, chunk.ChunkY);
@@ -522,61 +619,38 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var vertices = chunk.GeneratedVertices.Span;
             var indices = chunk.GeneratedIndices.Span;
 
-            chunk.VAO = _gl.GenVertexArray();
-            _gl.BindVertexArray(chunk.VAO);
+            int slot;
+            if (_freeSlots.TryDequeue(out var freeSlot)) {
+                slot = freeSlot;
+            }
+            else {
+                slot = _nextFreeSlot++;
+                EnsureCapacity(slot + 1);
+            }
 
-            chunk.VBO = _gl.GenBuffer();
-            _gl.BindBuffer(BufferTargetARB.ArrayBuffer, chunk.VBO);
+            chunk.GlobalSlotIndex = slot;
+            chunk.BaseVertex = slot * MaxVertices;
+            chunk.FirstIndex = slot * MaxIndices;
 
+            // Bake BaseVertex into indices directly for maximum driver compatibility
+            for (int i = 0; i < indices.Length; i++) {
+                indices[i] += (uint)chunk.BaseVertex;
+            }
+
+            _gl.BindVertexArray(_globalVAO);
+
+            _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _globalVBO);
             fixed (VertexLandscape* vPtr = vertices) {
-                _gl.BufferData(BufferTargetARB.ArrayBuffer, (nuint)(vertices.Length * VertexLandscape.Size), vPtr,
-                    BufferUsageARB.StaticDraw);
+                _gl.BufferSubData(BufferTargetARB.ArrayBuffer, (nint)(chunk.BaseVertex * VertexLandscape.Size), (nuint)(vertices.Length * VertexLandscape.Size), vPtr);
             }
-            GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
-            GpuMemoryTracker.TrackAllocation(vertices.Length * VertexLandscape.Size, GpuResourceType.Buffer);
 
-            chunk.EBO = _gl.GenBuffer();
-            _gl.BindBuffer(BufferTargetARB.ElementArrayBuffer, chunk.EBO);
-
+            _gl.BindBuffer(BufferTargetARB.ElementArrayBuffer, _globalEBO);
             fixed (uint* iPtr = indices) {
-                _gl.BufferData(BufferTargetARB.ElementArrayBuffer, (nuint)(indices.Length * sizeof(uint)), iPtr,
-                    BufferUsageARB.StaticDraw);
+                _gl.BufferSubData(BufferTargetARB.ElementArrayBuffer, (nint)(chunk.FirstIndex * sizeof(uint)), (nuint)(indices.Length * sizeof(uint)), iPtr);
             }
-            GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
-            GpuMemoryTracker.TrackAllocation(indices.Length * sizeof(uint), GpuResourceType.Buffer);
 
-            // Set up attributes based on VertexLandscape.Format
-            // 0: Pos (3 float)
-            _gl.EnableVertexAttribArray(0);
-            _gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetPosition);
-
-            // 1: Normal (3 float)
-            _gl.EnableVertexAttribArray(1);
-            _gl.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetNormal);
-
-            // 2: TexCoord0 (4 byte)
-            _gl.EnableVertexAttribArray(2);
-            _gl.VertexAttribIPointer(2, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord0);
-
-            // 3: PackedOverlay0 (4 byte)
-            _gl.EnableVertexAttribArray(3);
-            _gl.VertexAttribIPointer(3, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord1);
-
-            // 4: PackedOverlay1 (4 byte)
-            _gl.EnableVertexAttribArray(4);
-            _gl.VertexAttribIPointer(4, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord2);
-
-            // 5: PackedOverlay2 (4 byte)
-            _gl.EnableVertexAttribArray(5);
-            _gl.VertexAttribIPointer(5, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord3);
-
-            // 6: PackedRoad0 (4 byte)
-            _gl.EnableVertexAttribArray(6);
-            _gl.VertexAttribIPointer(6, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord4);
-
-            // 7: PackedRoad1 (4 byte)
-            _gl.EnableVertexAttribArray(7);
-            _gl.VertexAttribIPointer(7, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord5);
+            _gl.BindVertexArray(0);
+            BaseObjectRenderManager.CurrentVAO = 0;
 
             chunk.IndexCount = indices.Length;
             chunk.VertexCount = vertices.Length;
@@ -586,20 +660,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             chunk.GeneratedVertices = Memory<VertexLandscape>.Empty;
             chunk.GeneratedIndices = Memory<uint>.Empty;
 
-            _gl.BindVertexArray(0);
-
             UpdateGpuStats();
         }
 
         private void UpdateGpuStats() {
-            long totalBytes = 0;
-            foreach (var chunk in _chunks.Values) {
-                if (chunk.IsGenerated) {
-                    totalBytes += chunk.VertexCount * VertexLandscape.Size;
-                    totalBytes += (long)chunk.IndexCount * sizeof(uint);
-                }
+            long totalBytes = (_globalCapacitySlots * MaxVertices * VertexLandscape.Size) + (_globalCapacitySlots * MaxIndices * sizeof(uint));
+            if (_drawIndirectBuffer != 0) {
+                totalBytes += (long)_drawIndirectCapacity * 20; // sizeof(DrawElementsIndirectCommand) is 20
             }
-            GpuMemoryTracker.TrackNamedBuffer("Terrain Buffers", totalBytes, totalBytes);
+
+            long usedBytes = (long)(_nextFreeSlot - _freeSlots.Count) * (MaxVertices * VertexLandscape.Size + MaxIndices * sizeof(uint) + 20);
+            GpuMemoryTracker.TrackNamedBuffer("Terrain Buffers", totalBytes, usedBytes);
         }
 
         public unsafe void Render(Matrix4x4 viewMatrix, Matrix4x4 projectionMatrix, Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, float fieldOfView) {
@@ -653,21 +724,64 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _shader.SetUniform("xAlphas", 1);
             }
 
-            CurrentVAO = 0;
-            foreach (var chunk in _chunks.Values) {
-                if (!chunk.IsGenerated || chunk.IndexCount == 0) continue;
+            if (_globalVAO == 0) return;
 
-                if (_frustum.TestBox(chunk.Bounds) == FrustumTestResult.Outside) continue;
+            _gl.BindVertexArray(_globalVAO);
+            BaseObjectRenderManager.CurrentVAO = _globalVAO;
 
-                if (CurrentVAO != chunk.VAO) {
-                    _gl.BindVertexArray(chunk.VAO);
-                    CurrentVAO = chunk.VAO;
+            if (_graphicsDevice.HasOpenGL43) {
+                var visibleChunks = new List<TerrainChunk>();
+                foreach (var chunk in _chunks.Values) {
+                    if (!chunk.IsGenerated || chunk.IndexCount == 0) continue;
+                    if (_frustum.TestBox(chunk.Bounds) == FrustumTestResult.Outside) continue;
+                    visibleChunks.Add(chunk);
                 }
-                _gl.DrawElements(PrimitiveType.Triangles, (uint)chunk.IndexCount, DrawElementsType.UnsignedInt,
-                    (void*)0);
+
+                if (visibleChunks.Count > 0) {
+                    if (visibleChunks.Count > _drawIndirectCapacity) {
+                        if (_drawIndirectBuffer != 0) _gl.DeleteBuffer(_drawIndirectBuffer);
+                        _drawIndirectCapacity = Math.Max(256, visibleChunks.Count * 2);
+                        _gl.GenBuffers(1, out _drawIndirectBuffer);
+                        _gl.BindBuffer(GLEnum.DrawIndirectBuffer, _drawIndirectBuffer);
+                        _gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_drawIndirectCapacity * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
+                    }
+                    else {
+                        _gl.BindBuffer(GLEnum.DrawIndirectBuffer, _drawIndirectBuffer);
+                    }
+
+                    var commands = new DrawElementsIndirectCommand[visibleChunks.Count];
+                    for (int i = 0; i < visibleChunks.Count; i++) {
+                        var chunk = visibleChunks[i];
+                        commands[i] = new DrawElementsIndirectCommand {
+                            Count = (uint)chunk.IndexCount,
+                            InstanceCount = 1,
+                            FirstIndex = (uint)chunk.FirstIndex,
+                            BaseVertex = 0, // Baked into indices
+                            BaseInstance = 0
+                        };
+                    }
+
+                    fixed (DrawElementsIndirectCommand* pCmds = commands) {
+                        _gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_drawIndirectCapacity * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
+                        _gl.BufferSubData(GLEnum.DrawIndirectBuffer, 0, (nuint)(visibleChunks.Count * sizeof(DrawElementsIndirectCommand)), pCmds);
+                    }
+
+                    _gl.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, (void*)0, (uint)visibleChunks.Count, (uint)sizeof(DrawElementsIndirectCommand));
+
+                    _gl.BindBuffer(GLEnum.DrawIndirectBuffer, 0);
+                }
+            }
+            else {
+                foreach (var chunk in _chunks.Values) {
+                    if (!chunk.IsGenerated || chunk.IndexCount == 0) continue;
+                    if (_frustum.TestBox(chunk.Bounds) == FrustumTestResult.Outside) continue;
+
+                    _gl.DrawElements(PrimitiveType.Triangles, (uint)chunk.IndexCount, DrawElementsType.UnsignedInt, (void*)(chunk.FirstIndex * sizeof(uint)));
+                }
             }
 
             _gl.BindVertexArray(0);
+            BaseObjectRenderManager.CurrentVAO = 0;
         }
 
         public void InvalidateLandblock(int lbX, int lbY) {
@@ -698,6 +812,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     // Fallback to full regen if not ready
                     if (_chunks.TryRemove(chunkId, out var _)) {
                         _pendingGeneration.TryRemove(chunkId, out _);
+                        ReleaseChunk(chunk);
                         chunk.Dispose();
                     }
                 }
@@ -711,11 +826,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var chunk in _chunks.Values) {
                 chunk.Dispose();
             }
+
+            if (_globalVAO != 0) _gl.DeleteVertexArray(_globalVAO);
+            if (_globalVBO != 0) _gl.DeleteBuffer(_globalVBO);
+            if (_globalEBO != 0) _gl.DeleteBuffer(_globalEBO);
+            if (_drawIndirectBuffer != 0) _gl.DeleteBuffer(_drawIndirectBuffer);
+
             GpuMemoryTracker.UntrackNamedBuffer("Terrain Buffers");
 
             _chunks.Clear();
             _pendingGeneration.Clear();
             _outOfRangeTimers.Clear();
+            _freeSlots.Clear();
+
             if (_ownsSurfaceManager) {
                 _surfaceManager?.Dispose();
             }
