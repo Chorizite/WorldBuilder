@@ -331,7 +331,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public virtual void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null, bool isOutside = false) {
             if (!_initialized || cameraPosition.Z > 4000) return;
 
-            // Ensure active landblocks are up to date if they were marked dirty by background uploads
+            // Ensure active landblocks are up to date
             if (_activeLandblocksDirty) {
                 lock (_activeLandblocksLock) {
                     if (_activeLandblocksDirty) {
@@ -346,26 +346,31 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
-            lock (_renderLock) {
-                // Clear previous frame data
-                _visibleGroups.Clear();
-                _visibleGfxObjIds.Clear();
-                _poolIndex = 0;
-                _visibleLandblocks.Clear();
-                _intersectingLandblocks.Clear();
+            // Build new lists locally to avoid clearing the ones currently being used by the Render thread
+            var newVisibleLandblocks = new List<ObjectLandblock>();
+            var newIntersectingLandblocks = new List<ObjectLandblock>();
 
-                NeedsPrepare = false;
-
-                lock (_activeLandblocksLock) {
-                    if (_activeLandblocks.Count == 0) return;
-
+            lock (_activeLandblocksLock) {
+                if (_activeLandblocks.Count > 0) {
                     foreach (var lb in _activeLandblocks) {
                         var testResult = _frustum.TestBox(lb.BoundingBox);
                         if (testResult == FrustumTestResult.Outside) continue;
 
-                        _visibleLandblocks.Add(lb);
+                        newVisibleLandblocks.Add(lb);
                     }
                 }
+            }
+
+            // Atomic swap under lock
+            lock (_renderLock) {
+                _visibleLandblocks.Clear();
+                _visibleLandblocks.AddRange(newVisibleLandblocks);
+                _intersectingLandblocks.Clear();
+                _intersectingLandblocks.AddRange(newIntersectingLandblocks);
+                _visibleGroups.Clear();
+                _visibleGfxObjIds.Clear();
+                _poolIndex = 0;
+                NeedsPrepare = false;
             }
         }
 

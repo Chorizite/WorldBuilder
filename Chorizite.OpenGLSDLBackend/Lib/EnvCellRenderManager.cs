@@ -223,103 +223,113 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public override void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null, bool isOutside = false) {
             if (!_initialized || cameraPosition.Z > 4000) return;
 
-            lock (_renderLock) {
-                // Clear previous frame data
-                _visibleGroups.Clear();
-                _visibleGfxObjIds.Clear();
-                _poolIndex = 0;
-                _batchedByCell.Clear();
+            if (LandscapeDoc.Region != null) {
+                var lbSize = LandscapeDoc.Region.CellSizeInUnits * LandscapeDoc.Region.LandblockCellLength;
+                var pos = new Vector2(cameraPosition.X, cameraPosition.Y) - LandscapeDoc.Region.MapOffset;
+                _cameraLbX = (int)Math.Floor(pos.X / lbSize);
+                _cameraLbY = (int)Math.Floor(pos.Y / lbSize);
+            }
 
-                NeedsPrepare = false;
+            var landblocks = _landblocks.Values.Where(lb => lb.GpuReady && lb.Instances.Count > 0 && IsWithinRenderDistance(lb)).ToList();
+            if (landblocks.Count == 0) return;
 
-                if (LandscapeDoc.Region != null) {
-                    var lbSize = LandscapeDoc.Region.CellSizeInUnits * LandscapeDoc.Region.LandblockCellLength;
-                    var pos = new Vector2(cameraPosition.X, cameraPosition.Y) - LandscapeDoc.Region.MapOffset;
-                    _cameraLbX = (int)Math.Floor(pos.X / lbSize);
-                    _cameraLbY = (int)Math.Floor(pos.Y / lbSize);
-                }
+            // Use ThreadLocal to avoid contention on ConcurrentDictionaries during parallel grouping
+            using var threadLocalBatchedByCell = new ThreadLocal<Dictionary<uint, Dictionary<ulong, List<InstanceData>>>>(() => new(), true);
+            using var threadLocalGlobalGroups = new ThreadLocal<Dictionary<ulong, List<InstanceData>>>(() => new(), true);
 
-                var landblocks = _landblocks.Values.Where(lb => lb.GpuReady && lb.Instances.Count > 0 && IsWithinRenderDistance(lb)).ToList();
-                if (landblocks.Count == 0) return;
+            var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = System.Environment.ProcessorCount };
+            Parallel.ForEach(landblocks, parallelOptions, lb => {
+                lock (lb) {
+                    var testResult = _frustum.TestBox(lb.TotalEnvCellBounds);
+                    if (testResult == FrustumTestResult.Outside) return;
 
-                // Use ThreadLocal to avoid contention on ConcurrentDictionaries during parallel grouping
-                using var threadLocalBatchedByCell = new ThreadLocal<Dictionary<uint, Dictionary<ulong, List<InstanceData>>>>(() => new(), true);
-                using var threadLocalGlobalGroups = new ThreadLocal<Dictionary<ulong, List<InstanceData>>>(() => new(), true);
+                    var seenOutsideCells = lb.SeenOutsideCells;
+                    var lbBatchedByCell = threadLocalBatchedByCell.Value!;
+                    var lbGlobalGroups = threadLocalGlobalGroups.Value!;
 
-                var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = System.Environment.ProcessorCount };
-                Parallel.ForEach(landblocks, parallelOptions, lb => {
-                    lock (lb) {
-                        var testResult = _frustum.TestBox(lb.TotalEnvCellBounds);
-                        if (testResult == FrustumTestResult.Outside) return;
+                    // Fast path: Landblock is fully inside frustum
+                    if (testResult == FrustumTestResult.Inside) {
+                        foreach (var (gfxObjId, instances) in lb.BuildingPartGroups) {
+                            foreach (var instanceData in instances) {
+                                if (filter != null && !filter.Contains(instanceData.CellId)) continue;
+                                if (isOutside && filter == null && seenOutsideCells != null && !seenOutsideCells.Contains(instanceData.CellId)) continue;
 
-                        var seenOutsideCells = lb.SeenOutsideCells;
-                        var lbBatchedByCell = threadLocalBatchedByCell.Value!;
-                        var lbGlobalGroups = threadLocalGlobalGroups.Value!;
+                                AddToGroups(lbBatchedByCell, lbGlobalGroups, instanceData.CellId, gfxObjId, instanceData);
+                            }
+                        }
+                        return;
+                    }
 
-                        // Fast path: Landblock is fully inside frustum
-                        if (testResult == FrustumTestResult.Inside) {
-                            foreach (var (gfxObjId, instances) in lb.BuildingPartGroups) {
-                                foreach (var instanceData in instances) {
-                                    if (filter != null && !filter.Contains(instanceData.CellId)) continue;
-                                    if (isOutside && filter == null && seenOutsideCells != null && !seenOutsideCells.Contains(instanceData.CellId)) continue;
+                    // Slow path: Test each cell individually using EnvCellBounds
+                    var visibleCells = new HashSet<uint>();
+                    foreach (var kvp in lb.EnvCellBounds) {
+                        var cellId = kvp.Key;
+                        if (filter != null && !filter.Contains(cellId)) continue;
+                        if (isOutside && filter == null && seenOutsideCells != null && !seenOutsideCells.Contains(cellId)) continue;
 
+                        if (_frustum.Intersects(kvp.Value)) {
+                            visibleCells.Add(cellId);
+                        }
+                    }
+
+                    if (visibleCells.Count > 0) {
+                        foreach (var (gfxObjId, instances) in lb.BuildingPartGroups) {
+                            foreach (var instanceData in instances) {
+                                if (visibleCells.Contains(instanceData.CellId)) {
                                     AddToGroups(lbBatchedByCell, lbGlobalGroups, instanceData.CellId, gfxObjId, instanceData);
                                 }
                             }
-                            return;
-                        }
-
-                        // Slow path: Test each cell individually using EnvCellBounds
-                        var visibleCells = new HashSet<uint>();
-                        foreach (var kvp in lb.EnvCellBounds) {
-                            var cellId = kvp.Key;
-                            if (filter != null && !filter.Contains(cellId)) continue;
-                            if (isOutside && filter == null && seenOutsideCells != null && !seenOutsideCells.Contains(cellId)) continue;
-
-                            if (_frustum.Intersects(kvp.Value)) {
-                                visibleCells.Add(cellId);
-                            }
-                        }
-
-                        if (visibleCells.Count > 0) {
-                            foreach (var (gfxObjId, instances) in lb.BuildingPartGroups) {
-                                foreach (var instanceData in instances) {
-                                    if (visibleCells.Contains(instanceData.CellId)) {
-                                        AddToGroups(lbBatchedByCell, lbGlobalGroups, instanceData.CellId, gfxObjId, instanceData);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-
-                // Merge results from all threads
-                foreach (var localBatchedByCell in threadLocalBatchedByCell.Values) {
-                    foreach (var cellKvp in localBatchedByCell) {
-                        if (!_batchedByCell.TryGetValue(cellKvp.Key, out var gfxDict)) {
-                            gfxDict = new Dictionary<ulong, List<InstanceData>>();
-                            _batchedByCell[cellKvp.Key] = gfxDict;
-                        }
-                        foreach (var gfxKvp in cellKvp.Value) {
-                            if (!gfxDict.TryGetValue(gfxKvp.Key, out var list)) {
-                                list = GetPooledList();
-                                gfxDict[gfxKvp.Key] = list;
-                            }
-                            list.AddRange(gfxKvp.Value);
                         }
                     }
                 }
+            });
 
-                foreach (var localGlobalGroups in threadLocalGlobalGroups.Values) {
-                    foreach (var kvp in localGlobalGroups) {
-                        if (!_visibleGroups.TryGetValue(kvp.Key, out var list)) {
+            // Rebuild final collections locally
+            var newBatchedByCell = new Dictionary<uint, Dictionary<ulong, List<InstanceData>>>();
+            var newVisibleGroups = new Dictionary<ulong, List<InstanceData>>();
+            var newVisibleGfxObjIds = new List<ulong>();
+
+            // Merge results from all threads
+            foreach (var localBatchedByCell in threadLocalBatchedByCell.Values) {
+                foreach (var cellKvp in localBatchedByCell) {
+                    if (!newBatchedByCell.TryGetValue(cellKvp.Key, out var gfxDict)) {
+                        gfxDict = new Dictionary<ulong, List<InstanceData>>();
+                        newBatchedByCell[cellKvp.Key] = gfxDict;
+                    }
+                    foreach (var gfxKvp in cellKvp.Value) {
+                        if (!gfxDict.TryGetValue(gfxKvp.Key, out var list)) {
                             list = GetPooledList();
-                            _visibleGroups[kvp.Key] = list;
-                            _visibleGfxObjIds.Add(kvp.Key);
+                            gfxDict[gfxKvp.Key] = list;
                         }
-                        list.AddRange(kvp.Value);
+                        list.AddRange(gfxKvp.Value);
                     }
                 }
+            }
+
+            foreach (var localGlobalGroups in threadLocalGlobalGroups.Values) {
+                foreach (var kvp in localGlobalGroups) {
+                    if (!newVisibleGroups.TryGetValue(kvp.Key, out var list)) {
+                        list = GetPooledList();
+                        newVisibleGroups[kvp.Key] = list;
+                        newVisibleGfxObjIds.Add(kvp.Key);
+                    }
+                    list.AddRange(kvp.Value);
+                }
+            }
+
+            // Atomic swap under lock
+            lock (_renderLock) {
+                _batchedByCell.Clear();
+                foreach (var kvp in newBatchedByCell) _batchedByCell[kvp.Key] = kvp.Value;
+
+                _visibleGroups.Clear();
+                foreach (var kvp in newVisibleGroups) _visibleGroups[kvp.Key] = kvp.Value;
+
+                _visibleGfxObjIds.Clear();
+                _visibleGfxObjIds.AddRange(newVisibleGfxObjIds);
+
+                _poolIndex = 0;
+                NeedsPrepare = false;
             }
         }
 
