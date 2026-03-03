@@ -369,62 +369,68 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         private async Task ProcessQueueAsync() {
-            while (true) {
-                ulong id;
-                bool isSetup;
-                TaskCompletionSource<ObjectMeshData?> tcs;
-                CancellationToken ct;
+            try {
+                while (true) {
+                    ulong id;
+                    bool isSetup;
+                    TaskCompletionSource<ObjectMeshData?> tcs;
+                    CancellationToken ct;
 
+                    lock (_pendingRequests) {
+                        // Filter out cancelled requests
+                        _pendingRequests.RemoveAll(r => r.Ct.IsCancellationRequested);
+
+                        if (_pendingRequests.Count == 0) {
+                            return;
+                        }
+
+                        // LIFO: Pick the most recent request
+                        var index = _pendingRequests.Count - 1;
+                        (id, isSetup, tcs, ct) = _pendingRequests[index];
+                        _pendingRequests.RemoveAt(index);
+                    }
+
+                    try {
+                        ObjectMeshData? data = null;
+                        if (_pendingEnvCellRequests.TryRemove(id, out var envCell)) {
+                            uint envId = 0x0D000000u | envCell.EnvironmentId;
+                            if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
+                                if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
+                                    data = PrepareCellStructMeshData(id, cellStruct, envCell.Surfaces, Matrix4x4.Identity, ct);
+                                }
+                            }
+                        }
+                        else {
+                            data = PrepareMeshData(id, isSetup, ct);
+                        }
+                        if (data != null) {
+                            lock (_cpuMeshCache) {
+                                if (_cpuMeshCache.Count >= _maxCpuCacheSize) {
+                                    var oldest = _cpuLruList.First!.Value;
+                                    _cpuLruList.RemoveFirst();
+                                    _cpuMeshCache.Remove(oldest);
+                                }
+                                _cpuMeshCache[id] = data;
+                                _cpuLruList.AddLast(id);
+                            }
+                        }
+                        tcs.TrySetResult(data);
+                    }
+                    catch (OperationCanceledException) {
+                        tcs.TrySetCanceled(ct);
+                    }
+                    catch (Exception ex) {
+                        _logger.LogError(ex, "Error preparing mesh data for 0x{Id:X8}", id);
+                        tcs.TrySetException(ex);
+                    }
+                    finally {
+                        _preparationTasks.TryRemove(id, out _);
+                    }
+                }
+            }
+            finally {
                 lock (_pendingRequests) {
-                    // Filter out cancelled requests
-                    _pendingRequests.RemoveAll(r => r.Ct.IsCancellationRequested);
-
-                    if (_pendingRequests.Count == 0) {
-                        _activeWorkers--;
-                        return;
-                    }
-
-                    // LIFO: Pick the most recent request
-                    var index = _pendingRequests.Count - 1;
-                    (id, isSetup, tcs, ct) = _pendingRequests[index];
-                    _pendingRequests.RemoveAt(index);
-                }
-
-                try {
-                    ObjectMeshData? data = null;
-                    if (_pendingEnvCellRequests.TryRemove(id, out var envCell)) {
-                        uint envId = 0x0D000000u | envCell.EnvironmentId;
-                        if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
-                            if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
-                                data = PrepareCellStructMeshData(id, cellStruct, envCell.Surfaces, Matrix4x4.Identity, ct);
-                            }
-                        }
-                    }
-                    else {
-                        data = PrepareMeshData(id, isSetup, ct);
-                    }
-                    if (data != null) {
-                        lock (_cpuMeshCache) {
-                            if (_cpuMeshCache.Count >= _maxCpuCacheSize) {
-                                var oldest = _cpuLruList.First!.Value;
-                                _cpuLruList.RemoveFirst();
-                                _cpuMeshCache.Remove(oldest);
-                            }
-                            _cpuMeshCache[id] = data;
-                            _cpuLruList.AddLast(id);
-                        }
-                    }
-                    tcs.TrySetResult(data);
-                }
-                catch (OperationCanceledException) {
-                    tcs.TrySetCanceled(ct);
-                }
-                catch (Exception ex) {
-                    _logger.LogError(ex, "Error preparing mesh data for 0x{Id:X8}", id);
-                    tcs.TrySetException(ex);
-                }
-                finally {
-                    _preparationTasks.TryRemove(id, out _);
+                    _activeWorkers--;
                 }
             }
         }
@@ -641,7 +647,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             };
         }
 
-        private void CollectParts(uint id, Matrix4x4 currentTransform, List<(ulong GfxObjId, Matrix4x4 Transform)> parts, ref Vector3 min, ref Vector3 max, ref bool hasBounds, CancellationToken ct) {
+        private void CollectParts(uint id, Matrix4x4 currentTransform, List<(ulong GfxObjId, Matrix4x4 Transform)> parts, ref Vector3 min, ref Vector3 max, ref bool hasBounds, CancellationToken ct, int depth = 0) {
+            if (depth > 50) {
+                _logger.LogWarning("Max recursion depth reached while collecting parts for 0x{Id:X8}. Possible circular dependency.", id);
+                return;
+            }
             ct.ThrowIfCancellationRequested();
             var resolutions = _dats.ResolveId(id).ToList();
             var selectedResolution = resolutions.OrderByDescending(r => r.Database == _dats.Portal).FirstOrDefault();
@@ -675,7 +685,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             * Matrix4x4.CreateTranslation(placementFrame.Frames[i].Origin);
                     }
 
-                    CollectParts(partId, transform * currentTransform, parts, ref min, ref max, ref hasBounds, ct);
+                    CollectParts(partId, transform * currentTransform, parts, ref min, ref max, ref hasBounds, ct, depth + 1);
                 }
             }
             else if (type == DBObjType.EnvCell) {

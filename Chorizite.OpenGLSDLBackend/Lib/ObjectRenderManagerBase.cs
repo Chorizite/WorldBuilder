@@ -218,8 +218,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var key in keysToRemove) {
                 if (_landblocks.TryRemove(key, out var lb)) {
                     if (_generationCTS.TryRemove(key, out var cts)) {
-                        cts.Cancel();
-                        cts.Dispose();
+                        try { cts.Cancel(); } catch { }
                     }
                     UnloadLandblockResources(lb);
                 }
@@ -287,7 +286,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         await GenerateForLandblockAsync(lbToGenerate, token);
                     }
                     finally {
-                        _generationCTS.TryRemove(bestKey, out _);
+                        if (_generationCTS.TryGetValue(bestKey, out var currentCts) && currentCts == genCts) {
+                            _generationCTS.TryRemove(bestKey, out _);
+                        }
                         genCts.Dispose();
                         Interlocked.Decrement(ref _activeGenerations);
                     }
@@ -312,7 +313,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     }
                     continue;
                 }
-                UploadLandblockMeshes(lb);
+
+                lock (lb) {
+                    UploadLandblockMeshes(lb);
+                }
                 _activeLandblocksDirty = true;
                 NeedsPrepare = true;
             }
@@ -435,6 +439,9 @@ foreach (var call in drawCalls) {
             var key = GeometryUtils.PackKey(lbX, lbY);
             if (_landblocks.TryGetValue(key, out var lb)) {
                 lb.MeshDataReady = false;
+                if (_generationCTS.TryRemove(key, out var cts)) {
+                    try { cts.Cancel(); } catch { }
+                }
                 _pendingGeneration[key] = lb;
             }
             OnInvalidateLandblock(key);
@@ -473,25 +480,25 @@ foreach (var call in drawCalls) {
             lb.BuildingPartGroups.Clear();
             foreach (var instance in instances) {
                 var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
-                if (instance.IsSetup) {
-                    var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
-                    if (renderData is { IsSetup: true }) {
-                        foreach (var (partId, partTransform) in renderData.SetupParts) {
-                            if (!lb.StaticPartGroups.TryGetValue(partId, out var list)) {
-                                list = new List<InstanceData>();
-                                lb.StaticPartGroups[partId] = list;
-                            }
-                            list.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = cellId });
-                        }
+                PopulateRecursive(lb.StaticPartGroups, instance.ObjectId, instance.IsSetup, instance.Transform, cellId);
+            }
+        }
+
+        private void PopulateRecursive(Dictionary<ulong, List<InstanceData>> groups, ulong objectId, bool isSetup, Matrix4x4 transform, uint cellId) {
+            if (isSetup) {
+                var renderData = MeshManager.TryGetRenderData(objectId);
+                if (renderData is { IsSetup: true }) {
+                    foreach (var (partId, partTransform) in renderData.SetupParts) {
+                        PopulateRecursive(groups, partId, (partId >> 24) == 0x02, partTransform * transform, cellId);
                     }
                 }
-                else {
-                    if (!lb.StaticPartGroups.TryGetValue(instance.ObjectId, out var list)) {
-                        list = new List<InstanceData>();
-                        lb.StaticPartGroups[instance.ObjectId] = list;
-                    }
-                    list.Add(new InstanceData { Transform = instance.Transform, CellId = cellId });
+            }
+            else {
+                if (!groups.TryGetValue(objectId, out var list)) {
+                    list = new List<InstanceData>();
+                    groups[objectId] = list;
                 }
+                list.Add(new InstanceData { Transform = transform, CellId = cellId });
             }
         }
 
@@ -516,36 +523,53 @@ foreach (var call in drawCalls) {
                 .Distinct()
                 .ToList();
 
-            var preparationTasks = new List<Task<ObjectMeshData?>>();
-            foreach (var (objectId, isSetup) in uniqueObjects) {
-                if (MeshManager.HasRenderData(objectId) || _preparedMeshes.ContainsKey(objectId))
-                    continue;
+            var pendingIds = new HashSet<ulong>();
+            await PrepareRecursiveAsync(uniqueObjects, pendingIds, ct);
+        }
 
-                preparationTasks.Add(MeshManager.PrepareMeshDataAsync(objectId, isSetup, ct));
+        private async Task PrepareRecursiveAsync(List<(ulong id, bool isSetup)> objects, HashSet<ulong> pendingIds, CancellationToken ct) {
+            var preparationTasks = new List<Task<ObjectMeshData?>>();
+
+            foreach (var (objectId, isSetup) in objects) {
+                if (_preparedMeshes.ContainsKey(objectId)) continue;
+
+                if (MeshManager.HasRenderData(objectId)) {
+                    // Even if we have the parent, if it's a setup, we need to ensure parts are also ready
+                    if (isSetup) {
+                        var renderData = MeshManager.TryGetRenderData(objectId);
+                        if (renderData is { IsSetup: true }) {
+                            var parts = renderData.SetupParts.Select(p => (p.GfxObjId, false)).ToList();
+                            await PrepareRecursiveAsync(parts, pendingIds, ct);
+                        }
+                    }
+                    continue;
+                }
+
+                if (pendingIds.Add(objectId)) {
+                    preparationTasks.Add(MeshManager.PrepareMeshDataAsync(objectId, isSetup, ct));
+                }
             }
 
+            if (preparationTasks.Count == 0) return;
+
             var preparedMeshes = await Task.WhenAll(preparationTasks);
+            var nextLevelObjects = new List<(ulong id, bool isSetup)>();
+
             foreach (var meshData in preparedMeshes) {
                 if (meshData == null) continue;
 
                 _preparedMeshes.TryAdd(meshData.ObjectId, meshData);
 
-                // For Setup objects, also prepare each part's GfxObj
+                // For Setup objects, queue their parts for the next level of preparation
                 if (meshData.IsSetup && meshData.SetupParts.Count > 0) {
-                    var partTasks = new List<Task<ObjectMeshData?>>();
                     foreach (var (partId, _) in meshData.SetupParts) {
-                        if (!MeshManager.HasRenderData(partId) && !_preparedMeshes.ContainsKey(partId)) {
-                            partTasks.Add(MeshManager.PrepareMeshDataAsync(partId, false, ct));
-                        }
-                    }
-
-                    var partMeshes = await Task.WhenAll(partTasks);
-                    foreach (var partData in partMeshes) {
-                        if (partData != null) {
-                            _preparedMeshes.TryAdd(partData.ObjectId, partData);
-                        }
+                        nextLevelObjects.Add((partId, false));
                     }
                 }
+            }
+
+            if (nextLevelObjects.Count > 0) {
+                await PrepareRecursiveAsync(nextLevelObjects, pendingIds, ct);
             }
         }
         #endregion
@@ -566,6 +590,9 @@ foreach (var call in drawCalls) {
                     lb.MeshDataReady = false;
                     var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
                     OnLandblockChangedExtra(key);
+                    if (_generationCTS.TryRemove(key, out var cts)) {
+                        try { cts.Cancel(); } catch { }
+                    }
                     _pendingGeneration[key] = lb;
                 }
             }
@@ -600,19 +627,12 @@ foreach (var call in drawCalls) {
 
             // Upload any prepared mesh data that hasn't been uploaded yet
             var uniqueObjects = instancesToUpload
-                .Select(s => s.ObjectId)
+                .Select(s => (s.ObjectId, s.IsSetup))
                 .Distinct()
                 .ToList();
 
-            foreach (var objectId in uniqueObjects) {
-                var renderData = UploadPreparedMesh(objectId);
-
-                // Also upload Setup parts
-                if (renderData is { IsSetup: true }) {
-                    foreach (var (partId, _) in renderData.SetupParts) {
-                        UploadPreparedMesh(partId);
-                    }
-                }
+            foreach (var (objectId, isSetup) in uniqueObjects) {
+                UploadRecursive(objectId, isSetup);
             }
 
             // Populate part groups via subclass hook
@@ -640,14 +660,14 @@ foreach (var call in drawCalls) {
                     lb.InstanceBufferOffset = AllocateInstanceSlice(lb.InstanceCount);
                     if (lb.InstanceBufferOffset >= 0) {
                         UploadInstanceData(lb.InstanceBufferOffset, allInstances);
-
-                        // Pre-calculate MDI commands and batch data
-                        BuildMdiCommands(lb);
                     }
                     else {
                         Log.LogWarning("Failed to allocate {Count} instances for landblock ({X},{Y}). Instance buffer may be full.", lb.InstanceCount, lb.GridX, lb.GridY);
                     }
                 }
+
+                // Pre-calculate MDI commands and batch data (also clears old commands)
+                BuildMdiCommands(lb);
             }
 
             if (lb.PendingInstances != null) {
@@ -679,6 +699,15 @@ foreach (var call in drawCalls) {
             }
 
             lb.GpuReady = true;
+        }
+
+        private void UploadRecursive(ulong objectId, bool isSetup) {
+            var renderData = UploadPreparedMesh(objectId);
+            if (renderData is { IsSetup: true }) {
+                foreach (var (partId, _) in renderData.SetupParts) {
+                    UploadRecursive(partId, (partId >> 24) == 0x02);
+                }
+            }
         }
 
         protected virtual void BuildMdiCommands(ObjectLandblock lb) {
