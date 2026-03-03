@@ -598,12 +598,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _gl.VertexAttribIPointer(4, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetData3);
 
             _gl.BindVertexArray(0);
+
+            UpdateGpuStats();
         }
 
         private void ReleaseChunk(TerrainChunk chunk) {
             if (chunk.GlobalSlotIndex >= 0) {
                 _freeSlots.Enqueue(chunk.GlobalSlotIndex);
                 chunk.GlobalSlotIndex = -1;
+                UpdateGpuStats();
             }
         }
 
@@ -619,7 +622,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             int slot;
             if (_freeSlots.TryDequeue(out var freeSlot)) {
                 slot = freeSlot;
-            } else {
+            }
+            else {
                 slot = _nextFreeSlot++;
                 EnsureCapacity(slot + 1);
             }
@@ -661,7 +665,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private void UpdateGpuStats() {
             long totalBytes = (_globalCapacitySlots * MaxVertices * VertexLandscape.Size) + (_globalCapacitySlots * MaxIndices * sizeof(uint));
-            GpuMemoryTracker.TrackNamedBuffer("Terrain Buffers", totalBytes, totalBytes);
+            if (_drawIndirectBuffer != 0) {
+                totalBytes += (long)_drawIndirectCapacity * 20; // sizeof(DrawElementsIndirectCommand) is 20
+            }
+
+            long usedBytes = (long)(_nextFreeSlot - _freeSlots.Count) * (MaxVertices * VertexLandscape.Size + MaxIndices * sizeof(uint) + 20);
+            GpuMemoryTracker.TrackNamedBuffer("Terrain Buffers", totalBytes, usedBytes);
         }
 
         public unsafe void Render(Matrix4x4 viewMatrix, Matrix4x4 projectionMatrix, Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, float fieldOfView) {
@@ -735,7 +744,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         _gl.GenBuffers(1, out _drawIndirectBuffer);
                         _gl.BindBuffer(GLEnum.DrawIndirectBuffer, _drawIndirectBuffer);
                         _gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_drawIndirectCapacity * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
-                    } else {
+                    }
+                    else {
                         _gl.BindBuffer(GLEnum.DrawIndirectBuffer, _drawIndirectBuffer);
                     }
 
@@ -757,10 +767,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     }
 
                     _gl.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, (void*)0, (uint)visibleChunks.Count, (uint)sizeof(DrawElementsIndirectCommand));
-                    
+
                     _gl.BindBuffer(GLEnum.DrawIndirectBuffer, 0);
                 }
-            } else {
+            }
+            else {
                 foreach (var chunk in _chunks.Values) {
                     if (!chunk.IsGenerated || chunk.IndexCount == 0) continue;
                     if (_frustum.TestBox(chunk.Bounds) == FrustumTestResult.Outside) continue;
@@ -815,7 +826,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var chunk in _chunks.Values) {
                 chunk.Dispose();
             }
-            
+
             if (_globalVAO != 0) _gl.DeleteVertexArray(_globalVAO);
             if (_globalVBO != 0) _gl.DeleteBuffer(_globalVBO);
             if (_globalEBO != 0) _gl.DeleteBuffer(_globalEBO);

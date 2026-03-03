@@ -78,6 +78,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             AlphaAtlas = _graphicsDevice.CreateTextureArray(TextureFormat.RGBA8, 512, 512, 16)
                          ?? throw new Exception("Unable to create alpha atlas.");
 
+            if (TerrainAtlas is ManagedGLTextureArray managedTerrainAtlas) {
+                GpuMemoryTracker.TrackNamedBuffer("Terrain Atlas", managedTerrainAtlas.TotalSizeInBytes, managedTerrainAtlas.TotalSizeInBytes);
+            }
+            if (AlphaAtlas is ManagedGLTextureArray managedAlphaAtlas) {
+                GpuMemoryTracker.TrackNamedBuffer("Alpha Atlas", managedAlphaAtlas.TotalSizeInBytes, managedAlphaAtlas.TotalSizeInBytes);
+            }
+
             LoadTextures();
 
             ArrayPool<byte>.Shared.Return(_textureBuffer);
@@ -136,8 +143,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             uint texOvl0 = 255, alphaOvl0 = 255, rotOvl0 = 0;
             uint texOvl1 = 255, alphaOvl1 = 255, rotOvl1 = 0;
             uint texOvl2 = 255, alphaOvl2 = 255, rotOvl2 = 0;
-            uint texRd0  = 255, alphaRd0  = 255, rotRd0  = 0;
-            uint texRd1  = 255, alphaRd1  = 255, rotRd1  = 0;
+            uint texRd0 = 255, alphaRd0 = 255, rotRd0 = 0;
+            uint texRd1 = 255, alphaRd1 = 255, rotRd1 = 0;
 
             if (surfInfo?.TerrainBase != null) {
                 texBase = (uint)GetTextureAtlasIndex((uint)surfInfo.TerrainBase.TextureId);
@@ -270,7 +277,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var r4 = terrain[i + 1].Road ?? 0;
 
             var palCode = GetPalCode(r1, r2, r3, r4, t1, t2, t3, t4);
-            
+
             if (SurfaceInfoByPalette.TryGetValue(palCode, out var existingSurfaceInfo)) {
                 surfaceNumber = existingSurfaceInfo.SurfaceNumber;
                 return true;
@@ -569,6 +576,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void Dispose() {
+            GpuMemoryTracker.UntrackNamedBuffer("Terrain Atlas");
+            GpuMemoryTracker.UntrackNamedBuffer("Alpha Atlas");
             TerrainAtlas?.Dispose();
             AlphaAtlas?.Dispose();
         }
