@@ -42,7 +42,7 @@ in vec4 vRoad0;
 in vec4 vRoad1;
 in float vLightingFactor;
 in vec2 vWorldPos;
-in vec3 vNormal;
+in vec3 vWorldPos3D;
 
 out vec4 FragColor;
 
@@ -274,13 +274,16 @@ void main() {
     vec4 brushColor = calculateBrush(worldPos);
     finalColor = mix(finalColor, brushColor.rgb, brushColor.a);
     
+    vec3 faceNormal = normalize(cross(dFdx(vWorldPos3D), dFdy(vWorldPos3D)));
+    if (faceNormal.z < 0.0) faceNormal = -faceNormal;
+
     // Highlight unwalkable slopes
-    if (uShowUnwalkableSlopes && normalize(vNormal).z < uFloorZ) {
+    if (uShowUnwalkableSlopes && faceNormal.z < uFloorZ) {
         finalColor = mix(finalColor, vec3(1.0, 0.0, 0.0), 0.5);
     }
     
     // Lighting
-    float diff = max(dot(normalize(vNormal), normalize(uLightDirection)), 0.0);
+    float diff = max(dot(faceNormal, normalize(uLightDirection)), 0.0);
     vec3 lighting = clamp(uAmbientColor + uSunlightColor * diff, 0.0, 1.0);
     vec3 litColor = finalColor * lighting;
     FragColor = vec4(litColor, uAlpha);

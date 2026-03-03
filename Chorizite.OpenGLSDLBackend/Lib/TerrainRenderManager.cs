@@ -550,33 +550,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _gl.EnableVertexAttribArray(0);
             _gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetPosition);
 
-            // 1: Normal (3 float)
+            // 1: Data0 (4 byte)
             _gl.EnableVertexAttribArray(1);
-            _gl.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetNormal);
+            _gl.VertexAttribIPointer(1, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetData0);
 
-            // 2: TexCoord0 (4 byte)
+            // 2: Data1 (4 byte)
             _gl.EnableVertexAttribArray(2);
-            _gl.VertexAttribIPointer(2, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord0);
+            _gl.VertexAttribIPointer(2, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetData1);
 
-            // 3: PackedOverlay0 (4 byte)
+            // 3: Data2 (4 byte)
             _gl.EnableVertexAttribArray(3);
-            _gl.VertexAttribIPointer(3, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord1);
+            _gl.VertexAttribIPointer(3, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetData2);
 
-            // 4: PackedOverlay1 (4 byte)
+            // 4: Data3 (4 byte)
             _gl.EnableVertexAttribArray(4);
-            _gl.VertexAttribIPointer(4, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord2);
-
-            // 5: PackedOverlay2 (4 byte)
-            _gl.EnableVertexAttribArray(5);
-            _gl.VertexAttribIPointer(5, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord3);
-
-            // 6: PackedRoad0 (4 byte)
-            _gl.EnableVertexAttribArray(6);
-            _gl.VertexAttribIPointer(6, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord4);
-
-            // 7: PackedRoad1 (4 byte)
-            _gl.EnableVertexAttribArray(7);
-            _gl.VertexAttribIPointer(7, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetTexCoord5);
+            _gl.VertexAttribIPointer(4, 4, VertexAttribIType.UnsignedByte, (uint)VertexLandscape.Size, (void*)VertexLandscape.OffsetData3);
 
             chunk.IndexCount = indices.Length;
             chunk.VertexCount = vertices.Length;

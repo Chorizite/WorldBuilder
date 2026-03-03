@@ -216,6 +216,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             // Texture Logic
+            uint data0 = 0, data1 = 0, data2 = 0, data3 = 0;
             if (surfaceManager != null) {
                 int t1 = bottomLeft.Type ?? 0;
                 int r1 = bottomLeft.Road ?? 0;
@@ -229,41 +230,31 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var palCode = LandSurfaceManager.GetPalCode(r1, r2, r3, r4, t1, t2, t3, t4);
                 var surfInfo = surfaceManager.GetSurface(palCode);
 
+                uint splitDirInt = splitDirection == CellSplitDirection.SWtoNE ? 0u : 1u;
                 if (surfInfo != null) {
-                    if (splitDirection == CellSplitDirection.SWtoNE) {
-                        // Triangle 1: BL, TL, BR (Corners 0, 3, 1)
-                        surfaceManager.FillVertexData(landblockID, cellX, cellY, baseLandblockX, baseLandblockY, ref v0, bottomLeft.Height ?? 0, surfInfo, 0);
-                        surfaceManager.FillVertexData(landblockID, cellX, cellY + 1, baseLandblockX, baseLandblockY, ref v1, topLeft.Height ?? 0, surfInfo, 3);
-                        surfaceManager.FillVertexData(landblockID, cellX + 1, cellY, baseLandblockX, baseLandblockY, ref v2, bottomRight.Height ?? 0, surfInfo, 1);
-
-                        // Triangle 2: BR, TL, TR (Corners 1, 3, 2)
-                        surfaceManager.FillVertexData(landblockID, cellX + 1, cellY, baseLandblockX, baseLandblockY, ref v3, bottomRight.Height ?? 0, surfInfo, 1);
-                        surfaceManager.FillVertexData(landblockID, cellX, cellY + 1, baseLandblockX, baseLandblockY, ref v4, topLeft.Height ?? 0, surfInfo, 3);
-                        surfaceManager.FillVertexData(landblockID, cellX + 1, cellY + 1, baseLandblockX, baseLandblockY, ref v5, topRight.Height ?? 0, surfInfo, 2);
-                    }
-                    else {
-                        // Triangle 1: BL, TR, BR (Corners 0, 2, 1)
-                        surfaceManager.FillVertexData(landblockID, cellX, cellY, baseLandblockX, baseLandblockY, ref v0, bottomLeft.Height ?? 0, surfInfo, 0);
-                        surfaceManager.FillVertexData(landblockID, cellX + 1, cellY + 1, baseLandblockX, baseLandblockY, ref v1, topRight.Height ?? 0, surfInfo, 2);
-                        surfaceManager.FillVertexData(landblockID, cellX + 1, cellY, baseLandblockX, baseLandblockY, ref v2, bottomRight.Height ?? 0, surfInfo, 1);
-
-                        // Triangle 2: BL, TL, TR (Corners 0, 3, 2)
-                        surfaceManager.FillVertexData(landblockID, cellX, cellY, baseLandblockX, baseLandblockY, ref v3, bottomLeft.Height ?? 0, surfInfo, 0);
-                        surfaceManager.FillVertexData(landblockID, cellX, cellY + 1, baseLandblockX, baseLandblockY, ref v4, topLeft.Height ?? 0, surfInfo, 3);
-                        surfaceManager.FillVertexData(landblockID, cellX + 1, cellY + 1, baseLandblockX, baseLandblockY, ref v5, topRight.Height ?? 0, surfInfo, 2);
-                    }
-                }
-                else {
-                    InitVertexTextureDefaults(ref v0);
-                    InitVertexTextureDefaults(ref v1);
-                    InitVertexTextureDefaults(ref v2);
-                    InitVertexTextureDefaults(ref v3);
-                    InitVertexTextureDefaults(ref v4);
-                    InitVertexTextureDefaults(ref v5);
+                    surfaceManager.FillCellData(surfInfo, splitDirInt, ref data0, ref data1, ref data2, ref data3);
+                } else {
+                    data0 = (0u | (255u << 8)) | ((255u | (255u << 8)) << 16);
+                    data1 = (255u | (255u << 8)) | ((255u | (255u << 8)) << 16);
+                    data2 = (255u | (255u << 8)) | ((255u | (255u << 8)) << 16);
+                    data3 = (splitDirInt << 12);
                 }
             }
+            else {
+                // Default: Base texture 0, all others 255
+                uint splitDirInt = splitDirection == CellSplitDirection.SWtoNE ? 0u : 1u;
+                data0 = (0u | (255u << 8)) | ((255u | (255u << 8)) << 16);
+                data1 = (255u | (255u << 8)) | ((255u | (255u << 8)) << 16);
+                data2 = (255u | (255u << 8)) | ((255u | (255u << 8)) << 16);
+                data3 = (splitDirInt << 12);
+            }
 
-            CalculateTriangleNormals(ref v0, ref v1, ref v2, ref v3, ref v4, ref v5);
+            v0.Data0 = data0; v0.Data1 = data1; v0.Data2 = data2; v0.Data3 = data3;
+            v1.Data0 = data0; v1.Data1 = data1; v1.Data2 = data2; v1.Data3 = data3;
+            v2.Data0 = data0; v2.Data1 = data1; v2.Data2 = data2; v2.Data3 = data3;
+            v3.Data0 = data0; v3.Data1 = data1; v3.Data2 = data2; v3.Data3 = data3;
+            v4.Data0 = data0; v4.Data1 = data1; v4.Data2 = data2; v4.Data3 = data3;
+            v5.Data0 = data0; v5.Data1 = data1; v5.Data2 = data2; v5.Data3 = data3;
 
             ref uint indexRef = ref indices[(int)currentIndexPosition];
             Unsafe.Add(ref indexRef, 0) = currentVertexIndex + 0;
@@ -303,39 +294,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             return new TerrainEntry(0, 0, 0, 0, 0);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void CalculateTriangleNormals(ref VertexLandscape v0, ref VertexLandscape v1, ref VertexLandscape v2,
-            ref VertexLandscape v3, ref VertexLandscape v4, ref VertexLandscape v5) {
-            // Triangle 1
-            Vector3 edge1_t1 = v1.Position - v0.Position;
-            Vector3 edge2_t1 = v2.Position - v0.Position;
-            Vector3 normal1 = Vector3.Normalize(Vector3.Cross(edge2_t1, edge1_t1));
-            v0.Normal = normal1;
-            v1.Normal = normal1;
-            v2.Normal = normal1;
-
-            // Triangle 2
-            Vector3 edge1_t2 = v4.Position - v3.Position;
-            Vector3 edge2_t2 = v5.Position - v3.Position;
-            Vector3 normal2 = Vector3.Normalize(Vector3.Cross(edge2_t2, edge1_t2));
-            v3.Normal = normal2;
-            v4.Normal = normal2;
-            v5.Normal = normal2;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void InitVertexTextureDefaults(ref VertexLandscape v) {
-            // Base texture: UV(0,0), TexIndex=0, AlphaIndex=255 (Opaque/Unused)
-            v.PackedBase = VertexLandscape.PackTexCoord(0, 0, 0, 255);
-
-            // Overlays: TexIndex=255 (-1) to disable
-            v.PackedOverlay0 = VertexLandscape.PackTexCoord(0, 0, 255, 255);
-            v.PackedOverlay1 = VertexLandscape.PackTexCoord(0, 0, 255, 255);
-            v.PackedOverlay2 = VertexLandscape.PackTexCoord(0, 0, 255, 255);
-            v.PackedRoad0 = VertexLandscape.PackTexCoord(0, 0, 255, 255);
-            v.PackedRoad1 = VertexLandscape.PackTexCoord(0, 0, 255, 255);
         }
 
         #region Scenery Terrain Helpers
