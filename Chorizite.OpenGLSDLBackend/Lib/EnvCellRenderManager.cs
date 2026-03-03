@@ -223,100 +223,102 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public override void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null, bool isOutside = false) {
             if (!_initialized || cameraPosition.Z > 4000) return;
 
-            // Clear previous frame data
-            _visibleGroups.Clear();
-            _visibleGfxObjIds.Clear();
-            _poolIndex = 0;
-            _batchedByCell.Clear();
+            lock (_renderLock) {
+                // Clear previous frame data
+                _visibleGroups.Clear();
+                _visibleGfxObjIds.Clear();
+                _poolIndex = 0;
+                _batchedByCell.Clear();
 
-            NeedsPrepare = false;
+                NeedsPrepare = false;
 
-            if (LandscapeDoc.Region != null) {
-                var lbSize = LandscapeDoc.Region.CellSizeInUnits * LandscapeDoc.Region.LandblockCellLength;
-                var pos = new Vector2(cameraPosition.X, cameraPosition.Y) - LandscapeDoc.Region.MapOffset;
-                _cameraLbX = (int)Math.Floor(pos.X / lbSize);
-                _cameraLbY = (int)Math.Floor(pos.Y / lbSize);
-            }
+                if (LandscapeDoc.Region != null) {
+                    var lbSize = LandscapeDoc.Region.CellSizeInUnits * LandscapeDoc.Region.LandblockCellLength;
+                    var pos = new Vector2(cameraPosition.X, cameraPosition.Y) - LandscapeDoc.Region.MapOffset;
+                    _cameraLbX = (int)Math.Floor(pos.X / lbSize);
+                    _cameraLbY = (int)Math.Floor(pos.Y / lbSize);
+                }
 
-            var landblocks = _landblocks.Values.Where(lb => lb.GpuReady && lb.Instances.Count > 0 && IsWithinRenderDistance(lb)).ToList();
-            if (landblocks.Count == 0) return;
+                var landblocks = _landblocks.Values.Where(lb => lb.GpuReady && lb.Instances.Count > 0 && IsWithinRenderDistance(lb)).ToList();
+                if (landblocks.Count == 0) return;
 
-            // Use ThreadLocal to avoid contention on ConcurrentDictionaries during parallel grouping
-            using var threadLocalBatchedByCell = new ThreadLocal<Dictionary<uint, Dictionary<ulong, List<InstanceData>>>>(() => new(), true);
-            using var threadLocalGlobalGroups = new ThreadLocal<Dictionary<ulong, List<InstanceData>>>(() => new(), true);
+                // Use ThreadLocal to avoid contention on ConcurrentDictionaries during parallel grouping
+                using var threadLocalBatchedByCell = new ThreadLocal<Dictionary<uint, Dictionary<ulong, List<InstanceData>>>>(() => new(), true);
+                using var threadLocalGlobalGroups = new ThreadLocal<Dictionary<ulong, List<InstanceData>>>(() => new(), true);
 
-            var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = System.Environment.ProcessorCount };
-            Parallel.ForEach(landblocks, parallelOptions, lb => {
-                lock (lb) {
-                    var testResult = _frustum.TestBox(lb.TotalEnvCellBounds);
-                    if (testResult == FrustumTestResult.Outside) return;
+                var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = System.Environment.ProcessorCount };
+                Parallel.ForEach(landblocks, parallelOptions, lb => {
+                    lock (lb) {
+                        var testResult = _frustum.TestBox(lb.TotalEnvCellBounds);
+                        if (testResult == FrustumTestResult.Outside) return;
 
-                    var seenOutsideCells = lb.SeenOutsideCells;
-                    var lbBatchedByCell = threadLocalBatchedByCell.Value!;
-                    var lbGlobalGroups = threadLocalGlobalGroups.Value!;
+                        var seenOutsideCells = lb.SeenOutsideCells;
+                        var lbBatchedByCell = threadLocalBatchedByCell.Value!;
+                        var lbGlobalGroups = threadLocalGlobalGroups.Value!;
 
-                    // Fast path: Landblock is fully inside frustum
-                    if (testResult == FrustumTestResult.Inside) {
-                        foreach (var (gfxObjId, instances) in lb.BuildingPartGroups) {
-                            foreach (var instanceData in instances) {
-                                if (filter != null && !filter.Contains(instanceData.CellId)) continue;
-                                if (isOutside && filter == null && seenOutsideCells != null && !seenOutsideCells.Contains(instanceData.CellId)) continue;
+                        // Fast path: Landblock is fully inside frustum
+                        if (testResult == FrustumTestResult.Inside) {
+                            foreach (var (gfxObjId, instances) in lb.BuildingPartGroups) {
+                                foreach (var instanceData in instances) {
+                                    if (filter != null && !filter.Contains(instanceData.CellId)) continue;
+                                    if (isOutside && filter == null && seenOutsideCells != null && !seenOutsideCells.Contains(instanceData.CellId)) continue;
 
-                                AddToGroups(lbBatchedByCell, lbGlobalGroups, instanceData.CellId, gfxObjId, instanceData);
+                                    AddToGroups(lbBatchedByCell, lbGlobalGroups, instanceData.CellId, gfxObjId, instanceData);
+                                }
+                            }
+                            return;
+                        }
+
+                        // Slow path: Test each cell individually using EnvCellBounds
+                        var visibleCells = new HashSet<uint>();
+                        foreach (var kvp in lb.EnvCellBounds) {
+                            var cellId = kvp.Key;
+                            if (filter != null && !filter.Contains(cellId)) continue;
+                            if (isOutside && filter == null && seenOutsideCells != null && !seenOutsideCells.Contains(cellId)) continue;
+
+                            if (_frustum.Intersects(kvp.Value)) {
+                                visibleCells.Add(cellId);
                             }
                         }
-                        return;
-                    }
 
-                    // Slow path: Test each cell individually using EnvCellBounds
-                    var visibleCells = new HashSet<uint>();
-                    foreach (var kvp in lb.EnvCellBounds) {
-                        var cellId = kvp.Key;
-                        if (filter != null && !filter.Contains(cellId)) continue;
-                        if (isOutside && filter == null && seenOutsideCells != null && !seenOutsideCells.Contains(cellId)) continue;
-
-                        if (_frustum.Intersects(kvp.Value)) {
-                            visibleCells.Add(cellId);
-                        }
-                    }
-
-                    if (visibleCells.Count > 0) {
-                        foreach (var (gfxObjId, instances) in lb.BuildingPartGroups) {
-                            foreach (var instanceData in instances) {
-                                if (visibleCells.Contains(instanceData.CellId)) {
-                                    AddToGroups(lbBatchedByCell, lbGlobalGroups, instanceData.CellId, gfxObjId, instanceData);
+                        if (visibleCells.Count > 0) {
+                            foreach (var (gfxObjId, instances) in lb.BuildingPartGroups) {
+                                foreach (var instanceData in instances) {
+                                    if (visibleCells.Contains(instanceData.CellId)) {
+                                        AddToGroups(lbBatchedByCell, lbGlobalGroups, instanceData.CellId, gfxObjId, instanceData);
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            });
+                });
 
-            // Merge results from all threads
-            foreach (var localBatchedByCell in threadLocalBatchedByCell.Values) {
-                foreach (var cellKvp in localBatchedByCell) {
-                    if (!_batchedByCell.TryGetValue(cellKvp.Key, out var gfxDict)) {
-                        gfxDict = new Dictionary<ulong, List<InstanceData>>();
-                        _batchedByCell[cellKvp.Key] = gfxDict;
-                    }
-                    foreach (var gfxKvp in cellKvp.Value) {
-                        if (!gfxDict.TryGetValue(gfxKvp.Key, out var list)) {
-                            list = GetPooledList();
-                            gfxDict[gfxKvp.Key] = list;
+                // Merge results from all threads
+                foreach (var localBatchedByCell in threadLocalBatchedByCell.Values) {
+                    foreach (var cellKvp in localBatchedByCell) {
+                        if (!_batchedByCell.TryGetValue(cellKvp.Key, out var gfxDict)) {
+                            gfxDict = new Dictionary<ulong, List<InstanceData>>();
+                            _batchedByCell[cellKvp.Key] = gfxDict;
                         }
-                        list.AddRange(gfxKvp.Value);
+                        foreach (var gfxKvp in cellKvp.Value) {
+                            if (!gfxDict.TryGetValue(gfxKvp.Key, out var list)) {
+                                list = GetPooledList();
+                                gfxDict[gfxKvp.Key] = list;
+                            }
+                            list.AddRange(gfxKvp.Value);
+                        }
                     }
                 }
-            }
 
-            foreach (var localGlobalGroups in threadLocalGlobalGroups.Values) {
-                foreach (var kvp in localGlobalGroups) {
-                    if (!_visibleGroups.TryGetValue(kvp.Key, out var list)) {
-                        list = GetPooledList();
-                        _visibleGroups[kvp.Key] = list;
-                        _visibleGfxObjIds.Add(kvp.Key);
+                foreach (var localGlobalGroups in threadLocalGlobalGroups.Values) {
+                    foreach (var kvp in localGlobalGroups) {
+                        if (!_visibleGroups.TryGetValue(kvp.Key, out var list)) {
+                            list = GetPooledList();
+                            _visibleGroups[kvp.Key] = list;
+                            _visibleGfxObjIds.Add(kvp.Key);
+                        }
+                        list.AddRange(kvp.Value);
                     }
-                    list.AddRange(kvp.Value);
                 }
             }
         }
@@ -342,27 +344,67 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public override void Render(int renderPass) {
-            Render(renderPass, null);
+            lock (_renderLock) {
+                Render(renderPass, null);
+            }
         }
 
         public unsafe void Render(int renderPass, HashSet<uint>? filter) {
             if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || (_cameraPosition.Z > 4000 && renderPass != 2)) return;
 
-            CurrentVAO = 0;
-            CurrentIBO = 0;
-            CurrentAtlas = 0;
-            CurrentCullMode = null;
+            lock (_renderLock) {
+                CurrentVAO = 0;
+                CurrentIBO = 0;
+                CurrentAtlas = 0;
+                CurrentCullMode = null;
 
-            _shader.SetUniform("uRenderPass", renderPass);
-            _shader.SetUniform("uFilterByCell", 0);
+                _shader.SetUniform("uRenderPass", renderPass);
+                _shader.SetUniform("uFilterByCell", 0);
 
-            var allInstances = new List<InstanceData>();
-            var drawCalls = new List<(ObjectRenderData renderData, int count, int offset)>();
+                var allInstances = new List<InstanceData>();
+                var drawCalls = new List<(ObjectRenderData renderData, int count, int offset)>();
 
-            if (filter == null) {
-                // Optimized path: Use global groups batched across all cells
-                foreach (var gfxObjId in _visibleGfxObjIds) {
-                    if (_visibleGroups.TryGetValue(gfxObjId, out var transforms)) {
+                if (filter == null) {
+                    // Optimized path: Use global groups batched across all cells
+                    foreach (var gfxObjId in _visibleGfxObjIds) {
+                        if (_visibleGroups.TryGetValue(gfxObjId, out var transforms)) {
+                            var renderData = MeshManager.TryGetRenderData(gfxObjId);
+                            if (renderData != null && !renderData.IsSetup) {
+                                drawCalls.Add((renderData, transforms.Count, allInstances.Count));
+                                allInstances.AddRange(transforms);
+                            }
+                        }
+                    }
+                }
+                else {
+                    // Group by gfxObjId within the filtered cells to minimize draw calls
+                    var filteredGroups = new Dictionary<ulong, List<InstanceData>>();
+                    foreach (var cellId in filter) {
+                        if (_batchedByCell.TryGetValue(cellId, out var gfxDict)) {
+                            foreach (var (gfxObjId, transforms) in gfxDict) {
+                                if (transforms.Count > 0) {
+                                    if (!filteredGroups.TryGetValue(gfxObjId, out var list)) {
+                                        list = transforms; // Optimization: just use the first list
+                                        filteredGroups[gfxObjId] = list;
+                                    }
+                                    else {
+                                        if (list == transforms) continue;
+
+                                        // If we already have a list for this GfxObjId from another cell, we need to merge.
+                                        if (list.Count > 0 && !IsPooled(list)) {
+                                            var newList = GetPooledList();
+                                            newList.AddRange(list);
+                                            list = newList;
+                                            filteredGroups[gfxObjId] = list;
+                                        }
+                                        list.AddRange(transforms);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    foreach (var (gfxObjId, transforms) in filteredGroups) {
                         var renderData = MeshManager.TryGetRenderData(gfxObjId);
                         if (renderData != null && !renderData.IsSetup) {
                             drawCalls.Add((renderData, transforms.Count, allInstances.Count));
@@ -370,78 +412,43 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         }
                     }
                 }
-            }
-            else {
-                // Group by gfxObjId within the filtered cells to minimize draw calls
-                var filteredGroups = new Dictionary<ulong, List<InstanceData>>();
-                foreach (var cellId in filter) {
-                    if (_batchedByCell.TryGetValue(cellId, out var gfxDict)) {
-                        foreach (var (gfxObjId, transforms) in gfxDict) {
-                            if (transforms.Count > 0) {
-                                if (!filteredGroups.TryGetValue(gfxObjId, out var list)) {
-                                    list = transforms; // Optimization: just use the first list
-                                    filteredGroups[gfxObjId] = list;
-                                }
-                                else {
-                                    if (list == transforms) continue;
 
-                                    // If we already have a list for this GfxObjId from another cell, we need to merge.
-                                    if (list.Count > 0 && !IsPooled(list)) {
-                                        var newList = GetPooledList();
-                                        newList.AddRange(list);
-                                        list = newList;
-                                        filteredGroups[gfxObjId] = list;
-                                    }
-                                    list.AddRange(transforms);
-                                }
-                            }
+                if (allInstances.Count > 0) {
+                    if (_useModernRendering) {
+                        RenderModernMDI(_shader, drawCalls, allInstances, renderPass);
+                    }
+                    else {
+                        // Upload all instance data in one go (with orphaning)
+                        GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData), true);
+                        Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
+                        var span = CollectionsMarshal.AsSpan(allInstances);
+                        fixed (InstanceData* ptr = span) {
+                            Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
+                        }
+
+                        // Issue draw calls
+                        foreach (var call in drawCalls) {
+                            RenderObjectBatches(_shader!, call.renderData, call.count, call.offset, renderPass);
                         }
                     }
                 }
 
-                foreach (var (gfxObjId, transforms) in filteredGroups) {
-                    var renderData = MeshManager.TryGetRenderData(gfxObjId);
-                    if (renderData != null && !renderData.IsSetup) {
-                        drawCalls.Add((renderData, transforms.Count, allInstances.Count));
-                        allInstances.AddRange(transforms);
+                // Draw highlighted / selected objects on top
+                if (RenderHighlightsWhenEmpty || _batchedByCell.Count > 0) {
+                    Gl.DepthFunc(GLEnum.Lequal);
+                    if (SelectedInstance.HasValue) {
+                        RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
                     }
-                }
-            }
-
-            if (allInstances.Count > 0) {
-                if (_useModernRendering) {
-                    RenderModernMDI(_shader, drawCalls, allInstances, renderPass);
-                } else {
-                    // Upload all instance data in one go (with orphaning)
-                    GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData), true);
-                    Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
-                    var span = CollectionsMarshal.AsSpan(allInstances);
-                    fixed (InstanceData* ptr = span) {
-                        Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
+                    if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
+                        RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
                     }
-
-                    // Issue draw calls
-                    foreach (var call in drawCalls) {
-                        RenderObjectBatches(_shader!, call.renderData, call.count, call.offset, renderPass);
-                    }
+                    Gl.DepthFunc(GLEnum.Less);
                 }
+
+                _shader.SetUniform("uHighlightColor", Vector4.Zero);
+                _shader.SetUniform("uRenderPass", renderPass);
+                Gl.BindVertexArray(0);
             }
-
-            // Draw highlighted / selected objects on top
-            if (RenderHighlightsWhenEmpty || _batchedByCell.Count > 0) {
-                Gl.DepthFunc(GLEnum.Lequal);
-                if (SelectedInstance.HasValue) {
-                    RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
-                }
-                if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
-                    RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
-                }
-                Gl.DepthFunc(GLEnum.Less);
-            }
-
-            _shader.SetUniform("uHighlightColor", Vector4.Zero);
-            _shader.SetUniform("uRenderPass", renderPass);
-            Gl.BindVertexArray(0);
         }
 
         private bool IsPooled(List<InstanceData> list) {
