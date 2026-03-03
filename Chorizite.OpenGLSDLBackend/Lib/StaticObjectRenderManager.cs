@@ -236,38 +236,42 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var instance in instances) {
                 var targetGroup = instance.IsBuilding ? lb.BuildingPartGroups : lb.StaticPartGroups;
                 var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
-                if (instance.IsSetup) {
-                    var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
-                    if (renderData is { IsSetup: true }) {
-                        foreach (var (partId, partTransform) in renderData.SetupParts) {
-                            if (!targetGroup.TryGetValue(partId, out var list)) {
-                                list = new List<InstanceData>();
-                                targetGroup[partId] = list;
-                            }
-                            list.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = cellId });
-                        }
+                PopulateRecursive(targetGroup, instance.ObjectId, instance.IsSetup, instance.Transform, cellId);
+            }
+        }
+
+        private void PopulateRecursive(Dictionary<ulong, List<InstanceData>> groups, ulong objectId, bool isSetup, Matrix4x4 transform, uint cellId) {
+            if (isSetup) {
+                var renderData = MeshManager.TryGetRenderData(objectId);
+                if (renderData is { IsSetup: true }) {
+                    foreach (var (partId, partTransform) in renderData.SetupParts) {
+                        PopulateRecursive(groups, partId, (partId >> 24) == 0x02, partTransform * transform, cellId);
                     }
                 }
-                else {
-                    if (!targetGroup.TryGetValue(instance.ObjectId, out var list)) {
-                        list = new List<InstanceData>();
-                        targetGroup[instance.ObjectId] = list;
-                    }
-                    list.Add(new InstanceData { Transform = instance.Transform, CellId = cellId });
+            }
+            else {
+                if (!groups.TryGetValue(objectId, out var list)) {
+                    list = new List<InstanceData>();
+                    groups[objectId] = list;
                 }
+                list.Add(new InstanceData { Transform = transform, CellId = cellId });
             }
         }
 
         protected override void OnUnloadResources(ObjectLandblock lb, ushort key) {
             lock (_tcsLock) {
-                _instanceReadyTcs.TryRemove(key, out _);
+                if (_instanceReadyTcs.TryRemove(key, out var tcs)) {
+                    tcs.TrySetCanceled();
+                }
                 lb.InstancesReady = false;
             }
         }
 
         protected override void OnInvalidateLandblock(ushort key) {
             lock (_tcsLock) {
-                _instanceReadyTcs.TryRemove(key, out _);
+                if (_instanceReadyTcs.TryRemove(key, out var tcs)) {
+                    tcs.TrySetCanceled();
+                }
                 if (_landblocks.TryGetValue(key, out var lb)) {
                     lb.InstancesReady = false;
                 }
@@ -276,7 +280,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         protected override void OnLandblockChangedExtra(ushort key) {
             lock (_tcsLock) {
-                _instanceReadyTcs.TryRemove(key, out _);
+                if (_instanceReadyTcs.TryRemove(key, out var tcs)) {
+                    tcs.TrySetCanceled();
+                }
             }
         }
 

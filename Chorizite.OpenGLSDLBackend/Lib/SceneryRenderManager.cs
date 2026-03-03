@@ -305,10 +305,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     Log.LogTrace("Generated {Count} scenery instances for landblock ({X},{Y})", scenery.Count, lb.GridX, lb.GridY);
                 }
 
+                ct.ThrowIfCancellationRequested();
+
                 // Prepare mesh data for unique objects on background thread
                 await PrepareMeshesForInstances(scenery, ct);
 
-                lb.MeshDataReady = true;
+                ct.ThrowIfCancellationRequested();
+
+                lock (lb) {
+                    lb.PendingInstances = scenery;
+                    lb.MeshDataReady = true;
+                }
                 _uploadQueue.Enqueue(lb);
             }
             catch (OperationCanceledException) {
