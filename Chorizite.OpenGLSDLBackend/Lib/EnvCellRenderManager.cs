@@ -252,7 +252,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         foreach (var (gfxObjId, instances) in lb.BuildingPartGroups) {
                             foreach (var instanceData in instances) {
                                 if (filter != null && !filter.Contains(instanceData.CellId)) continue;
-                                if (isOutside && filter == null && seenOutsideCells != null && !seenOutsideCells.Contains(instanceData.CellId)) continue;
 
                                 AddToGroups(lbBatchedByCell, lbGlobalGroups, instanceData.CellId, gfxObjId, instanceData);
                             }
@@ -265,7 +264,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     foreach (var kvp in lb.EnvCellBounds) {
                         var cellId = kvp.Key;
                         if (filter != null && !filter.Contains(cellId)) continue;
-                        if (isOutside && filter == null && seenOutsideCells != null && !seenOutsideCells.Contains(cellId)) continue;
 
                         if (_frustum.Intersects(kvp.Value)) {
                             visibleCells.Add(cellId);

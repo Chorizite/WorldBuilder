@@ -63,11 +63,9 @@ public class VisibilityManager {
                 }
             }
             foreach (var (_, building) in _visibleBuildingPortals) {
-                // If we are inside, we always prepare all portal-visible building cells.
-                // If we are outside, we only prepare EnvCells for portals that were visible last frame (mountain occlusion).
-                if (isInside || building.WasVisible) {
-                    foreach (var id in building.EnvCellIds) visibleEnvCells.Add(id);
-                }
+                // Prepare all EnvCells for buildings in the frustum.
+                // Portal-based rendering will handle the actual occlusion.
+                foreach (var id in building.EnvCellIds) visibleEnvCells.Add(id);
             }
         }
     }

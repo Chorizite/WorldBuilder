@@ -102,12 +102,11 @@ public class CameraController {
         Vector3 oldPos = _currentCamera.Position;
         _currentCamera.Update(deltaTime);
         Vector3 newPos = _currentCamera.Position;
+        Vector3 moveDir = newPos - oldPos;
+        float moveDist = moveDir.Length();
 
         if (_is3DMode) {
             if (state.EnableCameraCollision) {
-                Vector3 moveDir = newPos - oldPos;
-                float moveDist = moveDir.Length();
-
                 if (moveDist > 0.0001f) {
                     Vector3 normalizedDir = Vector3.Normalize(moveDir);
                     SceneRaycastHit hit = SceneRaycastHit.NoHit;
@@ -131,15 +130,13 @@ public class CameraController {
                     if (hasHit) {
                         newPos = oldPos + normalizedDir * Math.Max(0, hit.Distance - 0.5f);
                         _currentCamera.Position = newPos;
+                        moveDist = (newPos - oldPos).Length(); // update moveDist after collision adjustment
                     }
                 }
             }
 
             // Update current cell ID based on portal transition rules
             if (state.EnableCameraCollision) {
-                Vector3 moveDir = newPos - oldPos;
-                float moveDist = moveDir.Length();
-
                 if (moveDist > 0.0001f) {
                     if (portalManager != null && portalManager.Raycast(oldPos, moveDir / moveDist, out var portalHit, moveDist, true)) {
                         if (currentEnvCellId == 0) {
@@ -161,9 +158,18 @@ public class CameraController {
                         }
                     }
                 }
+
+                // If we are at 0, we might have just loaded into a cell or teleported.
+                // We check this if we moved or if the environment manager just loaded new data.
+                if (currentEnvCellId == 0 && (moveDist > 0.0001f || (envCellManager?.NeedsPrepare ?? false) || (portalManager?.NeedsPrepare ?? false))) {
+                    currentEnvCellId = envCellManager?.GetEnvCellAt(newPos, false) ?? 0;
+                }
             }
             else {
-                currentEnvCellId = envCellManager?.GetEnvCellAt(newPos, false) ?? 0;
+                // When collision is off, always track the cell we are in if moving or data changed
+                if (moveDist > 0.0001f || (envCellManager?.NeedsPrepare ?? false) || (portalManager?.NeedsPrepare ?? false)) {
+                    currentEnvCellId = envCellManager?.GetEnvCellAt(newPos, false) ?? 0;
+                }
             }
 
             if (currentEnvCellId == 0 && state.EnableCameraCollision && terrainManager != null) {

@@ -730,11 +730,14 @@ public class GameScene : IDisposable {
         bool needsPrepare = cameraMoved || _forcePrepareBatches ||
                             (_sceneryManager?.NeedsPrepare ?? false) ||
                             (_staticObjectManager?.NeedsPrepare ?? false) ||
-                            (_envCellManager?.NeedsPrepare ?? false);
+                            (_envCellManager?.NeedsPrepare ?? false) ||
+                            (_portalManager?.NeedsPrepare ?? false);
 
         if (needsPrepare) {
             _visibilityManager.UpdateFrustum(snapshotVP);
             _visibilityManager.PrepareVisibility(_state, currentEnvCellId, _portalManager, _envCellManager, snapshotVP, isInside, out var visibleEnvCells);
+
+            _portalManager?.ResetNeedsPrepare();
 
             Parallel.Invoke(
                 () => {
