@@ -223,6 +223,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public override void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null, bool isOutside = false) {
             if (!_initialized || cameraPosition.Z > 4000) return;
 
+            lock (_renderLock) {
+                _poolIndex = 0;
+            }
+
             if (LandscapeDoc.Region != null) {
                 var lbSize = LandscapeDoc.Region.CellSizeInUnits * LandscapeDoc.Region.LandblockCellLength;
                 var pos = new Vector2(cameraPosition.X, cameraPosition.Y) - LandscapeDoc.Region.MapOffset;
@@ -326,7 +330,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _visibleGfxObjIds.Clear();
                 _visibleGfxObjIds.AddRange(newVisibleGfxObjIds);
 
-                _poolIndex = 0;
+                _postPreparePoolIndex = _poolIndex;
                 NeedsPrepare = false;
             }
         }
@@ -361,6 +365,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || (_cameraPosition.Z > 4000 && renderPass != 2)) return;
 
             lock (_renderLock) {
+                _poolIndex = _postPreparePoolIndex;
                 CurrentVAO = 0;
                 CurrentIBO = 0;
                 CurrentAtlas = 0;
@@ -387,6 +392,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 else {
                     // Group by gfxObjId within the filtered cells to minimize draw calls
                     var filteredGroups = new Dictionary<ulong, List<InstanceData>>();
+                    var ownedLists = new HashSet<List<InstanceData>>();
+
                     foreach (var cellId in filter) {
                         if (_batchedByCell.TryGetValue(cellId, out var gfxDict)) {
                             foreach (var (gfxObjId, transforms) in gfxDict) {
@@ -398,12 +405,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     else {
                                         if (list == transforms) continue;
 
-                                        // If we already have a list for this GfxObjId from another cell, we need to merge.
-                                        if (list.Count > 0 && !IsPooled(list)) {
+                                        // If we don't own this list yet, we must clone it before adding to it
+                                        if (!ownedLists.Contains(list)) {
                                             var newList = GetPooledList();
                                             newList.AddRange(list);
                                             list = newList;
                                             filteredGroups[gfxObjId] = list;
+                                            ownedLists.Add(list);
                                         }
                                         list.AddRange(transforms);
                                     }
@@ -452,11 +460,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _shader.SetUniform("uRenderPass", renderPass);
                 Gl.BindVertexArray(0);
             }
-        }
-
-        private bool IsPooled(List<InstanceData> list) {
-            // Simple check to see if it's one of our pooled lists
-            return _listPool.Contains(list);
         }
 
         protected override void PopulatePartGroups(ObjectLandblock lb, List<SceneryInstance> instances) {
