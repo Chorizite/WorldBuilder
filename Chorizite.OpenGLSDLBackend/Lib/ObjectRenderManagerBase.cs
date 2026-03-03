@@ -336,6 +336,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
                 _activeLandblocksDirty = true;
                 NeedsPrepare = true;
+                MarkMdiDirty();
             }
 
             return (float)sw.Elapsed.TotalMilliseconds;
@@ -389,6 +390,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _poolIndex = 0;
                 _postPreparePoolIndex = 0;
                 NeedsPrepare = false;
+                MarkMdiDirty();
             }
         }
 
@@ -475,6 +477,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _shader.SetUniform("uHighlightColor", Vector4.Zero);
                 _shader.SetUniform("uRenderPass", (int)renderPass);
                 Gl.BindVertexArray(0);
+
+                // Clear MDI dirty flag after all rendering is complete for this frame.
+                // Both opaque and transparent passes will have been issued by now.
+                if (renderPass != RenderPass.Opaque) {
+                    _mdiDirty = false;
+                }
             }
         }
 
