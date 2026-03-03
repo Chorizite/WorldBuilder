@@ -432,12 +432,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 RenderModernMDI(_shader!, drawCalls, allInstances, 2, ShowCulling);
             }
             else {
-                GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData));
-                Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
-                var span = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(allInstances);
-                fixed (InstanceData* ptr = span) {
-                    Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
-                }
+                GraphicsDevice.UpdateInstanceBuffer(allInstances);
 
                 foreach (var call in drawCalls) {
                     RenderObjectBatches(_shader!, call.renderData, call.count, call.offset, 2, ShowCulling);

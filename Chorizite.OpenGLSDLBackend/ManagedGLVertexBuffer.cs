@@ -11,9 +11,10 @@ namespace Chorizite.OpenGLSDLBackend {
     /// <summary>
     /// OpenGL vertex buffer
     /// </summary>
-    public class ManagedGLVertexBuffer : IVertexBuffer {
+    public unsafe class ManagedGLVertexBuffer : IVertexBuffer {
         private uint bufferId;
         private readonly OpenGLGraphicsDevice _device;
+        private void* _mappedPtr;
         private GL GL => _device.GL;
 
         /// <inheritdoc />
@@ -43,11 +44,18 @@ namespace Chorizite.OpenGLSDLBackend {
             // Allocate the buffer with the specified size but no initial data
             GL.BindBuffer(GLEnum.ArrayBuffer, bufferId);
             GLHelpers.CheckErrors(GL);
-            GL.BufferData(
-                GLEnum.ArrayBuffer,
-                (uint)Size,
-                (void*)0, // No initial data
-                Usage.ToGL());
+            
+            if (_device.HasBufferStorage) {
+                var flags = BufferStorageMask.MapWriteBit | BufferStorageMask.MapPersistentBit | BufferStorageMask.MapCoherentBit | BufferStorageMask.DynamicStorageBit;
+                GL.BufferStorage(GLEnum.ArrayBuffer, (uint)Size, (void*)0, flags);
+                _mappedPtr = GL.MapBufferRange(GLEnum.ArrayBuffer, 0, (nuint)Size, MapBufferAccessMask.WriteBit | MapBufferAccessMask.PersistentBit | MapBufferAccessMask.CoherentBit);
+            } else {
+                GL.BufferData(
+                    GLEnum.ArrayBuffer,
+                    (uint)Size,
+                    (void*)0, // No initial data
+                    Usage.ToGL());
+            }
             GLHelpers.CheckErrors(GL);
 
             GpuMemoryTracker.TrackAllocation(Size, GpuResourceType.Buffer);
@@ -67,30 +75,35 @@ namespace Chorizite.OpenGLSDLBackend {
                 throw new ArgumentException($"Data size ({dataSize} bytes) exceeds buffer size ({Size} bytes).");
             }
 
-            GL.BindBuffer(GLEnum.ArrayBuffer, bufferId);
-            GLHelpers.CheckErrors(GL);
-
-            // Map the buffer for writing
-            void* mappedPtr = GL.MapBufferRange(
-                GLEnum.ArrayBuffer,
-                0, // offset
-                dataSize,
-                MapBufferAccessMask.WriteBit | MapBufferAccessMask.InvalidateBufferBit // Overwrite entire buffer
-            );
-
-            if (mappedPtr == null) {
-                throw new Exception("Failed to map buffer for writing.");
-            }
-
-            try {
-                // Copy data directly to mapped memory
-                Span<T> mappedSpan = new Span<T>(mappedPtr, data.Length);
+            if (_mappedPtr != null) {
+                Span<T> mappedSpan = new Span<T>(_mappedPtr, data.Length);
                 data.CopyTo(mappedSpan);
-            }
-            finally {
-                // Unmap the buffer
-                GL.UnmapBuffer(GLEnum.ArrayBuffer);
+            } else {
+                GL.BindBuffer(GLEnum.ArrayBuffer, bufferId);
                 GLHelpers.CheckErrors(GL);
+
+                // Map the buffer for writing
+                void* mappedPtr = GL.MapBufferRange(
+                    GLEnum.ArrayBuffer,
+                    0, // offset
+                    dataSize,
+                    MapBufferAccessMask.WriteBit | MapBufferAccessMask.InvalidateBufferBit // Overwrite entire buffer
+                );
+
+                if (mappedPtr == null) {
+                    throw new Exception("Failed to map buffer for writing.");
+                }
+
+                try {
+                    // Copy data directly to mapped memory
+                    Span<T> mappedSpan = new Span<T>(mappedPtr, data.Length);
+                    data.CopyTo(mappedSpan);
+                }
+                finally {
+                    // Unmap the buffer
+                    GL.UnmapBuffer(GLEnum.ArrayBuffer);
+                    GLHelpers.CheckErrors(GL);
+                }
             }
         }
 
@@ -115,30 +128,35 @@ namespace Chorizite.OpenGLSDLBackend {
                 throw new ArgumentException($"Update would exceed buffer size. Buffer size: {Size}, Update range: {destinationOffsetBytes} to {destinationOffsetBytes + dataSizeBytes}");
             }
 
-            GL.BindBuffer(GLEnum.ArrayBuffer, bufferId);
-            GLHelpers.CheckErrors(GL);
-
-            // Map the specific range of the buffer
-            void* mappedPtr = GL.MapBufferRange(
-                GLEnum.ArrayBuffer,
-                destinationOffsetBytes,
-                dataSizeBytes,
-                MapBufferAccessMask.WriteBit // Write access for partial update
-            );
-
-            if (mappedPtr == null) {
-                throw new Exception("Failed to map buffer for writing.");
-            }
-
-            try {
-                // Copy the specified range of data to the mapped memory
-                Span<T> mappedSpan = new Span<T>(mappedPtr, lengthElements);
+            if (_mappedPtr != null) {
+                Span<T> mappedSpan = new Span<T>((byte*)_mappedPtr + destinationOffsetBytes, lengthElements);
                 data.Slice(sourceOffsetElements, lengthElements).CopyTo(mappedSpan);
-            }
-            finally {
-                // Unmap the buffer
-                GL.UnmapBuffer(GLEnum.ArrayBuffer);
+            } else {
+                GL.BindBuffer(GLEnum.ArrayBuffer, bufferId);
                 GLHelpers.CheckErrors(GL);
+
+                // Map the specific range of the buffer
+                void* mappedPtr = GL.MapBufferRange(
+                    GLEnum.ArrayBuffer,
+                    destinationOffsetBytes,
+                    dataSizeBytes,
+                    MapBufferAccessMask.WriteBit // Write access for partial update
+                );
+
+                if (mappedPtr == null) {
+                    throw new Exception("Failed to map buffer for writing.");
+                }
+
+                try {
+                    // Copy the specified range of data to the mapped memory
+                    Span<T> mappedSpan = new Span<T>(mappedPtr, lengthElements);
+                    data.Slice(sourceOffsetElements, lengthElements).CopyTo(mappedSpan);
+                }
+                finally {
+                    // Unmap the buffer
+                    GL.UnmapBuffer(GLEnum.ArrayBuffer);
+                    GLHelpers.CheckErrors(GL);
+                }
             }
         }
 
@@ -159,6 +177,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 GLHelpers.CheckErrors(GL);
                 GpuMemoryTracker.TrackDeallocation(Size, GpuResourceType.Buffer);
                 bufferId = 0;
+                _mappedPtr = null;
             }
         }
     }

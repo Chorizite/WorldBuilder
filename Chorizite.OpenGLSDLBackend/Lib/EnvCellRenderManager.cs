@@ -429,12 +429,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     }
                     else {
                         // Upload all instance data in one go (with orphaning)
-                        GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData), true);
-                        Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
-                        var span = CollectionsMarshal.AsSpan(allInstances);
-                        fixed (InstanceData* ptr = span) {
-                            Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
-                        }
+                        GraphicsDevice.UpdateInstanceBuffer(allInstances);
 
                         // Issue draw calls
                         foreach (var call in drawCalls) {

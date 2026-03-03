@@ -8,7 +8,9 @@ using PolygonMode = Silk.NET.OpenGL.PolygonMode;
 using PrimitiveType = Silk.NET.OpenGL.PrimitiveType;
 using WorldBuilder.Shared.Models;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Numerics;
+using System.Runtime.InteropServices;
 
 namespace Chorizite.OpenGLSDLBackend {
     /// <summary>
@@ -23,9 +25,12 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public bool HasBindless { get; private set; }
         public bool HasOpenGL43 { get; private set; }
+        public bool HasBufferStorage { get; private set; }
+        public bool HasTextureStorage { get; private set; }
         public ArbBindlessTexture? BindlessExtension { get; private set; }
 
         public uint InstanceVBO { get; private set; }
+        public void* InstanceVBOPtr { get; private set; }
         private int _instanceBufferCapacity = 0;
         private int _instanceBufferStride = 0;
 
@@ -49,6 +54,8 @@ namespace Chorizite.OpenGLSDLBackend {
                 GL.GetInteger(GLEnum.MajorVersion, out int major);
                 GL.GetInteger(GLEnum.MinorVersion, out int minor);
                 HasOpenGL43 = major > 4 || (major == 4 && minor >= 3);
+                HasTextureStorage = major > 4 || (major == 4 && minor >= 2) || GL.IsExtensionPresent("GL_ARB_texture_storage");
+                HasBufferStorage = major > 4 || (major == 4 && minor >= 4) || GL.IsExtensionPresent("GL_ARB_buffer_storage");
                 
                 if (allowBindless && GL.TryGetExtension(out ArbBindlessTexture ext)) {
                     BindlessExtension = ext;
@@ -74,10 +81,51 @@ namespace Chorizite.OpenGLSDLBackend {
 
             _instanceBufferCapacity = Math.Max(count, 256);
             _instanceBufferStride = stride;
-            GL.BindBuffer(GLEnum.ArrayBuffer, InstanceVBO);
-            GL.BufferData(GLEnum.ArrayBuffer, (nuint)(_instanceBufferCapacity * _instanceBufferStride),
-                (void*)null, GLEnum.DynamicDraw);
+
+            if (HasBufferStorage) {
+                if (InstanceVBO != 0) {
+                    GL.DeleteBuffer(InstanceVBO);
+                }
+                GL.GenBuffers(1, out uint instanceVbo);
+                InstanceVBO = instanceVbo;
+                GL.BindBuffer(GLEnum.ArrayBuffer, InstanceVBO);
+                var flags = BufferStorageMask.MapWriteBit | BufferStorageMask.MapPersistentBit | BufferStorageMask.MapCoherentBit | BufferStorageMask.DynamicStorageBit;
+                GL.BufferStorage(GLEnum.ArrayBuffer, (nuint)(_instanceBufferCapacity * _instanceBufferStride), (void*)0, flags);
+                InstanceVBOPtr = GL.MapBufferRange(GLEnum.ArrayBuffer, 0, (nuint)(_instanceBufferCapacity * _instanceBufferStride), MapBufferAccessMask.WriteBit | MapBufferAccessMask.PersistentBit | MapBufferAccessMask.CoherentBit);
+            } else {
+                GL.BindBuffer(GLEnum.ArrayBuffer, InstanceVBO);
+                GL.BufferData(GLEnum.ArrayBuffer, (nuint)(_instanceBufferCapacity * _instanceBufferStride),
+                    (void*)null, GLEnum.DynamicDraw);
+                InstanceVBOPtr = null;
+            }
             GpuMemoryTracker.TrackAllocation(_instanceBufferCapacity * _instanceBufferStride);
+        }
+
+        public void UpdateInstanceBuffer<T>(List<T> data) where T : unmanaged {
+            EnsureInstanceBufferCapacity(data.Count, Marshal.SizeOf<T>(), true);
+            var span = CollectionsMarshal.AsSpan(data);
+            if (InstanceVBOPtr != null) {
+                var destSpan = new Span<T>(InstanceVBOPtr, data.Count);
+                span.CopyTo(destSpan);
+            } else {
+                GL.BindBuffer(GLEnum.ArrayBuffer, InstanceVBO);
+                fixed (T* ptr = span) {
+                    GL.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(data.Count * Marshal.SizeOf<T>()), ptr);
+                }
+            }
+        }
+
+        public void UpdateInstanceBuffer<T>(Span<T> data) where T : unmanaged {
+            EnsureInstanceBufferCapacity(data.Length, Marshal.SizeOf<T>(), true);
+            if (InstanceVBOPtr != null) {
+                var destSpan = new Span<T>(InstanceVBOPtr, data.Length);
+                data.CopyTo(destSpan);
+            } else {
+                GL.BindBuffer(GLEnum.ArrayBuffer, InstanceVBO);
+                fixed (T* ptr = data) {
+                    GL.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(data.Length * Marshal.SizeOf<T>()), ptr);
+                }
+            }
         }
 
         /// <inheritdoc />
@@ -359,6 +407,7 @@ namespace Chorizite.OpenGLSDLBackend {
                     GpuMemoryTracker.TrackDeallocation(_instanceBufferCapacity * _instanceBufferStride);
                 }
                 InstanceVBO = 0;
+                InstanceVBOPtr = null;
             }
         }
 

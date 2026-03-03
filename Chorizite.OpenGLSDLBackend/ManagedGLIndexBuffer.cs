@@ -9,9 +9,10 @@ namespace Chorizite.OpenGLSDLBackend {
     /// <summary>
     /// OpenGL index buffer
     /// </summary>
-    public class ManagedGLIndexBuffer : IIndexBuffer {
+    public unsafe class ManagedGLIndexBuffer : IIndexBuffer {
         private uint bufferId;
         private readonly OpenGLGraphicsDevice _device;
+        private void* _mappedPtr;
         private GL GL => _device.GL;
 
         /// <inheritdoc />
@@ -38,7 +39,14 @@ namespace Chorizite.OpenGLSDLBackend {
             // Allocate the buffer with the specified size but no initial data
             GL.BindBuffer(GLEnum.ElementArrayBuffer, bufferId);
             GLHelpers.CheckErrors(GL);
-            GL.BufferData(BufferTargetARB.ElementArrayBuffer, (uint)Size, (void*)0, Usage.ToGL());
+            
+            if (_device.HasBufferStorage) {
+                var flags = BufferStorageMask.MapWriteBit | BufferStorageMask.MapPersistentBit | BufferStorageMask.MapCoherentBit | BufferStorageMask.DynamicStorageBit;
+                GL.BufferStorage(GLEnum.ElementArrayBuffer, (uint)Size, (void*)0, flags);
+                _mappedPtr = GL.MapBufferRange(GLEnum.ElementArrayBuffer, 0, (nuint)Size, MapBufferAccessMask.WriteBit | MapBufferAccessMask.PersistentBit | MapBufferAccessMask.CoherentBit);
+            } else {
+                GL.BufferData(BufferTargetARB.ElementArrayBuffer, (uint)Size, (void*)0, Usage.ToGL());
+            }
             GLHelpers.CheckErrors(GL);
 
             GpuMemoryTracker.TrackAllocation(Size, GpuResourceType.Buffer);
@@ -52,15 +60,26 @@ namespace Chorizite.OpenGLSDLBackend {
         /// <inheritdoc />
         public unsafe void SetData(Span<uint> data) {
             uint dataSize = (uint)data.Length * sizeof(uint);
-            GL.BindBuffer(GLEnum.ElementArrayBuffer, bufferId);
-            GLHelpers.CheckErrors(GL);
-
-            fixed (uint* dataPtr = &data[0]) {
-                GL.BufferData(GLEnum.ElementArrayBuffer, dataSize, (void*)dataPtr, Usage.ToGL());
+            
+            // Ensure the buffer size is sufficient
+            if (dataSize > Size) {
+                throw new ArgumentException($"Data size ({dataSize} bytes) exceeds buffer size ({Size} bytes).");
             }
-            GLHelpers.CheckErrors(GL);
-            GL.BindBuffer(GLEnum.ElementArrayBuffer, 0);
-            GLHelpers.CheckErrors(GL);
+
+            if (_mappedPtr != null) {
+                Span<uint> mappedSpan = new Span<uint>(_mappedPtr, data.Length);
+                data.CopyTo(mappedSpan);
+            } else {
+                GL.BindBuffer(GLEnum.ElementArrayBuffer, bufferId);
+                GLHelpers.CheckErrors(GL);
+
+                fixed (uint* dataPtr = &data[0]) {
+                    GL.BufferData(GLEnum.ElementArrayBuffer, dataSize, (void*)dataPtr, Usage.ToGL());
+                }
+                GLHelpers.CheckErrors(GL);
+                GL.BindBuffer(GLEnum.ElementArrayBuffer, 0);
+                GLHelpers.CheckErrors(GL);
+            }
         }
 
 
@@ -85,16 +104,21 @@ namespace Chorizite.OpenGLSDLBackend {
                 throw new ArgumentException($"Update would exceed buffer size. Buffer size: {Size}, Update range: {destinationOffsetBytes} to {destinationOffsetBytes + dataSizeBytes}");
             }
 
-            GL.BindBuffer(GLEnum.ElementArrayBuffer, bufferId);
-            GLHelpers.CheckErrors(GL);
-
-            fixed (uint* dataPtr = &data[sourceOffsetElements]) {
-                GL.BufferSubData(
-                    GLEnum.ElementArrayBuffer,
-                    destinationOffsetBytes,
-                    dataSizeBytes,
-                    (void*)dataPtr);
+            if (_mappedPtr != null) {
+                Span<uint> mappedSpan = new Span<uint>((byte*)_mappedPtr + destinationOffsetBytes, lengthElements);
+                data.Slice(sourceOffsetElements, lengthElements).CopyTo(mappedSpan);
+            } else {
+                GL.BindBuffer(GLEnum.ElementArrayBuffer, bufferId);
                 GLHelpers.CheckErrors(GL);
+
+                fixed (uint* dataPtr = &data[sourceOffsetElements]) {
+                    GL.BufferSubData(
+                        GLEnum.ElementArrayBuffer,
+                        destinationOffsetBytes,
+                        dataSizeBytes,
+                        (void*)dataPtr);
+                    GLHelpers.CheckErrors(GL);
+                }
             }
         }
 
@@ -153,6 +177,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 GLHelpers.CheckErrors(GL);
                 GpuMemoryTracker.TrackDeallocation(Size, GpuResourceType.Buffer);
                 bufferId = 0;
+                _mappedPtr = null;
             }
         }
     }

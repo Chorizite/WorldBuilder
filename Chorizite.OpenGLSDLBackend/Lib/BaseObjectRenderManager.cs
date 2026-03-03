@@ -444,13 +444,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             List<InstanceData> instanceTransforms, int renderPass, bool showCulling = true) {
             if (renderData.Batches.Count == 0 || instanceTransforms.Count == 0) return;
 
-            GraphicsDevice.EnsureInstanceBufferCapacity(instanceTransforms.Count, sizeof(InstanceData));
-            Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
-
-            var transformsSpan = CollectionsMarshal.AsSpan(instanceTransforms);
-            fixed (InstanceData* ptr = transformsSpan) {
-                Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(instanceTransforms.Count * sizeof(InstanceData)), ptr);
-            }
+            GraphicsDevice.UpdateInstanceBuffer(instanceTransforms);
 
             RenderObjectBatches(shader, renderData, instanceTransforms.Count, 0, GraphicsDevice.InstanceVBO, renderPass, showCulling);
         }

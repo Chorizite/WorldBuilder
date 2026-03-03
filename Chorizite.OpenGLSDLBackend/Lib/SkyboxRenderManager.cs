@@ -19,7 +19,7 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Services;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
-    public class SkyboxRenderManager : IDisposable {
+    public unsafe class SkyboxRenderManager : IDisposable {
         private readonly GL _gl;
         private readonly ILogger _log;
         private readonly LandscapeDocument _landscapeDoc;
@@ -32,6 +32,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         // Instance buffer
         private uint _instanceVBO;
+        private void* _instanceVBOPtr;
         private int _instanceBufferCapacity = 0;
 
         public float LightIntensity { get; set; } = 1.0f;
@@ -231,12 +232,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _gl.BindVertexArray(renderData.VAO);
 
             EnsureInstanceBufferCapacity(instanceTransforms.Length);
-            _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVBO);
-
-            fixed (Matrix4x4* ptr = instanceTransforms) {
-                _gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(instanceTransforms.Length * sizeof(Matrix4x4)), ptr);
+            if (_instanceVBOPtr != null) {
+                var destSpan = new Span<Matrix4x4>(_instanceVBOPtr, instanceTransforms.Length);
+                instanceTransforms.AsSpan().CopyTo(destSpan);
+            } else {
+                _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVBO);
+                fixed (Matrix4x4* ptr = instanceTransforms) {
+                    _gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(instanceTransforms.Length * sizeof(Matrix4x4)), ptr);
+                }
             }
 
+            _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVBO);
             for (uint i = 0; i < 4; i++) {
                 var loc = 3 + i;
                 _gl.EnableVertexAttribArray(loc);
@@ -292,9 +298,22 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             _instanceBufferCapacity = Math.Max(count, 256);
-            _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVBO);
-            _gl.BufferData(GLEnum.ArrayBuffer, (nuint)(_instanceBufferCapacity * sizeof(Matrix4x4)),
-                (void*)null, GLEnum.DynamicDraw);
+
+            if (_graphicsDevice.HasBufferStorage) {
+                if (_instanceVBO != 0) {
+                    _gl.DeleteBuffer(_instanceVBO);
+                }
+                _gl.GenBuffers(1, out _instanceVBO);
+                _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVBO);
+                var flags = BufferStorageMask.MapWriteBit | BufferStorageMask.MapPersistentBit | BufferStorageMask.MapCoherentBit | BufferStorageMask.DynamicStorageBit;
+                _gl.BufferStorage(GLEnum.ArrayBuffer, (nuint)(_instanceBufferCapacity * sizeof(Matrix4x4)), (void*)0, flags);
+                _instanceVBOPtr = _gl.MapBufferRange(GLEnum.ArrayBuffer, 0, (nuint)(_instanceBufferCapacity * sizeof(Matrix4x4)), MapBufferAccessMask.WriteBit | MapBufferAccessMask.PersistentBit | MapBufferAccessMask.CoherentBit);
+            } else {
+                _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVBO);
+                _gl.BufferData(GLEnum.ArrayBuffer, (nuint)(_instanceBufferCapacity * sizeof(Matrix4x4)),
+                    (void*)null, GLEnum.DynamicDraw);
+                _instanceVBOPtr = null;
+            }
             GpuMemoryTracker.TrackAllocation(_instanceBufferCapacity * sizeof(Matrix4x4), GpuResourceType.Buffer);
         }
 
@@ -302,6 +321,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (_instanceVBO != 0) {
                 _gl.DeleteBuffer(_instanceVBO);
                 GpuMemoryTracker.TrackDeallocation(_instanceBufferCapacity * Marshal.SizeOf<Matrix4x4>(), GpuResourceType.Buffer);
+                _instanceVBO = 0;
+                _instanceVBOPtr = null;
             }
         }
     }

@@ -433,12 +433,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             RenderModernMDI(_shader, drawCalls, allInstances, renderPass);
                         }
                         else {
-                            GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData), true);
-                            Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
-                            var span = CollectionsMarshal.AsSpan(allInstances);
-                            fixed (InstanceData* ptr = span) {
-                                Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
-                            }
+                            GraphicsDevice.UpdateInstanceBuffer(allInstances);
 
                             // Issue draw calls
                             foreach (var call in drawCalls) {
@@ -847,12 +842,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             RenderModernMDI(_shader!, drawCalls, allInstances, renderPass);
                         }
                         else {
-                            GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData));
-                            Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
-                            var span = CollectionsMarshal.AsSpan(allInstances);
-                            fixed (InstanceData* ptr = span) {
-                                Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
-                            }
+                            GraphicsDevice.UpdateInstanceBuffer(allInstances);
 
                             foreach (var call in drawCalls) {
                                 RenderObjectBatches(_shader!, call.renderData, call.count, call.offset, renderPass);
