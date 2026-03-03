@@ -59,6 +59,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Active landblocks for rendering
         protected readonly List<ObjectLandblock> _activeLandblocks = new();
         protected readonly object _activeLandblocksLock = new();
+        protected readonly object _renderLock = new();
         protected bool _activeLandblocksDirty = true;
         protected readonly List<ObjectLandblock> _visibleLandblocks = new();
         protected readonly List<ObjectLandblock> _intersectingLandblocks = new();
@@ -345,23 +346,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
-            // Clear previous frame data
-            _visibleGroups.Clear();
-            _visibleGfxObjIds.Clear();
-            _poolIndex = 0;
-            _visibleLandblocks.Clear();
-            _intersectingLandblocks.Clear();
+            lock (_renderLock) {
+                // Clear previous frame data
+                _visibleGroups.Clear();
+                _visibleGfxObjIds.Clear();
+                _poolIndex = 0;
+                _visibleLandblocks.Clear();
+                _intersectingLandblocks.Clear();
 
-            NeedsPrepare = false;
+                NeedsPrepare = false;
 
-            lock (_activeLandblocksLock) {
-                if (_activeLandblocks.Count == 0) return;
+                lock (_activeLandblocksLock) {
+                    if (_activeLandblocks.Count == 0) return;
 
-                foreach (var lb in _activeLandblocks) {
-                    var testResult = _frustum.TestBox(lb.BoundingBox);
-                    if (testResult == FrustumTestResult.Outside) continue;
+                    foreach (var lb in _activeLandblocks) {
+                        var testResult = _frustum.TestBox(lb.BoundingBox);
+                        if (testResult == FrustumTestResult.Outside) continue;
 
-                    _visibleLandblocks.Add(lb);
+                        _visibleLandblocks.Add(lb);
+                    }
                 }
             }
         }
@@ -369,86 +372,91 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public virtual unsafe void Render(int renderPass) {
             if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || _cameraPosition.Z > 4000) return;
 
-            BaseObjectRenderManager.CurrentVAO = 0;
-            BaseObjectRenderManager.CurrentIBO = 0;
-            BaseObjectRenderManager.CurrentAtlas = 0;
-            BaseObjectRenderManager.CurrentCullMode = null;
+            lock (_renderLock) {
+                BaseObjectRenderManager.CurrentVAO = 0;
+                BaseObjectRenderManager.CurrentIBO = 0;
+                BaseObjectRenderManager.CurrentAtlas = 0;
+                BaseObjectRenderManager.CurrentCullMode = null;
 
-            _shader.SetUniform("uRenderPass", renderPass);
-            _shader.SetUniform("uHighlightColor", Vector4.Zero);
+                _shader.SetUniform("uRenderPass", renderPass);
+                _shader.SetUniform("uHighlightColor", Vector4.Zero);
 
-            if (_visibleLandblocks.Count == 0 && _visibleGfxObjIds.Count == 0) {
-                if (RenderHighlightsWhenEmpty) {
-                    Gl.DepthFunc(GLEnum.Lequal);
-                    if (SelectedInstance.HasValue) {
-                        RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
-                    }
-                    if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
-                        RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
-                    }
-                    Gl.DepthFunc(GLEnum.Less);
-                }
-                return;
-            }
-
-            // 1. Render fully visible landblocks using the consolidated pipeline (extremely fast)
-            if (_visibleLandblocks.Count > 0) {
-                if (_useModernRendering) {
-                    RenderConsolidatedMDI(_shader, _visibleLandblocks, renderPass);
-                } else {
-                    RenderConsolidated(_shader, _visibleLandblocks, renderPass);
-                }
-            }
-
-            // 2. Render intersecting landblocks using the consolidated buffer (slow path - needs per-frame upload)
-            if (_visibleGfxObjIds.Count > 0) {
-                // Gather all instance data and build draw calls
-                var allInstances = new List<InstanceData>();
-                var drawCalls = new List<(ObjectRenderData renderData, int count, int offset)>();
-
-                foreach (var gfxObjId in _visibleGfxObjIds) {
-                    if (_visibleGroups.TryGetValue(gfxObjId, out var transforms)) {
-                        var renderData = MeshManager.TryGetRenderData(gfxObjId);
-                        if (renderData != null && !renderData.IsSetup) {
-                            drawCalls.Add((renderData, transforms.Count, allInstances.Count));
-                            allInstances.AddRange(transforms);
+                if (_visibleLandblocks.Count == 0 && _visibleGfxObjIds.Count == 0) {
+                    if (RenderHighlightsWhenEmpty) {
+                        Gl.DepthFunc(GLEnum.Lequal);
+                        if (SelectedInstance.HasValue) {
+                            RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
                         }
+                        if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
+                            RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
+                        }
+                        Gl.DepthFunc(GLEnum.Less);
                     }
+                    return;
                 }
 
-                if (allInstances.Count > 0) {
-                    // For now, intersecting chunks still use the "slow" way (dynamic upload)
-                    // but we could also use a reserved "scratch" area in the world buffer.
+                // 1. Render fully visible landblocks using the consolidated pipeline (extremely fast)
+                if (_visibleLandblocks.Count > 0) {
                     if (_useModernRendering) {
-                        RenderModernMDI(_shader, drawCalls, allInstances, renderPass);
-                    } else {
-                        GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData), true);
-                        Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
-                        var span = CollectionsMarshal.AsSpan(allInstances);
-                        fixed (InstanceData* ptr = span) {
-                            Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
-                        }
-// Issue draw calls
-foreach (var call in drawCalls) {
-    RenderObjectBatches(_shader, call.renderData, call.count, call.offset, renderPass);
-}
+                        RenderConsolidatedMDI(_shader, _visibleLandblocks, renderPass);
+                    }
+                    else {
+                        RenderConsolidated(_shader, _visibleLandblocks, renderPass);
                     }
                 }
-            }
 
-            // Draw highlighted / selected objects on top
-            Gl.DepthFunc(GLEnum.Lequal);
-            if (SelectedInstance.HasValue) {
-                RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
-            }
-            if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
-                RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
-            }
-            Gl.DepthFunc(GLEnum.Less);
+                // 2. Render intersecting landblocks using the consolidated buffer (slow path - needs per-frame upload)
+                if (_visibleGfxObjIds.Count > 0) {
+                    // Gather all instance data and build draw calls
+                    var allInstances = new List<InstanceData>();
+                    var drawCalls = new List<(ObjectRenderData renderData, int count, int offset)>();
 
-            _shader.SetUniform("uHighlightColor", Vector4.Zero);
-            _shader.SetUniform("uRenderPass", renderPass);
-            Gl.BindVertexArray(0);
+                    foreach (var gfxObjId in _visibleGfxObjIds) {
+                        if (_visibleGroups.TryGetValue(gfxObjId, out var transforms)) {
+                            var renderData = MeshManager.TryGetRenderData(gfxObjId);
+                            if (renderData != null && !renderData.IsSetup) {
+                                drawCalls.Add((renderData, transforms.Count, allInstances.Count));
+                                allInstances.AddRange(transforms);
+                            }
+                        }
+                    }
+
+                    if (allInstances.Count > 0) {
+                        // For now, intersecting chunks still use the "slow" way (dynamic upload)
+                        // but we could also use a reserved "scratch" area in the world buffer.
+                        if (_useModernRendering) {
+                            RenderModernMDI(_shader, drawCalls, allInstances, renderPass);
+                        }
+                        else {
+                            GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData), true);
+                            Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
+                            var span = CollectionsMarshal.AsSpan(allInstances);
+                            fixed (InstanceData* ptr = span) {
+                                Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
+                            }
+
+                            // Issue draw calls
+                            foreach (var call in drawCalls) {
+                                RenderObjectBatches(_shader, call.renderData, call.count, call.offset, renderPass);
+                            }
+                        }
+                    }
+                }
+
+                // Draw highlighted / selected objects on top
+                Gl.DepthFunc(GLEnum.Lequal);
+                if (SelectedInstance.HasValue) {
+                    RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
+                }
+                if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
+                    RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
+                }
+                Gl.DepthFunc(GLEnum.Less);
+
+                _shader.SetUniform("uHighlightColor", Vector4.Zero);
+                _shader.SetUniform("uRenderPass", renderPass);
+                Gl.BindVertexArray(0);
+            }
         }
 
         public void InvalidateLandblock(int lbX, int lbY) {

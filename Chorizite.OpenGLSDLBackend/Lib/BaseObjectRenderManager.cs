@@ -202,10 +202,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             for (int i = 0; i < 4; i++) _cullGroups[i].Clear();
             foreach (var lb in landblocks) {
-                foreach (var kvp in lb.MdiCommands) {
-                    var idx = (int)kvp.Key;
-                    if (idx < 0 || idx >= 4) continue;
-                    _cullGroups[idx].AddRange(kvp.Value);
+                lock (lb) {
+                    foreach (var kvp in lb.MdiCommands) {
+                        var idx = (int)kvp.Key;
+                        if (idx < 0 || idx >= 4) continue;
+                        _cullGroups[idx].AddRange(kvp.Value);
+                    }
                 }
             }
 
@@ -294,14 +296,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             for (int i = 0; i < 4; i++) _cullGroups[i].Clear();
             int totalDraws = 0;
             foreach (var lb in landblocks) {
-                foreach (var kvp in lb.MdiCommands) {
-                    var idx = (int)kvp.Key;
-                    if (idx < 0 || idx >= 4) continue;
+                lock (lb) {
+                    foreach (var kvp in lb.MdiCommands) {
+                        var idx = (int)kvp.Key;
+                        if (idx < 0 || idx >= 4) continue;
 
-                    foreach (var cmd in kvp.Value) {
-                        if (renderPass == 1 && !cmd.IsTransparent) continue;
-                        _cullGroups[idx].Add(cmd);
-                        totalDraws++;
+                        foreach (var cmd in kvp.Value) {
+                            if (renderPass == 1 && !cmd.IsTransparent) continue;
+                            _cullGroups[idx].Add(cmd);
+                            totalDraws++;
+                        }
                     }
                 }
             }
