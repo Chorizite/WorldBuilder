@@ -228,6 +228,12 @@ namespace Chorizite.OpenGLSDLBackend {
             try {
                 var pixelsPtr = (void*)pinnedArray.AddrOfPinnedObject();
 
+                bool wasResident = false;
+                if (BindlessHandle != 0 && _device.BindlessExtension != null && _device.BindlessExtension.IsTextureHandleResident(BindlessHandle)) {
+                    _device.BindlessExtension.MakeTextureHandleNonResident(BindlessHandle);
+                    wasResident = true;
+                }
+
                 if (_isCompressed) {
                     var internalFormat = Format.ToCompressedGL();
                     GL.CompressedTexSubImage3D(GLEnum.Texture2DArray, 0, 0, 0, layer,
@@ -242,6 +248,11 @@ namespace Chorizite.OpenGLSDLBackend {
 
                 GLHelpers.CheckErrorsWithContext(GL,
                     $"Uploading layer {layer} for {Format} {Width}x{Height} (Compressed={_isCompressed}) {uploadPixelFormat} // {uploadPixelType} (Slot={Slot})");
+                
+                if (wasResident && BindlessHandle != 0 && _device.BindlessExtension != null) {
+                    _device.BindlessExtension.MakeTextureHandleResident(BindlessHandle);
+                }
+
                 _needsMipmapRegeneration = true;
 
                 lock (_mipmapLock) {

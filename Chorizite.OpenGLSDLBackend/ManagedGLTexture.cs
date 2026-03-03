@@ -110,6 +110,12 @@ namespace Chorizite.OpenGLSDLBackend {
             GL.BindTexture(GLEnum.Texture2D, _texture);
             GLHelpers.CheckErrors(GL);
 
+            bool wasResident = false;
+            if (BindlessHandle != 0 && _device.BindlessExtension != null && _device.BindlessExtension.IsTextureHandleResident(BindlessHandle)) {
+                _device.BindlessExtension.MakeTextureHandleNonResident(BindlessHandle);
+                wasResident = true;
+            }
+
             fixed (byte* ptr = data) {
                 GL.TexSubImage2D(
                     GLEnum.Texture2D,
@@ -128,6 +134,10 @@ namespace Chorizite.OpenGLSDLBackend {
             // Generate mipmaps if needed
             GL.GenerateMipmap(GLEnum.Texture2D);
             GLHelpers.CheckErrors(GL);
+
+            if (wasResident && BindlessHandle != 0 && _device.BindlessExtension != null) {
+                _device.BindlessExtension.MakeTextureHandleResident(BindlessHandle);
+            }
 
             GL.BindTexture(GLEnum.Texture2D, 0);
             GLHelpers.CheckErrors(GL);
