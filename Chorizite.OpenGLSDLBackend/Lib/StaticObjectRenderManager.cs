@@ -196,6 +196,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Protected: Overrides
 
+        public override void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null, bool isOutside = false) {
+            base.PrepareRenderBatches(viewProjectionMatrix, cameraPosition, filter, isOutside);
+        }
+
         protected override void BuildMdiCommands(ObjectLandblock lb) {
             lb.MdiCommands.Clear();
             if (lb.InstanceBufferOffset < 0) return;

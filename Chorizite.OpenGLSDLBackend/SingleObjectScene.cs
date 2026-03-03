@@ -378,7 +378,7 @@ namespace Chorizite.OpenGLSDLBackend {
                               * Matrix4x4.CreateTranslation(center);
 
                 // Pass 1: Opaque
-                _shader.SetUniform("uRenderPass", EnableTransparencyPass ? 0 : 2);
+                _shader.SetUniform("uRenderPass", EnableTransparencyPass ? (int)RenderPass.Opaque : (int)RenderPass.SinglePass);
                 Gl.DepthMask(true);
                 Gl.Enable(EnableCap.Blend);
                 Gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
@@ -396,7 +396,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
                 // Pass 2: Transparent
                 if (EnableTransparencyPass) {
-                    _shader.SetUniform("uRenderPass", 1);
+                    _shader.SetUniform("uRenderPass", (int)RenderPass.Transparent);
                     Gl.DepthMask(false);
                     RenderCurrentObject(data, transform);
                 }
@@ -429,13 +429,13 @@ namespace Chorizite.OpenGLSDLBackend {
             }
 
             if (_useModernRendering) {
-                RenderModernMDI(_shader!, drawCalls, allInstances, 2, ShowCulling);
+                RenderModernMDI(_shader!, drawCalls, allInstances, RenderPass.SinglePass, ShowCulling);
             }
             else {
                 GraphicsDevice.UpdateInstanceBuffer(allInstances);
 
                 foreach (var call in drawCalls) {
-                    RenderObjectBatches(_shader!, call.renderData, call.count, call.offset, 2, ShowCulling);
+                    RenderObjectBatches(_shader!, call.renderData, call.count, call.offset, RenderPass.SinglePass, ShowCulling);
                 }
             }
         }

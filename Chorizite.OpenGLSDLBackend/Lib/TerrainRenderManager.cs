@@ -17,7 +17,7 @@ using WorldBuilder.Shared.Modules.Landscape.Lib;
 using WorldBuilder.Shared.Services;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
-    public class TerrainRenderManager : IDisposable {
+    public class TerrainRenderManager : IDisposable, IRenderManager {
         private readonly GL _gl;
         private readonly ILogger _log;
         private readonly LandscapeDocument _landscapeDoc;
@@ -56,6 +56,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Render state
         private IShader? _shader;
         private bool _initialized;
+        private Vector3 _cameraPosition;
+        private float _cameraFov;
+        private Matrix4x4 _viewMatrix;
+        private Matrix4x4 _projectionMatrix;
+        private Matrix4x4 _viewProjectionMatrix;
+
+        public bool NeedsPrepare => true;
 
         // Statistics
         public int RenderDistance { get; set; } = 12;
@@ -190,6 +197,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void Update(float deltaTime, ICamera camera) {
+            _viewMatrix = camera.ViewMatrix;
+            _projectionMatrix = camera.ProjectionMatrix;
+            _viewProjectionMatrix = camera.ViewProjectionMatrix;
+            _cameraPosition = camera.Position;
+            _cameraFov = camera.FieldOfView;
+
             if (!_initialized) return;
 
             if (_landscapeDoc.Region is null) return;
@@ -671,6 +684,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             long usedBytes = (long)(_nextFreeSlot - _freeSlots.Count) * (MaxVertices * VertexLandscape.Size + MaxIndices * sizeof(uint) + 20);
             GpuMemoryTracker.TrackNamedBuffer("Terrain Buffers", totalBytes, usedBytes);
+        }
+
+        public void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
+            _viewProjectionMatrix = viewProjectionMatrix;
+            _cameraPosition = cameraPosition;
+        }
+
+        public void Render(RenderPass renderPass) {
+            if (renderPass != RenderPass.Opaque && renderPass != RenderPass.SinglePass) return;
+            Render(_viewMatrix, _projectionMatrix, _viewProjectionMatrix, _cameraPosition, _cameraFov);
         }
 
         public unsafe void Render(Matrix4x4 viewMatrix, Matrix4x4 projectionMatrix, Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, float fieldOfView) {

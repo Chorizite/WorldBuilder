@@ -21,7 +21,7 @@ using BoundingBox = Chorizite.Core.Lib.BoundingBox;
 using System.Runtime.InteropServices;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
-    public abstract class ObjectRenderManagerBase : BaseObjectRenderManager {
+    public abstract class ObjectRenderManagerBase : BaseObjectRenderManager, IRenderManager {
         protected readonly ILogger Log;
         protected readonly LandscapeDocument LandscapeDoc;
 
@@ -329,6 +329,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return (float)sw.Elapsed.TotalMilliseconds;
         }
 
+        public virtual void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
+            PrepareRenderBatches(viewProjectionMatrix, cameraPosition, null, false);
+        }
+
         public virtual void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null, bool isOutside = false) {
             if (!_initialized || cameraPosition.Z > 4000) return;
 
@@ -376,7 +380,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public virtual unsafe void Render(int renderPass) {
+        public virtual unsafe void Render(RenderPass renderPass) {
             if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || _cameraPosition.Z > 4000) return;
 
             lock (_renderLock) {
@@ -386,7 +390,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 BaseObjectRenderManager.CurrentAtlas = 0;
                 BaseObjectRenderManager.CurrentCullMode = null;
 
-                _shader.SetUniform("uRenderPass", renderPass);
+                _shader.SetUniform("uRenderPass", (int)renderPass);
                 _shader.SetUniform("uHighlightColor", Vector4.Zero);
 
                 if (_visibleLandblocks.Count == 0 && _visibleGfxObjIds.Count == 0) {
@@ -457,7 +461,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 Gl.DepthFunc(GLEnum.Less);
 
                 _shader.SetUniform("uHighlightColor", Vector4.Zero);
-                _shader.SetUniform("uRenderPass", renderPass);
+                _shader.SetUniform("uRenderPass", (int)renderPass);
                 Gl.BindVertexArray(0);
             }
         }
@@ -816,7 +820,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        protected unsafe void RenderSelectedInstance(SelectedStaticObject selected, Vector4 highlightColor, int renderPass) {
+        protected unsafe void RenderSelectedInstance(SelectedStaticObject selected, Vector4 highlightColor, RenderPass renderPass) {
             if (_landblocks.TryGetValue(selected.LandblockKey, out var lb)) {
                 var instance = lb.Instances.FirstOrDefault(i => i.InstanceId == selected.InstanceId);
                 if (instance.ObjectId != 0) {

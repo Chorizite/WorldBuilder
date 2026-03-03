@@ -221,6 +221,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #region Protected: Overrides
 
         public override void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null, bool isOutside = false) {
+
             if (!_initialized || cameraPosition.Z > 4000) return;
 
             lock (_renderLock) {
@@ -355,14 +356,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             list.Add(data);
         }
 
-        public override void Render(int renderPass) {
+        public override void Render(RenderPass renderPass) {
             lock (_renderLock) {
                 Render(renderPass, null);
             }
         }
 
-        public unsafe void Render(int renderPass, HashSet<uint>? filter) {
-            if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || (_cameraPosition.Z > 4000 && renderPass != 2)) return;
+        public unsafe void Render(RenderPass renderPass, HashSet<uint>? filter) {
+            if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || (_cameraPosition.Z > 4000 && renderPass != RenderPass.SinglePass)) return;
 
             lock (_renderLock) {
                 _poolIndex = _postPreparePoolIndex;
@@ -371,7 +372,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 CurrentAtlas = 0;
                 CurrentCullMode = null;
 
-                _shader.SetUniform("uRenderPass", renderPass);
+                _shader.SetUniform("uRenderPass", (int)renderPass);
                 _shader.SetUniform("uFilterByCell", 0);
 
                 var allInstances = new List<InstanceData>();
@@ -457,7 +458,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 _shader.SetUniform("uHighlightColor", Vector4.Zero);
-                _shader.SetUniform("uRenderPass", renderPass);
+                _shader.SetUniform("uRenderPass", (int)renderPass);
                 Gl.BindVertexArray(0);
             }
         }

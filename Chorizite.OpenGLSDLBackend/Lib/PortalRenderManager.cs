@@ -33,7 +33,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     /// Portals are semi-transparent magenta polygons that connect cells to the outside world.
     /// Also manages GPU-uploaded portal polygon meshes for stencil-based interior rendering.
     /// </summary>
-    public class PortalRenderManager : IDisposable {
+    public class PortalRenderManager : IDisposable, IRenderManager {
         private readonly GL _gl;
         private readonly ILogger _log;
         private readonly LandscapeDocument _landscapeDoc;
@@ -49,6 +49,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public bool ShowPortals { get; set; } = true;
         public int RenderDistance { get; set; } = 12;
+
+        public int QueuedUploads => _uploadQueue.Count;
+        public int QueuedGenerations => _pendingGeneration.Count;
 
         public (uint CellId, ulong PortalIndex)? HoveredPortal { get; set; }
         public (uint CellId, ulong PortalIndex)? SelectedPortal { get; set; }
@@ -93,6 +96,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         public void InitializeStencilShader(IShader stencilShader) {
             _stencilShader = stencilShader;
+        }
+
+        public void Initialize(IShader shader) { }
+
+        public void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) { }
+
+        public void Render(RenderPass renderPass) { }
+
+        public void InvalidateLandblock(int lbX, int lbY) {
+            OnLandblockChanged(this, new LandblockChangedEventArgs(new[] { (lbX, lbY) }));
         }
 
         public void OnLandblockChanged(object? sender, LandblockChangedEventArgs e) {

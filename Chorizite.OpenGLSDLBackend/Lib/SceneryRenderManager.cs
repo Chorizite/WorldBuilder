@@ -118,6 +118,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Protected: Generation Override
 
+        public override void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null, bool isOutside = false) {
+            base.PrepareRenderBatches(viewProjectionMatrix, cameraPosition, filter, isOutside);
+        }
+
         protected override async Task GenerateForLandblockAsync(ObjectLandblock lb, CancellationToken ct) {
             try {
                 var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
