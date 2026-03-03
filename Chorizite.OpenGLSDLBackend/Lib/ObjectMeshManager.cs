@@ -95,6 +95,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public PixelType? UploadPixelType { get; set; }
         public List<ushort> Indices { get; set; } = new();
         public DatReaderWriter.Enums.CullMode CullMode { get; set; }
+        public bool IsTransparent { get; set; }
     }
 
     /// <summary>
@@ -137,6 +138,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public uint SurfaceId { get; set; }
         public TextureAtlasManager.TextureKey Key { get; set; }
         public DatReaderWriter.Enums.CullMode CullMode { get; set; }
+        public bool IsTransparent { get; set; }
 
         // Modern rendering path fields
         public uint FirstIndex { get; set; }
@@ -877,6 +879,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         return;
                     }
 
+                    var isTransparent = isSolid ? surface.ColorValue.Alpha < 255 : 
+                        (surface.Type.HasFlag(SurfaceType.Translucent) || 
+                         surface.Type.HasFlag(SurfaceType.Additive) ||
+                         (surface.Translucency > 0.0f && surface.Translucency < 1.0f) ||
+                         textureFormat == TextureFormat.DXT3 ||
+                         textureFormat == TextureFormat.DXT5 ||
+                         textureFormat == TextureFormat.A8 ||
+                         textureFormat == TextureFormat.Rgba32f);
+
                     var format = (texWidth, texHeight, textureFormat);
                     var key = new TextureAtlasManager.TextureKey {
                         SurfaceId = surfaceId,
@@ -897,7 +908,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             CullMode = poly.SidesType,
                             TextureData = textureData,
                             UploadPixelFormat = uploadPixelFormat,
-                            UploadPixelType = uploadPixelType
+                            UploadPixelType = uploadPixelType,
+                            IsTransparent = isTransparent
                         };
                         batches.Add(batch);
                     }
@@ -1119,6 +1131,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         return;
                     }
 
+                    var isTransparent = isSolid ? surface.ColorValue.Alpha < 255 : 
+                        (surface.Type.HasFlag(SurfaceType.Translucent) || 
+                         surface.Type.HasFlag(SurfaceType.Additive) ||
+                         (surface.Translucency > 0.0f && surface.Translucency < 1.0f) ||
+                         textureFormat == TextureFormat.DXT3 ||
+                         textureFormat == TextureFormat.DXT5 ||
+                         textureFormat == TextureFormat.A8 ||
+                         textureFormat == TextureFormat.Rgba32f);
+
                     var format = (texWidth, texHeight, textureFormat);
                     var key = new TextureAtlasManager.TextureKey {
                         SurfaceId = surfaceId,
@@ -1139,7 +1160,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             CullMode = poly.SidesType,
                             TextureData = textureData,
                             UploadPixelFormat = uploadPixelFormat,
-                            UploadPixelType = uploadPixelType
+                            UploadPixelType = uploadPixelType,
+                            IsTransparent = isTransparent
                         };
                         batches.Add(batch);
                     }
@@ -1377,6 +1399,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         TextureIndex = textureIndex,
                         TextureSize = (format.Width, format.Height),
                         TextureFormat = format.Format,
+                        IsTransparent = batch.IsTransparent,
                         Key = batch.Key,
                         CullMode = batch.CullMode,
                         FirstIndex = firstIndex,

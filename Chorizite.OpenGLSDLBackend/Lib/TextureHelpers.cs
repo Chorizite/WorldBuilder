@@ -125,6 +125,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         /// <summary>
+        /// Checks if a texture format supports alpha
+        /// </summary>
+        public static bool IsAlphaFormat(TextureFormat format) {
+            return format == TextureFormat.RGBA8 ||
+                   format == TextureFormat.A8 ||
+                   format == TextureFormat.Rgba32f ||
+                   format == TextureFormat.DXT1 ||
+                   format == TextureFormat.DXT3 ||
+                   format == TextureFormat.DXT5;
+        }
+
+        /// <summary>
         /// Gets the expected compressed data size for a texture
         /// </summary>
         public static int GetCompressedLayerSize(int width, int height, TextureFormat format) {

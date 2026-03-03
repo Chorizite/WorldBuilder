@@ -80,6 +80,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     [ObservableProperty] private string _renderTime = "0.00 ms";
 
     /// <summary>
+    /// Gets the current frame render time details formatted for a tooltip.
+    /// </summary>
+    [ObservableProperty] private string _renderTimeDetailsTooltip = "";
+
+    /// <summary>
     /// Gets the current OpenGL version string.
     /// </summary>
     [ObservableProperty] private string _glVersion = "GL: Unknown";
@@ -196,6 +201,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
                 GlDetailsTooltip = string.Join("\n", glDetails);
 
                 RenderTime = $"{_performanceService.RenderTime:0.00} ms";
+                RenderTimeDetailsTooltip = $"Prepare: {_performanceService.PrepareTime:0.00} ms\nOpaque: {_performanceService.OpaqueTime:0.00} ms\nTransparent: {_performanceService.TransparentTime:0.00} ms\nDebug: {_performanceService.DebugTime:0.00} ms";
                 RamUsage = FormatBytes(ram);
                 if (vram > 0) {
                     var vramStr = FormatBytes(vram);

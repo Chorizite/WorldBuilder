@@ -8,7 +8,7 @@ namespace WorldBuilder.Services {
     /// <summary>
     /// Service for monitoring application performance metrics.
     /// </summary>
-    public class PerformanceService {
+    public class PerformanceService : IRenderPerformanceTracker {
         private readonly SharedOpenGLContextManager _glContextManager;
 
         public PerformanceService(SharedOpenGLContextManager glContextManager) {
@@ -24,6 +24,11 @@ namespace WorldBuilder.Services {
         /// Gets the current render time in milliseconds.
         /// </summary>
         public double RenderTime { get; set; }
+
+        public double PrepareTime { get; set; }
+        public double OpaqueTime { get; set; }
+        public double TransparentTime { get; set; }
+        public double DebugTime { get; set; }
 
         private string? _glVersion;
 

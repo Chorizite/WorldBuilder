@@ -85,7 +85,8 @@ public partial class RenderView : Base3DViewport {
             var portalService = WorldBuilder.App.Services?.GetService<ProjectManager>()?.GetProjectService<IPortalService>() ?? 
                                 WorldBuilder.App.Services?.GetService<IPortalService>() ?? 
                                 new PortalService(Dats ?? WorldBuilder.App.Services?.GetService<ProjectManager>()?.GetProjectService<IDatReaderWriter>()!);
-            _gameScene = new GameScene(gl, Renderer.GraphicsDevice, loggerFactory, portalService);
+            var perfService = WorldBuilder.App.Services?.GetService<PerformanceService>();
+            _gameScene = new GameScene(gl, Renderer.GraphicsDevice, loggerFactory, portalService, perfService);
 
             if (_cachedEditorState != null) {
                 _gameScene.State = _cachedEditorState;

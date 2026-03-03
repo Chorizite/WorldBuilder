@@ -249,8 +249,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _shader!.SetUniform("uTextureArray", 0);
 
                 _gl.BindBuffer(GLEnum.ElementArrayBuffer, batch.IBO);
-                _gl.DrawElementsInstanced(PrimitiveType.Triangles, (uint)batch.IndexCount,
-                    DrawElementsType.UnsignedShort, (void*)0, (uint)instanceTransforms.Length);
+                _gl.DrawElementsInstancedBaseVertex(PrimitiveType.Triangles, (uint)batch.IndexCount,
+                    DrawElementsType.UnsignedShort, (void*)(batch.FirstIndex * sizeof(ushort)), (uint)instanceTransforms.Length, (int)batch.BaseVertex);
             }
 
 

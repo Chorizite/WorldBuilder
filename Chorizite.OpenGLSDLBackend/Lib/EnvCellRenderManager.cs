@@ -40,7 +40,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         protected override bool RenderHighlightsWhenEmpty => true;
 
-        protected override int MaxConcurrentGenerations => 21;
+        protected override int MaxConcurrentGenerations => Math.Max(4, System.Environment.ProcessorCount * 2);
 
         protected override bool UseInstanceBuffer => false;
 
@@ -243,7 +243,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             using var threadLocalBatchedByCell = new ThreadLocal<Dictionary<uint, Dictionary<ulong, List<InstanceData>>>>(() => new(), true);
             using var threadLocalGlobalGroups = new ThreadLocal<Dictionary<ulong, List<InstanceData>>>(() => new(), true);
 
-            Parallel.ForEach(landblocks, lb => {
+            var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = System.Environment.ProcessorCount };
+            Parallel.ForEach(landblocks, parallelOptions, lb => {
                 var testResult = _frustum.TestBox(lb.TotalEnvCellBounds);
                 if (testResult == FrustumTestResult.Outside) return;
 
@@ -405,7 +406,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             if (allInstances.Count > 0) {
                 if (_useModernRendering) {
-                    RenderModernMDI(_shader, drawCalls, allInstances);
+                    RenderModernMDI(_shader, drawCalls, allInstances, renderPass);
                 } else {
                     // Upload all instance data in one go (with orphaning)
                     GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData), true);
@@ -417,7 +418,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                     // Issue draw calls
                     foreach (var call in drawCalls) {
-                        RenderObjectBatches(_shader!, call.renderData, call.count, call.offset);
+                        RenderObjectBatches(_shader!, call.renderData, call.count, call.offset, renderPass);
                     }
                 }
             }
@@ -426,10 +427,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (RenderHighlightsWhenEmpty || _batchedByCell.Count > 0) {
                 Gl.DepthFunc(GLEnum.Lequal);
                 if (SelectedInstance.HasValue) {
-                    RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection);
+                    RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
                 }
                 if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
-                    RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover);
+                    RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
                 }
                 Gl.DepthFunc(GLEnum.Less);
             }

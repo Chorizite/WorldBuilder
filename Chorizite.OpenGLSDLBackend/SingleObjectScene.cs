@@ -432,7 +432,7 @@ namespace Chorizite.OpenGLSDLBackend {
             }
 
             if (_useModernRendering) {
-                RenderModernMDI(_shader!, drawCalls, allInstances, ShowCulling);
+                RenderModernMDI(_shader!, drawCalls, allInstances, 2, ShowCulling);
             }
             else {
                 GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData));
@@ -443,7 +443,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 }
 
                 foreach (var call in drawCalls) {
-                    RenderObjectBatches(_shader!, call.renderData, call.count, call.offset, ShowCulling);
+                    RenderObjectBatches(_shader!, call.renderData, call.count, call.offset, 2, ShowCulling);
                 }
             }
         }

@@ -30,6 +30,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     }
 
     public struct LandblockMdiCommand {
+        public ulong SortKey;
         public ulong ObjectId;
         public DrawElementsIndirectCommand Command;
         public ModernBatchData BatchData;
@@ -37,5 +38,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public ManagedGLTextureArray Atlas;
         public uint VAO;
         public uint IBO;
+        public bool IsTransparent;
     }
 }

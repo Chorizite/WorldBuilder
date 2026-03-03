@@ -195,7 +195,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public unsafe void RenderConsolidated(IShader shader, List<ObjectLandblock> landblocks) {
+        public unsafe void RenderConsolidated(IShader shader, List<ObjectLandblock> landblocks, int renderPass) {
             if (landblocks.Count == 0) return;
 
             shader.SetUniform("uFilterByCell", 0);
@@ -209,9 +209,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
+            var stride = (uint)sizeof(InstanceData);
             for (int i = 0; i < 4; i++) {
                 var group = _cullGroups[i];
                 if (group.Count == 0) continue;
+
+                // Sort to minimize state changes using pre-calculated sort key
+                if (renderPass == 1) {
+                    // Transparent pass: sort by BaseInstance (order in buffer / landblock order)
+                    group.Sort((a, b) => a.Command.BaseInstance.CompareTo(b.Command.BaseInstance));
+                } else {
+                    // Opaque pass: sort front-to-back for state efficiency
+                    group.Sort((a, b) => a.SortKey.CompareTo(b.SortKey));
+                }
 
                 var cullMode = (CullMode)i;
                 if (CurrentCullMode != cullMode) {
@@ -219,28 +229,45 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     CurrentCullMode = cullMode;
                 }
 
+                uint? lastBaseInstance = null;
+                uint? lastTextureIndex = null;
+
                 foreach (var cmd in group) {
+                    if (renderPass == 0 && cmd.IsTransparent) continue;
+                    if (renderPass == 1 && !cmd.IsTransparent) continue;
+
+                    bool vaoChanged = false;
                     if (CurrentVAO != cmd.VAO) {
                         Gl.BindVertexArray(cmd.VAO);
                         CurrentVAO = cmd.VAO;
+                        vaoChanged = true;
                     }
 
-                    Gl.BindBuffer(GLEnum.ArrayBuffer, _worldInstanceBuffer);
-                    var stride = (uint)sizeof(InstanceData);
-                    var offset = (byte*)0 + (cmd.Command.BaseInstance * sizeof(InstanceData));
+                    if (vaoChanged || lastBaseInstance != cmd.Command.BaseInstance) {
+                        Gl.BindBuffer(GLEnum.ArrayBuffer, _worldInstanceBuffer);
+                        var offset = (byte*)0 + (cmd.Command.BaseInstance * sizeof(InstanceData));
 
-                    for (uint j = 0; j < 4; j++) {
-                        var loc = 3 + j;
-                        Gl.EnableVertexAttribArray(loc);
-                        Gl.VertexAttribPointer(loc, 4, GLEnum.Float, false, stride, (void*)(offset + (j * 16)));
-                        Gl.VertexAttribDivisor(loc, 1);
+                        for (uint j = 0; j < 4; j++) {
+                            var loc = 3 + j;
+                            if (vaoChanged) {
+                                Gl.EnableVertexAttribArray(loc);
+                                Gl.VertexAttribDivisor(loc, 1);
+                            }
+                            Gl.VertexAttribPointer(loc, 4, GLEnum.Float, false, stride, (void*)(offset + (j * 16)));
+                        }
+                        if (vaoChanged) {
+                            Gl.EnableVertexAttribArray(8);
+                            Gl.VertexAttribDivisor(8, 1);
+                        }
+                        Gl.VertexAttribIPointer(8, 1, GLEnum.UnsignedInt, stride, (void*)(offset + 64));
+                        
+                        lastBaseInstance = cmd.Command.BaseInstance;
                     }
-                    Gl.EnableVertexAttribArray(8);
-                    Gl.VertexAttribIPointer(8, 1, GLEnum.UnsignedInt, stride, (void*)(offset + 64));
-                    Gl.VertexAttribDivisor(8, 1);
 
-                    Gl.DisableVertexAttribArray(7);
-                    Gl.VertexAttrib1(7, (float)cmd.TextureIndex);
+                    if (lastTextureIndex != cmd.TextureIndex) {
+                        Gl.VertexAttrib1(7, (float)cmd.TextureIndex);
+                        lastTextureIndex = cmd.TextureIndex;
+                    }
 
                     if (CurrentAtlas != (uint)cmd.Atlas.NativePtr) {
                         cmd.Atlas.Bind(0);
@@ -253,18 +280,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         CurrentIBO = cmd.IBO;
                     }
 
-                    if (_useModernRendering) {
-                        Gl.DrawElementsInstancedBaseVertex(PrimitiveType.Triangles, cmd.Command.Count,
-                            DrawElementsType.UnsignedShort, (void*)(cmd.Command.FirstIndex * sizeof(ushort)), cmd.Command.InstanceCount, (int)cmd.Command.BaseVertex);
-                    } else {
-                        Gl.DrawElementsInstanced(PrimitiveType.Triangles, cmd.Command.Count,
-                            DrawElementsType.UnsignedShort, (void*)0, cmd.Command.InstanceCount);
-                    }
+                    Gl.DrawElementsInstancedBaseVertex(PrimitiveType.Triangles, cmd.Command.Count,
+                        DrawElementsType.UnsignedShort, (void*)(cmd.Command.FirstIndex * sizeof(ushort)), cmd.Command.InstanceCount, (int)cmd.Command.BaseVertex);
                 }
             }
         }
 
-        public unsafe void RenderConsolidatedMDI(IShader shader, List<ObjectLandblock> landblocks) {
+        public unsafe void RenderConsolidatedMDI(IShader shader, List<ObjectLandblock> landblocks, int renderPass) {
             if (landblocks.Count == 0) return;
 
             shader.SetUniform("uFilterByCell", 0);
@@ -275,8 +297,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 foreach (var kvp in lb.MdiCommands) {
                     var idx = (int)kvp.Key;
                     if (idx < 0 || idx >= 4) continue;
-                    _cullGroups[idx].AddRange(kvp.Value);
-                    totalDraws += kvp.Value.Count;
+                    
+                    foreach (var cmd in kvp.Value) {
+                        if (renderPass == 0 && cmd.IsTransparent) continue;
+                        if (renderPass == 1 && !cmd.IsTransparent) continue;
+                        _cullGroups[idx].Add(cmd);
+                        totalDraws++;
+                    }
                 }
             }
 
@@ -348,15 +375,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         protected unsafe void RenderObjectBatches(IShader shader, ObjectRenderData renderData,
-            int instanceCount, int instanceOffset, uint instanceVbo, bool showCulling = true) {
+            int instanceCount, int instanceOffset, uint instanceVbo, int renderPass, bool showCulling = true) {
             if (renderData.Batches.Count == 0 || instanceCount == 0) return;
 
             shader.Bind();
             shader.SetUniform("uFilterByCell", 0);
 
+            bool vaoChanged = false;
             if (CurrentVAO != renderData.VAO) {
                 Gl.BindVertexArray(renderData.VAO);
                 CurrentVAO = renderData.VAO;
+                vaoChanged = true;
             }
 
             Gl.BindBuffer(GLEnum.ArrayBuffer, instanceVbo);
@@ -365,15 +394,22 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             for (uint i = 0; i < 4; i++) {
                 var loc = 3 + i;
-                Gl.EnableVertexAttribArray(loc);
+                if (vaoChanged) {
+                    Gl.EnableVertexAttribArray(loc);
+                    Gl.VertexAttribDivisor(loc, 1);
+                }
                 Gl.VertexAttribPointer(loc, 4, GLEnum.Float, false, stride, (void*)(offset + (i * 16)));
-                Gl.VertexAttribDivisor(loc, 1);
             }
-            Gl.EnableVertexAttribArray(8);
+            if (vaoChanged) {
+                Gl.EnableVertexAttribArray(8);
+                Gl.VertexAttribDivisor(8, 1);
+            }
             Gl.VertexAttribIPointer(8, 1, GLEnum.UnsignedInt, stride, (void*)(offset + 64));
-            Gl.VertexAttribDivisor(8, 1);
 
             foreach (var batch in renderData.Batches) {
+                if (renderPass == 0 && batch.IsTransparent) continue;
+                if (renderPass == 1 && !batch.IsTransparent) continue;
+
                 var cullMode = showCulling ? batch.CullMode : CullMode.None;
                 if (CurrentCullMode != cullMode) {
                     SetCullMode(cullMode);
@@ -394,18 +430,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     CurrentIBO = batch.IBO;
                 }
 
-                if (_useModernRendering) {
-                    Gl.DrawElementsInstancedBaseVertex(PrimitiveType.Triangles, (uint)batch.IndexCount,
-                        DrawElementsType.UnsignedShort, (void*)(batch.FirstIndex * sizeof(ushort)), (uint)instanceCount, (int)batch.BaseVertex);
-                } else {
-                    Gl.DrawElementsInstanced(PrimitiveType.Triangles, (uint)batch.IndexCount,
-                        DrawElementsType.UnsignedShort, (void*)0, (uint)instanceCount);
-                }
+                Gl.DrawElementsInstancedBaseVertex(PrimitiveType.Triangles, (uint)batch.IndexCount,
+                    DrawElementsType.UnsignedShort, (void*)(batch.FirstIndex * sizeof(ushort)), (uint)instanceCount, (int)batch.BaseVertex);
             }
         }
 
         protected unsafe void RenderObjectBatches(IShader shader, ObjectRenderData renderData,
-            List<InstanceData> instanceTransforms, bool showCulling = true) {
+            List<InstanceData> instanceTransforms, int renderPass, bool showCulling = true) {
             if (renderData.Batches.Count == 0 || instanceTransforms.Count == 0) return;
 
             GraphicsDevice.EnsureInstanceBufferCapacity(instanceTransforms.Count, sizeof(InstanceData));
@@ -416,15 +447,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(instanceTransforms.Count * sizeof(InstanceData)), ptr);
             }
 
-            RenderObjectBatches(shader, renderData, instanceTransforms.Count, 0, GraphicsDevice.InstanceVBO, showCulling);
+            RenderObjectBatches(shader, renderData, instanceTransforms.Count, 0, GraphicsDevice.InstanceVBO, renderPass, showCulling);
         }
 
         protected unsafe void RenderObjectBatches(IShader shader, ObjectRenderData renderData,
-            int instanceCount, int instanceOffset, bool showCulling = true) {
-            RenderObjectBatches(shader, renderData, instanceCount, instanceOffset, GraphicsDevice.InstanceVBO, showCulling);
+            int instanceCount, int instanceOffset, int renderPass, bool showCulling = true) {
+            RenderObjectBatches(shader, renderData, instanceCount, instanceOffset, GraphicsDevice.InstanceVBO, renderPass, showCulling);
         }
 
-        protected unsafe void RenderModernMDI(IShader shader, List<(ObjectRenderData renderData, int count, int offset)> drawCalls, List<InstanceData> allInstances, bool showCulling = true) {
+        protected unsafe void RenderModernMDI(IShader shader, List<(ObjectRenderData renderData, int count, int offset)> drawCalls, List<InstanceData> allInstances, int renderPass, bool showCulling = true) {
             if (drawCalls.Count == 0 || allInstances.Count == 0) return;
 
             shader.Bind();
@@ -435,6 +466,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             foreach (var call in drawCalls) {
                 foreach (var batch in call.renderData.Batches) {
+                    if (renderPass == 0 && batch.IsTransparent) continue;
+                    if (renderPass == 1 && !batch.IsTransparent) continue;
+
                     var cullMode = showCulling ? batch.CullMode : CullMode.None;
                     if (!batchesByCullMode.TryGetValue(cullMode, out var list)) {
                         list = new();
