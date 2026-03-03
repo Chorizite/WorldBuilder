@@ -213,26 +213,32 @@ public partial class LandscapeView : UserControl {
             }
         }
     }
-    
+
     private void OnPropertiesPanelSizeChanged(object? sender, SizeChangedEventArgs e) {
         // Enforce minimum and maximum height properly when dragging GridSplitter, since setting MinHeight/MaxHeight in XAML doesn't work due to Avalonia issue #5868
         if (_sideBarSplitter != null) {
             var rightPanelsGrid = _sideBarSplitter.Parent as Grid;
             if (rightPanelsGrid != null && rightPanelsGrid.RowDefinitions.Count >= 3) {
                 var totalHeight = rightPanelsGrid.Bounds.Height;
-                
+
                 if (totalHeight > 0) {
-                    var bottomRow = rightPanelsGrid.RowDefinitions[2];
+                    var topRow = rightPanelsGrid.RowDefinitions[0]; // TabControl
+                    var bottomRow = rightPanelsGrid.RowDefinitions[2]; // PropertiesPanel
                     var currentHeight = e.NewSize.Height;
-                    var currentHeightPercent = (currentHeight / totalHeight) * 100.0;
-                    
-                    // Apply constraints using pixel values during dragging
+                    var splitterHeight = 4.0; // Fixed height of the splitter row
+                    var availableHeightForStars = totalHeight - splitterHeight;
+
+                    // Apply constraints using star format to prevent bouncing
                     if (currentHeight < PROPERTIES_PANEL_MAX_BOTTOM_DIST) {
-                        bottomRow.Height = new GridLength(PROPERTIES_PANEL_MAX_BOTTOM_DIST);
+                        var constrainedStarValue = PROPERTIES_PANEL_MAX_BOTTOM_DIST / availableHeightForStars;
+                        topRow.Height = new GridLength(1.0 - constrainedStarValue, GridUnitType.Star);
+                        bottomRow.Height = new GridLength(constrainedStarValue, GridUnitType.Star);
                     }
                     else if (currentHeight > totalHeight - PROPERTIES_PANEL_MIN_TOP_DIST) {
                         var maxHeight = totalHeight - PROPERTIES_PANEL_MIN_TOP_DIST;
-                        bottomRow.Height = new GridLength(maxHeight);
+                        var constrainedStarValue = maxHeight / availableHeightForStars;
+                        topRow.Height = new GridLength(1.0 - constrainedStarValue, GridUnitType.Star);
+                        bottomRow.Height = new GridLength(constrainedStarValue, GridUnitType.Star);
                     }
                 }
             }
@@ -251,7 +257,7 @@ public partial class LandscapeView : UserControl {
             var totalHeight = rightPanelsGrid.Bounds.Height;
             var splitterHeight = 4.0; // Fixed height of the splitter row
             
-            if (totalHeight > 0) {
+            if (totalHeight > 0 && bottomRow.Height.Value > 1) {
                 var currentHeight = bottomRow.Height.Value;
                 var availableHeightForStars = totalHeight - splitterHeight;
                 
