@@ -211,7 +211,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, out SceneRaycastHit hit, float maxDistance = float.MaxValue, bool ignoreVisibility = false) {
+        public virtual bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, out SceneRaycastHit hit, float maxDistance = float.MaxValue, bool ignoreVisibility = false) {
             hit = SceneRaycastHit.NoHit;
             if ((!ShowPortals && !ignoreVisibility) || _landscapeDoc.Region == null) return false;
 

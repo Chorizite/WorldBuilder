@@ -135,39 +135,25 @@ public class CameraController {
                 }
             }
 
-            // Update current cell ID based on portal transition rules
-            if (state.EnableCameraCollision) {
-                if (moveDist > 0.0001f) {
-                    if (portalManager != null && portalManager.Raycast(oldPos, moveDir / moveDist, out var portalHit, moveDist, true)) {
-                        if (currentEnvCellId == 0) {
-                            currentEnvCellId = portalHit.ObjectId;
-                        }
-                        else {
-                            var nextCell = envCellManager?.GetEnvCellAt(newPos, false) ?? 0;
-                            if (nextCell == currentEnvCellId && portalHit.ObjectId == currentEnvCellId) {
-                                currentEnvCellId = 0;
-                            }
-                            else {
-                                currentEnvCellId = nextCell;
-                            }
-                        }
+            // Update current cell ID
+            if (moveDist > 0.0001f || (envCellManager?.NeedsPrepare ?? false) || (portalManager?.NeedsPrepare ?? false)) {
+                if (state.EnableCameraCollision && moveDist > 0.0001f && portalManager != null && portalManager.Raycast(oldPos, moveDir / moveDist, out var portalHit, moveDist, true)) {
+                    if (currentEnvCellId == 0) {
+                        currentEnvCellId = portalHit.ObjectId;
                     }
-                    else if (currentEnvCellId != 0) {
-                        if ((envCellManager?.GetEnvCellAt(newPos, false) ?? 0) == 0) {
+                    else {
+                        var nextCell = envCellManager?.GetEnvCellAt(newPos, false) ?? 0;
+                        if (nextCell == currentEnvCellId && portalHit.ObjectId == currentEnvCellId) {
+                            // We hit a portal in the current cell that leads back outside?
                             currentEnvCellId = 0;
                         }
+                        else {
+                            currentEnvCellId = nextCell;
+                        }
                     }
                 }
-
-                // If we are at 0, we might have just loaded into a cell or teleported.
-                // We check this if we moved or if the environment manager just loaded new data.
-                if (currentEnvCellId == 0 && (moveDist > 0.0001f || (envCellManager?.NeedsPrepare ?? false) || (portalManager?.NeedsPrepare ?? false))) {
-                    currentEnvCellId = envCellManager?.GetEnvCellAt(newPos, false) ?? 0;
-                }
-            }
-            else {
-                // When collision is off, always track the cell we are in if moving or data changed
-                if (moveDist > 0.0001f || (envCellManager?.NeedsPrepare ?? false) || (portalManager?.NeedsPrepare ?? false)) {
+                else {
+                    // When collision is off, or no portal was hit, always track the cell we are in if moving or data changed
                     currentEnvCellId = envCellManager?.GetEnvCellAt(newPos, false) ?? 0;
                 }
             }

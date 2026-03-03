@@ -235,7 +235,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public void GenerateMipmaps() {
             foreach (var atlasList in _globalAtlases.Values) {
                 foreach (var atlas in atlasList) {
-                    atlas.TextureArray.GenerateMipmaps();
+                    atlas.TextureArray.ProcessDirtyUpdates();
                 }
             }
         }

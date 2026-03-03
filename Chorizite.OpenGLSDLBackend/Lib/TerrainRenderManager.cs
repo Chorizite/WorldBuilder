@@ -779,6 +779,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             BaseObjectRenderManager.CurrentVAO = 0;
         }
 
+        public void GenerateMipmaps() {
+            if (_surfaceManager != null) {
+                (_surfaceManager.TerrainAtlas as ManagedGLTextureArray)?.ProcessDirtyUpdates();
+                (_surfaceManager.AlphaAtlas as ManagedGLTextureArray)?.ProcessDirtyUpdates();
+            }
+        }
+
         public void InvalidateLandblock(int lbX, int lbY) {
             if (lbX == -1 && lbY == -1) {
                 foreach (var c in _chunks.Values) {

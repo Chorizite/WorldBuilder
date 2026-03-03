@@ -789,6 +789,7 @@ public class GameScene : IDisposable {
 
         // Pass 1: Opaque Scenery & Static Objects (exterior)
         _meshManager?.GenerateMipmaps();
+        _terrainManager?.GenerateMipmaps();
         _sceneryShader?.Bind();
         int pass1RenderPass = _state.EnableTransparencyPass ? 0 : 2;
 

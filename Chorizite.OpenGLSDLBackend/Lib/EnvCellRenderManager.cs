@@ -60,7 +60,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _showEnvCells = showEnvCells;
         }
 
-        public uint GetEnvCellAt(Vector3 pos, bool onlyEntryCells = false) {
+        public virtual uint GetEnvCellAt(Vector3 pos, bool onlyEntryCells = false) {
             if (LandscapeDoc.Region == null) return 0;
 
             var lbSize = LandscapeDoc.Region.LandblockSizeInUnits;
@@ -129,7 +129,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return false;
         }
 
-        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false, float maxDistance = float.MaxValue) {
+        public virtual bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false, float maxDistance = float.MaxValue) {
             hit = SceneRaycastHit.NoHit;
 
             // Early exit: Don't collide with interiors if we are outside
