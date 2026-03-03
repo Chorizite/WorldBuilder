@@ -155,7 +155,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private readonly IDatReaderWriter _dats;
         private readonly ILogger<ObjectMeshManager> _logger;
-        private readonly Dictionary<ulong, ObjectRenderData> _renderData = new();
+        private readonly ConcurrentDictionary<ulong, ObjectRenderData> _renderData = new();
         private readonly ConcurrentDictionary<ulong, int> _usageCount = new();
         private readonly ConcurrentDictionary<ulong, (Vector3 Min, Vector3 Max)?> _boundsCache = new();
         private readonly ConcurrentDictionary<ulong, Task<ObjectMeshData?>> _preparationTasks = new();
@@ -525,7 +525,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         SelectionSphere = meshData.SelectionSphere,
                         MemorySize = 1024 // Small overhead for the setup itself
                     };
-                    _renderData[meshData.ObjectId] = data;
+                    _renderData.TryAdd(meshData.ObjectId, data);
                     IncrementRefCount(meshData.ObjectId);
                     _currentGpuMemory += data.MemorySize;
 
@@ -541,7 +541,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (renderData != null) {
                     renderData.BoundingBox = meshData.BoundingBox;
                     renderData.SelectionSphere = meshData.SelectionSphere;
-                    _renderData[meshData.ObjectId] = renderData;
+                    _renderData.TryAdd(meshData.ObjectId, renderData);
                     IncrementRefCount(meshData.ObjectId);
                     _currentGpuMemory += renderData.MemorySize;
 
@@ -1570,7 +1570,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             _currentGpuMemory -= data.MemorySize;
-            _renderData.Remove(key);
+            _renderData.TryRemove(key, out _);
             lock (_lruList) {
                 _lruList.Remove(key);
             }
