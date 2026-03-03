@@ -97,10 +97,10 @@
 
         <!-- Time of Day Overlay -->
         <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8,48,8,8"
-                Background="{DynamicResource SemiColorFill0}" BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1"
+                Background="#AA000000" BorderBrush="Transparent" BorderThickness="1"
                 CornerRadius="4" Padding="8,4" Width="200">
           <Grid ColumnDefinitions="Auto, *">
-            <icons:MaterialIcon Kind="WeatherSunny" Margin="0,0,8,0" Foreground="{DynamicResource SemiColorText0}" />
+            <icons:MaterialIcon Kind="WeatherSunny" Margin="0,0,8,0" Foreground="White" />
             <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding EditorState.TimeOfDay}" 
                     ToolTip.Tip="Time of Day" />
           </Grid>
@@ -108,11 +108,11 @@
         
         <!-- Location Overlay -->
         <Border HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="10" 
-                Background="{DynamicResource SemiColorFill0}" BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1"
+                Background="#AA000000" BorderBrush="Transparent" BorderThickness="1"
                 CornerRadius="4" Padding="6,4">
           <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock x:Name="LocationText"
-                       Foreground="{DynamicResource SemiColorText0}"
+                       Foreground="White"
                        FontFamily="Consolas, Monospace"
                        FontSize="12"
                        VerticalAlignment="Center"
@@ -120,7 +120,7 @@
             <Button x:Name="CopyLocationButton" 
                     Background="Transparent" BorderThickness="0" Padding="2" Width="24" Height="24"
                     ToolTip.Tip="Copy Location">
-              <icons:MaterialIcon Kind="ContentCopy" Width="14" Height="14" />
+              <icons:MaterialIcon Kind="ContentCopy" Width="14" Height="14" Foreground="White" />
             </Button>
           </StackPanel>
         </Border>
