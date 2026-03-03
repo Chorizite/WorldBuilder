@@ -11,6 +11,7 @@ using WorldBuilder.Services;
 using Silk.NET.OpenGL;
 using System;
 using System.Runtime.InteropServices;
+using Chorizite.OpenGLSDLBackend.Lib;
 
 namespace WorldBuilder.Views {
     public abstract partial class Base3DViewport {
@@ -87,35 +88,30 @@ namespace WorldBuilder.Views {
                         }
 
                         // Save and set OpenGL state for rendering
-                        var state = SaveGlState(SilkGl);
-                        SetupGlStateForRendering(SilkGl);
+                        using (var state = new GLStateScope(SilkGl)) {
+                            SetupGlStateForRendering(SilkGl);
 
-                        // Render to FBO (with scissor disabled to avoid clipping our internal render)
-                        SilkGl.Disable(EnableCap.ScissorTest);
+                            // Render to FBO (with scissor disabled to avoid clipping our internal render)
+                            SilkGl.Disable(EnableCap.ScissorTest);
 
-                        var sw = System.Diagnostics.Stopwatch.StartNew();
-                        _parent.OnGlRenderInternal(frameTime);
-                        sw.Stop();
+                            var sw = System.Diagnostics.Stopwatch.StartNew();
+                            _parent.OnGlRenderInternal(frameTime);
+                            sw.Stop();
 
-                        if (perfService != null) {
-                            perfService.RenderTime = sw.Elapsed.TotalMilliseconds;
+                            if (perfService != null) {
+                                perfService.RenderTime = sw.Elapsed.TotalMilliseconds;
+                            }
+
+                            if (_parent._renderRequested) {
+                                RegisterForNextAnimationFrameUpdate();
+                            }
+
+                            // Restore scissor before blitting to prevent drawing outside our bounds
+                            state.RestoreScissor();
+
+                            // Blit FBO to screen
+                            BlitFramebuffer(SilkGl, oldFramebufferBinding, controlSize);
                         }
-
-                        if (_parent._renderRequested) {
-                            RegisterForNextAnimationFrameUpdate();
-                        }
-
-                        // Restore scissor before blitting to prevent drawing outside our bounds
-                        RestoreScissorState(SilkGl, state);
-
-                        // Blit FBO to screen
-                        BlitFramebuffer(SilkGl, oldFramebufferBinding, controlSize);
-
-                        // Restore full OpenGL state
-                        RestoreGlState(SilkGl, state);
-
-                        // Restore framebuffer
-                        SilkGl.BindFramebuffer(FramebufferTarget.Framebuffer, (uint)oldFramebufferBinding);
                     }
                 }
                 catch (Exception ex) {
@@ -148,22 +144,6 @@ namespace WorldBuilder.Views {
                 var renderer = SilkGl.GetStringS(StringName.Renderer);
             }
 
-            private GlState SaveGlState(GL gl) {
-                var state = new GlState();
-                gl.GetInteger(GetPName.Viewport, state.Viewport);
-                state.DepthTest = gl.IsEnabled(EnableCap.DepthTest);
-                state.CullFace = gl.IsEnabled(EnableCap.CullFace);
-                gl.GetInteger(GetPName.CullFaceMode, out state.CullFaceMode);
-                gl.GetInteger(GetPName.FrontFace, out state.FrontFace);
-                state.Blend = gl.IsEnabled(EnableCap.Blend);
-                gl.GetInteger(GetPName.BlendSrcRgb, out state.BlendSrc);
-                gl.GetInteger(GetPName.BlendDstRgb, out state.BlendDst);
-                gl.GetInteger(GetPName.BlendEquationRgb, out state.BlendEquation);
-                state.Scissor = gl.IsEnabled(EnableCap.ScissorTest);
-                gl.GetInteger(GetPName.ScissorBox, state.ScissorBox);
-                return state;
-            }
-
             private void SetupGlStateForRendering(GL gl) {
                 gl.Enable(EnableCap.DepthTest);
                 gl.DepthFunc(DepthFunction.Less);
@@ -172,29 +152,6 @@ namespace WorldBuilder.Views {
                 gl.FrontFace(FrontFaceDirection.CW);
                 gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
                 gl.BlendEquation(BlendEquationModeEXT.FuncAdd);
-            }
-
-            private void RestoreScissorState(GL gl, GlState state) {
-                if (state.Scissor) {
-                    gl.Enable(EnableCap.ScissorTest);
-                    gl.Scissor(state.ScissorBox[0], state.ScissorBox[1], (uint)state.ScissorBox[2], (uint)state.ScissorBox[3]);
-                }
-            }
-
-            private void RestoreGlState(GL gl, GlState state) {
-                gl.Viewport(state.Viewport[0], state.Viewport[1], (uint)state.Viewport[2], (uint)state.Viewport[3]);
-
-                if (state.Scissor) gl.Enable(EnableCap.ScissorTest); else gl.Disable(EnableCap.ScissorTest);
-                gl.Scissor(state.ScissorBox[0], state.ScissorBox[1], (uint)state.ScissorBox[2], (uint)state.ScissorBox[3]);
-
-                if (state.DepthTest) gl.Enable(EnableCap.DepthTest); else gl.Disable(EnableCap.DepthTest);
-                if (state.CullFace) gl.Enable(EnableCap.CullFace); else gl.Disable(EnableCap.CullFace);
-                gl.CullFace((TriangleFace)state.CullFaceMode);
-                gl.FrontFace((FrontFaceDirection)state.FrontFace);
-
-                if (state.Blend) gl.Enable(EnableCap.Blend); else gl.Disable(EnableCap.Blend);
-                gl.BlendFunc((BlendingFactor)state.BlendSrc, (BlendingFactor)state.BlendDst);
-                gl.BlendEquation((BlendEquationModeEXT)state.BlendEquation);
             }
 
             private void BlitFramebuffer(GL gl, int targetFramebuffer, PixelSize controlSize) {
@@ -278,24 +235,6 @@ namespace WorldBuilder.Views {
                 }
             }
 
-            private struct GlState {
-                public int[] Viewport;
-                public bool DepthTest;
-                public bool CullFace;
-                public int CullFaceMode;
-                public int FrontFace;
-                public bool Blend;
-                public int BlendSrc;
-                public int BlendDst;
-                public int BlendEquation;
-                public bool Scissor;
-                public int[] ScissorBox;
-
-                public GlState() {
-                    Viewport = new int[4];
-                    ScissorBox = new int[4];
-                }
-            }
         }
     }
 }

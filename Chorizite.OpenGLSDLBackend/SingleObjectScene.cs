@@ -320,12 +320,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
             MeshManager.GenerateMipmaps();
 
-            // Preserve the current viewport and scissor state
-            Span<int> currentViewport = stackalloc int[4];
-            Gl.GetInteger(GetPName.Viewport, currentViewport);
-            bool wasScissorEnabled = Gl.IsEnabled(EnableCap.ScissorTest);
-
-            try {
+            using (var glScope = new GLStateScope(Gl)) {
                 BaseObjectRenderManager.CurrentVAO = 0;
                 BaseObjectRenderManager.CurrentIBO = 0;
                 BaseObjectRenderManager.CurrentAtlas = 0;
@@ -401,15 +396,6 @@ namespace Chorizite.OpenGLSDLBackend {
                 }
 
                 Gl.DepthMask(true);
-            }
-            finally {
-                // Restore for Avalonia
-                Gl.ColorMask(true, true, true, true);
-                if (wasScissorEnabled) Gl.Enable(EnableCap.ScissorTest);
-                Gl.Enable(EnableCap.DepthTest);
-                Gl.Enable(EnableCap.Blend);
-                Gl.Viewport(currentViewport[0], currentViewport[1],
-                             (uint)currentViewport[2], (uint)currentViewport[3]);
             }
         }
 
