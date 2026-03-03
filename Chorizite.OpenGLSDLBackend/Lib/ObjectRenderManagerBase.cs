@@ -43,6 +43,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Distance-based unloading
         private const float UnloadDelay = 15f;
         private readonly ConcurrentDictionary<ushort, float> _outOfRangeTimers = new();
+        private readonly List<ushort> _keysToRemoveBuffer = new();
+        private readonly List<ObjectLandblock> _prepareVisibleBuffer = new();
+        private readonly List<ObjectLandblock> _prepareIntersectingBuffer = new();
         protected Vector3 _cameraPosition;
         protected int _cameraLbX;
         protected int _cameraLbY;
@@ -101,7 +104,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public Vector3 LightDirection { get; set; } = Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f));
 
         /// <summary>Maximum number of concurrent background generation tasks.</summary>
-        protected virtual int MaxConcurrentGenerations => Math.Max(4, System.Environment.ProcessorCount);
+        protected virtual int MaxConcurrentGenerations => Math.Max(2, System.Environment.ProcessorCount / 2);
 
         /// <summary>
         /// When true, highlighted/selected objects are rendered even when the visible list
@@ -130,6 +133,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Calculates the priority for background generation of a landblock.
         /// Lower values = higher priority.
         /// </summary>
+        /// <summary>
+        /// Returns whether a landblock is ready for generation. Override in subclasses to gate on prerequisites.
+        /// Landblocks that return false are skipped during dispatch and stay in the pending queue.
+        /// </summary>
+        protected virtual bool IsReadyForGeneration(ushort key, ObjectLandblock lb) => true;
+
         protected virtual float GetPriority(ObjectLandblock lb, Vector2 camDir2D, int cameraLbX, int cameraLbY) {
             float dx = lb.GridX - cameraLbX;
             float dy = lb.GridY - cameraLbY;
@@ -207,18 +216,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             // Unload landblocks outside render distance (with delay)
-            var keysToRemove = new List<ushort>();
+            _keysToRemoveBuffer.Clear();
             foreach (var (key, lb) in _landblocks) {
                 if (Math.Abs(lb.GridX - _cameraLbX) > RenderDistance || Math.Abs(lb.GridY - _cameraLbY) > RenderDistance) {
                     var elapsed = _outOfRangeTimers.AddOrUpdate(key, deltaTime, (_, e) => e + deltaTime);
                     if (elapsed >= UnloadDelay) {
-                        keysToRemove.Add(key);
+                        _keysToRemoveBuffer.Add(key);
                     }
                 }
             }
 
             // Actually remove + release GPU resources
-            foreach (var key in keysToRemove) {
+            foreach (var key in _keysToRemoveBuffer) {
                 if (_landblocks.TryRemove(key, out var lb)) {
                     if (_generationCTS.TryRemove(key, out var cts)) {
                         try { cts.Cancel(); } catch { }
@@ -260,6 +269,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 foreach (var (key, lb) in _pendingGeneration) {
+                    // Skip landblocks that aren't ready for generation yet (e.g., scenery waiting for static objects)
+                    if (!IsReadyForGeneration(key, lb)) continue;
+
                     float priority = GetPriority(lb, camDir2D, _cameraLbX, _cameraLbY);
 
                     if (priority < bestPriority) {
@@ -352,8 +364,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             // Build new lists locally to avoid clearing the ones currently being used by the Render thread
-            var newVisibleLandblocks = new List<ObjectLandblock>();
-            var newIntersectingLandblocks = new List<ObjectLandblock>();
+            _prepareVisibleBuffer.Clear();
+            _prepareIntersectingBuffer.Clear();
 
             lock (_activeLandblocksLock) {
                 if (_activeLandblocks.Count > 0) {
@@ -361,7 +373,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         var testResult = _frustum.TestBox(lb.BoundingBox);
                         if (testResult == FrustumTestResult.Outside) continue;
 
-                        newVisibleLandblocks.Add(lb);
+                        _prepareVisibleBuffer.Add(lb);
                     }
                 }
             }
@@ -369,9 +381,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Atomic swap under lock
             lock (_renderLock) {
                 _visibleLandblocks.Clear();
-                _visibleLandblocks.AddRange(newVisibleLandblocks);
+                _visibleLandblocks.AddRange(_prepareVisibleBuffer);
                 _intersectingLandblocks.Clear();
-                _intersectingLandblocks.AddRange(newIntersectingLandblocks);
+                _intersectingLandblocks.AddRange(_prepareIntersectingBuffer);
                 _visibleGroups.Clear();
                 _visibleGfxObjIds.Clear();
                 _poolIndex = 0;
