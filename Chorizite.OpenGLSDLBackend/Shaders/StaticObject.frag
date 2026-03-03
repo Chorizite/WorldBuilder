@@ -20,9 +20,10 @@ void main() {
     
     if (uRenderPass == 0) {
         // Opaque pass - discard transparent pixels so they don't write to depth (Alpha Test)
-        if (color.a < 0.1) discard;
+        if (color.a < 0.95) discard;
     } else if (uRenderPass == 1) {
-        // Transparent pass - we trust CPU filtering, draw everything in the batch with blending
+        // Transparent pass - discard pixels that were already drawn in the opaque pass
+        if (color.a >= 0.95) discard;
     } else if (uRenderPass == 2) {
         // Single pass mode (or fallback)
         if (color.a < 0.1) discard;
