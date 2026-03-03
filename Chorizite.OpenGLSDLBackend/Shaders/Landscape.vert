@@ -4,10 +4,18 @@ precision highp int;
 precision highp sampler2D;
 precision highp sampler2DArray;
 
-uniform mat4 xView;
-uniform mat4 xProjection;
+layout (std140) uniform SceneData {
+    mat4 uView;
+    mat4 uProjection;
+    mat4 uViewProjection;
+    vec3 uCameraPosition;
+    vec3 uLightDirection;
+    vec3 uSunlightColor;
+    vec3 uAmbientColor;
+    float uSpecularPower;
+};
+
 uniform mat4 xWorld;
-uniform vec3 xLightDirection;
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in uvec4 inPacked0;
@@ -40,7 +48,7 @@ vec4 unpackLayer(uint texIdxU, uint alphaIdxU, uint rotIdx, vec2 baseUV) {
 }
 
 void main() {
-    gl_Position = xProjection * xView * xWorld * vec4(inPosition, 1.0);
+    gl_Position = uViewProjection * xWorld * vec4(inPosition, 1.0);
     vWorldPos = inPosition.xy;
     vWorldPos3D = (xWorld * vec4(inPosition, 1.0)).xyz;
  

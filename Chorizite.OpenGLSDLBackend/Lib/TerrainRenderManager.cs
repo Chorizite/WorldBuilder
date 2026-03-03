@@ -681,17 +681,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.Bind();
 
             // Set uniforms
-            _shader.SetUniform("xView", viewMatrix);
-            _shader.SetUniform("xProjection", projectionMatrix);
             _shader.SetUniform("xWorld", Matrix4x4.Identity); // Chunks are already in world space coordinates
             _shader.SetUniform("uAlpha", 1.0f);
             var region = _landscapeDoc.Region;
             if (region != null) {
                 region.TimeOfDay = TimeOfDay;
             }
-            _shader.SetUniform("uSunlightColor", region?.SunlightColor ?? SunlightColor);
-            _shader.SetUniform("uAmbientColor", (region?.AmbientColor ?? AmbientColor) * LightIntensity);
-            _shader.SetUniform("uLightDirection", region?.LightDirection ?? LightDirection);
 
             // Brush uniforms
             _shader.SetUniform("uBrushPos", BrushPosition);

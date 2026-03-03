@@ -65,7 +65,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public unsafe void Render(Matrix4x4 viewMatrix, Matrix4x4 projectionMatrix, Vector3 cameraPosition, float fov, float aspectRatio) {
+        public unsafe void Render(Matrix4x4 viewMatrix, Matrix4x4 projectionMatrix, Vector3 cameraPosition, float fov, float aspectRatio, ManagedGLUniformBuffer sceneDataBuffer) {
             if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || _landscapeDoc.Region == null) return;
 
             var regionInfo = _landscapeDoc.Region;
@@ -95,12 +95,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             // Update shader uniforms
             _shader.Bind();
-            _shader.SetUniform("uViewProjection", skyViewProj);
-            _shader.SetUniform("uCameraPosition", Vector3.Zero); // Center sky at local origin
-            _shader.SetUniform("uLightDirection", regionInfo.LightDirection);
-            _shader.SetUniform("uSunlightColor", Vector3.Zero); // Skybox is fully unlit/ambient
-            _shader.SetUniform("uAmbientColor", Vector3.One);
-            _shader.SetUniform("uSpecularPower", 32.0f);
+            var sceneData = new SceneData {
+                View = skyView,
+                Projection = skyProjection,
+                ViewProjection = skyViewProj,
+                CameraPosition = Vector3.Zero, // Center sky at local origin
+                LightDirection = regionInfo.LightDirection,
+                SunlightColor = Vector3.Zero, // Skybox is fully unlit/ambient
+                AmbientColor = Vector3.One,
+                SpecularPower = 32.0f
+            };
+            sceneDataBuffer.SetData(ref sceneData);
+            sceneDataBuffer.Bind(0);
+
             _shader.SetUniform("uRenderPass", 2);
 
             var skyTimes = dayGroup.SkyTime.OrderBy(s => s.Begin).ToList();

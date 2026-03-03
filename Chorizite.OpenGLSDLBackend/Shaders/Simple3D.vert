@@ -11,9 +11,18 @@ layout (location = 1) in vec4 aColor;
 
 out vec4 vertexColor;
 
+layout (std140) uniform SceneData {
+    mat4 uView;
+    mat4 uProjection;
+    mat4 uViewProjection;
+    vec3 uCameraPosition;
+    vec3 uLightDirection;
+    vec3 uSunlightColor;
+    vec3 uAmbientColor;
+    float uSpecularPower;
+};
+
 uniform mat4 uModel;
-uniform mat4 uView;
-uniform mat4 uProjection;
 
 void main() {
     gl_Position = uProjection * uView * uModel * vec4(aPosition, 1.0);

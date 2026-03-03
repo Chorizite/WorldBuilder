@@ -363,7 +363,7 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public override IUniformBuffer CreateUniformBuffer(BufferUsage usage, int size) {
-            throw new NotImplementedException();
+            return (IUniformBuffer)new ManagedGLUniformBuffer(this, usage, size);
         }
     }
 }

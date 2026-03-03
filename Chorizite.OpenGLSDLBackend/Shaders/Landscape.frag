@@ -5,11 +5,19 @@ precision highp int;
 precision highp sampler2D;
 precision highp sampler2DArray;
 
+layout (std140) uniform SceneData {
+    mat4 uView;
+    mat4 uProjection;
+    mat4 uViewProjection;
+    vec3 uCameraPosition;
+    vec3 uLightDirection;
+    vec3 uSunlightColor;
+    vec3 uAmbientColor;
+    float uSpecularPower;
+};
+
 uniform sampler2DArray xOverlays;
 uniform sampler2DArray xAlphas;
-uniform vec3 uSunlightColor;
-uniform vec3 uAmbientColor;
-uniform vec3 uLightDirection;
 uniform float uAlpha;
 
 // Grid uniforms

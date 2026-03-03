@@ -11,12 +11,16 @@ layout(location = 3) in mat4 aInstanceMatrix;
 layout(location = 7) in float aTextureIndex;
 layout(location = 8) in uint aCellId;
 
-uniform mat4 uViewProjection;
-uniform vec3 uCameraPosition;
-uniform vec3 uLightDirection;
-uniform vec3 uSunlightColor;
-uniform vec3 uAmbientColor;
-uniform float uSpecularPower;
+layout (std140) uniform SceneData {
+    mat4 uView;
+    mat4 uProjection;
+    mat4 uViewProjection;
+    vec3 uCameraPosition;
+    vec3 uLightDirection;
+    vec3 uSunlightColor;
+    vec3 uAmbientColor;
+    float uSpecularPower;
+};
 
 uniform int uFilterByCell;
 uniform int uActiveCellCount;

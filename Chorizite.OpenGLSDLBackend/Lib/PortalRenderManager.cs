@@ -352,7 +352,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _gl.Enable(EnableCap.DepthClamp);
 
             _stencilShader.Bind();
-            _stencilShader.SetUniform("uViewProjection", viewProjection);
             _stencilShader.SetUniform("uWriteFarDepth", writeFarDepth ? 1 : 0);
 
             _gl.BindVertexArray(building.VAO);

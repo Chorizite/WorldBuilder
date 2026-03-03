@@ -30,12 +30,16 @@ layout(std430, binding = 1) readonly buffer BatchBuffer {
     ModernBatchData Batches[];
 };
 
-uniform mat4 uViewProjection;
-uniform vec3 uCameraPosition;
-uniform vec3 uLightDirection;
-uniform vec3 uSunlightColor;
-uniform vec3 uAmbientColor;
-uniform float uSpecularPower;
+layout (std140) uniform SceneData {
+    mat4 uView;
+    mat4 uProjection;
+    mat4 uViewProjection;
+    vec3 uCameraPosition;
+    vec3 uLightDirection;
+    vec3 uSunlightColor;
+    vec3 uAmbientColor;
+    float uSpecularPower;
+};
 
 uniform int uDrawIDOffset;
 uniform int uFilterByCell;

@@ -42,6 +42,7 @@ public class GameScene : IDisposable {
     private IShader? _terrainShader;
     private IShader? _sceneryShader;
     private IShader? _stencilShader;
+    private ManagedGLUniformBuffer? _sceneDataBuffer;
     private bool _initialized;
     private int _width;
     private int _height;
@@ -291,6 +292,8 @@ public class GameScene : IDisposable {
         var pVertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.PortalStencil.vert");
         var pFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.PortalStencil.frag");
         _stencilShader = _graphicsDevice.CreateShader("PortalStencil", pVertSource, pFragSource);
+
+        _sceneDataBuffer = new ManagedGLUniformBuffer(_graphicsDevice, Chorizite.Core.Render.Enums.BufferUsage.Dynamic, System.Runtime.InteropServices.Marshal.SizeOf<SceneData>());
 
         _initialized = true;
 
@@ -701,6 +704,20 @@ public class GameScene : IDisposable {
         var snapshotRot = _cameraController.CurrentCamera.Rotation;
         var snapshotFov = _cameraController.CurrentCamera.FieldOfView;
 
+        var sceneRegion = _landscapeDoc?.Region;
+        var sceneData = new SceneData {
+            View = snapshotView,
+            Projection = snapshotProj,
+            ViewProjection = snapshotVP,
+            CameraPosition = snapshotPos,
+            LightDirection = sceneRegion?.LightDirection ?? Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f)),
+            SunlightColor = sceneRegion?.SunlightColor ?? Vector3.One,
+            AmbientColor = (sceneRegion?.AmbientColor ?? new Vector3(0.4f, 0.4f, 0.4f)) * _state.LightIntensity,
+            SpecularPower = 32.0f
+        };
+        _sceneDataBuffer?.SetData(ref sceneData);
+        _sceneDataBuffer?.Bind(0);
+
         var sw = Stopwatch.StartNew();
 
         // Detect if we are inside an EnvCell to handle depth sorting and terrain clipping correctly.
@@ -754,7 +771,9 @@ public class GameScene : IDisposable {
 
         if (_state.ShowSkybox) {
             // Draw skybox before everything else
-            //_skyboxManager?.Render(snapshotView, snapshotProj, snapshotPos, snapshotFov, (float)_width / _height);
+            //_skyboxManager?.Render(snapshotView, snapshotProj, snapshotPos, snapshotFov, (float)_width / _height, _sceneDataBuffer!);
+            //_sceneDataBuffer?.SetData(ref sceneData);
+            //_sceneDataBuffer?.Bind(0);
         }
 
         // Render Terrain (only if not inside, otherwise we render it after EnvCells)
@@ -772,13 +791,6 @@ public class GameScene : IDisposable {
 
         if (_sceneryShader != null) {
             _sceneryShader.SetUniform("uRenderPass", pass1RenderPass);
-            _sceneryShader.SetUniform("uViewProjection", snapshotVP);
-            _sceneryShader.SetUniform("uCameraPosition", snapshotPos);
-            var region = _landscapeDoc?.Region;
-            _sceneryShader.SetUniform("uLightDirection", region?.LightDirection ?? Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f)));
-            _sceneryShader.SetUniform("uSunlightColor", region?.SunlightColor ?? Vector3.One);
-            _sceneryShader.SetUniform("uAmbientColor", (region?.AmbientColor ?? new Vector3(0.4f, 0.4f, 0.4f)) * _state.LightIntensity);
-            _sceneryShader.SetUniform("uSpecularPower", 32.0f);
             _sceneryShader.SetUniform("uHighlightColor", Vector4.Zero);
         }
 
@@ -952,5 +964,6 @@ public class GameScene : IDisposable {
         (_terrainShader as IDisposable)?.Dispose();
         (_sceneryShader as IDisposable)?.Dispose();
         (_stencilShader as IDisposable)?.Dispose();
+        _sceneDataBuffer?.Dispose();
     }
 }

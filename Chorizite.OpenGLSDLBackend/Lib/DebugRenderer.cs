@@ -165,8 +165,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (_lineInstances.Count == 0 || _shader == null) return;
 
             _shader.Bind();
-            _shader.SetUniform("uView", view);
-            _shader.SetUniform("uProjection", projection);
             _shader.SetUniform("uViewportSize", new Vector2(_graphicsDevice.Viewport.Width, _graphicsDevice.Viewport.Height));
 
             _gl.Disable(EnableCap.CullFace);
