@@ -58,6 +58,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         // Active landblocks for rendering
         protected readonly List<ObjectLandblock> _activeLandblocks = new();
+        protected readonly object _activeLandblocksLock = new();
         protected bool _activeLandblocksDirty = true;
         protected readonly List<ObjectLandblock> _visibleLandblocks = new();
         protected readonly List<ObjectLandblock> _intersectingLandblocks = new();
@@ -230,10 +231,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             // Update active landblocks for rendering
             if (_activeLandblocksDirty) {
-                _activeLandblocks.Clear();
-                foreach (var lb in _landblocks.Values) {
-                    if (lb.GpuReady && lb.Instances.Count > 0 && IsWithinRenderDistance(lb)) {
-                        _activeLandblocks.Add(lb);
+                lock (_activeLandblocksLock) {
+                    _activeLandblocks.Clear();
+                    foreach (var lb in _landblocks.Values) {
+                        if (lb.GpuReady && lb.Instances.Count > 0 && IsWithinRenderDistance(lb)) {
+                            _activeLandblocks.Add(lb);
+                        }
                     }
                 }
                 _activeLandblocksDirty = false;
@@ -327,6 +330,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public virtual void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null, bool isOutside = false) {
             if (!_initialized || cameraPosition.Z > 4000) return;
 
+            // Ensure active landblocks are up to date if they were marked dirty by background uploads
+            if (_activeLandblocksDirty) {
+                lock (_activeLandblocksLock) {
+                    if (_activeLandblocksDirty) {
+                        _activeLandblocks.Clear();
+                        foreach (var lb in _landblocks.Values) {
+                            if (lb.GpuReady && lb.Instances.Count > 0 && IsWithinRenderDistance(lb)) {
+                                _activeLandblocks.Add(lb);
+                            }
+                        }
+                        _activeLandblocksDirty = false;
+                    }
+                }
+            }
+
             // Clear previous frame data
             _visibleGroups.Clear();
             _visibleGfxObjIds.Clear();
@@ -336,16 +354,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             NeedsPrepare = false;
 
-            if (_activeLandblocks.Count == 0) return;
+            lock (_activeLandblocksLock) {
+                if (_activeLandblocks.Count == 0) return;
 
-            foreach (var lb in _activeLandblocks) {
-                var testResult = _frustum.TestBox(lb.BoundingBox);
-                if (testResult == FrustumTestResult.Outside) continue;
+                foreach (var lb in _activeLandblocks) {
+                    var testResult = _frustum.TestBox(lb.BoundingBox);
+                    if (testResult == FrustumTestResult.Outside) continue;
 
-                // Move all visible/partially visible landblocks to the fast consolidated path.
-                // Modern GPUs handle the extra instances that might be outside the frustum 
-                // much more efficiently than the CPU handles per-instance culling.
-                _visibleLandblocks.Add(lb);
+                    _visibleLandblocks.Add(lb);
+                }
             }
         }
 
