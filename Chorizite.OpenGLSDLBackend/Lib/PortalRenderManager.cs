@@ -62,6 +62,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Stencil rendering
         private IShader? _stencilShader;
 
+        /// <summary>
+        /// Whether this manager has new data that requires a re-preparation of render batches in the scene.
+        /// </summary>
+        public bool NeedsPrepare { get; private set; }
+
         public PortalRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
             IDatReaderWriter dats, IPortalService portalService, OpenGLGraphicsDevice graphicsDevice, Frustum frustum) {
             _gl = gl;
@@ -73,6 +78,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _frustum = frustum;
 
             _landscapeDoc.LandblockChanged += OnLandblockChanged;
+        }
+
+        /// <summary>
+        /// Resets the NeedsPrepare flag. Call after preparing render batches.
+        /// </summary>
+        public void ResetNeedsPrepare() {
+            NeedsPrepare = false;
         }
 
         /// <summary>
@@ -143,6 +155,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var key in keysToRemove) {
                 if (_landblocks.TryRemove(key, out var lb)) {
                     UnloadLandblock(lb);
+                    NeedsPrepare = true;
                 }
                 _pendingGeneration.TryRemove(key, out _);
             }
@@ -165,6 +178,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var sw = Stopwatch.StartNew();
             while (sw.Elapsed.TotalMilliseconds < timeBudgetMs && _uploadQueue.TryDequeue(out var lb)) {
                 UploadLandblock(lb);
+                NeedsPrepare = true;
             }
             return (float)sw.Elapsed.TotalMilliseconds;
         }
@@ -197,7 +211,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, out SceneRaycastHit hit, float maxDistance = float.MaxValue, bool ignoreVisibility = false) {
+        public virtual bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, out SceneRaycastHit hit, float maxDistance = float.MaxValue, bool ignoreVisibility = false) {
             hit = SceneRaycastHit.NoHit;
             if ((!ShowPortals && !ignoreVisibility) || _landscapeDoc.Region == null) return false;
 
@@ -352,7 +366,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _gl.Enable(EnableCap.DepthClamp);
 
             _stencilShader.Bind();
-            _stencilShader.SetUniform("uViewProjection", viewProjection);
             _stencilShader.SetUniform("uWriteFarDepth", writeFarDepth ? 1 : 0);
 
             _gl.BindVertexArray(building.VAO);

@@ -51,6 +51,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
         private DebugRenderer? _debugRenderer;
         private IShader? _lineShader;
+        private ManagedGLUniformBuffer? _sceneDataBuffer;
 
         public ICamera Camera => _camera;
 
@@ -171,6 +172,8 @@ namespace Chorizite.OpenGLSDLBackend {
             var fragSourceLine = EmbeddedResourceReader.GetEmbeddedResource("Shaders.InstancedLine.frag");
             _lineShader = GraphicsDevice.CreateShader("InstancedLine", vertSourceLine, fragSourceLine);
             _debugRenderer.SetShader(_lineShader);
+
+            _sceneDataBuffer = new ManagedGLUniformBuffer(GraphicsDevice, Chorizite.Core.Render.Enums.BufferUsage.Dynamic, System.Runtime.InteropServices.Marshal.SizeOf<SceneData>());
 
             _initialized = true;
         }
@@ -320,12 +323,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
             MeshManager.GenerateMipmaps();
 
-            // Preserve the current viewport and scissor state
-            Span<int> currentViewport = stackalloc int[4];
-            Gl.GetInteger(GetPName.Viewport, currentViewport);
-            bool wasScissorEnabled = Gl.IsEnabled(EnableCap.ScissorTest);
-
-            try {
+            using (var glScope = new GLStateScope(Gl)) {
                 BaseObjectRenderManager.CurrentVAO = 0;
                 BaseObjectRenderManager.CurrentIBO = 0;
                 BaseObjectRenderManager.CurrentAtlas = 0;
@@ -353,14 +351,22 @@ namespace Chorizite.OpenGLSDLBackend {
 
                 _shader.Bind();
                 var snapshotVP = _camera.ViewProjectionMatrix;
+                var snapshotView = _camera.ViewMatrix;
+                var snapshotProj = _camera.ProjectionMatrix;
                 var snapshotPos = _camera.Position;
 
-                _shader.SetUniform("uViewProjection", snapshotVP);
-                _shader.SetUniform("uCameraPosition", snapshotPos);
-                _shader.SetUniform("uLightDirection", Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f)));
-                _shader.SetUniform("uSunlightColor", Vector3.One);
-                _shader.SetUniform("uAmbientColor", new Vector3(0.4f, 0.4f, 0.4f));
-                _shader.SetUniform("uSpecularPower", 16.0f);
+                var sceneData = new SceneData {
+                    View = snapshotView,
+                    Projection = snapshotProj,
+                    ViewProjection = snapshotVP,
+                    CameraPosition = snapshotPos,
+                    LightDirection = Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f)),
+                    SunlightColor = Vector3.One,
+                    AmbientColor = new Vector3(0.4f, 0.4f, 0.4f),
+                    SpecularPower = 16.0f
+                };
+                _sceneDataBuffer?.SetData(ref sceneData);
+                _sceneDataBuffer?.Bind(0);
 
                 // Disable alpha channel writes so we don't punch holes in the window's alpha
                 // where transparent 3D objects are drawn.
@@ -402,15 +408,6 @@ namespace Chorizite.OpenGLSDLBackend {
 
                 Gl.DepthMask(true);
             }
-            finally {
-                // Restore for Avalonia
-                Gl.ColorMask(true, true, true, true);
-                if (wasScissorEnabled) Gl.Enable(EnableCap.ScissorTest);
-                Gl.Enable(EnableCap.DepthTest);
-                Gl.Enable(EnableCap.Blend);
-                Gl.Viewport(currentViewport[0], currentViewport[1],
-                             (uint)currentViewport[2], (uint)currentViewport[3]);
-            }
         }
 
         private unsafe void RenderCurrentObject(ObjectRenderData data, Matrix4x4 transform) {
@@ -435,12 +432,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 RenderModernMDI(_shader!, drawCalls, allInstances, 2, ShowCulling);
             }
             else {
-                GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData));
-                Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
-                var span = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(allInstances);
-                fixed (InstanceData* ptr = span) {
-                    Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
-                }
+                GraphicsDevice.UpdateInstanceBuffer(allInstances);
 
                 foreach (var call in drawCalls) {
                     RenderObjectBatches(_shader!, call.renderData, call.count, call.offset, 2, ShowCulling);
@@ -507,6 +499,7 @@ namespace Chorizite.OpenGLSDLBackend {
             _debugRenderer?.Dispose();
             (_shader as IDisposable)?.Dispose();
             (_lineShader as IDisposable)?.Dispose();
+            _sceneDataBuffer?.Dispose();
             ReleaseCurrentObject();
             if (_ownsMeshManager) {
                 MeshManager.Dispose();

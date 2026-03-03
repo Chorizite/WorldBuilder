@@ -3,7 +3,16 @@ precision highp float;
 
 layout(location = 0) in vec3 aPosition;
 
-uniform mat4 uViewProjection;
+layout (std140) uniform SceneData {
+    mat4 uView;
+    mat4 uProjection;
+    mat4 uViewProjection;
+    vec3 uCameraPosition;
+    vec3 uLightDirection;
+    vec3 uSunlightColor;
+    vec3 uAmbientColor;
+    float uSpecularPower;
+};
 
 void main() {
     vec4 pos = uViewProjection * vec4(aPosition, 1.0);

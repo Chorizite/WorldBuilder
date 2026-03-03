@@ -79,6 +79,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // List pool for rendering
         protected readonly List<List<InstanceData>> _listPool = new();
         protected int _poolIndex = 0;
+        protected int _postPreparePoolIndex = 0;
 
         // Statistics
         private int _renderDistance = 25;
@@ -370,6 +371,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _visibleGroups.Clear();
                 _visibleGfxObjIds.Clear();
                 _poolIndex = 0;
+                _postPreparePoolIndex = 0;
                 NeedsPrepare = false;
             }
         }
@@ -378,6 +380,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || _cameraPosition.Z > 4000) return;
 
             lock (_renderLock) {
+                _poolIndex = _postPreparePoolIndex;
                 BaseObjectRenderManager.CurrentVAO = 0;
                 BaseObjectRenderManager.CurrentIBO = 0;
                 BaseObjectRenderManager.CurrentAtlas = 0;
@@ -433,12 +436,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             RenderModernMDI(_shader, drawCalls, allInstances, renderPass);
                         }
                         else {
-                            GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData), true);
-                            Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
-                            var span = CollectionsMarshal.AsSpan(allInstances);
-                            fixed (InstanceData* ptr = span) {
-                                Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
-                            }
+                            GraphicsDevice.UpdateInstanceBuffer(allInstances);
 
                             // Issue draw calls
                             foreach (var call in drawCalls) {
@@ -847,12 +845,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             RenderModernMDI(_shader!, drawCalls, allInstances, renderPass);
                         }
                         else {
-                            GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData));
-                            Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
-                            var span = CollectionsMarshal.AsSpan(allInstances);
-                            fixed (InstanceData* ptr = span) {
-                                Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
-                            }
+                            GraphicsDevice.UpdateInstanceBuffer(allInstances);
 
                             foreach (var call in drawCalls) {
                                 RenderObjectBatches(_shader!, call.renderData, call.count, call.offset, renderPass);

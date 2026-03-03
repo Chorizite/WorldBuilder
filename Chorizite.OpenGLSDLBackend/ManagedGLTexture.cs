@@ -34,14 +34,18 @@ namespace Chorizite.OpenGLSDLBackend {
             GL.BindTexture(GLEnum.Texture2D, _texture);
             GLHelpers.CheckErrors(GL);
 
-            // Get the pixel data from the ImageSharp bitmap
-            byte[] pixelData = new byte[width * height * 4];
+            int maxDimension = Math.Max(width, height);
+            int mipLevels = (int)Math.Floor(Math.Log2(maxDimension)) + 1;
 
-
-            fixed (byte* data = &pixelData[0]) {
-                GL.TexImage2D(GLEnum.Texture2D, 0, (int)InternalFormat.Rgba8, (uint)width, (uint)height, 0, PixelFormat.Rgba, (PixelType)0x1401, data);
+            if (_device.HasTextureStorage) {
+                GL.TexStorage2D(GLEnum.Texture2D, (uint)mipLevels, GLEnum.Rgba8, (uint)width, (uint)height);
                 GLHelpers.CheckErrors(GL);
             }
+            else {
+                GL.TexImage2D(GLEnum.Texture2D, 0, (int)InternalFormat.Rgba8, (uint)width, (uint)height, 0, PixelFormat.Rgba, (PixelType)0x1401, (void*)0);
+                GLHelpers.CheckErrors(GL);
+            }
+
             GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
             GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
             GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);

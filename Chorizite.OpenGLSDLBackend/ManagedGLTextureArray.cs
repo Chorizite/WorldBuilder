@@ -17,6 +17,17 @@ namespace Chorizite.OpenGLSDLBackend {
         private readonly bool _isCompressed;
         private int _mipmapDirtyCount = 0;
         private readonly object _mipmapLock = new object();
+        private uint _pboId;
+        private int _pboSize;
+        private readonly List<TextureLayerUpdate> _pendingUpdates = new();
+
+        private struct TextureLayerUpdate {
+            public int Layer;
+            public int Offset;
+            public int Size;
+            public PixelFormat? UploadPixelFormat;
+            public PixelType? UploadPixelType;
+        }
 
         public int Slot { get; } = _nextId++;
         public int Width { get; private set; }
@@ -97,6 +108,9 @@ namespace Chorizite.OpenGLSDLBackend {
                 BindlessHandle = _device.BindlessExtension.GetTextureHandle((uint)NativePtr);
                 _device.BindlessExtension.MakeTextureHandleResident(BindlessHandle);
             }
+
+            _pboId = GL.GenBuffer();
+            GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
         }
 
         public long CalculateTotalSize() {
@@ -134,48 +148,6 @@ namespace Chorizite.OpenGLSDLBackend {
             GLHelpers.CheckErrors(GL);
             GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
             GLHelpers.CheckErrors(GL);
-
-            if (_needsMipmapRegeneration) {
-                lock (_mipmapLock) {
-                    if (_mipmapDirtyCount > 0) {
-                        if (_isCompressed) {
-                            _logger.LogDebug("Skipping automatic mipmap generation for compressed texture array (Slot={Slot})", Slot);
-                            _mipmapDirtyCount = 0;
-                            _needsMipmapRegeneration = false;
-                        }
-                        else if (!GLHelpers.ValidateTextureMipmapStatus(GL, GLEnum.Texture2DArray, out var errorMessage)) {
-                            _logger.LogWarning("Mipmap validation failed for texture array (Slot={Slot}): {Error}", Slot, errorMessage);
-                            _mipmapDirtyCount = 0;
-                            _needsMipmapRegeneration = false;
-                        }
-                        else {
-                            try {
-                                bool wasResident = false;
-                                if (BindlessHandle != 0 && _device.BindlessExtension != null && _device.BindlessExtension.IsTextureHandleResident(BindlessHandle)) {
-                                    _device.BindlessExtension.MakeTextureHandleNonResident(BindlessHandle);
-                                    wasResident = true;
-                                }
-
-                                GL.GenerateMipmap(GLEnum.Texture2DArray);
-                                GLHelpers.CheckErrorsWithContext(GL, "Generating mipmaps for texture array");
-
-                                if (wasResident && BindlessHandle != 0 && _device.BindlessExtension != null) {
-                                    _device.BindlessExtension.MakeTextureHandleResident(BindlessHandle);
-                                }
-
-                                _mipmapDirtyCount = 0;
-                                _needsMipmapRegeneration = false;
-                            }
-                            catch (Exception ex) {
-                                _logger.LogWarning(ex, "Failed to generate mipmaps for texture array (Slot={Slot}). This is expected if the texture is currently being updated.", Slot);
-                            }
-                        }
-                    }
-                    else if (_mipmapDirtyCount == 0) {
-                        _needsMipmapRegeneration = false;
-                    }
-                }
-            }
         }
 
         public unsafe int AddLayer(byte[] data) {
@@ -214,59 +186,123 @@ namespace Chorizite.OpenGLSDLBackend {
                 throw new InvalidOperationException("Texture array not created.");
             }
 
-            // Ensure the texture is bound before uploading
-            BaseObjectRenderManager.CurrentAtlas = 0;
-            GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
-            GLHelpers.CheckErrors(GL);
-
             if (layer < 0 || layer >= Size) {
                 throw new ArgumentOutOfRangeException(nameof(layer),
                     $"Layer index {layer} is out of range [0, {Size - 1}] (Slot={Slot}).");
             }
 
-            GCHandle pinnedArray = GCHandle.Alloc(data, GCHandleType.Pinned);
-            try {
-                var pixelsPtr = (void*)pinnedArray.AddrOfPinnedObject();
-
-                bool wasResident = false;
-                if (BindlessHandle != 0 && _device.BindlessExtension != null && _device.BindlessExtension.IsTextureHandleResident(BindlessHandle)) {
-                    _device.BindlessExtension.MakeTextureHandleNonResident(BindlessHandle);
-                    wasResident = true;
+            int currentPboOffset = 0;
+            lock (_mipmapLock) {
+                if (_pendingUpdates.Count > 0) {
+                    var lastUpdate = _pendingUpdates[^1];
+                    currentPboOffset = lastUpdate.Offset + lastUpdate.Size;
                 }
 
-                if (_isCompressed) {
-                    var internalFormat = Format.ToCompressedGL();
-                    GL.CompressedTexSubImage3D(GLEnum.Texture2DArray, 0, 0, 0, layer,
-                        (uint)Width, (uint)Height, 1, internalFormat, (uint)data.Length, pixelsPtr);
+                // Align to 4 bytes for safety
+                currentPboOffset = (currentPboOffset + 3) & ~3;
+
+                if (currentPboOffset + data.Length > _pboSize) {
+                    // Flush existing updates first because BufferData will orphan/clear the PBO
+                    if (_pendingUpdates.Count > 0) {
+                        ProcessDirtyUpdatesInternal();
+                    }
+                    currentPboOffset = 0;
+
+                    int newSize = Math.Max(_pboSize * 2, data.Length);
+                    newSize = Math.Max(newSize, GetExpectedDataSize() * 4); // Initial size 4 layers
+
+                    GL.BindBuffer(GLEnum.PixelUnpackBuffer, _pboId);
+                    GL.BufferData(GLEnum.PixelUnpackBuffer, (nuint)newSize, (void*)0, GLEnum.StreamDraw);
+                    
+                    if (_pboSize > 0) {
+                        GpuMemoryTracker.TrackDeallocation(_pboSize, GpuResourceType.Buffer);
+                    }
+                    _pboSize = newSize;
+                    GpuMemoryTracker.TrackAllocation(_pboSize, GpuResourceType.Buffer);
                 }
                 else {
-                    var pixelFormat = uploadPixelFormat ?? Format.ToPixelFormat();
-                    var pixelType = uploadPixelType ?? Format.ToPixelType();
-                    GL.TexSubImage3D(GLEnum.Texture2DArray, 0, 0, 0, layer, (uint)Width, (uint)Height, 1,
-                        pixelFormat, pixelType, pixelsPtr);
+                    GL.BindBuffer(GLEnum.PixelUnpackBuffer, _pboId);
                 }
 
-                GLHelpers.CheckErrorsWithContext(GL,
-                    $"Uploading layer {layer} for {Format} {Width}x{Height} (Compressed={_isCompressed}) {uploadPixelFormat} // {uploadPixelType} (Slot={Slot})");
-                
-                if (wasResident && BindlessHandle != 0 && _device.BindlessExtension != null) {
-                    _device.BindlessExtension.MakeTextureHandleResident(BindlessHandle);
+                fixed (byte* ptr = data) {
+                    GL.BufferSubData(GLEnum.PixelUnpackBuffer, (nint)currentPboOffset, (nuint)data.Length, ptr);
                 }
+                GL.BindBuffer(GLEnum.PixelUnpackBuffer, 0);
+
+                _pendingUpdates.Add(new TextureLayerUpdate {
+                    Layer = layer,
+                    Offset = currentPboOffset,
+                    Size = data.Length,
+                    UploadPixelFormat = uploadPixelFormat,
+                    UploadPixelType = uploadPixelType
+                });
 
                 _needsMipmapRegeneration = true;
+                _mipmapDirtyCount++;
+            }
+        }
 
-                lock (_mipmapLock) {
-                    _mipmapDirtyCount++;
+        public void ProcessDirtyUpdates() {
+            lock (_mipmapLock) {
+                ProcessDirtyUpdatesInternal();
+            }
+        }
+
+        private unsafe void ProcessDirtyUpdatesInternal() {
+            if (_pendingUpdates.Count == 0 && !_needsMipmapRegeneration) return;
+
+            BaseObjectRenderManager.CurrentAtlas = 0;
+            GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
+
+            bool wasResident = false;
+            if (BindlessHandle != 0 && _device.BindlessExtension != null && _device.BindlessExtension.IsTextureHandleResident(BindlessHandle)) {
+                _device.BindlessExtension.MakeTextureHandleNonResident(BindlessHandle);
+                wasResident = true;
+            }
+
+            if (_pendingUpdates.Count > 0) {
+                GL.BindBuffer(GLEnum.PixelUnpackBuffer, _pboId);
+
+                foreach (var update in _pendingUpdates) {
+                    if (_isCompressed) {
+                        var internalFormat = Format.ToCompressedGL();
+                        GL.CompressedTexSubImage3D(GLEnum.Texture2DArray, 0, 0, 0, update.Layer,
+                            (uint)Width, (uint)Height, 1, internalFormat, (uint)update.Size, (void*)update.Offset);
+                    }
+                    else {
+                        var pixelFormat = update.UploadPixelFormat ?? Format.ToPixelFormat();
+                        var pixelType = update.UploadPixelType ?? Format.ToPixelType();
+                        GL.TexSubImage3D(GLEnum.Texture2DArray, 0, 0, 0, update.Layer, (uint)Width, (uint)Height, 1,
+                            pixelFormat, pixelType, (void*)update.Offset);
+                    }
                 }
+
+                GL.BindBuffer(GLEnum.PixelUnpackBuffer, 0);
+                _pendingUpdates.Clear();
             }
-            catch (Exception ex) {
-                _logger.LogError(ex,
-                    "Error uploading texture layer {Layer} for {Width}x{Height} texture array (Slot={Slot})", layer,
-                    Width, Height, Slot);
-                throw;
+
+            if (_needsMipmapRegeneration && _mipmapDirtyCount > 0) {
+                if (_isCompressed) {
+                    _logger.LogDebug("Skipping automatic mipmap generation for compressed texture array (Slot={Slot})", Slot);
+                }
+                else if (!GLHelpers.ValidateTextureMipmapStatus(GL, GLEnum.Texture2DArray, out var errorMessage)) {
+                    _logger.LogWarning("Mipmap validation failed for texture array (Slot={Slot}): {Error}", Slot, errorMessage);
+                }
+                else {
+                    try {
+                        GL.GenerateMipmap(GLEnum.Texture2DArray);
+                        GLHelpers.CheckErrorsWithContext(GL, "Generating mipmaps for texture array");
+                    }
+                    catch (Exception ex) {
+                        _logger.LogWarning(ex, "Failed to generate mipmaps for texture array (Slot={Slot}).", Slot);
+                    }
+                }
+                _mipmapDirtyCount = 0;
+                _needsMipmapRegeneration = false;
             }
-            finally {
-                pinnedArray.Free();
+
+            if (wasResident && BindlessHandle != 0 && _device.BindlessExtension != null) {
+                _device.BindlessExtension.MakeTextureHandleResident(BindlessHandle);
             }
         }
 
@@ -310,6 +346,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
             lock (_mipmapLock) {
                 _mipmapDirtyCount++; // Mark dirty to regen
+                _needsMipmapRegeneration = true;
             }
         }
 
@@ -328,51 +365,9 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public void GenerateMipmaps() {
-            if (!_needsMipmapRegeneration) return;
-
+            _needsMipmapRegeneration = true;
             lock (_mipmapLock) {
-                if (_mipmapDirtyCount > 0) {
-                    if (_isCompressed) {
-                        _logger.LogDebug("Skipping automatic mipmap generation for compressed texture array (Slot={Slot})", Slot);
-                        _mipmapDirtyCount = 0;
-                        _needsMipmapRegeneration = false;
-                        return;
-                    }
-
-                    BaseObjectRenderManager.CurrentAtlas = 0;
-                    GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
-
-                    if (!GLHelpers.ValidateTextureMipmapStatus(GL, GLEnum.Texture2DArray, out var errorMessage)) {
-                        _logger.LogWarning("Mipmap validation failed for texture array (Slot={Slot}): {Error}", Slot, errorMessage);
-                        _mipmapDirtyCount = 0;
-                        _needsMipmapRegeneration = false;
-                        return;
-                    }
-
-                    try {
-                        bool wasResident = false;
-                        if (BindlessHandle != 0 && _device.BindlessExtension != null && _device.BindlessExtension.IsTextureHandleResident(BindlessHandle)) {
-                            _device.BindlessExtension.MakeTextureHandleNonResident(BindlessHandle);
-                            wasResident = true;
-                        }
-
-                        GL.GenerateMipmap(GLEnum.Texture2DArray);
-                        GLHelpers.CheckErrorsWithContext(GL, "Generating mipmaps for texture array");
-
-                        if (wasResident && BindlessHandle != 0 && _device.BindlessExtension != null) {
-                            _device.BindlessExtension.MakeTextureHandleResident(BindlessHandle);
-                        }
-
-                        _mipmapDirtyCount = 0;
-                        _needsMipmapRegeneration = false;
-                    }
-                    catch (Exception ex) {
-                        _logger.LogWarning(ex, "Failed to generate mipmaps for texture array (Slot={Slot}).", Slot);
-                    }
-                }
-                else {
-                    _needsMipmapRegeneration = false;
-                }
+                _mipmapDirtyCount++;
             }
         }
 
@@ -387,6 +382,14 @@ namespace Chorizite.OpenGLSDLBackend {
                 GpuMemoryTracker.TrackDeallocation(CalculateTotalSize(), GpuResourceType.Texture);
                 GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Texture);
                 NativePtr = 0;
+            }
+            if (_pboId != 0) {
+                GL.DeleteBuffer(_pboId);
+                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+                if (_pboSize > 0) {
+                    GpuMemoryTracker.TrackDeallocation(_pboSize, GpuResourceType.Buffer);
+                }
+                _pboId = 0;
             }
         }
     }

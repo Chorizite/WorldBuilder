@@ -60,7 +60,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _showEnvCells = showEnvCells;
         }
 
-        public uint GetEnvCellAt(Vector3 pos, bool onlyEntryCells = false) {
+        public virtual uint GetEnvCellAt(Vector3 pos, bool onlyEntryCells = false) {
             if (LandscapeDoc.Region == null) return 0;
 
             var lbSize = LandscapeDoc.Region.LandblockSizeInUnits;
@@ -129,7 +129,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return false;
         }
 
-        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false, float maxDistance = float.MaxValue) {
+        public virtual bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false, float maxDistance = float.MaxValue) {
             hit = SceneRaycastHit.NoHit;
 
             // Early exit: Don't collide with interiors if we are outside
@@ -223,6 +223,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public override void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null, bool isOutside = false) {
             if (!_initialized || cameraPosition.Z > 4000) return;
 
+            lock (_renderLock) {
+                _poolIndex = 0;
+            }
+
             if (LandscapeDoc.Region != null) {
                 var lbSize = LandscapeDoc.Region.CellSizeInUnits * LandscapeDoc.Region.LandblockCellLength;
                 var pos = new Vector2(cameraPosition.X, cameraPosition.Y) - LandscapeDoc.Region.MapOffset;
@@ -252,7 +256,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         foreach (var (gfxObjId, instances) in lb.BuildingPartGroups) {
                             foreach (var instanceData in instances) {
                                 if (filter != null && !filter.Contains(instanceData.CellId)) continue;
-                                if (isOutside && filter == null && seenOutsideCells != null && !seenOutsideCells.Contains(instanceData.CellId)) continue;
 
                                 AddToGroups(lbBatchedByCell, lbGlobalGroups, instanceData.CellId, gfxObjId, instanceData);
                             }
@@ -265,7 +268,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     foreach (var kvp in lb.EnvCellBounds) {
                         var cellId = kvp.Key;
                         if (filter != null && !filter.Contains(cellId)) continue;
-                        if (isOutside && filter == null && seenOutsideCells != null && !seenOutsideCells.Contains(cellId)) continue;
 
                         if (_frustum.Intersects(kvp.Value)) {
                             visibleCells.Add(cellId);
@@ -328,7 +330,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _visibleGfxObjIds.Clear();
                 _visibleGfxObjIds.AddRange(newVisibleGfxObjIds);
 
-                _poolIndex = 0;
+                _postPreparePoolIndex = _poolIndex;
                 NeedsPrepare = false;
             }
         }
@@ -363,6 +365,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || (_cameraPosition.Z > 4000 && renderPass != 2)) return;
 
             lock (_renderLock) {
+                _poolIndex = _postPreparePoolIndex;
                 CurrentVAO = 0;
                 CurrentIBO = 0;
                 CurrentAtlas = 0;
@@ -389,6 +392,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 else {
                     // Group by gfxObjId within the filtered cells to minimize draw calls
                     var filteredGroups = new Dictionary<ulong, List<InstanceData>>();
+                    var ownedLists = new HashSet<List<InstanceData>>();
+
                     foreach (var cellId in filter) {
                         if (_batchedByCell.TryGetValue(cellId, out var gfxDict)) {
                             foreach (var (gfxObjId, transforms) in gfxDict) {
@@ -400,12 +405,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     else {
                                         if (list == transforms) continue;
 
-                                        // If we already have a list for this GfxObjId from another cell, we need to merge.
-                                        if (list.Count > 0 && !IsPooled(list)) {
+                                        // If we don't own this list yet, we must clone it before adding to it
+                                        if (!ownedLists.Contains(list)) {
                                             var newList = GetPooledList();
                                             newList.AddRange(list);
                                             list = newList;
                                             filteredGroups[gfxObjId] = list;
+                                            ownedLists.Add(list);
                                         }
                                         list.AddRange(transforms);
                                     }
@@ -429,12 +435,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     }
                     else {
                         // Upload all instance data in one go (with orphaning)
-                        GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData), true);
-                        Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
-                        var span = CollectionsMarshal.AsSpan(allInstances);
-                        fixed (InstanceData* ptr = span) {
-                            Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
-                        }
+                        GraphicsDevice.UpdateInstanceBuffer(allInstances);
 
                         // Issue draw calls
                         foreach (var call in drawCalls) {
@@ -459,11 +460,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _shader.SetUniform("uRenderPass", renderPass);
                 Gl.BindVertexArray(0);
             }
-        }
-
-        private bool IsPooled(List<InstanceData> list) {
-            // Simple check to see if it's one of our pooled lists
-            return _listPool.Contains(list);
         }
 
         protected override void PopulatePartGroups(ObjectLandblock lb, List<SceneryInstance> instances) {

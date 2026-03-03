@@ -10,8 +10,17 @@ layout (location = 4) in float aThickness;
 
 out vec4 vertexColor;
 
-uniform mat4 uView;
-uniform mat4 uProjection;
+layout (std140) uniform SceneData {
+    mat4 uView;
+    mat4 uProjection;
+    mat4 uViewProjection;
+    vec3 uCameraPosition;
+    vec3 uLightDirection;
+    vec3 uSunlightColor;
+    vec3 uAmbientColor;
+    float uSpecularPower;
+};
+
 uniform vec2 uViewportSize;
 
 void main() {

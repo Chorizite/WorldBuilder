@@ -1,17 +1,15 @@
-﻿using Chorizite.Core.Render.Enums;
-using Chorizite.Core.Render.Vertex;
+using Chorizite.Core.Render;
+using Chorizite.Core.Render.Enums;
 using Chorizite.OpenGLSDLBackend.Extensions;
-using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
-using System.Buffers;
 using System.Runtime.InteropServices;
 using BufferUsage = Chorizite.Core.Render.Enums.BufferUsage;
 
 namespace Chorizite.OpenGLSDLBackend {
     /// <summary>
-    /// OpenGL vertex buffer
+    /// OpenGL uniform buffer
     /// </summary>
-    public unsafe class ManagedGLVertexBuffer : IVertexBuffer {
+    public unsafe class ManagedGLUniformBuffer : IUniformBuffer {
         private uint bufferId;
         private readonly OpenGLGraphicsDevice _device;
         private void* _mappedPtr;
@@ -24,11 +22,12 @@ namespace Chorizite.OpenGLSDLBackend {
         public BufferUsage Usage { get; private set; }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="ManagedGLVertexBuffer"/> class.
+        /// Initializes a new instance of the <see cref="ManagedGLUniformBuffer"/> class.
         /// </summary>
+        /// <param name="device">Graphics device</param>
         /// <param name="usage">Buffer usage</param>
         /// <param name="size">The size of the buffer, in bytes</param>
-        public unsafe ManagedGLVertexBuffer(OpenGLGraphicsDevice device, BufferUsage usage, int size) {
+        public unsafe ManagedGLUniformBuffer(OpenGLGraphicsDevice device, BufferUsage usage, int size) {
             _device = device;
             Size = size;
             Usage = usage;
@@ -36,22 +35,22 @@ namespace Chorizite.OpenGLSDLBackend {
             // Generate the buffer
             bufferId = GL.GenBuffer();
             if (bufferId == 0) {
-                throw new Exception("Failed to generate vertex buffer.");
+                throw new Exception("Failed to generate uniform buffer.");
             }
             GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
             GLHelpers.CheckErrors(GL);
 
-            // Allocate the buffer with the specified size but no initial data
-            GL.BindBuffer(GLEnum.ArrayBuffer, bufferId);
+            // Allocate the buffer with the specified size
+            GL.BindBuffer(GLEnum.UniformBuffer, bufferId);
             GLHelpers.CheckErrors(GL);
             
             if (_device.HasBufferStorage) {
                 var flags = BufferStorageMask.MapWriteBit | BufferStorageMask.MapPersistentBit | BufferStorageMask.MapCoherentBit | BufferStorageMask.DynamicStorageBit;
-                GL.BufferStorage(GLEnum.ArrayBuffer, (uint)Size, (void*)0, flags);
-                _mappedPtr = GL.MapBufferRange(GLEnum.ArrayBuffer, 0, (nuint)Size, MapBufferAccessMask.WriteBit | MapBufferAccessMask.PersistentBit | MapBufferAccessMask.CoherentBit);
+                GL.BufferStorage(GLEnum.UniformBuffer, (uint)Size, (void*)0, flags);
+                _mappedPtr = GL.MapBufferRange(GLEnum.UniformBuffer, 0, (nuint)Size, MapBufferAccessMask.WriteBit | MapBufferAccessMask.PersistentBit | MapBufferAccessMask.CoherentBit);
             } else {
                 GL.BufferData(
-                    GLEnum.ArrayBuffer,
+                    GLEnum.UniformBuffer,
                     (uint)Size,
                     (void*)0, // No initial data
                     Usage.ToGL());
@@ -62,12 +61,12 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         /// <inheritdoc />
-        public unsafe void SetData<T>(T[] data) where T : IVertex {
+        public unsafe void SetData<T>(T[] data) where T : unmanaged {
             SetData(data.AsSpan());
         }
 
         /// <inheritdoc />
-        public unsafe void SetData<T>(Span<T> data) where T : IVertex {
+        public unsafe void SetData<T>(Span<T> data) where T : unmanaged {
             uint dataSize = (uint)data.Length * (uint)Marshal.SizeOf<T>();
 
             // Ensure the buffer size is sufficient
@@ -79,19 +78,19 @@ namespace Chorizite.OpenGLSDLBackend {
                 Span<T> mappedSpan = new Span<T>(_mappedPtr, data.Length);
                 data.CopyTo(mappedSpan);
             } else {
-                GL.BindBuffer(GLEnum.ArrayBuffer, bufferId);
+                GL.BindBuffer(GLEnum.UniformBuffer, bufferId);
                 GLHelpers.CheckErrors(GL);
 
                 // Map the buffer for writing
                 void* mappedPtr = GL.MapBufferRange(
-                    GLEnum.ArrayBuffer,
+                    GLEnum.UniformBuffer,
                     0, // offset
                     dataSize,
                     MapBufferAccessMask.WriteBit | MapBufferAccessMask.InvalidateBufferBit // Overwrite entire buffer
                 );
 
                 if (mappedPtr == null) {
-                    throw new Exception("Failed to map buffer for writing.");
+                    throw new Exception("Failed to map uniform buffer for writing.");
                 }
 
                 try {
@@ -101,18 +100,19 @@ namespace Chorizite.OpenGLSDLBackend {
                 }
                 finally {
                     // Unmap the buffer
-                    GL.UnmapBuffer(GLEnum.ArrayBuffer);
+                    GL.UnmapBuffer(GLEnum.UniformBuffer);
                     GLHelpers.CheckErrors(GL);
                 }
             }
         }
 
-        public unsafe void SetSubData<T>(T[] data, int destinationOffsetBytes, int sourceOffsetElements = 0, int lengthElements = 0) where T : IVertex {
+        /// <inheritdoc />
+        public unsafe void SetSubData<T>(T[] data, int destinationOffsetBytes, int sourceOffsetElements = 0, int lengthElements = 0) where T : unmanaged {
             SetSubData(data.AsSpan(), destinationOffsetBytes, sourceOffsetElements, lengthElements);
         }
 
         /// <inheritdoc />
-        public unsafe void SetSubData<T>(Span<T> data, int destinationOffsetBytes, int sourceOffsetElements = 0, int lengthElements = 0) where T : IVertex {
+        public unsafe void SetSubData<T>(Span<T> data, int destinationOffsetBytes, int sourceOffsetElements = 0, int lengthElements = 0) where T : unmanaged {
             if (Usage != BufferUsage.Dynamic) {
                 throw new InvalidOperationException("Cannot update a buffer that is not dynamic.");
             }
@@ -132,12 +132,12 @@ namespace Chorizite.OpenGLSDLBackend {
                 Span<T> mappedSpan = new Span<T>((byte*)_mappedPtr + destinationOffsetBytes, lengthElements);
                 data.Slice(sourceOffsetElements, lengthElements).CopyTo(mappedSpan);
             } else {
-                GL.BindBuffer(GLEnum.ArrayBuffer, bufferId);
+                GL.BindBuffer(GLEnum.UniformBuffer, bufferId);
                 GLHelpers.CheckErrors(GL);
 
                 // Map the specific range of the buffer
                 void* mappedPtr = GL.MapBufferRange(
-                    GLEnum.ArrayBuffer,
+                    GLEnum.UniformBuffer,
                     destinationOffsetBytes,
                     dataSizeBytes,
                     MapBufferAccessMask.WriteBit // Write access for partial update
@@ -154,23 +154,43 @@ namespace Chorizite.OpenGLSDLBackend {
                 }
                 finally {
                     // Unmap the buffer
-                    GL.UnmapBuffer(GLEnum.ArrayBuffer);
+                    GL.UnmapBuffer(GLEnum.UniformBuffer);
                     GLHelpers.CheckErrors(GL);
                 }
             }
         }
 
+        /// <summary>
+        /// Sets a single piece of data in the buffer.
+        /// </summary>
+        public unsafe void SetData<T>(ref T data) where T : unmanaged {
+            fixed (T* pData = &data) {
+                SetData(new Span<T>(pData, 1));
+            }
+        }
+
+        /// <summary>
+        /// Binds the buffer to the specified binding point.
+        /// </summary>
+        /// <param name="bindingPoint">The binding point to bind to</param>
+        public void Bind(uint bindingPoint) {
+            GL.BindBufferBase(GLEnum.UniformBuffer, bindingPoint, bufferId);
+            GLHelpers.CheckErrors(GL);
+        }
+
+        /// <inheritdoc />
         public void Bind() {
-            GL.BindBuffer(GLEnum.ArrayBuffer, bufferId);
+            GL.BindBuffer(GLEnum.UniformBuffer, bufferId);
             GLHelpers.CheckErrors(GL);
         }
 
+        /// <inheritdoc />
         public void Unbind() {
-            GL.BindBuffer(GLEnum.ArrayBuffer, 0);
+            GL.BindBuffer(GLEnum.UniformBuffer, 0);
             GLHelpers.CheckErrors(GL);
         }
 
-        public unsafe void Dispose() {
+        public void Dispose() {
             if (bufferId != 0) {
                 GL.DeleteBuffer(bufferId);
                 GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);

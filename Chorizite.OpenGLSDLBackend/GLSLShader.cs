@@ -172,6 +172,13 @@ namespace Chorizite.OpenGLSDLBackend {
                 _log.LogTrace($"{(Program != 0 ? "Reloaded" : "Loaded")} shader: {Name}");
             }
 
+            // Bind SceneData uniform block to point 0 if it exists
+            var sceneDataIndex = GL.GetUniformBlockIndex(prog, "SceneData");
+            if (sceneDataIndex != uint.MaxValue) {
+                GL.UniformBlockBinding(prog, sceneDataIndex, 0);
+                GLHelpers.CheckErrors(GL);
+            }
+
             GL.DeleteShader(vertexShader);
             GLHelpers.CheckErrors(GL);
             GL.DeleteShader(fragmentShader);

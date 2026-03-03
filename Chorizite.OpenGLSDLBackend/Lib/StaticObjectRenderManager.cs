@@ -113,7 +113,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             All = StaticObjects | Buildings
         }
 
-        public bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, RaycastTarget targets, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false, float maxDistance = float.MaxValue) {
+        public virtual bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, RaycastTarget targets, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false, float maxDistance = float.MaxValue) {
             hit = SceneRaycastHit.NoHit;
 
             // Early exit: Don't collide with exteriors if we are inside
