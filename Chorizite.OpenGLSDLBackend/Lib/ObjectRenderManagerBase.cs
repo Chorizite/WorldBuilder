@@ -360,10 +360,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (RenderHighlightsWhenEmpty) {
                     Gl.DepthFunc(GLEnum.Lequal);
                     if (SelectedInstance.HasValue) {
-                        RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection);
+                        RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
                     }
                     if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
-                        RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover);
+                        RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
                     }
                     Gl.DepthFunc(GLEnum.Less);
                 }
@@ -373,9 +373,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // 1. Render fully visible landblocks using the consolidated pipeline (extremely fast)
             if (_visibleLandblocks.Count > 0) {
                 if (_useModernRendering) {
-                    RenderConsolidatedMDI(_shader, _visibleLandblocks);
+                    RenderConsolidatedMDI(_shader, _visibleLandblocks, renderPass);
                 } else {
-                    RenderConsolidated(_shader, _visibleLandblocks);
+                    RenderConsolidated(_shader, _visibleLandblocks, renderPass);
                 }
             }
 
@@ -399,7 +399,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     // For now, intersecting chunks still use the "slow" way (dynamic upload)
                     // but we could also use a reserved "scratch" area in the world buffer.
                     if (_useModernRendering) {
-                        RenderModernMDI(_shader, drawCalls, allInstances);
+                        RenderModernMDI(_shader, drawCalls, allInstances, renderPass);
                     } else {
                         GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData), true);
                         Gl.BindBuffer(GLEnum.ArrayBuffer, GraphicsDevice.InstanceVBO);
@@ -407,10 +407,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         fixed (InstanceData* ptr = span) {
                             Gl.BufferSubData(GLEnum.ArrayBuffer, 0, (nuint)(allInstances.Count * sizeof(InstanceData)), ptr);
                         }
-
-                        foreach (var call in drawCalls) {
-                            RenderObjectBatches(_shader, call.renderData, call.count, call.offset);
-                        }
+// Issue draw calls
+foreach (var call in drawCalls) {
+    RenderObjectBatches(_shader, call.renderData, call.count, call.offset, renderPass);
+}
                     }
                 }
             }
@@ -418,10 +418,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Draw highlighted / selected objects on top
             Gl.DepthFunc(GLEnum.Lequal);
             if (SelectedInstance.HasValue) {
-                RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection);
+                RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
             }
             if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
-                RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover);
+                RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
             }
             Gl.DepthFunc(GLEnum.Less);
 
@@ -705,12 +705,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         lb.MdiCommands[batch.CullMode] = list;
                     }
 
+                    var cmdAtlas = batch.Atlas.TextureArray as ManagedGLTextureArray ?? throw new Exception("Atlas.TextureArray must be ManagedGLTextureArray");
+                    var sortKey = (ulong)(cmdAtlas.NativePtr & 0xFFF) << 52; // Atlas (12 bits)
+                    sortKey |= (ulong)(renderData.VAO & 0x3FF) << 42;        // VAO (10 bits)
+                    sortKey |= (ulong)(batch.IBO & 0x3FF) << 32;            // IBO (10 bits)
+                    sortKey |= (uint)(lb.InstanceBufferOffset + groupOffset); // BaseInstance (32 bits)
+
                     list.Add(new LandblockMdiCommand {
+                        SortKey = sortKey,
                         ObjectId = gfxObjId,
                         VAO = renderData.VAO,
                         IBO = batch.IBO,
+                        IsTransparent = batch.IsTransparent,
                         TextureIndex = (uint)batch.TextureIndex,
-                        Atlas = batch.Atlas.TextureArray as ManagedGLTextureArray ?? throw new Exception("Atlas.TextureArray must be ManagedGLTextureArray"),
+                        Atlas = cmdAtlas,
                         Command = new DrawElementsIndirectCommand {
                             Count = (uint)batch.IndexCount,
                             InstanceCount = (uint)instanceCount,
@@ -751,14 +759,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        protected unsafe void RenderSelectedInstance(SelectedStaticObject selected, Vector4 highlightColor) {
+        protected unsafe void RenderSelectedInstance(SelectedStaticObject selected, Vector4 highlightColor, int renderPass) {
             if (_landblocks.TryGetValue(selected.LandblockKey, out var lb)) {
                 var instance = lb.Instances.FirstOrDefault(i => i.InstanceId == selected.InstanceId);
                 if (instance.ObjectId != 0) {
                     var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
                     if (renderData != null) {
                         _shader!.SetUniform("uHighlightColor", highlightColor);
-                        _shader!.SetUniform("uRenderPass", 2); // Single pass mode for highlighting
 
                         var drawCalls = new List<(ObjectRenderData renderData, int count, int offset)>();
                         var allInstances = new List<InstanceData>();
@@ -778,7 +785,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         }
 
                         if (_useModernRendering) {
-                            RenderModernMDI(_shader!, drawCalls, allInstances);
+                            RenderModernMDI(_shader!, drawCalls, allInstances, renderPass);
                         }
                         else {
                             GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData));
@@ -789,7 +796,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             }
 
                             foreach (var call in drawCalls) {
-                                RenderObjectBatches(_shader!, call.renderData, call.count, call.offset);
+                                RenderObjectBatches(_shader!, call.renderData, call.count, call.offset, renderPass);
                             }
                         }
                     }

@@ -405,7 +405,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             if (allInstances.Count > 0) {
                 if (_useModernRendering) {
-                    RenderModernMDI(_shader, drawCalls, allInstances);
+                    RenderModernMDI(_shader, drawCalls, allInstances, renderPass);
                 } else {
                     // Upload all instance data in one go (with orphaning)
                     GraphicsDevice.EnsureInstanceBufferCapacity(allInstances.Count, sizeof(InstanceData), true);
@@ -417,7 +417,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                     // Issue draw calls
                     foreach (var call in drawCalls) {
-                        RenderObjectBatches(_shader!, call.renderData, call.count, call.offset);
+                        RenderObjectBatches(_shader!, call.renderData, call.count, call.offset, renderPass);
                     }
                 }
             }
@@ -426,10 +426,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (RenderHighlightsWhenEmpty || _batchedByCell.Count > 0) {
                 Gl.DepthFunc(GLEnum.Lequal);
                 if (SelectedInstance.HasValue) {
-                    RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection);
+                    RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
                 }
                 if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
-                    RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover);
+                    RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
                 }
                 Gl.DepthFunc(GLEnum.Less);
             }

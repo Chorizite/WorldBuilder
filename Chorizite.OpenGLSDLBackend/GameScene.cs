@@ -3,8 +3,10 @@ using Chorizite.Core.Render;
 using Chorizite.OpenGLSDLBackend.Lib;
 using DatReaderWriter;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using Silk.NET.OpenGL;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -28,6 +30,7 @@ public class GameScene : IDisposable {
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger _log;
     private readonly IPortalService _portalService;
+    private readonly IRenderPerformanceTracker? _performanceTracker;
 
     // Camera system
     private Camera2D _camera2D;
@@ -265,11 +268,12 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Creates a new GameScene.
     /// </summary>
-    public GameScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILoggerFactory loggerFactory, IPortalService portalService) {
+    public GameScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILoggerFactory loggerFactory, IPortalService portalService, IRenderPerformanceTracker? performanceTracker = null) {
         _gl = gl;
         _graphicsDevice = graphicsDevice;
         _loggerFactory = loggerFactory;
         _portalService = portalService;
+        _performanceTracker = performanceTracker;
         _log = loggerFactory.CreateLogger<GameScene>();
 
         // Initialize cameras
@@ -1180,6 +1184,8 @@ public class GameScene : IDisposable {
         var snapshotRot = _currentCamera.Rotation;
         var snapshotFov = _currentCamera.FieldOfView;
 
+        var sw = Stopwatch.StartNew();
+
         // Detect if we are inside an EnvCell to handle depth sorting and terrain clipping correctly.
         uint currentEnvCellId = _currentEnvCellId;
         bool isInside = currentEnvCellId != 0;
@@ -1249,6 +1255,9 @@ public class GameScene : IDisposable {
             _forcePrepareBatches = false;
         }
 
+        if (_performanceTracker != null) _performanceTracker.PrepareTime = sw.Elapsed.TotalMilliseconds;
+        sw.Restart();
+
         if (_state.ShowSkybox) {
             // Draw skybox before everything else
             //_skyboxManager?.Render(snapshotView, snapshotProj, snapshotPos, snapshotFov, (float)_width / _height);
@@ -1308,6 +1317,9 @@ public class GameScene : IDisposable {
             }
         }
 
+        if (_performanceTracker != null) _performanceTracker.OpaqueTime = sw.Elapsed.TotalMilliseconds;
+        sw.Restart();
+
         // Pass 2: Transparent Scenery & Static Objects (exterior)
         if (_state.EnableTransparencyPass) {
             _sceneryShader?.Bind();
@@ -1324,6 +1336,9 @@ public class GameScene : IDisposable {
 
             _gl.DepthMask(true);
         }
+
+        if (_performanceTracker != null) _performanceTracker.TransparentTime = sw.Elapsed.TotalMilliseconds;
+        sw.Restart();
 
         if (_state.ShowDebugShapes) {
             var debugSettings = new DebugRenderSettings();
@@ -1381,6 +1396,8 @@ public class GameScene : IDisposable {
         }
 
         _debugRenderer?.Render(snapshotView, snapshotProj);
+
+        if (_performanceTracker != null) _performanceTracker.DebugTime = sw.Elapsed.TotalMilliseconds;
 
         // Restore for Avalonia
         _gl.DepthMask(true);

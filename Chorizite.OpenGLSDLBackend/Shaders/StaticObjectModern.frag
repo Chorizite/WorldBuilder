@@ -22,15 +22,13 @@ void main() {
     vec4 color = texture(tex, vec3(TexCoord, float(TextureIndex)));
 
     if (uRenderPass == 0) {
-
-        // Opaque pass
-        if (color.a < 0.95) discard;
+        // Opaque pass - discard transparent pixels so they don't write to depth (Alpha Test)
+        if (color.a < 0.1) discard;
     } else if (uRenderPass == 1) {
-        // Transparent pass
-        if (color.a > 0.95) discard;
-    } else {
+        // Transparent pass - we trust CPU filtering, draw everything in the batch with blending
+    } else if (uRenderPass == 2) {
         // Single pass mode (or fallback)
-        if (color.a < 0.5) discard;
+        if (color.a < 0.1) discard;
     }
     
     color.rgb *= LightingColor;
