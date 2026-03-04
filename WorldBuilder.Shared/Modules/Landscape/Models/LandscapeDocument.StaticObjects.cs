@@ -157,11 +157,20 @@ public partial class LandscapeDocument {
             }
 
             Version++;
-            var affectedLandblocks = new HashSet<(int, int)> {
-                ((int)(oldLandblockId >> 24), (int)((oldLandblockId >> 16) & 0xFF)),
-                ((int)(newLandblockId >> 24), (int)((newLandblockId >> 16) & 0xFF))
-            };
-            NotifyLandblockChanged(affectedLandblocks);
+
+            // Only notify for moves that cross landblock grid boundaries.
+            // Compare grid positions (upper 16 bits) rather than full IDs so
+            // that moves between env cells in the same landblock are also
+            // treated as same-landblock (the renderer already has the correct
+            // transform from UpdateInstanceTransform).
+            bool crossedLandblock = (oldLandblockId >> 16) != (newLandblockId >> 16);
+            if (crossedLandblock) {
+                var affectedLandblocks = new HashSet<(int, int)> {
+                    ((int)(oldLandblockId >> 24), (int)((oldLandblockId >> 16) & 0xFF)),
+                    ((int)(newLandblockId >> 24), (int)((newLandblockId >> 16) & 0xFF))
+                };
+                NotifyLandblockChanged(affectedLandblocks);
+            }
 
             if (LoadedChunks.TryGetValue(oldChunkId, out var chunk1)) {
                 var result = await PersistChunkEditsAsync(chunk1, documentManager, tx, ct);

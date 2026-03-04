@@ -6,16 +6,6 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {
-    public class StaticObjectSelectionEventArgs : EventArgs {
-        public uint LandblockId { get; }
-        public ulong InstanceId { get; }
-
-        public StaticObjectSelectionEventArgs(uint landblockId, ulong instanceId) {
-            LandblockId = landblockId;
-            InstanceId = instanceId;
-        }
-    }
-
     public class InspectorSelectionEventArgs : EventArgs {
         public ISelectedObjectInfo Selection { get; }
 
@@ -37,17 +27,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         public void NotifyInspectorSelected(ISelectedObjectInfo selection) {
             InspectorSelected?.Invoke(this, new InspectorSelectionEventArgs(selection));
-        }
-
-        public event EventHandler<StaticObjectSelectionEventArgs>? StaticObjectHovered;
-        public event EventHandler<StaticObjectSelectionEventArgs>? StaticObjectSelected;
-
-        public void NotifyStaticObjectHovered(uint landblockId, ulong instanceId) {
-            StaticObjectHovered?.Invoke(this, new StaticObjectSelectionEventArgs(landblockId, instanceId));
-        }
-
-        public void NotifyStaticObjectSelected(uint landblockId, ulong instanceId) {
-            StaticObjectSelected?.Invoke(this, new StaticObjectSelectionEventArgs(landblockId, instanceId));
         }
 
         /// <summary>Delegate for raycasting against static objects.</summary>

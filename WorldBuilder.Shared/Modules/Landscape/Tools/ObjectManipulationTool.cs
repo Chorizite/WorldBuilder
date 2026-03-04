@@ -75,27 +75,21 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         private void OnCommandHistoryChanged(object? sender, CommandHistoryChangedEventArgs e) {
-            if (HasSelection && e.Command is MoveStaticObjectCommand moveCommand && 
+            if (HasSelection && e.Command is MoveStaticObjectCommand moveCommand &&
                 moveCommand.OldObject.InstanceId == GizmoState.InstanceId) {
-                
+
                 var targetObj = (e.ChangeType == CommandChangeType.Undo) ? moveCommand.OldObject : moveCommand.NewObject;
                 var targetLbId = (e.ChangeType == CommandChangeType.Undo) ? moveCommand.OldLandblockId : moveCommand.NewLandblockId;
 
                 GizmoState.LandblockId = targetLbId;
                 GizmoState.LocalPosition = new Vector3(targetObj.Position[0], targetObj.Position[1], targetObj.Position[2]);
                 GizmoState.Rotation = new Quaternion(targetObj.Position[4], targetObj.Position[5], targetObj.Position[6], targetObj.Position[3]);
-                
-                // Recalculate world position from local position and landblock
-                if (Context?.Document.Region != null) {
-                    var region = Context.Document.Region;
-                    var offset = region.MapOffset;
-                    var lbSize = region.LandblockSizeInUnits;
-                    
-                    uint lbX = (targetLbId >> 24);
-                    uint lbY = ((targetLbId >> 16) & 0xFF);
-                    var origin = new Vector3(lbX * lbSize + offset.X, lbY * lbSize + offset.Y, 0);
-                    GizmoState.Position = origin + GizmoState.LocalPosition;
-                }
+                GizmoState.Position = ComputeWorldPosition(targetLbId, GizmoState.LocalPosition);
+
+                // Push the transform to the renderer so the object moves to match
+                // (same-landblock moves skip NotifyLandblockChanged, so the renderer
+                // won't regenerate — it needs this direct transform update instead).
+                Context?.NotifyObjectPositionPreview?.Invoke(GizmoState.LandblockId, GizmoState.InstanceId, GizmoState.Position, GizmoState.Rotation);
             }
             else {
                 RefreshGizmoPosition();
@@ -167,7 +161,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             // Not hitting gizmo — try to select a static object
             SceneRaycastHit hit = PerformRaycast(e);
 
-            if (hit.Hit && (hit.Type == InspectorSelectionType.StaticObject || 
+            if (hit.Hit && (hit.Type == InspectorSelectionType.StaticObject ||
                                  hit.Type == InspectorSelectionType.EnvCellStaticObject)) {
                 SelectObject(hit);
                 Context.NotifyInspectorSelected(hit);
@@ -296,15 +290,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         private void CaptureObjectStateForUndo() {
             _dragStartLandblockId = GizmoState.LandblockId;
-            _dragStartObject = new StaticObject {
-                SetupId = GizmoState.ObjectId,
-                InstanceId = GizmoState.InstanceId,
-                LayerId = GizmoState.LayerId,
-                Position = new[] {
-                    GizmoState.LocalPosition.X, GizmoState.LocalPosition.Y, GizmoState.LocalPosition.Z,
-                    GizmoState.Rotation.W, GizmoState.Rotation.X, GizmoState.Rotation.Y, GizmoState.Rotation.Z
-                }
-            };
+            _dragStartObject = CreateStaticObject(GizmoState.LocalPosition, GizmoState.Rotation);
         }
 
         private void CommitManipulation() {
@@ -334,30 +320,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             // Recalculate local position relative to the NEW landblock/cell origin
-            var newLocalPosition = Vector3.Zero;
-            if (Context.Document.Region != null) {
-                var region = Context.Document.Region;
-                var offset = region.MapOffset;
-                var lbSize = region.LandblockSizeInUnits;
+            var lbOrigin = ComputeWorldPosition(newLandblockId, Vector3.Zero);
+            var newLocalPosition = GizmoState.Position - lbOrigin;
 
-                uint lbX = (newLandblockId >> 24);
-                uint lbY = ((newLandblockId >> 16) & 0xFF);
-                var lbOrigin = new Vector3(lbX * lbSize + offset.X, lbY * lbSize + offset.Y, 0);
-
-                newLocalPosition = GizmoState.Position - lbOrigin;
-            }
-
-            var newRotation = GizmoState.Rotation;
-
-            var newObject = new StaticObject {
-                SetupId = GizmoState.ObjectId,
-                InstanceId = GizmoState.InstanceId,
-                LayerId = GizmoState.LayerId,
-                Position = new[] {
-                    newLocalPosition.X, newLocalPosition.Y, newLocalPosition.Z,
-                    newRotation.W, newRotation.X, newRotation.Y, newRotation.Z
-                }
-            };
+            var newObject = CreateStaticObject(newLocalPosition, GizmoState.Rotation);
 
             var command = new MoveStaticObjectCommand(
                 Context,
@@ -374,6 +340,28 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             GizmoState.LandblockId = newLandblockId;
             GizmoState.SelectionType = newType;
             _dragStartObject = null;
+        }
+
+        private StaticObject CreateStaticObject(Vector3 localPosition, Quaternion rotation) {
+            return new StaticObject {
+                SetupId = GizmoState.ObjectId,
+                InstanceId = GizmoState.InstanceId,
+                LayerId = GizmoState.LayerId,
+                Position = new[] {
+                    localPosition.X, localPosition.Y, localPosition.Z,
+                    rotation.W, rotation.X, rotation.Y, rotation.Z
+                }
+            };
+        }
+
+        private Vector3 ComputeWorldPosition(uint landblockId, Vector3 localPosition) {
+            if (Context?.Document.Region == null) return localPosition;
+            var region = Context.Document.Region;
+            uint lbX = (landblockId >> 24);
+            uint lbY = ((landblockId >> 16) & 0xFF);
+            var origin = new Vector3(lbX * region.LandblockSizeInUnits + region.MapOffset.X,
+                                     lbY * region.LandblockSizeInUnits + region.MapOffset.Y, 0);
+            return origin + localPosition;
         }
 
         private (Vector3 Origin, Vector3 Direction) GetRay(ViewportInputEvent e) {
@@ -425,7 +413,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             // 2. Raycast env cells (floors/portals, but not objects)
-            if (Context.RaycastEnvCells != null && 
+            if (Context.RaycastEnvCells != null &&
                 Context.RaycastEnvCells(rayOrigin, rayDirection, true, false, out var envHit)) {
                 if (envHit.Distance < bestDistance) {
                     bestDistance = envHit.Distance;
