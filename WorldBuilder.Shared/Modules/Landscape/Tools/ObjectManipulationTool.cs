@@ -289,7 +289,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                     }
                 }
                 else if (GizmoDragHandler.IsRotationComponent(GizmoState.ActiveComponent)) {
-                    var newRot = _dragHandler.UpdateRotation(ray.Origin, ray.Direction);
+                    float snapAngle = e.ShiftDown ? (15f * MathF.PI / 180f) : 0f;
+                    var newRot = _dragHandler.UpdateRotation(ray.Origin, ray.Direction, snapAngle);
                     GizmoState.Rotation = newRot;
 
                     GizmoState.IsRotating = true;

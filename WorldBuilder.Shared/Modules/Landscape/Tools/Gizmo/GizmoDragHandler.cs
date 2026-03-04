@@ -87,7 +87,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
         /// <summary>
         /// Updates the drag with a new mouse ray for rotation. Returns the new rotation.
         /// </summary>
-        public Quaternion UpdateRotation(Vector3 rayOrigin, Vector3 rayDirection) {
+        public Quaternion UpdateRotation(Vector3 rayOrigin, Vector3 rayDirection, float snapAngle = 0f) {
             var axis = GetRotationAxis(_dragComponent, _dragStartRotation, _isLocalSpace);
             float currentAngle = ComputeAngleOnPlane(rayOrigin, rayDirection, _dragStartPosition, axis);
             AngleDelta = currentAngle - _dragStartAngle;
@@ -95,6 +95,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
             // Handle wrap-around when crossing the -180/180 degree line
             if (AngleDelta > MathF.PI) AngleDelta -= 2f * MathF.PI;
             if (AngleDelta < -MathF.PI) AngleDelta += 2f * MathF.PI;
+
+            if (snapAngle > 0f) {
+                AngleDelta = MathF.Round(AngleDelta / snapAngle) * snapAngle;
+            }
 
             RotationDelta = Quaternion.CreateFromAxisAngle(axis, AngleDelta);
             return RotationDelta * _dragStartRotation;
