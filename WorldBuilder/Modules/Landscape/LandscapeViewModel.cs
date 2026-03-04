@@ -562,6 +562,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             cam3d.Yaw = 0;
             cam3d.Pitch = 0;
         }
+
+        // teleport to Yaraq (both 2D and 3D) 
+        if (Position.TryParse("21.6S, 1.8W", out var pos, ActiveDocument?.Region)) {
+            uint cellId = (uint)((pos!.LandblockId << 16) | pos.CellId);
+            _gameScene?.Teleport(pos.GlobalPosition, cellId);
+        }
     }
 
     private void SyncSettingsToState() {
