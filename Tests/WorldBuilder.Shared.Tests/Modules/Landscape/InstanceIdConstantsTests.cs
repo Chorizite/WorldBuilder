@@ -81,5 +81,52 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
                 }
             }
         }
+
+        [Theory]
+        [InlineData(0x0A0A0000u, 0, InspectorSelectionType.StaticObject)]
+        [InlineData(0x12340000u, 5, InspectorSelectionType.StaticObject)]
+        [InlineData(0xFFFF0000u, 0xFFFF, InspectorSelectionType.StaticObject)]
+        public void EncodeStaticObject_CorrectlyEncodesLandblockAndIndex(uint landblockId, ushort index, InspectorSelectionType expectedType) {
+            var result = InstanceIdConstants.EncodeStaticObject(landblockId, index);
+
+            Assert.Equal(expectedType, InstanceIdConstants.GetType(result));
+            Assert.Equal(index, InstanceIdConstants.GetObjectIndex(result));
+            Assert.Equal((ushort)((landblockId >> 16) & 0xFFFF), InstanceIdConstants.GetLandblockPrefix(result));
+        }
+
+        [Theory]
+        [InlineData(0x0A0A0000u, 0, InspectorSelectionType.Building)]
+        [InlineData(0x12340000u, 3, InspectorSelectionType.Building)]
+        public void EncodeBuilding_CorrectlyEncodesLandblockAndIndex(uint landblockId, ushort index, InspectorSelectionType expectedType) {
+            var result = InstanceIdConstants.EncodeBuilding(landblockId, index);
+
+            Assert.Equal(expectedType, InstanceIdConstants.GetType(result));
+            Assert.Equal(index, InstanceIdConstants.GetObjectIndex(result));
+            Assert.Equal((ushort)((landblockId >> 16) & 0xFFFF), InstanceIdConstants.GetLandblockPrefix(result));
+        }
+
+        [Fact]
+        public void EncodeStaticObject_DifferentLandblocks_ProduceUniqueIds() {
+            // Two different landblocks, same array index — must produce different InstanceIds
+            uint lbA = (10u << 24) | (10u << 16) | 0xFFFE;
+            uint lbB = (11u << 24) | (11u << 16) | 0xFFFE;
+
+            var idA = InstanceIdConstants.EncodeStaticObject(lbA, 0);
+            var idB = InstanceIdConstants.EncodeStaticObject(lbB, 0);
+
+            Assert.NotEqual(idA, idB);
+        }
+
+        [Fact]
+        public void GetObjectIndex_ExtractsLower16Bits() {
+            var id = InstanceIdConstants.EncodeStaticObject(0x12340000u, 42);
+            Assert.Equal((ushort)42, InstanceIdConstants.GetObjectIndex(id));
+        }
+
+        [Fact]
+        public void GetLandblockPrefix_ExtractsBits16To31() {
+            var id = InstanceIdConstants.EncodeStaticObject(0x12340000u, 0);
+            Assert.Equal((ushort)0x1234, InstanceIdConstants.GetLandblockPrefix(id));
+        }
     }
 }

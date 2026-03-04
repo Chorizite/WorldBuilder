@@ -29,7 +29,7 @@ public partial class LandscapeDocument {
             AddStaticObject(layerId, landblockId, obj);
 
             Version++;
-            NotifyLandblockChanged([( (int)(landblockId >> 24), (int)((landblockId >> 16) & 0xFF) )]);
+            NotifyLandblockChanged([((int)(landblockId >> 24), (int)((landblockId >> 16) & 0xFF))]);
 
             if (LoadedChunks.TryGetValue(chunkId, out var chunk2)) {
                 var result = await PersistChunkEditsAsync(chunk2, documentManager, tx, ct);
@@ -71,12 +71,12 @@ public partial class LandscapeDocument {
                 if (!layerEdits.DeletedInstanceIds.Contains(instanceId)) {
                     layerEdits.DeletedInstanceIds.Add(instanceId);
                 }
-                
+
                 chunk.Edits.Version++;
             }
 
             Version++;
-            NotifyLandblockChanged([( (int)(landblockId >> 24), (int)((landblockId >> 16) & 0xFF) )]);
+            NotifyLandblockChanged([((int)(landblockId >> 24), (int)((landblockId >> 16) & 0xFF))]);
 
             if (LoadedChunks.TryGetValue(chunkId, out var chunk2)) {
                 var result = await PersistChunkEditsAsync(chunk2, documentManager, tx, ct);
@@ -121,16 +121,15 @@ public partial class LandscapeDocument {
             // 2. Add to new landblock
             AddStaticObject(layerId, newLandblockId, newObj);
 
-            // 3. Mark as hidden from lower layers if it was a modification of an existing object
-            // Actually, we should just make sure it stays in DeletedInstanceIds if we want to override lower layers.
-            // If it's a move of an object that existed in base, it should have a tombstone in our layer.
-            if (LoadedChunks.TryGetValue(newChunkId, out var newChunk) && newChunk.Edits != null) {
-                if (newChunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
-                    if (!layerEdits.DeletedInstanceIds.Contains(newObj.InstanceId)) {
-                        layerEdits.DeletedInstanceIds.Add(newObj.InstanceId);
-                    }
+            // 3. Add a tombstone in the OLD chunk to suppress the base/lower-layer version at the original location.
+            if (LoadedChunks.TryGetValue(oldChunkId, out var oldChunkForTombstone) && oldChunkForTombstone.Edits != null) {
+                if (!oldChunkForTombstone.Edits.LayerEdits.TryGetValue(layerId, out var tombstoneEdits)) {
+                    tombstoneEdits = new LandscapeChunkEdits();
+                    oldChunkForTombstone.Edits.LayerEdits[layerId] = tombstoneEdits;
                 }
-                newChunk.Edits.Version++;
+                if (!tombstoneEdits.DeletedInstanceIds.Contains(newObj.InstanceId)) {
+                    tombstoneEdits.DeletedInstanceIds.Add(newObj.InstanceId);
+                }
             }
 
             Version++;

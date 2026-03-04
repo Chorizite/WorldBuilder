@@ -20,7 +20,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
         public LandscapeDocumentMergingTests() {
             _mockRegion = new Mock<ITerrainInfo>();
             _mockCellDatabase = new Mock<IDatDatabase>();
-            
+
             _doc = new LandscapeDocument(_regionId);
             _doc.Region = _mockRegion.Object;
             _doc.CellDatabase = _mockCellDatabase.Object;
@@ -36,11 +36,11 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             uint landblockId = 0x12340000;
             string layerId = "Layer1";
             _doc.AddLayer([], "Layer 1", false, layerId);
-            
+
             // Mock chunk
             ushort chunkId = 0x0206; // (0x12/8=2, 0x34/8=6)
             _mockRegion.Setup(r => r.GetLandblockId(It.IsAny<int>(), It.IsAny<int>())).Returns((ushort)0x1234);
-            
+
             var chunk = new LandscapeChunk(chunkId);
             chunk.EditsDetached = new LandscapeChunkDocument(LandscapeChunkDocument.GetId(_regionId, chunk.ChunkX, chunk.ChunkY));
             _doc.LoadedChunks[chunkId] = chunk;
@@ -68,8 +68,8 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             _doc.AddLayer([], "Layer 1", false, layerId);
             var layer = (LandscapeLayer)_doc.FindItem(layerId)!;
             layer.IsVisible = false;
-            
-            ushort chunkId = 0; 
+
+            ushort chunkId = 0;
             var chunk = new LandscapeChunk(chunkId);
             chunk.EditsDetached = new LandscapeChunkDocument(LandscapeChunkDocument.GetId(_regionId, chunk.ChunkX, chunk.ChunkY));
             _doc.LoadedChunks[chunkId] = chunk;
@@ -89,25 +89,25 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             // Arrange
             uint landblockId = 0x12340000;
             uint lbFileId = (landblockId & 0xFFFF0000) | 0xFFFE;
-            
+
             // Mock base object in DAT
             var lbi = new LandBlockInfo();
             lbi.Objects.Add(new Stab { Id = 0x1234, Frame = new Frame() });
-            
+
             byte[]? dummyBytes = new byte[1];
             _mockCellDatabase.Setup(db => db.TryGetFileBytes(lbFileId, out dummyBytes)).Returns(true);
             _mockCellDatabase.Setup(db => db.TryGet<LandBlockInfo>(lbFileId, out lbi)).Returns(true);
 
             string layerId = "Layer1";
             _doc.AddLayer([], "Layer 1", false, layerId);
-            
-            ushort chunkId = 0x0206; 
+
+            ushort chunkId = 0x0206;
             var chunk = new LandscapeChunk(chunkId);
             chunk.EditsDetached = new LandscapeChunkDocument(LandscapeChunkDocument.GetId(_regionId, chunk.ChunkX, chunk.ChunkY));
             _doc.LoadedChunks[chunkId] = chunk;
 
-            // Delete base object
-            _doc.RemoveInstance(layerId, chunkId, InstanceIdConstants.Encode(0, InspectorSelectionType.StaticObject));
+            // Delete base object — use landblock-aware encoding to match what GetMergedLandblock generates
+            _doc.RemoveInstance(layerId, chunkId, InstanceIdConstants.EncodeStaticObject(lbFileId, 0));
 
             // Act
             var merged = _doc.GetMergedLandblock(landblockId);
@@ -122,7 +122,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             uint landblockId = 0x12340000;
             string layerId = "Layer1";
             _doc.AddLayer([], "Layer 1", false, layerId);
-            
+
             ushort chunkId = 0x0206;
             var chunk = new LandscapeChunk(chunkId);
             chunk.EditsDetached = new LandscapeChunkDocument(LandscapeChunkDocument.GetId(_regionId, chunk.ChunkX, chunk.ChunkY));
@@ -162,7 +162,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
 
             string layerId = "Layer1";
             _doc.AddLayer([], "Layer 1", false, layerId);
-            
+
             ushort chunkId = 0x0206;
             var chunk = new LandscapeChunk(chunkId);
             chunk.EditsDetached = new LandscapeChunkDocument(LandscapeChunkDocument.GetId(_regionId, chunk.ChunkX, chunk.ChunkY));
@@ -170,9 +170,9 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
 
             // Add an object to this cell in the layer
             var obj = new StaticObject { InstanceId = 500, SetupId = 0x01000005, LayerId = layerId };
-            
+
             var layerEdits = new LandscapeChunkEdits();
-            layerEdits.Cells[cellId] = new Cell { 
+            layerEdits.Cells[cellId] = new Cell {
                 StaticObjects = new List<StaticObject> { obj },
                 LayerId = layerId,
                 EnvironmentId = 10
@@ -185,6 +185,51 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             // Assert
             Xunit.Assert.Equal((uint)10, merged.EnvironmentId);
             Assert.Contains(merged.StaticObjects, o => o.InstanceId == 500);
+        }
+
+        [Fact]
+        public void GetMergedLandblock_DeleteInOneLandblock_DoesNotAffectOtherInSameChunk() {
+            // Arrange: two landblocks in the same chunk, each with a base object at index 0
+            uint lbA = 0x10100000;
+            uint lbB = 0x11100000;
+            uint lbFileIdA = (lbA & 0xFFFF0000) | 0xFFFE;
+            uint lbFileIdB = (lbB & 0xFFFF0000) | 0xFFFE;
+
+            // Both are in chunk (0x10/8=2, 0x10/8=2) = 0x0202
+            ushort chunkId = 0x0202;
+
+            // Mock base objects for landblock A
+            var lbiA = new LandBlockInfo();
+            lbiA.Objects.Add(new Stab { Id = 0x01000001, Frame = new Frame() });
+            byte[]? dummyBytesA = new byte[1];
+            _mockCellDatabase.Setup(db => db.TryGetFileBytes(lbFileIdA, out dummyBytesA)).Returns(true);
+            _mockCellDatabase.Setup(db => db.TryGet<LandBlockInfo>(lbFileIdA, out lbiA)).Returns(true);
+
+            // Mock base objects for landblock B
+            var lbiB = new LandBlockInfo();
+            lbiB.Objects.Add(new Stab { Id = 0x01000002, Frame = new Frame() });
+            byte[]? dummyBytesB = new byte[1];
+            _mockCellDatabase.Setup(db => db.TryGetFileBytes(lbFileIdB, out dummyBytesB)).Returns(true);
+            _mockCellDatabase.Setup(db => db.TryGet<LandBlockInfo>(lbFileIdB, out lbiB)).Returns(true);
+
+            string layerId = "Layer1";
+            _doc.AddLayer([], "Layer 1", false, layerId);
+
+            var chunk = new LandscapeChunk(chunkId);
+            chunk.EditsDetached = new LandscapeChunkDocument(LandscapeChunkDocument.GetId(_regionId, chunk.ChunkX, chunk.ChunkY));
+            _doc.LoadedChunks[chunkId] = chunk;
+
+            // Delete base object #0 in landblock A only
+            _doc.RemoveInstance(layerId, chunkId, InstanceIdConstants.EncodeStaticObject(lbFileIdA, 0));
+
+            // Act
+            var mergedA = _doc.GetMergedLandblock(lbA);
+            var mergedB = _doc.GetMergedLandblock(lbB);
+
+            // Assert: A's object is deleted, B's object is NOT affected
+            Assert.Empty(mergedA.StaticObjects);
+            Assert.Single(mergedB.StaticObjects);
+            Assert.Equal(0x01000002u, mergedB.StaticObjects[0].SetupId);
         }
     }
 }

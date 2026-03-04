@@ -563,7 +563,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (cellDb != null && mergedLb.Buildings.Count > 0) {
                     if (cellDb.TryGet<LandBlockInfo>(lbId, out var lbi)) {
                         foreach (var building in mergedLb.Buildings) {
-                            int index = (int)InstanceIdConstants.GetRawId(building.InstanceId);
+                            int index = InstanceIdConstants.GetObjectIndex(building.InstanceId);
                             if (index < lbi.Buildings.Count) {
                                 var bInfo = lbi.Buildings[index];
                                 // Start discovery from building portals
