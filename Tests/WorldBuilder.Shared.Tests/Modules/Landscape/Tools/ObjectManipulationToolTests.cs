@@ -74,7 +74,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
                 LandblockId = lbId,
                 InstanceId = instId
             };
-            context.RaycastStaticObject = (Vector3 o, Vector3 d, bool b, bool s, out SceneRaycastHit h) => {
+            context.RaycastStaticObject = (Vector3 o, Vector3 d, bool b, bool s, out SceneRaycastHit h, ulong ignoreInstanceId) => {
                 h = hit;
                 return true;
             };
@@ -85,7 +85,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             InspectorSelectionEventArgs? capturedArgs = null;
             context.InspectorHovered += (s, e) => capturedArgs = e;
 
-            context.RaycastStaticObject = (Vector3 o, Vector3 d, bool b, bool s, out SceneRaycastHit h) => {
+            context.RaycastStaticObject = (Vector3 o, Vector3 d, bool b, bool s, out SceneRaycastHit h, ulong ignoreInstanceId) => {
                 h = SceneRaycastHit.NoHit;
                 return false;
             };

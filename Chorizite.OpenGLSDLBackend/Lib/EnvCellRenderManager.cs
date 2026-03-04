@@ -129,7 +129,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return false;
         }
 
-        public virtual bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false, float maxDistance = float.MaxValue) {
+        public virtual bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false, float maxDistance = float.MaxValue, ulong ignoreInstanceId = 0) {
             hit = SceneRaycastHit.NoHit;
 
             // Early exit: Don't collide with interiors if we are outside
@@ -145,6 +145,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 lock (lb) {
                     foreach (var instance in lb.Instances) {
+                        if (ignoreInstanceId != 0 && instance.InstanceId == ignoreInstanceId) continue;
+
                         var type = InstanceIdConstants.GetType(instance.InstanceId);
                         if (type == InspectorSelectionType.EnvCell && !includeCells) continue;
                         if (type == InspectorSelectionType.EnvCellStaticObject && !includeStaticObjects) continue;
@@ -171,7 +173,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.ObjectId = (uint)instance.ObjectId;
                                 hit.InstanceId = instance.InstanceId;
                                 hit.SecondaryId = InstanceIdConstants.GetSecondaryId(instance.InstanceId);
-                                hit.Position = instance.WorldPosition;
+                                hit.Position = rayOrigin + rayDirection * d;
                                 hit.LocalPosition = instance.LocalPosition;
                                 hit.Rotation = instance.Rotation;
                                 hit.LandblockId = InstanceIdConstants.GetRawId(instance.InstanceId);

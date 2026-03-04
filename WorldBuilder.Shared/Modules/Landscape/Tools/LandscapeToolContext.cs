@@ -30,7 +30,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         /// <summary>Delegate for raycasting against static objects.</summary>
-        public delegate bool RaycastStaticObjectDelegate(Vector3 rayOrigin, Vector3 rayDirection, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit);
+        public delegate bool RaycastStaticObjectDelegate(Vector3 rayOrigin, Vector3 rayDirection, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, ulong ignoreInstanceId = 0);
 
         /// <summary>Performs a raycast against static objects in the scene.</summary>
         public RaycastStaticObjectDelegate? RaycastStaticObject { get; set; }
@@ -48,7 +48,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public RaycastPortalsDelegate? RaycastPortals { get; set; }
 
         /// <summary>Delegate for raycasting against env cells.</summary>
-        public delegate bool RaycastEnvCellsDelegate(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit);
+        public delegate bool RaycastEnvCellsDelegate(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, ulong ignoreInstanceId = 0);
 
         /// <summary>Performs a raycast against env cells in the scene.</summary>
         public RaycastEnvCellsDelegate? RaycastEnvCells { get; set; }

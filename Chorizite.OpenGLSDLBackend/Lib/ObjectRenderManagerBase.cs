@@ -334,7 +334,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 lock (lb) {
-                    UploadLandblockMeshes(lb);
+                    // Check if this is a transform-only update (drag preview) with no
+                    // pending full regeneration.  If so, take the lightweight path that
+                    // re-uploads instance data in-place without freeing/reallocating the
+                    // GPU buffer — this avoids the 1-frame flash caused by the full
+                    // UploadLandblockMeshes teardown/rebuild cycle.
+                    bool transformOnly = Interlocked.Exchange(ref lb.IsTransformOnlyUpdate, 0) == 1
+                                        && lb.PendingInstances == null
+                                        && lb.GpuReady;
+                    if (transformOnly) {
+                        UploadTransformOnly(lb);
+                    }
+                    else {
+                        UploadLandblockMeshes(lb);
+                    }
                 }
                 _activeLandblocksDirty = true;
                 NeedsPrepare = true;
@@ -363,9 +376,23 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             }
                             lb.Instances[i] = instance;
 
-                            // Mark landblock as needing upload if not already queued
-                            if (Interlocked.Exchange(ref lb.IsQueuedForUpload, 1) == 0) {
-                                _uploadQueue.Enqueue(lb);
+                            if (!UseInstanceBuffer) {
+                                // For managers without persistent instance buffers
+                                // (e.g. EnvCellRenderManager), rebuild part groups
+                                // immediately so PrepareRenderBatches/Render sees
+                                // the updated transforms on the very next frame.
+                                PopulatePartGroups(lb, lb.Instances);
+                                NeedsPrepare = true;
+                            }
+                            else {
+                                // Flag as transform-only so the upload path skips
+                                // the destructive free/realloc cycle.
+                                Interlocked.Exchange(ref lb.IsTransformOnlyUpdate, 1);
+
+                                // Mark landblock as needing upload if not already queued
+                                if (Interlocked.Exchange(ref lb.IsQueuedForUpload, 1) == 0) {
+                                    _uploadQueue.Enqueue(lb);
+                                }
                             }
                             return;
                         }
@@ -835,6 +862,36 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             lb.GpuReady = true;
+        }
+
+        /// <summary>
+        /// Lightweight transform-only re-upload. Rebuilds part groups and re-uploads
+        /// instance data to the same GPU buffer position without freeing/reallocating.
+        /// Used during drag previews to avoid the flash caused by full UploadLandblockMeshes.
+        /// </summary>
+        private unsafe void UploadTransformOnly(ObjectLandblock lb) {
+            if (!UseInstanceBuffer || lb.InstanceBufferOffset < 0) return;
+
+            // Rebuild part groups with updated transforms
+            PopulatePartGroups(lb, lb.Instances);
+
+            // Collect instance data (same layout, different transforms)
+            var allInstances = new List<InstanceData>();
+            foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
+                allInstances.AddRange(transforms);
+            }
+            foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
+                allInstances.AddRange(transforms);
+            }
+
+            // Re-upload to same buffer position (no realloc needed since count is stable)
+            if (allInstances.Count == lb.InstanceCount && lb.InstanceBufferOffset >= 0) {
+                UploadInstanceData(lb.InstanceBufferOffset, allInstances);
+            }
+            else {
+                // Instance count changed unexpectedly — fall back to full upload
+                UploadLandblockMeshes(lb);
+            }
         }
 
         private void UploadRecursive(ulong objectId, bool isSetup) {

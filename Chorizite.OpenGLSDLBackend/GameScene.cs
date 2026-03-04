@@ -399,10 +399,10 @@ public class GameScene : IDisposable {
 
     public void SetToolContext(LandscapeToolContext? context) {
         if (context != null) {
-            context.RaycastStaticObject = (Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit) => RaycastStaticObjects(origin, direction, includeBuildings, includeStaticObjects, out hit);
+            context.RaycastStaticObject = (Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, ulong ignoreInstanceId) => RaycastStaticObjects(origin, direction, includeBuildings, includeStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId);
             context.RaycastScenery = (Vector3 origin, Vector3 direction, out SceneRaycastHit hit) => RaycastScenery(origin, direction, out hit);
             context.RaycastPortals = (Vector3 origin, Vector3 direction, out SceneRaycastHit hit) => RaycastPortals(origin, direction, out hit);
-            context.RaycastEnvCells = (Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit) => RaycastEnvCells(origin, direction, includeCells, includeStaticObjects, out hit);
+            context.RaycastEnvCells = (Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, ulong ignoreInstanceId) => RaycastEnvCells(origin, direction, includeCells, includeStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId);
         }
     }
 
@@ -688,14 +688,14 @@ public class GameScene : IDisposable {
         }
     }
 
-    public bool RaycastStaticObjects(Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, bool isCollision = false, float maxDistance = float.MaxValue) {
+    public bool RaycastStaticObjects(Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, bool isCollision = false, float maxDistance = float.MaxValue, ulong ignoreInstanceId = 0) {
         hit = SceneRaycastHit.NoHit;
 
         var targets = StaticObjectRenderManager.RaycastTarget.None;
         if (includeBuildings) targets |= StaticObjectRenderManager.RaycastTarget.Buildings;
         if (includeStaticObjects) targets |= StaticObjectRenderManager.RaycastTarget.StaticObjects;
 
-        if (_staticObjectManager != null && _staticObjectManager.Raycast(origin, direction, targets, out hit, _currentEnvCellId, isCollision, maxDistance)) {
+        if (_staticObjectManager != null && _staticObjectManager.Raycast(origin, direction, targets, out hit, _currentEnvCellId, isCollision, maxDistance, ignoreInstanceId)) {
             return true;
         }
         return false;
@@ -719,10 +719,10 @@ public class GameScene : IDisposable {
         return false;
     }
 
-    public bool RaycastEnvCells(Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, bool isCollision = false, float maxDistance = float.MaxValue) {
+    public bool RaycastEnvCells(Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, bool isCollision = false, float maxDistance = float.MaxValue, ulong ignoreInstanceId = 0) {
         hit = SceneRaycastHit.NoHit;
 
-        if (_envCellManager != null && _envCellManager.Raycast(origin, direction, includeCells, includeStaticObjects, out hit, _currentEnvCellId, isCollision, maxDistance)) {
+        if (_envCellManager != null && _envCellManager.Raycast(origin, direction, includeCells, includeStaticObjects, out hit, _currentEnvCellId, isCollision, maxDistance, ignoreInstanceId)) {
             return true;
         }
         return false;

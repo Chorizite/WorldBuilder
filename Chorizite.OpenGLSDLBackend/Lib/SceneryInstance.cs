@@ -131,10 +131,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         public int IsQueuedForUpload;
 
+        /// <summary>
+        /// When set to 1, the pending upload is a transform-only update (e.g. drag preview).
+        /// The upload path will skip buffer reallocation and mesh re-upload.
+        /// </summary>
+        public int IsTransformOnlyUpdate;
+
         // Optimized rendering data
         public int InstanceBufferOffset { get; set; } = -1;
         public int InstanceCount { get; set; }
-        
+
         /// <summary>
         /// Pre-calculated draw commands and batch data for this landblock.
         /// Keyed by CullMode to allow grouped rendering.

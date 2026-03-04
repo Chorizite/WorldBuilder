@@ -140,7 +140,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             // Object raycast should not even be called if filters are off
             bool objectRaycastCalled = false;
-            context.RaycastStaticObject = (Vector3 o, Vector3 d, bool b, bool s, out SceneRaycastHit h) => {
+            context.RaycastStaticObject = (Vector3 o, Vector3 d, bool b, bool s, out SceneRaycastHit h, ulong ignoreInstanceId) => {
                 objectRaycastCalled = true;
                 h = new SceneRaycastHit { Hit = true, Type = InspectorSelectionType.StaticObject, Distance = 5f };
                 return true;

@@ -268,9 +268,9 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 _toolContext.InvalidateLandblock = _invalidateCallback;
             }
 
-            _toolContext.RaycastStaticObject = (Vector3 origin, Vector3 dir, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit) => {
+            _toolContext.RaycastStaticObject = (Vector3 origin, Vector3 dir, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, ulong ignoreInstanceId) => {
                 hit = SceneRaycastHit.NoHit;
-                return _gameScene?.RaycastStaticObjects(origin, dir, includeBuildings && EditorState.ShowBuildings, includeStaticObjects && EditorState.ShowStaticObjects, out hit) ?? false;
+                return _gameScene?.RaycastStaticObjects(origin, dir, includeBuildings && EditorState.ShowBuildings, includeStaticObjects && EditorState.ShowStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId) ?? false;
             };
 
             _toolContext.RaycastScenery = (Vector3 origin, Vector3 dir, out SceneRaycastHit hit) => {
