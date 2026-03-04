@@ -6,10 +6,8 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo;
 
-namespace Chorizite.OpenGLSDLBackend.Lib
-{
-    public unsafe class BackendGizmoDrawer : IGizmoDrawer, IDisposable
-    {
+namespace Chorizite.OpenGLSDLBackend.Lib {
+    public unsafe class BackendGizmoDrawer : IGizmoDrawer, IDisposable {
         private readonly GL _gl;
         private readonly OpenGLGraphicsDevice _graphicsDevice;
 
@@ -20,24 +18,22 @@ namespace Chorizite.OpenGLSDLBackend.Lib
 
         // Draw calls
         private abstract class GizmoDrawCmd { }
-        private class DrawCylinderCmd : GizmoDrawCmd
-        {
+        private class DrawCylinderCmd : GizmoDrawCmd {
             public Vector3 Start, End; public float Radius; public Vector4 Color;
         }
-        private class DrawConeCmd : GizmoDrawCmd
-        {
+        private class DrawConeCmd : GizmoDrawCmd {
             public Vector3 Origin, Direction; public float Length, Radius; public Vector4 Color;
         }
-        private class DrawTorusCmd : GizmoDrawCmd
-        {
+        private class DrawTorusCmd : GizmoDrawCmd {
             public Vector3 Center, Axis; public float Radius, TubeRadius; public Vector4 Color;
         }
-        private class DrawBoxCmd : GizmoDrawCmd
-        {
+        private class DrawBoxCmd : GizmoDrawCmd {
             public Vector3 Center; public float Size; public Vector4 Color;
         }
-        private class DrawLineCmd : GizmoDrawCmd
-        {
+        private class DrawPieCmd : GizmoDrawCmd {
+            public Vector3 Center, Axis, StartAxis; public float Radius, Angle; public Vector4 Color;
+        }
+        private class DrawLineCmd : GizmoDrawCmd {
             public Vector3 Start, End; public Vector4 Color; public float Thickness;
         }
 
@@ -49,16 +45,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib
         private int _coneIndexOffset, _coneIndexCount;
         private int _torusIndexOffset, _torusIndexCount;
         private int _boxIndexOffset, _boxIndexCount;
+        private int _discIndexOffset, _discIndexCount;
 
         [StructLayout(LayoutKind.Sequential)]
-        private struct Vertex
-        {
+        private struct Vertex {
             public Vector3 Position;
             public Vector3 Normal;
         }
 
-        public BackendGizmoDrawer(GL gl, OpenGLGraphicsDevice graphicsDevice, DebugRenderer debugFallback)
-        {
+        public BackendGizmoDrawer(GL gl, OpenGLGraphicsDevice graphicsDevice, DebugRenderer debugFallback) {
             _gl = gl;
             _graphicsDevice = graphicsDevice;
             _debugRendererFallback = debugFallback;
@@ -66,25 +61,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib
             BuildGeometry();
         }
 
-        public void SetShader(IShader shader)
-        {
+        public void SetShader(IShader shader) {
             _shader = shader;
         }
 
-        private void BuildGeometry()
-        {
+        private void BuildGeometry() {
             var vertices = new List<Vertex>();
             var indices = new List<uint>();
 
-            void AddMesh(List<Vertex> v, List<uint> i, out int idxOffset, out int idxCount)
-            {
+            void AddMesh(List<Vertex> v, List<uint> i, out int idxOffset, out int idxCount) {
                 uint baseVertex = (uint)vertices.Count;
                 idxOffset = indices.Count * sizeof(uint);
                 idxCount = i.Count;
 
                 vertices.AddRange(v);
-                foreach (var idx in i)
-                {
+                foreach (var idx in i) {
                     indices.Add(baseVertex + idx);
                 }
             }
@@ -104,6 +95,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib
             // 4) Box (size=1)
             BuildBox(out var boxV, out var boxI);
             AddMesh(boxV, boxI, out _boxIndexOffset, out _boxIndexCount);
+
+            // 5) Disc (radius=1, normalZ)
+            BuildDisc(64, out var discV, out var discI);
+            AddMesh(discV, discI, out _discIndexOffset, out _discIndexCount);
 
             // Create OpenGL buffers
             _gl.GenVertexArrays(1, out _vao);
@@ -129,8 +124,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib
             _gl.BindVertexArray(0);
         }
 
-        private void BuildCylinder(int segments, out List<Vertex> vertices, out List<uint> indices)
-        {
+        private void BuildCylinder(int segments, out List<Vertex> vertices, out List<uint> indices) {
             vertices = new List<Vertex>();
             indices = new List<uint>();
 
@@ -142,8 +136,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib
             vertices.Add(new Vertex { Position = new Vector3(0, 0, 1), Normal = new Vector3(0, 0, 1) });
 
             int baseIdx = 2;
-            for (int i = 0; i < segments; i++)
-            {
+            for (int i = 0; i < segments; i++) {
                 float angle = (i / (float)segments) * MathF.PI * 2f;
                 float nx = MathF.Cos(angle);
                 float ny = MathF.Sin(angle);
@@ -176,8 +169,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib
             }
         }
 
-        private void BuildCone(int segments, out List<Vertex> vertices, out List<uint> indices)
-        {
+        private void BuildCone(int segments, out List<Vertex> vertices, out List<uint> indices) {
             vertices = new List<Vertex>();
             indices = new List<uint>();
 
@@ -187,8 +179,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib
             vertices.Add(new Vertex { Position = new Vector3(0, 0, 1), Normal = new Vector3(0, 0, 1) }); // approximate normal at tip
 
             int baseIdx = 2;
-            for (int i = 0; i < segments; i++)
-            {
+            for (int i = 0; i < segments; i++) {
                 float angle = (i / (float)segments) * MathF.PI * 2f;
                 float nx = MathF.Cos(angle);
                 float ny = MathF.Sin(angle);
@@ -210,19 +201,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib
             }
         }
 
-        private void BuildTorus(int mainSegments, int tubeSegments, float mainRadius, float tubeRadius, out List<Vertex> vertices, out List<uint> indices)
-        {
+        private void BuildTorus(int mainSegments, int tubeSegments, float mainRadius, float tubeRadius, out List<Vertex> vertices, out List<uint> indices) {
             vertices = new List<Vertex>();
             indices = new List<uint>();
 
-            for (int i = 0; i <= mainSegments; i++)
-            {
+            for (int i = 0; i <= mainSegments; i++) {
                 float u = i / (float)mainSegments * MathF.PI * 2f;
                 float cosU = MathF.Cos(u);
                 float sinU = MathF.Sin(u);
 
-                for (int j = 0; j <= tubeSegments; j++)
-                {
+                for (int j = 0; j <= tubeSegments; j++) {
                     float v = j / (float)tubeSegments * MathF.PI * 2f;
                     float cosV = MathF.Cos(v);
                     float sinV = MathF.Sin(v);
@@ -239,10 +227,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib
                 }
             }
 
-            for (int i = 0; i < mainSegments; i++)
-            {
-                for (int j = 0; j < tubeSegments; j++)
-                {
+            for (int i = 0; i < mainSegments; i++) {
+                for (int j = 0; j < tubeSegments; j++) {
                     int first = (i * (tubeSegments + 1)) + j;
                     int second = first + tubeSegments + 1;
 
@@ -257,8 +243,26 @@ namespace Chorizite.OpenGLSDLBackend.Lib
             }
         }
 
-        private void BuildBox(out List<Vertex> vertices, out List<uint> indices)
-        {
+        private void BuildDisc(int segments, out List<Vertex> vertices, out List<uint> indices) {
+            vertices = new List<Vertex>();
+            indices = new List<uint>();
+
+            int centerIdx = 0;
+            vertices.Add(new Vertex { Position = new Vector3(0, 0, 0), Normal = new Vector3(0, 0, 1) });
+
+            for (int i = 0; i < segments; i++) {
+                float a = (i / (float)segments) * MathF.PI * 2f;
+                vertices.Add(new Vertex { Position = new Vector3(MathF.Cos(a), MathF.Sin(a), 0), Normal = new Vector3(0, 0, 1) });
+            }
+
+            for (int i = 0; i < segments; i++) {
+                indices.Add((uint)centerIdx);
+                indices.Add((uint)(1 + i));
+                indices.Add((uint)(1 + (i + 1) % segments));
+            }
+        }
+
+        private void BuildBox(out List<Vertex> vertices, out List<uint> indices) {
             vertices = new List<Vertex>();
             indices = new List<uint>();
 
@@ -280,12 +284,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib
                 new(0, 0, -1), new(0, 0, 1), new(0, -1, 0), new(0, 1, 0), new(-1, 0, 0), new(1, 0, 0)
             };
 
-            for (int f = 0; f < 6; f++)
-            {
+            for (int f = 0; f < 6; f++) {
                 int baseVert = vertices.Count;
                 var n = normals[f];
-                for (int i = 0; i < 4; i++)
-                {
+                for (int i = 0; i < 4; i++) {
                     vertices.Add(new Vertex { Position = positions[faces[f][i]], Normal = n });
                 }
                 indices.Add((uint)baseVert); indices.Add((uint)(baseVert + 1)); indices.Add((uint)(baseVert + 2));
@@ -293,44 +295,40 @@ namespace Chorizite.OpenGLSDLBackend.Lib
             }
         }
 
-        public void DrawLine(Vector3 start, Vector3 end, Vector4 color, float thickness = 2f)
-        {
+        public void DrawLine(Vector3 start, Vector3 end, Vector4 color, float thickness = 2f) {
             _commands.Add(new DrawLineCmd { Start = start, End = end, Color = color, Thickness = thickness });
         }
 
-        public void DrawCircle(Vector3 center, float radius, Vector3 axis, Vector4 color, int segments = 32, float thickness = 2f)
-        {
+        public void DrawCircle(Vector3 center, float radius, Vector3 axis, Vector4 color, int segments = 32, float thickness = 2f) {
             // fallback
             _debugRendererFallback.DrawCircle(center, radius, axis, color, segments, thickness);
         }
 
-        public void DrawArrow(Vector3 start, Vector3 end, Vector4 color, float headLength = 0.3f, float thickness = 2f)
-        {
+        public void DrawArrow(Vector3 start, Vector3 end, Vector4 color, float headLength = 0.3f, float thickness = 2f) {
             _debugRendererFallback.DrawArrow(start, end, color, headLength, thickness);
         }
 
-        public void DrawCylinder(Vector3 start, Vector3 end, float radius, Vector4 color)
-        {
+        public void DrawCylinder(Vector3 start, Vector3 end, float radius, Vector4 color) {
             _commands.Add(new DrawCylinderCmd { Start = start, End = end, Radius = radius, Color = color });
         }
 
-        public void DrawCone(Vector3 origin, Vector3 direction, float length, float radius, Vector4 color)
-        {
+        public void DrawCone(Vector3 origin, Vector3 direction, float length, float radius, Vector4 color) {
             _commands.Add(new DrawConeCmd { Origin = origin, Direction = direction, Length = length, Radius = radius, Color = color });
         }
 
-        public void DrawTorus(Vector3 center, Vector3 axis, float radius, float tubeRadius, Vector4 color)
-        {
+        public void DrawTorus(Vector3 center, Vector3 axis, float radius, float tubeRadius, Vector4 color) {
             _commands.Add(new DrawTorusCmd { Center = center, Axis = axis, Radius = radius, TubeRadius = tubeRadius, Color = color });
         }
 
-        public void DrawCenterBox(Vector3 center, float size, Vector4 color)
-        {
+        public void DrawCenterBox(Vector3 center, float size, Vector4 color) {
             _commands.Add(new DrawBoxCmd { Center = center, Size = size, Color = color });
         }
 
-        public void Render(Matrix4x4 view, Matrix4x4 projection)
-        {
+        public void DrawPie(Vector3 center, float radius, Vector3 axis, Vector3 startAxis, float angle, Vector4 color) {
+            _commands.Add(new DrawPieCmd { Center = center, Radius = radius, Axis = axis, StartAxis = startAxis, Angle = angle, Color = color });
+        }
+
+        public void Render(Matrix4x4 view, Matrix4x4 projection) {
             if (_commands.Count == 0 || _shader == null) return;
 
             _shader.Bind();
@@ -343,14 +341,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib
 
             _gl.BindVertexArray(_vao);
 
-            foreach (var cmd in _commands)
-            {
-                if (cmd is DrawLineCmd lineCmd)
-                {
+            foreach (var cmd in _commands) {
+                if (cmd is DrawLineCmd lineCmd) {
                     _debugRendererFallback.DrawLine(lineCmd.Start, lineCmd.End, lineCmd.Color, lineCmd.Thickness);
                 }
-                else if (cmd is DrawCylinderCmd cylCmd)
-                {
+                else if (cmd is DrawCylinderCmd cylCmd) {
                     var dir = cylCmd.End - cylCmd.Start;
                     float len = dir.Length();
                     if (len <= 0.0001f) continue;
@@ -360,44 +355,62 @@ namespace Chorizite.OpenGLSDLBackend.Lib
                     var scale = Matrix4x4.CreateScale(cylCmd.Radius, cylCmd.Radius, len);
                     _shader.SetUniform("uModel", scale * model);
                     _shader.SetUniform("uBaseColor", cylCmd.Color);
+                    _shader.SetUniform("uIsPie", 0);
 
                     _gl.DrawElements(GLEnum.Triangles, (uint)_cylIndexCount, GLEnum.UnsignedInt, (void*)_cylIndexOffset);
                 }
-                else if (cmd is DrawConeCmd coneCmd)
-                {
+                else if (cmd is DrawConeCmd coneCmd) {
                     var model = CreateAlignZMatrix(coneCmd.Origin, Vector3.Normalize(coneCmd.Direction));
                     var scale = Matrix4x4.CreateScale(coneCmd.Radius, coneCmd.Radius, coneCmd.Length);
                     _shader.SetUniform("uModel", scale * model);
                     _shader.SetUniform("uBaseColor", coneCmd.Color);
+                    _shader.SetUniform("uIsPie", 0);
 
                     _gl.DrawElements(GLEnum.Triangles, (uint)_coneIndexCount, GLEnum.UnsignedInt, (void*)_coneIndexOffset);
                 }
-                else if (cmd is DrawTorusCmd torusCmd)
-                {
+                else if (cmd is DrawTorusCmd torusCmd) {
                     var model = CreateAlignZMatrix(torusCmd.Center, Vector3.Normalize(torusCmd.Axis));
                     var scale = Matrix4x4.CreateScale(torusCmd.Radius, torusCmd.Radius, torusCmd.Radius);
                     _shader.SetUniform("uModel", scale * model);
                     _shader.SetUniform("uBaseColor", torusCmd.Color);
+                    _shader.SetUniform("uIsPie", 0);
 
                     _gl.DrawElements(GLEnum.Triangles, (uint)_torusIndexCount, GLEnum.UnsignedInt, (void*)_torusIndexOffset);
                 }
-                else if (cmd is DrawBoxCmd boxCmd)
-                {
+                else if (cmd is DrawBoxCmd boxCmd) {
                     var model = Matrix4x4.CreateTranslation(boxCmd.Center);
                     var scale = Matrix4x4.CreateScale(boxCmd.Size);
                     _shader.SetUniform("uModel", scale * model);
                     _shader.SetUniform("uBaseColor", boxCmd.Color);
+                    _shader.SetUniform("uIsPie", 0);
 
                     _gl.DrawElements(GLEnum.Triangles, (uint)_boxIndexCount, GLEnum.UnsignedInt, (void*)_boxIndexOffset);
                 }
+                else if (cmd is DrawPieCmd pieCmd) {
+                    // For the pie, we do a neat shader trick. We build a full unit disc.
+                    var model = CreateAlignZMatrix(pieCmd.Center, Vector3.Normalize(pieCmd.Axis));
+                    var scale = Matrix4x4.CreateScale(pieCmd.Radius, pieCmd.Radius, 1.0f);
+                    _shader.SetUniform("uModel", scale * model);
+                    _shader.SetUniform("uBaseColor", pieCmd.Color);
+
+                    _shader.SetUniform("uIsPie", 1);
+                    _shader.SetUniform("uPieCenter", pieCmd.Center);
+                    _shader.SetUniform("uPieStartDir", pieCmd.StartAxis);
+                    _shader.SetUniform("uPieAngle", pieCmd.Angle);
+                    _shader.SetUniform("uPieAxis", pieCmd.Axis);
+
+                    _gl.Disable(EnableCap.CullFace);
+                    _gl.DrawElements(GLEnum.Triangles, (uint)_discIndexCount, GLEnum.UnsignedInt, (void*)_discIndexOffset);
+                    _gl.Enable(EnableCap.CullFace);
+                }
             }
 
+            _shader.SetUniform("uIsPie", 0);
             _commands.Clear();
             _gl.BindVertexArray(0);
         }
 
-        private Matrix4x4 CreateAlignZMatrix(Vector3 position, Vector3 direction)
-        {
+        private Matrix4x4 CreateAlignZMatrix(Vector3 position, Vector3 direction) {
             var up = MathF.Abs(direction.Y) > 0.99f ? Vector3.UnitX : Vector3.UnitY;
             var right = Vector3.Normalize(Vector3.Cross(up, direction));
             var newUp = Vector3.Cross(direction, right);
@@ -410,8 +423,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib
             );
         }
 
-        public void Dispose()
-        {
+        public void Dispose() {
             if (_vbo != 0) _gl.DeleteBuffer(_vbo);
             if (_ebo != 0) _gl.DeleteBuffer(_ebo);
             if (_vao != 0) _gl.DeleteVertexArray(_vao);

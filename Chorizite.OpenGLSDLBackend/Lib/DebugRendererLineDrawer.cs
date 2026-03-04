@@ -28,5 +28,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public void DrawCone(Vector3 origin, Vector3 direction, float length, float radius, Vector4 color) { }
         public void DrawTorus(Vector3 center, Vector3 axis, float radius, float tubeRadius, Vector4 color) { }
         public void DrawCenterBox(Vector3 center, float size, Vector4 color) { }
+        public void DrawPie(Vector3 center, float radius, Vector3 axis, Vector3 startAxis, float angle, Vector4 color) { }
     }
 }

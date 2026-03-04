@@ -42,23 +42,28 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
             float coneLength = size * 0.25f;
             float axisLength = size - coneLength;
 
+            // Axes
+            var dirX = GizmoDragHandler.GetAxis(GizmoComponent.AxisX, state.Rotation, state.IsLocalSpace);
+            var dirY = GizmoDragHandler.GetAxis(GizmoComponent.AxisY, state.Rotation, state.IsLocalSpace);
+            var dirZ = GizmoDragHandler.GetAxis(GizmoComponent.AxisZ, state.Rotation, state.IsLocalSpace);
+
             // X axis arrow
-            var xEnd = origin + Vector3.UnitX * axisLength;
+            var xEnd = origin + dirX * axisLength;
             var xColor = highlight == GizmoComponent.AxisX ? ColorHighlight : ColorX;
             drawer.DrawCylinder(origin, xEnd, cylinderRadius, xColor);
-            drawer.DrawCone(xEnd, Vector3.UnitX, coneLength, coneRadius, xColor);
+            drawer.DrawCone(xEnd, dirX, coneLength, coneRadius, xColor);
 
             // Y axis arrow
-            var yEnd = origin + Vector3.UnitY * axisLength;
+            var yEnd = origin + dirY * axisLength;
             var yColor = highlight == GizmoComponent.AxisY ? ColorHighlight : ColorY;
             drawer.DrawCylinder(origin, yEnd, cylinderRadius, yColor);
-            drawer.DrawCone(yEnd, Vector3.UnitY, coneLength, coneRadius, yColor);
+            drawer.DrawCone(yEnd, dirY, coneLength, coneRadius, yColor);
 
             // Z axis arrow
-            var zEnd = origin + Vector3.UnitZ * axisLength;
+            var zEnd = origin + dirZ * axisLength;
             var zColor = highlight == GizmoComponent.AxisZ ? ColorHighlight : ColorZ;
             drawer.DrawCylinder(origin, zEnd, cylinderRadius, zColor);
-            drawer.DrawCone(zEnd, Vector3.UnitZ, coneLength, coneRadius, zColor);
+            drawer.DrawCone(zEnd, dirZ, coneLength, coneRadius, zColor);
 
             // Center box
             var centerColor = highlight == GizmoComponent.Center ? ColorHighlight : ColorCenter;
@@ -76,17 +81,36 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
 
             float tubeRadius = size * 0.03f;
 
+            var yawDir = GizmoDragHandler.GetRotationAxis(GizmoComponent.RingYaw, state.Rotation, state.IsLocalSpace);
+            var pitchDir = GizmoDragHandler.GetRotationAxis(GizmoComponent.RingPitch, state.Rotation, state.IsLocalSpace);
+            var rollDir = GizmoDragHandler.GetRotationAxis(GizmoComponent.RingRoll, state.Rotation, state.IsLocalSpace);
+
             // Yaw ring (rotation around Z, in XY plane)
             var yawColor = highlight == GizmoComponent.RingYaw ? ColorHighlight : ColorZ;
-            drawer.DrawTorus(origin, Vector3.UnitZ, size, tubeRadius, yawColor);
+            drawer.DrawTorus(origin, yawDir, size, tubeRadius, yawColor);
 
             // Pitch ring (rotation around X, in YZ plane)
             var pitchColor = highlight == GizmoComponent.RingPitch ? ColorHighlight : ColorX;
-            drawer.DrawTorus(origin, Vector3.UnitX, size, tubeRadius, pitchColor);
+            drawer.DrawTorus(origin, pitchDir, size, tubeRadius, pitchColor);
 
             // Roll ring (rotation around Y, in XZ plane)
             var rollColor = highlight == GizmoComponent.RingRoll ? ColorHighlight : ColorY;
-            drawer.DrawTorus(origin, Vector3.UnitY, size, tubeRadius, rollColor);
+            drawer.DrawTorus(origin, rollDir, size, tubeRadius, rollColor);
+
+            // Pick the active color for the pie slice
+            if (state.IsRotating && state.RotationAngle != 0f) {
+                var pieColor = highlight switch {
+                    GizmoComponent.RingYaw => yawColor,
+                    GizmoComponent.RingPitch => pitchColor,
+                    GizmoComponent.RingRoll => rollColor,
+                    _ => new Vector4(1f, 1f, 1f, 0.5f)
+                };
+
+                // Increase transparency for the pie filling
+                pieColor.W *= 0.35f;
+
+                drawer.DrawPie(origin, size, state.RotationAxis, state.RotationStartAxis, state.RotationAngle, pieColor);
+            }
         }
     }
 }

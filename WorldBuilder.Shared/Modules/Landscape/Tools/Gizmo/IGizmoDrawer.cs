@@ -26,5 +26,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
 
         /// <summary>Draws a small 3D box (e.g. at the center).</summary>
         void DrawCenterBox(Vector3 center, float size, Vector4 color);
+
+        /// <summary>Draws a filled 2D pie slice representing an angle.</summary>
+        void DrawPie(Vector3 center, float radius, Vector3 axis, Vector3 startAxis, float angle, Vector4 color);
     }
 }

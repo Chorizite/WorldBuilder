@@ -202,6 +202,11 @@
                                 FontSize="12" 
                                 VerticalAlignment="Center" 
                                 ToolTip.Tip="Draw bounding boxes for static objects" />
+                      <CheckBox Content="Local Space" 
+                                IsChecked="{Binding IsLocalSpace}" 
+                                FontSize="12" 
+                                VerticalAlignment="Center" 
+                                ToolTip.Tip="Align gizmo to object rotation" />
                     </StackPanel>
                   </HeaderedContentControl>
                 </StackPanel>

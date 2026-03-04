@@ -43,10 +43,18 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
 
         private static GizmoHitResult TestTranslation(Vector3 rayOrigin, Vector3 rayDirection, GizmoState state) {
             var best = GizmoHitResult.NoHit;
-            float hitRadius = state.Size * 0.06f; // Tolerance around axis lines
 
-            // Test center sphere first (has priority when overlapping)
-            float centerRadius = state.Size * 0.12f;
+            float distance = Vector3.Distance(state.CameraPosition, state.Position);
+            float baseScale = 0.15f;
+            float size = MathF.Max(0.5f, distance * baseScale);
+
+            float cylinderRadius = size * 0.03f;
+            float coneRadius = size * 0.1f;
+            float coneLength = size * 0.25f;
+            float hitRadius = MathF.Max(cylinderRadius, coneRadius) * 1.5f;
+
+            // Test center sphere first (has priority when overlapping) - match resized visual
+            float centerRadius = size * 0.15f;
             if (RaySphereIntersect(rayOrigin, rayDirection, state.Position, centerRadius, out float centerDist)) {
                 best = new GizmoHitResult {
                     Component = GizmoComponent.Center,
@@ -56,13 +64,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
             }
 
             // Test X axis
-            TestAxisArrow(rayOrigin, rayDirection, state.Position, Vector3.UnitX, state.Size, hitRadius, GizmoComponent.AxisX, ref best);
+            TestAxisArrow(rayOrigin, rayDirection, state.Position, GizmoDragHandler.GetAxis(GizmoComponent.AxisX, state.Rotation, state.IsLocalSpace), size, hitRadius, GizmoComponent.AxisX, ref best);
 
             // Test Y axis
-            TestAxisArrow(rayOrigin, rayDirection, state.Position, Vector3.UnitY, state.Size, hitRadius, GizmoComponent.AxisY, ref best);
+            TestAxisArrow(rayOrigin, rayDirection, state.Position, GizmoDragHandler.GetAxis(GizmoComponent.AxisY, state.Rotation, state.IsLocalSpace), size, hitRadius, GizmoComponent.AxisY, ref best);
 
             // Test Z axis
-            TestAxisArrow(rayOrigin, rayDirection, state.Position, Vector3.UnitZ, state.Size, hitRadius, GizmoComponent.AxisZ, ref best);
+            TestAxisArrow(rayOrigin, rayDirection, state.Position, GizmoDragHandler.GetAxis(GizmoComponent.AxisZ, state.Rotation, state.IsLocalSpace), size, hitRadius, GizmoComponent.AxisZ, ref best);
 
             return best;
         }
@@ -87,16 +95,21 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
 
         private static GizmoHitResult TestRotation(Vector3 rayOrigin, Vector3 rayDirection, GizmoState state) {
             var best = GizmoHitResult.NoHit;
-            float ringThickness = state.Size * 0.06f;
+
+            float distance = Vector3.Distance(state.CameraPosition, state.Position);
+            float baseScale = 0.15f;
+            float size = MathF.Max(0.5f, distance * baseScale);
+
+            float ringThickness = size * 0.06f;
 
             // Yaw ring (Z axis, XY plane)
-            TestRing(rayOrigin, rayDirection, state.Position, Vector3.UnitZ, state.Size, ringThickness, GizmoComponent.RingYaw, ref best);
+            TestRing(rayOrigin, rayDirection, state.Position, GizmoDragHandler.GetRotationAxis(GizmoComponent.RingYaw, state.Rotation, state.IsLocalSpace), size, ringThickness, GizmoComponent.RingYaw, ref best);
 
             // Pitch ring (X axis, YZ plane)
-            TestRing(rayOrigin, rayDirection, state.Position, Vector3.UnitX, state.Size, ringThickness, GizmoComponent.RingPitch, ref best);
+            TestRing(rayOrigin, rayDirection, state.Position, GizmoDragHandler.GetRotationAxis(GizmoComponent.RingPitch, state.Rotation, state.IsLocalSpace), size, ringThickness, GizmoComponent.RingPitch, ref best);
 
             // Roll ring (Y axis, XZ plane)
-            TestRing(rayOrigin, rayDirection, state.Position, Vector3.UnitY, state.Size, ringThickness, GizmoComponent.RingRoll, ref best);
+            TestRing(rayOrigin, rayDirection, state.Position, GizmoDragHandler.GetRotationAxis(GizmoComponent.RingRoll, state.Rotation, state.IsLocalSpace), size, ringThickness, GizmoComponent.RingRoll, ref best);
 
             return best;
         }

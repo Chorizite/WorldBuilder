@@ -14,8 +14,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public override string Name => "Object Manipulation";
         public override string IconGlyph => "CursorMove"; // Material Design Icon
 
-        [ObservableProperty] private GizmoMode _gizmoMode = GizmoMode.Translate;
+
         [ObservableProperty] private bool _hasSelection;
+        [ObservableProperty] private bool _isLocalSpace;
         [ObservableProperty] private bool _stickyZOffset = true;
         [ObservableProperty] private bool _alignToSurface;
         [ObservableProperty] private bool _showBoundingBoxes;
@@ -115,9 +116,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
         }
 
-        partial void OnGizmoModeChanged(GizmoMode value) {
-            GizmoState.Mode = value;
-        }
+
 
         /// <summary>
         /// Clears the current selection.
@@ -127,6 +126,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             GizmoState.HoveredComponent = GizmoComponent.None;
             GizmoState.ActiveComponent = GizmoComponent.None;
             GizmoState.IsDragging = false;
+            GizmoState.IsRotating = false;
             _lastHoveredHit = SceneRaycastHit.NoHit;
 
             // Clear hover/selection highlights
@@ -147,7 +147,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                     GizmoState.ActiveComponent = gizmoHit.Component;
                     GizmoState.IsDragging = true;
 
-                    _dragHandler.BeginDrag(gizmoHit.Component, GizmoState.Position, GizmoState.Rotation,
+                    _dragHandler.BeginDrag(gizmoHit.Component, GizmoState.Position, GizmoState.Rotation, GizmoState.IsLocalSpace,
                         ray.Origin, ray.Direction, Context.Camera);
 
                     // Find surface under the mouse to capture initial offset + normal
@@ -280,6 +280,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 else if (GizmoDragHandler.IsRotationComponent(GizmoState.ActiveComponent)) {
                     var newRot = _dragHandler.UpdateRotation(ray.Origin, ray.Direction);
                     GizmoState.Rotation = newRot;
+
+                    GizmoState.IsRotating = true;
+                    GizmoState.RotationAxis = _dragHandler.RotationAxis;
+                    GizmoState.RotationStartAxis = _dragHandler.RotationStartAxis;
+                    GizmoState.RotationAngle = _dragHandler.AngleDelta;
                 }
 
                 // Notify for realtime preview
@@ -331,7 +336,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             GizmoState.InstanceId = hit.InstanceId;
             GizmoState.ObjectId = hit.ObjectId;
             GizmoState.SelectionType = hit.Type;
-            GizmoState.Mode = GizmoMode;
+            GizmoState.IsLocalSpace = IsLocalSpace;
 
             if (Context?.GetStaticObjectTransform != null) {
                 var transform = Context.GetStaticObjectTransform(hit.LandblockId, hit.InstanceId);

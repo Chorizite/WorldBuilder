@@ -2,13 +2,7 @@ using System.Numerics;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
-    /// <summary>
-    /// The active gizmo manipulation mode.
-    /// </summary>
-    public enum GizmoMode {
-        Translate,
-        Rotate
-    }
+
 
     /// <summary>
     /// Identifies a component of the gizmo that can be interacted with.
@@ -28,8 +22,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
     /// Holds the current state of the manipulation gizmo.
     /// </summary>
     public class GizmoState {
-        /// <summary>The current gizmo mode (translate or rotate).</summary>
-        public GizmoMode Mode { get; set; } = GizmoMode.Translate;
+        /// <summary>Whether the gizmo uses local object space instead of global space.</summary>
+        public bool IsLocalSpace { get; set; }
 
         /// <summary>World-space center of the gizmo.</summary>
         public Vector3 Position { get; set; }
@@ -51,6 +45,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
 
         /// <summary>Whether a drag operation is in progress.</summary>
         public bool IsDragging { get; set; }
+
+        public bool IsRotating { get; set; }
+        public Vector3 RotationAxis { get; set; }
+        public Vector3 RotationStartAxis { get; set; }
+        public float RotationAngle { get; set; }
 
         /// <summary>The selected object's selection type.</summary>
         public InspectorSelectionType SelectionType { get; set; }

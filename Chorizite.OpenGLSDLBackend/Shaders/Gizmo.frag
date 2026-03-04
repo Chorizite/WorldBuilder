@@ -20,13 +20,37 @@ layout (std140) uniform SceneData {
 };
 
 uniform vec4 uBaseColor;
+uniform int uIsPie;
+uniform vec3 uPieCenter;
+uniform vec3 uPieStartDir;
+uniform vec3 uPieAxis;
+uniform float uPieAngle;
 
 void main() {
     vec3 normal = normalize(vNormal);
-    
-    // We want the gizmo to always look somewhat lit from the camera's perspective
-    // so it doesn't get lost in shadow if the scene light is dark.
     vec3 viewDir = normalize(uCameraPosition - vFragPos);
+    
+    if (uIsPie == 1) {
+        vec3 localDir = normalize(vFragPos - uPieCenter);
+        // Project onto the plane defined by uPieAxis
+        localDir = normalize(localDir - dot(localDir, uPieAxis) * uPieAxis);
+        
+        vec3 startDir = normalize(uPieStartDir);
+        vec3 orthoDir = normalize(cross(uPieAxis, startDir));
+        
+        float x = dot(localDir, startDir);
+        float y = dot(localDir, orthoDir);
+        float angle = atan(y, x);
+        
+        // Atan2 returns [-PI, PI]. We want [0, 2PI] or [-2PI, 0] depending on sign of uPieAngle.
+        if (uPieAngle >= 0.0) {
+            if (angle < 0.0) angle += 6.28318530718;
+            if (angle > uPieAngle) discard;
+        } else {
+            if (angle > 0.0) angle -= 6.28318530718;
+            if (angle < uPieAngle) discard;
+        }
+    }
     
     // A slightly offset light direction looks good for 3D primitives
     vec3 lightDir = normalize(viewDir + vec3(0.2, 0.5, 0.0));
