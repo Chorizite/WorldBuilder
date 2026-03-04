@@ -21,6 +21,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         [ObservableProperty] private bool _alignToSurface;
         [ObservableProperty] private bool _showBoundingBoxes;
 
+        partial void OnIsLocalSpaceChanged(bool value) {
+            GizmoState.IsLocalSpace = value;
+        }
+
         /// <summary>
         /// The gizmo state, accessible for rendering from the GameScene.
         /// </summary>
@@ -80,21 +84,28 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         private void OnCommandHistoryChanged(object? sender, CommandHistoryChangedEventArgs e) {
-            if (HasSelection && e.Command is MoveStaticObjectCommand moveCommand &&
-                moveCommand.OldObject.InstanceId == GizmoState.InstanceId) {
-
+            if (e.Command is MoveStaticObjectCommand moveCommand) {
                 var targetObj = (e.ChangeType == CommandChangeType.Undo) ? moveCommand.OldObject : moveCommand.NewObject;
                 var targetLbId = (e.ChangeType == CommandChangeType.Undo) ? moveCommand.OldLandblockId : moveCommand.NewLandblockId;
 
-                GizmoState.LandblockId = targetLbId;
-                GizmoState.LocalPosition = new Vector3(targetObj.Position[0], targetObj.Position[1], targetObj.Position[2]);
-                GizmoState.Rotation = new Quaternion(targetObj.Position[4], targetObj.Position[5], targetObj.Position[6], targetObj.Position[3]);
-                GizmoState.Position = ComputeWorldPosition(targetLbId, GizmoState.LocalPosition);
+                var localPosition = new Vector3(targetObj.Position[0], targetObj.Position[1], targetObj.Position[2]);
+                var rotation = new Quaternion(targetObj.Position[4], targetObj.Position[5], targetObj.Position[6], targetObj.Position[3]);
+                var worldPosition = ComputeWorldPosition(targetLbId, localPosition);
+
+                if (HasSelection && moveCommand.OldObject.InstanceId == GizmoState.InstanceId) {
+                    GizmoState.LandblockId = targetLbId;
+                    GizmoState.LocalPosition = localPosition;
+                    GizmoState.Rotation = rotation;
+                    GizmoState.Position = worldPosition;
+                }
+                else {
+                    RefreshGizmoPosition();
+                }
 
                 // Push the transform to the renderer so the object moves to match
                 // (same-landblock moves skip NotifyLandblockChanged, so the renderer
                 // won't regenerate — it needs this direct transform update instead).
-                Context?.NotifyObjectPositionPreview?.Invoke(GizmoState.LandblockId, GizmoState.InstanceId, GizmoState.Position, GizmoState.Rotation);
+                Context?.NotifyObjectPositionPreview?.Invoke(targetLbId, targetObj.InstanceId, worldPosition, rotation);
             }
             else {
                 RefreshGizmoPosition();
