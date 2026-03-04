@@ -16,9 +16,9 @@ namespace WorldBuilder.Services {
         public Task InitializationTask => _loadTask.Task;
 
         /// <summary>
-        /// Gets the collection of recently opened projects.
+        /// Gets the collection of bookmarks and folders.
         /// </summary>
-        public ObservableCollection<Bookmark> Bookmarks { get; }
+        public ObservableCollection<BookmarkNode> Bookmarks { get; }
 
         /// <summary>
         /// Gets the file path for storing bookmarks data.
@@ -31,12 +31,15 @@ namespace WorldBuilder.Services {
         public BookmarksManager() {
             _settings = new WorldBuilderSettings();
             _log = Microsoft.Extensions.Logging.Abstractions.NullLogger<BookmarksManager>.Instance;
-            Bookmarks = new ObservableCollection<Bookmark>();
+            Bookmarks = new ObservableCollection<BookmarkNode>();
             // Add sample data for design-time
             Bookmarks.Add(new Bookmark { Name = "Yaraq" });
             Bookmarks.Add(new Bookmark { Name = "Holtburg" });
             Bookmarks.Add(new Bookmark { Name = "Shoushi" });
-            Bookmarks.Add(new Bookmark { Name = "Dungeon" });
+
+            var dungeonFolder = new BookmarkFolder { Name = "Dungeons" };
+            dungeonFolder.Items.Add(new Bookmark { Name = "Lugian Citadel" });
+            Bookmarks.Add(dungeonFolder);
         }
 
         /// <summary>
@@ -47,9 +50,9 @@ namespace WorldBuilder.Services {
         public BookmarksManager(WorldBuilderSettings settings, ILogger<BookmarksManager> log) {
             _settings = settings;
             _log = log;
-            Bookmarks = new ObservableCollection<Bookmark>();
+            Bookmarks = new ObservableCollection<BookmarkNode>();
 
-            // Load recent projects asynchronously
+            // Load bookmarks asynchronously
             _ = Task.Run(LoadBookmarks);
         }
 
@@ -64,7 +67,7 @@ namespace WorldBuilder.Services {
                 }
 
                 var json = await File.ReadAllTextAsync(BookmarksFilePath);
-                var bookmarks = JsonSerializer.Deserialize(json, SourceGenerationContext.Default.ListBookmark);
+                var bookmarks = JsonSerializer.Deserialize(json, SourceGenerationContext.Default.ListBookmarkNode);
 
                 if (bookmarks != null) {
                     Bookmarks.Clear();
@@ -91,76 +94,103 @@ namespace WorldBuilder.Services {
         public async Task AddBookmark(string loc, string name = "") {
             var bookmark = new Bookmark {
                 Name = name,
-                Location = loc
+                Location = loc,
+                Parent = null // Root-level bookmarks have no parent
             };
             Bookmarks.Add(bookmark);
             await SaveBookmarks();
         }
 
         /// <summary>
-        /// Updates an existing bookmark with new information and saves the changes to persistent storage.
+        /// Adds a new folder to the collection and saves it to persistent storage.
         /// </summary>
+        /// <param name="name">The name of the folder</param>
         /// <returns>A task representing the asynchronous operation</returns>
-        public async Task UpdateBookmark(Bookmark oldBookmark, Bookmark newBookmark) {
-            var index = Bookmarks.IndexOf(oldBookmark);
-            if (index >= 0) {
-                // Replace the original with the updated clone
-                Bookmarks[index] = newBookmark;
+        public async Task AddFolder(string name) {
+            var folder = new BookmarkFolder {
+                Name = name,
+                Parent = null // Root-level folders have no parent
+            };
+            Bookmarks.Add(folder);
+            await SaveBookmarks();
+        }
+
+        /// <summary>
+        /// Removes a bookmark or folder from the collection and updates persistent storage.
+        /// </summary>
+        /// <param name="node">The bookmark or folder to remove</param>
+        /// <returns>A task representing the asynchronous operation</returns>
+        public async Task RemoveBookmark(BookmarkNode node) {
+            var container = node.Parent?.Items ?? Bookmarks;
+            if (container.Remove(node)) {
                 await SaveBookmarks();
             }
         }
 
         /// <summary>
-        /// Removes a bookmark from the collection and updates persistent storage.
+        /// Moves a bookmark or folder up in the collection and saves to persistent storage.
         /// </summary>
-        /// <param name="bookmark">The bookmark to remove</param>
-        /// <returns>A task representing the asynchronous operation</returns>
-        public async Task RemoveBookmark(Bookmark bookmark) {
-            if (Bookmarks.Remove(bookmark))
-            {
-                await SaveBookmarks();
-            }
-        }
-
-        /// <summary>
-        /// Moves a bookmark up in the collection and saves to persistent storage.
-        /// </summary>
-        public async Task MoveBookmarkUp(Bookmark bookmark) {
-            var index = Bookmarks.IndexOf(bookmark);
+        public async Task MoveUp(BookmarkNode node) {
+            var container = node.Parent?.Items ?? Bookmarks;
+            var index = container.IndexOf(node);
             if (index > 0) {
-                Bookmarks.Move(index, index - 1);
+                container.Move(index, index - 1);
                 await SaveBookmarks();
             }
         }
 
         /// <summary>
-        /// Moves a bookmark down in the collection and saves to persistent storage.
+        /// Moves a bookmark or folder down in the collection and saves to persistent storage.
         /// </summary>
-        public async Task MoveBookmarkDown(Bookmark bookmark) {
-            var index = Bookmarks.IndexOf(bookmark);
-            if (index >= 0 && index < Bookmarks.Count - 1) {
-                Bookmarks.Move(index, index + 1);
+        public async Task MoveDown(BookmarkNode node) {
+            var container = node.Parent?.Items ?? Bookmarks;
+            var index = container.IndexOf(node);
+            if (index >= 0 && index < container.Count - 1) {
+                container.Move(index, index + 1);
                 await SaveBookmarks();
             }
         }
 
         /// <summary>
-        /// Moves a bookmark to a specific index in the collection and saves to persistent storage.
+        /// Moves a bookmark or folder to a specific index in the collection and saves to persistent storage.
         /// </summary>
-        public async Task MoveBookmarkToIndex(Bookmark bookmark, int newIndex) {
-            var currentIndex = Bookmarks.IndexOf(bookmark);
-            if (currentIndex >= 0 && newIndex >= 0 && newIndex < Bookmarks.Count && currentIndex != newIndex) {
-                Bookmarks.Move(currentIndex, newIndex);
+        public async Task MoveToIndex(BookmarkNode node, int newIndex) {
+            var container = node.Parent?.Items ?? Bookmarks;
+            var currentIndex = container.IndexOf(node);
+            if (currentIndex >= 0 && newIndex >= 0 && newIndex < container.Count && currentIndex != newIndex) {
+                container.Move(currentIndex, newIndex);
                 await SaveBookmarks();
             }
         }
 
         /// <summary>
-        /// Saves recent projects to persistent storage.
+        /// Moves a bookmark node to a specific folder and index
         /// </summary>
-        private async Task SaveBookmarks() {
+        public async Task MoveToFolder(BookmarkNode node, BookmarkFolder? targetFolder, int index = -1) {
+            var currentContainer = node.Parent?.Items ?? Bookmarks;
+            var targetContainer = targetFolder?.Items ?? Bookmarks;
+
+            if (currentContainer == targetContainer) return;
+            
+            var currentIndex = currentContainer.IndexOf(node);
+            if (currentIndex == -1) return;
+            
+            var insertIndex = index >= 0 && index <= targetContainer.Count ? index : targetContainer.Count;
+            
+            // Remove from current and add to target
+            currentContainer.RemoveAt(currentIndex);
+            node.Parent = targetFolder;
+            targetContainer.Insert(insertIndex, node);
+            
+            await SaveBookmarks();
+        }
+
+        /// <summary>
+        /// Saves bookmarks to persistent storage.
+        /// </summary>
+        public async Task SaveBookmarks() {
             try {
-                var json = JsonSerializer.Serialize(Bookmarks.ToList(), SourceGenerationContext.Default.ListBookmark);
+                var json = JsonSerializer.Serialize(Bookmarks.ToList(), SourceGenerationContext.Default.ListBookmarkNode);
                 await File.WriteAllTextAsync(BookmarksFilePath, json);
             }
             catch (Exception ex) {
