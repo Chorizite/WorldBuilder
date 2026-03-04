@@ -953,6 +953,13 @@ public class GameScene : IDisposable {
                 debugSettings.SelectPortals = _inspectorTool.SelectPortals && _state.ShowPortals;
             }
 
+            // Also show bounding boxes if the manipulation tool option is checked
+            if (_manipulationTool != null && _manipulationTool.ShowBoundingBoxes) {
+                debugSettings.ShowBoundingBoxes = true;
+                debugSettings.SelectStaticObjects = _state.ShowStaticObjects;
+                debugSettings.SelectEnvCellStaticObjects = _state.ShowEnvCells;
+            }
+
             _sceneryManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
             _staticObjectManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
             _envCellManager?.SubmitDebugShapes(_debugRenderer, debugSettings);

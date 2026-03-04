@@ -17,6 +17,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         [ObservableProperty] private GizmoMode _gizmoMode = GizmoMode.Translate;
         [ObservableProperty] private bool _hasSelection;
         [ObservableProperty] private bool _stickyZOffset = true;
+        [ObservableProperty] private bool _alignToSurface;
+        [ObservableProperty] private bool _showBoundingBoxes;
 
         /// <summary>
         /// The gizmo state, accessible for rendering from the GameScene.
@@ -208,6 +210,30 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                         // Dragging by center circle - snap to ground/envcell/static object
                         var groundHit = GetGroundHitPoint(e, ray.Origin, ray.Direction);
                         newPos = groundHit.Position;
+
+                        // Optionally align rotation to the surface normal
+                        if (AlignToSurface && groundHit.Hit && groundHit.Normal != Vector3.Zero && _dragStartObject != null) {
+                            var startRot = new Quaternion(_dragStartObject.Position[4], _dragStartObject.Position[5], _dragStartObject.Position[6], _dragStartObject.Position[3]);
+
+                            var oldUp = _dragStartNormal;
+                            var newUp = Vector3.Normalize(groundHit.Normal);
+
+                            var axis = Vector3.Cross(oldUp, newUp);
+                            float lengthSq = axis.LengthSquared();
+                            if (lengthSq > 0.0001f) {
+                                float dot = Vector3.Dot(oldUp, newUp);
+                                float angle = MathF.Acos(Math.Clamp(dot, -1f, 1f));
+                                var alignRot = Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), angle);
+                                GizmoState.Rotation = alignRot * startRot;
+                            }
+                            else if (Vector3.Dot(oldUp, newUp) < -0.999f) {
+                                var flipRot = Quaternion.CreateFromAxisAngle(Vector3.Transform(Vector3.UnitX, startRot), MathF.PI);
+                                GizmoState.Rotation = flipRot * startRot;
+                            }
+                            else {
+                                GizmoState.Rotation = startRot;
+                            }
+                        }
                     }
                     else {
                         newPos = _dragHandler.UpdateTranslation(ray.Origin, ray.Direction, Context.Camera);
@@ -439,8 +465,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             var bestNormal = Vector3.UnitZ;
             bool hitAny = false;
 
-            // 1. Raycast terrain
-            if (Context.RaycastTerrain != null) {
+            // 1. Raycast terrain (skip if camera is inside an envcell — terrain is invisible there)
+            bool insideEnvCell = Context.GetEnvCellAt != null && Context.GetEnvCellAt(rayOrigin) != 0;
+            if (!insideEnvCell && Context.RaycastTerrain != null) {
                 var terrainHit = Context.RaycastTerrain(e.Position.X, e.Position.Y);
 
                 if (terrainHit.Hit) {

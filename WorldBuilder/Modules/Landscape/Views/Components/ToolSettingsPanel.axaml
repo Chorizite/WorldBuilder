@@ -186,14 +186,23 @@
             <DataTemplate DataType="{x:Type tools:ObjectManipulationTool}" x:DataType="tools:ObjectManipulationTool">
                 <StackPanel Orientation="Horizontal">
                   <HeaderedContentControl Header="Options" Template="{StaticResource RibbonGroupTemplate}">
-                    <CheckBox Content="Sticky Z Offset" 
-                              IsChecked="{Binding StickyZOffset}" 
-                              FontSize="12" 
-                              VerticalAlignment="Center" 
-                              ToolTip.Tip="Maintain object's height offset from ground when moving on X/Y" />
-                  </HeaderedContentControl>
-                  <HeaderedContentControl Header="Info" Template="{StaticResource RibbonGroupTemplate}">
-                    <TextBlock Text="Click a static object to select it, then drag the gizmo handles to move/rotate." FontSize="12" Opacity="0.6" VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                      <CheckBox Content="Sticky Z Offset" 
+                                IsChecked="{Binding StickyZOffset}" 
+                                FontSize="12" 
+                                VerticalAlignment="Center" 
+                                ToolTip.Tip="Maintain object's height offset from ground when moving on X/Y" />
+                      <CheckBox Content="Align to Surface" 
+                                IsChecked="{Binding AlignToSurface}" 
+                                FontSize="12" 
+                                VerticalAlignment="Center" 
+                                ToolTip.Tip="Rotate object to align with the surface normal when dragging by center" />
+                      <CheckBox Content="Bounding Boxes" 
+                                IsChecked="{Binding ShowBoundingBoxes}" 
+                                FontSize="12" 
+                                VerticalAlignment="Center" 
+                                ToolTip.Tip="Draw bounding boxes for static objects" />
+                    </StackPanel>
                   </HeaderedContentControl>
                 </StackPanel>
             </DataTemplate>
