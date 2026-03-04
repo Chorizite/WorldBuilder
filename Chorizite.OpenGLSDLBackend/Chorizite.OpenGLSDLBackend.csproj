@@ -64,6 +64,12 @@
 	  <EmbeddedResource Include="Shaders\StaticObjectModern.frag" />
 	  <None Remove="Shaders\StaticObjectModern.vert" />
 	  <EmbeddedResource Include="Shaders\StaticObjectModern.vert" />
+	  <EmbeddedResource Include="Shaders\Gizmo.vert">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Shaders\Gizmo.frag">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	</ItemGroup>
 	<ItemGroup>
 	  <None Update="Fonts\Apache License.txt">

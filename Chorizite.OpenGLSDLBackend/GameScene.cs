@@ -135,7 +135,7 @@ public class GameScene : IDisposable {
     private (int x, int y)? _hoveredVertex;
     private (int x, int y)? _selectedVertex;
     private ObjectManipulationTool? _manipulationTool;
-    private Lib.DebugRendererLineDrawer? _gizmoDrawer;
+    private Lib.BackendGizmoDrawer? _gizmoDrawer;
 
     private InspectorTool? _inspectorTool;
 
@@ -1007,9 +1007,15 @@ public class GameScene : IDisposable {
         // Render the manipulation gizmo if active
         if (_manipulationTool != null && _manipulationTool.HasSelection && _debugRenderer != null) {
             if (_gizmoDrawer == null) {
-                _gizmoDrawer = new Lib.DebugRendererLineDrawer(_debugRenderer);
+                var gVertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Gizmo.vert");
+                var gFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Gizmo.frag");
+                var gizmoShader = _graphicsDevice.CreateShader("Gizmo", gVertSource, gFragSource);
+                _gizmoDrawer = new Lib.BackendGizmoDrawer(_gl, _graphicsDevice, _debugRenderer);
+                _gizmoDrawer.SetShader(gizmoShader);
             }
+            _manipulationTool.GizmoState.CameraPosition = _cameraController.CurrentCamera.Position;
             WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo.GizmoRenderer.Draw(_gizmoDrawer, _manipulationTool.GizmoState);
+            _gizmoDrawer.Render(snapshotView, snapshotProj);
             _debugRenderer.Render(snapshotView, snapshotProj, false);
         }
 

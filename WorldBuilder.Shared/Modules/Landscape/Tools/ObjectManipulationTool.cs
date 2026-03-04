@@ -327,14 +327,30 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         private void SelectObject(SceneRaycastHit hit) {
             HasSelection = true;
-            GizmoState.Position = hit.Position;
-            GizmoState.LocalPosition = hit.LocalPosition;
-            GizmoState.Rotation = hit.Rotation;
             GizmoState.LandblockId = hit.LandblockId;
             GizmoState.InstanceId = hit.InstanceId;
             GizmoState.ObjectId = hit.ObjectId;
             GizmoState.SelectionType = hit.Type;
             GizmoState.Mode = GizmoMode;
+
+            if (Context?.GetStaticObjectTransform != null) {
+                var transform = Context.GetStaticObjectTransform(hit.LandblockId, hit.InstanceId);
+                if (transform.HasValue) {
+                    GizmoState.Position = transform.Value.position;
+                    GizmoState.Rotation = transform.Value.rotation;
+                    GizmoState.LocalPosition = transform.Value.localPosition;
+                }
+                else {
+                    GizmoState.Position = hit.Position;
+                    GizmoState.LocalPosition = hit.LocalPosition;
+                    GizmoState.Rotation = hit.Rotation;
+                }
+            }
+            else {
+                GizmoState.Position = hit.Position;
+                GizmoState.LocalPosition = hit.LocalPosition;
+                GizmoState.Rotation = hit.Rotation;
+            }
 
             // Compute gizmo size from local bounding box to avoid rotation/scale inflation
             if (Context?.GetStaticObjectLocalBounds != null) {

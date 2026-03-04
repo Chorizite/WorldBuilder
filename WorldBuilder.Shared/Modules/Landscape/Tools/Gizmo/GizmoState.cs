@@ -1,13 +1,11 @@
 using System.Numerics;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo
-{
+namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
     /// <summary>
     /// The active gizmo manipulation mode.
     /// </summary>
-    public enum GizmoMode
-    {
+    public enum GizmoMode {
         Translate,
         Rotate
     }
@@ -15,8 +13,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo
     /// <summary>
     /// Identifies a component of the gizmo that can be interacted with.
     /// </summary>
-    public enum GizmoComponent
-    {
+    public enum GizmoComponent {
         None,
         AxisX,
         AxisY,
@@ -30,8 +27,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo
     /// <summary>
     /// Holds the current state of the manipulation gizmo.
     /// </summary>
-    public class GizmoState
-    {
+    public class GizmoState {
         /// <summary>The current gizmo mode (translate or rotate).</summary>
         public GizmoMode Mode { get; set; } = GizmoMode.Translate;
 
@@ -40,6 +36,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo
 
         /// <summary>Current rotation of the selected object.</summary>
         public Quaternion Rotation { get; set; } = Quaternion.Identity;
+
+        /// <summary>World-space camera position for distance-based scaling.</summary>
+        public Vector3 CameraPosition { get; set; }
 
         /// <summary>Scale factor for gizmo rendering, computed from the object's bounding box.</summary>
         public float Size { get; set; } = 5f;

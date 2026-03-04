@@ -1,13 +1,11 @@
 using System;
 using System.Numerics;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo
-{
+namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
     /// <summary>
-    /// Stateless helper that submits gizmo shapes to an <see cref="IGizmoLineDrawer"/>.
+    /// Stateless helper that submits gizmo shapes to an <see cref="IGizmoDrawer"/>.
     /// </summary>
-    public static class GizmoRenderer
-    {
+    public static class GizmoRenderer {
         // Axis colors
         public static readonly Vector4 ColorX = new(1f, 0.2f, 0.2f, 1f);   // Red
         public static readonly Vector4 ColorY = new(0.2f, 1f, 0.2f, 1f);   // Green
@@ -24,71 +22,75 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo
         /// <summary>
         /// Renders the gizmo for the given state.
         /// </summary>
-        public static void Draw(IGizmoLineDrawer drawer, GizmoState state)
-        {
-            if (state.Mode == GizmoMode.Translate)
-            {
+        public static void Draw(IGizmoDrawer drawer, GizmoState state) {
+            if (state.Mode == GizmoMode.Translate) {
                 DrawTranslationGizmo(drawer, state);
             }
-            else
-            {
+            else {
                 DrawRotationGizmo(drawer, state);
             }
         }
 
-        private static void DrawTranslationGizmo(IGizmoLineDrawer drawer, GizmoState state)
-        {
+        private static void DrawTranslationGizmo(IGizmoDrawer drawer, GizmoState state) {
             var origin = state.Position;
-            var size = state.Size;
             var highlight = state.IsDragging ? state.ActiveComponent : state.HoveredComponent;
+
+            // Calculate distance to camera to keep gizmo size constant on screen
+            float distance = Vector3.Distance(state.CameraPosition, origin);
+            // Example constant scaling factor; tweak as necessary
+            float baseScale = 0.15f;
+            float size = Math.Max(0.5f, distance * baseScale);
+
+            float cylinderRadius = size * 0.03f;
+            float coneRadius = size * 0.1f;
+            float coneLength = size * 0.25f;
+            float axisLength = size - coneLength;
 
             // X axis arrow
-            var xEnd = origin + Vector3.UnitX * size;
+            var xEnd = origin + Vector3.UnitX * axisLength;
             var xColor = highlight == GizmoComponent.AxisX ? ColorHighlight : ColorX;
-            var xThick = highlight == GizmoComponent.AxisX ? HighlightThickness : NormalThickness;
-            drawer.DrawArrow(origin, xEnd, xColor, size * 0.12f, xThick);
+            drawer.DrawCylinder(origin, xEnd, cylinderRadius, xColor);
+            drawer.DrawCone(xEnd, Vector3.UnitX, coneLength, coneRadius, xColor);
 
             // Y axis arrow
-            var yEnd = origin + Vector3.UnitY * size;
+            var yEnd = origin + Vector3.UnitY * axisLength;
             var yColor = highlight == GizmoComponent.AxisY ? ColorHighlight : ColorY;
-            var yThick = highlight == GizmoComponent.AxisY ? HighlightThickness : NormalThickness;
-            drawer.DrawArrow(origin, yEnd, yColor, size * 0.12f, yThick);
+            drawer.DrawCylinder(origin, yEnd, cylinderRadius, yColor);
+            drawer.DrawCone(yEnd, Vector3.UnitY, coneLength, coneRadius, yColor);
 
             // Z axis arrow
-            var zEnd = origin + Vector3.UnitZ * size;
+            var zEnd = origin + Vector3.UnitZ * axisLength;
             var zColor = highlight == GizmoComponent.AxisZ ? ColorHighlight : ColorZ;
-            var zThick = highlight == GizmoComponent.AxisZ ? HighlightThickness : NormalThickness;
-            drawer.DrawArrow(origin, zEnd, zColor, size * 0.12f, zThick);
+            drawer.DrawCylinder(origin, zEnd, cylinderRadius, zColor);
+            drawer.DrawCone(zEnd, Vector3.UnitZ, coneLength, coneRadius, zColor);
 
-            // Center sphere (3 circles)
+            // Center box
             var centerColor = highlight == GizmoComponent.Center ? ColorHighlight : ColorCenter;
-            var centerThick = highlight == GizmoComponent.Center ? HighlightThickness : NormalThickness;
-            float r = size * CenterRadius;
-            drawer.DrawCircle(origin, r, Vector3.UnitX, centerColor, CenterSegments, centerThick);
-            drawer.DrawCircle(origin, r, Vector3.UnitY, centerColor, CenterSegments, centerThick);
-            drawer.DrawCircle(origin, r, Vector3.UnitZ, centerColor, CenterSegments, centerThick);
+            drawer.DrawCenterBox(origin, size * 0.15f, centerColor);
         }
 
-        private static void DrawRotationGizmo(IGizmoLineDrawer drawer, GizmoState state)
-        {
+        private static void DrawRotationGizmo(IGizmoDrawer drawer, GizmoState state) {
             var origin = state.Position;
-            var size = state.Size;
             var highlight = state.IsDragging ? state.ActiveComponent : state.HoveredComponent;
+
+            // Calculate distance to camera to keep gizmo size constant on screen
+            float distance = Vector3.Distance(state.CameraPosition, origin);
+            float baseScale = 0.15f;
+            float size = Math.Max(0.5f, distance * baseScale);
+
+            float tubeRadius = size * 0.03f;
 
             // Yaw ring (rotation around Z, in XY plane)
             var yawColor = highlight == GizmoComponent.RingYaw ? ColorHighlight : ColorZ;
-            var yawThick = highlight == GizmoComponent.RingYaw ? HighlightThickness : NormalThickness;
-            drawer.DrawCircle(origin, size, Vector3.UnitZ, yawColor, RingSegments, yawThick);
+            drawer.DrawTorus(origin, Vector3.UnitZ, size, tubeRadius, yawColor);
 
             // Pitch ring (rotation around X, in YZ plane)
             var pitchColor = highlight == GizmoComponent.RingPitch ? ColorHighlight : ColorX;
-            var pitchThick = highlight == GizmoComponent.RingPitch ? HighlightThickness : NormalThickness;
-            drawer.DrawCircle(origin, size, Vector3.UnitX, pitchColor, RingSegments, pitchThick);
+            drawer.DrawTorus(origin, Vector3.UnitX, size, tubeRadius, pitchColor);
 
             // Roll ring (rotation around Y, in XZ plane)
             var rollColor = highlight == GizmoComponent.RingRoll ? ColorHighlight : ColorY;
-            var rollThick = highlight == GizmoComponent.RingRoll ? HighlightThickness : NormalThickness;
-            drawer.DrawCircle(origin, size, Vector3.UnitY, rollColor, RingSegments, rollThick);
+            drawer.DrawTorus(origin, Vector3.UnitY, size, tubeRadius, rollColor);
         }
     }
 }
