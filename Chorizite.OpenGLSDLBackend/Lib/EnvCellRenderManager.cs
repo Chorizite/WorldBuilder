@@ -448,6 +448,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 // Draw highlighted / selected objects on top
                 if (RenderHighlightsWhenEmpty || _batchedByCell.Count > 0) {
+                    Gl.Enable(EnableCap.PolygonOffsetFill);
+                    Gl.PolygonOffset(-1.0f, -1.0f);
                     Gl.DepthFunc(GLEnum.Lequal);
                     if (SelectedInstance.HasValue) {
                         RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
@@ -456,6 +458,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
                     }
                     Gl.DepthFunc(GLEnum.Less);
+                    Gl.Disable(EnableCap.PolygonOffsetFill);
                 }
 
                 _shader.SetUniform("uHighlightColor", Vector4.Zero);

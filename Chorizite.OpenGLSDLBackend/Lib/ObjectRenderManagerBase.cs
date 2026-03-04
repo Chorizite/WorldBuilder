@@ -520,6 +520,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 if (_visibleLandblocks.Count == 0 && _visibleGfxObjIds.Count == 0) {
                     if (RenderHighlightsWhenEmpty) {
+                        Gl.Enable(EnableCap.PolygonOffsetFill);
+                        Gl.PolygonOffset(-1.0f, -1.0f);
                         Gl.DepthFunc(GLEnum.Lequal);
                         if (SelectedInstance.HasValue) {
                             RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
@@ -528,6 +530,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
                         }
                         Gl.DepthFunc(GLEnum.Less);
+                        Gl.Disable(EnableCap.PolygonOffsetFill);
                     }
                     return;
                 }
@@ -576,6 +579,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 // Draw highlighted / selected objects on top
+                Gl.Enable(EnableCap.PolygonOffsetFill);
+                Gl.PolygonOffset(-1.0f, -1.0f);
                 Gl.DepthFunc(GLEnum.Lequal);
                 if (SelectedInstance.HasValue) {
                     RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
@@ -584,6 +589,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
                 }
                 Gl.DepthFunc(GLEnum.Less);
+                Gl.Disable(EnableCap.PolygonOffsetFill);
 
                 _shader.SetUniform("uHighlightColor", Vector4.Zero);
                 _shader.SetUniform("uRenderPass", (int)renderPass);
