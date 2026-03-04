@@ -12,7 +12,7 @@ using WorldBuilder.Shared.Lib;
 using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Lib {
-    [JsonSourceGenerationOptions(WriteIndented = true, Converters = new[] { typeof(Vector3Converter), typeof(Vector4Converter) }, NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals)]
+    [JsonSourceGenerationOptions(WriteIndented = true, Converters = new[] { typeof(Vector3Converter), typeof(Vector4Converter), typeof(BookmarkNodeConverter) }, NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals)]
     [JsonSerializable(typeof(WorldBuilderSettings))]
     [JsonSerializable(typeof(List<RecentProject>))]
     [JsonSerializable(typeof(RecentProject))]
@@ -26,8 +26,8 @@ namespace WorldBuilder.Lib {
     [JsonSerializable(typeof(CameraSettings))]
     [JsonSerializable(typeof(RenderingSettings))]
     [JsonSerializable(typeof(GridSettings))]
-    [JsonSerializable(typeof(List<Bookmark>))]
-    [JsonSerializable(typeof(Bookmark))]
+    [JsonSerializable(typeof(BookmarkNode))]
+    [JsonSerializable(typeof(List<BookmarkNode>))]
     [JsonSerializable(typeof(Vector3))]
     [JsonSerializable(typeof(Vector4))]
     [JsonSerializable(typeof(DateTime))]
@@ -105,6 +105,68 @@ namespace WorldBuilder.Lib {
             writer.WriteNumberValue(value.Z);
             writer.WriteNumberValue(value.W);
             writer.WriteEndArray();
+        }
+    }
+
+    public class BookmarkNodeConverter : JsonConverter<BookmarkNode> {
+        public override BookmarkNode Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+            using var document = JsonDocument.ParseValue(ref reader);
+            var root = document.RootElement;
+
+            // Determine type based on JSON structure
+            if (root.TryGetProperty("Location", out _) || root.TryGetProperty("location", out _)) {
+                // It's a Bookmark
+                var bookmark = new Bookmark();
+                if (root.TryGetProperty("Name", out var nameProp)) {
+                    bookmark.Name = nameProp.GetString() ?? string.Empty;
+                }
+                if (root.TryGetProperty("Location", out var locationProp)) {
+                    bookmark.Location = locationProp.GetString() ?? string.Empty;
+                }
+                return bookmark;
+            }
+            else if (root.TryGetProperty("Items", out _) || root.TryGetProperty("items", out _)) {
+                // It's a BookmarkFolder
+                var folder = new BookmarkFolder();
+                if (root.TryGetProperty("Folder", out var nameProp)) {
+                    folder.Name = nameProp.GetString() ?? string.Empty;
+                }
+                // Parse nested items and set their parent
+                if (root.TryGetProperty("Items", out var itemsProp) && itemsProp.ValueKind == JsonValueKind.Array) {
+                    foreach (var itemElement in itemsProp.EnumerateArray()) {
+                        var itemJson = itemElement.GetRawText();
+                        var nestedNode = JsonSerializer.Deserialize(itemJson, SourceGenerationContext.Default.BookmarkNode);
+                        if (nestedNode != null) {
+                            nestedNode.Parent = folder; // Set the parent relationship
+                            folder.Items.Add(nestedNode);
+                        }
+                    }
+                }
+                return folder;
+            }
+            else {
+                // Unable to determine type - throw parsing error
+                throw new JsonException("Unable to determine BookmarkNode type. Expected 'Location' property for Bookmark or 'Items' property for BookmarkFolder.");
+            }
+        }
+
+        public override void Write(Utf8JsonWriter writer, BookmarkNode value, JsonSerializerOptions options) {
+            writer.WriteStartObject();
+
+            if (value is Bookmark bookmark) {
+                writer.WriteString("Name", bookmark.Name);
+                writer.WriteString("Location", bookmark.Location);
+            }
+            else if (value is BookmarkFolder folder) {
+                writer.WriteString("Folder", folder.Name);
+                writer.WriteStartArray("Items");
+                foreach (var item in folder.Items) {
+                    JsonSerializer.Serialize(writer, item, SourceGenerationContext.Default.BookmarkNode);
+                }
+                writer.WriteEndArray();
+            }
+
+            writer.WriteEndObject();
         }
     }
 }

@@ -1,61 +1,46 @@
-﻿<UserControl
+<UserControl
     x:Class="WorldBuilder.Modules.Landscape.Views.Components.BookmarksPanel"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:conv="clr-namespace:WorldBuilder.Lib.Converters"
+    xmlns:conv="clr-namespace:WorldBuilder.Converters"
     xmlns:i="using:Avalonia.Xaml.Interactivity"
     xmlns:ia="using:Avalonia.Xaml.Interactions.Core"
     xmlns:idd="using:Avalonia.Xaml.Interactions.DragAndDrop"
     xmlns:landscape="clr-namespace:WorldBuilder.Modules.Landscape.ViewModels"
     xmlns:viewmodels="clr-namespace:WorldBuilder.ViewModels"
+    xmlns:icons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
     x:CompileBindings="False"
     x:DataType="landscape:BookmarksPanelViewModel">
-
     <UserControl.Resources>
+        <conv:ThemeBasedColorConverter x:Key="ThemeBasedColorConverter" />
     </UserControl.Resources>
 
-    <DockPanel LastChildFill="True">
-        <TextBlock
-            DockPanel.Dock="Top"
-            Margin="8,8,8,4"
-            FontWeight="Bold"
-            Text="Bookmarks" />
-
-        <StackPanel
-            DockPanel.Dock="Bottom"
-            Margin="5"
-            HorizontalAlignment="Right"
-            Orientation="Horizontal"
-            Spacing="5">
-            <StackPanel.Styles>
-                <Style Selector="Button">
-                    <Setter Property="Width" Value="36" />
-                    <Setter Property="Height" Value="24" />
-                    <Setter Property="Padding" Value="0" />
-                </Style>
-            </StackPanel.Styles>
+    <Grid RowDefinitions="Auto, *">
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="4" Margin="4">
+            <Button Command="{Binding AddBookmarkCommand}" ToolTip.Tip="Add New Bookmark (Ctrl+B)">
+                <icons:MaterialIcon Kind="Plus" Width="16" Height="16" />
+            </Button>
+            <Button Command="{Binding AddFolderCommand}" ToolTip.Tip="Add New Folder">
+                <icons:MaterialIcon Kind="FolderPlus" Width="16" Height="16" />
+            </Button>
             <Button
-                Command="{Binding AddBookmarkCommand}"
-                Content="+"
-                FontSize="18"
-                ToolTip.Tip="Bookmark Current Location (Ctrl+B)" />
+                Command="{Binding DeleteBookmarkCommand}"
+                CommandParameter="{Binding SelectedItem}"
+                IsEnabled="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                ToolTip.Tip="Delete Selected Bookmark">
+                <icons:MaterialIcon Kind="Delete" Width="16" Height="16" />
+            </Button>
             <Button
                 x:Name="GoToButton"
                 Command="{Binding GoToBookmarkCommand}"
-                CommandParameter="{Binding SelectedBookmark}"
-                Content="➜"
-                IsEnabled="{Binding SelectedBookmark, Converter={x:Static ObjectConverters.IsNotNull}}"
-                ToolTip.Tip="Go To Selected Bookmark" />
-            <Button
-                Command="{Binding DeleteBookmarkCommand}"
-                CommandParameter="{Binding SelectedBookmark}"
-                Content="x"
-                IsEnabled="{Binding SelectedBookmark, Converter={x:Static ObjectConverters.IsNotNull}}"
-                ToolTip.Tip="Delete Selected Bookmark" />
+                CommandParameter="{Binding SelectedItem}"
+                IsEnabled="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                ToolTip.Tip="Go To Selected Bookmark">
+                <icons:MaterialIcon Kind="ArrowRight" Width="16" Height="16" />
+            </Button>
         </StackPanel>
 
-        <ScrollViewer HorizontalScrollBarVisibility="Disabled" 
-                      VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
             <Grid>
                 <!-- Drop indicator line -->
                 <Border
@@ -66,85 +51,132 @@
                     HorizontalAlignment="Left"
                     Width="70"
                     VerticalAlignment="Top"
-                    Opacity="0.5"
-                    Margin="8,0,8,0" />
-                
-                <ListBox
-                    x:Name="BookmarkListBox"
-                    Classes="BookmarksDragAndDrop"
-                    ItemsSource="{Binding Bookmarks}"
+                    Opacity="0.5" />
+
+                <TreeView
+                    x:Name="BookmarkTreeView"
+                    ItemsSource="{Binding BookmarksManager.Bookmarks}"
+                    SelectedItem="{Binding SelectedItem}"
                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                    SelectedItem="{Binding SelectedBookmark}"
-                    KeyDown="BookmarkListBox_KeyDown"
-                    DoubleTapped="BookmarkListBox_DoubleTapped">
-                    <ListBox.Styles>
-                        <Style Selector="ListBoxItem">
-                            <Setter Property="Padding" Value="8,4" />
+                    KeyDown="BookmarkTreeView_KeyDown"
+                    DoubleTapped="BookmarkTreeView_DoubleTapped"
+                    DragDrop.AllowDrop="True"
+                    DragDrop.DragOver="OnDragOver"
+                    DragDrop.Drop="OnDrop">
+                    <TreeView.Styles>
+                        <Style Selector="TreeViewItem">
+                            <Setter Property="Padding" Value="0,4" />
+                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                         </Style>
-                        <!-- Drag visual feedback styles -->
-                        <Style Selector="ListBoxItem.dragging">
-                            <Setter Property="Opacity" Value="0.8" />
+                        <Style Selector="Border.drag-over-folder">
+                            <Setter Property="BorderBrush" Value="{Binding $parent[UserControl].DataContext, Converter={StaticResource ThemeBasedColorConverter}}" />
+                            <Setter Property="BorderThickness" Value="2" />
+                            <Setter Property="Margin" Value="-2" />
                         </Style>
-                        <Style Selector="ListBoxItem.drag-over-above">
-                            <Setter Property="Background" Value="#0078D415" />
+                        <!-- Drop indicator border template -->
+                        <Style Selector="Border.drop-indicator">
+                            <Setter Property="Height" Value="2" />
+                            <Setter Property="Background" Value="{DynamicResource SemiColorPrimary}" />
+                            <Setter Property="CornerRadius" Value="0" />
+                            <Setter Property="IsHitTestVisible" Value="False" />
+                            <Setter Property="Opacity" Value="0.5" />
+                            <Setter Property="HorizontalAlignment" Value="Left" />
+                            <Setter Property="Width" Value="70" />
                         </Style>
-                        <Style Selector="ListBoxItem.drag-over-below">
-                            <Setter Property="Background" Value="#0078D415" />
+                        <!-- Item content panel template -->
+                        <Style Selector="StackPanel.item-content">
+                            <Setter Property="Orientation" Value="Horizontal" />
+                            <Setter Property="HorizontalAlignment" Value="Stretch" />
+                            <Setter Property="Background" Value="Transparent" />
                         </Style>
-                    </ListBox.Styles>
-                    <ListBox.ItemTemplate>
+                    </TreeView.Styles>
+                    <TreeView.DataTemplates>
+                        <!-- Folder Template -->
+                        <TreeDataTemplate x:DataType="viewmodels:BookmarkFolder" ItemsSource="{Binding Items}">
+                            <Border Classes.drag-over-folder="{Binding DropPosition, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static viewmodels:DropPosition.Inside}}">
+                                <Grid>
+                                    <Grid.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Expand All" Command="{Binding $parent[TreeView].DataContext.ExpandAllCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
+                                            <Separator />
+                                            <MenuItem Header="Rename" Command="{Binding $parent[TreeView].DataContext.RenameBookmarkCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
+                                            <Separator />
+                                            <MenuItem Header="Move Up" Command="{Binding $parent[TreeView].DataContext.MoveUpCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
+                                            <MenuItem Header="Move Down" Command="{Binding $parent[TreeView].DataContext.MoveDownCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
+                                            <Separator />
+                                            <MenuItem Header="Delete" Command="{Binding $parent[TreeView].DataContext.DeleteBookmarkCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
+                                        </ContextMenu>
+                                    </Grid.ContextMenu>
+                                    <!-- Drop Indicators -->
+                                    <Border Classes="drop-indicator" VerticalAlignment="Top" Margin="0,-2,0,0">
+                                        <Border.IsVisible>
+                                            <Binding Path="DropPosition" Converter="{x:Static ObjectConverters.Equal}" ConverterParameter="{x:Static viewmodels:DropPosition.Above}" />
+                                        </Border.IsVisible>
+                                    </Border>
+                                    <Border Classes="drop-indicator" VerticalAlignment="Bottom" Margin="0,0,0,-2">
+                                        <Border.IsVisible>
+                                            <Binding Path="DropPosition" Converter="{x:Static ObjectConverters.Equal}" ConverterParameter="{x:Static viewmodels:DropPosition.Below}" />
+                                        </Border.IsVisible>
+                                    </Border>
+                                    <!-- Content -->
+                                    <StackPanel
+                                        Classes="item-content"
+                                        PointerPressed="OnBookmarkItemPointerPressed"
+                                        PointerMoved="OnBookmarkItemPointerMoved"
+                                        PointerReleased="OnBookmarkItemPointerReleased"
+                                        PointerEntered="OnBookmarkItemPointerEntered"
+                                        PointerExited="OnBookmarkItemPointerExited">
+                                        <icons:MaterialIcon Kind="Folder" Margin="0,0,8,0" Foreground="#D9B860" />
+                                        <TextBlock Text="{Binding Name}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </TreeDataTemplate>
+
+                        <!-- Bookmark Template -->
                         <DataTemplate x:DataType="viewmodels:Bookmark">
-                            <DockPanel Background="Transparent"
-                                      PointerPressed="OnBookmarkItemPointerPressed"
-                                      PointerMoved="OnBookmarkItemPointerMoved"
-                                      PointerReleased="OnBookmarkItemPointerReleased"
-                                      PointerEntered="OnBookmarkItemPointerEntered"
-                                      PointerExited="OnBookmarkItemPointerExited">
-                                <StackPanel Orientation="Horizontal">
-                                    <!-- Padding fixes odd rendering bug with Spacing -->
-                                    <TextBlock Text="📍" Padding="0,0,7,0" />
+                            <Grid>
+                                <Grid.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Go To" Command="{Binding $parent[TreeView].DataContext.GoToBookmarkCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
+                                        <MenuItem Header="Update to Current Location" Command="{Binding $parent[TreeView].DataContext.UpdateBookmarkCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
+                                        <MenuItem Header="Rename" Command="{Binding $parent[TreeView].DataContext.RenameBookmarkCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
+                                        <Separator />
+                                        <MenuItem Header="Copy Location" Command="{Binding $parent[TreeView].DataContext.CopyLocationCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
+                                        <Separator />
+                                        <MenuItem Header="Move Up" Command="{Binding $parent[TreeView].DataContext.MoveUpCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
+                                        <MenuItem Header="Move Down" Command="{Binding $parent[TreeView].DataContext.MoveDownCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
+                                        <Separator />
+                                        <MenuItem Header="Delete" Command="{Binding $parent[TreeView].DataContext.DeleteBookmarkCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
+                                    </ContextMenu>
+                                </Grid.ContextMenu>
+                                <!-- Drop Indicators -->
+                                <Border Classes="drop-indicator" VerticalAlignment="Top" Margin="0,-8,0,0">
+                                    <Border.IsVisible>
+                                        <Binding Path="DropPosition" Converter="{x:Static ObjectConverters.Equal}" ConverterParameter="{x:Static viewmodels:DropPosition.Above}" />
+                                    </Border.IsVisible>
+                                </Border>
+                                <Border Classes="drop-indicator" VerticalAlignment="Bottom" Margin="0,0,0,-8">
+                                    <Border.IsVisible>
+                                        <Binding Path="DropPosition" Converter="{x:Static ObjectConverters.Equal}" ConverterParameter="{x:Static viewmodels:DropPosition.Below}" />
+                                    </Border.IsVisible>
+                                </Border>
+                                <!-- Content -->
+                                <StackPanel
+                                    Classes="item-content"
+                                    PointerPressed="OnBookmarkItemPointerPressed"
+                                    PointerMoved="OnBookmarkItemPointerMoved"
+                                    PointerReleased="OnBookmarkItemPointerReleased"
+                                    PointerEntered="OnBookmarkItemPointerEntered"
+                                    PointerExited="OnBookmarkItemPointerExited">
+                                    <icons:MaterialIcon Kind="MapMarker" Margin="0,0,6,0" Opacity="0.96" />
                                     <TextBlock Text="{Binding Name}" />
                                 </StackPanel>
-                            </DockPanel>
+                            </Grid>
                         </DataTemplate>
-                    </ListBox.ItemTemplate>
-                <ListBox.ContextMenu>
-                    <ContextMenu>
-                        <MenuItem
-                            Command="{Binding GoToBookmarkCommand}"
-                            CommandParameter="{Binding #BookmarkListBox.SelectedItem}"
-                            Header="Go To" />
-                        <MenuItem
-                            Command="{Binding UpdateBookmarkCommand}"
-                            CommandParameter="{Binding #BookmarkListBox.SelectedItem}"
-                            Header="Update to Current Location" />
-                        <MenuItem
-                            Command="{Binding RenameBookmarkCommand}"
-                            CommandParameter="{Binding #BookmarkListBox.SelectedItem}"
-                            Header="Rename" />
-                        <Separator />
-                        <MenuItem
-                            Command="{Binding CopyLocationCommand}"
-                            CommandParameter="{Binding #BookmarkListBox.SelectedItem}"
-                            Header="Copy Location" />
-                        <Separator />
-                        <MenuItem
-                            Command="{Binding MoveUpCommand}"
-                            CommandParameter="{Binding #BookmarkListBox.SelectedItem}"
-                            Header="Move Up" />
-                        <MenuItem
-                            Command="{Binding MoveDownCommand}"
-                            CommandParameter="{Binding #BookmarkListBox.SelectedItem}"
-                            Header="Move Down" />
-                        <Separator />
-                        <MenuItem
-                            Command="{Binding DeleteBookmarkCommand}"
-                            CommandParameter="{Binding #BookmarkListBox.SelectedItem}"
-                            Header="Delete" />
-                    </ContextMenu>
-                </ListBox.ContextMenu>
-            </ListBox>
+                    </TreeView.DataTemplates>
+                </TreeView>
             </Grid>
         </ScrollViewer>
-    </DockPanel>
+    </Grid>
 </UserControl>
