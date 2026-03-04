@@ -67,8 +67,17 @@ public partial class LandscapeDocument {
                 }
 
                 // If it's owned by this layer, remove it from the owned list
-                if (layerEdits.ExteriorStaticObjects.TryGetValue(landblockId, out var list)) {
-                    list.RemoveAll(x => x.InstanceId == instanceId);
+                if ((landblockId & 0xFFFF) < 0xFFFE) {
+                    // Env cell
+                    if (layerEdits.Cells.TryGetValue(landblockId, out var cell)) {
+                        cell.StaticObjects.RemoveAll(x => x.InstanceId == instanceId);
+                    }
+                }
+                else {
+                    // Regular landblock
+                    if (layerEdits.ExteriorStaticObjects.TryGetValue(landblockId, out var list)) {
+                        list.RemoveAll(x => x.InstanceId == instanceId);
+                    }
                 }
 
                 // Always add to DeletedInstanceIds to hide it from lower layers/base
@@ -117,8 +126,17 @@ public partial class LandscapeDocument {
             // 1. Remove from old landblock in this layer (if it's there)
             if (LoadedChunks.TryGetValue(oldChunkId, out var oldChunk) && oldChunk.Edits != null) {
                 if (oldChunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
-                    if (layerEdits.ExteriorStaticObjects.TryGetValue(oldLandblockId, out var list)) {
-                        list.RemoveAll(x => x.InstanceId == newObj.InstanceId);
+                    if ((oldLandblockId & 0xFFFF) < 0xFFFE) {
+                        // Env cell
+                        if (layerEdits.Cells.TryGetValue(oldLandblockId, out var cell)) {
+                            cell.StaticObjects.RemoveAll(x => x.InstanceId == newObj.InstanceId);
+                        }
+                    }
+                    else {
+                        // Regular landblock
+                        if (layerEdits.ExteriorStaticObjects.TryGetValue(oldLandblockId, out var list)) {
+                            list.RemoveAll(x => x.InstanceId == newObj.InstanceId);
+                        }
                     }
                 }
                 oldChunk.Edits.Version++;

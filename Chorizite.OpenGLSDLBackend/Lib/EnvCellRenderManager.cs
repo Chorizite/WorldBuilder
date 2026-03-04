@@ -95,9 +95,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return 0; // Definitely not in an EnvCell in this loaded area
         }
 
-        public static ulong GetEnvCellGeomId(ushort environmentId, ushort cellStructure, List<ushort> surfaces) {
+        public static ulong GetEnvCellGeomId(uint environmentId, ushort cellStructure, List<ushort> surfaces) {
             var hash = 17L;
-            hash = hash * 31 + environmentId;
+            hash = hash * 31 + (int)environmentId;
             hash = hash * 31 + cellStructure;
             foreach (var surface in surfaces) {
                 hash = hash * 31 + surface;
@@ -186,8 +186,33 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void SubmitDebugShapes(DebugRenderer? debug, DebugRenderSettings settings) {
-            // Only static objects should have their bounding box shown for now.
-            return;
+            if (debug == null || LandscapeDoc.Region == null || !settings.ShowBoundingBoxes) return;
+
+            foreach (var lb in _landblocks.Values) {
+                if (!lb.InstancesReady || !IsWithinRenderDistance(lb)) continue;
+                if (_frustum.TestBox(lb.TotalEnvCellBounds) == FrustumTestResult.Outside) continue;
+
+                lock (lb) {
+                    foreach (var instance in lb.Instances) {
+                        // Skip cell geometry itself
+                        if (instance.IsBuilding) continue;
+                        if (!settings.SelectStaticObjects) continue;
+
+                        // Skip if instance is outside frustum
+                        if (!_frustum.Intersects(instance.BoundingBox)) continue;
+
+                        var isSelected = SelectedInstance.HasValue && SelectedInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && SelectedInstance.Value.InstanceId == instance.InstanceId;
+                        var isHovered = HoveredInstance.HasValue && HoveredInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && HoveredInstance.Value.InstanceId == instance.InstanceId;
+
+                        Vector4 color;
+                        if (isSelected) color = LandscapeColorsSettings.Instance.Selection;
+                        else if (isHovered) color = LandscapeColorsSettings.Instance.Hover;
+                        else color = settings.StaticObjectColor;
+
+                        debug.DrawBox(instance.LocalBoundingBox, instance.Transform, color);
+                    }
+                }
+            }
         }
 
         #endregion
@@ -531,7 +556,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var cellsToProcess = new Queue<uint>();
                 var envCellBounds = new Dictionary<uint, BoundingBox>();
                 var seenOutsideCells = new HashSet<uint>();
-                var cellGeomIdToEnvCell = new Dictionary<ulong, EnvCell>();
+                var cellGeomIdToEnvCell = new Dictionary<ulong, (uint envId, ushort cellStruct, List<ushort> surfaces)>();
 
                 var cellDb = LandscapeDoc.CellDatabase;
                 if (cellDb != null && mergedLb.Buildings.Count > 0) {
@@ -563,29 +588,30 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 // Recursively gather connected EnvCells
                 while (cellsToProcess.Count > 0) {
                     var cellId = cellsToProcess.Dequeue();
+                    var envCell = LandscapeDoc.GetMergedEnvCell(cellId);
 
-                    if (cellDb != null && cellDb.TryGet<EnvCell>(cellId, out var envCell)) {
+                    if (envCell.EnvironmentId != 0) {
                         // We always add the cell to instances so GetEnvCellAt can find it,
                         // even if it's not marked SeenOutside. Portal-based rendering
                         // will handle occluding it if it's not visible.
                         numVisibleCells++;
 
-                        if (envCell.Flags.HasFlag(EnvCellFlags.SeenOutside)) {
+                        if ((envCell.Flags & (uint)EnvCellFlags.SeenOutside) != 0) {
                             seenOutsideCells.Add(cellId);
                         }
 
                         // Calculate world position
-                        var datPos = new Vector3((float)envCell.Position.Origin.X, (float)envCell.Position.Origin.Y, (float)envCell.Position.Origin.Z);
+                        var datPos = new Vector3(envCell.Position[0], envCell.Position[1], envCell.Position[2]);
                         var worldPos = new Vector3(
                             new Vector2(lbGlobalX * lbSizeUnits + datPos.X, lbGlobalY * lbSizeUnits + datPos.Y) + regionInfo.MapOffset,
                             datPos.Z
                         );
 
                         var rotation = new System.Numerics.Quaternion(
-                            (float)envCell.Position.Orientation.X,
-                            (float)envCell.Position.Orientation.Y,
-                            (float)envCell.Position.Orientation.Z,
-                            (float)envCell.Position.Orientation.W
+                            envCell.Position[4],
+                            envCell.Position[5],
+                            envCell.Position[6],
+                            envCell.Position[3]
                         );
 
                         var transform = Matrix4x4.CreateFromQuaternion(rotation)
@@ -597,7 +623,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
                                 // Use deduplicated ID for cell geometry
                                 var cellGeomId = GetEnvCellGeomId(envCell.EnvironmentId, envCell.CellStructure, envCell.Surfaces);
-                                cellGeomIdToEnvCell[cellGeomId] = envCell;
+                                // Store enough data for mesh generation if needed
+                                cellGeomIdToEnvCell[cellGeomId] = (envCell.EnvironmentId, envCell.CellStructure, envCell.Surfaces);
                                 var bounds = MeshManager.GetBounds(cellGeomId, false);
                                 if (!bounds.HasValue) {
                                     // Fallback: if bounds not cached for deduplicated ID, use the EnvCell ID to find them
@@ -627,31 +654,29 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                         // Add static objects within the cell
                         if (envCell.StaticObjects.Count > 0) {
-                            for (ushort i = 0; i < envCell.StaticObjects.Count; i++) {
-                                var stab = envCell.StaticObjects[i];
-
-                                var datStabPos = new Vector3((float)stab.Frame.Origin.X, (float)stab.Frame.Origin.Y, (float)stab.Frame.Origin.Z);
+                            foreach (var stab in envCell.StaticObjects) {
+                                var datStabPos = new Vector3(stab.Position[0], stab.Position[1], stab.Position[2]);
                                 var stabWorldPos = new Vector3(
                                     new Vector2(lbGlobalX * lbSizeUnits + datStabPos.X, lbGlobalY * lbSizeUnits + datStabPos.Y) + regionInfo.MapOffset,
                                     datStabPos.Z
                                 );
 
                                 var stabWorldRot = new System.Numerics.Quaternion(
-                                    (float)stab.Frame.Orientation.X,
-                                    (float)stab.Frame.Orientation.Y,
-                                    (float)stab.Frame.Orientation.Z,
-                                    (float)stab.Frame.Orientation.W
+                                    stab.Position[4],
+                                    stab.Position[5],
+                                    stab.Position[6],
+                                    stab.Position[3]
                                 );
                                 var stabWorldTransform = Matrix4x4.CreateFromQuaternion(stabWorldRot) * Matrix4x4.CreateTranslation(stabWorldPos);
 
-                                var isSetup = (stab.Id >> 24) == 0x02;
-                                var bounds = MeshManager.GetBounds(stab.Id, isSetup);
+                                var isSetup = (stab.SetupId >> 24) == 0x02;
+                                var bounds = MeshManager.GetBounds(stab.SetupId, isSetup);
                                 var localBbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max) : default;
                                 var bbox = localBbox.Transform(stabWorldTransform);
 
                                 instances.Add(new SceneryInstance {
-                                    ObjectId = stab.Id,
-                                    InstanceId = InstanceIdConstants.EncodeEnvCellStaticObject(cellId, i, false),
+                                    ObjectId = stab.SetupId,
+                                    InstanceId = stab.InstanceId,
                                     IsSetup = isSetup,
                                     IsBuilding = false,
                                     WorldPosition = stabWorldPos,
@@ -673,7 +698,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         }
 
                         // Recursively walk portals to other interior cells
-                        foreach (var portal in envCell.CellPortals) {
+                        foreach (var portal in envCell.Portals) {
                             if (portal.OtherCellId != 0xFFFF) {
                                 var neighborId = (lbId & 0xFFFF0000) | portal.OtherCellId;
                                 if (discoveredCellIds.Add(neighborId)) {
@@ -711,8 +736,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (MeshManager.HasRenderData(objectId) || _preparedMeshes.ContainsKey(objectId))
                         continue;
 
-                    if (cellGeomIdToEnvCell.TryGetValue(objectId, out var cell)) {
-                        preparationTasks.Add(MeshManager.PrepareEnvCellGeomMeshDataAsync(objectId, cell, ct));
+                    if (cellGeomIdToEnvCell.TryGetValue(objectId, out var cellInfo)) {
+                        preparationTasks.Add(MeshManager.PrepareEnvCellGeomMeshDataAsync(objectId, cellInfo.envId, cellInfo.cellStruct, cellInfo.surfaces, ct));
                     }
                     else {
                         preparationTasks.Add(MeshManager.PrepareMeshDataAsync(objectId, isSetup, ct));

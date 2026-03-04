@@ -12,7 +12,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models
         /// <summary>
         /// Environment file id
         /// </summary>
-        [MemoryPackOrder(0)] public uint EnvironmentId { get; init; }
+        [MemoryPackOrder(0)] public ushort EnvironmentId { get; init; }
+
+        /// <summary>
+        /// Cell flags (e.g. SeenOutside)
+        /// </summary>
+        [MemoryPackOrder(7)] public uint Flags { get; init; }
 
         /// <summary>
         /// CellStructure
@@ -27,12 +32,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models
         /// <summary>
         /// Surfaces
         /// </summary>
-        [MemoryPackOrder(3)] public List<ushort> Surfaces { get; init; } = [];
+        [MemoryPackIgnore] public List<ushort> Surfaces { get; init; } = [];
 
         /// <summary>
         /// Portals to other cells
         /// </summary>
-        [MemoryPackOrder(4)] public List<CellPortal> Portals { get; init; } = [];
+        [MemoryPackIgnore] public List<CellPortal> Portals { get; init; } = [];
 
         /// <summary>
         /// Objects in this Cell

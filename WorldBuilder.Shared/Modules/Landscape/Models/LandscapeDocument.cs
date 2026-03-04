@@ -234,11 +234,32 @@ namespace WorldBuilder.Shared.Models {
                     layerEdits = new LandscapeChunkEdits();
                     chunk.Edits.LayerEdits[layerId] = layerEdits;
                 }
-                if (!layerEdits.ExteriorStaticObjects.TryGetValue(landblockId, out var list)) {
-                    list = [];
-                    layerEdits.ExteriorStaticObjects[landblockId] = list;
+
+                if ((landblockId & 0xFFFF) < 0xFFFE) {
+                    // It's an env cell
+                    if (!layerEdits.Cells.TryGetValue(landblockId, out var cell)) {
+                        var baseCell = GetMergedEnvCell(landblockId);
+                        cell = new Cell {
+                            LayerId = layerId,
+                            EnvironmentId = baseCell.EnvironmentId,
+                            Flags = baseCell.Flags,
+                            CellStructure = baseCell.CellStructure,
+                            Position = (float[])baseCell.Position.Clone(),
+                            Surfaces = new List<ushort>(baseCell.Surfaces),
+                            Portals = new List<DatReaderWriter.Types.CellPortal>(baseCell.Portals)
+                        };
+                        layerEdits.Cells[landblockId] = cell;
+                    }
+                    cell.StaticObjects.Add(obj);
                 }
-                list.Add(obj);
+                else {
+                    // It's a regular landblock
+                    if (!layerEdits.ExteriorStaticObjects.TryGetValue(landblockId, out var list)) {
+                        list = [];
+                        layerEdits.ExteriorStaticObjects[landblockId] = list;
+                    }
+                    list.Add(obj);
+                }
                 chunk.Edits.Version++;
             }
         }
@@ -621,6 +642,7 @@ namespace WorldBuilder.Shared.Models {
             if (CellDatabase != null && CellDatabase.TryGet<EnvCell>(cellId, out var cell)) {
                 properties = new Cell {
                     EnvironmentId = cell.EnvironmentId,
+                    Flags = (uint)cell.Flags,
                     CellStructure = cell.CellStructure,
                     Position = [cell.Position.Origin.X, cell.Position.Origin.Y, cell.Position.Origin.Z, cell.Position.Orientation.W, cell.Position.Orientation.X, cell.Position.Orientation.Y, cell.Position.Orientation.Z],
                     Surfaces = new List<ushort>(cell.Surfaces),
@@ -647,7 +669,16 @@ namespace WorldBuilder.Shared.Models {
                 if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
                     if (chunk.Edits.LayerEdits.TryGetValue("Base", out var baseEdits)) {
                         if (baseEdits.Cells.TryGetValue(cellId, out var cellEdits)) {
-                            properties = cellEdits;
+                            properties = new Cell {
+                                EnvironmentId = cellEdits.EnvironmentId,
+                                Flags = cellEdits.Flags,
+                                CellStructure = cellEdits.CellStructure,
+                                Position = cellEdits.Position,
+                                Surfaces = properties.Surfaces, // Keep from DAT
+                                Portals = properties.Portals,   // Keep from DAT
+                                LayerId = "Base",
+                                StaticObjects = cellEdits.StaticObjects
+                            };
                         }
 
                         foreach (var rmId in baseEdits.DeletedInstanceIds) {

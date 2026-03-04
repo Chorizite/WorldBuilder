@@ -339,12 +339,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 var region = Context.Document.Region;
                 var offset = region.MapOffset;
                 var lbSize = region.LandblockSizeInUnits;
-                
-                uint newLbX = (newLandblockId >> 24);
-                uint newLbY = ((newLandblockId >> 16) & 0xFF);
-                var newOrigin = new Vector3(newLbX * lbSize + offset.X, newLbY * lbSize + offset.Y, 0);
-                
-                newLocalPosition = GizmoState.Position - newOrigin;
+
+                uint lbX = (newLandblockId >> 24);
+                uint lbY = ((newLandblockId >> 16) & 0xFF);
+                var lbOrigin = new Vector3(lbX * lbSize + offset.X, lbY * lbSize + offset.Y, 0);
+
+                newLocalPosition = GizmoState.Position - lbOrigin;
             }
 
             var newRotation = GizmoState.Rotation;
@@ -397,7 +397,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 if (cellId != 0) {
                     var cell = Context.Document.GetMergedEnvCell(cellId);
                     // For env cells, the "ground" is the cell's origin Z.
-                    return cell.Position[2]; // Z
+                    if (cell.Position != null && cell.Position.Length >= 3) {
+                        return cell.Position[2]; // Z
+                    }
                 }
             }
 
