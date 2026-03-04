@@ -692,6 +692,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         }
     }
 
+    public void OnActiveTabChanged(string tabName) {
+        if (_settings?.Project != null && !string.IsNullOrEmpty(tabName)) {
+            _settings.Project.ActiveTab = tabName;
+        }
+    }
+
     public void Dispose() {
         if (_settings != null) {
             _settings.PropertyChanged -= OnSettingsPropertyChanged;

@@ -105,6 +105,10 @@ namespace WorldBuilder.Lib.Settings {
         private int _landscapeCameraFieldOfView = 60;
         public int LandscapeCameraFieldOfView { get => _landscapeCameraFieldOfView; set => SetProperty(ref _landscapeCameraFieldOfView, value); }
 
+        [SettingHidden]
+        private string _activeTab = "Layers";
+        public string ActiveTab { get => _activeTab; set => SetProperty(ref _activeTab, value); }
+
 
         [JsonIgnore]
         [SettingHidden]
