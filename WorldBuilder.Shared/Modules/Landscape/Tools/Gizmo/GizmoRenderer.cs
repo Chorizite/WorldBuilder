@@ -23,12 +23,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
         /// Renders the gizmo for the given state.
         /// </summary>
         public static void Draw(IGizmoDrawer drawer, GizmoState state) {
-            if (state.Mode == GizmoMode.Translate) {
-                DrawTranslationGizmo(drawer, state);
-            }
-            else {
-                DrawRotationGizmo(drawer, state);
-            }
+            DrawTranslationGizmo(drawer, state);
+            DrawRotationGizmo(drawer, state);
         }
 
         private static void DrawTranslationGizmo(IGizmoDrawer drawer, GizmoState state) {

@@ -1,13 +1,11 @@
 using System;
 using System.Numerics;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo
-{
+namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
     /// <summary>
     /// Result of a gizmo hit test.
     /// </summary>
-    public struct GizmoHitResult
-    {
+    public struct GizmoHitResult {
         /// <summary>The component that was hit.</summary>
         public GizmoComponent Component;
 
@@ -23,34 +21,34 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo
     /// <summary>
     /// Pure-math ray-vs-gizmo hit testing.
     /// </summary>
-    public static class GizmoHitTester
-    {
+    public static class GizmoHitTester {
         /// <summary>
         /// Tests a ray against the gizmo and returns the closest hit component.
         /// </summary>
-        public static GizmoHitResult Test(Vector3 rayOrigin, Vector3 rayDirection, GizmoState state)
-        {
-            if (state.Mode == GizmoMode.Translate)
-            {
-                return TestTranslation(rayOrigin, rayDirection, state);
+        public static GizmoHitResult Test(Vector3 rayOrigin, Vector3 rayDirection, GizmoState state) {
+            var transHit = TestTranslation(rayOrigin, rayDirection, state);
+            var rotHit = TestRotation(rayOrigin, rayDirection, state);
+
+            if (transHit.Component != GizmoComponent.None && rotHit.Component != GizmoComponent.None) {
+                // Prefer translation center over rings, but otherwise prioritize closest
+                if (transHit.Component == GizmoComponent.Center && transHit.Distance < rotHit.Distance + state.Size * 0.1f) {
+                    return transHit;
+                }
+                return transHit.Distance < rotHit.Distance ? transHit : rotHit;
             }
-            else
-            {
-                return TestRotation(rayOrigin, rayDirection, state);
-            }
+
+            if (transHit.Component != GizmoComponent.None) return transHit;
+            return rotHit;
         }
 
-        private static GizmoHitResult TestTranslation(Vector3 rayOrigin, Vector3 rayDirection, GizmoState state)
-        {
+        private static GizmoHitResult TestTranslation(Vector3 rayOrigin, Vector3 rayDirection, GizmoState state) {
             var best = GizmoHitResult.NoHit;
             float hitRadius = state.Size * 0.06f; // Tolerance around axis lines
 
             // Test center sphere first (has priority when overlapping)
             float centerRadius = state.Size * 0.12f;
-            if (RaySphereIntersect(rayOrigin, rayDirection, state.Position, centerRadius, out float centerDist))
-            {
-                best = new GizmoHitResult
-                {
+            if (RaySphereIntersect(rayOrigin, rayDirection, state.Position, centerRadius, out float centerDist)) {
+                best = new GizmoHitResult {
                     Component = GizmoComponent.Center,
                     Distance = centerDist,
                     HitPoint = rayOrigin + rayDirection * centerDist
@@ -70,19 +68,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo
         }
 
         private static void TestAxisArrow(Vector3 rayOrigin, Vector3 rayDir, Vector3 gizmoPos,
-            Vector3 axis, float length, float radius, GizmoComponent component, ref GizmoHitResult best)
-        {
+            Vector3 axis, float length, float radius, GizmoComponent component, ref GizmoHitResult best) {
             var axisStart = gizmoPos;
             var axisEnd = gizmoPos + axis * length;
 
-            if (RayCylinderIntersect(rayOrigin, rayDir, axisStart, axisEnd, radius, out float dist))
-            {
-                if (dist < best.Distance)
-                {
+            if (RayCylinderIntersect(rayOrigin, rayDir, axisStart, axisEnd, radius, out float dist)) {
+                if (dist < best.Distance) {
                     // Don't override center if it was hit at a closer distance
                     if (best.Component == GizmoComponent.Center && best.Distance < dist) return;
-                    best = new GizmoHitResult
-                    {
+                    best = new GizmoHitResult {
                         Component = component,
                         Distance = dist,
                         HitPoint = rayOrigin + rayDir * dist
@@ -91,8 +85,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo
             }
         }
 
-        private static GizmoHitResult TestRotation(Vector3 rayOrigin, Vector3 rayDirection, GizmoState state)
-        {
+        private static GizmoHitResult TestRotation(Vector3 rayOrigin, Vector3 rayDirection, GizmoState state) {
             var best = GizmoHitResult.NoHit;
             float ringThickness = state.Size * 0.06f;
 
@@ -109,8 +102,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo
         }
 
         private static void TestRing(Vector3 rayOrigin, Vector3 rayDir, Vector3 center,
-            Vector3 normal, float radius, float thickness, GizmoComponent component, ref GizmoHitResult best)
-        {
+            Vector3 normal, float radius, float thickness, GizmoComponent component, ref GizmoHitResult best) {
             // Intersect ray with the plane defined by (center, normal)
             float denom = Vector3.Dot(normal, rayDir);
             if (MathF.Abs(denom) < 1e-6f) return; // Ray parallel to plane
@@ -122,10 +114,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo
             float distFromCenter = Vector3.Distance(hitPoint, center);
 
             // Check if hit point is on the ring (within thickness tolerance)
-            if (MathF.Abs(distFromCenter - radius) <= thickness && t < best.Distance)
-            {
-                best = new GizmoHitResult
-                {
+            if (MathF.Abs(distFromCenter - radius) <= thickness && t < best.Distance) {
+                best = new GizmoHitResult {
                     Component = component,
                     Distance = t,
                     HitPoint = hitPoint
@@ -136,8 +126,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo
         /// <summary>
         /// Ray-sphere intersection test.
         /// </summary>
-        private static bool RaySphereIntersect(Vector3 origin, Vector3 dir, Vector3 center, float radius, out float distance)
-        {
+        private static bool RaySphereIntersect(Vector3 origin, Vector3 dir, Vector3 center, float radius, out float distance) {
             distance = float.MaxValue;
             var oc = origin - center;
             float a = Vector3.Dot(dir, dir);
@@ -161,8 +150,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo
         /// Uses closest-point-on-two-lines approach.
         /// </summary>
         private static bool RayCylinderIntersect(Vector3 rayOrigin, Vector3 rayDir,
-            Vector3 lineStart, Vector3 lineEnd, float radius, out float distance)
-        {
+            Vector3 lineStart, Vector3 lineEnd, float radius, out float distance) {
             distance = float.MaxValue;
 
             var lineDir = lineEnd - lineStart;
@@ -191,8 +179,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo
             var closestOnLine = lineStart + lineDir * tLine;
             float separation = Vector3.Distance(closestOnRay, closestOnLine);
 
-            if (separation <= radius)
-            {
+            if (separation <= radius) {
                 distance = tRay;
                 return true;
             }
