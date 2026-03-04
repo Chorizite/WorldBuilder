@@ -105,6 +105,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return _landblocks.TryGetValue(key, out var lb) && lb.MeshDataReady;
         }
 
+        /// <summary>
+        /// Gets the world bounding box for a specific static object instance.
+        /// </summary>
+        public WorldBuilder.Shared.Numerics.BoundingBox? GetInstanceBounds(uint landblockId, ulong instanceId) {
+            ushort key = (ushort)(landblockId >> 16);
+            if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) return null;
+
+            lock (lb) {
+                foreach (var instance in lb.Instances) {
+                    if (instance.InstanceId == instanceId) {
+                        return new WorldBuilder.Shared.Numerics.BoundingBox(
+                            instance.BoundingBox.Min,
+                            instance.BoundingBox.Max);
+                    }
+                }
+            }
+            return null;
+        }
+
         [Flags]
         public enum RaycastTarget {
             None = 0,

@@ -101,6 +101,21 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <summary>Action to invalidate a specific landblock, triggering a re-render.</summary>
         public Action<int, int>? InvalidateLandblock { get; set; }
 
+        /// <summary>Delegate for retrieving a static object's world bounding box.</summary>
+        public Func<uint, ulong, WorldBuilder.Shared.Numerics.BoundingBox?>? GetStaticObjectBounds { get; set; }
+
+        /// <summary>Delegate for retrieving the layer ID that owns a static object.</summary>
+        public Func<uint, ulong, string?>? GetStaticObjectLayerId { get; set; }
+
+        /// <summary>Action to update a static object in the document (layerId, oldLandblockId, newLandblockId, newObject).</summary>
+        public Action<string, uint, uint, Models.StaticObject>? UpdateStaticObject { get; set; }
+
+        /// <summary>Action to notify the rendering layer of a live position/rotation preview during drag.</summary>
+        public Action<uint, ulong, Vector3, System.Numerics.Quaternion>? NotifyObjectPositionPreview { get; set; }
+
+        /// <summary>Delegate to compute a landblock ID from a world-space position.</summary>
+        public Func<Vector3, uint>? ComputeLandblockId { get; set; }
+
         /// <summary>Initializes a new instance of the <see cref="LandscapeToolContext"/> class.</summary>
         /// <param name="document">The landscape document.</param>
         /// <param name="dats">The dat reader/writer.</param>
@@ -117,20 +132,19 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             ActiveLayer = activeLayer;
         }
 
-                /// <summary>
-                /// Invalidates all landblocks that share the specified vertex.
-                /// Handles boundary vertices (invalidating 2 landblocks) and corner vertices (invalidating 4 landblocks).
-                /// </summary>
-                /// <param name="vx">Vertex X coordinate.</param>
-                /// <param name="vy">Vertex Y coordinate.</param>
-                public void InvalidateLandblocksForVertex(int vx, int vy) {
-                    if (InvalidateLandblock == null || Document.Region == null) return;
-        
-                    uint vertexIndex = (uint)Document.Region.GetVertexIndex(vx, vy);
-                    foreach (var (lbX, lbY) in Document.GetAffectedLandblocks(new[] { vertexIndex })) {
-                        InvalidateLandblock(lbX, lbY);
-                    }
-                }
+        /// <summary>
+        /// Invalidates all landblocks that share the specified vertex.
+        /// Handles boundary vertices (invalidating 2 landblocks) and corner vertices (invalidating 4 landblocks).
+        /// </summary>
+        /// <param name="vx">Vertex X coordinate.</param>
+        /// <param name="vy">Vertex Y coordinate.</param>
+        public void InvalidateLandblocksForVertex(int vx, int vy) {
+            if (InvalidateLandblock == null || Document.Region == null) return;
+
+            uint vertexIndex = (uint)Document.Region.GetVertexIndex(vx, vy);
+            foreach (var (lbX, lbY) in Document.GetAffectedLandblocks(new[] { vertexIndex })) {
+                InvalidateLandblock(lbX, lbY);
             }
         }
-        
+    }
+}

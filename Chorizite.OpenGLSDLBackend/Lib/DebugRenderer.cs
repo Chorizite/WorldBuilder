@@ -58,7 +58,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             // Instance attributes
             _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVbo);
-            
+
             // aStart (location 1)
             _gl.EnableVertexAttribArray(1);
             _gl.VertexAttribPointer(1, 3, GLEnum.Float, false, (uint)Marshal.SizeOf<LineInstance>(), (void*)0);
@@ -87,11 +87,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void DrawLine(Vector3 start, Vector3 end, Vector4 color, float thickness = 2.0f) {
-            _lineInstances.Add(new LineInstance { 
-                Start = start, 
-                End = end, 
-                Color = color, 
-                Thickness = thickness 
+            _lineInstances.Add(new LineInstance {
+                Start = start,
+                End = end,
+                Color = color,
+                Thickness = thickness
             });
         }
 
@@ -161,6 +161,49 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
+        /// <summary>
+        /// Draws a circle of line segments around an axis at the given center.
+        /// </summary>
+        public void DrawCircle(Vector3 center, float radius, Vector3 axis, Vector4 color, int segments = 32, float thickness = 2.0f) {
+            // Build a coordinate system on the plane perpendicular to the axis
+            axis = Vector3.Normalize(axis);
+            var tangent1 = Vector3.Cross(axis, MathF.Abs(Vector3.Dot(axis, Vector3.UnitX)) < 0.9f ? Vector3.UnitX : Vector3.UnitY);
+            tangent1 = Vector3.Normalize(tangent1);
+            var tangent2 = Vector3.Cross(axis, tangent1);
+
+            for (int i = 0; i < segments; i++) {
+                float angle1 = (float)i / segments * MathF.PI * 2;
+                float angle2 = (float)(i + 1) / segments * MathF.PI * 2;
+
+                var p1 = center + (tangent1 * MathF.Cos(angle1) + tangent2 * MathF.Sin(angle1)) * radius;
+                var p2 = center + (tangent1 * MathF.Cos(angle2) + tangent2 * MathF.Sin(angle2)) * radius;
+
+                DrawLine(p1, p2, color, thickness);
+            }
+        }
+
+        /// <summary>
+        /// Draws a line with an arrowhead at the end.
+        /// </summary>
+        public void DrawArrow(Vector3 start, Vector3 end, Vector4 color, float headLength = 0.3f, float thickness = 2.0f) {
+            DrawLine(start, end, color, thickness);
+
+            var dir = Vector3.Normalize(end - start);
+
+            // Build perpendicular vectors for the arrowhead
+            var perp1 = Vector3.Cross(dir, MathF.Abs(Vector3.Dot(dir, Vector3.UnitX)) < 0.9f ? Vector3.UnitX : Vector3.UnitY);
+            perp1 = Vector3.Normalize(perp1);
+            var perp2 = Vector3.Cross(dir, perp1);
+
+            float headWidth = headLength * 0.4f;
+            var headBase = end - dir * headLength;
+
+            DrawLine(end, headBase + perp1 * headWidth, color, thickness);
+            DrawLine(end, headBase - perp1 * headWidth, color, thickness);
+            DrawLine(end, headBase + perp2 * headWidth, color, thickness);
+            DrawLine(end, headBase - perp2 * headWidth, color, thickness);
+        }
+
         public void Render(Matrix4x4 view, Matrix4x4 projection) {
             if (_lineInstances.Count == 0 || _shader == null) return;
 
@@ -176,7 +219,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
             _gl.BindVertexArray(_vao);
-            
+
             _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVbo);
             var instanceSpan = CollectionsMarshal.AsSpan(_lineInstances);
             _gl.BufferData(GLEnum.ArrayBuffer, (nuint)(_lineInstances.Count * Marshal.SizeOf<LineInstance>()), instanceSpan, GLEnum.StreamDraw);

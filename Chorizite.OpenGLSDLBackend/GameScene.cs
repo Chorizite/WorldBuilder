@@ -134,6 +134,8 @@ public class GameScene : IDisposable {
 
     private (int x, int y)? _hoveredVertex;
     private (int x, int y)? _selectedVertex;
+    private ObjectManipulationTool? _manipulationTool;
+    private Lib.DebugRendererLineDrawer? _gizmoDrawer;
 
     private InspectorTool? _inspectorTool;
 
@@ -535,6 +537,32 @@ public class GameScene : IDisposable {
         _inspectorTool = tool;
     }
 
+    public void SetManipulationTool(ObjectManipulationTool? tool) {
+        _manipulationTool = tool;
+    }
+
+    /// <summary>
+    /// Gets the world-space bounding box for a static object.
+    /// </summary>
+    public WorldBuilder.Shared.Numerics.BoundingBox? GetStaticObjectBounds(uint landblockId, ulong instanceId) {
+        if (_staticObjectManager == null) return null;
+        return _staticObjectManager.GetInstanceBounds(landblockId, instanceId);
+    }
+
+    /// <summary>
+    /// Gets the layer ID that owns a static object.
+    /// </summary>
+    public string? GetStaticObjectLayerId(uint landblockId, ulong instanceId) {
+        if (_landscapeDoc == null) return null;
+        var merged = _landscapeDoc.GetMergedLandblock(landblockId);
+        foreach (var obj in merged.StaticObjects) {
+            if (obj.InstanceId == instanceId) {
+                return obj.LayerId;
+            }
+        }
+        return null;
+    }
+
     private void DrawVertexDebug(int vx, int vy, Vector4 color) {
         if (_landscapeDoc?.Region == null || _debugRenderer == null) return;
 
@@ -902,6 +930,14 @@ public class GameScene : IDisposable {
                     DrawVertexDebug(_selectedVertex.Value.x, _selectedVertex.Value.y, LandscapeColorsSettings.Instance.Selection);
                 }
             }
+        }
+
+        // Render the manipulation gizmo if active
+        if (_manipulationTool != null && _manipulationTool.HasSelection && _debugRenderer != null) {
+            if (_gizmoDrawer == null) {
+                _gizmoDrawer = new Lib.DebugRendererLineDrawer(_debugRenderer);
+            }
+            WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo.GizmoRenderer.Draw(_gizmoDrawer, _manipulationTool.GizmoState);
         }
 
         _debugRenderer?.Render(snapshotView, snapshotProj);

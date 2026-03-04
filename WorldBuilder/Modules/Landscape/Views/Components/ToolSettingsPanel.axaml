@@ -183,6 +183,14 @@
                 </HeaderedContentControl>
             </DataTemplate>
 
+            <DataTemplate DataType="{x:Type tools:ObjectManipulationTool}" x:DataType="tools:ObjectManipulationTool">
+                <StackPanel Orientation="Horizontal">
+                  <HeaderedContentControl Header="Info" Template="{StaticResource RibbonGroupTemplate}">
+                    <TextBlock Text="Click a static object to select it, then drag the gizmo handles to move/rotate." FontSize="12" Opacity="0.6" VerticalAlignment="Center"/>
+                  </HeaderedContentControl>
+                </StackPanel>
+            </DataTemplate>
+
             <DataTemplate DataType="{x:Type tools:InspectorTool}" x:DataType="tools:InspectorTool">
                 <StackPanel Orientation="Horizontal">
                   <HeaderedContentControl Header="Filters" Template="{StaticResource RibbonGroupTemplate}">
