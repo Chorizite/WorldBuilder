@@ -121,8 +121,8 @@ namespace WorldBuilder.Services {
         /// <param name="node">The bookmark or folder to remove</param>
         /// <returns>A task representing the asynchronous operation</returns>
         public async Task RemoveBookmark(BookmarkNode node) {
-            if (Bookmarks.Remove(node))
-            {
+            var container = node.Parent?.Items ?? Bookmarks;
+            if (container.Remove(node)) {
                 await SaveBookmarks();
             }
         }
