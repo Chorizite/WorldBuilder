@@ -104,6 +104,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <summary>Delegate for retrieving a static object's world bounding box.</summary>
         public Func<uint, ulong, WorldBuilder.Shared.Numerics.BoundingBox?>? GetStaticObjectBounds { get; set; }
 
+        /// <summary>Delegate for retrieving a static object's current transform.</summary>
+        public Func<uint, ulong, (Vector3 position, Quaternion rotation, Vector3 localPosition)?>? GetStaticObjectTransform { get; set; }
+
         /// <summary>Delegate for retrieving the layer ID that owns a static object.</summary>
         public Func<uint, ulong, string?>? GetStaticObjectLayerId { get; set; }
 

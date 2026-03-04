@@ -186,34 +186,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void SubmitDebugShapes(DebugRenderer? debug, DebugRenderSettings settings) {
-            if (debug == null || LandscapeDoc.Region == null || !settings.ShowBoundingBoxes) return;
-
-            foreach (var lb in _landblocks.Values) {
-                if (!lb.InstancesReady || !IsWithinRenderDistance(lb) || lb.Instances.Count == 0) continue;
-                if (_frustum.TestBox(lb.TotalEnvCellBounds) == FrustumTestResult.Outside) continue;
-
-                lock (lb) {
-                    foreach (var instance in lb.Instances) {
-                        var type = InstanceIdConstants.GetType(instance.InstanceId);
-                        if (type == InspectorSelectionType.EnvCell && !settings.SelectEnvCells) continue;
-                        if (type == InspectorSelectionType.EnvCellStaticObject && !settings.SelectEnvCellStaticObjects) continue;
-
-                        // Skip if instance is outside frustum
-                        if (!_frustum.Intersects(instance.BoundingBox)) continue;
-
-                        var isSelected = SelectedInstance.HasValue && SelectedInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && SelectedInstance.Value.InstanceId == instance.InstanceId;
-                        var isHovered = HoveredInstance.HasValue && HoveredInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && HoveredInstance.Value.InstanceId == instance.InstanceId;
-
-                        Vector4 color;
-                        if (isSelected) color = LandscapeColorsSettings.Instance.Selection;
-                        else if (isHovered) color = LandscapeColorsSettings.Instance.Hover;
-                        else if (type == InspectorSelectionType.EnvCell) color = settings.EnvCellColor;
-                        else color = settings.EnvCellStaticObjectColor;
-
-                        debug.DrawBox(instance.LocalBoundingBox, instance.Transform, color);
-                    }
-                }
-            }
+            // Only static objects should have their bounding box shown for now.
+            return;
         }
 
         #endregion

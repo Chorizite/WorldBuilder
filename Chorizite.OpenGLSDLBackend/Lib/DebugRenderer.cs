@@ -204,16 +204,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             DrawLine(end, headBase - perp2 * headWidth, color, thickness);
         }
 
-        public void Render(Matrix4x4 view, Matrix4x4 projection) {
+        public void Render(Matrix4x4 view, Matrix4x4 projection, bool depthTest = true) {
             if (_lineInstances.Count == 0 || _shader == null) return;
 
             _shader.Bind();
             _shader.SetUniform("uViewportSize", new Vector2(_graphicsDevice.Viewport.Width, _graphicsDevice.Viewport.Height));
 
             _gl.Disable(EnableCap.CullFace);
-            _gl.Enable(EnableCap.DepthTest);
-            _gl.DepthFunc(GLEnum.Lequal);
-            _gl.DepthMask(true);
+            if (depthTest) {
+                _gl.Enable(EnableCap.DepthTest);
+                _gl.DepthFunc(GLEnum.Lequal);
+                _gl.DepthMask(true);
+            } else {
+                _gl.Disable(EnableCap.DepthTest);
+                _gl.DepthMask(false);
+            }
             _gl.ColorMask(true, true, true, false);
             _gl.Enable(EnableCap.Blend);
             _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);

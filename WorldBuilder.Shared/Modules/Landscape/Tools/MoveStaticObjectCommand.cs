@@ -19,6 +19,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
 
         public string Name => "Move Object";
 
+        public uint OldLandblockId => _oldLandblockId;
+        public uint NewLandblockId => _newLandblockId;
+        public StaticObject OldObject => _oldObject;
+        public StaticObject NewObject => _newObject;
+
         public MoveStaticObjectCommand(
             LandscapeToolContext context,
             string layerId,

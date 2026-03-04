@@ -11,9 +11,11 @@ public partial class LandscapeDocument {
     /// </summary>
     public async Task<Result<bool>> AddStaticObjectAsync(string layerId, uint landblockId, StaticObject obj, IDatReaderWriter dats, IDocumentManager documentManager, ITransaction tx, CancellationToken ct) {
         try {
-            var layer = FindItem(layerId) as LandscapeLayer;
-            if (layer == null) {
-                return Result<bool>.Failure(Error.NotFound($"Layer not found: {layerId}"));
+            if (layerId != "Base") {
+                var layer = FindItem(layerId) as LandscapeLayer;
+                if (layer == null) {
+                    return Result<bool>.Failure(Error.NotFound($"Layer not found: {layerId}"));
+                }
             }
 
             ushort chunkId = _coords.GetChunkIdForLandblock(landblockId);
@@ -48,9 +50,11 @@ public partial class LandscapeDocument {
     /// </summary>
     public async Task<Result<bool>> DeleteStaticObjectAsync(string layerId, uint landblockId, ulong instanceId, IDatReaderWriter dats, IDocumentManager documentManager, ITransaction tx, CancellationToken ct) {
         try {
-            var layer = FindItem(layerId) as LandscapeLayer;
-            if (layer == null) {
-                return Result<bool>.Failure(Error.NotFound($"Layer not found: {layerId}"));
+            if (layerId != "Base") {
+                var layer = FindItem(layerId) as LandscapeLayer;
+                if (layer == null) {
+                    return Result<bool>.Failure(Error.NotFound($"Layer not found: {layerId}"));
+                }
             }
 
             ushort chunkId = _coords.GetChunkIdForLandblock(landblockId);
@@ -95,9 +99,11 @@ public partial class LandscapeDocument {
     /// </summary>
     public async Task<Result<bool>> UpdateStaticObjectAsync(string layerId, uint oldLandblockId, uint newLandblockId, StaticObject newObj, IDatReaderWriter dats, IDocumentManager documentManager, ITransaction tx, CancellationToken ct) {
         try {
-            var layer = FindItem(layerId) as LandscapeLayer;
-            if (layer == null) {
-                return Result<bool>.Failure(Error.NotFound($"Layer not found: {layerId}"));
+            if (layerId != "Base") {
+                var layer = FindItem(layerId) as LandscapeLayer;
+                if (layer == null) {
+                    return Result<bool>.Failure(Error.NotFound($"Layer not found: {layerId}"));
+                }
             }
 
             ushort oldChunkId = _coords.GetChunkIdForLandblock(oldLandblockId);

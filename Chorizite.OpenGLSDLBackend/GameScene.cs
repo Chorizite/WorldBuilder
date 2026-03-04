@@ -541,8 +541,25 @@ public class GameScene : IDisposable {
         _manipulationTool = tool;
     }
 
+    /// <summary>
+    /// Updates the transform of an object for realtime preview during manipulation.
+    /// </summary>
+    public void UpdateObjectPreview(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation) {
+        _staticObjectManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation);
+        _envCellManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation);
+        _sceneryManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation);
+    }
+
     public uint GetEnvCellAt(Vector3 pos) {
         return _envCellManager?.GetEnvCellAt(pos) ?? 0;
+    }
+
+    public (Vector3 position, Quaternion rotation, Vector3 localPosition)? GetStaticObjectTransform(uint landblockId, ulong instanceId) {
+        var type = InstanceIdConstants.GetType(instanceId);
+        if (type == InspectorSelectionType.EnvCellStaticObject) {
+            return _envCellManager?.GetInstanceTransform(landblockId, instanceId);
+        }
+        return _staticObjectManager?.GetInstanceTransform(landblockId, instanceId);
     }
 
     /// <summary>
@@ -573,8 +590,24 @@ public class GameScene : IDisposable {
             return null;
         }
 
+        if (type == InspectorSelectionType.EnvCell) {
+            var cellId = (uint)instanceId;
+            var mergedCell = _landscapeDoc.GetMergedEnvCell(cellId);
+            return mergedCell.LayerId;
+        }
+
+        if (type == InspectorSelectionType.Portal || type == InspectorSelectionType.Scenery) {
+            // Portals and Scenery currently always belong to the Base layer
+            return "Base";
+        }
+
         var merged = _landscapeDoc.GetMergedLandblock(landblockId);
         foreach (var obj in merged.StaticObjects) {
+            if (obj.InstanceId == instanceId) {
+                return obj.LayerId;
+            }
+        }
+        foreach (var obj in merged.Buildings) {
             if (obj.InstanceId == instanceId) {
                 return obj.LayerId;
             }
@@ -951,15 +984,16 @@ public class GameScene : IDisposable {
             }
         }
 
+        _debugRenderer?.Render(snapshotView, snapshotProj);
+
         // Render the manipulation gizmo if active
         if (_manipulationTool != null && _manipulationTool.HasSelection && _debugRenderer != null) {
             if (_gizmoDrawer == null) {
                 _gizmoDrawer = new Lib.DebugRendererLineDrawer(_debugRenderer);
             }
             WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo.GizmoRenderer.Draw(_gizmoDrawer, _manipulationTool.GizmoState);
+            _debugRenderer.Render(snapshotView, snapshotProj, false);
         }
-
-        _debugRenderer?.Render(snapshotView, snapshotProj);
 
         if (_performanceTracker != null) _performanceTracker.DebugTime = sw.Elapsed.TotalMilliseconds;
     }

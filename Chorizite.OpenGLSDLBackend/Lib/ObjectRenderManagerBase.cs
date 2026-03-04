@@ -318,6 +318,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             var sw = Stopwatch.StartNew();
             while (sw.Elapsed.TotalMilliseconds < timeBudgetMs && _uploadQueue.TryDequeue(out var lb)) {
+                Interlocked.Exchange(ref lb.IsQueuedForUpload, 0);
+
                 var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
                 if (!_landblocks.TryGetValue(key, out var currentLb) || currentLb != lb) {
                     continue;
@@ -340,6 +342,36 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             return (float)sw.Elapsed.TotalMilliseconds;
+        }
+
+        /// <summary>
+        /// Updates the transform of a specific instance in its owner landblock.
+        /// This is used for realtime previews during manipulation.
+        /// </summary>
+        public void UpdateInstanceTransform(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation) {
+            ushort key = (ushort)(landblockId >> 16);
+            if (_landblocks.TryGetValue(key, out var lb)) {
+                lock (lb) {
+                    for (int i = 0; i < lb.Instances.Count; i++) {
+                        if (lb.Instances[i].InstanceId == instanceId) {
+                            var instance = lb.Instances[i];
+                            instance.WorldPosition = position;
+                            instance.Rotation = rotation;
+                            instance.Transform = Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateTranslation(position);
+                            if (instance.LocalBoundingBox.Max != instance.LocalBoundingBox.Min) {
+                                instance.BoundingBox = instance.LocalBoundingBox.Transform(instance.Transform);
+                            }
+                            lb.Instances[i] = instance;
+
+                            // Mark landblock as needing upload if not already queued
+                            if (Interlocked.Exchange(ref lb.IsQueuedForUpload, 1) == 0) {
+                                _uploadQueue.Enqueue(lb);
+                            }
+                            return;
+                        }
+                    }
+                }
+            }
         }
 
         public virtual void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
@@ -407,6 +439,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         return new WorldBuilder.Shared.Numerics.BoundingBox(
                             instance.BoundingBox.Min,
                             instance.BoundingBox.Max);
+                    }
+                }
+            }
+            return null;
+        }
+
+        public (Vector3 position, Quaternion rotation, Vector3 localPosition)? GetInstanceTransform(uint landblockId, ulong instanceId) {
+            ushort key = (ushort)(landblockId >> 16);
+            if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) return null;
+
+            lock (lb) {
+                foreach (var instance in lb.Instances) {
+                    if (instance.InstanceId == instanceId) {
+                        return (instance.WorldPosition, instance.Rotation, instance.LocalPosition);
                     }
                 }
             }

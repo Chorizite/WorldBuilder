@@ -126,6 +126,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         public bool GpuReady { get; set; }
 
+        /// <summary>
+        /// Whether this landblock is currently in the upload queue.
+        /// </summary>
+        public int IsQueuedForUpload;
+
         // Optimized rendering data
         public int InstanceBufferOffset { get; set; } = -1;
         public int InstanceCount { get; set; }

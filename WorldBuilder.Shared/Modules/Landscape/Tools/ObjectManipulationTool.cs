@@ -16,6 +16,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         [ObservableProperty] private GizmoMode _gizmoMode = GizmoMode.Translate;
         [ObservableProperty] private bool _hasSelection;
+        [ObservableProperty] private bool _stickyZOffset = true;
 
         /// <summary>
         /// The gizmo state, accessible for rendering from the GameScene.
@@ -23,6 +24,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public GizmoState GizmoState { get; } = new();
 
         private readonly GizmoDragHandler _dragHandler = new();
+        private SceneRaycastHit _lastHoveredHit;
+        private float _currentZOffset;
 
         // Original object state at the start of a drag (for undo command)
         private StaticObject? _dragStartObject;
@@ -31,11 +34,87 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public override void Activate(LandscapeToolContext context) {
             base.Activate(context);
             ShowBrush = false;
+            context.CommandHistory.OnChange += OnCommandHistoryChanged;
         }
 
         public override void Deactivate() {
+            if (Context != null) {
+                Context.CommandHistory.OnChange -= OnCommandHistoryChanged;
+            }
             ClearSelection();
+            ClearHover();
             base.Deactivate();
+        }
+
+        private void ClearHover() {
+            if (_lastHoveredHit.Hit) {
+                _lastHoveredHit = SceneRaycastHit.NoHit;
+                Context?.NotifyInspectorHovered(SceneRaycastHit.NoHit);
+            }
+        }
+
+        private SceneRaycastHit PerformRaycast(ViewportInputEvent e) {
+            if (Context == null) return SceneRaycastHit.NoHit;
+
+            var ray = GetRay(e);
+            SceneRaycastHit bestHit = SceneRaycastHit.NoHit;
+
+            if (Context.RaycastStaticObject != null &&
+                Context.RaycastStaticObject(ray.Origin, ray.Direction, false, true, out var staticHit)) {
+                bestHit = staticHit;
+            }
+
+            if (Context.RaycastEnvCells != null &&
+                Context.RaycastEnvCells(ray.Origin, ray.Direction, false, true, out var envHit)) {
+                if (!bestHit.Hit || envHit.Distance < bestHit.Distance) {
+                    bestHit = envHit;
+                }
+            }
+
+            return bestHit;
+        }
+
+        private void OnCommandHistoryChanged(object? sender, CommandHistoryChangedEventArgs e) {
+            if (HasSelection && e.Command is MoveStaticObjectCommand moveCommand && 
+                moveCommand.OldObject.InstanceId == GizmoState.InstanceId) {
+                
+                var targetObj = (e.ChangeType == CommandChangeType.Undo) ? moveCommand.OldObject : moveCommand.NewObject;
+                var targetLbId = (e.ChangeType == CommandChangeType.Undo) ? moveCommand.OldLandblockId : moveCommand.NewLandblockId;
+
+                GizmoState.LandblockId = targetLbId;
+                GizmoState.LocalPosition = new Vector3(targetObj.Position[0], targetObj.Position[1], targetObj.Position[2]);
+                GizmoState.Rotation = new Quaternion(targetObj.Position[4], targetObj.Position[5], targetObj.Position[6], targetObj.Position[3]);
+                
+                // Recalculate world position from local position and landblock
+                if (Context?.Document.Region != null) {
+                    var region = Context.Document.Region;
+                    var offset = region.MapOffset;
+                    var lbSize = region.LandblockSizeInUnits;
+                    
+                    uint lbX = (targetLbId >> 24);
+                    uint lbY = ((targetLbId >> 16) & 0xFF);
+                    var origin = new Vector3(lbX * lbSize + offset.X, lbY * lbSize + offset.Y, 0);
+                    GizmoState.Position = origin + GizmoState.LocalPosition;
+                }
+            }
+            else {
+                RefreshGizmoPosition();
+            }
+        }
+
+        private void RefreshGizmoPosition() {
+            if (!HasSelection || Context?.GetStaticObjectTransform == null) return;
+
+            var transform = Context.GetStaticObjectTransform(GizmoState.LandblockId, GizmoState.InstanceId);
+            if (transform.HasValue) {
+                GizmoState.Position = transform.Value.position;
+                GizmoState.Rotation = transform.Value.rotation;
+                GizmoState.LocalPosition = transform.Value.localPosition;
+            }
+            else {
+                // Object might have been deleted
+                ClearSelection();
+            }
         }
 
         partial void OnGizmoModeChanged(GizmoMode value) {
@@ -50,6 +129,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             GizmoState.HoveredComponent = GizmoComponent.None;
             GizmoState.ActiveComponent = GizmoComponent.None;
             GizmoState.IsDragging = false;
+            _lastHoveredHit = SceneRaycastHit.NoHit;
 
             // Clear hover/selection highlights
             Context?.NotifyInspectorHovered(SceneRaycastHit.NoHit);
@@ -72,6 +152,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                     _dragHandler.BeginDrag(gizmoHit.Component, GizmoState.Position, GizmoState.Rotation,
                         ray.Origin, ray.Direction, Context.Camera);
 
+                    if (StickyZOffset) {
+                        float groundHeight = GetGroundHeight(GizmoState.Position);
+                        _currentZOffset = GizmoState.Position.Z - groundHeight;
+                    }
+
                     // Capture the current object state for undo
                     CaptureObjectStateForUndo();
 
@@ -80,26 +165,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             // Not hitting gizmo — try to select a static object
-            SceneRaycastHit hit = SceneRaycastHit.NoHit;
-            bool hitSomething = false;
+            SceneRaycastHit hit = PerformRaycast(e);
 
-            if (Context.RaycastStaticObject != null &&
-                Context.RaycastStaticObject(ray.Origin, ray.Direction, false, true, out var staticHit)) {
-                hit = staticHit;
-                hitSomething = true;
-            }
-
-            if (Context.RaycastEnvCells != null &&
-                Context.RaycastEnvCells(ray.Origin, ray.Direction, false, true, out var envHit)) {
-                if (!hitSomething || envHit.Distance < hit.Distance) {
-                    hit = envHit;
-                    hitSomething = true;
-                }
-            }
-
-            if (hitSomething && (hit.Type == InspectorSelectionType.StaticObject || 
-                                 hit.Type == InspectorSelectionType.EnvCellStaticObject ||
-                                 hit.Type == InspectorSelectionType.Building)) {
+            if (hit.Hit && (hit.Type == InspectorSelectionType.StaticObject || 
+                                 hit.Type == InspectorSelectionType.EnvCellStaticObject)) {
                 SelectObject(hit);
                 Context.NotifyInspectorSelected(hit);
                 return true;
@@ -118,13 +187,41 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             // If dragging, update the gizmo position/rotation
             if (GizmoState.IsDragging) {
                 if (GizmoDragHandler.IsTranslationComponent(GizmoState.ActiveComponent)) {
-                    var newPos = _dragHandler.UpdateTranslation(ray.Origin, ray.Direction, Context.Camera);
-                    GizmoState.Position = newPos;
+                    Vector3 newPos;
+                    if (GizmoState.ActiveComponent == GizmoComponent.Center) {
+                        // Dragging by center circle - snap to ground/envcell
+                        newPos = GetGroundHitPoint(e, ray.Origin, ray.Direction);
+                    }
+                    else {
+                        newPos = _dragHandler.UpdateTranslation(ray.Origin, ray.Direction, Context.Camera);
+                    }
+
+                    if (StickyZOffset) {
+                        if (GizmoState.ActiveComponent == GizmoComponent.AxisZ) {
+                            // If dragging Z axis, update the offset
+                            GizmoState.Position = newPos;
+                            float groundHeight = GetGroundHeight(newPos);
+                            _currentZOffset = newPos.Z - groundHeight;
+                        }
+                        else {
+                            // If dragging X/Y or Center, maintain the offset
+                            float groundHeight = GetGroundHeight(newPos);
+                            newPos.Z = groundHeight + _currentZOffset;
+                            GizmoState.Position = newPos;
+                        }
+                    }
+                    else {
+                        GizmoState.Position = newPos;
+                    }
                 }
                 else if (GizmoDragHandler.IsRotationComponent(GizmoState.ActiveComponent)) {
                     var newRot = _dragHandler.UpdateRotation(ray.Origin, ray.Direction);
                     GizmoState.Rotation = newRot;
                 }
+
+                // Notify for realtime preview
+                Context.NotifyObjectPositionPreview?.Invoke(GizmoState.LandblockId, GizmoState.InstanceId, GizmoState.Position, GizmoState.Rotation);
+
                 return true;
             }
 
@@ -134,8 +231,20 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 GizmoState.HoveredComponent = gizmoHit.Component;
 
                 if (gizmoHit.Component != GizmoComponent.None) {
+                    // Clear object hover when over gizmo
+                    if (_lastHoveredHit.Hit) {
+                        _lastHoveredHit = SceneRaycastHit.NoHit;
+                        Context.NotifyInspectorHovered(SceneRaycastHit.NoHit);
+                    }
                     return false; // Don't consume move events — let camera still work
                 }
+            }
+
+            // Update object hover
+            var hit = PerformRaycast(e);
+            if (hit.Type != _lastHoveredHit.Type || hit.LandblockId != _lastHoveredHit.LandblockId || hit.InstanceId != _lastHoveredHit.InstanceId || hit.ObjectId != _lastHoveredHit.ObjectId) {
+                _lastHoveredHit = hit;
+                Context.NotifyInspectorHovered(hit);
             }
 
             return false;
@@ -277,6 +386,58 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 e.ViewportSize.Y);
 
             return (ray.Origin.ToVector3(), ray.Direction.ToVector3());
+        }
+
+        private float GetGroundHeight(Vector3 worldPos) {
+            if (Context == null) return 0;
+
+            // Check if we are in an env cell
+            if (Context.GetEnvCellAt != null) {
+                var cellId = Context.GetEnvCellAt(worldPos);
+                if (cellId != 0) {
+                    var cell = Context.Document.GetMergedEnvCell(cellId);
+                    // For env cells, the "ground" is the cell's origin Z.
+                    return cell.Position[2]; // Z
+                }
+            }
+
+            // Landscape
+            return Context.Document.GetInterpolatedHeight(worldPos);
+        }
+
+        private Vector3 GetGroundHitPoint(ViewportInputEvent e, Vector3 rayOrigin, Vector3 rayDirection) {
+            if (Context == null) return GizmoState.Position;
+
+            var bestDistance = float.MaxValue;
+            var bestPoint = Vector3.Zero;
+            bool hitAny = false;
+
+            // 1. Raycast terrain
+            if (Context.RaycastTerrain != null) {
+                var terrainHit = Context.RaycastTerrain(e.Position.X, e.Position.Y);
+                if (terrainHit.Hit) {
+                    bestDistance = terrainHit.Distance;
+                    bestPoint = terrainHit.HitPosition;
+                    hitAny = true;
+                }
+            }
+
+            // 2. Raycast env cells (floors/portals, but not objects)
+            if (Context.RaycastEnvCells != null && 
+                Context.RaycastEnvCells(rayOrigin, rayDirection, true, false, out var envHit)) {
+                if (envHit.Distance < bestDistance) {
+                    bestDistance = envHit.Distance;
+                    bestPoint = envHit.Position;
+                    hitAny = true;
+                }
+            }
+
+            if (hitAny) {
+                return bestPoint;
+            }
+
+            // Fallback to the plane drag if no ground hit
+            return _dragHandler.UpdateTranslation(rayOrigin, rayDirection, Context.Camera);
         }
     }
 }

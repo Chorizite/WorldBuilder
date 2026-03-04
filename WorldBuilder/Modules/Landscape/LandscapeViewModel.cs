@@ -289,9 +289,11 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
             // Wire up object manipulation delegates
             _toolContext.GetStaticObjectBounds = (landblockId, instanceId) => _gameScene?.GetStaticObjectBounds(landblockId, instanceId);
+            _toolContext.GetStaticObjectTransform = (landblockId, instanceId) => _gameScene?.GetStaticObjectTransform(landblockId, instanceId);
             _toolContext.GetStaticObjectLayerId = (landblockId, instanceId) => _gameScene?.GetStaticObjectLayerId(landblockId, instanceId);
             _toolContext.UpdateStaticObject = (layerId, oldLbId, newLbId, newObj) => {
                 if (ActiveDocument == null) return;
+
                 _ = Task.Run(async () => {
                     var result = await ActiveDocument.UpdateStaticObjectAsync(layerId, oldLbId, newLbId, newObj, _dats, _documentManager, null!, default);
                     if (result.IsSuccess) {
@@ -302,6 +304,11 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                     }
                 });
             };
+
+            _toolContext.NotifyObjectPositionPreview = (landblockId, instanceId, position, rotation) => {
+                _gameScene?.UpdateObjectPreview(landblockId, instanceId, position, rotation);
+            };
+
             _toolContext.ComputeLandblockId = (worldPos) => {
                 if (ActiveDocument?.Region == null) return 0;
                 var region = ActiveDocument.Region;
@@ -339,6 +346,22 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
     private void OnInspectorSelected(object? sender, InspectorSelectionEventArgs e) {
         _gameScene?.SetSelectedObject(e.Selection.Type, e.Selection.LandblockId, e.Selection.InstanceId, e.Selection.ObjectId, e.Selection.VertexX, e.Selection.VertexY);
+
+        // Auto-select layer if an object is selected
+        if (e.Selection.Type == InspectorSelectionType.StaticObject || 
+            e.Selection.Type == InspectorSelectionType.Building ||
+            e.Selection.Type == InspectorSelectionType.Scenery ||
+            e.Selection.Type == InspectorSelectionType.EnvCellStaticObject ||
+            e.Selection.Type == InspectorSelectionType.EnvCell ||
+            e.Selection.Type == InspectorSelectionType.Portal) {
+            var layerId = _gameScene?.GetStaticObjectLayerId(e.Selection.LandblockId, e.Selection.InstanceId);
+            if (!string.IsNullOrEmpty(layerId)) {
+                var layerVM = LayersPanel.FindVM(layerId);
+                if (layerVM != null) {
+                    LayersPanel.SelectedItem = layerVM;
+                }
+            }
+        }
 
         if (e.Selection.Type == InspectorSelectionType.StaticObject || e.Selection.Type == InspectorSelectionType.Building) {
             if (e.Selection.Type == InspectorSelectionType.StaticObject) {

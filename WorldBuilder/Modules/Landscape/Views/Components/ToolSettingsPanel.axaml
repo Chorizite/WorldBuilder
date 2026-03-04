@@ -185,6 +185,13 @@
 
             <DataTemplate DataType="{x:Type tools:ObjectManipulationTool}" x:DataType="tools:ObjectManipulationTool">
                 <StackPanel Orientation="Horizontal">
+                  <HeaderedContentControl Header="Options" Template="{StaticResource RibbonGroupTemplate}">
+                    <CheckBox Content="Sticky Z Offset" 
+                              IsChecked="{Binding StickyZOffset}" 
+                              FontSize="12" 
+                              VerticalAlignment="Center" 
+                              ToolTip.Tip="Maintain object's height offset from ground when moving on X/Y" />
+                  </HeaderedContentControl>
                   <HeaderedContentControl Header="Info" Template="{StaticResource RibbonGroupTemplate}">
                     <TextBlock Text="Click a static object to select it, then drag the gizmo handles to move/rotate." FontSize="12" Opacity="0.6" VerticalAlignment="Center"/>
                   </HeaderedContentControl>

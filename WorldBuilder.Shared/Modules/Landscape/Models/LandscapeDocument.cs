@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
+using System.Numerics;
 using System.Threading;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
@@ -183,6 +184,38 @@ namespace WorldBuilder.Shared.Models {
             uint index = (uint)(vy * mapWidth + vx);
             var entry = GetCachedEntry(index);
             return Region.LandHeights[entry.Height ?? 0];
+        }
+
+        /// <summary>
+        /// Returns the interpolated height at the given world coordinates.
+        /// </summary>
+        public float GetInterpolatedHeight(Vector3 worldPos) {
+            if (Region == null) return 0f;
+
+            var offset = Region.MapOffset;
+            var lbSize = Region.LandblockSizeInUnits;
+
+            float x = worldPos.X - offset.X;
+            float y = worldPos.Y - offset.Y;
+
+            uint lbX = (uint)Math.Floor(x / lbSize);
+            uint lbY = (uint)Math.Floor(y / lbSize);
+
+            if (lbX >= Region.MapWidthInLandblocks || lbY >= Region.MapHeightInLandblocks) return 0f;
+
+            Vector3 localPos = new Vector3(x - lbX * lbSize, y - lbY * lbSize, 0);
+
+            var entries = new TerrainEntry[81];
+            for (int ly = 0; ly <= 8; ly++) {
+                for (int lx = 0; lx <= 8; lx++) {
+                    int vx = (int)(lbX * 8 + lx);
+                    int vy = (int)(lbY * 8 + ly);
+                    uint vertexIndex = (uint)Region.GetVertexIndex(vx, vy);
+                    entries[lx * 9 + ly] = GetCachedEntry(vertexIndex);
+                }
+            }
+
+            return WorldBuilder.Shared.Modules.Landscape.Lib.TerrainUtils.GetHeight(Region.Region, entries, lbX, lbY, localPos);
         }
 
         private void RemoveVertexInternal(string layerId, ushort chunkId, ushort localIndex) {
