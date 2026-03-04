@@ -116,6 +116,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <summary>Delegate to compute a landblock ID from a world-space position.</summary>
         public Func<Vector3, uint>? ComputeLandblockId { get; set; }
 
+        /// <summary>Delegate to find the environment cell at a world-space position.</summary>
+        public Func<Vector3, uint>? GetEnvCellAt { get; set; }
+
         /// <summary>Initializes a new instance of the <see cref="LandscapeToolContext"/> class.</summary>
         /// <param name="document">The landscape document.</param>
         /// <param name="dats">The dat reader/writer.</param>

@@ -1,4 +1,5 @@
 using System.Numerics;
+using WorldBuilder.Shared.Modules.Landscape.Models;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo
 {
@@ -51,6 +52,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo
 
         /// <summary>Whether a drag operation is in progress.</summary>
         public bool IsDragging { get; set; }
+
+        /// <summary>The selected object's selection type.</summary>
+        public InspectorSelectionType SelectionType { get; set; }
 
         /// <summary>The selected object's landblock ID.</summary>
         public uint LandblockId { get; set; }

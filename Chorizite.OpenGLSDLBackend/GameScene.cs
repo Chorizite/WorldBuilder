@@ -541,12 +541,19 @@ public class GameScene : IDisposable {
         _manipulationTool = tool;
     }
 
+    public uint GetEnvCellAt(Vector3 pos) {
+        return _envCellManager?.GetEnvCellAt(pos) ?? 0;
+    }
+
     /// <summary>
     /// Gets the world-space bounding box for a static object.
     /// </summary>
     public WorldBuilder.Shared.Numerics.BoundingBox? GetStaticObjectBounds(uint landblockId, ulong instanceId) {
-        if (_staticObjectManager == null) return null;
-        return _staticObjectManager.GetInstanceBounds(landblockId, instanceId);
+        var type = InstanceIdConstants.GetType(instanceId);
+        if (type == InspectorSelectionType.EnvCellStaticObject) {
+            return _envCellManager?.GetInstanceBounds(landblockId, instanceId);
+        }
+        return _staticObjectManager?.GetInstanceBounds(landblockId, instanceId);
     }
 
     /// <summary>
@@ -554,6 +561,18 @@ public class GameScene : IDisposable {
     /// </summary>
     public string? GetStaticObjectLayerId(uint landblockId, ulong instanceId) {
         if (_landscapeDoc == null) return null;
+
+        var type = InstanceIdConstants.GetType(instanceId);
+        if (type == InspectorSelectionType.EnvCellStaticObject) {
+            var cellId = InstanceIdConstants.GetRawId(instanceId);
+            var mergedCell = _landscapeDoc.GetMergedEnvCell(cellId);
+            var secondaryId = InstanceIdConstants.GetSecondaryId(instanceId);
+            if (mergedCell.StaticObjects != null && secondaryId < mergedCell.StaticObjects.Count) {
+                return mergedCell.StaticObjects[secondaryId].LayerId;
+            }
+            return null;
+        }
+
         var merged = _landscapeDoc.GetMergedLandblock(landblockId);
         foreach (var obj in merged.StaticObjects) {
             if (obj.InstanceId == instanceId) {

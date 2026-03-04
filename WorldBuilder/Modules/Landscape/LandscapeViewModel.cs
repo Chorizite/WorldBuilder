@@ -312,6 +312,10 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 return (uint)((lbX << 24) | (lbY << 16) | 0xFFFE);
             };
 
+            _toolContext.GetEnvCellAt = (worldPos) => {
+                return _gameScene?.GetEnvCellAt(worldPos) ?? 0;
+            };
+
             _gameScene?.SetToolContext(_toolContext);
             _gameScene?.SetInspectorTool(ActiveTool as InspectorTool);
             _gameScene?.SetManipulationTool(ActiveTool as ObjectManipulationTool);

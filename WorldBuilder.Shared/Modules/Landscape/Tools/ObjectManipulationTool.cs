@@ -80,13 +80,29 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             // Not hitting gizmo — try to select a static object
+            SceneRaycastHit hit = SceneRaycastHit.NoHit;
+            bool hitSomething = false;
+
             if (Context.RaycastStaticObject != null &&
-                Context.RaycastStaticObject(ray.Origin, ray.Direction, false, true, out var hit)) {
-                if (hit.Type == InspectorSelectionType.StaticObject) {
-                    SelectObject(hit);
-                    Context.NotifyInspectorSelected(hit);
-                    return true;
+                Context.RaycastStaticObject(ray.Origin, ray.Direction, false, true, out var staticHit)) {
+                hit = staticHit;
+                hitSomething = true;
+            }
+
+            if (Context.RaycastEnvCells != null &&
+                Context.RaycastEnvCells(ray.Origin, ray.Direction, false, true, out var envHit)) {
+                if (!hitSomething || envHit.Distance < hit.Distance) {
+                    hit = envHit;
+                    hitSomething = true;
                 }
+            }
+
+            if (hitSomething && (hit.Type == InspectorSelectionType.StaticObject || 
+                                 hit.Type == InspectorSelectionType.EnvCellStaticObject ||
+                                 hit.Type == InspectorSelectionType.Building)) {
+                SelectObject(hit);
+                Context.NotifyInspectorSelected(hit);
+                return true;
             }
 
             // Clicked empty space — deselect
@@ -145,6 +161,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             GizmoState.LandblockId = hit.LandblockId;
             GizmoState.InstanceId = hit.InstanceId;
             GizmoState.ObjectId = hit.ObjectId;
+            GizmoState.SelectionType = hit.Type;
             GizmoState.Mode = GizmoMode;
 
             // Compute gizmo size from bounding box
@@ -184,8 +201,43 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private void CommitManipulation() {
             if (Context == null || _dragStartObject == null) return;
 
-            // Compute the new local position from the world-space position delta
-            var newLocalPosition = GizmoState.LocalPosition + _dragHandler.PositionDelta;
+            // Determine if the object crossed landblock boundaries or moved into/out of a cell
+            uint newLandblockId = _dragStartLandblockId;
+            InspectorSelectionType newType = GizmoState.SelectionType;
+
+            if (Context.GetEnvCellAt != null) {
+                var cellId = Context.GetEnvCellAt(GizmoState.Position);
+                if (cellId != 0) {
+                    newLandblockId = cellId;
+                    if (newType == InspectorSelectionType.StaticObject) {
+                        newType = InspectorSelectionType.EnvCellStaticObject;
+                    }
+                }
+                else if (Context.ComputeLandblockId != null) {
+                    newLandblockId = Context.ComputeLandblockId(GizmoState.Position);
+                    if (newType == InspectorSelectionType.EnvCellStaticObject) {
+                        newType = InspectorSelectionType.StaticObject;
+                    }
+                }
+            }
+            else if (Context.ComputeLandblockId != null) {
+                newLandblockId = Context.ComputeLandblockId(GizmoState.Position);
+            }
+
+            // Recalculate local position relative to the NEW landblock/cell origin
+            var newLocalPosition = Vector3.Zero;
+            if (Context.Document.Region != null) {
+                var region = Context.Document.Region;
+                var offset = region.MapOffset;
+                var lbSize = region.LandblockSizeInUnits;
+                
+                uint newLbX = (newLandblockId >> 24);
+                uint newLbY = ((newLandblockId >> 16) & 0xFF);
+                var newOrigin = new Vector3(newLbX * lbSize + offset.X, newLbY * lbSize + offset.Y, 0);
+                
+                newLocalPosition = GizmoState.Position - newOrigin;
+            }
+
             var newRotation = GizmoState.Rotation;
 
             var newObject = new StaticObject {
@@ -197,12 +249,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                     newRotation.W, newRotation.X, newRotation.Y, newRotation.Z
                 }
             };
-
-            // Determine if the object crossed landblock boundaries
-            uint newLandblockId = _dragStartLandblockId;
-            if (Context.ComputeLandblockId != null) {
-                newLandblockId = Context.ComputeLandblockId(GizmoState.Position);
-            }
 
             var command = new MoveStaticObjectCommand(
                 Context,
@@ -217,6 +263,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             // Update the stored local position so next drag starts from current state
             GizmoState.LocalPosition = newLocalPosition;
             GizmoState.LandblockId = newLandblockId;
+            GizmoState.SelectionType = newType;
             _dragStartObject = null;
         }
 

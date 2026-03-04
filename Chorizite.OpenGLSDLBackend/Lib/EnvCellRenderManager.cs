@@ -174,7 +174,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.Position = instance.WorldPosition;
                                 hit.LocalPosition = instance.LocalPosition;
                                 hit.Rotation = instance.Rotation;
-                                hit.LandblockId = (uint)((key << 16) | 0xFFFE);
+                                hit.LandblockId = InstanceIdConstants.GetRawId(instance.InstanceId);
                                 hit.Normal = normal;
                             }
                         }
@@ -604,7 +604,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         var datPos = new Vector3((float)envCell.Position.Origin.X, (float)envCell.Position.Origin.Y, (float)envCell.Position.Origin.Z);
                         var worldPos = new Vector3(
                             new Vector2(lbGlobalX * lbSizeUnits + datPos.X, lbGlobalY * lbSizeUnits + datPos.Y) + regionInfo.MapOffset,
-                            datPos.Z + RenderConstants.ObjectZOffset
+                            datPos.Z
                         );
 
                         var rotation = new System.Numerics.Quaternion(
@@ -659,7 +659,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 var datStabPos = new Vector3((float)stab.Frame.Origin.X, (float)stab.Frame.Origin.Y, (float)stab.Frame.Origin.Z);
                                 var stabWorldPos = new Vector3(
                                     new Vector2(lbGlobalX * lbSizeUnits + datStabPos.X, lbGlobalY * lbSizeUnits + datStabPos.Y) + regionInfo.MapOffset,
-                                    datStabPos.Z + RenderConstants.ObjectZOffset
+                                    datStabPos.Z
                                 );
 
                                 var stabWorldRot = new System.Numerics.Quaternion(
