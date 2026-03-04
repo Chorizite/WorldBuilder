@@ -289,6 +289,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
             // Wire up object manipulation delegates
             _toolContext.GetStaticObjectBounds = (landblockId, instanceId) => _gameScene?.GetStaticObjectBounds(landblockId, instanceId);
+            _toolContext.GetStaticObjectLocalBounds = (landblockId, instanceId) => _gameScene?.GetStaticObjectLocalBounds(landblockId, instanceId);
             _toolContext.GetStaticObjectTransform = (landblockId, instanceId) => _gameScene?.GetStaticObjectTransform(landblockId, instanceId);
             _toolContext.GetStaticObjectLayerId = (landblockId, instanceId) => _gameScene?.GetStaticObjectLayerId(landblockId, instanceId);
             _toolContext.UpdateStaticObject = (layerId, oldLbId, newLbId, newObj) => {

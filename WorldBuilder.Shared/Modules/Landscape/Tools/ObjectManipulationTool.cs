@@ -267,8 +267,18 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             GizmoState.SelectionType = hit.Type;
             GizmoState.Mode = GizmoMode;
 
-            // Compute gizmo size from bounding box
-            if (Context?.GetStaticObjectBounds != null) {
+            // Compute gizmo size from local bounding box to avoid rotation/scale inflation
+            if (Context?.GetStaticObjectLocalBounds != null) {
+                var bounds = Context.GetStaticObjectLocalBounds(hit.LandblockId, hit.InstanceId);
+                if (bounds.HasValue) {
+                    var diagonal = Vector3.Distance(bounds.Value.Min, bounds.Value.Max);
+                    GizmoState.Size = MathF.Max(diagonal * 0.6f, 3f); // At least 3 units
+                }
+                else {
+                    GizmoState.Size = 5f;
+                }
+            }
+            else if (Context?.GetStaticObjectBounds != null) {
                 var bounds = Context.GetStaticObjectBounds(hit.LandblockId, hit.InstanceId);
                 if (bounds.HasValue) {
                     var diagonal = Vector3.Distance(bounds.Value.Min, bounds.Value.Max);

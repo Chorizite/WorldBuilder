@@ -574,6 +574,17 @@ public class GameScene : IDisposable {
     }
 
     /// <summary>
+    /// Gets the local-space bounding box for a static object.
+    /// </summary>
+    public WorldBuilder.Shared.Numerics.BoundingBox? GetStaticObjectLocalBounds(uint landblockId, ulong instanceId) {
+        var type = InstanceIdConstants.GetType(instanceId);
+        if (type == InspectorSelectionType.EnvCellStaticObject) {
+            return _envCellManager?.GetInstanceLocalBounds(landblockId, instanceId);
+        }
+        return _staticObjectManager?.GetInstanceLocalBounds(landblockId, instanceId);
+    }
+
+    /// <summary>
     /// Gets the layer ID that owns a static object.
     /// </summary>
     public string? GetStaticObjectLayerId(uint landblockId, ulong instanceId) {

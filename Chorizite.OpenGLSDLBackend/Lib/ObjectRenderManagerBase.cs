@@ -445,6 +445,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return null;
         }
 
+        /// <summary>
+        /// Gets the local bounding box for a specific static object instance.
+        /// </summary>
+        public WorldBuilder.Shared.Numerics.BoundingBox? GetInstanceLocalBounds(uint landblockId, ulong instanceId) {
+            ushort key = (ushort)(landblockId >> 16);
+            if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) return null;
+
+            lock (lb) {
+                foreach (var instance in lb.Instances) {
+                    if (instance.InstanceId == instanceId) {
+                        return new WorldBuilder.Shared.Numerics.BoundingBox(
+                            instance.LocalBoundingBox.Min,
+                            instance.LocalBoundingBox.Max);
+                    }
+                }
+            }
+            return null;
+        }
+
         public (Vector3 position, Quaternion rotation, Vector3 localPosition)? GetInstanceTransform(uint landblockId, ulong instanceId) {
             ushort key = (ushort)(landblockId >> 16);
             if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) return null;
