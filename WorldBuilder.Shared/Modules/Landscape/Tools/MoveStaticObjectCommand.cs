@@ -1,15 +1,14 @@
 using System;
 using System.Numerics;
+using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Tools
-{
+namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     /// <summary>
     /// A command that moves/rotates a static object, supporting undo/redo.
     /// Uses a delegate to perform the actual document update (since it's async).
     /// </summary>
-    public class MoveStaticObjectCommand : ICommand
-    {
+    public class MoveStaticObjectCommand : ICommand {
         private readonly LandscapeToolContext _context;
         private readonly string _layerId;
         private readonly uint _oldLandblockId;
@@ -30,23 +29,40 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
             uint oldLandblockId,
             uint newLandblockId,
             StaticObject oldObject,
-            StaticObject newObject)
-        {
+            StaticObject newObject,
+            InspectorSelectionType newType) {
             _context = context;
             _layerId = layerId;
             _oldLandblockId = oldLandblockId;
             _newLandblockId = newLandblockId;
             _oldObject = oldObject;
-            _newObject = newObject;
+
+            ulong newInstanceId = oldObject.InstanceId;
+            if (newLandblockId != oldLandblockId) {
+                if (newType == InspectorSelectionType.EnvCellStaticObject || oldObject.InstanceId >= InstanceIdConstants.EnvCellStaticObjectFlag) {
+                    ushort index = InstanceIdConstants.GetObjectIndex(oldObject.InstanceId);
+                    newInstanceId = InstanceIdConstants.EncodeEnvCellStaticObject(newLandblockId, index, true);
+                }
+            }
+
+            if (newInstanceId != oldObject.InstanceId) {
+                _newObject = new StaticObject {
+                    SetupId = newObject.SetupId,
+                    InstanceId = newInstanceId,
+                    LayerId = newObject.LayerId,
+                    Position = newObject.Position
+                };
+            }
+            else {
+                _newObject = newObject;
+            }
         }
 
-        public void Execute()
-        {
+        public void Execute() {
             _context.UpdateStaticObject?.Invoke(_layerId, _oldLandblockId, _oldObject.InstanceId, _newLandblockId, _newObject);
         }
 
-        public void Undo()
-        {
+        public void Undo() {
             _context.UpdateStaticObject?.Invoke(_layerId, _newLandblockId, _newObject.InstanceId, _oldLandblockId, _oldObject);
         }
     }

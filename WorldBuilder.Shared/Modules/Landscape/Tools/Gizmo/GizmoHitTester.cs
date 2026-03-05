@@ -31,7 +31,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
 
             if (transHit.Component != GizmoComponent.None && rotHit.Component != GizmoComponent.None) {
                 // Prefer translation center over rings, but otherwise prioritize closest
-                if (transHit.Component == GizmoComponent.Center && transHit.Distance < rotHit.Distance + state.Size * 0.1f) {
+                if (transHit.Component == GizmoComponent.Center && transHit.Distance < rotHit.Distance + state.GetScreenSize() * 0.1f) {
                     return transHit;
                 }
                 return transHit.Distance < rotHit.Distance ? transHit : rotHit;
@@ -44,9 +44,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
         private static GizmoHitResult TestTranslation(Vector3 rayOrigin, Vector3 rayDirection, GizmoState state) {
             var best = GizmoHitResult.NoHit;
 
-            float distance = Vector3.Distance(state.CameraPosition, state.Position);
-            float baseScale = 0.2f;
-            float size = MathF.Max(0.5f, distance * baseScale);
+            float size = state.GetScreenSize();
 
             float cylinderRadius = size * 0.03f;
             float coneRadius = size * 0.1f;
@@ -137,9 +135,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
         private static GizmoHitResult TestRotation(Vector3 rayOrigin, Vector3 rayDirection, GizmoState state) {
             var best = GizmoHitResult.NoHit;
 
-            float distance = Vector3.Distance(state.CameraPosition, state.Position);
-            float baseScale = 0.2f;
-            float size = MathF.Max(0.5f, distance * baseScale);
+            float size = state.GetScreenSize();
 
             float ringThickness = size * 0.06f;
 

@@ -60,26 +60,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
         }
 
-        private SceneRaycastHit PerformRaycast(ViewportInputEvent e) {
-            if (Context == null) return SceneRaycastHit.NoHit;
-
-            var ray = GetRay(e);
-            SceneRaycastHit bestHit = SceneRaycastHit.NoHit;
-
-            if (Context.RaycastStaticObject != null &&
-                Context.RaycastStaticObject(ray.Origin, ray.Direction, false, true, out var staticHit, 0)) {
-                bestHit = staticHit;
-            }
-
-            if (Context.RaycastEnvCells != null &&
-                Context.RaycastEnvCells(ray.Origin, ray.Direction, false, true, out var envHit, 0)) {
-                if (!bestHit.Hit || envHit.Distance < bestHit.Distance) {
-                    bestHit = envHit;
-                }
-            }
-
-            return bestHit;
-        }
+        // Raycasting moved to SceneRaycaster
 
         private void OnCommandHistoryChanged(object? sender, CommandHistoryChangedEventArgs e) {
             if (e.Command is MoveStaticObjectCommand moveCommand) {
@@ -178,7 +159,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                         ray.Origin, ray.Direction, Context.Camera);
 
                     // Find surface under the mouse to capture initial offset + normal
-                    var initSurfaceHit = GetGroundHitPoint(e, ray.Origin, ray.Direction);
+                    var fallbackPos = _dragHandler.UpdateTranslation(ray.Origin, ray.Direction, Context.Camera);
+                    var initSurfaceHit = SceneRaycaster.GetGroundHitPoint(Context, e, ray.Origin, ray.Direction, GizmoState.IsDragging ? GizmoState.InstanceId : 0, fallbackPos);
                     if (initSurfaceHit.Hit && initSurfaceHit.Normal != Vector3.Zero) {
                         _currentSurfaceNormal = Vector3.Normalize(initSurfaceHit.Normal);
                     }
@@ -198,7 +180,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             // Not hitting gizmo — try to select a static object
-            SceneRaycastHit hit = PerformRaycast(e);
+            SceneRaycastHit hit = SceneRaycaster.PerformRaycast(Context, e);
 
             if (hit.Hit && (hit.Type == InspectorSelectionType.StaticObject ||
                                  hit.Type == InspectorSelectionType.EnvCellStaticObject)) {
@@ -223,31 +205,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                     Vector3 newPos;
                     if (GizmoState.ActiveComponent == GizmoComponent.Center) {
                         // Dragging by center circle - snap to ground/envcell/static object
-                        var groundHit = GetGroundHitPoint(e, ray.Origin, ray.Direction);
+                        var fallbackPos = _dragHandler.UpdateTranslation(ray.Origin, ray.Direction, Context.Camera);
+                        var groundHit = SceneRaycaster.GetGroundHitPoint(Context, e, ray.Origin, ray.Direction, GizmoState.IsDragging ? GizmoState.InstanceId : 0, fallbackPos);
                         newPos = groundHit.Position;
 
                         // Optionally align rotation to the surface normal
                         if (AlignToSurface && groundHit.Hit && groundHit.Normal != Vector3.Zero && _dragStartObject != null) {
-                            var startRot = new Quaternion(_dragStartObject.Position[4], _dragStartObject.Position[5], _dragStartObject.Position[6], _dragStartObject.Position[3]);
-
-                            var oldUp = _dragStartNormal;
-                            var newUp = Vector3.Normalize(groundHit.Normal);
-
-                            var axis = Vector3.Cross(oldUp, newUp);
-                            float lengthSq = axis.LengthSquared();
-                            if (lengthSq > 0.0001f) {
-                                float dot = Vector3.Dot(oldUp, newUp);
-                                float angle = MathF.Acos(Math.Clamp(dot, -1f, 1f));
-                                var alignRot = Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), angle);
-                                GizmoState.Rotation = alignRot * startRot;
-                            }
-                            else if (Vector3.Dot(oldUp, newUp) < -0.999f) {
-                                var flipRot = Quaternion.CreateFromAxisAngle(Vector3.Transform(Vector3.UnitX, startRot), MathF.PI);
-                                GizmoState.Rotation = flipRot * startRot;
-                            }
-                            else {
-                                GizmoState.Rotation = startRot;
-                            }
+                            GizmoState.Rotation = ApplySurfaceSnappingRotation(_dragStartObject, groundHit.Normal);
                         }
                     }
                     else {
@@ -290,7 +254,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             // Update object hover
-            var hit = PerformRaycast(e);
+            var hit = SceneRaycaster.PerformRaycast(Context, e);
             if (hit.Type != _lastHoveredHit.Type || hit.LandblockId != _lastHoveredHit.LandblockId || hit.InstanceId != _lastHoveredHit.InstanceId || hit.ObjectId != _lastHoveredHit.ObjectId) {
                 _lastHoveredHit = hit;
                 Context.NotifyInspectorHovered(hit);
@@ -339,29 +303,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             // Compute gizmo size from local bounding box to avoid rotation/scale inflation
-            if (Context?.GetStaticObjectLocalBounds != null) {
-                var bounds = Context.GetStaticObjectLocalBounds(hit.LandblockId, hit.InstanceId);
-                if (bounds.HasValue) {
-                    var diagonal = Vector3.Distance(bounds.Value.Min, bounds.Value.Max);
-                    GizmoState.Size = MathF.Max(diagonal * 0.6f, 3f); // At least 3 units
-                }
-                else {
-                    GizmoState.Size = 5f;
-                }
-            }
-            else if (Context?.GetStaticObjectBounds != null) {
-                var bounds = Context.GetStaticObjectBounds(hit.LandblockId, hit.InstanceId);
-                if (bounds.HasValue) {
-                    var diagonal = Vector3.Distance(bounds.Value.Min, bounds.Value.Max);
-                    GizmoState.Size = MathF.Max(diagonal * 0.6f, 3f); // At least 3 units
-                }
-                else {
-                    GizmoState.Size = 5f;
-                }
-            }
-            else {
-                GizmoState.Size = 5f;
-            }
+            // Replaced by screen-size relative logic in GizmoState.GetScreenSize()
 
             // Resolve the layer ID
             if (Context?.GetStaticObjectLayerId != null) {
@@ -404,38 +346,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             var lbOrigin = ComputeWorldPosition(newLandblockId, Vector3.Zero);
             var newLocalPosition = GizmoState.Position - lbOrigin;
 
-            // Update InstanceId if the container changed
-            ulong newInstanceId = GizmoState.InstanceId;
-            if (newLandblockId != _dragStartLandblockId) {
-                if (newType == InspectorSelectionType.EnvCellStaticObject || _dragStartObject.InstanceId >= InstanceIdConstants.EnvCellStaticObjectFlag) {
-                    // For moves into/between cells, we MUST update the ID so the renderer
-                    // can correctly bucket the object into the new cell.
-                    // We don't have a reliable way to generate a unique index client-side, 
-                    // but we can use the original index to try and maintain uniqueness.
-                    ushort index = InstanceIdConstants.GetObjectIndex(GizmoState.InstanceId);
-                    newInstanceId = InstanceIdConstants.EncodeEnvCellStaticObject(newLandblockId, index, true);
-                }
-                // For regular exterior landblock moves, we can often keep the original ID 
-                // unless we strictly want to follow the landblock-prefix encoding. 
-                // User requested keeping IDs, so we'll only change it for cells where it's 
-                // functionally required by the renderer.
-            }
-
+            // ID re-encoding logic is now handled by MoveStaticObjectCommand.
+            // We just pass the new block ID and standard StaticObject.
             var newObject = CreateStaticObject(newLocalPosition, GizmoState.Rotation);
-            newObject.LayerId = GizmoState.LayerId;
-            // Use Reflection or similar if we can't just set it, but StaticObject has a setter for InstanceId? 
-            // Actually it's 'public ulong InstanceId { get; init; }' - wait, init means we must set it during creation.
-
-            // Re-create newObject with the new InstanceId
-            newObject = new StaticObject {
-                SetupId = GizmoState.ObjectId,
-                InstanceId = newInstanceId,
-                LayerId = GizmoState.LayerId,
-                Position = new[] {
-                    newLocalPosition.X, newLocalPosition.Y, newLocalPosition.Z,
-                    GizmoState.Rotation.W, GizmoState.Rotation.X, GizmoState.Rotation.Y, GizmoState.Rotation.Z
-                }
-            };
 
             var command = new MoveStaticObjectCommand(
                 Context,
@@ -443,16 +356,37 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 _dragStartLandblockId,
                 newLandblockId,
                 _dragStartObject,
-                newObject);
+                newObject,
+                newType);
 
             Context.CommandHistory.Execute(command);
 
             // Update the stored state so next drag starts from current state
-            GizmoState.LocalPosition = newLocalPosition;
-            GizmoState.LandblockId = newLandblockId;
-            GizmoState.InstanceId = newInstanceId; // Update the selection's ID
-            GizmoState.SelectionType = newType;
+            // MoveStaticObjectCommand execution will trigger OnCommandHistoryChanged,
+            // which updates GizmoState properties automatically including the newly assigned InstanceId.
             _dragStartObject = null;
+        }
+
+        private Quaternion ApplySurfaceSnappingRotation(StaticObject startObj, Vector3 hitNormal) {
+            var startRot = new Quaternion(startObj.Position[4], startObj.Position[5], startObj.Position[6], startObj.Position[3]);
+
+            var oldUp = _dragStartNormal;
+            var newUp = Vector3.Normalize(hitNormal);
+
+            var axis = Vector3.Cross(oldUp, newUp);
+            float lengthSq = axis.LengthSquared();
+            if (lengthSq > 0.0001f) {
+                float dot = Vector3.Dot(oldUp, newUp);
+                float angle = MathF.Acos(Math.Clamp(dot, -1f, 1f));
+                var alignRot = Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), angle);
+                return alignRot * startRot;
+            }
+            else if (Vector3.Dot(oldUp, newUp) < -0.999f) {
+                var flipRot = Quaternion.CreateFromAxisAngle(Vector3.Transform(Vector3.UnitX, startRot), MathF.PI);
+                return flipRot * startRot;
+            }
+
+            return startRot;
         }
 
         private StaticObject CreateStaticObject(Vector3 localPosition, Quaternion rotation) {
@@ -491,62 +425,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
 
 
-        private (Vector3 Position, Vector3 Normal, bool Hit) GetGroundHitPoint(ViewportInputEvent e, Vector3 rayOrigin, Vector3 rayDirection) {
-            if (Context == null) return (GizmoState.Position, Vector3.UnitZ, false);
-
-            var bestDistance = float.MaxValue;
-            var bestPoint = Vector3.Zero;
-            var bestNormal = Vector3.UnitZ;
-            bool hitAny = false;
-
-            // 1. Raycast terrain (skip if camera is inside an envcell — terrain is invisible there)
-            bool insideEnvCell = Context.GetEnvCellAt != null && Context.GetEnvCellAt(rayOrigin) != 0;
-            if (!insideEnvCell && Context.RaycastTerrain != null) {
-                var terrainHit = Context.RaycastTerrain(e.Position.X, e.Position.Y);
-
-                if (terrainHit.Hit) {
-
-                    bestDistance = terrainHit.Distance;
-                    bestPoint = terrainHit.HitPosition;
-                    bestNormal = Vector3.UnitZ; // Terrain normal approximation
-                    hitAny = true;
-                }
-            }
-
-            // 2. Raycast env cells (floors/portals/walls, AND objects)
-            if (Context.RaycastEnvCells != null &&
-                Context.RaycastEnvCells(rayOrigin, rayDirection, true, true, out var envHit, GizmoState.IsDragging ? GizmoState.InstanceId : 0)) {
-
-
-
-                if (envHit.Distance < bestDistance) {
-                    bestDistance = envHit.Distance;
-                    bestPoint = envHit.Position;
-                    bestNormal = envHit.Normal;
-                    hitAny = true;
-                }
-            }
-
-            // 3. Raycast static objects outside
-            if (Context.RaycastStaticObject != null &&
-                Context.RaycastStaticObject(rayOrigin, rayDirection, true, true, out var staticHit, GizmoState.IsDragging ? GizmoState.InstanceId : 0)) {
-
-                // _logger?.LogInformation($"StaticObject Raycast Hit: Distance={staticHit.Distance}, Normal={staticHit.Normal}");
-
-                if (staticHit.Distance < bestDistance) {
-                    bestDistance = staticHit.Distance;
-                    bestPoint = staticHit.Position;
-                    bestNormal = staticHit.Normal;
-                    hitAny = true;
-                }
-            }
-
-            if (hitAny) {
-                return (bestPoint, bestNormal, true);
-            }
-
-            // Fallback to the plane drag if no ground hit
-            return (_dragHandler.UpdateTranslation(rayOrigin, rayDirection, Context.Camera), Vector3.UnitZ, false);
-        }
+        // GetGroundHitPoint moved to SceneRaycaster
     }
 }

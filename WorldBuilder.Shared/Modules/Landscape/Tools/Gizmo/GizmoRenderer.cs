@@ -32,9 +32,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
             var highlight = state.IsDragging ? state.ActiveComponent : state.HoveredComponent;
 
             // Calculate distance to camera to keep gizmo size constant on screen
-            float distance = Vector3.Distance(state.CameraPosition, origin);
-            float baseScale = 0.2f;
-            float size = Math.Max(0.5f, distance * baseScale);
+            float size = state.GetScreenSize();
 
             float cylinderRadius = size * 0.03f;
             float coneRadius = size * 0.1f;
@@ -93,9 +91,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
             var highlight = state.IsDragging ? state.ActiveComponent : state.HoveredComponent;
 
             // Calculate distance to camera to keep gizmo size constant on screen
-            float distance = Vector3.Distance(state.CameraPosition, origin);
-            float baseScale = 0.2f;
-            float size = Math.Max(0.5f, distance * baseScale);
+            float size = state.GetScreenSize();
 
             float tubeRadius = size * 0.03f;
 

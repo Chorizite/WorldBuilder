@@ -37,8 +37,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
         /// <summary>World-space camera position for distance-based scaling.</summary>
         public Vector3 CameraPosition { get; set; }
 
-        /// <summary>Scale factor for gizmo rendering, computed from the object's bounding box.</summary>
-        public float Size { get; set; } = 5f;
+        /// <summary>Calculates the screen-relative size of the gizmo based on distance to the camera.</summary>
+        public float GetScreenSize() {
+            float distance = Vector3.Distance(CameraPosition, Position);
+            float baseScale = 0.2f;
+            return MathF.Max(0.5f, distance * baseScale);
+        }
 
         /// <summary>The gizmo component currently under the mouse cursor.</summary>
         public GizmoComponent HoveredComponent { get; set; } = GizmoComponent.None;
