@@ -302,9 +302,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 GizmoState.Rotation = hit.Rotation;
             }
 
-            // Compute gizmo size from local bounding box to avoid rotation/scale inflation
-            // Replaced by screen-size relative logic in GizmoState.GetScreenSize()
-
             // Resolve the layer ID
             if (Context?.GetStaticObjectLayerId != null) {
                 GizmoState.LayerId = Context.GetStaticObjectLayerId(hit.LandblockId, hit.InstanceId) ?? string.Empty;
