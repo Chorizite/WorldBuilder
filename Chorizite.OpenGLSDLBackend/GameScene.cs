@@ -47,6 +47,9 @@ public class GameScene : IDisposable {
     private int _width;
     private int _height;
 
+    private bool _envCellDataChanged;
+    private bool _portalDataChanged;
+
     private EditorState _state = new();
     public EditorState State {
         get => _state;
@@ -494,7 +497,9 @@ public class GameScene : IDisposable {
     /// Updates the scene.
     /// </summary>
     public void Update(float deltaTime) {
-        _cameraController.Update(deltaTime, _state, ref _currentEnvCellId, _terrainManager, _staticObjectManager, _envCellManager, _portalManager);
+        _cameraController.Update(deltaTime, _state, ref _currentEnvCellId, _terrainManager, _staticObjectManager, _envCellManager, _portalManager, _envCellDataChanged, _portalDataChanged);
+        _envCellDataChanged = false;
+        _portalDataChanged = false;
 
         foreach (var manager in _renderManagers) {
             manager.Update(deltaTime, (ICamera)_cameraController.CurrentCamera);
@@ -802,6 +807,9 @@ public class GameScene : IDisposable {
         bool needsPrepare = cameraMoved || _forcePrepareBatches || _renderManagers.Any(m => m.NeedsPrepare);
 
         if (needsPrepare) {
+            _envCellDataChanged |= _envCellManager?.NeedsPrepare ?? false;
+            _portalDataChanged |= _portalManager?.NeedsPrepare ?? false;
+
             _visibilityManager.UpdateFrustum(snapshotVP);
             _visibilityManager.PrepareVisibility(_state, currentEnvCellId, _portalManager, _envCellManager, snapshotVP, isInside, out var visibleEnvCells);
 

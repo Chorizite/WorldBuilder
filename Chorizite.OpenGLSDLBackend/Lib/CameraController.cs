@@ -95,10 +95,11 @@ public class CameraController {
         _camera3D.Resize(width, height);
     }
 
-    public void Update(float deltaTime, EditorState state, ref uint currentEnvCellId, 
-        TerrainRenderManager? terrainManager, StaticObjectRenderManager? staticObjectManager, 
-        EnvCellRenderManager? envCellManager, PortalRenderManager? portalManager) {
-        
+    public void Update(float deltaTime, EditorState state, ref uint currentEnvCellId,
+        TerrainRenderManager? terrainManager, StaticObjectRenderManager? staticObjectManager,
+        EnvCellRenderManager? envCellManager, PortalRenderManager? portalManager,
+        bool envCellDataChanged, bool portalDataChanged) {
+
         Vector3 oldPos = _currentCamera.Position;
         _currentCamera.Update(deltaTime);
         Vector3 newPos = _currentCamera.Position;
@@ -136,7 +137,7 @@ public class CameraController {
             }
 
             // Update current cell ID
-            if (moveDist > 0.0001f || (envCellManager?.NeedsPrepare ?? false) || (portalManager?.NeedsPrepare ?? false)) {
+            if (moveDist > 0.0001f || envCellDataChanged || portalDataChanged) {
                 if (state.EnableCameraCollision && moveDist > 0.0001f && portalManager != null && portalManager.Raycast(oldPos, moveDir / moveDist, out var portalHit, moveDist, true)) {
                     if (currentEnvCellId == 0) {
                         currentEnvCellId = portalHit.ObjectId;
@@ -153,8 +154,11 @@ public class CameraController {
                     }
                 }
                 else {
-                    // When collision is off, or no portal was hit, always track the cell we are in if moving or data changed
-                    currentEnvCellId = envCellManager?.GetEnvCellAt(newPos, false) ?? 0;
+                    // When collision is off, or no portal was hit, track the cell we are in if moving or data changed
+                    var newCellId = envCellManager?.GetEnvCellAt(newPos, false) ?? 0;
+                    if (newCellId != 0 || moveDist > 0.0001f) {
+                        currentEnvCellId = newCellId;
+                    }
                 }
             }
 
