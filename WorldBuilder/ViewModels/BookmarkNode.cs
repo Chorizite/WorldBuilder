@@ -42,6 +42,14 @@ namespace WorldBuilder.ViewModels
             set => SetProperty(ref _parent, value);
         }
 
+        /// <summary>
+        /// Reference to the original BookmarkNode in BookmarksManager.
+        /// This is used for Edit Bookmark cloning to maintain references
+        /// between cloned objects and their original counterparts.
+        /// </summary>
+        [JsonIgnore]
+        public BookmarkNode? Ref { get; set; }
+
         public abstract BookmarkNode Clone();
     }
 

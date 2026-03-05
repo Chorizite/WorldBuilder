@@ -1,11 +1,10 @@
+using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
-
 using WorldBuilder.Modules.Landscape.ViewModels;
 using WorldBuilder.ViewModels;
-
 using DropPosition = WorldBuilder.ViewModels.DropPosition;
 
 namespace WorldBuilder.Modules.Landscape.Views.Components;
@@ -234,25 +233,43 @@ public partial class BookmarksPanel : UserControl {
         }
     }
 
-    private void BookmarkTreeView_KeyDown(object? sender, KeyEventArgs e) {
+    private void BookmarkTreeView_DoubleTapped(object? sender, TappedEventArgs e) {
         if (DataContext is BookmarksPanelViewModel viewModel) {
             var selectedItem = BookmarkTreeView.SelectedItem;
-            if (selectedItem != null) {
-                if (e.Key == Key.Delete) {
-                    viewModel.DeleteBookmarkCommand.Execute(selectedItem);
-                }
-                else if (e.Key == Key.Enter) {
-                    viewModel.GoToBookmarkCommand.Execute(selectedItem);
-                }
+            if (selectedItem is Bookmark) {
+                viewModel.GoToBookmarkCommand.Execute(selectedItem);
+                e.Handled = true;
             }
         }
     }
 
-    private void BookmarkTreeView_DoubleTapped(object? sender, TappedEventArgs e) {
-        if (DataContext is BookmarksPanelViewModel viewModel) {
-            var selectedItem = BookmarkTreeView.SelectedItem;
-            if (selectedItem != null) {
-                viewModel.GoToBookmarkCommand.Execute(selectedItem);
+    private void OnContextMenuOpening(object? sender, CancelEventArgs e) {
+        if (sender is ContextMenu menu && DataContext is BookmarksPanelViewModel viewModel) {
+            // Remove any existing expand/collapse menu item
+            var existingItem = menu.Items.OfType<MenuItem>().FirstOrDefault(item => 
+                item.Header?.ToString() == "Expand All" || item.Header?.ToString() == "Collapse All");
+            
+            if (existingItem != null) {
+                menu.Items.Remove(existingItem);
+            }
+            
+            // Add the dynamic expand/collapse menu item
+            if (viewModel.SelectedItem is BookmarkFolder folder) {
+                var isFullyExpanded = viewModel.IsFolderAndSubfoldersExpanded(folder);
+                var menuItem = new MenuItem {
+                    Header = isFullyExpanded ? "Collapse All" : "Expand All",
+                    Command = viewModel.ExpandAllCommand,
+                    CommandParameter = folder
+                };
+                
+                // Insert at the beginning (before the first separator)
+                var firstSeparator = menu.Items.OfType<Separator>().FirstOrDefault();
+                if (firstSeparator != null) {
+                    var separatorIndex = menu.Items.IndexOf(firstSeparator);
+                    menu.Items.Insert(separatorIndex, menuItem);
+                } else {
+                    menu.Items.Insert(0, menuItem);
+                }
             }
         }
     }

@@ -1,4 +1,4 @@
-﻿using Avalonia.Media;
+using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Numerics;
 using WorldBuilder.Shared.Lib;
@@ -56,6 +56,18 @@ namespace WorldBuilder.Lib.Settings {
         }
 
         [SettingHidden]
+        private BookmarkSettings _bookmarks = new();
+        public BookmarkSettings Bookmarks {
+            get => _bookmarks;
+            set {
+                if (_bookmarks != null) _bookmarks.PropertyChanged -= OnSubSettingsPropertyChanged;
+                if (SetProperty(ref _bookmarks, value) && _bookmarks != null) {
+                    _bookmarks.PropertyChanged += OnSubSettingsPropertyChanged;
+                }
+            }
+        }
+
+        [SettingHidden]
         private double _rightPanelWidth = 300.0;
         public double RightPanelWidth { get => _rightPanelWidth; set => SetProperty(ref _rightPanelWidth, value); }
 
@@ -68,6 +80,7 @@ namespace WorldBuilder.Lib.Settings {
             if (_rendering != null) _rendering.PropertyChanged += OnSubSettingsPropertyChanged;
             if (_grid != null) _grid.PropertyChanged += OnSubSettingsPropertyChanged;
             if (_colors != null) _colors.PropertyChanged += OnSubSettingsPropertyChanged;
+            if (_bookmarks != null) _bookmarks.PropertyChanged += OnSubSettingsPropertyChanged;
         }
 
         private void OnSubSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
@@ -75,18 +88,8 @@ namespace WorldBuilder.Lib.Settings {
             else if (sender == _rendering) OnPropertyChanged(nameof(Rendering));
             else if (sender == _grid) OnPropertyChanged(nameof(Grid));
             else if (sender == _colors) OnPropertyChanged(nameof(Colors));
+            else if (sender == _bookmarks) OnPropertyChanged(nameof(Bookmarks));
         }
-    }
-
-    public class CameraBookmark {
-        public string Name { get; set; } = "";
-        public float PositionX { get; set; }
-        public float PositionY { get; set; }
-        public float PositionZ { get; set; }
-        public float Yaw { get; set; }
-        public float Pitch { get; set; }
-        public float FieldOfView { get; set; } = float.NaN;
-        public bool IsPerspective { get; set; } = true;
     }
 
     [SettingCategory("Camera", ParentCategory = "Landscape Editor", Order = 0)]
@@ -162,33 +165,33 @@ namespace WorldBuilder.Lib.Settings {
         public bool ShowBuildings { get => _showBuildings; set => SetProperty(ref _showBuildings, value); }
 
         [SettingDescription("Render building interior cells visible from outside")]
-        [SettingOrder(5)]
+        [SettingOrder(6)]
         private bool _showEnvCells = true;
         public bool ShowEnvCells { get => _showEnvCells; set => SetProperty(ref _showEnvCells, value); }
 
         [SettingDescription("Render portals (semi-transparent magenta polys)")]
-        [SettingOrder(5)]
+        [SettingOrder(7)]
         private bool _showPortals = true;
         public bool ShowPortals { get => _showPortals; set => SetProperty(ref _showPortals, value); }
 
         [SettingDescription("Render skybox")]
-        [SettingOrder(6)]
+        [SettingOrder(8)]
         private bool _showSkybox = true;
         public bool ShowSkybox { get => _showSkybox; set => SetProperty(ref _showSkybox, value); }
 
         [SettingDescription("Highlight unwalkable slopes red")]
-        [SettingOrder(7)]
+        [SettingOrder(9)]
         private bool _showUnwalkableSlopes = false;
         public bool ShowUnwalkableSlopes { get => _showUnwalkableSlopes; set => SetProperty(ref _showUnwalkableSlopes, value); }
 
         [SettingDescription("Number of landblocks to render objects (scenery, buildings, etc) around the camera")]
         [SettingRange(1, 64, 1, 4)]
-        [SettingOrder(8)]
+        [SettingOrder(10)]
         private int _objectRenderDistance = 12;
         public int ObjectRenderDistance { get => _objectRenderDistance; set => SetProperty(ref _objectRenderDistance, value); }
 
         [SettingDescription("Enable secondary render pass for transparency. Disabling this may improve performance but will cause transparency issues.")]
-        [SettingOrder(9)]
+        [SettingOrder(11)]
         private bool _enableTransparencyPass = true;
         public bool EnableTransparencyPass { get => _enableTransparencyPass; set => SetProperty(ref _enableTransparencyPass, value); }
     }
@@ -225,5 +228,15 @@ namespace WorldBuilder.Lib.Settings {
         [SettingOrder(4)]
         private Vector3 _cellColor = new(0f, 1f, 1f);
         public Vector3 CellColor { get => _cellColor; set => SetProperty(ref _cellColor, value); }
+    }
+
+    // LandscapeColorSettings is defined in WorldBuilder.Shared.Lib, Order = 3
+
+    [SettingCategory("Bookmarks", ParentCategory = "Landscape Editor", Order = 4)]
+    public partial class BookmarkSettings : ObservableObject {
+        [SettingDescription("Show editor when saving bookmarks")]
+        [SettingOrder(0)]
+        private bool _showEditorWhenSaving = true;
+        public bool ShowEditorWhenSaving { get => _showEditorWhenSaving; set => SetProperty(ref _showEditorWhenSaving, value); }
     }
 }
