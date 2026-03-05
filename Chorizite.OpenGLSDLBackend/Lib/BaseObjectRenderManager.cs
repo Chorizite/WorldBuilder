@@ -231,6 +231,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public unsafe void RenderConsolidated(IShader shader, List<ObjectLandblock> landblocks, RenderPass renderPass) {
             if (landblocks.Count == 0) return;
 
+            shader.Bind();
             shader.SetUniform("uFilterByCell", 0);
 
             for (int i = 0; i < 4; i++) _cullGroups[i].Clear();
@@ -332,6 +333,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public unsafe void RenderConsolidatedMDI(IShader shader, List<ObjectLandblock> landblocks, RenderPass renderPass) {
             if (landblocks.Count == 0) return;
 
+            shader.Bind();
             shader.SetUniform("uFilterByCell", 0);
 
             // Check if we can skip the buffer upload entirely (same data as last frame)

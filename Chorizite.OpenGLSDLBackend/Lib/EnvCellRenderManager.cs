@@ -367,6 +367,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || (_cameraPosition.Z > 4000 && renderPass != RenderPass.SinglePass)) return;
 
             lock (_renderLock) {
+                _shader.Bind();
                 _poolIndex = _postPreparePoolIndex;
                 CurrentVAO = 0;
                 CurrentIBO = 0;
