@@ -15,9 +15,10 @@ namespace WorldBuilder.Shared.Services {
         /// </summary>
         /// <param name="exportDirectory">The directory to export to.</param>
         /// <param name="portalIteration">The portal iteration to use.</param>
+        /// <param name="cellIteration">The cell iteration to use.</param>
         /// <param name="overwrite">Whether to overwrite existing files.</param>
         /// <param name="progress">The progress reporter.</param>
         /// <returns>A task representing the asynchronous operation, returning true if successful.</returns>
-        Task<bool> ExportDatsAsync(string exportDirectory, int portalIteration, bool overwrite = true, IProgress<DatExportProgress>? progress = null);
+        Task<bool> ExportDatsAsync(string exportDirectory, int portalIteration, int cellIteration, bool overwrite = true, IProgress<DatExportProgress>? progress = null);
     }
 }

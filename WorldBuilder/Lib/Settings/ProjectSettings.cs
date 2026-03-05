@@ -168,9 +168,9 @@ namespace WorldBuilder.Lib.Settings {
         [SettingDisplayName("Anisotropic Filtering")]
         [SettingDescription("Improves texture clarity at sharp viewing angles.")]
         private bool _enableAnisotropicFiltering = true;
-        public bool EnableAnisotropicFiltering { 
-            get => _enableAnisotropicFiltering; 
-            set => SetProperty(ref _enableAnisotropicFiltering, value); 
+        public bool EnableAnisotropicFiltering {
+            get => _enableAnisotropicFiltering;
+            set => SetProperty(ref _enableAnisotropicFiltering, value);
         }
     }
 
@@ -189,6 +189,10 @@ namespace WorldBuilder.Lib.Settings {
         [SettingDescription("Last portal iteration used for DAT export")]
         private int _lastDatExportPortalIteration = 0;
         public int LastDatExportPortalIteration { get => _lastDatExportPortalIteration; set => SetProperty(ref _lastDatExportPortalIteration, value); }
+
+        [SettingDescription("Last cell iteration used for DAT export")]
+        private int _lastDatExportCellIteration = 0;
+        public int LastDatExportCellIteration { get => _lastDatExportCellIteration; set => SetProperty(ref _lastDatExportCellIteration, value); }
     }
 
     [SettingCategory("Landscape Tools", ParentCategory = "Project", Order = 2)]
@@ -201,7 +205,7 @@ namespace WorldBuilder.Lib.Settings {
 
         [SettingDisplayName("Saved Tool Filtering Option")]
         [SettingDescription("Default filtering option used by the landscape brush tools.")]
-        private int _toolFilteringOption = 0; 
+        private int _toolFilteringOption = 0;
         public int ToolFilteringOption { get => _toolFilteringOption; set => SetProperty(ref _toolFilteringOption, value); }
     }
 }

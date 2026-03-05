@@ -484,7 +484,40 @@ namespace WorldBuilder.Shared.Models {
                 return Enumerable.Empty<(int x, int y)>();
             }
 
-            return GetAffectedLandblocks(GetAffectedVertices(layer));
+            var affected = new HashSet<(int x, int y)>();
+
+            // Collect from vertex edits
+            foreach (var lb in GetAffectedLandblocks(GetAffectedVertices(layer))) {
+                affected.Add(lb);
+            }
+
+            // Collect from object edits in all chunks for this layer
+            foreach (var chunk in LoadedChunks.Values) {
+                if (chunk.Edits != null && chunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
+                    foreach (var lbId in layerEdits.ExteriorStaticObjects.Keys) {
+                        affected.Add(((int)((lbId >> 24) & 0xFF), (int)((lbId >> 16) & 0xFF)));
+                    }
+                    foreach (var lbId in layerEdits.Buildings.Keys) {
+                        affected.Add(((int)((lbId >> 24) & 0xFF), (int)((lbId >> 16) & 0xFF)));
+                    }
+                    foreach (var cellId in layerEdits.Cells.Keys) {
+                        affected.Add(((int)((cellId >> 24) & 0xFF), (int)((cellId >> 16) & 0xFF)));
+                    }
+                    foreach (var instanceId in layerEdits.DeletedInstanceIds) {
+                        var type = InstanceIdConstants.GetType(instanceId);
+                        if (type == InspectorSelectionType.EnvCellStaticObject) {
+                            var cellId = InstanceIdConstants.GetRawId(instanceId);
+                            affected.Add(((int)((cellId >> 24) & 0xFF), (int)((cellId >> 16) & 0xFF)));
+                        }
+                        else if (type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) {
+                            var prefix = InstanceIdConstants.GetLandblockPrefix(instanceId);
+                            affected.Add(((int)((prefix >> 8) & 0xFF), (int)(prefix & 0xFF)));
+                        }
+                    }
+                }
+            }
+
+            return affected;
         }
 
         /// <summary>

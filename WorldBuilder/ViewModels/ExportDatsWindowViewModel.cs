@@ -24,6 +24,9 @@ namespace WorldBuilder.ViewModels {
         private int _portalIteration = 1;
 
         [ObservableProperty]
+        private int _cellIteration = 1;
+
+        [ObservableProperty]
         private bool _overwriteFiles = false;
 
         [ObservableProperty]
@@ -61,6 +64,10 @@ namespace WorldBuilder.ViewModels {
             Validate();
         }
 
+        partial void OnCellIterationChanged(int value) {
+            Validate();
+        }
+
         partial void OnOverwriteFilesChanged(bool value) {
             Validate();
         }
@@ -72,6 +79,17 @@ namespace WorldBuilder.ViewModels {
 
             ExportDirectory = !string.IsNullOrEmpty(_settings.Project?.Export.LastDatExportDirectory) ? _settings.Project.Export.LastDatExportDirectory : _settings.App.ProjectsDirectory;
             PortalIteration = (_settings.Project?.Export.LastDatExportPortalIteration ?? 0) > 0 ? _settings.Project!.Export.LastDatExportPortalIteration : _dats.PortalIteration;
+
+            // Try to set the default cell iteration to the first cell region iteration if the setting is less than 1
+            int defaultCellIteration = 1;
+            foreach (var db in _dats.CellRegions.Values) {
+                if (db.Iteration > 0) {
+                    defaultCellIteration = db.Iteration;
+                    break;
+                }
+            }
+            CellIteration = (_settings.Project?.Export.LastDatExportCellIteration ?? 0) > 0 ? _settings.Project!.Export.LastDatExportCellIteration : defaultCellIteration;
+
             OverwriteFiles = _settings.Project?.Export.OverwriteDatFiles ?? true;
 
             Validate();
@@ -108,11 +126,12 @@ namespace WorldBuilder.ViewModels {
                     Progress = p.Percent * 100;
                 });
 
-                var success = await _datExportService.ExportDatsAsync(ExportDirectory, PortalIteration, OverwriteFiles, progressHandler);
+                var success = await _datExportService.ExportDatsAsync(ExportDirectory, PortalIteration, CellIteration, OverwriteFiles, progressHandler);
                 if (success) {
                     if (_settings.Project is not null) {
                         _settings.Project.Export.LastDatExportDirectory = ExportDirectory;
                         _settings.Project.Export.LastDatExportPortalIteration = PortalIteration;
+                        _settings.Project.Export.LastDatExportCellIteration = CellIteration;
                         _settings.Project.Export.OverwriteDatFiles = OverwriteFiles;
                     }
                     _settings.Save();
@@ -157,9 +176,9 @@ namespace WorldBuilder.ViewModels {
                     HasDirectoryError = true;
                 }
 
-                // Validate portal iteration
-                if (PortalIteration <= 0) {
-                    IterationErrorMessage = "Portal iteration must be greater than 0.";
+                // Validate portal/cell iteration
+                if (PortalIteration <= 0 || CellIteration <= 0) {
+                    IterationErrorMessage = "Portal iteration and cell iteration must be greater than 0.";
                     HasIterationError = true;
                 }
 

@@ -25,7 +25,7 @@ namespace WorldBuilder.Shared.Services {
         }
 
         /// <inheritdoc/>
-        public async Task<bool> ExportDatsAsync(string exportDirectory, int portalIteration, bool overwrite = true, IProgress<DatExportProgress>? progress = null) {
+        public async Task<bool> ExportDatsAsync(string exportDirectory, int portalIteration, int cellIteration, bool overwrite = true, IProgress<DatExportProgress>? progress = null) {
             string? tempDirectory = null;
             try {
                 _log.LogInformation("Starting DAT export to {ExportDirectory}", exportDirectory);
@@ -121,7 +121,7 @@ namespace WorldBuilder.Shared.Services {
                                 });
 
                                 _log.LogInformation("Saving region {RegionId} to DATs...", regionId);
-                                if (!await doc.SaveToDatsAsync(exportDatWriter, portalIteration, regionProgress)) {
+                                if (!await doc.SaveToDatsAsync(exportDatWriter, portalIteration, cellIteration, regionProgress)) {
                                     _log.LogError("Failed to save LandscapeDocument (Region {RegionId}) to DATs", regionId);
                                     throw new Exception($"Failed to save LandscapeDocument (Region {regionId}) to DATs");
                                 }

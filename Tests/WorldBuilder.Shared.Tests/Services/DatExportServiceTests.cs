@@ -73,7 +73,7 @@ namespace WorldBuilder.Shared.Tests.Services {
                 .ReturnsAsync(WorldBuilder.Shared.Lib.Result<DocumentRental<LandscapeDocument>>.Success(rental));
 
             // Act
-            var result = await _service.ExportDatsAsync(_testExportDir, 1);
+            var result = await _service.ExportDatsAsync(_testExportDir, 1, 1);
 
             // Assert
             Assert.True(result);

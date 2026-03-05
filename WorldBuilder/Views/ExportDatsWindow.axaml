@@ -56,6 +56,17 @@
                             Classes.error="{Binding HasIterationError}"
                             Text="{Binding PortalIteration}"
                             Watermark="Portal Iteration" />
+                    </StackPanel>
+
+                    <StackPanel IsEnabled="{Binding !IsExporting}">
+                        <TextBlock
+                            Margin="0,0,0,5"
+                            FontWeight="SemiBold"
+                            Text="Cell Iteration *" />
+                        <TextBox
+                            Classes.error="{Binding HasIterationError}"
+                            Text="{Binding CellIteration}"
+                            Watermark="Cell Iteration" />
                         <TextBlock
                             Classes.error="{Binding HasIterationError}"
                             IsVisible="{Binding HasIterationError}"
