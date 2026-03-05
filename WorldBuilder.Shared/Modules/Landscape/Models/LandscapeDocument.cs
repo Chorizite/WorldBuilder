@@ -550,26 +550,22 @@ namespace WorldBuilder.Shared.Models {
                     if (chunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
                         int layerCount = 0;
                         foreach (var lbId in layerEdits.ExteriorStaticObjects.Keys) {
-                            var prefix = lbId > 0xFFFF ? (lbId >> 16) : lbId;
-                            affected.Add(((int)(prefix >> 8), (int)(prefix & 0xFF)));
+                            affected.Add(((int)(lbId >> 24), (int)((lbId >> 16) & 0xFF)));
                             layerCount++;
                         }
                         foreach (var lbId in layerEdits.Buildings.Keys) {
-                            var prefix = lbId > 0xFFFF ? (lbId >> 16) : lbId;
-                            affected.Add(((int)(prefix >> 8), (int)(prefix & 0xFF)));
+                            affected.Add(((int)(lbId >> 24), (int)((lbId >> 16) & 0xFF)));
                             layerCount++;
                         }
                         foreach (var cellId in layerEdits.Cells.Keys) {
-                            var prefix = cellId >> 16;
-                            affected.Add(((int)(prefix >> 8), (int)(prefix & 0xFF)));
+                            affected.Add(((int)(cellId >> 24), (int)((cellId >> 16) & 0xFF)));
                             layerCount++;
                         }
                         foreach (var instanceId in layerEdits.DeletedInstanceIds) {
                             var type = InstanceIdConstants.GetType(instanceId);
                             if (type == InspectorSelectionType.EnvCellStaticObject) {
                                 var cellId = InstanceIdConstants.GetRawId(instanceId);
-                                var prefix = cellId >> 16;
-                                affected.Add(((int)(prefix >> 8), (int)(prefix & 0xFF)));
+                                affected.Add(((int)(cellId >> 24), (int)((cellId >> 16) & 0xFF)));
                                 layerCount++;
                             }
                             else if (type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) {

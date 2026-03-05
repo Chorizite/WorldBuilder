@@ -33,6 +33,7 @@ using ICamera = WorldBuilder.Shared.Models.ICamera;
 namespace WorldBuilder.Modules.Landscape;
 
 public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModule, IHotkeyHandler {
+    private static readonly IWorldCoordinateService _coords = new WorldCoordinateService();
     private readonly IProject _project;
     private readonly IDatReaderWriter _dats;
     private readonly IPortalService _portalService;
@@ -317,7 +318,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 var lbSize = region.LandblockSizeInUnits;
                 int lbX = (int)Math.Floor((worldPos.X - offset.X) / lbSize);
                 int lbY = (int)Math.Floor((worldPos.Y - offset.Y) / lbSize);
-                return (uint)((lbX << 24) | (lbY << 16) | 0xFFFE);
+                return _coords.GetLandblockId(lbX, lbY);
             };
 
             _toolContext.GetEnvCellAt = (worldPos) => {
