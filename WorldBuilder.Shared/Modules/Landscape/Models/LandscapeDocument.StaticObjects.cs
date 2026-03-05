@@ -67,7 +67,7 @@ public partial class LandscapeDocument {
                 }
 
                 // If it's owned by this layer, remove it from the owned list
-                if ((landblockId & 0xFFFF) < 0xFFFE) {
+                if ((landblockId & 0xFFFF) >= 0x0100 && (landblockId & 0xFFFF) < 0xFFFE) {
                     // Env cell
                     if (layerEdits.Cells.TryGetValue(landblockId, out var cell)) {
                         cell.StaticObjects.RemoveAll(x => x.InstanceId == instanceId);
@@ -126,7 +126,7 @@ public partial class LandscapeDocument {
             // 1. Remove from old landblock in this layer (if it's there)
             if (LoadedChunks.TryGetValue(oldChunkId, out var oldChunk) && oldChunk.Edits != null) {
                 if (oldChunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
-                    if ((oldLandblockId & 0xFFFF) < 0xFFFE) {
+                    if ((oldLandblockId & 0xFFFF) >= 0x0100 && (oldLandblockId & 0xFFFF) < 0xFFFE) {
                         // Env cell
                         if (layerEdits.Cells.TryGetValue(oldLandblockId, out var cell)) {
                             cell.StaticObjects.RemoveAll(x => x.InstanceId == oldInstanceId);

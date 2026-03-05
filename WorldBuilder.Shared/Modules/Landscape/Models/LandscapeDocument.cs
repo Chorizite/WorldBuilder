@@ -235,7 +235,7 @@ namespace WorldBuilder.Shared.Models {
                     chunk.Edits.LayerEdits[layerId] = layerEdits;
                 }
 
-                if ((landblockId & 0xFFFF) < 0xFFFE) {
+                if ((landblockId & 0xFFFF) >= 0x0100 && (landblockId & 0xFFFF) < 0xFFFE) {
                     // It's an env cell
                     if (!layerEdits.Cells.TryGetValue(landblockId, out var cell)) {
                         var baseCell = GetMergedEnvCell(landblockId);
