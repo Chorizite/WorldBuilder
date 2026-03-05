@@ -24,6 +24,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
         /// <summary>Draws a 3D torus.</summary>
         void DrawTorus(Vector3 center, Vector3 axis, float radius, float tubeRadius, Vector4 color);
 
+        /// <summary>Draws a plane (quad) between two axes.</summary>
+        void DrawPlane(Vector3 origin, Vector3 axis1, Vector3 axis2, float size, Vector4 color);
+
         /// <summary>Draws a small 3D box (e.g. at the center).</summary>
         void DrawCenterBox(Vector3 center, float size, Vector4 color);
 

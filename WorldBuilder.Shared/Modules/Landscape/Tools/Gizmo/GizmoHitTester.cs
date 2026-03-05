@@ -45,7 +45,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
             var best = GizmoHitResult.NoHit;
 
             float distance = Vector3.Distance(state.CameraPosition, state.Position);
-            float baseScale = 0.15f;
+            float baseScale = 0.2f;
             float size = MathF.Max(0.5f, distance * baseScale);
 
             float cylinderRadius = size * 0.03f;
@@ -63,16 +63,57 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
                 };
             }
 
+            var dirX = GizmoDragHandler.GetAxis(GizmoComponent.AxisX, state.Rotation, state.IsLocalSpace);
+            var dirY = GizmoDragHandler.GetAxis(GizmoComponent.AxisY, state.Rotation, state.IsLocalSpace);
+            var dirZ = GizmoDragHandler.GetAxis(GizmoComponent.AxisZ, state.Rotation, state.IsLocalSpace);
+
             // Test X axis
-            TestAxisArrow(rayOrigin, rayDirection, state.Position, GizmoDragHandler.GetAxis(GizmoComponent.AxisX, state.Rotation, state.IsLocalSpace), size, hitRadius, GizmoComponent.AxisX, ref best);
+            TestAxisArrow(rayOrigin, rayDirection, state.Position, dirX, size, hitRadius, GizmoComponent.AxisX, ref best);
 
             // Test Y axis
-            TestAxisArrow(rayOrigin, rayDirection, state.Position, GizmoDragHandler.GetAxis(GizmoComponent.AxisY, state.Rotation, state.IsLocalSpace), size, hitRadius, GizmoComponent.AxisY, ref best);
+            TestAxisArrow(rayOrigin, rayDirection, state.Position, dirY, size, hitRadius, GizmoComponent.AxisY, ref best);
 
             // Test Z axis
-            TestAxisArrow(rayOrigin, rayDirection, state.Position, GizmoDragHandler.GetAxis(GizmoComponent.AxisZ, state.Rotation, state.IsLocalSpace), size, hitRadius, GizmoComponent.AxisZ, ref best);
+            TestAxisArrow(rayOrigin, rayDirection, state.Position, dirZ, size, hitRadius, GizmoComponent.AxisZ, ref best);
+
+            // Test Planes
+            float planeOffset = size * 0.2f;
+            float planeSize = size * 0.25f;
+            TestPlane(rayOrigin, rayDirection, state.Position, dirX, dirY, planeOffset, planeSize, GizmoComponent.PlaneXY, ref best);
+            TestPlane(rayOrigin, rayDirection, state.Position, dirX, dirZ, planeOffset, planeSize, GizmoComponent.PlaneXZ, ref best);
+            TestPlane(rayOrigin, rayDirection, state.Position, dirY, dirZ, planeOffset, planeSize, GizmoComponent.PlaneYZ, ref best);
 
             return best;
+        }
+
+        private static void TestPlane(Vector3 rayOrigin, Vector3 rayDir, Vector3 origin,
+            Vector3 axis1, Vector3 axis2, float offset, float size, GizmoComponent component, ref GizmoHitResult best) {
+            var normal = Vector3.Normalize(Vector3.Cross(axis1, axis2));
+            float denom = Vector3.Dot(normal, rayDir);
+            if (MathF.Abs(denom) < 1e-6f) return;
+
+            float t = Vector3.Dot(origin - rayOrigin, normal) / denom;
+            if (t < 0) return;
+
+            var hitPoint = rayOrigin + rayDir * t;
+            var localPoint = hitPoint - origin;
+
+            float u = Vector3.Dot(localPoint, axis1);
+            float v = Vector3.Dot(localPoint, axis2);
+
+            // Add slight tolerance
+            float tolerance = size * 0.1f;
+            if (u >= offset - tolerance && u <= offset + size + tolerance &&
+                v >= offset - tolerance && v <= offset + size + tolerance) {
+                // Bias distance slightly so planes don't block axis lines easily if they overlap in view
+                if (t < best.Distance - size * 0.05f) {
+                    best = new GizmoHitResult {
+                        Component = component,
+                        Distance = t,
+                        HitPoint = hitPoint
+                    };
+                }
+            }
         }
 
         private static void TestAxisArrow(Vector3 rayOrigin, Vector3 rayDir, Vector3 gizmoPos,
@@ -97,7 +138,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
             var best = GizmoHitResult.NoHit;
 
             float distance = Vector3.Distance(state.CameraPosition, state.Position);
-            float baseScale = 0.15f;
+            float baseScale = 0.2f;
             float size = MathF.Max(0.5f, distance * baseScale);
 
             float ringThickness = size * 0.06f;

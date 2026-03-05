@@ -13,6 +13,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
         AxisY,
         AxisZ,
         Center,
+        PlaneXY,
+        PlaneXZ,
+        PlaneYZ,
         RingYaw,   // Rotation around Z axis (XY plane)
         RingPitch, // Rotation around X axis (YZ plane)
         RingRoll   // Rotation around Y axis (XZ plane)

@@ -33,8 +33,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
 
             // Calculate distance to camera to keep gizmo size constant on screen
             float distance = Vector3.Distance(state.CameraPosition, origin);
-            // Example constant scaling factor; tweak as necessary
-            float baseScale = 0.15f;
+            float baseScale = 0.2f;
             float size = Math.Max(0.5f, distance * baseScale);
 
             float cylinderRadius = size * 0.03f;
@@ -49,21 +48,40 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
 
             // X axis arrow
             var xEnd = origin + dirX * axisLength;
-            var xColor = highlight == GizmoComponent.AxisX ? ColorHighlight : ColorX;
+            bool highlightX = highlight == GizmoComponent.AxisX || highlight == GizmoComponent.PlaneXY || highlight == GizmoComponent.PlaneXZ;
+            var xColor = highlightX ? ColorHighlight : ColorX;
             drawer.DrawCylinder(origin, xEnd, cylinderRadius, xColor);
             drawer.DrawCone(xEnd, dirX, coneLength, coneRadius, xColor);
 
             // Y axis arrow
             var yEnd = origin + dirY * axisLength;
-            var yColor = highlight == GizmoComponent.AxisY ? ColorHighlight : ColorY;
+            bool highlightY = highlight == GizmoComponent.AxisY || highlight == GizmoComponent.PlaneXY || highlight == GizmoComponent.PlaneYZ;
+            var yColor = highlightY ? ColorHighlight : ColorY;
             drawer.DrawCylinder(origin, yEnd, cylinderRadius, yColor);
             drawer.DrawCone(yEnd, dirY, coneLength, coneRadius, yColor);
 
             // Z axis arrow
             var zEnd = origin + dirZ * axisLength;
-            var zColor = highlight == GizmoComponent.AxisZ ? ColorHighlight : ColorZ;
+            bool highlightZ = highlight == GizmoComponent.AxisZ || highlight == GizmoComponent.PlaneXZ || highlight == GizmoComponent.PlaneYZ;
+            var zColor = highlightZ ? ColorHighlight : ColorZ;
             drawer.DrawCylinder(origin, zEnd, cylinderRadius, zColor);
             drawer.DrawCone(zEnd, dirZ, coneLength, coneRadius, zColor);
+
+            // Planes
+            float planeOffset = size * 0.2f;
+            float planeSize = size * 0.25f;
+
+            var planeXYColor = highlight == GizmoComponent.PlaneXY ? ColorHighlight : ColorZ;
+            planeXYColor.W = highlight == GizmoComponent.PlaneXY ? 0.7f : 0.4f;
+            drawer.DrawPlane(origin + dirX * planeOffset + dirY * planeOffset, dirX, dirY, planeSize, planeXYColor);
+
+            var planeXZColor = highlight == GizmoComponent.PlaneXZ ? ColorHighlight : ColorY;
+            planeXZColor.W = highlight == GizmoComponent.PlaneXZ ? 0.7f : 0.4f;
+            drawer.DrawPlane(origin + dirX * planeOffset + dirZ * planeOffset, dirX, dirZ, planeSize, planeXZColor);
+
+            var planeYZColor = highlight == GizmoComponent.PlaneYZ ? ColorHighlight : ColorX;
+            planeYZColor.W = highlight == GizmoComponent.PlaneYZ ? 0.7f : 0.4f;
+            drawer.DrawPlane(origin + dirY * planeOffset + dirZ * planeOffset, dirY, dirZ, planeSize, planeYZColor);
 
             // Center box
             var centerColor = highlight == GizmoComponent.Center ? ColorHighlight : ColorCenter;
@@ -76,7 +94,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
 
             // Calculate distance to camera to keep gizmo size constant on screen
             float distance = Vector3.Distance(state.CameraPosition, origin);
-            float baseScale = 0.15f;
+            float baseScale = 0.2f;
             float size = Math.Max(0.5f, distance * baseScale);
 
             float tubeRadius = size * 0.03f;

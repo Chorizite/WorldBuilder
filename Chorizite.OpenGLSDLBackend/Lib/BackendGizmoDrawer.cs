@@ -33,6 +33,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private class DrawPieCmd : GizmoDrawCmd {
             public Vector3 Center, Axis, StartAxis; public float Radius, Angle; public Vector4 Color;
         }
+        private class DrawQuadCmd : GizmoDrawCmd {
+            public Vector3 Origin, Axis1, Axis2; public float Size; public Vector4 Color;
+        }
         private class DrawLineCmd : GizmoDrawCmd {
             public Vector3 Start, End; public Vector4 Color; public float Thickness;
         }
@@ -46,6 +49,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private int _torusIndexOffset, _torusIndexCount;
         private int _boxIndexOffset, _boxIndexCount;
         private int _discIndexOffset, _discIndexCount;
+        private int _quadIndexOffset, _quadIndexCount;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct Vertex {
@@ -99,6 +103,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // 5) Disc (radius=1, normalZ)
             BuildDisc(64, out var discV, out var discI);
             AddMesh(discV, discI, out _discIndexOffset, out _discIndexCount);
+
+            // 6) Quad
+            BuildQuad(out var quadV, out var quadI);
+            AddMesh(quadV, quadI, out _quadIndexOffset, out _quadIndexCount);
 
             // Create OpenGL buffers
             _gl.GenVertexArrays(1, out _vao);
@@ -295,6 +303,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
+        private void BuildQuad(out List<Vertex> vertices, out List<uint> indices) {
+            vertices = new List<Vertex>();
+            indices = new List<uint>();
+            vertices.Add(new Vertex { Position = new Vector3(0, 0, 0), Normal = new Vector3(0, 0, 1) });
+            vertices.Add(new Vertex { Position = new Vector3(1, 0, 0), Normal = new Vector3(0, 0, 1) });
+            vertices.Add(new Vertex { Position = new Vector3(1, 1, 0), Normal = new Vector3(0, 0, 1) });
+            vertices.Add(new Vertex { Position = new Vector3(0, 1, 0), Normal = new Vector3(0, 0, 1) });
+            indices.Add(0); indices.Add(1); indices.Add(2);
+            indices.Add(0); indices.Add(2); indices.Add(3);
+        }
+
         public void DrawLine(Vector3 start, Vector3 end, Vector4 color, float thickness = 2f) {
             _commands.Add(new DrawLineCmd { Start = start, End = end, Color = color, Thickness = thickness });
         }
@@ -318,6 +337,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public void DrawTorus(Vector3 center, Vector3 axis, float radius, float tubeRadius, Vector4 color) {
             _commands.Add(new DrawTorusCmd { Center = center, Axis = axis, Radius = radius, TubeRadius = tubeRadius, Color = color });
+        }
+
+        public void DrawPlane(Vector3 origin, Vector3 axis1, Vector3 axis2, float size, Vector4 color) {
+            _commands.Add(new DrawQuadCmd { Origin = origin, Axis1 = axis1, Axis2 = axis2, Size = size, Color = color });
         }
 
         public void DrawCenterBox(Vector3 center, float size, Vector4 color) {
@@ -385,6 +408,23 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     _shader.SetUniform("uIsPie", 0);
 
                     _gl.DrawElements(GLEnum.Triangles, (uint)_boxIndexCount, GLEnum.UnsignedInt, (void*)_boxIndexOffset);
+                }
+                else if (cmd is DrawQuadCmd quadCmd) {
+                    var normal = Vector3.Normalize(Vector3.Cross(quadCmd.Axis1, quadCmd.Axis2));
+                    var model = new Matrix4x4(
+                        quadCmd.Axis1.X * quadCmd.Size, quadCmd.Axis1.Y * quadCmd.Size, quadCmd.Axis1.Z * quadCmd.Size, 0,
+                        quadCmd.Axis2.X * quadCmd.Size, quadCmd.Axis2.Y * quadCmd.Size, quadCmd.Axis2.Z * quadCmd.Size, 0,
+                        normal.X, normal.Y, normal.Z, 0,
+                        quadCmd.Origin.X, quadCmd.Origin.Y, quadCmd.Origin.Z, 1
+                    );
+                    _shader.SetUniform("uModel", model);
+                    _shader.SetUniform("uBaseColor", quadCmd.Color);
+                    _shader.SetUniform("uIsPie", 0);
+
+                    // Draw two-sided
+                    _gl.Disable(EnableCap.CullFace);
+                    _gl.DrawElements(GLEnum.Triangles, (uint)_quadIndexCount, GLEnum.UnsignedInt, (void*)_quadIndexOffset);
+                    _gl.Enable(EnableCap.CullFace);
                 }
                 else if (cmd is DrawPieCmd pieCmd) {
                     // For the pie, we do a neat shader trick. We build a full unit disc.

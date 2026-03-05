@@ -47,6 +47,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
                     var planeNormal = Vector3.Normalize(camera.Position - gizmoPosition);
                     _dragStartWorldPoint = RayPlaneIntersect(rayOrigin, rayDirection, gizmoPosition, planeNormal);
                 }
+                else if (IsPlaneComponent(component)) {
+                    var normal = GetPlaneNormal(component, _dragStartRotation, _isLocalSpace);
+                    _dragStartWorldPoint = RayPlaneIntersect(rayOrigin, rayDirection, gizmoPosition, normal);
+                }
                 else {
                     // Project onto axis-aligned plane
                     var axis = GetAxis(component, _dragStartRotation, _isLocalSpace);
@@ -69,6 +73,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
             if (_dragComponent == GizmoComponent.Center) {
                 var planeNormal = Vector3.Normalize(camera.Position - _dragStartPosition);
                 var currentPoint = RayPlaneIntersect(rayOrigin, rayDirection, _dragStartPosition, planeNormal);
+                PositionDelta = currentPoint - _dragStartWorldPoint;
+            }
+            else if (IsPlaneComponent(_dragComponent)) {
+                var normal = GetPlaneNormal(_dragComponent, _dragStartRotation, _isLocalSpace);
+                var currentPoint = RayPlaneIntersect(rayOrigin, rayDirection, _dragStartPosition, normal);
                 PositionDelta = currentPoint - _dragStartWorldPoint;
             }
             else {
@@ -134,7 +143,24 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
             return component == GizmoComponent.AxisX ||
                    component == GizmoComponent.AxisY ||
                    component == GizmoComponent.AxisZ ||
-                   component == GizmoComponent.Center;
+                   component == GizmoComponent.Center ||
+                   IsPlaneComponent(component);
+        }
+
+        public static bool IsPlaneComponent(GizmoComponent component) {
+            return component == GizmoComponent.PlaneXY ||
+                   component == GizmoComponent.PlaneXZ ||
+                   component == GizmoComponent.PlaneYZ;
+        }
+
+        public static Vector3 GetPlaneNormal(GizmoComponent component, Quaternion rotation, bool isLocal) {
+            var normal = component switch {
+                GizmoComponent.PlaneXY => Vector3.UnitZ,
+                GizmoComponent.PlaneXZ => Vector3.UnitY,
+                GizmoComponent.PlaneYZ => Vector3.UnitX,
+                _ => Vector3.UnitY
+            };
+            return isLocal ? Vector3.Transform(normal, rotation) : normal;
         }
 
         public static bool IsRotationComponent(GizmoComponent component) {
