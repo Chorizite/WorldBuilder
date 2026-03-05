@@ -547,9 +547,11 @@ namespace WorldBuilder.Shared.Models {
 
             // 1. Parse base from DAT
             var lbFileId = (landblockId & 0xFFFF0000) | 0xFFFE;
+            Dictionary<ulong, StaticObject> baseStatics = new();
+            Dictionary<ulong, BuildingObject> baseBuildings = new();
+
             if (CellDatabase != null && CellDatabase.TryGetFileBytes(lbFileId, out var _)) {
                 if (CellDatabase.TryGet<LandBlockInfo>(lbFileId, out var lbi)) {
-                    Dictionary<ulong, StaticObject> baseStatics = new();
                     for (int i = 0; i < lbi.Objects.Count; i++) {
                         ulong instanceId = InstanceIdConstants.EncodeStaticObject(lbFileId, (ushort)i);
                         baseStatics[instanceId] = new StaticObject {
@@ -560,7 +562,6 @@ namespace WorldBuilder.Shared.Models {
                         };
                     }
 
-                    Dictionary<ulong, BuildingObject> baseBuildings = new();
                     for (int i = 0; i < lbi.Buildings.Count; i++) {
                         ulong instanceId = InstanceIdConstants.EncodeBuilding(lbFileId, (ushort)i);
                         baseBuildings[instanceId] = new BuildingObject {
@@ -570,37 +571,37 @@ namespace WorldBuilder.Shared.Models {
                             LayerId = "Base"
                         };
                     }
+                }
+            }
 
-                    // Apply Base Edits from the "Base" layer in the chunk's document
-                    ushort chunkId = _coords.GetChunkIdForLandblock(landblockId);
+            // Apply Base Edits from the "Base" layer in the chunk's document
+            ushort chunkId = _coords.GetChunkIdForLandblock(landblockId);
 
-                    if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
-                        if (chunk.Edits.LayerEdits.TryGetValue("Base", out var baseEdits)) {
-                            foreach (var rmId in baseEdits.DeletedInstanceIds) {
-                                baseStatics.Remove(rmId);
-                                // Building removals are also in DeletedInstanceIds
-                                baseBuildings.Remove(rmId);
-                            }
+            if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
+                if (chunk.Edits.LayerEdits.TryGetValue("Base", out var baseEdits)) {
+                    foreach (var rmId in baseEdits.DeletedInstanceIds) {
+                        baseStatics.Remove(rmId);
+                        // Building removals are also in DeletedInstanceIds
+                        baseBuildings.Remove(rmId);
+                    }
 
-                            // Modifications are additions with the same InstanceId
-                            if (baseEdits.ExteriorStaticObjects.TryGetValue(landblockId, out var modStatics)) {
-                                foreach (var mod in modStatics) {
-                                    baseStatics[mod.InstanceId] = mod;
-                                }
-                            }
-
-                            if (baseEdits.Buildings.TryGetValue(landblockId, out var modBuildings)) {
-                                foreach (var mod in modBuildings) {
-                                    baseBuildings[mod.InstanceId] = mod;
-                                }
-                            }
+                    // Modifications are additions with the same InstanceId
+                    if (baseEdits.ExteriorStaticObjects.TryGetValue(landblockId, out var modStatics)) {
+                        foreach (var mod in modStatics) {
+                            baseStatics[mod.InstanceId] = mod;
                         }
                     }
 
-                    merged.StaticObjects.AddRange(baseStatics.Values);
-                    merged.Buildings.AddRange(baseBuildings.Values);
+                    if (baseEdits.Buildings.TryGetValue(landblockId, out var modBuildings)) {
+                        foreach (var mod in modBuildings) {
+                            baseBuildings[mod.InstanceId] = mod;
+                        }
+                    }
                 }
             }
+
+            merged.StaticObjects.AddRange(baseStatics.Values);
+            merged.Buildings.AddRange(baseBuildings.Values);
 
             // Apply active layers
             ushort chunkIdForLayers = _coords.GetChunkIdForLandblock(landblockId);
