@@ -187,11 +187,6 @@
                 <StackPanel Orientation="Horizontal">
                   <HeaderedContentControl Header="Options" Template="{StaticResource RibbonGroupTemplate}">
                     <StackPanel Orientation="Horizontal" Spacing="12">
-                      <CheckBox Content="Sticky Z Offset" 
-                                IsChecked="{Binding StickyZOffset}" 
-                                FontSize="12" 
-                                VerticalAlignment="Center" 
-                                ToolTip.Tip="Maintain object's height offset from ground when moving on X/Y" />
                       <CheckBox Content="Align to Surface" 
                                 IsChecked="{Binding AlignToSurface}" 
                                 FontSize="12" 

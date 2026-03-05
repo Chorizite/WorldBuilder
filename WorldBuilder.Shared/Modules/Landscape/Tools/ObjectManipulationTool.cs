@@ -17,7 +17,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         [ObservableProperty] private bool _hasSelection;
         [ObservableProperty] private bool _isLocalSpace;
-        [ObservableProperty] private bool _stickyZOffset = true;
         [ObservableProperty] private bool _alignToSurface;
         [ObservableProperty] private bool _showBoundingBoxes;
 
@@ -32,7 +31,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         private readonly GizmoDragHandler _dragHandler = new();
         private SceneRaycastHit _lastHoveredHit;
-        private float _currentSurfaceOffset;
         private Vector3 _currentSurfaceNormal = Vector3.UnitZ;
 
         // Original object state at the start of a drag (for undo command)
@@ -170,18 +168,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                         _currentSurfaceNormal = Vector3.UnitZ;
                     }
 
-                    if (StickyZOffset) {
-                        if (initSurfaceHit.Hit) {
-                            // Offset = signed distance from surface along its normal
-                            _currentSurfaceOffset = Vector3.Dot(
-                                GizmoState.Position - initSurfaceHit.Position,
-                                _currentSurfaceNormal);
-                        }
-                        else {
-                            _currentSurfaceOffset = 0;
-                        }
-                    }
-
                     if (gizmoHit.Component == GizmoComponent.Center) {
                         _dragStartNormal = _currentSurfaceNormal;
                     }
@@ -250,43 +236,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                         newPos = _dragHandler.UpdateTranslation(ray.Origin, ray.Direction, Context.Camera);
                     }
 
-                    if (StickyZOffset) {
-                        // Find the surface poly under the mouse cursor
-                        var surfaceHit = GetGroundHitPoint(e, ray.Origin, ray.Direction);
-
-                        if (GizmoState.ActiveComponent == GizmoComponent.AxisZ) {
-                            // Dragging Z axis: update the offset relative to surface
-                            GizmoState.Position = newPos;
-                            if (surfaceHit.Hit && surfaceHit.Normal != Vector3.Zero) {
-                                _currentSurfaceNormal = Vector3.Normalize(surfaceHit.Normal);
-                                _currentSurfaceOffset = Vector3.Dot(
-                                    newPos - surfaceHit.Position,
-                                    _currentSurfaceNormal);
-                            }
-                        }
-                        else if (GizmoState.ActiveComponent == GizmoComponent.Center) {
-                            // Center drag snaps to surface exactly; update the offset
-                            GizmoState.Position = newPos;
-                            if (surfaceHit.Hit && surfaceHit.Normal != Vector3.Zero) {
-                                _currentSurfaceNormal = Vector3.Normalize(surfaceHit.Normal);
-                                _currentSurfaceOffset = Vector3.Dot(
-                                    newPos - surfaceHit.Position,
-                                    _currentSurfaceNormal);
-                            }
-                        }
-                        else {
-                            // Dragging X/Y: maintain offset along surface normal
-                            if (surfaceHit.Hit && surfaceHit.Normal != Vector3.Zero) {
-                                _currentSurfaceNormal = Vector3.Normalize(surfaceHit.Normal);
-                                var offsetPos = surfaceHit.Position + _currentSurfaceOffset * _currentSurfaceNormal;
-                                newPos.Z = offsetPos.Z;
-                            }
-                            GizmoState.Position = newPos;
-                        }
-                    }
-                    else {
-                        GizmoState.Position = newPos;
-                    }
+                    GizmoState.Position = newPos;
                 }
                 else if (GizmoDragHandler.IsRotationComponent(GizmoState.ActiveComponent)) {
                     float snapAngle = e.ShiftDown ? (15f * MathF.PI / 180f) : 0f;
