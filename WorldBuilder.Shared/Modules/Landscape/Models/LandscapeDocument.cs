@@ -45,6 +45,13 @@ namespace WorldBuilder.Shared.Models {
         private bool _didLoadRegionData;
         private IDocumentManager? _documentManager;
         private readonly HashSet<string> _layerIds = [];
+
+        /// <summary>
+        /// Gets the ID of the base layer.
+        /// </summary>
+        [MemoryPackIgnore]
+        public string? BaseLayerId => GetAllLayers().FirstOrDefault(l => l.IsBase)?.Id;
+
         private readonly SemaphoreSlim _initLock = new(1, 1);
         private readonly SemaphoreSlim _dbLock = new(1, 1);
         private readonly SemaphoreSlim _ioSemaphore = new(Math.Max(2, System.Environment.ProcessorCount / 2));
@@ -656,7 +663,7 @@ namespace WorldBuilder.Shared.Models {
                             SetupId = lbi.Objects[i].Id,
                             Position = [lbi.Objects[i].Frame.Origin.X, lbi.Objects[i].Frame.Origin.Y, lbi.Objects[i].Frame.Origin.Z, lbi.Objects[i].Frame.Orientation.W, lbi.Objects[i].Frame.Orientation.X, lbi.Objects[i].Frame.Orientation.Y, lbi.Objects[i].Frame.Orientation.Z],
                             InstanceId = instanceId,
-                            LayerId = "Base"
+                            LayerId = BaseLayerId ?? "Base"
                         };
                     }
 
@@ -666,17 +673,18 @@ namespace WorldBuilder.Shared.Models {
                             ModelId = lbi.Buildings[i].ModelId,
                             Position = [lbi.Buildings[i].Frame.Origin.X, lbi.Buildings[i].Frame.Origin.Y, lbi.Buildings[i].Frame.Origin.Z, lbi.Buildings[i].Frame.Orientation.W, lbi.Buildings[i].Frame.Orientation.X, lbi.Buildings[i].Frame.Orientation.Y, lbi.Buildings[i].Frame.Orientation.Z],
                             InstanceId = instanceId,
-                            LayerId = "Base"
+                            LayerId = BaseLayerId ?? "Base"
                         };
                     }
                 }
             }
 
-            // Apply Base Edits from the "Base" layer in the chunk's document
+            // Apply Base Edits from the base layer in the chunk's document
             ushort chunkId = _coords.GetChunkIdForLandblock(landblockId);
 
             if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
-                if (chunk.Edits.LayerEdits.TryGetValue("Base", out var baseEdits)) {
+                var baseId = BaseLayerId;
+                if (baseId != null && chunk.Edits.LayerEdits.TryGetValue(baseId, out var baseEdits)) {
                     foreach (var rmId in baseEdits.DeletedInstanceIds) {
                         baseStatics.Remove(rmId);
                         // Building removals are also in DeletedInstanceIds
@@ -704,8 +712,9 @@ namespace WorldBuilder.Shared.Models {
             // Apply active layers
             ushort chunkIdForLayers = _coords.GetChunkIdForLandblock(landblockId);
             if (LoadedChunks.TryGetValue(chunkIdForLayers, out var chunkDoc)) {
+                var baseId = BaseLayerId;
                 foreach (var layer in GetAllLayers()) {
-                    if (!IsItemVisible(layer) || layer.Id == "Base") continue;
+                    if (!IsItemVisible(layer) || layer.Id == baseId) continue;
 
                     if (chunkDoc.Edits != null && chunkDoc.Edits.LayerEdits.TryGetValue(layer.Id, out var layerEdits)) {
                         // Remove tombstones
@@ -746,7 +755,7 @@ namespace WorldBuilder.Shared.Models {
                     Position = [cell.Position.Origin.X, cell.Position.Origin.Y, cell.Position.Origin.Z, cell.Position.Orientation.W, cell.Position.Orientation.X, cell.Position.Orientation.Y, cell.Position.Orientation.Z],
                     Surfaces = new List<ushort>(cell.Surfaces),
                     Portals = new List<DatReaderWriter.Types.CellPortal>(cell.CellPortals),
-                    LayerId = "Base"
+                    LayerId = BaseLayerId ?? "Base"
                 };
 
                 Dictionary<ulong, StaticObject> baseStatics = new();
@@ -757,7 +766,7 @@ namespace WorldBuilder.Shared.Models {
                             SetupId = cell.StaticObjects[i].Id,
                             Position = [cell.StaticObjects[i].Frame.Origin.X, cell.StaticObjects[i].Frame.Origin.Y, cell.StaticObjects[i].Frame.Origin.Z, cell.StaticObjects[i].Frame.Orientation.W, cell.StaticObjects[i].Frame.Orientation.X, cell.StaticObjects[i].Frame.Orientation.Y, cell.StaticObjects[i].Frame.Orientation.Z],
                             InstanceId = instanceId,
-                            LayerId = "Base"
+                            LayerId = BaseLayerId ?? "Base"
                         };
                     }
                 }
@@ -766,7 +775,8 @@ namespace WorldBuilder.Shared.Models {
                 ushort chunkId = _coords.GetChunkIdForLandblock(cellId);
 
                 if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
-                    if (chunk.Edits.LayerEdits.TryGetValue("Base", out var baseEdits)) {
+                    var baseId = BaseLayerId;
+                    if (baseId != null && chunk.Edits.LayerEdits.TryGetValue(baseId, out var baseEdits)) {
                         if (baseEdits.Cells.TryGetValue(cellId, out var cellEdits)) {
                             properties = new Cell {
                                 EnvironmentId = cellEdits.EnvironmentId,
@@ -775,7 +785,7 @@ namespace WorldBuilder.Shared.Models {
                                 Position = cellEdits.Position,
                                 Surfaces = properties.Surfaces, // Keep from DAT
                                 Portals = properties.Portals,   // Keep from DAT
-                                LayerId = "Base",
+                                LayerId = BaseLayerId ?? "Base",
                                 StaticObjects = cellEdits.StaticObjects != null ? new List<StaticObject>(cellEdits.StaticObjects) : new List<StaticObject>()
                             };
                         }
@@ -799,8 +809,9 @@ namespace WorldBuilder.Shared.Models {
             // Apply active layers
             ushort chunkIdForLayers = _coords.GetChunkIdForLandblock(cellId);
             if (LoadedChunks.TryGetValue(chunkIdForLayers, out var chunkRef)) {
+                var baseId = BaseLayerId;
                 foreach (var layer in GetAllLayers()) {
-                    if (!IsItemVisible(layer) || layer.Id == "Base") continue;
+                    if (!IsItemVisible(layer) || layer.Id == baseId) continue;
 
                     if (chunkRef.Edits != null && chunkRef.Edits.LayerEdits.TryGetValue(layer.Id, out var layerEdits)) {
                         if (layerEdits.DeletedInstanceIds.Count > 0) {
