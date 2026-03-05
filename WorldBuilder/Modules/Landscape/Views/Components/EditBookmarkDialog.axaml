@@ -1,0 +1,130 @@
+<Window
+    x:Class="WorldBuilder.Modules.Landscape.Views.Components.EditBookmarkDialog"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:WorldBuilder.Modules.Landscape.ViewModels"
+    xmlns:vmmodels="clr-namespace:WorldBuilder.ViewModels"
+    xmlns:icons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+    xmlns:converters="clr-namespace:WorldBuilder.Converters"
+    MinWidth="400"
+    SizeToContent="WidthAndHeight"
+    CanResize="False"
+    WindowStartupLocation="CenterOwner"
+    ShowInTaskbar="False"
+    Topmost="True"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaChromeHints="NoChrome"
+    x:DataType="vm:EditBookmarkDialogViewModel"
+    mc:Ignorable="d">
+
+    <Border Background="{DynamicResource ThemeControlBackgroundBrush}"
+            BorderBrush="{DynamicResource ThemeBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            BoxShadow="0 4 8 0 #20000000">
+        <Grid>
+            <!-- Close Button - positioned absolutely -->
+            <Button
+                x:Name="CloseButton"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Width="24"
+                Height="24"
+                Margin="0,8,8,0"
+                Background="Transparent"
+                BorderThickness="0"
+                Padding="0"
+                Foreground="#666666"
+                IsEnabled="True"
+                Command="{Binding CancelCommand}">
+                <Button.Template>
+                    <ControlTemplate>
+                        <Border 
+                            Background="Transparent" 
+                            BorderThickness="0"
+                            Width="24"
+                            Height="24"
+                            Margin="0,8,8,0">
+                            <icons:MaterialIcon 
+                                Kind="Close" 
+                                Width="12" 
+                                Height="12"
+                                Foreground="#666666"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+
+            <StackPanel Margin="20" Spacing="10">
+                <!-- Prompt Text -->
+                <TextBlock
+                    Text="{Binding PromptText}"
+                    Margin="0,8,0,0"
+                    FontWeight="SemiBold"/>
+
+                <!-- Input Box -->
+                <TextBox
+                    x:Name="InputTextBox"
+                    Text="{Binding InputText, Mode=TwoWay}"
+                    VerticalAlignment="Top"
+                    Watermark="Enter text">
+                    <TextBox.KeyBindings>
+                        <KeyBinding Gesture="Enter" Command="{Binding ConfirmCommand}" />
+                        <KeyBinding Gesture="Escape" Command="{Binding CancelCommand}" />
+                    </TextBox.KeyBindings>
+                </TextBox>
+
+                <!-- TreeView Section -->
+                <StackPanel Spacing="5" Margin="0,5,0,3">
+                    <TextBlock
+                        Text="Select Folder:"
+                        FontWeight="SemiBold"
+                        IsVisible="{Binding BookmarkFolders.Count, Converter={x:Static converters:NumericConverters.IsNotZero}}"/>
+                    
+                    <ScrollViewer 
+                        HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+                        <TreeView
+                            ItemsSource="{Binding BookmarkFolders}"
+                            SelectedItem="{Binding SelectedFolder, Mode=TwoWay}">
+                            <TreeView.DataTemplates>
+                                <TreeDataTemplate DataType="{x:Type vmmodels:BookmarkFolder}" ItemsSource="{Binding Items}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <icons:MaterialIcon Kind="Folder" Margin="0,0,8,0" Foreground="#D9B860" />
+                                        <TextBlock Text="{Binding Name}"/>
+                                    </StackPanel>
+                                </TreeDataTemplate>
+                            </TreeView.DataTemplates>
+                        </TreeView>
+                    </ScrollViewer>
+                </StackPanel>
+
+                <!-- Checkbox -->
+                <CheckBox
+                    Content="Show editor when saving"
+                    IsChecked="{Binding ShowEditorWhenSaving}"/>
+
+                <!-- Buttons - anchored to bottom right -->
+                <StackPanel 
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="10"
+                    Margin="0,0,0,0">
+                    <Button
+                        Content="Cancel"
+                        Command="{Binding CancelCommand}"
+                        IsCancel="True" />
+                    <Button
+                        Content="{Binding ButtonText}"
+                        Command="{Binding ConfirmCommand}"
+                        Classes="accent"
+                        IsDefault="True" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

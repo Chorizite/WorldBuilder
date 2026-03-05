@@ -78,21 +78,35 @@ public class CombinedViewLocator : ViewLocatorBase, IDataTemplate {
             }
         }
 
-        // First try the standard Views namespace
+        // First try dialog naming (no View suffix) for Views.Components namespace
+        var componentsDialogName = viewModelName.Replace(".ViewModels.", ".Views.Components.").Replace("ViewModel", "");
+        var componentsDialogType = viewModelType.Assembly.GetType(componentsDialogName);
+        if (componentsDialogType != null) {
+            return componentsDialogName;
+        }
+
+        // Then try standard Views namespace with dialog naming (no View suffix)
+        var standardDialogName = viewModelName.Replace(".ViewModels.", ".Views.").Replace("ViewModel", "");
+        var standardDialogType = viewModelType.Assembly.GetType(standardDialogName);
+        if (standardDialogType != null) {
+            return standardDialogName;
+        }
+
+        // If not found, try the standard Views namespace with View suffix
         var standardViewName = viewModelName.Replace(".ViewModels.", ".Views.").Replace("ViewModel", "View");
         var standardViewType = viewModelType.Assembly.GetType(standardViewName);
         if (standardViewType != null) {
             return standardViewName;
         }
 
-        // If not found, try the Views.Components namespace
+        // If not found, try the Views.Components namespace with View suffix
         var componentsViewName = viewModelName.Replace(".ViewModels.", ".Views.Components.").Replace("ViewModel", "View");
         var componentsViewType = viewModelType.Assembly.GetType(componentsViewName);
         if (componentsViewType != null) {
             return componentsViewName;
         }
 
-        // Return the standard name as fallback
-        return standardViewName;
+        // Return the standard dialog name as fallback
+        return standardDialogName;
     }
 }

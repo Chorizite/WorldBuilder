@@ -147,7 +147,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 PropertiesPanel.SelectedItem = LayersPanel.SelectedItem;
             }
         };
-        BookmarksPanel = new BookmarksPanelViewModel(_bookmarksManager, this, _dialogService);
+        BookmarksPanel = new BookmarksPanelViewModel(_settings!, _bookmarksManager, this, _dialogService);
 
         _ = LoadLandscapeAsync();
 
