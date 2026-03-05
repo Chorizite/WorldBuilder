@@ -1,0 +1,24 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:WorldBuilder.ViewModels"
+        x:DataType="vm:MainViewModel"
+        x:Class="WorldBuilder.Views.GpuDebugWindow"
+        Title="GPU Debug"
+        Width="400" Height="500"
+        WindowStartupLocation="CenterOwner">
+
+    <ScrollViewer>
+        <Border Padding="15">
+            <StackPanel Spacing="15">
+                <TextBlock Text="GPU Buffer Sizes" FontWeight="Bold" FontSize="16" />
+                <TextBlock Text="{Binding VramDetailsTooltip}" TextWrapping="Wrap" />
+                
+                <Separator />
+                
+                <TextBlock Text="Render Times" FontWeight="Bold" FontSize="16" />
+                <TextBlock Text="{Binding RenderTimeDetailsTooltip}" />
+            </StackPanel>
+        </Border>
+    </ScrollViewer>
+    
+</Window>

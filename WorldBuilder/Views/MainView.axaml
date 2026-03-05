@@ -30,11 +30,12 @@
                     <MenuItem Command="{Binding CloseProjectCommand}" Header="Close" />
                     <MenuItem Command="{Binding ExitApplicationCommand}" Header="Exit" InputGesture="{Binding ExitHotkeyText, Converter={StaticResource StringToKeyGestureConverter}}" />
                 </MenuItem>
-                <!--
+                
                 <MenuItem Header="Debug">
-                    <MenuItem Command="{Binding OpenDebugWindowCommand}" Header="Open Debug Window" />
+                    <MenuItem Command="{Binding OpenDebugWindowCommand}" Header="Avalonia Debug" />
+                    <MenuItem Command="{Binding OpenGpuDebugWindowCommand}" Header="GPU Debug" />
                 </MenuItem>
-                -->
+                
                 <MenuItem Command="{Binding OpenSettingsWindowCommand}" Header="Settings" />
             </Menu>
 

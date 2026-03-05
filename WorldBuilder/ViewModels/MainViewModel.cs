@@ -43,6 +43,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     private readonly PerformanceService _performanceService;
     private readonly CancellationTokenSource _cts = new();
     private Window? _settingsWindow;
+    private Window? _gpuDebugWindow;
 
     /// <summary>
     /// Gets a value indicating whether the application is in dark mode.
@@ -314,6 +315,28 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
 
         viewModel.Closed += (s, e) => _settingsWindow = null;
     }
+
+    [RelayCommand]
+     private void OpenGpuDebugWindow() {
+         if (_gpuDebugWindow != null) {
+             _gpuDebugWindow.Activate();
+             return;
+         }
+
+         _gpuDebugWindow = new Views.GpuDebugWindow {
+             DataContext = this 
+         };
+
+         var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+         if (desktop?.MainWindow != null) {
+             _gpuDebugWindow.Show(desktop.MainWindow);
+         }
+         else {
+             _gpuDebugWindow.Show();
+         }
+
+         _gpuDebugWindow.Closed += (s, e) => _gpuDebugWindow = null;
+     }
 
     [RelayCommand]
     private void OpenDebugWindow() {
