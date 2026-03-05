@@ -16,8 +16,6 @@ namespace WorldBuilder.Shared.Models {
             var affectedLandblocks = new HashSet<(int x, int y)>();
             var exportedLayers = GetAllLayers().Where(IsItemExported).ToList();
 
-            // The base layer might not be marked 'Exported' in the UI since it's the foundation,
-            // but we absolutely need to include it when gathering affected landblocks if it has edits.
             var baseLayer = GetAllLayers().FirstOrDefault(l => l.IsBase);
             if (baseLayer != null && !exportedLayers.Contains(baseLayer)) {
                 exportedLayers.Add(baseLayer);

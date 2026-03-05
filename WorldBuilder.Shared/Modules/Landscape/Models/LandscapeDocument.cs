@@ -579,7 +579,6 @@ namespace WorldBuilder.Shared.Models {
                         }
                     }
                     else if (chunk.Edits.LayerEdits.Count > 0) {
-                        // Diagnostic: list available layer IDs in this chunk
                         System.Console.WriteLine($"[DAT EXPORT] Chunk {chunk.Id:X4} does not contain edits for layer '{layerId}'. Available layers: {string.Join(", ", chunk.Edits.LayerEdits.Keys)}");
                     }
                 }
