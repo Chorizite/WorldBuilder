@@ -544,10 +544,10 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Updates the transform of an object for realtime preview during manipulation.
     /// </summary>
-    public void UpdateObjectPreview(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation) {
-        _staticObjectManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation);
-        _envCellManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation);
-        _sceneryManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation);
+    public void UpdateObjectPreview(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
+        _staticObjectManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId);
+        _envCellManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId);
+        _sceneryManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId);
     }
 
     public uint GetEnvCellAt(Vector3 pos) {

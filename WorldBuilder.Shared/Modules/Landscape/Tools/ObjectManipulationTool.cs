@@ -90,11 +90,29 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 var rotation = new Quaternion(targetObj.Position[4], targetObj.Position[5], targetObj.Position[6], targetObj.Position[3]);
                 var worldPosition = ComputeWorldPosition(targetLbId, localPosition);
 
-                if (HasSelection && moveCommand.OldObject.InstanceId == GizmoState.InstanceId) {
+                // If this was our selection, follow it (even if InstanceId changed)
+                bool isMatch = HasSelection && (GizmoState.InstanceId == moveCommand.OldObject.InstanceId || GizmoState.InstanceId == moveCommand.NewObject.InstanceId);
+
+                if (isMatch) {
+                    var newType = InstanceIdConstants.GetType(targetObj.InstanceId);
                     GizmoState.LandblockId = targetLbId;
+                    GizmoState.InstanceId = targetObj.InstanceId; // Update to the new InstanceId
+                    GizmoState.SelectionType = newType;
                     GizmoState.LocalPosition = localPosition;
                     GizmoState.Rotation = rotation;
                     GizmoState.Position = worldPosition;
+
+                    // Notify UI that the selected object has changed its ID
+                    Context?.NotifyInspectorSelected(new SceneRaycastHit {
+                        Hit = true,
+                        Type = newType,
+                        LandblockId = targetLbId,
+                        InstanceId = targetObj.InstanceId,
+                        ObjectId = GizmoState.ObjectId,
+                        Position = worldPosition,
+                        LocalPosition = localPosition,
+                        Rotation = rotation
+                    });
                 }
                 else {
                     RefreshGizmoPosition();
@@ -103,7 +121,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 // Push the transform to the renderer so the object moves to match
                 // (same-landblock moves skip NotifyLandblockChanged, so the renderer
                 // won't regenerate — it needs this direct transform update instead).
-                Context?.NotifyObjectPositionPreview?.Invoke(targetLbId, targetObj.InstanceId, worldPosition, rotation);
+                Context?.NotifyObjectPositionPreview?.Invoke(targetLbId, targetObj.InstanceId, worldPosition, rotation, targetLbId);
             }
             else {
                 RefreshGizmoPosition();
@@ -250,7 +268,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 }
 
                 // Notify for realtime preview
-                Context.NotifyObjectPositionPreview?.Invoke(GizmoState.LandblockId, GizmoState.InstanceId, GizmoState.Position, GizmoState.Rotation);
+                uint currentCellId = Context.GetEnvCellAt?.Invoke(GizmoState.Position) ?? 0;
+                Context.NotifyObjectPositionPreview?.Invoke(GizmoState.LandblockId, GizmoState.InstanceId, GizmoState.Position, GizmoState.Rotation, currentCellId);
 
                 return true;
             }
@@ -385,7 +404,38 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             var lbOrigin = ComputeWorldPosition(newLandblockId, Vector3.Zero);
             var newLocalPosition = GizmoState.Position - lbOrigin;
 
+            // Update InstanceId if the container changed
+            ulong newInstanceId = GizmoState.InstanceId;
+            if (newLandblockId != _dragStartLandblockId) {
+                if (newType == InspectorSelectionType.EnvCellStaticObject || _dragStartObject.InstanceId >= InstanceIdConstants.EnvCellStaticObjectFlag) {
+                    // For moves into/between cells, we MUST update the ID so the renderer
+                    // can correctly bucket the object into the new cell.
+                    // We don't have a reliable way to generate a unique index client-side, 
+                    // but we can use the original index to try and maintain uniqueness.
+                    ushort index = InstanceIdConstants.GetObjectIndex(GizmoState.InstanceId);
+                    newInstanceId = InstanceIdConstants.EncodeEnvCellStaticObject(newLandblockId, index, true);
+                }
+                // For regular exterior landblock moves, we can often keep the original ID 
+                // unless we strictly want to follow the landblock-prefix encoding. 
+                // User requested keeping IDs, so we'll only change it for cells where it's 
+                // functionally required by the renderer.
+            }
+
             var newObject = CreateStaticObject(newLocalPosition, GizmoState.Rotation);
+            newObject.LayerId = GizmoState.LayerId;
+            // Use Reflection or similar if we can't just set it, but StaticObject has a setter for InstanceId? 
+            // Actually it's 'public ulong InstanceId { get; init; }' - wait, init means we must set it during creation.
+
+            // Re-create newObject with the new InstanceId
+            newObject = new StaticObject {
+                SetupId = GizmoState.ObjectId,
+                InstanceId = newInstanceId,
+                LayerId = GizmoState.LayerId,
+                Position = new[] {
+                    newLocalPosition.X, newLocalPosition.Y, newLocalPosition.Z,
+                    GizmoState.Rotation.W, GizmoState.Rotation.X, GizmoState.Rotation.Y, GizmoState.Rotation.Z
+                }
+            };
 
             var command = new MoveStaticObjectCommand(
                 Context,
@@ -397,9 +447,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
             Context.CommandHistory.Execute(command);
 
-            // Update the stored local position so next drag starts from current state
+            // Update the stored state so next drag starts from current state
             GizmoState.LocalPosition = newLocalPosition;
             GizmoState.LandblockId = newLandblockId;
+            GizmoState.InstanceId = newInstanceId; // Update the selection's ID
             GizmoState.SelectionType = newType;
             _dragStartObject = null;
         }

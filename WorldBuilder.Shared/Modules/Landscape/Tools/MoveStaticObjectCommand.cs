@@ -42,12 +42,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools
 
         public void Execute()
         {
-            _context.UpdateStaticObject?.Invoke(_layerId, _oldLandblockId, _newLandblockId, _newObject);
+            _context.UpdateStaticObject?.Invoke(_layerId, _oldLandblockId, _oldObject.InstanceId, _newLandblockId, _newObject);
         }
 
         public void Undo()
         {
-            _context.UpdateStaticObject?.Invoke(_layerId, _newLandblockId, _oldLandblockId, _oldObject);
+            _context.UpdateStaticObject?.Invoke(_layerId, _newLandblockId, _newObject.InstanceId, _oldLandblockId, _oldObject);
         }
     }
 }

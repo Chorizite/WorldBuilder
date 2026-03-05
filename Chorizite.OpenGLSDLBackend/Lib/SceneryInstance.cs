@@ -32,6 +32,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>Rotation quaternion.</summary>
         public Quaternion Rotation;
 
+        /// <summary>The current cell ID this instance is in (used for previewing moves between cells).</summary>
+        public uint CurrentPreviewCellId;
+
         /// <summary>Scale (typically uniform).</summary>
         public Vector3 Scale;
 

@@ -76,10 +76,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         /// </summary>
         public static uint GetRawId(ulong instanceId) => (uint)(instanceId & 0xFFFFFFFFu);
 
-        /// <summary>
-        /// Extracts the object index (lower 16 bits) from a landblock-aware instance ID.
-        /// </summary>
-        public static ushort GetObjectIndex(ulong instanceId) => (ushort)(instanceId & 0xFFFF);
+        public static ushort GetObjectIndex(ulong instanceId) {
+            if ((instanceId & EnvCellStaticObjectFlag) != 0) {
+                return (ushort)((instanceId >> 32) & 0xFFFF);
+            }
+            return (ushort)(instanceId & 0xFFFF);
+        }
 
         /// <summary>
         /// Extracts the landblock prefix (bits 16-31) from a landblock-aware instance ID.

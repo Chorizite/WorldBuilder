@@ -53,7 +53,7 @@ public partial class UpdateStaticObjectCommand : BaseCommand<bool> {
             using var terrainRental = rentResult.Value;
             await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
-            var result = await terrainRental.Document.UpdateStaticObjectAsync(LayerId, OldLandblockId, NewLandblockId, NewObject, dats, documentManager, tx, ct);
+            var result = await terrainRental.Document.UpdateStaticObjectAsync(LayerId, OldLandblockId, OldObject.InstanceId, NewLandblockId, NewObject, dats, documentManager, tx, ct);
             if (result.IsFailure) return result;
 
             var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);

@@ -292,11 +292,11 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _toolContext.GetStaticObjectLocalBounds = (landblockId, instanceId) => _gameScene?.GetStaticObjectLocalBounds(landblockId, instanceId);
             _toolContext.GetStaticObjectTransform = (landblockId, instanceId) => _gameScene?.GetStaticObjectTransform(landblockId, instanceId);
             _toolContext.GetStaticObjectLayerId = (landblockId, instanceId) => _gameScene?.GetStaticObjectLayerId(landblockId, instanceId);
-            _toolContext.UpdateStaticObject = (layerId, oldLbId, newLbId, newObj) => {
+            _toolContext.UpdateStaticObject = (layerId, oldLbId, oldInstanceId, newLbId, newObj) => {
                 if (ActiveDocument == null) return;
 
                 _ = Task.Run(async () => {
-                    var result = await ActiveDocument.UpdateStaticObjectAsync(layerId, oldLbId, newLbId, newObj, _dats, _documentManager, null!, default);
+                    var result = await ActiveDocument.UpdateStaticObjectAsync(layerId, oldLbId, oldInstanceId, newLbId, newObj, _dats, _documentManager, null!, default);
                     if (result.IsSuccess) {
                         RequestSave(ActiveDocument.Id);
                     }
@@ -306,8 +306,8 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 });
             };
 
-            _toolContext.NotifyObjectPositionPreview = (landblockId, instanceId, position, rotation) => {
-                _gameScene?.UpdateObjectPreview(landblockId, instanceId, position, rotation);
+            _toolContext.NotifyObjectPositionPreview = (landblockId, instanceId, position, rotation, currentCellId) => {
+                _gameScene?.UpdateObjectPreview(landblockId, instanceId, position, rotation, currentCellId);
             };
 
             _toolContext.ComputeLandblockId = (worldPos) => {

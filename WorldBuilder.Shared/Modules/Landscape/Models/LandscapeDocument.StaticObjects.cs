@@ -106,7 +106,7 @@ public partial class LandscapeDocument {
     /// <summary>
     /// Updates a static object in a landscape layer (handles moves between landblocks).
     /// </summary>
-    public async Task<Result<bool>> UpdateStaticObjectAsync(string layerId, uint oldLandblockId, uint newLandblockId, StaticObject newObj, IDatReaderWriter dats, IDocumentManager documentManager, ITransaction tx, CancellationToken ct) {
+    public async Task<Result<bool>> UpdateStaticObjectAsync(string layerId, uint oldLandblockId, ulong oldInstanceId, uint newLandblockId, StaticObject newObj, IDatReaderWriter dats, IDocumentManager documentManager, ITransaction tx, CancellationToken ct) {
         try {
             if (layerId != "Base") {
                 var layer = FindItem(layerId) as LandscapeLayer;
@@ -129,13 +129,13 @@ public partial class LandscapeDocument {
                     if ((oldLandblockId & 0xFFFF) < 0xFFFE) {
                         // Env cell
                         if (layerEdits.Cells.TryGetValue(oldLandblockId, out var cell)) {
-                            cell.StaticObjects.RemoveAll(x => x.InstanceId == newObj.InstanceId);
+                            cell.StaticObjects.RemoveAll(x => x.InstanceId == oldInstanceId);
                         }
                     }
                     else {
                         // Regular landblock
                         if (layerEdits.ExteriorStaticObjects.TryGetValue(oldLandblockId, out var list)) {
-                            list.RemoveAll(x => x.InstanceId == newObj.InstanceId);
+                            list.RemoveAll(x => x.InstanceId == oldInstanceId);
                         }
                     }
                 }
@@ -151,19 +151,17 @@ public partial class LandscapeDocument {
                     tombstoneEdits = new LandscapeChunkEdits();
                     oldChunkForTombstone.Edits.LayerEdits[layerId] = tombstoneEdits;
                 }
-                if (!tombstoneEdits.DeletedInstanceIds.Contains(newObj.InstanceId)) {
-                    tombstoneEdits.DeletedInstanceIds.Add(newObj.InstanceId);
+                if (!tombstoneEdits.DeletedInstanceIds.Contains(oldInstanceId)) {
+                    tombstoneEdits.DeletedInstanceIds.Add(oldInstanceId);
                 }
             }
 
             Version++;
 
-            // Only notify for moves that cross landblock grid boundaries.
-            // Compare grid positions (upper 16 bits) rather than full IDs so
-            // that moves between env cells in the same landblock are also
-            // treated as same-landblock (the renderer already has the correct
-            // transform from UpdateInstanceTransform).
-            bool crossedLandblock = (oldLandblockId >> 16) != (newLandblockId >> 16);
+            // Always notify if the landblock or cell changes. 
+            // This is required because moving between env cells changes the InstanceId,
+            // which requires the chunk renderer to rebuild the mesh.
+            bool crossedLandblock = oldLandblockId != newLandblockId;
             if (crossedLandblock) {
                 var affectedLandblocks = new HashSet<(int, int)> {
                     ((int)(oldLandblockId >> 24), (int)((oldLandblockId >> 16) & 0xFF)),

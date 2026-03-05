@@ -471,7 +471,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             lb.BuildingPartGroups.Clear(); // Using BuildingPartGroups for EnvCell parts
             foreach (var instance in instances) {
                 var targetGroup = lb.BuildingPartGroups;
-                var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
+                var cellId = instance.CurrentPreviewCellId != 0 ? instance.CurrentPreviewCellId : InstanceIdConstants.GetRawId(instance.InstanceId);
                 if (instance.IsSetup) {
                     var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
                     if (renderData is { IsSetup: true }) {

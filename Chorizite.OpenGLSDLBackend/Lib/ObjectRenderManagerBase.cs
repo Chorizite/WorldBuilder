@@ -361,7 +361,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Updates the transform of a specific instance in its owner landblock.
         /// This is used for realtime previews during manipulation.
         /// </summary>
-        public void UpdateInstanceTransform(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation) {
+        public void UpdateInstanceTransform(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
             ushort key = (ushort)(landblockId >> 16);
             if (_landblocks.TryGetValue(key, out var lb)) {
                 lock (lb) {
@@ -371,6 +371,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             instance.WorldPosition = position;
                             instance.Rotation = rotation;
                             instance.Transform = Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateTranslation(position);
+                            instance.CurrentPreviewCellId = currentCellId;
                             if (instance.LocalBoundingBox.Max != instance.LocalBoundingBox.Min) {
                                 instance.BoundingBox = instance.LocalBoundingBox.Transform(instance.Transform);
                             }

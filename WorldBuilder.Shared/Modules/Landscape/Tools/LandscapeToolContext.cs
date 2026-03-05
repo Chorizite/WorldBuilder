@@ -92,11 +92,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <summary>Delegate for retrieving the layer ID that owns a static object.</summary>
         public Func<uint, ulong, string?>? GetStaticObjectLayerId { get; set; }
 
-        /// <summary>Action to update a static object in the document (layerId, oldLandblockId, newLandblockId, newObject).</summary>
-        public Action<string, uint, uint, Models.StaticObject>? UpdateStaticObject { get; set; }
+        /// <summary>Action to update a static object in the document (layerId, oldLandblockId, oldInstanceId, newLandblockId, newObject).</summary>
+        public Action<string, uint, ulong, uint, Models.StaticObject>? UpdateStaticObject { get; set; }
 
-        /// <summary>Action to notify the rendering layer of a live position/rotation preview during drag.</summary>
-        public Action<uint, ulong, Vector3, System.Numerics.Quaternion>? NotifyObjectPositionPreview { get; set; }
+        /// <summary>Action to notify the rendering layer of a live position/rotation preview during drag (landblockId, instanceId, position, rotation, currentCellId).</summary>
+        public Action<uint, ulong, Vector3, System.Numerics.Quaternion, uint>? NotifyObjectPositionPreview { get; set; }
 
         /// <summary>Delegate to compute a landblock ID from a world-space position.</summary>
         public Func<Vector3, uint>? ComputeLandblockId { get; set; }

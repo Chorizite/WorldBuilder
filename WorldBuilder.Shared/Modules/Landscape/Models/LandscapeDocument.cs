@@ -677,7 +677,7 @@ namespace WorldBuilder.Shared.Models {
                                 Surfaces = properties.Surfaces, // Keep from DAT
                                 Portals = properties.Portals,   // Keep from DAT
                                 LayerId = "Base",
-                                StaticObjects = cellEdits.StaticObjects
+                                StaticObjects = cellEdits.StaticObjects != null ? new List<StaticObject>(cellEdits.StaticObjects) : new List<StaticObject>()
                             };
                         }
 
