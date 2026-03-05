@@ -99,28 +99,26 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
     public GameScene GameScene => _gameScene!;
 
-    public LandscapeViewModel(IProject project, IDatReaderWriter dats, IPortalService portalService, IDocumentManager documentManager, BookmarksManager bookmarksManager, ILogger<LandscapeViewModel> log, IDialogService dialogService) {
-        _project = project;
-        _dats = dats;
-        _portalService = portalService;
-        _documentManager = documentManager;
-        _log = log;
-        _dialogService = dialogService;
-        _settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
-        _bookmarksManager = bookmarksManager;
+    public LandscapeViewModel(IProject project, IDatReaderWriter dats, IPortalService portalService, IDocumentManager documentManager, BookmarksManager bookmarksManager, ILogger<LandscapeViewModel> log, IDialogService dialogService, WorldBuilderSettings settings) {
+        _project = project ?? throw new ArgumentNullException(nameof(project));
+        _dats = dats ?? throw new ArgumentNullException(nameof(dats));
+        _portalService = portalService ?? throw new ArgumentNullException(nameof(portalService));
+        _documentManager = documentManager ?? throw new ArgumentNullException(nameof(documentManager));
+        _log = log ?? throw new ArgumentNullException(nameof(log));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _bookmarksManager = bookmarksManager ?? throw new ArgumentNullException(nameof(bookmarksManager));
 
-        if (_settings != null) {
-            CommandHistory.MaxHistoryDepth = _settings.App.HistoryLimit;
-            SyncSettingsToState();
+        CommandHistory.MaxHistoryDepth = _settings.App.HistoryLimit;
+        SyncSettingsToState();
 
-            _settings.PropertyChanged += OnSettingsPropertyChanged;
-            _settings.Landscape.PropertyChanged += OnLandscapeSettingsPropertyChanged;
-            _settings.Landscape.Camera.PropertyChanged += OnCameraSettingsPropertyChanged;
-            _settings.Landscape.Rendering.PropertyChanged += OnRenderingSettingsPropertyChanged;
-            _settings.Landscape.Grid.PropertyChanged += OnGridSettingsPropertyChanged;
+        _settings.PropertyChanged += OnSettingsPropertyChanged;
+        _settings.Landscape.PropertyChanged += OnLandscapeSettingsPropertyChanged;
+        _settings.Landscape.Camera.PropertyChanged += OnCameraSettingsPropertyChanged;
+        _settings.Landscape.Rendering.PropertyChanged += OnRenderingSettingsPropertyChanged;
+        _settings.Landscape.Grid.PropertyChanged += OnGridSettingsPropertyChanged;
 
-            EditorState.PropertyChanged += OnEditorStatePropertyChanged;
-        }
+        EditorState.PropertyChanged += OnEditorStatePropertyChanged;
 
         HistoryPanel = new HistoryPanelViewModel(CommandHistory);
         PropertiesPanel = new PropertiesPanelViewModel {
