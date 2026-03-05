@@ -1,0 +1,61 @@
+<Window
+    x:Class="WorldBuilder.Modules.Landscape.Views.Components.TextInputDialogView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:WorldBuilder.Modules.Landscape.ViewModels"
+    Width="400"
+    Height="180"
+    CanResize="False"
+    WindowStartupLocation="CenterOwner"
+    ShowInTaskbar="False"
+    Topmost="True"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaChromeHints="NoChrome"
+    x:DataType="vm:TextInputDialogViewModel"
+    mc:Ignorable="d">
+
+    <Border Background="{DynamicResource ThemeControlBackgroundBrush}"
+            BorderBrush="{DynamicResource ThemeBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            BoxShadow="0 4 8 0 #20000000">
+        <Grid Margin="20" RowDefinitions="Auto, *, Auto">
+            <TextBlock
+                Grid.Row="0"
+                Text="{Binding PromptText}"
+                Margin="0,0,0,10"
+                FontWeight="SemiBold"/>
+
+            <TextBox
+                x:Name="InputTextBox"
+                Grid.Row="1"
+                Text="{Binding InputText, Mode=TwoWay}"
+                VerticalAlignment="Top"
+                Watermark="Enter text">
+                <TextBox.KeyBindings>
+                    <KeyBinding Gesture="Enter" Command="{Binding ConfirmCommand}" />
+                    <KeyBinding Gesture="Escape" Command="{Binding CancelCommand}" />
+                </TextBox.KeyBindings>
+            </TextBox>
+
+            <StackPanel
+                Grid.Row="2"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="10"
+                Margin="0,10,0,0">
+                <Button
+                    Content="Cancel"
+                    Command="{Binding CancelCommand}"
+                    IsCancel="True" />
+                <Button
+                    Content="{Binding ButtonText}"
+                    Command="{Binding ConfirmCommand}"
+                    Classes="accent"
+                    IsDefault="True" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

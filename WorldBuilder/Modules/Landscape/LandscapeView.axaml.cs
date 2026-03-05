@@ -91,6 +91,26 @@ public partial class LandscapeView : UserControl {
             _sideBarSplitter.DragCompleted += OnSideBarSplitterDragCompleted;
         }
 
+        // Setup tab control handler
+        if (rightPanelsGrid != null) {
+            var actualTabControl = rightPanelsGrid.Children.OfType<TabControl>().FirstOrDefault();
+            if (actualTabControl != null) {
+                actualTabControl.SelectionChanged += OnTabSelectionChanged;
+                
+                // Restore active tab from settings
+                var activeTab = _settings?.Project?.ActiveTab ?? "Layers";
+                var items = actualTabControl.Items;
+                if (items != null) {
+                    foreach (TabItem? item in items) {
+                        if (item?.Header?.ToString() == activeTab) {
+                            actualTabControl.SelectedItem = item;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
         TryInitializeToolContext();
         StartUpdateTimer();
     }
@@ -103,6 +123,12 @@ public partial class LandscapeView : UserControl {
         var rightPanels = this.FindControl<Grid>("RightPanels");
         if (rightPanels != null) {
             rightPanels.SizeChanged -= OnRightPanelSizeChanged;
+            
+            // Cleanup tab selection event
+            var actualTabControl = rightPanels.Children.OfType<TabControl>().FirstOrDefault();
+            if (actualTabControl != null) {
+                actualTabControl.SelectionChanged -= OnTabSelectionChanged;
+            }
         }
 
         var propertiesPanel = this.FindControl<UserControl>("PropertiesPanel");
@@ -294,6 +320,15 @@ public partial class LandscapeView : UserControl {
             if (bottomRow.Height.IsStar) {
                 _settings.Landscape.PropertiesPanelHeight = bottomRow.Height.Value;
                 _settings.Save();
+            }
+        }
+    }
+
+    private void OnTabSelectionChanged(object? sender, SelectionChangedEventArgs e) {
+        if (sender is TabControl tabControl && tabControl.SelectedItem is TabItem selectedTab) {
+            var tabHeader = selectedTab.Header?.ToString();
+            if (!string.IsNullOrEmpty(tabHeader) && DataContext is LandscapeViewModel vm) {
+                vm.OnActiveTabChanged(tabHeader);
             }
         }
     }
