@@ -40,6 +40,11 @@ public interface IWorldCoordinateService {
     ushort GetChunkId(uint x, uint y);
 
     /// <summary>
+    /// Gets the landblock ID for a given landblock coordinate (x, y).
+    /// </summary>
+    uint GetLandblockId(int lbX, int lbY);
+
+    /// <summary>
     /// Gets the landblock coordinates (x, y) affected by a set of vertex indices.
     /// Handles vertices that are on boundaries between landblocks.
     /// </summary>

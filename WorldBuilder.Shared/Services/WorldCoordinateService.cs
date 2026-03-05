@@ -84,6 +84,11 @@ public class WorldCoordinateService : IWorldCoordinateService {
     }
 
     /// <inheritdoc/>
+    public uint GetLandblockId(int lbX, int lbY) {
+        return (uint)(((uint)lbX << 24) | ((uint)lbY << 16) | 0xFFFEu);
+    }
+
+    /// <inheritdoc/>
     public IEnumerable<(int x, int y)> GetAffectedLandblocks(IEnumerable<uint> vertexIndices, ITerrainInfo region) {
         if (region == null) {
             yield break;

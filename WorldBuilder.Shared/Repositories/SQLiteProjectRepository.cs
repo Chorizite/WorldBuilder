@@ -261,6 +261,27 @@ namespace WorldBuilder.Shared.Repositories {
         }
 
         /// <inheritdoc/>
+        public async Task<IReadOnlyList<string>> GetDocumentIdsAsync(string prefix, CancellationToken ct) {
+            var ids = new List<string>();
+            try {
+                _logger?.LogDebug("Retrieving document IDs starting with prefix: {Prefix}", prefix);
+                const string sql = "SELECT Id FROM Documents WHERE Id LIKE @prefix || '%'";
+                await using var cmd = Connection.CreateCommand();
+                cmd.CommandText = sql;
+                cmd.Parameters.AddWithValue("@prefix", prefix);
+                await using var reader = await cmd.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct)) {
+                    ids.Add(reader.GetString(0));
+                }
+                _logger?.LogDebug("Retrieved {Count} document IDs starting with prefix: {Prefix}", ids.Count, prefix);
+            }
+            catch (Exception ex) {
+                _logger?.LogError(ex, "Error retrieving document IDs starting with prefix: {Prefix}", prefix);
+            }
+            return ids;
+        }
+
+        /// <inheritdoc/>
         public async Task<Result<byte[]>> GetDocumentBlobAsync<T>(string id, CancellationToken ct)
             where T : BaseDocument {
             try {

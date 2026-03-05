@@ -68,6 +68,10 @@ public class DocumentManager : IDocumentManager, IDisposable {
         return Result<string>.Success(value);
     }
 
+    public async Task<IReadOnlyList<string>> GetDocumentIdsAsync(string prefix, CancellationToken ct) {
+        return await _repo.GetDocumentIdsAsync(prefix, ct);
+    }
+
     public async Task<Result<DocumentRental<T>>> CreateDocumentAsync<T>(T document, ITransaction tx,
         CancellationToken ct) where T : BaseDocument {
         if (_disposed) {

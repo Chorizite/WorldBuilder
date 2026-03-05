@@ -85,18 +85,18 @@ namespace WorldBuilder.Shared.Services {
 
         /// <inheritdoc/>
         public bool TrySave<T>(T obj, int iteration = 0) where T : IDBObj {
-            if (obj is LandBlock) {
+            if (obj is LandBlock || obj is EnvCell || obj is LandBlockInfo) {
                 if (_cellRegions.Count == 1) {
                     return _cellRegions.Values.First().TrySave(obj, iteration);
                 }
-                throw new InvalidOperationException("Multiple cell regions loaded; use TrySave with explicit region ID for LandBlocks.");
+                throw new InvalidOperationException("Multiple cell regions loaded; use TrySave with explicit region ID for Cell DB objects.");
             }
             return Portal.TrySave(obj, iteration);
         }
 
         /// <inheritdoc/>
         public bool TrySave<T>(uint regionId, T obj, int iteration = 0) where T : IDBObj {
-            if (obj is LandBlock) {
+            if (obj is LandBlock || obj is EnvCell || obj is LandBlockInfo) {
                 if (_cellRegions.TryGetValue(regionId, out var cellDb)) {
                     return cellDb.TrySave(obj, iteration);
                 }

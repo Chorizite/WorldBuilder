@@ -11,7 +11,7 @@ public partial class LandscapeDocument {
     /// </summary>
     public async Task<Result<bool>> AddStaticObjectAsync(string layerId, uint landblockId, StaticObject obj, IDatReaderWriter dats, IDocumentManager documentManager, ITransaction tx, CancellationToken ct) {
         try {
-            if (layerId != "Base") {
+            if (layerId != BaseLayerId) {
                 var layer = FindItem(layerId) as LandscapeLayer;
                 if (layer == null) {
                     return Result<bool>.Failure(Error.NotFound($"Layer not found: {layerId}"));
@@ -50,7 +50,7 @@ public partial class LandscapeDocument {
     /// </summary>
     public async Task<Result<bool>> DeleteStaticObjectAsync(string layerId, uint landblockId, ulong instanceId, IDatReaderWriter dats, IDocumentManager documentManager, ITransaction tx, CancellationToken ct) {
         try {
-            if (layerId != "Base") {
+            if (layerId != BaseLayerId) {
                 var layer = FindItem(layerId) as LandscapeLayer;
                 if (layer == null) {
                     return Result<bool>.Failure(Error.NotFound($"Layer not found: {layerId}"));
@@ -108,7 +108,7 @@ public partial class LandscapeDocument {
     /// </summary>
     public async Task<Result<bool>> UpdateStaticObjectAsync(string layerId, uint oldLandblockId, ulong oldInstanceId, uint newLandblockId, StaticObject newObj, IDatReaderWriter dats, IDocumentManager documentManager, ITransaction tx, CancellationToken ct) {
         try {
-            if (layerId != "Base") {
+            if (layerId != BaseLayerId) {
                 var layer = FindItem(layerId) as LandscapeLayer;
                 if (layer == null) {
                     return Result<bool>.Failure(Error.NotFound($"Layer not found: {layerId}"));

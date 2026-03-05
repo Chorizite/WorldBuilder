@@ -43,7 +43,15 @@ namespace WorldBuilder.Shared.Models {
 
         private bool _didLoadLayers;
         private bool _didLoadRegionData;
+        private IDocumentManager? _documentManager;
         private readonly HashSet<string> _layerIds = [];
+
+        /// <summary>
+        /// Gets the ID of the base layer.
+        /// </summary>
+        [MemoryPackIgnore]
+        public string? BaseLayerId => GetAllLayers().FirstOrDefault(l => l.IsBase)?.Id;
+
         private readonly SemaphoreSlim _initLock = new(1, 1);
         private readonly SemaphoreSlim _dbLock = new(1, 1);
         private readonly SemaphoreSlim _ioSemaphore = new(Math.Max(2, System.Environment.ProcessorCount / 2));
@@ -110,6 +118,7 @@ namespace WorldBuilder.Shared.Models {
             CancellationToken ct) {
             await _initLock.WaitAsync(ct);
             try {
+                _documentManager = documentManager;
                 await LoadRegionDataAsync(dats);
                 // LoadCacheFromDatsAsync is deferred until needed (e.g., during export or editing)
                 await LoadLayersAsync(documentManager, ct);
@@ -124,11 +133,34 @@ namespace WorldBuilder.Shared.Models {
             CancellationToken ct) {
             await _initLock.WaitAsync(ct);
             try {
+                _documentManager = documentManager;
                 await LoadRegionDataAsync(dats);
                 await LoadLayersAsync(documentManager, ct);
             }
             finally {
                 _initLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// Loads all chunks for this region that have modified data in the document manager.
+        /// </summary>
+        public async Task LoadAllModifiedChunksAsync(IDatReaderWriter dats, IDocumentManager? documentManager = null, CancellationToken ct = default) {
+            documentManager ??= _documentManager;
+            if (documentManager == null) return;
+
+            var prefix = $"{nameof(LandscapeChunkDocument)}_{RegionId}_";
+            var ids = await documentManager.GetDocumentIdsAsync(prefix, ct);
+            System.Console.WriteLine($"[DAT EXPORT] Found {ids.Count} modified chunk documents for region {RegionId} in database.");
+
+            foreach (var id in ids) {
+                // Parse chunk coordinates from ID: LandscapeChunkDocument_{regionId}_{chunkX}_{chunkY}
+                var parts = id.Split('_');
+                if (parts.Length == 4 && uint.TryParse(parts[2], out var cx) && uint.TryParse(parts[3], out var cy)) {
+                    var chunkId = (ushort)((cx << 8) | cy);
+                    System.Console.WriteLine($"[DAT EXPORT] Loading modified chunk {cx}, {cy} (ID: 0x{chunkId:X4})");
+                    await GetOrLoadChunkAsync(chunkId, dats, documentManager, ct);
+                }
             }
         }
 
@@ -478,13 +510,81 @@ namespace WorldBuilder.Shared.Models {
         /// <summary>
         /// Gets the landblock coordinates affected by a specific layer.
         /// </summary>
-        public IEnumerable<(int x, int y)> GetAffectedLandblocks(string layerId) {
+        public async Task<IEnumerable<(int x, int y)>> GetAffectedLandblocksAsync(string layerId, IDatReaderWriter dats, IDocumentManager documentManager, CancellationToken ct) {
             var layer = FindItem(layerId) as LandscapeLayer;
             if (layer == null || Region == null) {
                 return Enumerable.Empty<(int x, int y)>();
             }
 
-            return GetAffectedLandblocks(GetAffectedVertices(layer));
+            // Ensure all chunks with edits for this region are loaded
+            await LoadAllModifiedChunksAsync(dats, documentManager, ct);
+
+            return GetAffectedLandblocks(layerId);
+        }
+
+        /// <summary>
+        /// Gets the landblock coordinates affected by a specific layer.
+        /// </summary>
+        public IEnumerable<(int x, int y)> GetAffectedLandblocks(string layerId) {
+            var layer = FindItem(layerId) as LandscapeLayer;
+            if (layer == null || Region == null) {
+                System.Console.WriteLine($"[DAT EXPORT] GetAffectedLandblocks: Layer '{layerId}' not found or Region is null.");
+                return Enumerable.Empty<(int x, int y)>();
+            }
+
+            var affected = new HashSet<(int x, int y)>();
+
+            // Collect from vertex edits
+            var affectedVertices = GetAffectedVertices(layer).ToList();
+            foreach (var lb in GetAffectedLandblocks(affectedVertices)) {
+                affected.Add(lb);
+            }
+
+            if (affected.Count > 0) {
+                System.Console.WriteLine($"[DAT EXPORT] Layer '{layer.Name}' has {affected.Count} affected landblocks from vertex edits.");
+            }
+
+            // Collect from object edits in all chunks for this layer
+            foreach (var chunk in LoadedChunks.Values) {
+                if (chunk.Edits != null) {
+                    if (chunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
+                        int layerCount = 0;
+                        foreach (var lbId in layerEdits.ExteriorStaticObjects.Keys) {
+                            affected.Add(((int)(lbId >> 24), (int)((lbId >> 16) & 0xFF)));
+                            layerCount++;
+                        }
+                        foreach (var lbId in layerEdits.Buildings.Keys) {
+                            affected.Add(((int)(lbId >> 24), (int)((lbId >> 16) & 0xFF)));
+                            layerCount++;
+                        }
+                        foreach (var cellId in layerEdits.Cells.Keys) {
+                            affected.Add(((int)(cellId >> 24), (int)((cellId >> 16) & 0xFF)));
+                            layerCount++;
+                        }
+                        foreach (var instanceId in layerEdits.DeletedInstanceIds) {
+                            var type = InstanceIdConstants.GetType(instanceId);
+                            if (type == InspectorSelectionType.EnvCellStaticObject) {
+                                var cellId = InstanceIdConstants.GetRawId(instanceId);
+                                affected.Add(((int)(cellId >> 24), (int)((cellId >> 16) & 0xFF)));
+                                layerCount++;
+                            }
+                            else if (type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) {
+                                var prefix = InstanceIdConstants.GetLandblockPrefix(instanceId);
+                                affected.Add(((int)(prefix >> 8), (int)(prefix & 0xFF)));
+                                layerCount++;
+                            }
+                        }
+                        if (layerCount > 0) {
+                            System.Console.WriteLine($"[DAT EXPORT] Layer '{layer.Name}' ({layerId}) has {layerCount} object edits in chunk {chunk.Id:X4}. Total unique affected landblocks for this layer: {affected.Count}");
+                        }
+                    }
+                    else if (chunk.Edits.LayerEdits.Count > 0) {
+                        System.Console.WriteLine($"[DAT EXPORT] Chunk {chunk.Id:X4} does not contain edits for layer '{layerId}'. Available layers: {string.Join(", ", chunk.Edits.LayerEdits.Keys)}");
+                    }
+                }
+            }
+
+            return affected;
         }
 
         /// <summary>
@@ -558,7 +658,7 @@ namespace WorldBuilder.Shared.Models {
                             SetupId = lbi.Objects[i].Id,
                             Position = [lbi.Objects[i].Frame.Origin.X, lbi.Objects[i].Frame.Origin.Y, lbi.Objects[i].Frame.Origin.Z, lbi.Objects[i].Frame.Orientation.W, lbi.Objects[i].Frame.Orientation.X, lbi.Objects[i].Frame.Orientation.Y, lbi.Objects[i].Frame.Orientation.Z],
                             InstanceId = instanceId,
-                            LayerId = "Base"
+                            LayerId = BaseLayerId ?? "Base"
                         };
                     }
 
@@ -568,17 +668,18 @@ namespace WorldBuilder.Shared.Models {
                             ModelId = lbi.Buildings[i].ModelId,
                             Position = [lbi.Buildings[i].Frame.Origin.X, lbi.Buildings[i].Frame.Origin.Y, lbi.Buildings[i].Frame.Origin.Z, lbi.Buildings[i].Frame.Orientation.W, lbi.Buildings[i].Frame.Orientation.X, lbi.Buildings[i].Frame.Orientation.Y, lbi.Buildings[i].Frame.Orientation.Z],
                             InstanceId = instanceId,
-                            LayerId = "Base"
+                            LayerId = BaseLayerId ?? "Base"
                         };
                     }
                 }
             }
 
-            // Apply Base Edits from the "Base" layer in the chunk's document
+            // Apply Base Edits from the base layer in the chunk's document
             ushort chunkId = _coords.GetChunkIdForLandblock(landblockId);
 
             if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
-                if (chunk.Edits.LayerEdits.TryGetValue("Base", out var baseEdits)) {
+                var baseId = BaseLayerId;
+                if (baseId != null && chunk.Edits.LayerEdits.TryGetValue(baseId, out var baseEdits)) {
                     foreach (var rmId in baseEdits.DeletedInstanceIds) {
                         baseStatics.Remove(rmId);
                         // Building removals are also in DeletedInstanceIds
@@ -606,8 +707,9 @@ namespace WorldBuilder.Shared.Models {
             // Apply active layers
             ushort chunkIdForLayers = _coords.GetChunkIdForLandblock(landblockId);
             if (LoadedChunks.TryGetValue(chunkIdForLayers, out var chunkDoc)) {
+                var baseId = BaseLayerId;
                 foreach (var layer in GetAllLayers()) {
-                    if (!IsItemVisible(layer) || layer.Id == "Base") continue;
+                    if (!IsItemVisible(layer) || layer.Id == baseId) continue;
 
                     if (chunkDoc.Edits != null && chunkDoc.Edits.LayerEdits.TryGetValue(layer.Id, out var layerEdits)) {
                         // Remove tombstones
@@ -648,7 +750,7 @@ namespace WorldBuilder.Shared.Models {
                     Position = [cell.Position.Origin.X, cell.Position.Origin.Y, cell.Position.Origin.Z, cell.Position.Orientation.W, cell.Position.Orientation.X, cell.Position.Orientation.Y, cell.Position.Orientation.Z],
                     Surfaces = new List<ushort>(cell.Surfaces),
                     Portals = new List<DatReaderWriter.Types.CellPortal>(cell.CellPortals),
-                    LayerId = "Base"
+                    LayerId = BaseLayerId ?? "Base"
                 };
 
                 Dictionary<ulong, StaticObject> baseStatics = new();
@@ -659,7 +761,7 @@ namespace WorldBuilder.Shared.Models {
                             SetupId = cell.StaticObjects[i].Id,
                             Position = [cell.StaticObjects[i].Frame.Origin.X, cell.StaticObjects[i].Frame.Origin.Y, cell.StaticObjects[i].Frame.Origin.Z, cell.StaticObjects[i].Frame.Orientation.W, cell.StaticObjects[i].Frame.Orientation.X, cell.StaticObjects[i].Frame.Orientation.Y, cell.StaticObjects[i].Frame.Orientation.Z],
                             InstanceId = instanceId,
-                            LayerId = "Base"
+                            LayerId = BaseLayerId ?? "Base"
                         };
                     }
                 }
@@ -668,7 +770,8 @@ namespace WorldBuilder.Shared.Models {
                 ushort chunkId = _coords.GetChunkIdForLandblock(cellId);
 
                 if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
-                    if (chunk.Edits.LayerEdits.TryGetValue("Base", out var baseEdits)) {
+                    var baseId = BaseLayerId;
+                    if (baseId != null && chunk.Edits.LayerEdits.TryGetValue(baseId, out var baseEdits)) {
                         if (baseEdits.Cells.TryGetValue(cellId, out var cellEdits)) {
                             properties = new Cell {
                                 EnvironmentId = cellEdits.EnvironmentId,
@@ -677,7 +780,7 @@ namespace WorldBuilder.Shared.Models {
                                 Position = cellEdits.Position,
                                 Surfaces = properties.Surfaces, // Keep from DAT
                                 Portals = properties.Portals,   // Keep from DAT
-                                LayerId = "Base",
+                                LayerId = BaseLayerId ?? "Base",
                                 StaticObjects = cellEdits.StaticObjects != null ? new List<StaticObject>(cellEdits.StaticObjects) : new List<StaticObject>()
                             };
                         }
@@ -701,8 +804,9 @@ namespace WorldBuilder.Shared.Models {
             // Apply active layers
             ushort chunkIdForLayers = _coords.GetChunkIdForLandblock(cellId);
             if (LoadedChunks.TryGetValue(chunkIdForLayers, out var chunkRef)) {
+                var baseId = BaseLayerId;
                 foreach (var layer in GetAllLayers()) {
-                    if (!IsItemVisible(layer) || layer.Id == "Base") continue;
+                    if (!IsItemVisible(layer) || layer.Id == baseId) continue;
 
                     if (chunkRef.Edits != null && chunkRef.Edits.LayerEdits.TryGetValue(layer.Id, out var layerEdits)) {
                         if (layerEdits.DeletedInstanceIds.Count > 0) {

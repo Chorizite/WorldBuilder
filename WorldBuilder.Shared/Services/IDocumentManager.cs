@@ -34,6 +34,12 @@ namespace WorldBuilder.Shared.Services {
         /// <returns>A task containing the result with the value string.</returns>
         Task<Result<string>> GetUserValueAsync(string key, string defaultValue, CancellationToken ct);
 
+        /// <summary>Retrieves all document IDs that start with a specific prefix.</summary>
+        /// <param name="prefix">The ID prefix.</param>
+        /// <param name="ct">The cancellation token.</param>
+        /// <returns>A task containing a list of matching document IDs.</returns>
+        Task<IReadOnlyList<string>> GetDocumentIdsAsync(string prefix, CancellationToken ct);
+
         /// <summary>Creates a new document and returns a rental for it.</summary>
         /// <typeparam name="T">The type of document.</typeparam>
         /// <param name="document">The document instance.</param>
