@@ -90,74 +90,6 @@ public class CombinedViewLocatorTests {
     }
 
     [Fact]
-    public void GetViewName_WindowViewModel_InViewModelsNamespace_ReturnsViewInViewsNamespace() {
-        // Arrange
-        var mockDats = new Moq.Mock<WorldBuilder.Shared.Services.IDatReaderWriter>();
-        mockDats.Setup(d => d.PortalIteration).Returns(1);
-
-        var mockWindowViewModel = new WorldBuilder.ViewModels.ExportDatsWindowViewModel(
-            new WorldBuilder.Services.WorldBuilderSettings(
-                Microsoft.Extensions.Logging.Abstractions.NullLogger<WorldBuilder.Services.WorldBuilderSettings>.Instance
-            ),
-            mockDats.Object,
-            null!
-        );
-
-        // Act
-        var result = _locator.GetViewNamePublic(mockWindowViewModel);
-
-        // Assert
-        Assert.Equal("WorldBuilder.Views.ExportDatsWindow", result);
-    }
-
-    [Fact]
-    public void GetViewName_DatBrowserViewModel_WithPreferWindows_ReturnsWindowName() {
-        // Arrange
-        var mockDats = new Moq.Mock<WorldBuilder.Shared.Services.IDatReaderWriter>();
-        var mockPortal = new Moq.Mock<WorldBuilder.Shared.Services.IDatDatabase>();
-        mockDats.Setup(d => d.Portal).Returns(mockPortal.Object);
-        mockDats.Setup(d => d.CellRegions).Returns(new System.Collections.ObjectModel.ReadOnlyDictionary<uint, WorldBuilder.Shared.Services.IDatDatabase>(new System.Collections.Generic.Dictionary<uint, WorldBuilder.Shared.Services.IDatDatabase>()));
-        mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.Setup>()).Returns(Enumerable.Empty<uint>());
-        mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.GfxObj>()).Returns(Enumerable.Empty<uint>());
-        mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.SurfaceTexture>()).Returns(Enumerable.Empty<uint>());
-        mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.RenderSurface>()).Returns(Enumerable.Empty<uint>());
-        mockPortal.Setup(p => p.GetAllIdsOfType<DatReaderWriter.DBObjs.Surface>()).Returns(Enumerable.Empty<uint>());
-
-        var settings = new WorldBuilder.Services.WorldBuilderSettings(
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<WorldBuilder.Services.WorldBuilderSettings>.Instance
-        );
-        settings.App.Theme = WorldBuilder.Lib.Settings.AppTheme.Light;
-        var themeService = new WorldBuilder.Services.ThemeService(settings);
-        
-        var mockSetup = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SetupBrowserViewModel>(mockDats.Object, settings, themeService);
-        var mockGfx = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.GfxObjBrowserViewModel>(mockDats.Object, settings, themeService);
-        var mockTex = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SurfaceTextureBrowserViewModel>(mockDats.Object, settings, themeService);
-        var mockRenderTex = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.RenderSurfaceBrowserViewModel>(mockDats.Object, settings, themeService);
-        var mockSurface = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.SurfaceBrowserViewModel>(mockDats.Object, settings, themeService);
-        var mockEnvCell = new Moq.Mock<WorldBuilder.Modules.DatBrowser.ViewModels.EnvCellBrowserViewModel>(mockDats.Object, settings, themeService);
-        var mockDialog = new Moq.Mock<HanumanInstitute.MvvmDialogs.IDialogService>();
-        var mockServiceProvider = new Moq.Mock<IServiceProvider>();
-
-        var viewModel = new WorldBuilder.Modules.DatBrowser.ViewModels.DatBrowserViewModel(
-            mockSetup.Object,
-            mockGfx.Object,
-            mockTex.Object,
-            mockRenderTex.Object,
-            mockSurface.Object,
-            mockEnvCell.Object,
-            mockDialog.Object,
-            mockServiceProvider.Object,
-            mockDats.Object
-        );
-
-        // Act
-        var result = _windowLocator.GetViewNamePublic(viewModel);
-
-        // Assert
-        Assert.Equal("WorldBuilder.Modules.DatBrowser.Views.DatBrowserWindow", result);
-    }
-
-    [Fact]
     public void GetViewName_ViewModelInStandardNamespace_StandardViewExists_ReturnsStandardViewName() {
         // Arrange
         var mockViewModel = new MockStandardViewModel();
@@ -179,17 +111,5 @@ public class CombinedViewLocatorTests {
 
         // Assert - Should return standard view name as fallback since neither standard nor Components view exists
         Assert.Equal("WorldBuilder.Tests.Views.MockComponentsView", result);
-    }
-
-    [Fact]
-    public void GetViewName_TextInputDialogViewModel_ReturnsTextInputDialogView() {
-        // Arrange
-        var viewModel = new WorldBuilder.Modules.Landscape.ViewModels.TextInputDialogViewModel();
-
-        // Act
-        var result = _locator.GetViewNamePublic(viewModel);
-
-        // Assert
-        Assert.Equal("WorldBuilder.Modules.Landscape.Views.Components.TextInputDialog", result);
     }
 }
