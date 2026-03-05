@@ -47,6 +47,9 @@ public class GameScene : IDisposable {
     private int _width;
     private int _height;
 
+    private bool _envCellDataChanged;
+    private bool _portalDataChanged;
+
     private EditorState _state = new();
     public EditorState State {
         get => _state;
@@ -134,6 +137,8 @@ public class GameScene : IDisposable {
 
     private (int x, int y)? _hoveredVertex;
     private (int x, int y)? _selectedVertex;
+    private ObjectManipulationTool? _manipulationTool;
+    private Lib.BackendGizmoDrawer? _gizmoDrawer;
 
     private InspectorTool? _inspectorTool;
 
@@ -397,10 +402,10 @@ public class GameScene : IDisposable {
 
     public void SetToolContext(LandscapeToolContext? context) {
         if (context != null) {
-            context.RaycastStaticObject = (Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit) => RaycastStaticObjects(origin, direction, includeBuildings, includeStaticObjects, out hit);
+            context.RaycastStaticObject = (Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, ulong ignoreInstanceId) => RaycastStaticObjects(origin, direction, includeBuildings, includeStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId);
             context.RaycastScenery = (Vector3 origin, Vector3 direction, out SceneRaycastHit hit) => RaycastScenery(origin, direction, out hit);
             context.RaycastPortals = (Vector3 origin, Vector3 direction, out SceneRaycastHit hit) => RaycastPortals(origin, direction, out hit);
-            context.RaycastEnvCells = (Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit) => RaycastEnvCells(origin, direction, includeCells, includeStaticObjects, out hit);
+            context.RaycastEnvCells = (Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, ulong ignoreInstanceId) => RaycastEnvCells(origin, direction, includeCells, includeStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId);
         }
     }
 
@@ -492,7 +497,9 @@ public class GameScene : IDisposable {
     /// Updates the scene.
     /// </summary>
     public void Update(float deltaTime) {
-        _cameraController.Update(deltaTime, _state, ref _currentEnvCellId, _terrainManager, _staticObjectManager, _envCellManager, _portalManager);
+        _cameraController.Update(deltaTime, _state, ref _currentEnvCellId, _terrainManager, _staticObjectManager, _envCellManager, _portalManager, _envCellDataChanged, _portalDataChanged);
+        _envCellDataChanged = false;
+        _portalDataChanged = false;
 
         foreach (var manager in _renderManagers) {
             manager.Update(deltaTime, (ICamera)_cameraController.CurrentCamera);
@@ -533,6 +540,95 @@ public class GameScene : IDisposable {
 
     public void SetInspectorTool(InspectorTool? tool) {
         _inspectorTool = tool;
+    }
+
+    public void SetManipulationTool(ObjectManipulationTool? tool) {
+        _manipulationTool = tool;
+    }
+
+    /// <summary>
+    /// Updates the transform of an object for realtime preview during manipulation.
+    /// </summary>
+    public void UpdateObjectPreview(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
+        _staticObjectManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId);
+        _envCellManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId);
+        _sceneryManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId);
+    }
+
+    public uint GetEnvCellAt(Vector3 pos) {
+        return _envCellManager?.GetEnvCellAt(pos) ?? 0;
+    }
+
+    public (Vector3 position, Quaternion rotation, Vector3 localPosition)? GetStaticObjectTransform(uint landblockId, ulong instanceId) {
+        var type = InstanceIdConstants.GetType(instanceId);
+        if (type == InspectorSelectionType.EnvCellStaticObject) {
+            return _envCellManager?.GetInstanceTransform(landblockId, instanceId);
+        }
+        return _staticObjectManager?.GetInstanceTransform(landblockId, instanceId);
+    }
+
+    /// <summary>
+    /// Gets the world-space bounding box for a static object.
+    /// </summary>
+    public WorldBuilder.Shared.Numerics.BoundingBox? GetStaticObjectBounds(uint landblockId, ulong instanceId) {
+        var type = InstanceIdConstants.GetType(instanceId);
+        if (type == InspectorSelectionType.EnvCellStaticObject) {
+            return _envCellManager?.GetInstanceBounds(landblockId, instanceId);
+        }
+        return _staticObjectManager?.GetInstanceBounds(landblockId, instanceId);
+    }
+
+    /// <summary>
+    /// Gets the local-space bounding box for a static object.
+    /// </summary>
+    public WorldBuilder.Shared.Numerics.BoundingBox? GetStaticObjectLocalBounds(uint landblockId, ulong instanceId) {
+        var type = InstanceIdConstants.GetType(instanceId);
+        if (type == InspectorSelectionType.EnvCellStaticObject) {
+            return _envCellManager?.GetInstanceLocalBounds(landblockId, instanceId);
+        }
+        return _staticObjectManager?.GetInstanceLocalBounds(landblockId, instanceId);
+    }
+
+    /// <summary>
+    /// Gets the layer ID that owns a static object.
+    /// </summary>
+    public string? GetStaticObjectLayerId(uint landblockId, ulong instanceId) {
+        if (_landscapeDoc == null) return null;
+
+        var type = InstanceIdConstants.GetType(instanceId);
+        if (type == InspectorSelectionType.EnvCellStaticObject) {
+            var cellId = InstanceIdConstants.GetRawId(instanceId);
+            var mergedCell = _landscapeDoc.GetMergedEnvCell(cellId);
+            var secondaryId = InstanceIdConstants.GetSecondaryId(instanceId);
+            if (mergedCell.StaticObjects != null && secondaryId < mergedCell.StaticObjects.Count) {
+                return mergedCell.StaticObjects[secondaryId].LayerId;
+            }
+            return null;
+        }
+
+        if (type == InspectorSelectionType.EnvCell) {
+            var cellId = (uint)instanceId;
+            var mergedCell = _landscapeDoc.GetMergedEnvCell(cellId);
+            return mergedCell.LayerId;
+        }
+
+        if (type == InspectorSelectionType.Portal || type == InspectorSelectionType.Scenery) {
+            // Portals and Scenery currently always belong to the Base layer
+            return "Base";
+        }
+
+        var merged = _landscapeDoc.GetMergedLandblock(landblockId);
+        foreach (var obj in merged.StaticObjects) {
+            if (obj.InstanceId == instanceId) {
+                return obj.LayerId;
+            }
+        }
+        foreach (var obj in merged.Buildings) {
+            if (obj.InstanceId == instanceId) {
+                return obj.LayerId;
+            }
+        }
+        return null;
     }
 
     private void DrawVertexDebug(int vx, int vy, Vector4 color) {
@@ -597,14 +693,14 @@ public class GameScene : IDisposable {
         }
     }
 
-    public bool RaycastStaticObjects(Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, bool isCollision = false, float maxDistance = float.MaxValue) {
+    public bool RaycastStaticObjects(Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, bool isCollision = false, float maxDistance = float.MaxValue, ulong ignoreInstanceId = 0) {
         hit = SceneRaycastHit.NoHit;
 
         var targets = StaticObjectRenderManager.RaycastTarget.None;
         if (includeBuildings) targets |= StaticObjectRenderManager.RaycastTarget.Buildings;
         if (includeStaticObjects) targets |= StaticObjectRenderManager.RaycastTarget.StaticObjects;
 
-        if (_staticObjectManager != null && _staticObjectManager.Raycast(origin, direction, targets, out hit, _currentEnvCellId, isCollision, maxDistance)) {
+        if (_staticObjectManager != null && _staticObjectManager.Raycast(origin, direction, targets, out hit, _currentEnvCellId, isCollision, maxDistance, ignoreInstanceId)) {
             return true;
         }
         return false;
@@ -628,10 +724,10 @@ public class GameScene : IDisposable {
         return false;
     }
 
-    public bool RaycastEnvCells(Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, bool isCollision = false, float maxDistance = float.MaxValue) {
+    public bool RaycastEnvCells(Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, bool isCollision = false, float maxDistance = float.MaxValue, ulong ignoreInstanceId = 0) {
         hit = SceneRaycastHit.NoHit;
 
-        if (_envCellManager != null && _envCellManager.Raycast(origin, direction, includeCells, includeStaticObjects, out hit, _currentEnvCellId, isCollision, maxDistance)) {
+        if (_envCellManager != null && _envCellManager.Raycast(origin, direction, includeCells, includeStaticObjects, out hit, _currentEnvCellId, isCollision, maxDistance, ignoreInstanceId)) {
             return true;
         }
         return false;
@@ -711,6 +807,9 @@ public class GameScene : IDisposable {
         bool needsPrepare = cameraMoved || _forcePrepareBatches || _renderManagers.Any(m => m.NeedsPrepare);
 
         if (needsPrepare) {
+            _envCellDataChanged |= _envCellManager?.NeedsPrepare ?? false;
+            _portalDataChanged |= _portalManager?.NeedsPrepare ?? false;
+
             _visibilityManager.UpdateFrustum(snapshotVP);
             _visibilityManager.PrepareVisibility(_state, currentEnvCellId, _portalManager, _envCellManager, snapshotVP, isInside, out var visibleEnvCells);
 
@@ -862,6 +961,13 @@ public class GameScene : IDisposable {
                 debugSettings.SelectPortals = _inspectorTool.SelectPortals && _state.ShowPortals;
             }
 
+            // Also show bounding boxes if the manipulation tool option is checked
+            if (_manipulationTool != null && _manipulationTool.ShowBoundingBoxes) {
+                debugSettings.ShowBoundingBoxes = true;
+                debugSettings.SelectStaticObjects = _state.ShowStaticObjects;
+                debugSettings.SelectEnvCellStaticObjects = _state.ShowEnvCells;
+            }
+
             _sceneryManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
             _staticObjectManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
             _envCellManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
@@ -905,6 +1011,21 @@ public class GameScene : IDisposable {
         }
 
         _debugRenderer?.Render(snapshotView, snapshotProj);
+
+        // Render the manipulation gizmo if active
+        if (_manipulationTool != null && _manipulationTool.HasSelection && _debugRenderer != null) {
+            if (_gizmoDrawer == null) {
+                var gVertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Gizmo.vert");
+                var gFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Gizmo.frag");
+                var gizmoShader = _graphicsDevice.CreateShader("Gizmo", gVertSource, gFragSource);
+                _gizmoDrawer = new Lib.BackendGizmoDrawer(_gl, _graphicsDevice, _debugRenderer);
+                _gizmoDrawer.SetShader(gizmoShader);
+            }
+            _manipulationTool.GizmoState.CameraPosition = _cameraController.CurrentCamera.Position;
+            WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo.GizmoRenderer.Draw(_gizmoDrawer, _manipulationTool.GizmoState);
+            _gizmoDrawer.Render(snapshotView, snapshotProj);
+            _debugRenderer.Render(snapshotView, snapshotProj, false);
+        }
 
         if (_performanceTracker != null) _performanceTracker.DebugTime = sw.Elapsed.TotalMilliseconds;
     }

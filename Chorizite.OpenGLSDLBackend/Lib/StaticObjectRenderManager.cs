@@ -113,7 +113,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             All = StaticObjects | Buildings
         }
 
-        public virtual bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, RaycastTarget targets, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false, float maxDistance = float.MaxValue) {
+        public virtual bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, RaycastTarget targets, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false, float maxDistance = float.MaxValue, ulong ignoreInstanceId = 0) {
             hit = SceneRaycastHit.NoHit;
 
             // Early exit: Don't collide with exteriors if we are inside
@@ -124,6 +124,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 lock (lb) {
                     foreach (var instance in lb.Instances) {
+                        if (ignoreInstanceId != 0 && instance.InstanceId == ignoreInstanceId) continue;
+
                         if (instance.IsBuilding && !targets.HasFlag(RaycastTarget.Buildings)) continue;
                         if (!instance.IsBuilding && !targets.HasFlag(RaycastTarget.StaticObjects)) continue;
 
@@ -148,7 +150,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.Type = instance.IsBuilding ? InspectorSelectionType.Building : InspectorSelectionType.StaticObject;
                                 hit.ObjectId = (uint)instance.ObjectId;
                                 hit.InstanceId = instance.InstanceId;
-                                hit.Position = instance.WorldPosition;
+                                hit.Position = rayOrigin + rayDirection * d;
                                 hit.LocalPosition = instance.LocalPosition;
                                 hit.Rotation = instance.Rotation;
                                 hit.LandblockId = (uint)((key << 16) | 0xFFFE);
@@ -171,8 +173,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 lock (lb) {
                     foreach (var instance in lb.Instances) {
-                        if (instance.IsBuilding && !settings.SelectBuildings) continue;
-                        if (!instance.IsBuilding && !settings.SelectStaticObjects) continue;
+                        if (instance.IsBuilding) continue;
+                        if (!settings.SelectStaticObjects) continue;
 
                         // Skip if instance is outside frustum
                         if (!_frustum.Intersects(instance.BoundingBox)) continue;

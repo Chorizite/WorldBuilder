@@ -11,9 +11,11 @@ public partial class LandscapeDocument {
     /// </summary>
     public async Task<Result<bool>> AddStaticObjectAsync(string layerId, uint landblockId, StaticObject obj, IDatReaderWriter dats, IDocumentManager documentManager, ITransaction tx, CancellationToken ct) {
         try {
-            var layer = FindItem(layerId) as LandscapeLayer;
-            if (layer == null) {
-                return Result<bool>.Failure(Error.NotFound($"Layer not found: {layerId}"));
+            if (layerId != "Base") {
+                var layer = FindItem(layerId) as LandscapeLayer;
+                if (layer == null) {
+                    return Result<bool>.Failure(Error.NotFound($"Layer not found: {layerId}"));
+                }
             }
 
             ushort chunkId = _coords.GetChunkIdForLandblock(landblockId);
@@ -29,7 +31,7 @@ public partial class LandscapeDocument {
             AddStaticObject(layerId, landblockId, obj);
 
             Version++;
-            NotifyLandblockChanged([( (int)(landblockId >> 24), (int)((landblockId >> 16) & 0xFF) )]);
+            NotifyLandblockChanged([((int)(landblockId >> 24), (int)((landblockId >> 16) & 0xFF))]);
 
             if (LoadedChunks.TryGetValue(chunkId, out var chunk2)) {
                 var result = await PersistChunkEditsAsync(chunk2, documentManager, tx, ct);
@@ -48,9 +50,11 @@ public partial class LandscapeDocument {
     /// </summary>
     public async Task<Result<bool>> DeleteStaticObjectAsync(string layerId, uint landblockId, ulong instanceId, IDatReaderWriter dats, IDocumentManager documentManager, ITransaction tx, CancellationToken ct) {
         try {
-            var layer = FindItem(layerId) as LandscapeLayer;
-            if (layer == null) {
-                return Result<bool>.Failure(Error.NotFound($"Layer not found: {layerId}"));
+            if (layerId != "Base") {
+                var layer = FindItem(layerId) as LandscapeLayer;
+                if (layer == null) {
+                    return Result<bool>.Failure(Error.NotFound($"Layer not found: {layerId}"));
+                }
             }
 
             ushort chunkId = _coords.GetChunkIdForLandblock(landblockId);
@@ -63,20 +67,29 @@ public partial class LandscapeDocument {
                 }
 
                 // If it's owned by this layer, remove it from the owned list
-                if (layerEdits.ExteriorStaticObjects.TryGetValue(landblockId, out var list)) {
-                    list.RemoveAll(x => x.InstanceId == instanceId);
+                if ((landblockId & 0xFFFF) >= 0x0100 && (landblockId & 0xFFFF) < 0xFFFE) {
+                    // Env cell
+                    if (layerEdits.Cells.TryGetValue(landblockId, out var cell)) {
+                        cell.StaticObjects.RemoveAll(x => x.InstanceId == instanceId);
+                    }
+                }
+                else {
+                    // Regular landblock
+                    if (layerEdits.ExteriorStaticObjects.TryGetValue(landblockId, out var list)) {
+                        list.RemoveAll(x => x.InstanceId == instanceId);
+                    }
                 }
 
                 // Always add to DeletedInstanceIds to hide it from lower layers/base
                 if (!layerEdits.DeletedInstanceIds.Contains(instanceId)) {
                     layerEdits.DeletedInstanceIds.Add(instanceId);
                 }
-                
+
                 chunk.Edits.Version++;
             }
 
             Version++;
-            NotifyLandblockChanged([( (int)(landblockId >> 24), (int)((landblockId >> 16) & 0xFF) )]);
+            NotifyLandblockChanged([((int)(landblockId >> 24), (int)((landblockId >> 16) & 0xFF))]);
 
             if (LoadedChunks.TryGetValue(chunkId, out var chunk2)) {
                 var result = await PersistChunkEditsAsync(chunk2, documentManager, tx, ct);
@@ -93,11 +106,13 @@ public partial class LandscapeDocument {
     /// <summary>
     /// Updates a static object in a landscape layer (handles moves between landblocks).
     /// </summary>
-    public async Task<Result<bool>> UpdateStaticObjectAsync(string layerId, uint oldLandblockId, uint newLandblockId, StaticObject newObj, IDatReaderWriter dats, IDocumentManager documentManager, ITransaction tx, CancellationToken ct) {
+    public async Task<Result<bool>> UpdateStaticObjectAsync(string layerId, uint oldLandblockId, ulong oldInstanceId, uint newLandblockId, StaticObject newObj, IDatReaderWriter dats, IDocumentManager documentManager, ITransaction tx, CancellationToken ct) {
         try {
-            var layer = FindItem(layerId) as LandscapeLayer;
-            if (layer == null) {
-                return Result<bool>.Failure(Error.NotFound($"Layer not found: {layerId}"));
+            if (layerId != "Base") {
+                var layer = FindItem(layerId) as LandscapeLayer;
+                if (layer == null) {
+                    return Result<bool>.Failure(Error.NotFound($"Layer not found: {layerId}"));
+                }
             }
 
             ushort oldChunkId = _coords.GetChunkIdForLandblock(oldLandblockId);
@@ -111,8 +126,17 @@ public partial class LandscapeDocument {
             // 1. Remove from old landblock in this layer (if it's there)
             if (LoadedChunks.TryGetValue(oldChunkId, out var oldChunk) && oldChunk.Edits != null) {
                 if (oldChunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
-                    if (layerEdits.ExteriorStaticObjects.TryGetValue(oldLandblockId, out var list)) {
-                        list.RemoveAll(x => x.InstanceId == newObj.InstanceId);
+                    if ((oldLandblockId & 0xFFFF) >= 0x0100 && (oldLandblockId & 0xFFFF) < 0xFFFE) {
+                        // Env cell
+                        if (layerEdits.Cells.TryGetValue(oldLandblockId, out var cell)) {
+                            cell.StaticObjects.RemoveAll(x => x.InstanceId == oldInstanceId);
+                        }
+                    }
+                    else {
+                        // Regular landblock
+                        if (layerEdits.ExteriorStaticObjects.TryGetValue(oldLandblockId, out var list)) {
+                            list.RemoveAll(x => x.InstanceId == oldInstanceId);
+                        }
                     }
                 }
                 oldChunk.Edits.Version++;
@@ -121,24 +145,30 @@ public partial class LandscapeDocument {
             // 2. Add to new landblock
             AddStaticObject(layerId, newLandblockId, newObj);
 
-            // 3. Mark as hidden from lower layers if it was a modification of an existing object
-            // Actually, we should just make sure it stays in DeletedInstanceIds if we want to override lower layers.
-            // If it's a move of an object that existed in base, it should have a tombstone in our layer.
-            if (LoadedChunks.TryGetValue(newChunkId, out var newChunk) && newChunk.Edits != null) {
-                if (newChunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
-                    if (!layerEdits.DeletedInstanceIds.Contains(newObj.InstanceId)) {
-                        layerEdits.DeletedInstanceIds.Add(newObj.InstanceId);
-                    }
+            // 3. Add a tombstone in the OLD chunk to suppress the base/lower-layer version at the original location.
+            if (LoadedChunks.TryGetValue(oldChunkId, out var oldChunkForTombstone) && oldChunkForTombstone.Edits != null) {
+                if (!oldChunkForTombstone.Edits.LayerEdits.TryGetValue(layerId, out var tombstoneEdits)) {
+                    tombstoneEdits = new LandscapeChunkEdits();
+                    oldChunkForTombstone.Edits.LayerEdits[layerId] = tombstoneEdits;
                 }
-                newChunk.Edits.Version++;
+                if (!tombstoneEdits.DeletedInstanceIds.Contains(oldInstanceId)) {
+                    tombstoneEdits.DeletedInstanceIds.Add(oldInstanceId);
+                }
             }
 
             Version++;
-            var affectedLandblocks = new HashSet<(int, int)> {
-                ((int)(oldLandblockId >> 24), (int)((oldLandblockId >> 16) & 0xFF)),
-                ((int)(newLandblockId >> 24), (int)((newLandblockId >> 16) & 0xFF))
-            };
-            NotifyLandblockChanged(affectedLandblocks);
+
+            // Always notify if the landblock or cell changes. 
+            // This is required because moving between env cells changes the InstanceId,
+            // which requires the chunk renderer to rebuild the mesh.
+            bool crossedLandblock = oldLandblockId != newLandblockId;
+            if (crossedLandblock) {
+                var affectedLandblocks = new HashSet<(int, int)> {
+                    ((int)(oldLandblockId >> 24), (int)((oldLandblockId >> 16) & 0xFF)),
+                    ((int)(newLandblockId >> 24), (int)((newLandblockId >> 16) & 0xFF))
+                };
+                NotifyLandblockChanged(affectedLandblocks);
+            }
 
             if (LoadedChunks.TryGetValue(oldChunkId, out var chunk1)) {
                 var result = await PersistChunkEditsAsync(chunk1, documentManager, tx, ct);

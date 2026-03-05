@@ -157,6 +157,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             Tools.Add(new BucketFillTool());
             Tools.Add(new RoadVertexTool());
             Tools.Add(new RoadLineTool());
+            Tools.Add(new ObjectManipulationTool());
             Tools.Add(new InspectorTool());
         }
         ActiveTool = Tools.FirstOrDefault();
@@ -176,6 +177,10 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             newInspector.PropertyChanged += OnInspectorToolPropertyChanged;
             IsDebugShapesEnabled = newInspector.ShowBoundingBoxes;
         }
+        else if (newValue is ObjectManipulationTool) {
+            // Enable debug shapes for gizmo rendering
+            IsDebugShapesEnabled = true;
+        }
         else {
             IsDebugShapesEnabled = false;
         }
@@ -190,6 +195,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         }
 
         _gameScene?.SetInspectorTool(newValue as InspectorTool);
+        _gameScene?.SetManipulationTool(newValue as ObjectManipulationTool);
     }
 
     private void OnToolPropertyChanged(object? sender, PropertyChangedEventArgs e) {
@@ -262,9 +268,9 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 _toolContext.InvalidateLandblock = _invalidateCallback;
             }
 
-            _toolContext.RaycastStaticObject = (Vector3 origin, Vector3 dir, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit) => {
+            _toolContext.RaycastStaticObject = (Vector3 origin, Vector3 dir, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, ulong ignoreInstanceId) => {
                 hit = SceneRaycastHit.NoHit;
-                return _gameScene?.RaycastStaticObjects(origin, dir, includeBuildings && EditorState.ShowBuildings, includeStaticObjects && EditorState.ShowStaticObjects, out hit) ?? false;
+                return _gameScene?.RaycastStaticObjects(origin, dir, includeBuildings && EditorState.ShowBuildings, includeStaticObjects && EditorState.ShowStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId) ?? false;
             };
 
             _toolContext.RaycastScenery = (Vector3 origin, Vector3 dir, out SceneRaycastHit hit) => {
@@ -281,8 +287,46 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _toolContext.InspectorHovered += OnInspectorHovered;
             _toolContext.InspectorSelected += OnInspectorSelected;
 
+            // Wire up object manipulation delegates
+            _toolContext.GetStaticObjectBounds = (landblockId, instanceId) => _gameScene?.GetStaticObjectBounds(landblockId, instanceId);
+            _toolContext.GetStaticObjectLocalBounds = (landblockId, instanceId) => _gameScene?.GetStaticObjectLocalBounds(landblockId, instanceId);
+            _toolContext.GetStaticObjectTransform = (landblockId, instanceId) => _gameScene?.GetStaticObjectTransform(landblockId, instanceId);
+            _toolContext.GetStaticObjectLayerId = (landblockId, instanceId) => _gameScene?.GetStaticObjectLayerId(landblockId, instanceId);
+            _toolContext.UpdateStaticObject = (layerId, oldLbId, oldInstanceId, newLbId, newObj) => {
+                if (ActiveDocument == null) return;
+
+                _ = Task.Run(async () => {
+                    var result = await ActiveDocument.UpdateStaticObjectAsync(layerId, oldLbId, oldInstanceId, newLbId, newObj, _dats, _documentManager, null!, default);
+                    if (result.IsSuccess) {
+                        RequestSave(ActiveDocument.Id);
+                    }
+                    else {
+                        _log.LogError("Failed to update static object: {Error}", result.Error);
+                    }
+                });
+            };
+
+            _toolContext.NotifyObjectPositionPreview = (landblockId, instanceId, position, rotation, currentCellId) => {
+                _gameScene?.UpdateObjectPreview(landblockId, instanceId, position, rotation, currentCellId);
+            };
+
+            _toolContext.ComputeLandblockId = (worldPos) => {
+                if (ActiveDocument?.Region == null) return 0;
+                var region = ActiveDocument.Region;
+                var offset = region.MapOffset;
+                var lbSize = region.LandblockSizeInUnits;
+                int lbX = (int)Math.Floor((worldPos.X - offset.X) / lbSize);
+                int lbY = (int)Math.Floor((worldPos.Y - offset.Y) / lbSize);
+                return (uint)((lbX << 24) | (lbY << 16) | 0xFFFE);
+            };
+
+            _toolContext.GetEnvCellAt = (worldPos) => {
+                return _gameScene?.GetEnvCellAt(worldPos) ?? 0;
+            };
+
             _gameScene?.SetToolContext(_toolContext);
             _gameScene?.SetInspectorTool(ActiveTool as InspectorTool);
+            _gameScene?.SetManipulationTool(ActiveTool as ObjectManipulationTool);
 
             ActiveTool?.Activate(_toolContext);
         }
@@ -303,6 +347,22 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
     private void OnInspectorSelected(object? sender, InspectorSelectionEventArgs e) {
         _gameScene?.SetSelectedObject(e.Selection.Type, e.Selection.LandblockId, e.Selection.InstanceId, e.Selection.ObjectId, e.Selection.VertexX, e.Selection.VertexY);
+
+        // Auto-select layer if an object is selected
+        if (e.Selection.Type == InspectorSelectionType.StaticObject || 
+            e.Selection.Type == InspectorSelectionType.Building ||
+            e.Selection.Type == InspectorSelectionType.Scenery ||
+            e.Selection.Type == InspectorSelectionType.EnvCellStaticObject ||
+            e.Selection.Type == InspectorSelectionType.EnvCell ||
+            e.Selection.Type == InspectorSelectionType.Portal) {
+            var layerId = _gameScene?.GetStaticObjectLayerId(e.Selection.LandblockId, e.Selection.InstanceId);
+            if (!string.IsNullOrEmpty(layerId)) {
+                var layerVM = LayersPanel.FindVM(layerId);
+                if (layerVM != null) {
+                    LayersPanel.SelectedItem = layerVM;
+                }
+            }
+        }
 
         if (e.Selection.Type == InspectorSelectionType.StaticObject || e.Selection.Type == InspectorSelectionType.Building) {
             if (e.Selection.Type == InspectorSelectionType.StaticObject) {
@@ -448,6 +508,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _gameScene.Camera3D.OnChanged += OnCameraStateChanged;
 
             _gameScene.SetInspectorTool(ActiveTool as InspectorTool);
+            _gameScene.SetManipulationTool(ActiveTool as ObjectManipulationTool);
             _gameScene.SetToolContext(_toolContext);
 
             RestoreCameraState();

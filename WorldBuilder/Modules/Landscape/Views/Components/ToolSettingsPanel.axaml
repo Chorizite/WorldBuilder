@@ -183,6 +183,30 @@
                 </HeaderedContentControl>
             </DataTemplate>
 
+            <DataTemplate DataType="{x:Type tools:ObjectManipulationTool}" x:DataType="tools:ObjectManipulationTool">
+                <StackPanel Orientation="Horizontal">
+                  <HeaderedContentControl Header="Options" Template="{StaticResource RibbonGroupTemplate}">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                      <CheckBox Content="Align to Surface" 
+                                IsChecked="{Binding AlignToSurface}" 
+                                FontSize="12" 
+                                VerticalAlignment="Center" 
+                                ToolTip.Tip="Rotate object to align with the surface normal when dragging by center" />
+                      <CheckBox Content="Bounding Boxes" 
+                                IsChecked="{Binding ShowBoundingBoxes}" 
+                                FontSize="12" 
+                                VerticalAlignment="Center" 
+                                ToolTip.Tip="Draw bounding boxes for static objects" />
+                      <CheckBox Content="Local Space" 
+                                IsChecked="{Binding IsLocalSpace}" 
+                                FontSize="12" 
+                                VerticalAlignment="Center" 
+                                ToolTip.Tip="Align gizmo to object rotation" />
+                    </StackPanel>
+                  </HeaderedContentControl>
+                </StackPanel>
+            </DataTemplate>
+
             <DataTemplate DataType="{x:Type tools:InspectorTool}" x:DataType="tools:InspectorTool">
                 <StackPanel Orientation="Horizontal">
                   <HeaderedContentControl Header="Filters" Template="{StaticResource RibbonGroupTemplate}">

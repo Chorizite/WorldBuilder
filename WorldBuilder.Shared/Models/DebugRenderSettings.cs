@@ -4,7 +4,7 @@ using System.ComponentModel;
 
 namespace WorldBuilder.Shared.Models {
     public class DebugRenderSettings {
-        public bool ShowBoundingBoxes { get; set; } = true;
+        public bool ShowBoundingBoxes { get; set; } = false;
         public bool SelectVertices { get; set; } = true;
         public bool SelectBuildings { get; set; } = true;
         public bool SelectStaticObjects { get; set; } = true;

@@ -318,6 +318,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             var sw = Stopwatch.StartNew();
             while (sw.Elapsed.TotalMilliseconds < timeBudgetMs && _uploadQueue.TryDequeue(out var lb)) {
+                Interlocked.Exchange(ref lb.IsQueuedForUpload, 0);
+
                 var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
                 if (!_landblocks.TryGetValue(key, out var currentLb) || currentLb != lb) {
                     continue;
@@ -332,7 +334,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 lock (lb) {
-                    UploadLandblockMeshes(lb);
+                    // Check if this is a transform-only update (drag preview) with no
+                    // pending full regeneration.  If so, take the lightweight path that
+                    // re-uploads instance data in-place without freeing/reallocating the
+                    // GPU buffer — this avoids the 1-frame flash caused by the full
+                    // UploadLandblockMeshes teardown/rebuild cycle.
+                    bool transformOnly = Interlocked.Exchange(ref lb.IsTransformOnlyUpdate, 0) == 1
+                                        && lb.PendingInstances == null
+                                        && lb.GpuReady;
+                    if (transformOnly) {
+                        UploadTransformOnly(lb);
+                    }
+                    else {
+                        UploadLandblockMeshes(lb);
+                    }
                 }
                 _activeLandblocksDirty = true;
                 NeedsPrepare = true;
@@ -340,6 +355,51 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             return (float)sw.Elapsed.TotalMilliseconds;
+        }
+
+        /// <summary>
+        /// Updates the transform of a specific instance in its owner landblock.
+        /// This is used for realtime previews during manipulation.
+        /// </summary>
+        public void UpdateInstanceTransform(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
+            ushort key = (ushort)(landblockId >> 16);
+            if (_landblocks.TryGetValue(key, out var lb)) {
+                lock (lb) {
+                    for (int i = 0; i < lb.Instances.Count; i++) {
+                        if (lb.Instances[i].InstanceId == instanceId) {
+                            var instance = lb.Instances[i];
+                            instance.WorldPosition = position;
+                            instance.Rotation = rotation;
+                            instance.Transform = Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateTranslation(position);
+                            instance.CurrentPreviewCellId = currentCellId;
+                            if (instance.LocalBoundingBox.Max != instance.LocalBoundingBox.Min) {
+                                instance.BoundingBox = instance.LocalBoundingBox.Transform(instance.Transform);
+                            }
+                            lb.Instances[i] = instance;
+
+                            if (!UseInstanceBuffer) {
+                                // For managers without persistent instance buffers
+                                // (e.g. EnvCellRenderManager), rebuild part groups
+                                // immediately so PrepareRenderBatches/Render sees
+                                // the updated transforms on the very next frame.
+                                PopulatePartGroups(lb, lb.Instances);
+                                NeedsPrepare = true;
+                            }
+                            else {
+                                // Flag as transform-only so the upload path skips
+                                // the destructive free/realloc cycle.
+                                Interlocked.Exchange(ref lb.IsTransformOnlyUpdate, 1);
+
+                                // Mark landblock as needing upload if not already queued
+                                if (Interlocked.Exchange(ref lb.IsQueuedForUpload, 1) == 0) {
+                                    _uploadQueue.Enqueue(lb);
+                                }
+                            }
+                            return;
+                        }
+                    }
+                }
+            }
         }
 
         public virtual void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition) {
@@ -394,6 +454,58 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
+        /// <summary>
+        /// Gets the world bounding box for a specific static object instance.
+        /// </summary>
+        public WorldBuilder.Shared.Numerics.BoundingBox? GetInstanceBounds(uint landblockId, ulong instanceId) {
+            ushort key = (ushort)(landblockId >> 16);
+            if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) return null;
+
+            lock (lb) {
+                foreach (var instance in lb.Instances) {
+                    if (instance.InstanceId == instanceId) {
+                        return new WorldBuilder.Shared.Numerics.BoundingBox(
+                            instance.BoundingBox.Min,
+                            instance.BoundingBox.Max);
+                    }
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Gets the local bounding box for a specific static object instance.
+        /// </summary>
+        public WorldBuilder.Shared.Numerics.BoundingBox? GetInstanceLocalBounds(uint landblockId, ulong instanceId) {
+            ushort key = (ushort)(landblockId >> 16);
+            if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) return null;
+
+            lock (lb) {
+                foreach (var instance in lb.Instances) {
+                    if (instance.InstanceId == instanceId) {
+                        return new WorldBuilder.Shared.Numerics.BoundingBox(
+                            instance.LocalBoundingBox.Min,
+                            instance.LocalBoundingBox.Max);
+                    }
+                }
+            }
+            return null;
+        }
+
+        public (Vector3 position, Quaternion rotation, Vector3 localPosition)? GetInstanceTransform(uint landblockId, ulong instanceId) {
+            ushort key = (ushort)(landblockId >> 16);
+            if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) return null;
+
+            lock (lb) {
+                foreach (var instance in lb.Instances) {
+                    if (instance.InstanceId == instanceId) {
+                        return (instance.WorldPosition, instance.Rotation, instance.LocalPosition);
+                    }
+                }
+            }
+            return null;
+        }
+
         public virtual unsafe void Render(RenderPass renderPass) {
             if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || _cameraPosition.Z > 4000) return;
 
@@ -409,6 +521,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 if (_visibleLandblocks.Count == 0 && _visibleGfxObjIds.Count == 0) {
                     if (RenderHighlightsWhenEmpty) {
+                        Gl.Enable(EnableCap.PolygonOffsetFill);
+                        Gl.PolygonOffset(-1.0f, -1.0f);
                         Gl.DepthFunc(GLEnum.Lequal);
                         if (SelectedInstance.HasValue) {
                             RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
@@ -417,6 +531,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
                         }
                         Gl.DepthFunc(GLEnum.Less);
+                        Gl.Disable(EnableCap.PolygonOffsetFill);
                     }
                     return;
                 }
@@ -465,6 +580,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 // Draw highlighted / selected objects on top
+                Gl.Enable(EnableCap.PolygonOffsetFill);
+                Gl.PolygonOffset(-1.0f, -1.0f);
                 Gl.DepthFunc(GLEnum.Lequal);
                 if (SelectedInstance.HasValue) {
                     RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
@@ -473,6 +590,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
                 }
                 Gl.DepthFunc(GLEnum.Less);
+                Gl.Disable(EnableCap.PolygonOffsetFill);
 
                 _shader.SetUniform("uHighlightColor", Vector4.Zero);
                 _shader.SetUniform("uRenderPass", (int)renderPass);
@@ -751,6 +869,36 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             lb.GpuReady = true;
+        }
+
+        /// <summary>
+        /// Lightweight transform-only re-upload. Rebuilds part groups and re-uploads
+        /// instance data to the same GPU buffer position without freeing/reallocating.
+        /// Used during drag previews to avoid the flash caused by full UploadLandblockMeshes.
+        /// </summary>
+        private unsafe void UploadTransformOnly(ObjectLandblock lb) {
+            if (!UseInstanceBuffer || lb.InstanceBufferOffset < 0) return;
+
+            // Rebuild part groups with updated transforms
+            PopulatePartGroups(lb, lb.Instances);
+
+            // Collect instance data (same layout, different transforms)
+            var allInstances = new List<InstanceData>();
+            foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
+                allInstances.AddRange(transforms);
+            }
+            foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
+                allInstances.AddRange(transforms);
+            }
+
+            // Re-upload to same buffer position (no realloc needed since count is stable)
+            if (allInstances.Count == lb.InstanceCount && lb.InstanceBufferOffset >= 0) {
+                UploadInstanceData(lb.InstanceBufferOffset, allInstances);
+            }
+            else {
+                // Instance count changed unexpectedly — fall back to full upload
+                UploadLandblockMeshes(lb);
+            }
         }
 
         private void UploadRecursive(ulong objectId, bool isSetup) {

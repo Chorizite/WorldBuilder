@@ -48,29 +48,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #region Public: Scenery-Specific API
 
         public void SubmitDebugShapes(DebugRenderer? debug, DebugRenderSettings settings) {
-            if (debug == null || LandscapeDoc.Region == null || !settings.ShowBoundingBoxes || !settings.SelectScenery) return;
-
-            foreach (var lb in _landblocks.Values) {
-                if (!lb.GpuReady || !IsWithinRenderDistance(lb)) continue;
-                if (_frustum.TestBox(lb.BoundingBox) == FrustumTestResult.Outside) continue;
-
-                lock (lb) {
-                    foreach (var instance in lb.Instances) {
-                        // Skip if instance is outside frustum
-                        if (!_frustum.Intersects(instance.BoundingBox)) continue;
-
-                        var isSelected = SelectedInstance.HasValue && SelectedInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && SelectedInstance.Value.InstanceId == instance.InstanceId;
-                        var isHovered = HoveredInstance.HasValue && HoveredInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && HoveredInstance.Value.InstanceId == instance.InstanceId;
-
-                        Vector4 color;
-                        if (isSelected) color = LandscapeColorsSettings.Instance.Selection;
-                        else if (isHovered) color = LandscapeColorsSettings.Instance.Hover;
-                        else color = settings.SceneryColor;
-
-                        debug.DrawBox(instance.LocalBoundingBox, instance.Transform, color);
-                    }
-                }
-            }
+            // Only static objects should have their bounding box shown for now.
+            return;
         }
 
         public bool Raycast(Vector3 origin, Vector3 direction, out SceneRaycastHit hit, float maxDistance = float.MaxValue) {

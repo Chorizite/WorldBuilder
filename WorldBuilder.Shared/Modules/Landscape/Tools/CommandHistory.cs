@@ -16,6 +16,23 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         void Undo();
     }
 
+    public enum CommandChangeType {
+        Execute,
+        Undo,
+        Redo,
+        Clear
+    }
+
+    public class CommandHistoryChangedEventArgs : EventArgs {
+        public CommandChangeType ChangeType { get; }
+        public ICommand? Command { get; }
+
+        public CommandHistoryChangedEventArgs(CommandChangeType changeType, ICommand? command = null) {
+            ChangeType = changeType;
+            Command = command;
+        }
+    }
+
     /// <summary>
     /// Manages a history of commands for undo/redo functionality.
     /// </summary>
@@ -29,7 +46,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private readonly List<ICommand> _history = new List<ICommand>();
         private int _currentIndex = -1;
 
-        public event EventHandler? OnChange;
+        public event EventHandler<CommandHistoryChangedEventArgs>? OnChange;
 
         /// <summary>Whether there is a command that can be undone.</summary>
         public bool CanUndo => _currentIndex >= 0;
@@ -60,16 +77,17 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 IsTruncated = true;
             }
 
-            OnChange?.Invoke(this, EventArgs.Empty);
+            OnChange?.Invoke(this, new CommandHistoryChangedEventArgs(CommandChangeType.Execute, command));
         }
 
         /// <summary>Undoes the last executed command.</summary>
         public void Undo() {
             if (!CanUndo) return;
 
-            _history[_currentIndex].Undo();
+            var command = _history[_currentIndex];
+            command.Undo();
             _currentIndex--;
-            OnChange?.Invoke(this, EventArgs.Empty);
+            OnChange?.Invoke(this, new CommandHistoryChangedEventArgs(CommandChangeType.Undo, command));
         }
 
         /// <summary>Redoes the last undone command.</summary>
@@ -77,8 +95,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             if (!CanRedo) return;
 
             _currentIndex++;
-            _history[_currentIndex].Execute();
-            OnChange?.Invoke(this, EventArgs.Empty);
+            var command = _history[_currentIndex];
+            command.Execute();
+            OnChange?.Invoke(this, new CommandHistoryChangedEventArgs(CommandChangeType.Redo, command));
         }
 
         /// <summary>Jumps to a specific point in the command history.</summary>
@@ -99,7 +118,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             _history.Clear();
             _currentIndex = -1;
             IsTruncated = false;
-            OnChange?.Invoke(this, EventArgs.Empty);
+            OnChange?.Invoke(this, new CommandHistoryChangedEventArgs(CommandChangeType.Clear));
         }
     }
 }

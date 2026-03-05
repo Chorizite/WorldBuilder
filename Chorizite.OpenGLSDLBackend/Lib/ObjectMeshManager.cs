@@ -286,10 +286,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
+        public struct EnvCellGeomRequest {
+            public uint EnvironmentId;
+            public ushort CellStructure;
+            public List<ushort> Surfaces;
+        }
+
+        private readonly ConcurrentDictionary<ulong, EnvCellGeomRequest> _pendingEnvCellRequests = new();
+
         /// <summary>
         /// Phase 1 (Background Thread): Prepare CPU-side mesh data for deduplicated EnvCell geometry.
         /// </summary>
-        public Task<ObjectMeshData?> PrepareEnvCellGeomMeshDataAsync(ulong geomId, EnvCell envCell, CancellationToken ct = default) {
+        public Task<ObjectMeshData?> PrepareEnvCellGeomMeshDataAsync(ulong geomId, uint environmentId, ushort cellStructure, List<ushort> surfaces, CancellationToken ct = default) {
             if (HasRenderData(geomId)) return Task.FromResult<ObjectMeshData?>(null);
 
             // Check CPU cache first
@@ -312,7 +320,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             lock (_pendingRequests) {
                 // Special handling for EnvCell geometry - we need to store the cell data for the worker
-                _pendingEnvCellRequests[geomId] = envCell;
+                _pendingEnvCellRequests[geomId] = new EnvCellGeomRequest {
+                    EnvironmentId = environmentId,
+                    CellStructure = cellStructure,
+                    Surfaces = surfaces
+                };
                 _pendingRequests.Add((geomId, false, tcs, ct));
                 if (_activeWorkers < MaxParallelLoads) {
                     _activeWorkers++;
@@ -322,8 +334,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             return task;
         }
-
-        private readonly ConcurrentDictionary<ulong, EnvCell> _pendingEnvCellRequests = new();
 
         public Task<ObjectMeshData?> PrepareMeshDataAsync(ulong id, bool isSetup, CancellationToken ct = default) {
             if (HasRenderData(id)) return Task.FromResult<ObjectMeshData?>(null);
@@ -392,11 +402,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                     try {
                         ObjectMeshData? data = null;
-                        if (_pendingEnvCellRequests.TryRemove(id, out var envCell)) {
-                            uint envId = 0x0D000000u | envCell.EnvironmentId;
+                        if (_pendingEnvCellRequests.TryRemove(id, out var req)) {
+                            uint envId = 0x0D000000u | req.EnvironmentId;
                             if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
-                                if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
-                                    data = PrepareCellStructMeshData(id, cellStruct, envCell.Surfaces, Matrix4x4.Identity, ct);
+                                if (environment.Cells.TryGetValue(req.CellStructure, out var cellStruct)) {
+                                    data = PrepareCellStructMeshData(id, cellStruct, req.Surfaces, Matrix4x4.Identity, ct);
                                 }
                             }
                         }

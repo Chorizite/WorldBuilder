@@ -32,6 +32,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>Rotation quaternion.</summary>
         public Quaternion Rotation;
 
+        /// <summary>The current cell ID this instance is in (used for previewing moves between cells).</summary>
+        public uint CurrentPreviewCellId;
+
         /// <summary>Scale (typically uniform).</summary>
         public Vector3 Scale;
 
@@ -126,10 +129,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         public bool GpuReady { get; set; }
 
+        /// <summary>
+        /// Whether this landblock is currently in the upload queue.
+        /// </summary>
+        public int IsQueuedForUpload;
+
+        /// <summary>
+        /// When set to 1, the pending upload is a transform-only update (e.g. drag preview).
+        /// The upload path will skip buffer reallocation and mesh re-upload.
+        /// </summary>
+        public int IsTransformOnlyUpdate;
+
         // Optimized rendering data
         public int InstanceBufferOffset { get; set; } = -1;
         public int InstanceCount { get; set; }
-        
+
         /// <summary>
         /// Pre-calculated draw commands and batch data for this landblock.
         /// Keyed by CullMode to allow grouped rendering.
