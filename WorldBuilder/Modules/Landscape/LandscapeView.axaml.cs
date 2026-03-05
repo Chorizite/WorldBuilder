@@ -61,18 +61,7 @@ public partial class LandscapeView : UserControl {
             var savedWidth = _settings?.Landscape?.RightPanelWidth ?? RIGHT_PANELS_STARTING_WIDTH;
             rightPanelsColumn.Width = new GridLength(savedWidth);
         }
-        var rightPanelsGrid = this.FindControl<Grid>("RightPanels");
-        if (rightPanelsGrid != null && rightPanelsGrid.RowDefinitions.Count >= 3) {
-            var propertiesPanelRow = rightPanelsGrid.RowDefinitions[2];
-            var topRow = rightPanelsGrid.RowDefinitions[0]; // TabControl
-
-            // Load saved height from settings
-            var savedHeightPercent = _settings?.Landscape?.PropertiesPanelHeight ?? PROPERTIES_PANEL_STARTING_HEIGHT_PCT / 100.0;
-
-            // Set both rows to star sizing
-            topRow.Height = new GridLength(1.0 - savedHeightPercent, GridUnitType.Star);    // Remaining space for TabControl
-            propertiesPanelRow.Height = new GridLength(savedHeightPercent, GridUnitType.Star);
-        }
+        ApplyPropertiesPanelSize();
 
         // Subscribe to right panel size changes
         var rightPanels = this.FindControl<Grid>("RightPanels");
@@ -92,8 +81,8 @@ public partial class LandscapeView : UserControl {
         }
 
         // Setup tab control handler
-        if (rightPanelsGrid != null) {
-            var actualTabControl = rightPanelsGrid.Children.OfType<TabControl>().FirstOrDefault();
+        if (rightPanels != null) {
+            var actualTabControl = rightPanels.Children.OfType<TabControl>().FirstOrDefault();
             if (actualTabControl != null) {
                 actualTabControl.SelectionChanged += OnTabSelectionChanged;
                 
@@ -113,6 +102,21 @@ public partial class LandscapeView : UserControl {
 
         TryInitializeToolContext();
         StartUpdateTimer();
+    }
+
+    public void ApplyPropertiesPanelSize() {
+        var rightPanels = this.FindControl<Grid>("RightPanels");
+        if (rightPanels != null && rightPanels.RowDefinitions.Count >= 3) {
+            var propertiesPanelRow = rightPanels.RowDefinitions[2];
+            var topRow = rightPanels.RowDefinitions[0]; // TabControl
+
+            // Load saved height from settings
+            var savedHeightPercent = _settings?.Landscape?.PropertiesPanelHeight ?? PROPERTIES_PANEL_STARTING_HEIGHT_PCT / 100.0;
+
+            // Set both rows to star sizing
+            topRow.Height = new GridLength(1.0 - savedHeightPercent, GridUnitType.Star);    // Remaining space for TabControl
+            propertiesPanelRow.Height = new GridLength(savedHeightPercent, GridUnitType.Star);
+        }
     }
 
     private void OnDetachedFromVisualTree(object? sender, VisualTreeAttachmentEventArgs e) {

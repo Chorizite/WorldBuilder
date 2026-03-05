@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Linq;
 using System.Threading.Tasks;
 using WorldBuilder.Lib;
+using WorldBuilder.Modules.Landscape;
 using WorldBuilder.Services;
 using WorldBuilder.ViewModels;
 
@@ -72,10 +73,15 @@ public partial class MainWindow : Window {
 
         PropertyChanged += (s, e) => {
             if (settings?.Project != null && e.Property == WindowStateProperty) {
-                if (WindowState == WindowState.Maximized)
-                    settings.Project.IsMaximized = true;
-                else if (WindowState == WindowState.Normal)
-                    settings.Project.IsMaximized = false;
+                if (WindowState == WindowState.Normal || WindowState == WindowState.Maximized) {
+                     settings.Project.IsMaximized = WindowState == WindowState.Maximized;
+                    if (this.Content is UserControl mainUserControl) {
+                        var landscapeView = FindLandscapeViewInControl(mainUserControl);
+                        if (landscapeView != null) {
+                            landscapeView.ApplyPropertiesPanelSize();
+                        }
+                    }
+                }
             }
         };
 
@@ -213,6 +219,16 @@ public partial class MainWindow : Window {
             return controlRV;
         }
 
+        return null;
+    }
+
+    private LandscapeView? FindLandscapeViewInControl(Control control) {
+        // Look for LandscapeView in visual descendants
+        foreach (var child in control.GetVisualDescendants()) {
+            if (child is LandscapeView landscapeView) {
+                return landscapeView;
+            }
+        }
         return null;
     }
 }
