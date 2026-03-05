@@ -180,4 +180,16 @@ public class CombinedViewLocatorTests {
         // Assert - Should return standard view name as fallback since neither standard nor Components view exists
         Assert.Equal("WorldBuilder.Tests.Views.MockComponentsView", result);
     }
+
+    [Fact]
+    public void GetViewName_TextInputDialogViewModel_ReturnsTextInputDialogView() {
+        // Arrange
+        var viewModel = new WorldBuilder.Modules.Landscape.ViewModels.TextInputDialogViewModel();
+
+        // Act
+        var result = _locator.GetViewNamePublic(viewModel);
+
+        // Assert
+        Assert.Equal("WorldBuilder.Modules.Landscape.Views.Components.TextInputDialog", result);
+    }
 }

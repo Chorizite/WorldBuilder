@@ -106,7 +106,7 @@ public class CombinedViewLocator : ViewLocatorBase, IDataTemplate {
             return componentsViewName;
         }
 
-        // Return the standard dialog name as fallback
-        return standardDialogName;
+        // Return the standard view name as fallback
+        return standardViewName;
     }
 }
