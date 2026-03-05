@@ -84,32 +84,50 @@ namespace WorldBuilder.Shared.Services {
                                     var rental = rentResult.Value;
                                     var doc = rental.Document;
                                     await doc.InitializeForUpdatingAsync(_dats, _documentManager, CancellationToken.None);
+                                    await doc.LoadAllModifiedChunksAsync(_dats, _documentManager, CancellationToken.None);
 
-                                    var exportedLayers = doc.GetAllLayers().Where(doc.IsItemExported).ToList();
+                                    var allLayers = doc.GetAllLayers().ToList();
+                                    System.Console.WriteLine($"[DAT EXPORT] Region {regionId} has {allLayers.Count} total layers in tree.");
+
+                                    var exportedLayers = allLayers.Where(doc.IsItemExported).ToList();
+                                    System.Console.WriteLine($"[DAT EXPORT] Region {regionId} has {exportedLayers.Count} layers marked for export.");
+
+                                    // Ensure base layer is included in the scan if it has edits
+                                    var baseLayer = allLayers.FirstOrDefault(l => l.IsBase);
+                                    if (baseLayer != null && !exportedLayers.Contains(baseLayer)) {
+                                        System.Console.WriteLine($"[DAT EXPORT] Including base layer '{baseLayer.Name}' ({baseLayer.Id}) in export scan.");
+                                        exportedLayers.Add(baseLayer);
+                                    }
+
                                     var affectedLandblocks = new HashSet<(int x, int y)>();
                                     foreach (var layer in exportedLayers) {
-                                        foreach (var lb in doc.GetAffectedLandblocks(layer.Id)) {
+                                        var layerAffected = (await doc.GetAffectedLandblocksAsync(layer.Id, _dats, _documentManager, CancellationToken.None)).ToList();
+                                        if (layerAffected.Count > 0) {
+                                            System.Console.WriteLine($"[DAT EXPORT] Layer '{layer.Name}' ({layer.Id}) affects {layerAffected.Count} landblocks.");
+                                        }
+                                        foreach (var lb in layerAffected) {
                                             affectedLandblocks.Add(lb);
                                         }
                                     }
 
                                     if (affectedLandblocks.Count > 0) {
-                                        _log.LogInformation("Region {RegionId} has {Count} affected landblocks.", regionId, affectedLandblocks.Count);
+                                        System.Console.WriteLine($"[DAT EXPORT] Region {regionId} has {affectedLandblocks.Count} affected landblocks.");
                                         projectRegions.Add((regionId, doc, rental, affectedLandblocks.Count));
                                         totalAffectedLandblocks += affectedLandblocks.Count;
                                     }
                                     else {
+                                        System.Console.WriteLine($"[DAT EXPORT] Region {regionId} has 0 affected landblocks across {exportedLayers.Count} layers.");
                                         rental.Dispose();
                                     }
                                 }
                             }
 
                             if (projectRegions.Count == 0) {
-                                _log.LogInformation("No modified regions found to export.");
+                                System.Console.WriteLine("[DAT EXPORT] No modified regions found to export.");
                                 return;
                             }
 
-                            _log.LogInformation("Found {Count} modified regions to process, with {TotalLandblocks} total landblocks.", projectRegions.Count, totalAffectedLandblocks);
+                            System.Console.WriteLine($"[DAT EXPORT] Found {projectRegions.Count} modified regions to process, with {totalAffectedLandblocks} total landblocks.");
 
                             int processedLandblocks = 0;
                             foreach (var (regionId, doc, rental, affectedCount) in projectRegions) {
@@ -120,7 +138,7 @@ namespace WorldBuilder.Shared.Services {
                                     progress?.Report(new DatExportProgress($"Exporting region {regionId}...", totalProgress));
                                 });
 
-                                _log.LogInformation("Saving region {RegionId} to DATs...", regionId);
+                                System.Console.WriteLine($"[DAT EXPORT] Calling SaveToDatsAsync for region {regionId}...");
                                 if (!await doc.SaveToDatsAsync(exportDatWriter, portalIteration, cellIteration, regionProgress)) {
                                     _log.LogError("Failed to save LandscapeDocument (Region {RegionId}) to DATs", regionId);
                                     throw new Exception($"Failed to save LandscapeDocument (Region {regionId}) to DATs");

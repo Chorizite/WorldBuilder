@@ -43,6 +43,7 @@ namespace WorldBuilder.Shared.Models {
 
         private bool _didLoadLayers;
         private bool _didLoadRegionData;
+        private IDocumentManager? _documentManager;
         private readonly HashSet<string> _layerIds = [];
         private readonly SemaphoreSlim _initLock = new(1, 1);
         private readonly SemaphoreSlim _dbLock = new(1, 1);
@@ -110,6 +111,7 @@ namespace WorldBuilder.Shared.Models {
             CancellationToken ct) {
             await _initLock.WaitAsync(ct);
             try {
+                _documentManager = documentManager;
                 await LoadRegionDataAsync(dats);
                 // LoadCacheFromDatsAsync is deferred until needed (e.g., during export or editing)
                 await LoadLayersAsync(documentManager, ct);
@@ -124,11 +126,34 @@ namespace WorldBuilder.Shared.Models {
             CancellationToken ct) {
             await _initLock.WaitAsync(ct);
             try {
+                _documentManager = documentManager;
                 await LoadRegionDataAsync(dats);
                 await LoadLayersAsync(documentManager, ct);
             }
             finally {
                 _initLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// Loads all chunks for this region that have modified data in the document manager.
+        /// </summary>
+        public async Task LoadAllModifiedChunksAsync(IDatReaderWriter dats, IDocumentManager? documentManager = null, CancellationToken ct = default) {
+            documentManager ??= _documentManager;
+            if (documentManager == null) return;
+
+            var prefix = $"{nameof(LandscapeChunkDocument)}_{RegionId}_";
+            var ids = await documentManager.GetDocumentIdsAsync(prefix, ct);
+            System.Console.WriteLine($"[DAT EXPORT] Found {ids.Count} modified chunk documents for region {RegionId} in database.");
+
+            foreach (var id in ids) {
+                // Parse chunk coordinates from ID: LandscapeChunkDocument_{regionId}_{chunkX}_{chunkY}
+                var parts = id.Split('_');
+                if (parts.Length == 4 && uint.TryParse(parts[2], out var cx) && uint.TryParse(parts[3], out var cy)) {
+                    var chunkId = (ushort)((cx << 8) | cy);
+                    System.Console.WriteLine($"[DAT EXPORT] Loading modified chunk {cx}, {cy} (ID: 0x{chunkId:X4})");
+                    await GetOrLoadChunkAsync(chunkId, dats, documentManager, ct);
+                }
             }
         }
 
@@ -478,41 +503,81 @@ namespace WorldBuilder.Shared.Models {
         /// <summary>
         /// Gets the landblock coordinates affected by a specific layer.
         /// </summary>
+        public async Task<IEnumerable<(int x, int y)>> GetAffectedLandblocksAsync(string layerId, IDatReaderWriter dats, IDocumentManager documentManager, CancellationToken ct) {
+            var layer = FindItem(layerId) as LandscapeLayer;
+            if (layer == null || Region == null) {
+                return Enumerable.Empty<(int x, int y)>();
+            }
+
+            // Ensure all chunks with edits for this region are loaded
+            await LoadAllModifiedChunksAsync(dats, documentManager, ct);
+
+            return GetAffectedLandblocks(layerId);
+        }
+
+        /// <summary>
+        /// Gets the landblock coordinates affected by a specific layer.
+        /// </summary>
         public IEnumerable<(int x, int y)> GetAffectedLandblocks(string layerId) {
             var layer = FindItem(layerId) as LandscapeLayer;
             if (layer == null || Region == null) {
+                System.Console.WriteLine($"[DAT EXPORT] GetAffectedLandblocks: Layer '{layerId}' not found or Region is null.");
                 return Enumerable.Empty<(int x, int y)>();
             }
 
             var affected = new HashSet<(int x, int y)>();
 
             // Collect from vertex edits
-            foreach (var lb in GetAffectedLandblocks(GetAffectedVertices(layer))) {
+            var affectedVertices = GetAffectedVertices(layer).ToList();
+            foreach (var lb in GetAffectedLandblocks(affectedVertices)) {
                 affected.Add(lb);
+            }
+
+            if (affected.Count > 0) {
+                System.Console.WriteLine($"[DAT EXPORT] Layer '{layer.Name}' has {affected.Count} affected landblocks from vertex edits.");
             }
 
             // Collect from object edits in all chunks for this layer
             foreach (var chunk in LoadedChunks.Values) {
-                if (chunk.Edits != null && chunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
-                    foreach (var lbId in layerEdits.ExteriorStaticObjects.Keys) {
-                        affected.Add(((int)((lbId >> 24) & 0xFF), (int)((lbId >> 16) & 0xFF)));
-                    }
-                    foreach (var lbId in layerEdits.Buildings.Keys) {
-                        affected.Add(((int)((lbId >> 24) & 0xFF), (int)((lbId >> 16) & 0xFF)));
-                    }
-                    foreach (var cellId in layerEdits.Cells.Keys) {
-                        affected.Add(((int)((cellId >> 24) & 0xFF), (int)((cellId >> 16) & 0xFF)));
-                    }
-                    foreach (var instanceId in layerEdits.DeletedInstanceIds) {
-                        var type = InstanceIdConstants.GetType(instanceId);
-                        if (type == InspectorSelectionType.EnvCellStaticObject) {
-                            var cellId = InstanceIdConstants.GetRawId(instanceId);
-                            affected.Add(((int)((cellId >> 24) & 0xFF), (int)((cellId >> 16) & 0xFF)));
+                if (chunk.Edits != null) {
+                    if (chunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
+                        int layerCount = 0;
+                        foreach (var lbId in layerEdits.ExteriorStaticObjects.Keys) {
+                            var prefix = lbId > 0xFFFF ? (lbId >> 16) : lbId;
+                            affected.Add(((int)(prefix >> 8), (int)(prefix & 0xFF)));
+                            layerCount++;
                         }
-                        else if (type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) {
-                            var prefix = InstanceIdConstants.GetLandblockPrefix(instanceId);
-                            affected.Add(((int)((prefix >> 8) & 0xFF), (int)(prefix & 0xFF)));
+                        foreach (var lbId in layerEdits.Buildings.Keys) {
+                            var prefix = lbId > 0xFFFF ? (lbId >> 16) : lbId;
+                            affected.Add(((int)(prefix >> 8), (int)(prefix & 0xFF)));
+                            layerCount++;
                         }
+                        foreach (var cellId in layerEdits.Cells.Keys) {
+                            var prefix = cellId >> 16;
+                            affected.Add(((int)(prefix >> 8), (int)(prefix & 0xFF)));
+                            layerCount++;
+                        }
+                        foreach (var instanceId in layerEdits.DeletedInstanceIds) {
+                            var type = InstanceIdConstants.GetType(instanceId);
+                            if (type == InspectorSelectionType.EnvCellStaticObject) {
+                                var cellId = InstanceIdConstants.GetRawId(instanceId);
+                                var prefix = cellId >> 16;
+                                affected.Add(((int)(prefix >> 8), (int)(prefix & 0xFF)));
+                                layerCount++;
+                            }
+                            else if (type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) {
+                                var prefix = InstanceIdConstants.GetLandblockPrefix(instanceId);
+                                affected.Add(((int)(prefix >> 8), (int)(prefix & 0xFF)));
+                                layerCount++;
+                            }
+                        }
+                        if (layerCount > 0) {
+                            System.Console.WriteLine($"[DAT EXPORT] Layer '{layer.Name}' ({layerId}) has {layerCount} object edits in chunk {chunk.Id:X4}. Total unique affected landblocks for this layer: {affected.Count}");
+                        }
+                    }
+                    else if (chunk.Edits.LayerEdits.Count > 0) {
+                        // Diagnostic: list available layer IDs in this chunk
+                        System.Console.WriteLine($"[DAT EXPORT] Chunk {chunk.Id:X4} does not contain edits for layer '{layerId}'. Available layers: {string.Join(", ", chunk.Edits.LayerEdits.Keys)}");
                     }
                 }
             }

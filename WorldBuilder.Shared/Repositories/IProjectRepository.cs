@@ -21,6 +21,12 @@ namespace WorldBuilder.Shared.Repositories {
         /// <returns>A task containing the transaction.</returns>
         Task<ITransaction> CreateTransactionAsync(CancellationToken ct);
 
+        /// <summary>Retrieves all document IDs that start with a specific prefix.</summary>
+        /// <param name="prefix">The ID prefix.</param>
+        /// <param name="ct">The cancellation token.</param>
+        /// <returns>A task containing a list of matching document IDs.</returns>
+        Task<IReadOnlyList<string>> GetDocumentIdsAsync(string prefix, CancellationToken ct);
+
         /// <summary>Retrieves a document's serialized data by its ID.</summary>
         /// <typeparam name="T">The type of the document.</typeparam>
         /// <param name="id">The document ID.</param>

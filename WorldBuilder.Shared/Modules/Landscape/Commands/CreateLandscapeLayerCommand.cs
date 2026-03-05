@@ -36,11 +36,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
 
         /// <summary>Initializes a new instance of the <see cref="CreateLandscapeLayerCommand"/> class with parameters.</summary>
         public CreateLandscapeLayerCommand(string terrainDocumentId, IEnumerable<string> groupPath, string name,
-            bool isBase) {
+            bool isBase, string? layerId = null) {
             GroupPath = [.. groupPath];
             Name = name;
             TerrainDocumentId = terrainDocumentId;
             IsBase = isBase;
+            if (layerId != null) {
+                LayerId = layerId;
+            }
         }
 
         public override BaseCommand CreateInverse() {

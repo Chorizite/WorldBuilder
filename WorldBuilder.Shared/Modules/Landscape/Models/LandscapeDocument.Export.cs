@@ -6,15 +6,19 @@ namespace WorldBuilder.Shared.Models {
     public partial class LandscapeDocument {
         /// <inheritdoc/>
         protected override async Task<bool> SaveToDatsInternal(IDatReaderWriter datwriter, int portalIteration = 0, int cellIteration = 0, IProgress<float>? progress = null) {
+            System.Console.WriteLine($"[DAT EXPORT] SaveToDatsInternal started for Region {RegionId}");
             if (Region == null || CellDatabase == null) return false;
+
+            // Ensure all chunks with edits are loaded so we don't miss any affected landblocks
+            await LoadAllModifiedChunksAsync(datwriter, _documentManager, CancellationToken.None);
 
             // Identify affected landblocks from exported layers
             var affectedLandblocks = new HashSet<(int x, int y)>();
             var exportedLayers = GetAllLayers().Where(IsItemExported).ToList();
 
-            // The "Base" layer might not be marked 'Exported' in the UI since it's the foundation,
+            // The base layer might not be marked 'Exported' in the UI since it's the foundation,
             // but we absolutely need to include it when gathering affected landblocks if it has edits.
-            var baseLayer = FindItem("Base") as LandscapeLayer;
+            var baseLayer = GetAllLayers().FirstOrDefault(l => l.IsBase);
             if (baseLayer != null && !exportedLayers.Contains(baseLayer)) {
                 exportedLayers.Add(baseLayer);
             }
@@ -120,15 +124,18 @@ namespace WorldBuilder.Shared.Models {
                 byte[] objBuffer = [];
                 int objBytesRead;
 
-                System.Console.WriteLine($"[DAT EXPORT] Saving LandBlockInfo 0x{lbInfoId:X8} for landblock {lbX}, {lbY}...");
+                System.Console.WriteLine($"[DAT EXPORT] Processing LandBlockInfo 0x{lbInfoId:X8} for landblock {lbX}, {lbY}...");
 
-                if (datwriter.TryGetFileBytes(RegionId, lbInfoId, ref objBuffer, out objBytesRead)) {
-                    var lbi = new LandBlockInfo();
+                var mergedLb = GetMergedLandblock(lbInfoId);
+                var lbi = new LandBlockInfo();
+
+                bool lbiExists = datwriter.TryGetFileBytes(RegionId, lbInfoId, ref objBuffer, out objBytesRead);
+                if (lbiExists) {
                     lbi.Unpack(new DatBinReader(objBuffer));
+                }
 
-                    var mergedLb = GetMergedLandblock(lbInfoId);
-
-                    System.Console.WriteLine($"[DAT EXPORT] Landblock 0x{lbId:X8} - Statics: {lbi.Objects.Count} -> {mergedLb.StaticObjects.Count}, Buildings: {lbi.Buildings.Count} -> {mergedLb.Buildings.Count}");
+                if (lbiExists || mergedLb.StaticObjects.Count > 0 || mergedLb.Buildings.Count > 0) {
+                    System.Console.WriteLine($"[DAT EXPORT] Saving Landblock 0x{lbId:X8} - Statics: {mergedLb.StaticObjects.Count}, Buildings: {mergedLb.Buildings.Count}");
 
                     lbi.Objects.Clear();
                     foreach (var obj in mergedLb.StaticObjects) {
@@ -136,7 +143,7 @@ namespace WorldBuilder.Shared.Models {
                             Id = obj.SetupId,
                             Frame = new DatReaderWriter.Types.Frame {
                                 Origin = new System.Numerics.Vector3(obj.Position[0], obj.Position[1], obj.Position[2]),
-                                Orientation = new System.Numerics.Quaternion(obj.Position[3], obj.Position[4], obj.Position[5], obj.Position[6])
+                                Orientation = new System.Numerics.Quaternion(obj.Position[4], obj.Position[5], obj.Position[6], obj.Position[3])
                             }
                         });
                     }
@@ -145,11 +152,26 @@ namespace WorldBuilder.Shared.Models {
                         return false;
                     }
 
-                    // Export EnvCells for this Landblock
-                    uint numCells = lbi.NumCells;
-                    for (uint cellIdx = 1; cellIdx <= numCells; cellIdx++) {
-                        uint cellId = ((uint)lbId << 16) | (0x0100u + cellIdx);
+                    // Export EnvCells for this Landblock. We scan both original and edited cells.
+                    var cellIdsToProcess = new HashSet<uint>();
+                    for (uint cellIdx = 1; cellIdx <= lbi.NumCells; cellIdx++) {
+                        cellIdsToProcess.Add(((uint)lbId << 16) | (0x0100u + cellIdx));
+                    }
 
+                    // Also scan for any cells that have edits in our layer tree
+                    foreach (var chunk in LoadedChunks.Values) {
+                        if (chunk.Edits != null) {
+                            foreach (var layerEdits in chunk.Edits.LayerEdits.Values) {
+                                foreach (var cellId in layerEdits.Cells.Keys) {
+                                    if ((cellId & 0xFFFF0000) == ((uint)lbId << 16)) {
+                                        cellIdsToProcess.Add(cellId);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    foreach (var cellId in cellIdsToProcess) {
                         if (datwriter.TryGetFileBytes(RegionId, cellId, ref objBuffer, out objBytesRead)) {
                             var cell = new EnvCell();
                             cell.Unpack(new DatBinReader(objBuffer));
