@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using WorldBuilder.Lib;
@@ -90,14 +90,16 @@ namespace WorldBuilder.Services {
         /// </summary>
         /// <param name="loc">The AC /loc string format 0xXXYYCCCC [X Y Z] w x y z</param>
         /// <param name="name">An optional name for the bookmark</param>
+        /// <param name="folder">The folder to add the bookmark to, or null for root level</param>
         /// <returns>A task representing the asynchronous operation</returns>
-        public async Task AddBookmark(string loc, string name = "") {
+        public async Task AddBookmark(string loc, string name = "", BookmarkFolder? folder = null) {
             var bookmark = new Bookmark {
                 Name = name,
                 Location = loc,
-                Parent = null // Root-level bookmarks have no parent
+                Parent = folder
             };
-            Bookmarks.Add(bookmark);
+            var container = folder?.Items ?? Bookmarks;
+            container.Add(bookmark);
             await SaveBookmarks();
         }
 
@@ -105,13 +107,15 @@ namespace WorldBuilder.Services {
         /// Adds a new folder to the collection and saves it to persistent storage.
         /// </summary>
         /// <param name="name">The name of the folder</param>
+        /// <param name="parent">The parent folder to add the folder to, or null for root level</param>
         /// <returns>A task representing the asynchronous operation</returns>
-        public async Task AddFolder(string name) {
+        public async Task AddFolder(string name, BookmarkFolder? parent = null) {
             var folder = new BookmarkFolder {
                 Name = name,
-                Parent = null // Root-level folders have no parent
+                Parent = parent
             };
-            Bookmarks.Add(folder);
+            var container = parent?.Items ?? Bookmarks;
+            container.Add(folder);
             await SaveBookmarks();
         }
 

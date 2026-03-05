@@ -58,11 +58,14 @@
                     ItemsSource="{Binding BookmarksManager.Bookmarks}"
                     SelectedItem="{Binding SelectedItem}"
                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                    KeyDown="BookmarkTreeView_KeyDown"
                     DoubleTapped="BookmarkTreeView_DoubleTapped"
                     DragDrop.AllowDrop="True"
                     DragDrop.DragOver="OnDragOver"
                     DragDrop.Drop="OnDrop">
+                    <TreeView.KeyBindings>
+                        <KeyBinding Gesture="Enter" Command="{Binding EnterKeyCommand}" CommandParameter="{Binding SelectedItem}" />
+                        <KeyBinding Gesture="Delete" Command="{Binding DeleteBookmarkCommand}" CommandParameter="{Binding SelectedItem}" />
+                    </TreeView.KeyBindings>
                     <TreeView.Styles>
                         <Style Selector="TreeViewItem">
                             <Setter Property="Padding" Value="0,4" />
@@ -96,8 +99,7 @@
                             <Border Classes.drag-over-folder="{Binding DropPosition, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static viewmodels:DropPosition.Inside}}">
                                 <Grid>
                                     <Grid.ContextMenu>
-                                        <ContextMenu>
-                                            <MenuItem Header="Expand All" Command="{Binding $parent[TreeView].DataContext.ExpandAllCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
+                                        <ContextMenu Opening="OnContextMenuOpening">
                                             <Separator />
                                             <MenuItem Header="Rename" Command="{Binding $parent[TreeView].DataContext.RenameBookmarkCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
                                             <Separator />

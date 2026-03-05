@@ -1,4 +1,3 @@
-﻿using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HanumanInstitute.MvvmDialogs;
@@ -8,6 +7,7 @@ using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Modules.Landscape.ViewModels {
     public partial class BookmarksPanelViewModel : ViewModelBase {
+        private readonly WorldBuilderSettings _settings;
         private readonly BookmarksManager _bookmarksManager;
         private readonly LandscapeViewModel _landScapeViewModel;
         private readonly IDialogService _dialogService;
@@ -17,7 +17,8 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
         [ObservableProperty]
         private BookmarkNode? _selectedItem;
 
-        public BookmarksPanelViewModel(BookmarksManager bookmarksManager, LandscapeViewModel landScapeViewModel, IDialogService dialogService) {
+        public BookmarksPanelViewModel(WorldBuilderSettings settings, BookmarksManager bookmarksManager, LandscapeViewModel landScapeViewModel, IDialogService dialogService) {
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _bookmarksManager = bookmarksManager ?? throw new ArgumentNullException(nameof(bookmarksManager));
             _landScapeViewModel = landScapeViewModel ?? throw new ArgumentNullException(nameof(landScapeViewModel));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
@@ -30,11 +31,34 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
             loc.Rotation = gameScene.Camera.Rotation;
 
             var bookmarkName = $"{loc.LandblockX:X2}{loc.LandblockY:X2} [{loc.LocalX:0} {loc.LocalY:0} {loc.LocalZ:0}]";
-            await _bookmarksManager.AddBookmark(loc.ToLandblockString(), bookmarkName);
+            var bookmarkLocation = loc.ToLandblockString();
             
-            // Select the newly added bookmark (it should be the last one)
-            if (_bookmarksManager.Bookmarks.Count > 0) {
-                SelectedItem = _bookmarksManager.Bookmarks.Last();
+            // Check if a folder is selected, or if a bookmark is selected, use its parent folder
+            BookmarkFolder? targetFolder = null;
+            if (SelectedItem is BookmarkFolder folder) {
+                targetFolder = folder;
+            } else if (SelectedItem is Bookmark bookmark) {
+                targetFolder = bookmark.Parent;
+            }
+            
+            if (_settings.Landscape.Bookmarks.ShowEditorWhenSaving) {
+                var result = await ShowAddBookmarkDialog(bookmarkName, bookmarkLocation);
+                // The dialog now handles the bookmark creation, so we just return if successful
+                return;
+            }
+            
+            // Add bookmark to the selected folder or root level
+            await _bookmarksManager.AddBookmark(bookmarkLocation, bookmarkName, targetFolder);
+            
+            // If added to a folder that was collapsed, expand it
+            if (targetFolder != null && !targetFolder.IsExpanded) {
+                targetFolder.IsExpanded = true;
+            }
+            
+            // Select the newly added bookmark
+            var container = targetFolder?.Items ?? _bookmarksManager.Bookmarks;
+            if (container.Count > 0) {
+                SelectedItem = container.Last();
             }
         }
 
@@ -43,11 +67,25 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
             var folderName = await ShowTextInputDialog("Enter name for new folder:", "New Folder", "Create");
             if (string.IsNullOrWhiteSpace(folderName)) return;
 
-            await _bookmarksManager.AddFolder(folderName);
+            // Check if a folder is selected, or if a bookmark is selected, use its parent folder
+            BookmarkFolder? parentFolder = null;
+            if (SelectedItem is BookmarkFolder folder) {
+                parentFolder = folder;
+            } else if (SelectedItem is Bookmark bookmark) {
+                parentFolder = bookmark.Parent;
+            }
 
-            // Select the newly added folder (it should be the last one)
-            if (_bookmarksManager.Bookmarks.Count > 0) {
-                SelectedItem = _bookmarksManager.Bookmarks.Last();
+            await _bookmarksManager.AddFolder(folderName, parentFolder);
+
+            // If added to a folder that was collapsed, expand it
+            if (parentFolder != null && !parentFolder.IsExpanded) {
+                parentFolder.IsExpanded = true;
+            }
+
+            // Select the newly added folder
+            var container = parentFolder?.Items ?? _bookmarksManager.Bookmarks;
+            if (container.Count > 0) {
+                SelectedItem = container.Last();
             }
         }
 
@@ -136,19 +174,73 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
             return vm.DialogResult == true ? vm.InputText : null;
         }
 
+        private async Task<string?> ShowAddBookmarkDialog(string initialText, string bookmarkLocation) {
+            var vm = new EditBookmarkDialogViewModel(_bookmarksManager, _settings, "Add New Bookmark:", initialText, "Add", bookmarkLocation);
+
+            var owner = (Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow?.DataContext as System.ComponentModel.INotifyPropertyChanged;
+            if (owner != null) {
+                await _dialogService.ShowDialogAsync(owner, vm);
+            }
+            return vm.DialogResult == true ? vm.InputText : null;
+        }
+
+        [RelayCommand]
+        public void EnterKey(BookmarkNode? node) {
+            if (node is BookmarkFolder folder) {
+                folder.IsExpanded = !folder.IsExpanded;
+            }
+            else if (node is Bookmark bookmark) {
+                GoToBookmark(bookmark);
+            }
+        }
+
+        [RelayCommand]
+        public void ToggleFolderExpansion(BookmarkNode? node) {
+            if (node is BookmarkFolder folder) {
+                folder.IsExpanded = !folder.IsExpanded;
+            }
+        }
+
         [RelayCommand]
         public void ExpandAll(BookmarkNode? node) {
             if (node is BookmarkFolder folder) {
-                ExpandFolderRecursive(folder);
+                // Check if folder and all subfolders are already expanded
+                if (IsFolderAndSubfoldersExpanded(folder)) {
+                    CollapseFolderRecursive(folder);
+                } else {
+                    ExpandFolderRecursive(folder);
+                }
             }
+        }
+
+        public bool IsFolderAndSubfoldersExpanded(BookmarkFolder folder) {
+            if (!folder.IsExpanded) return false;
+
+            foreach (var item in folder.Items) {
+                if (item is BookmarkFolder subFolder) {
+                    // Recursively check if this subfolder and all its descendants are expanded
+                    if (!IsFolderAndSubfoldersExpanded(subFolder)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
         }
 
         private void ExpandFolderRecursive(BookmarkFolder folder) {
             folder.IsExpanded = true;
-
             foreach (var item in folder.Items) {
                 if (item is BookmarkFolder subFolder) {
                     ExpandFolderRecursive(subFolder);
+                }
+            }
+        }
+
+        private void CollapseFolderRecursive(BookmarkFolder folder) {
+            folder.IsExpanded = false;
+            foreach (var item in folder.Items) {
+                if (item is BookmarkFolder subFolder) {
+                    CollapseFolderRecursive(subFolder);
                 }
             }
         }
