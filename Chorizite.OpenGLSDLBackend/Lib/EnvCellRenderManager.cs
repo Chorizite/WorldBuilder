@@ -556,7 +556,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var instances = new List<SceneryInstance>();
                 var lbSizeUnits = regionInfo.LandblockSizeInUnits; // 192
 
-                var mergedLb = LandscapeDoc.GetMergedLandblock(lbId);
+                var mergedLb = await LandscapeDoc.GetMergedLandblockAsync(lbId);
 
                 // Find entry portals from buildings in this landblock
                 var discoveredCellIds = new HashSet<uint>();

@@ -569,6 +569,9 @@ namespace WorldBuilder.Shared.Models {
         }
 
         public MergedLandblock GetMergedLandblock(uint landblockId) {
+            if (_documentManager != null && _documentManager.LandscapeCacheService.TryGetLandblock(Id, landblockId, out var lb)) {
+                return lb!;
+            }
             return new MergedLandblock();
         }
 
@@ -583,6 +586,9 @@ namespace WorldBuilder.Shared.Models {
         }
 
         public Cell GetMergedEnvCell(uint cellId) {
+            if (_documentManager != null && _documentManager.LandscapeCacheService.TryGetEnvCell(Id, cellId, out var cell)) {
+                return cell!;
+            }
             return new Cell();
         }
 

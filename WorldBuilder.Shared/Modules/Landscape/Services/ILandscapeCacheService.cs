@@ -2,13 +2,11 @@ using System;
 using System.Threading.Tasks;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Services
-{
+namespace WorldBuilder.Shared.Modules.Landscape.Services {
     /// <summary>
     /// Defines a service for caching merged landscape data, scoped to document IDs.
     /// </summary>
-    public interface ILandscapeCacheService
-    {
+    public interface ILandscapeCacheService {
         /// <summary>
         /// Gets a merged landblock from the cache, or adds it using the provided factory.
         /// </summary>
@@ -18,6 +16,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services
         /// Gets a merged environment cell from the cache, or adds it using the provided factory.
         /// </summary>
         Task<Cell> GetOrAddEnvCellAsync(string documentId, uint cellId, Func<Task<Cell>> factory);
+
+        /// <summary>
+        /// Synchronously attempts to get a merged landblock from the cache.
+        /// </summary>
+        bool TryGetLandblock(string documentId, uint landblockId, out MergedLandblock? landblock);
+
+        /// <summary>
+        /// Synchronously attempts to get a merged environment cell from the cache.
+        /// </summary>
+        bool TryGetEnvCell(string documentId, uint cellId, out Cell? cell);
 
         /// <summary>
         /// Invalidates a specific landblock and its associated environment cells for a document.

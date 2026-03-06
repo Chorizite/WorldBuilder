@@ -301,7 +301,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                         LayerId = layerId,
                         OldLandblockId = oldLbId,
                         NewLandblockId = newLbId,
-                        OldObject = ActiveDocument.GetMergedLandblock(oldLbId).StaticObjects.GetValueOrDefault(oldInstanceId) ?? new StaticObject(),
+                        OldObject = (await ActiveDocument.GetMergedLandblockAsync(oldLbId)).StaticObjects.GetValueOrDefault(oldInstanceId) ?? new StaticObject(),
                         NewObject = newObj,
                         UserId = "system" // Or get from context
                     };
