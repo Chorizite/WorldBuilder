@@ -39,9 +39,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
             ulong newInstanceId = oldObject.InstanceId;
             if (newLandblockId != oldLandblockId) {
-                if (newType == InspectorSelectionType.EnvCellStaticObject || oldObject.InstanceId >= InstanceIdConstants.EnvCellStaticObjectFlag) {
+                if (newType == InspectorSelectionType.EnvCellStaticObject || InstanceIdConstants.GetType(oldObject.InstanceId) == InspectorSelectionType.EnvCellStaticObject) {
                     ushort index = InstanceIdConstants.GetObjectIndex(oldObject.InstanceId);
                     newInstanceId = InstanceIdConstants.EncodeEnvCellStaticObject(newLandblockId, index, true);
+                }
+                else {
+                    ushort newIndex = (ushort)(Guid.NewGuid().GetHashCode() & 0xFFFF);
+                    newInstanceId = InstanceIdConstants.Encode(InspectorSelectionType.StaticObject, ObjectState.Added, newLandblockId, newIndex);
                 }
             }
 

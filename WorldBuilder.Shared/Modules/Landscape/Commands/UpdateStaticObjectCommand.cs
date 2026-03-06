@@ -53,8 +53,13 @@ public partial class UpdateStaticObjectCommand : BaseCommand<bool> {
             using var terrainRental = rentResult.Value;
             await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
-            // If the landblock changed, we don't strictly need to delete and re-insert because InstanceId is the PK 
-            // and UpsertStaticObjectAsync updates the LandblockId column.
+            // If the instance ID changed (e.g. moving between landblocks), we must tombstone the old instance ID
+            // so that it no longer appears from base DAT files in the old landblock.
+            if (OldObject.InstanceId != 0 && OldObject.InstanceId != NewObject.InstanceId) {
+                var deleteResult = await documentManager.DeleteStaticObjectAsync(OldObject.InstanceId, tx, ct);
+                if (deleteResult.IsFailure) return Result<bool>.Failure(deleteResult.Error);
+            }
+
             var result = await documentManager.UpsertStaticObjectAsync(NewObject, terrainRental.Document.RegionId, NewLandblockId, NewObject.CellId, tx, ct);
             if (result.IsFailure) return Result<bool>.Failure(result.Error);
 
