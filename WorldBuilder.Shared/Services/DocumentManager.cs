@@ -264,7 +264,6 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
             return Result<bool>.Failure("Event cannot be null", "ARGUMENT_NULL");
         }
 
-        Console.WriteLine($"[DEBUG] Applying event {evt.Id} of type {evt.GetType().Name} for user {UserId}");
         _logger.LogInformation("Applying event {EventId} of type {EventType} for user {UserId}", evt.Id, evt.GetType().Name,
             UserId);
 
@@ -307,7 +306,6 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
             return Result<TResult>.Failure("Event cannot be null", "ARGUMENT_NULL");
         }
 
-        Console.WriteLine($"[DEBUG] Applying event {evt.Id} of type {evt.GetType().Name} for user {UserId}");
         _logger.LogInformation("Applying event {EventId} of type {EventType} for user {UserId}", evt.Id, evt.GetType().Name,
             UserId);
 

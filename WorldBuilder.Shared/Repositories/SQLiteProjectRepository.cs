@@ -554,7 +554,6 @@ namespace WorldBuilder.Shared.Repositories {
                 cmd.Parameters.AddWithValue("@ry", obj.Rotation.Y);
                 cmd.Parameters.AddWithValue("@rz", obj.Rotation.Z);
                 cmd.Parameters.AddWithValue("@isDeleted", obj.IsDeleted ? 1 : 0);
-                Console.WriteLine($"[DEBUG] DB: UpsertStaticObjectAsync: ID={obj.InstanceId:X16}, Layer={obj.LayerId}, Landblock={landblockId:X8}, Cell={cellId:X8}, IsDeleted={obj.IsDeleted}");
                 await cmd.ExecuteNonQueryAsync(ct);
                 return Result<Unit>.Success(Unit.Value);
             }
