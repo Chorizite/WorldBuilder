@@ -609,18 +609,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         }
 
                         // Calculate world position
-                        var datPos = new Vector3(envCell.Position[0], envCell.Position[1], envCell.Position[2]);
+                        var datPos = envCell.Position;
                         var worldPos = new Vector3(
                             new Vector2(lbGlobalX * lbSizeUnits + datPos.X, lbGlobalY * lbSizeUnits + datPos.Y) + regionInfo.MapOffset,
                             datPos.Z
                         );
 
-                        var rotation = new System.Numerics.Quaternion(
-                            envCell.Position[4],
-                            envCell.Position[5],
-                            envCell.Position[6],
-                            envCell.Position[3]
-                        );
+                        var rotation = envCell.Rotation;
 
                         var transform = Matrix4x4.CreateFromQuaternion(rotation)
                             * Matrix4x4.CreateTranslation(worldPos);
@@ -663,18 +658,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         // Add static objects within the cell
                         if (envCell.StaticObjects.Count > 0) {
                             foreach (var stab in envCell.StaticObjects.Values) {
-                                var datStabPos = new Vector3(stab.Position[0], stab.Position[1], stab.Position[2]);
+                                var datStabPos = stab.Position;
                                 var stabWorldPos = new Vector3(
                                     new Vector2(lbGlobalX * lbSizeUnits + datStabPos.X, lbGlobalY * lbSizeUnits + datStabPos.Y) + regionInfo.MapOffset,
                                     datStabPos.Z
                                 );
 
-                                var stabWorldRot = new System.Numerics.Quaternion(
-                                    stab.Position[4],
-                                    stab.Position[5],
-                                    stab.Position[6],
-                                    stab.Position[3]
-                                );
+                                var stabWorldRot = stab.Rotation;
                                 var stabWorldTransform = Matrix4x4.CreateFromQuaternion(stabWorldRot) * Matrix4x4.CreateTranslation(stabWorldPos);
 
                                 var isSetup = (stab.SetupId >> 24) == 0x02;

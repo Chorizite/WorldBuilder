@@ -64,7 +64,8 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
 
             var obj = new StaticObject {
                 SetupId = 0x01000001,
-                Position = new float[] { 1.0f, 2.0f, 3.0f, 1.0f, 0.0f, 0.0f, 0.0f },
+                Position = new Vector3(1.0f, 2.0f, 3.0f),
+                Rotation = Quaternion.Identity,
                 InstanceId = 100,
                 LayerId = layerId
             };
@@ -158,7 +159,8 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
 
             var bldg = new BuildingObject {
                 ModelId = 0x01000002,
-                Position = new float[] { 4.0f, 5.0f, 6.0f, 1.0f, 0.0f, 0.0f, 0.0f },
+                Position = new Vector3(4.0f, 5.0f, 6.0f),
+                Rotation = Quaternion.Identity,
                 InstanceId = 200,
                 LayerId = layerId
             };

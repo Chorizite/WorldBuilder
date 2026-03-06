@@ -504,7 +504,8 @@ namespace WorldBuilder.Shared.Repositories {
                     objects.Add(new StaticObject {
                         InstanceId = (ulong)reader.GetInt64(0),
                         SetupId = (uint)reader.GetInt64(1),
-                        Position = [reader.GetFloat(2), reader.GetFloat(3), reader.GetFloat(4), reader.GetFloat(5), reader.GetFloat(6), reader.GetFloat(7), reader.GetFloat(8)],
+                        Position = new System.Numerics.Vector3(reader.GetFloat(2), reader.GetFloat(3), reader.GetFloat(4)),
+                        Rotation = new System.Numerics.Quaternion(reader.GetFloat(6), reader.GetFloat(7), reader.GetFloat(8), reader.GetFloat(5)),
                         LayerId = reader.GetString(9),
                         IsDeleted = reader.GetBoolean(10)
                     });
@@ -545,13 +546,13 @@ namespace WorldBuilder.Shared.Repositories {
                 cmd.Parameters.AddWithValue("@lbId", (object?)landblockId ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("@cellId", (object?)cellId ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("@modelId", (long)obj.SetupId);
-                cmd.Parameters.AddWithValue("@px", obj.Position.Length > 0 ? obj.Position[0] : 0f);
-                cmd.Parameters.AddWithValue("@py", obj.Position.Length > 1 ? obj.Position[1] : 0f);
-                cmd.Parameters.AddWithValue("@pz", obj.Position.Length > 2 ? obj.Position[2] : 0f);
-                cmd.Parameters.AddWithValue("@rw", obj.Position.Length > 3 ? obj.Position[3] : 1f);
-                cmd.Parameters.AddWithValue("@rx", obj.Position.Length > 4 ? obj.Position[4] : 0f);
-                cmd.Parameters.AddWithValue("@ry", obj.Position.Length > 5 ? obj.Position[5] : 0f);
-                cmd.Parameters.AddWithValue("@rz", obj.Position.Length > 6 ? obj.Position[6] : 0f);
+                cmd.Parameters.AddWithValue("@px", obj.Position.X);
+                cmd.Parameters.AddWithValue("@py", obj.Position.Y);
+                cmd.Parameters.AddWithValue("@pz", obj.Position.Z);
+                cmd.Parameters.AddWithValue("@rw", obj.Rotation.W);
+                cmd.Parameters.AddWithValue("@rx", obj.Rotation.X);
+                cmd.Parameters.AddWithValue("@ry", obj.Rotation.Y);
+                cmd.Parameters.AddWithValue("@rz", obj.Rotation.Z);
                 await cmd.ExecuteNonQueryAsync(ct);
                 return Result<Unit>.Success(Unit.Value);
             }
@@ -583,10 +584,8 @@ namespace WorldBuilder.Shared.Repositories {
                     while (await reader.ReadAsync(ct)) {
                         var bldg = new BuildingObject {
                             ModelId = (uint)reader.GetInt64(0),
-                            Position = new float[] {
-                                reader.GetFloat(1), reader.GetFloat(2), reader.GetFloat(3),
-                                reader.GetFloat(4), reader.GetFloat(5), reader.GetFloat(6), reader.GetFloat(7)
-                            },
+                            Position = new System.Numerics.Vector3(reader.GetFloat(1), reader.GetFloat(2), reader.GetFloat(3)),
+                            Rotation = new System.Numerics.Quaternion(reader.GetFloat(5), reader.GetFloat(6), reader.GetFloat(7), reader.GetFloat(4)),
                             InstanceId = (ulong)reader.GetInt64(8),
                             LayerId = reader.GetString(9),
                             NumLeaves = (uint)reader.GetInt64(10),
@@ -675,13 +674,13 @@ namespace WorldBuilder.Shared.Repositories {
                 cmd.Parameters.AddWithValue("@layerId", obj.LayerId);
                 cmd.Parameters.AddWithValue("@lbId", (object?)landblockId ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("@modelId", (long)obj.ModelId);
-                cmd.Parameters.AddWithValue("@px", obj.Position.Length > 0 ? obj.Position[0] : 0f);
-                cmd.Parameters.AddWithValue("@py", obj.Position.Length > 1 ? obj.Position[1] : 0f);
-                cmd.Parameters.AddWithValue("@pz", obj.Position.Length > 2 ? obj.Position[2] : 0f);
-                cmd.Parameters.AddWithValue("@rw", obj.Position.Length > 3 ? obj.Position[3] : 1f);
-                cmd.Parameters.AddWithValue("@rx", obj.Position.Length > 4 ? obj.Position[4] : 0f);
-                cmd.Parameters.AddWithValue("@ry", obj.Position.Length > 5 ? obj.Position[5] : 0f);
-                cmd.Parameters.AddWithValue("@rz", obj.Position.Length > 6 ? obj.Position[6] : 0f);
+                cmd.Parameters.AddWithValue("@px", obj.Position.X);
+                cmd.Parameters.AddWithValue("@py", obj.Position.Y);
+                cmd.Parameters.AddWithValue("@pz", obj.Position.Z);
+                cmd.Parameters.AddWithValue("@rw", obj.Rotation.W);
+                cmd.Parameters.AddWithValue("@rx", obj.Rotation.X);
+                cmd.Parameters.AddWithValue("@ry", obj.Rotation.Y);
+                cmd.Parameters.AddWithValue("@rz", obj.Rotation.Z);
                 cmd.Parameters.AddWithValue("@nl", (long)obj.NumLeaves);
                 await cmd.ExecuteNonQueryAsync(ct);
 
@@ -746,7 +745,8 @@ namespace WorldBuilder.Shared.Repositories {
                         EnvironmentId = (ushort)reader.GetInt32(0),
                         Flags = (uint)reader.GetInt64(1),
                         CellStructure = (ushort)reader.GetInt32(2),
-                        Position = [reader.GetFloat(3), reader.GetFloat(4), reader.GetFloat(5), reader.GetFloat(6), reader.GetFloat(7), reader.GetFloat(8), reader.GetFloat(9)],
+                        Position = new System.Numerics.Vector3(reader.GetFloat(3), reader.GetFloat(4), reader.GetFloat(5)),
+                        Rotation = new System.Numerics.Quaternion(reader.GetFloat(7), reader.GetFloat(8), reader.GetFloat(9), reader.GetFloat(6)),
                         RestrictionObj = (uint)reader.GetInt64(10),
                         LayerId = reader.IsDBNull(11) ? string.Empty : reader.GetString(11),
                         Surfaces = new List<ushort>(),
@@ -831,13 +831,13 @@ namespace WorldBuilder.Shared.Repositories {
                 cmd.Parameters.AddWithValue("@envId", (int)cell.EnvironmentId);
                 cmd.Parameters.AddWithValue("@flags", (long)cell.Flags);
                 cmd.Parameters.AddWithValue("@struct", (int)cell.CellStructure);
-                cmd.Parameters.AddWithValue("@px", cell.Position.Length > 0 ? cell.Position[0] : 0f);
-                cmd.Parameters.AddWithValue("@py", cell.Position.Length > 1 ? cell.Position[1] : 0f);
-                cmd.Parameters.AddWithValue("@pz", cell.Position.Length > 2 ? cell.Position[2] : 0f);
-                cmd.Parameters.AddWithValue("@rw", cell.Position.Length > 3 ? cell.Position[3] : 1f);
-                cmd.Parameters.AddWithValue("@rx", cell.Position.Length > 4 ? cell.Position[4] : 0f);
-                cmd.Parameters.AddWithValue("@ry", cell.Position.Length > 5 ? cell.Position[5] : 0f);
-                cmd.Parameters.AddWithValue("@rz", cell.Position.Length > 6 ? cell.Position[6] : 0f);
+                cmd.Parameters.AddWithValue("@px", cell.Position.X);
+                cmd.Parameters.AddWithValue("@py", cell.Position.Y);
+                cmd.Parameters.AddWithValue("@pz", cell.Position.Z);
+                cmd.Parameters.AddWithValue("@rw", cell.Rotation.W);
+                cmd.Parameters.AddWithValue("@rx", cell.Rotation.X);
+                cmd.Parameters.AddWithValue("@ry", cell.Rotation.Y);
+                cmd.Parameters.AddWithValue("@rz", cell.Rotation.Z);
                 cmd.Parameters.AddWithValue("@restr", (long)cell.RestrictionObj);
                 cmd.Parameters.AddWithValue("@version", 1);
                 await cmd.ExecuteNonQueryAsync(ct);

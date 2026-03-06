@@ -67,8 +67,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 var targetObj = (e.ChangeType == CommandChangeType.Undo) ? moveCommand.OldObject : moveCommand.NewObject;
                 var targetLbId = (e.ChangeType == CommandChangeType.Undo) ? moveCommand.OldLandblockId : moveCommand.NewLandblockId;
 
-                var localPosition = new Vector3(targetObj.Position[0], targetObj.Position[1], targetObj.Position[2]);
-                var rotation = new Quaternion(targetObj.Position[4], targetObj.Position[5], targetObj.Position[6], targetObj.Position[3]);
+                var localPosition = targetObj.Position;
+                var rotation = targetObj.Rotation;
                 var worldPosition = ComputeWorldPosition(targetLbId, localPosition);
 
                 // If this was our selection, follow it (even if InstanceId changed)
@@ -365,7 +365,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         private Quaternion ApplySurfaceSnappingRotation(StaticObject startObj, Vector3 hitNormal) {
-            var startRot = new Quaternion(startObj.Position[4], startObj.Position[5], startObj.Position[6], startObj.Position[3]);
+            var startRot = startObj.Rotation;
 
             var oldUp = _dragStartNormal;
             var newUp = Vector3.Normalize(hitNormal);
@@ -391,10 +391,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 SetupId = GizmoState.ObjectId,
                 InstanceId = GizmoState.InstanceId,
                 LayerId = GizmoState.LayerId,
-                Position = new[] {
-                    localPosition.X, localPosition.Y, localPosition.Z,
-                    rotation.W, rotation.X, rotation.Y, rotation.Z
-                }
+                Position = localPosition,
+                Rotation = rotation
             };
         }
 

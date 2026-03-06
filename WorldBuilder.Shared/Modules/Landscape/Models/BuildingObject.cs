@@ -1,4 +1,6 @@
 using MemoryPack;
+using System.Collections.Generic;
+using System.Numerics;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Models {
     /// <summary>
@@ -12,22 +14,26 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         [MemoryPackOrder(0)] public uint ModelId { get; init; }
 
         /// <summary>
-        /// Holds Position and Quaternion rotations.
-        /// x, y, z, qx, qy, qz, qw
+        /// Position relative to landblock origin.
         /// </summary>
-        [MemoryPackOrder(1)] public float[] Position { get; init; } = [];
+        [MemoryPackOrder(1)] public Vector3 Position { get; set; }
+
+        /// <summary>
+        /// Rotation quaternion.
+        /// </summary>
+        [MemoryPackOrder(2)] public Quaternion Rotation { get; set; } = Quaternion.Identity;
 
         /// <summary>
         /// Pseudo-ID tracking this specific instance.
         /// Base dat objects get an ID corresponding to their array index.
         /// Custom spawned objects get generated IDs.
         /// </summary>
-        [MemoryPackOrder(2)] public ulong InstanceId { get; init; }
+        [MemoryPackOrder(3)] public ulong InstanceId { get; init; }
 
         /// <summary>
         /// Landscape Layer ID owning this building instance.
         /// </summary>
-        [MemoryPackOrder(3)] public string LayerId { get; set; } = string.Empty;
+        [MemoryPackOrder(4)] public string LayerId { get; set; } = string.Empty;
 
         /// <summary>
         /// Number of leaves in the BSP tree.

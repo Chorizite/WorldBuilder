@@ -333,13 +333,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (obj.SetupId == 0) continue;
 
                     var isSetup = (obj.SetupId >> 24) == 0x02;
-                    var localPos = new Vector3(obj.Position[0], obj.Position[1], obj.Position[2]);
+                    var localPos = obj.Position;
                     var worldPos = new Vector3(
-                        new Vector2(lbGlobalX * lbSizeUnits + obj.Position[0], lbGlobalY * lbSizeUnits + obj.Position[1]) + regionInfo.MapOffset,
-                        obj.Position[2]
+                        new Vector2(lbGlobalX * lbSizeUnits + obj.Position.X, lbGlobalY * lbSizeUnits + obj.Position.Y) + regionInfo.MapOffset,
+                        obj.Position.Z
                     );
 
-                    var rotation = new Quaternion(obj.Position[4], obj.Position[5], obj.Position[6], obj.Position[3]);
+                    var rotation = obj.Rotation;
 
                     var transform = Matrix4x4.CreateFromQuaternion(rotation)
                         * Matrix4x4.CreateTranslation(worldPos);
@@ -367,13 +367,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (building.ModelId == 0) continue;
 
                     var isSetup = (building.ModelId >> 24) == 0x02;
-                    var localPos = new Vector3(building.Position[0], building.Position[1], building.Position[2]);
+                    var localPos = building.Position;
                     var worldPos = new Vector3(
-                        new Vector2(lbGlobalX * lbSizeUnits + building.Position[0], lbGlobalY * lbSizeUnits + building.Position[1]) + regionInfo.MapOffset,
-                        building.Position[2]
+                        new Vector2(lbGlobalX * lbSizeUnits + building.Position.X, lbGlobalY * lbSizeUnits + building.Position.Y) + regionInfo.MapOffset,
+                        building.Position.Z
                     );
 
-                    var rotation = new Quaternion(building.Position[4], building.Position[5], building.Position[6], building.Position[3]);
+                    var rotation = building.Rotation;
 
                     var transform = Matrix4x4.CreateFromQuaternion(rotation)
                         * Matrix4x4.CreateTranslation(worldPos);

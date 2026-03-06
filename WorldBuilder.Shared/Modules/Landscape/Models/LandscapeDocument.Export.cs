@@ -143,8 +143,8 @@ namespace WorldBuilder.Shared.Models {
                         lbi.Objects.Add(new DatReaderWriter.Types.Stab {
                             Id = obj.SetupId,
                             Frame = new DatReaderWriter.Types.Frame {
-                                Origin = new System.Numerics.Vector3(obj.Position[0], obj.Position[1], obj.Position[2]),
-                                Orientation = new System.Numerics.Quaternion(obj.Position[4], obj.Position[5], obj.Position[6], obj.Position[3])
+                                Origin = obj.Position,
+                                Orientation = obj.Rotation
                             }
                         });
                     }
@@ -183,8 +183,8 @@ namespace WorldBuilder.Shared.Models {
                                     cell.StaticObjects.Add(new DatReaderWriter.Types.Stab {
                                         Id = obj.SetupId,
                                         Frame = new DatReaderWriter.Types.Frame {
-                                            Origin = new System.Numerics.Vector3(obj.Position[0], obj.Position[1], obj.Position[2]),
-                                            Orientation = new System.Numerics.Quaternion(obj.Position[4], obj.Position[5], obj.Position[6], obj.Position[3])
+                                            Origin = obj.Position,
+                                            Orientation = obj.Rotation
                                         }
                                     });
                                 }

@@ -167,10 +167,10 @@ public class StaticObjectCommandTests {
         await SetupChunk(terrainDoc, oldLbId);
         await SetupChunk(terrainDoc, newLbId);
 
-        var oldObj = new StaticObject { InstanceId = 123, SetupId = 0x01000001, Position = [1, 1, 1, 0, 0, 0, 1], LayerId = layerId };
+        var oldObj = new StaticObject { InstanceId = 123, SetupId = 0x01000001, Position = new System.Numerics.Vector3(1, 1, 1), Rotation = System.Numerics.Quaternion.Identity, LayerId = layerId };
         // terrainDoc.AddStaticObject(layerId, oldLbId, oldObj); // This line is no longer needed
 
-        var newObj = new StaticObject { InstanceId = 123, SetupId = 0x01000001, Position = [2, 2, 2, 0, 0, 0, 1], LayerId = layerId };
+        var newObj = new StaticObject { InstanceId = 123, SetupId = 0x01000001, Position = new System.Numerics.Vector3(2, 2, 2), Rotation = System.Numerics.Quaternion.Identity, LayerId = layerId };
         var command = new UpdateStaticObjectCommand {
             TerrainDocumentId = _terrainDocId,
             LayerId = layerId,
@@ -206,7 +206,7 @@ public class StaticObjectCommandTests {
         var oldMerged = await terrainDoc.GetMergedLandblockAsync(oldLbId);
         var newMerged = await terrainDoc.GetMergedLandblockAsync(newLbId);
         Assert.DoesNotContain(oldMerged.StaticObjects.Values, x => x.InstanceId == 123);
-        Assert.Contains(newMerged.StaticObjects.Values, x => x.InstanceId == 123 && x.Position[0] == 2);
+        Assert.Contains(newMerged.StaticObjects.Values, x => x.InstanceId == 123 && x.Position.X == 2);
     }
 
     [Fact]
