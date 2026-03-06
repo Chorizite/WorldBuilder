@@ -1,0 +1,26 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:services="using:WorldBuilder.Services"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="WorldBuilder.Views.AppLogWindow"
+        x:DataType="services:AppLogService"
+        Title="Application Logs"
+        Width="800" Height="400"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid>
+        <ListBox ItemsSource="{Binding Logs}" Background="Transparent">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="services:LogEntry">
+                    <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,2">
+                        <TextBlock Text="{Binding Timestamp, StringFormat='HH:mm:ss'}" Opacity="0.5" FontFamily="Consolas" />
+                        <TextBlock Text="{Binding Type}" FontWeight="Bold" Width="60" />
+                        <TextBlock Text="{Binding Message}" TextWrapping="Wrap" FontFamily="Consolas" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</Window>
