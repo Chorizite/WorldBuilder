@@ -51,6 +51,7 @@ namespace WorldBuilder.Shared.Models {
         private IDocumentManager? _documentManager;
         private WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeDataProvider? _landscapeDataProvider;
         private readonly HashSet<string> _layerIds = [];
+        private uint[]? _baseTerrainCache;
 
         /// <summary>
         /// Gets the ID of the base layer.
@@ -125,6 +126,7 @@ namespace WorldBuilder.Shared.Models {
                 _documentManager = documentManager;
                 _landscapeDataProvider = documentManager.LandscapeDataProvider;
                 await LoadRegionDataAsync(dats);
+                await LoadBaseCacheAsync();
                 // LoadCacheFromDatsAsync is deferred until needed (e.g., during export or editing)
                 await LoadLayersAsync(documentManager, ct);
             }
@@ -141,11 +143,80 @@ namespace WorldBuilder.Shared.Models {
                 _documentManager = documentManager;
                 _landscapeDataProvider = documentManager.LandscapeDataProvider;
                 await LoadRegionDataAsync(dats);
+                await LoadBaseCacheAsync();
                 await LoadLayersAsync(documentManager, ct);
             }
             finally {
                 _initLock.Release();
             }
+        }
+
+        private async Task LoadBaseCacheAsync() {
+            if (Region == null || _documentManager == null) return;
+            var projectDir = _documentManager.ProjectRepository.ProjectDirectory;
+            if (string.IsNullOrEmpty(projectDir)) return;
+
+            var cachePath = WorldBuilder.Shared.Modules.Landscape.Lib.TerrainCacheManager.GetCachePath(projectDir, RegionId);
+            _baseTerrainCache = await WorldBuilder.Shared.Modules.Landscape.Lib.TerrainCacheManager.LoadAsync(cachePath, RegionId, Region.MapWidthInVertices, Region.MapHeightInVertices);
+        }
+
+        public async Task<uint[]> GenerateBaseCacheAsync(IDatReaderWriter dats, IProgress<(string message, float progress)>? progress = null, CancellationToken ct = default) {
+            if (Region == null) await LoadRegionDataAsync(dats);
+            if (Region == null || CellDatabase == null) throw new InvalidOperationException("Region or CellDatabase not loaded.");
+
+            int mapWidthInVertices = Region.MapWidthInVertices;
+            int mapHeightInVertices = Region.MapHeightInVertices;
+            int totalLandblocks = Region.MapWidthInLandblocks * Region.MapHeightInLandblocks;
+            uint[] cache = new uint[mapWidthInVertices * mapHeightInVertices];
+
+            int processedLandblocks = 0;
+            int vertexStride = Region.LandblockVerticeLength;
+            int strideMinusOne = vertexStride - 1;
+
+            var lb = new LandBlock();
+            var buffer = new byte[1024 * 16]; // Larger buffer for landblock data
+
+            for (int ly = 0; ly < Region.MapHeightInLandblocks; ly++) {
+                for (int lx = 0; lx < Region.MapWidthInLandblocks; lx++) {
+                    ct.ThrowIfCancellationRequested();
+
+                    var lbId = Region.GetLandblockId(lx, ly);
+                    var lbFileId = (uint)((lbId << 16) | 0xFFFF);
+
+                    if (CellDatabase.TryGetFileBytes(lbFileId, ref buffer, out _)) {
+                        lb.Unpack(new DatReaderWriter.Lib.IO.DatBinReader(buffer));
+
+                        for (int localIdx = 0; localIdx < lb.Terrain.Length; localIdx++) {
+                            int localY = localIdx % vertexStride;
+                            int localX = localIdx / vertexStride;
+
+                            int globalX = lx * strideMinusOne + localX;
+                            int globalY = ly * strideMinusOne + localY;
+
+                            if (globalX >= mapWidthInVertices || globalY >= mapHeightInVertices) continue;
+
+                            int globalIndex = globalY * mapWidthInVertices + globalX;
+                            var terrainInfo = lb.Terrain[localIdx];
+
+                            var entry = new TerrainEntry {
+                                Height = lb.Height[localIdx],
+                                Type = (byte)terrainInfo.Type,
+                                Scenery = terrainInfo.Scenery,
+                                Road = terrainInfo.Road
+                            };
+                            cache[globalIndex] = entry.Pack();
+                        }
+                    }
+
+                    processedLandblocks++;
+                    if (processedLandblocks % 100 == 0) {
+                        progress?.Report(($"Generating terrain cache ({processedLandblocks}/{totalLandblocks})...", (float)processedLandblocks / totalLandblocks));
+                    }
+                }
+            }
+
+            _baseTerrainCache = cache;
+            return cache;
         }
 
         /// <summary>

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Data.Common;
 using System.Linq;
 using System.Runtime.ConstrainedExecution;
@@ -26,6 +27,9 @@ namespace WorldBuilder.Shared.Repositories {
         public readonly SqliteConnection Connection;
         private readonly ILogger<SQLiteProjectRepository>? _logger;
 
+        /// <inheritdoc/>
+        public string ProjectDirectory { get; }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="SQLiteProjectRepository"/> class.
         /// </summary>
@@ -34,6 +38,19 @@ namespace WorldBuilder.Shared.Repositories {
         public SQLiteProjectRepository(string connectionString, ILogger<SQLiteProjectRepository>? logger = null) {
             Connection = new SqliteConnection(connectionString);
             Connection.Open();
+
+            // Extract project directory from connection string
+            var dataSource = Connection.DataSource;
+            if (dataSource.StartsWith("file:")) {
+                var path = dataSource.Substring(5).Split('?')[0];
+                ProjectDirectory = Path.GetDirectoryName(path) ?? string.Empty;
+            }
+            else if (dataSource == ":memory:") {
+                ProjectDirectory = string.Empty;
+            }
+            else {
+                ProjectDirectory = Path.GetDirectoryName(dataSource) ?? string.Empty;
+            }
 
             // Enable WAL mode for better performance and concurrency
             using (var cmd = Connection.CreateCommand()) {

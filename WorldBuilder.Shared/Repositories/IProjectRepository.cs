@@ -13,6 +13,11 @@ namespace WorldBuilder.Shared.Repositories {
     /// Defines the contract for a project repository, handling document and event persistence.
     /// </summary>
     public interface IProjectRepository : IDisposable {
+        /// <summary>
+        /// Gets the path to the project directory.
+        /// </summary>
+        string ProjectDirectory { get; }
+
         /// <summary>Initializes the database schema.</summary>
         /// <param name="ct">The cancellation token.</param>
         Task InitializeDatabaseAsync(CancellationToken ct);
