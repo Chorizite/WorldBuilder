@@ -308,7 +308,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
             // Resolve the layer ID
             if (Context?.GetStaticObjectLayerId != null) {
-                GizmoState.LayerId = Context.GetStaticObjectLayerId(hit.LandblockId, hit.InstanceId) ?? string.Empty;
+                var layerId = Context.GetStaticObjectLayerId(hit.LandblockId, hit.InstanceId);
+                if (string.IsNullOrEmpty(layerId)) {
+                    GizmoState.LayerId = Context.ActiveLayer?.Id ?? string.Empty;
+                }
+                else {
+                    GizmoState.LayerId = layerId;
+                }
             }
         }
 

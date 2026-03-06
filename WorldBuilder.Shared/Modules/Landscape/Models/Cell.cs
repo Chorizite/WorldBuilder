@@ -62,5 +62,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         /// The Landscape Layer responsible for owning this Cell
         /// </summary>
         [MemoryPackOrder(10)] public string LayerId { get; set; } = string.Empty;
+        /// <summary>
+        /// The cell ID of this cell.
+        /// </summary>
+        [MemoryPackOrder(11)] public uint CellId { get; set; }
     }
 }

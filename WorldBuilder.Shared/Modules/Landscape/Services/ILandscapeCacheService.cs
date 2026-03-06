@@ -28,6 +28,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
         bool TryGetEnvCell(string documentId, uint cellId, out Cell? cell);
 
         /// <summary>
+        /// Invalidates a specific environment cell in the cache.
+        /// </summary>
+        void InvalidateEnvCell(string documentId, uint cellId);
+
+        /// <summary>
         /// Invalidates a specific landblock and its associated environment cells for a document.
         /// </summary>
         void InvalidateLandblock(string documentId, uint landblockId);

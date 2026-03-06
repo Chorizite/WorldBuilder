@@ -56,7 +56,22 @@ public partial class DeleteStaticObjectCommand : BaseCommand<bool> {
             using var terrainRental = rentResult.Value;
             await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
-            var result = await terrainRental.Document.DeleteStaticObjectAsync(InstanceId, LandblockId, tx, ct);
+            Result<Unit> result;
+            if (PreviousState != null) {
+                var tombstone = new StaticObject {
+                    InstanceId = InstanceId,
+                    SetupId = PreviousState.SetupId,
+                    LayerId = LayerId,
+                    Position = PreviousState.Position,
+                    Rotation = PreviousState.Rotation,
+                    CellId = PreviousState.CellId,
+                    IsDeleted = true
+                };
+                result = await terrainRental.Document.UpsertStaticObjectAsync(tombstone, LandblockId, PreviousState.CellId, null, PreviousState.CellId, tx, ct);
+            }
+            else {
+                result = await terrainRental.Document.DeleteStaticObjectAsync(InstanceId, LandblockId, tx, ct);
+            }
             return result.IsSuccess ? Result<bool>.Success(true) : Result<bool>.Failure(result.Error);
         }
         catch (Exception ex) {

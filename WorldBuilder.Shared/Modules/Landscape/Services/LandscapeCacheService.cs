@@ -64,6 +64,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
         }
 
         /// <inheritdoc/>
+        public void InvalidateEnvCell(string documentId, uint cellId) {
+            if (_documentCaches.TryGetValue(documentId, out var cache)) {
+                var lbPrefix = cellId & 0xFFFF0000;
+                if (cache.EnvCells.TryGetValue(lbPrefix, out var lbCache)) {
+                    lbCache.TryRemove(cellId, out _);
+                }
+            }
+        }
+
+        /// <inheritdoc/>
         public void InvalidateLandblock(string documentId, uint landblockId) {
             if (_documentCaches.TryGetValue(documentId, out var cache)) {
                 var lbPrefix = landblockId & 0xFFFF0000;

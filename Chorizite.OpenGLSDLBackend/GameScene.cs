@@ -613,7 +613,7 @@ public class GameScene : IDisposable {
 
         if (type == InspectorSelectionType.Portal || type == InspectorSelectionType.Scenery) {
             // Portals and Scenery currently always belong to the Base layer
-            return "Base";
+            return _landscapeDoc.BaseLayerId ?? string.Empty;
         }
 
         var merged = _landscapeDoc.GetMergedLandblock(landblockId);

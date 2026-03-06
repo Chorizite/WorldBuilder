@@ -31,7 +31,15 @@ namespace WorldBuilder.Shared.Models {
                     foreach (var (x, y) in affectedLandblocks) {
                         var lbPrefix = (uint)((x << 24) | (y << 16));
                         var lbId = lbPrefix | 0xFFFE;
-                        _documentManager.LandscapeCacheService.InvalidateLandblock(Id, lbId);
+                        if (changeType == LandblockChangeType.Objects && x >= 0 && x < 256 && y >= 0 && y < 256) {
+                            // If it's a specific cellId being passed via the x/y hack (where x is cellId low word)
+                            // then we should invalidate just that cell.
+                            // NOTE: Currently LandscapeDocument.UpsertStaticObjectAsync passes landblock coords.
+                            _documentManager.LandscapeCacheService.InvalidateLandblock(Id, lbId);
+                        }
+                        else {
+                            _documentManager.LandscapeCacheService.InvalidateLandblock(Id, lbId);
+                        }
                     }
                 }
             }
@@ -601,17 +609,38 @@ namespace WorldBuilder.Shared.Models {
                 _landscapeDataProvider.GetMergedEnvCellAsync(cellId, CellDatabase, visibleLayerIds, BaseLayerId, CancellationToken.None));
         }
 
-        public async Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint landblockId, uint? cellId, uint? oldLandblockId = null, ITransaction? tx = null, CancellationToken ct = default) {
+        public async Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint landblockId, uint? cellId, uint? oldLandblockId = null, uint? oldCellId = null, ITransaction? tx = null, CancellationToken ct = default) {
             if (_documentManager == null) return Result<Unit>.Failure(Error.Failure("DocumentManager not initialized"));
             
             var result = await _documentManager.UpsertStaticObjectAsync(obj, RegionId, landblockId, cellId, tx, ct);
             if (result.IsSuccess) {
-                var affected = new List<(int, int)>();
-                affected.Add(((int)(landblockId >> 24), (int)((landblockId >> 16) & 0xFF)));
-                if (oldLandblockId.HasValue && oldLandblockId.Value != landblockId) {
-                    affected.Add(((int)(oldLandblockId.Value >> 24), (int)((oldLandblockId.Value >> 16) & 0xFF)));
+                var affectedLandblocks = new List<(int, int)>();
+                
+                if (landblockId != 0) {
+                    affectedLandblocks.Add(((int)(landblockId >> 24), (int)((landblockId >> 16) & 0xFF)));
                 }
-                NotifyLandblockChanged(affected, LandblockChangeType.Objects);
+                
+                if (cellId.HasValue) {
+                    _documentManager.LandscapeCacheService.InvalidateEnvCell(Id, cellId.Value);
+                    // Also invalidate the landblock containing the cell just in case the renderer
+                    // is using landblock-level caches (scenery renderer does this).
+                    var cellLb = cellId.Value & 0xFFFF0000;
+                    affectedLandblocks.Add(((int)(cellLb >> 24), (int)((cellLb >> 16) & 0xFF)));
+                }
+
+                if (oldLandblockId.HasValue && oldLandblockId.Value != 0 && oldLandblockId.Value != landblockId) {
+                    affectedLandblocks.Add(((int)(oldLandblockId.Value >> 24), (int)((oldLandblockId.Value >> 16) & 0xFF)));
+                }
+
+                if (oldCellId.HasValue && oldCellId.Value != cellId) {
+                    _documentManager.LandscapeCacheService.InvalidateEnvCell(Id, oldCellId.Value);
+                    var oldCellLb = oldCellId.Value & 0xFFFF0000;
+                    affectedLandblocks.Add(((int)(oldCellLb >> 24), (int)((oldCellLb >> 16) & 0xFF)));
+                }
+
+                if (affectedLandblocks.Count > 0) {
+                    NotifyLandblockChanged(affectedLandblocks.Distinct(), LandblockChangeType.Objects);
+                }
             }
             return result;
         }

@@ -40,8 +40,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             ulong newInstanceId = oldObject.InstanceId;
             if (newLandblockId != oldLandblockId || newObject.CellId != oldObject.CellId) {
                 if (newType == InspectorSelectionType.EnvCellStaticObject) {
-                    ushort index = InstanceIdConstants.GetObjectIndex(oldObject.InstanceId);
-                    newInstanceId = InstanceIdConstants.EncodeEnvCellStaticObject(newObject.CellId!.Value, index, true);
+                    // Start at the top slot (0xFFFF) and move down to avoid collisions with base objects (0..N)
+                    // We don't have easy access to the full cell contents here, so we use a high-numbered
+                    // random-ish offset that is very unlikely to collide with base objects.
+                    ushort newIndex = (ushort)(0xFFFF - (Guid.NewGuid().GetHashCode() & 0x0FFF));
+                    newInstanceId = InstanceIdConstants.EncodeEnvCellStaticObject(newObject.CellId!.Value, newIndex, true);
                 }
                 else {
                     ushort newIndex = (ushort)(Guid.NewGuid().GetHashCode() & 0xFFFF);

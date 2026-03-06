@@ -1,5 +1,6 @@
 using DatReaderWriter.Lib;
 using MemoryPack;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Data.Common;
@@ -39,11 +40,12 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
     [MemoryPackIgnore]
     public WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeCacheService LandscapeCacheService => _landscapeCacheService;
 
-    public DocumentManager(IProjectRepository repo, IDatReaderWriter dats, ILogger<DocumentManager> logger) {
+    public DocumentManager(IProjectRepository repo, IDatReaderWriter dats, IServiceProvider serviceProvider) {
         _repo = repo;
         _dats = dats;
-        _logger = logger;
-        _landscapeDataProvider = new WorldBuilder.Shared.Modules.Landscape.Services.LandscapeDataProvider(repo);
+        _logger = serviceProvider.GetRequiredService<ILogger<DocumentManager>>();
+        var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
+        _landscapeDataProvider = new WorldBuilder.Shared.Modules.Landscape.Services.LandscapeDataProvider(repo, loggerFactory);
         _landscapeCacheService = new WorldBuilder.Shared.Modules.Landscape.Services.LandscapeCacheService();
         _cleanupTimer = new System.Threading.Timer(CleanupCache, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
     }
@@ -262,7 +264,8 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
             return Result<bool>.Failure("Event cannot be null", "ARGUMENT_NULL");
         }
 
-        _logger.LogDebug("Applying event {EventId} of type {EventType} for user {UserId}", evt.Id, evt.GetType().Name,
+        Console.WriteLine($"[DEBUG] Applying event {evt.Id} of type {evt.GetType().Name} for user {UserId}");
+        _logger.LogInformation("Applying event {EventId} of type {EventType} for user {UserId}", evt.Id, evt.GetType().Name,
             UserId);
 
         evt.UserId = UserId;
@@ -272,6 +275,7 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
         try {
             var res = await evt.ApplyAsync(this, _dats, tx, ct);
             if (res.IsFailure) {
+                _logger.LogError("Event {EventId} application failed: {Error}", evt.Id, res.Error);
                 return Result<bool>.Failure(res.Error);
             }
 
@@ -280,7 +284,7 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
                 return Result<bool>.Failure(insertEventResult.Error);
             }
 
-            _logger.LogDebug("Event {EventId} applied successfully with result: {Result}", evt.Id, res.Value);
+            _logger.LogInformation("Event {EventId} applied successfully", evt.Id);
 
             return res;
         }
@@ -303,7 +307,8 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
             return Result<TResult>.Failure("Event cannot be null", "ARGUMENT_NULL");
         }
 
-        _logger.LogDebug("Applying event {EventId} of type {EventType} for user {UserId}", evt.Id, evt.GetType().Name,
+        Console.WriteLine($"[DEBUG] Applying event {evt.Id} of type {evt.GetType().Name} for user {UserId}");
+        _logger.LogInformation("Applying event {EventId} of type {EventType} for user {UserId}", evt.Id, evt.GetType().Name,
             UserId);
 
         evt.UserId = UserId;
@@ -313,6 +318,7 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
         try {
             var res = await evt.ApplyResultAsync(this, _dats, tx, ct);
             if (res.IsFailure) {
+                _logger.LogError("Event {EventId} application failed: {Error}", evt.Id, res.Error);
                 return Result<TResult>.Failure(res.Error);
             }
 
@@ -321,7 +327,7 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
                 return Result<TResult>.Failure(insertEventResult.Error);
             }
 
-            _logger.LogDebug("Event {EventId} applied successfully", evt.Id);
+            _logger.LogInformation("Event {EventId} applied successfully", evt.Id);
 
             return res;
         }

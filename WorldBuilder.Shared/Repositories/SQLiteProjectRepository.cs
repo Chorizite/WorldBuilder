@@ -507,7 +507,7 @@ namespace WorldBuilder.Shared.Repositories {
                         Position = new System.Numerics.Vector3(reader.GetFloat(2), reader.GetFloat(3), reader.GetFloat(4)),
                         Rotation = new System.Numerics.Quaternion(reader.GetFloat(6), reader.GetFloat(7), reader.GetFloat(8), reader.GetFloat(5)),
                         LayerId = reader.GetString(9),
-                        IsDeleted = reader.GetBoolean(10)
+                        IsDeleted = reader.GetInt32(10) != 0
                     });
                 }
             }
@@ -526,7 +526,7 @@ namespace WorldBuilder.Shared.Repositories {
 
                 const string sql = @"
                     INSERT INTO StaticObjects (InstanceId, RegionId, LayerId, LandblockId, CellId, ModelId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, IsDeleted)
-                    VALUES (@id, @regionId, @layerId, @lbId, @cellId, @modelId, @px, @py, @pz, @rw, @rx, @ry, @rz, 0)
+                    VALUES (@id, @regionId, @layerId, @lbId, @cellId, @modelId, @px, @py, @pz, @rw, @rx, @ry, @rz, @isDeleted)
                     ON CONFLICT(InstanceId) DO UPDATE SET
                         RegionId = @regionId,
                         LayerId = @layerId,
@@ -535,7 +535,7 @@ namespace WorldBuilder.Shared.Repositories {
                         ModelId = @modelId,
                         PosX = @px, PosY = @py, PosZ = @pz,
                         RotW = @rw, RotX = @rx, RotY = @ry, RotZ = @rz,
-                        IsDeleted = 0";
+                        IsDeleted = @isDeleted";
 
                 await using var cmd = Connection.CreateCommand();
                 cmd.Transaction = dbTx;
@@ -553,6 +553,8 @@ namespace WorldBuilder.Shared.Repositories {
                 cmd.Parameters.AddWithValue("@rx", obj.Rotation.X);
                 cmd.Parameters.AddWithValue("@ry", obj.Rotation.Y);
                 cmd.Parameters.AddWithValue("@rz", obj.Rotation.Z);
+                cmd.Parameters.AddWithValue("@isDeleted", obj.IsDeleted ? 1 : 0);
+                Console.WriteLine($"[DEBUG] DB: UpsertStaticObjectAsync: ID={obj.InstanceId:X16}, Layer={obj.LayerId}, Landblock={landblockId:X8}, Cell={cellId:X8}, IsDeleted={obj.IsDeleted}");
                 await cmd.ExecuteNonQueryAsync(ct);
                 return Result<Unit>.Success(Unit.Value);
             }

@@ -1,6 +1,9 @@
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Types;
+using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,16 +18,18 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
     /// </summary>
     public class LandscapeDataProvider : ILandscapeDataProvider {
         private readonly IProjectRepository _repo;
+        private readonly ILogger? _log;
 
-        public LandscapeDataProvider(IProjectRepository repo) {
+        public LandscapeDataProvider(IProjectRepository repo, ILoggerFactory? loggerFactory = null) {
             _repo = repo;
+            _log = loggerFactory?.CreateLogger<LandscapeDataProvider>();
         }
 
         /// <inheritdoc/>
         public async Task<MergedLandblock> GetMergedLandblockAsync(uint landblockId, IDatDatabase? cellDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct) {
             var merged = new MergedLandblock();
             var visibleLayers = new HashSet<string>(visibleLayerIds);
-            var effectiveBaseLayerId = baseLayerId ?? "Base";
+            var effectiveBaseLayerId = baseLayerId ?? string.Empty;
 
             // 1. Parse base from DAT
             var lbFileId = (landblockId & 0xFFFF0000) | 0xFFFE;
@@ -93,9 +98,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
         public async Task<Cell> GetMergedEnvCellAsync(uint cellId, IDatDatabase? cellDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct) {
             var properties = new Cell();
             var visibleLayers = new HashSet<string>(visibleLayerIds);
-            var effectiveBaseLayerId = baseLayerId ?? "Base";
+            var effectiveBaseLayerId = baseLayerId ?? string.Empty;
 
             if (cellDatabase != null && cellDatabase.TryGet<EnvCell>(cellId, out var cell)) {
+                Console.WriteLine($"[DEBUG] Merging EnvCell {cellId:X8}: Loading from DAT");
                 properties = new Cell {
                     EnvironmentId = cell.EnvironmentId,
                     Flags = (uint)cell.Flags,
@@ -104,7 +110,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                     Rotation = cell.Position.Orientation,
                     Surfaces = new List<ushort>(cell.Surfaces),
                     Portals = cell.CellPortals.Select(p => new WbCellPortal(p)).ToList(),
-                    LayerId = effectiveBaseLayerId
+                    LayerId = effectiveBaseLayerId,
+                    CellId = cellId
                 };
 
                 if (cell.StaticObjects != null) {
@@ -118,7 +125,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                             Position = stab.Frame?.Origin ?? Vector3.Zero,
                             Rotation = stab.Frame?.Orientation ?? Quaternion.Identity,
                             InstanceId = instanceId,
-                            LayerId = effectiveBaseLayerId
+                            LayerId = effectiveBaseLayerId,
+                            CellId = cellId
                         };
                     }
                 }
@@ -143,12 +151,22 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
 
             // Sync objects from relational table
             var repoObjects = await _repo.GetStaticObjectsAsync(null, cellId, null, ct);
+            Console.WriteLine($"[DEBUG] Merging EnvCell {cellId:X8}: Found {repoObjects.Count} objects in repo, {properties.StaticObjects.Count} in base");
             foreach (var obj in repoObjects) {
-                if (!visibleLayers.Contains(obj.LayerId)) continue;
+                if (!visibleLayers.Contains(obj.LayerId)) {
+                    Console.WriteLine($"[DEBUG] Merging EnvCell {cellId:X8}: Skipping repo object {obj.InstanceId:X16} (Layer {obj.LayerId} not visible)");
+                    continue;
+                }
                 if (obj.IsDeleted) {
-                    properties.StaticObjects.Remove(obj.InstanceId);
+                    if (properties.StaticObjects.Remove(obj.InstanceId)) {
+                        Console.WriteLine($"[DEBUG] Merging EnvCell {cellId:X8}: Removed base object {obj.InstanceId:X16} (Deleted in Layer {obj.LayerId})");
+                    }
+                    else {
+                        Console.WriteLine($"[DEBUG] Merging EnvCell {cellId:X8}: Repo marked {obj.InstanceId:X16} as Deleted, but it was not found in base");
+                    }
                 } else {
                     properties.StaticObjects[obj.InstanceId] = obj;
+                    Console.WriteLine($"[DEBUG] Merging EnvCell {cellId:X8}: Applied repo object {obj.InstanceId:X16} (Layer {obj.LayerId})");
                 }
             }
 
