@@ -9,6 +9,11 @@ namespace WorldBuilder.Lib {
         public bool DisableBindless { get; set; }
 
         /// <summary>
+        /// Gets the path to a project file to open on startup.
+        /// </summary>
+        public string? ProjectPath { get; set; }
+
+        /// <summary>
         /// Parses command-line arguments into a CommandLineOptions instance.
         /// </summary>
         /// <param name="args">The command-line arguments</param>
@@ -16,9 +21,17 @@ namespace WorldBuilder.Lib {
         public static CommandLineOptions Parse(string[] args) {
             var options = new CommandLineOptions();
             if (args == null) return options;
-            foreach (var arg in args) {
+
+            for (int i = 0; i < args.Length; i++) {
+                var arg = args[i];
+
                 if (arg.Equals("--disable-bindless", System.StringComparison.OrdinalIgnoreCase)) {
                     options.DisableBindless = true;
+                }
+                else if (arg.Equals("--project", System.StringComparison.OrdinalIgnoreCase) || arg.Equals("-p", System.StringComparison.OrdinalIgnoreCase)) {
+                    if (i + 1 < args.Length) {
+                        options.ProjectPath = args[++i];
+                    }
                 }
             }
             return options;
