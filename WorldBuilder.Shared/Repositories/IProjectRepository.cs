@@ -50,7 +50,7 @@ namespace WorldBuilder.Shared.Repositories {
         /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing a list of building objects.</returns>
-        Task<IReadOnlyList<BuildingObject>> GetBuildingsAsync(uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
+        Task<IReadOnlyList<BuildingObject>> GetBuildingsAsync(uint? landblockId, ITransaction? tx, CancellationToken ct);
 
         Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
 
@@ -60,7 +60,13 @@ namespace WorldBuilder.Shared.Repositories {
         /// <param name="landblockId">The landblock ID it belongs to.</param>
         /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
-        Task<Result<Unit>> UpsertBuildingAsync(BuildingObject obj, uint regionId, uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
+        Task<Result<Unit>> UpsertBuildingAsync(BuildingObject obj, uint regionId, uint? landblockId, ITransaction? tx, CancellationToken ct);
+
+        /// <summary>Deletes a building by instance ID.</summary>
+        /// <param name="instanceId">The instance ID.</param>
+        /// <param name="tx">The transaction (optional).</param>
+        /// <param name="ct">The cancellation token.</param>
+        Task<Result<Unit>> DeleteBuildingAsync(ulong instanceId, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Deletes a static object by instance ID.</summary>
         /// <param name="instanceId">The instance ID.</param>

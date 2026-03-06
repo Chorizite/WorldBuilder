@@ -32,6 +32,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         /// <summary>
         /// Optional Cell ID if the object is inside an Environment Cell.
         /// </summary>
-        [MemoryPackOrder(4)] public uint? CellId { get; init; }
-    }
-}
+        [MemoryPackOrder(5)] public uint? CellId { get; init; }
+
+        /// <summary>
+        /// Whether this object has been deleted.
+        /// </summary>
+        [MemoryPackOrder(6)] public bool IsDeleted { get; init; }
+        }
+        }

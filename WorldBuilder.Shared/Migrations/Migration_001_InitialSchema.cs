@@ -58,7 +58,6 @@ namespace WorldBuilder.Shared.Migrations {
                 .WithColumn("RegionId").AsInt64().Indexed()
                 .WithColumn("LayerId").AsString().Indexed().ForeignKey("LandscapeLayers", "Id")
                 .WithColumn("LandblockId").AsInt64().Indexed()
-                .WithColumn("CellId").AsInt64().Nullable().Indexed()
                 .WithColumn("ModelId").AsInt64().NotNullable()
                 .WithColumn("PosX").AsFloat().NotNullable()
                 .WithColumn("PosY").AsFloat().NotNullable()
@@ -67,7 +66,21 @@ namespace WorldBuilder.Shared.Migrations {
                 .WithColumn("RotX").AsFloat().NotNullable()
                 .WithColumn("RotY").AsFloat().NotNullable()
                 .WithColumn("RotZ").AsFloat().NotNullable()
+                .WithColumn("NumLeaves").AsInt64().NotNullable().WithDefaultValue(0)
                 .WithColumn("IsDeleted").AsBoolean().WithDefaultValue(false);
+
+            // Table: BuildingPortals
+            Create.Table("BuildingPortals")
+                .WithColumn("Id").AsInt64().PrimaryKey().Identity()
+                .WithColumn("InstanceId").AsInt64().Indexed().ForeignKey("Buildings", "InstanceId").OnDelete(System.Data.Rule.Cascade)
+                .WithColumn("Flags").AsInt64().NotNullable()
+                .WithColumn("OtherCellId").AsInt32().NotNullable()
+                .WithColumn("OtherPortalId").AsInt32().NotNullable();
+
+            // Table: BuildingPortalStabs
+            Create.Table("BuildingPortalStabs")
+                .WithColumn("PortalId").AsInt64().Indexed().ForeignKey("BuildingPortals", "Id").OnDelete(System.Data.Rule.Cascade)
+                .WithColumn("StabId").AsInt32().NotNullable();
 
             // Table: Events (Retained for sync)
             Create.Table("Events")
@@ -90,12 +103,43 @@ namespace WorldBuilder.Shared.Migrations {
                 .WithColumn("LayerId").AsString().Indexed("idx_envcells_layerid").ForeignKey("LandscapeLayers", "Id")
                 .WithColumn("EnvironmentId").AsInt32().NotNullable()
                 .WithColumn("Flags").AsInt64().NotNullable()
-                .WithColumn("Data").AsBinary().Nullable() // For any remaining blob data like cell structure/portals
+                .WithColumn("CellStructure").AsInt32().NotNullable().WithDefaultValue(0)
+                .WithColumn("PosX").AsFloat().NotNullable().WithDefaultValue(0)
+                .WithColumn("PosY").AsFloat().NotNullable().WithDefaultValue(0)
+                .WithColumn("PosZ").AsFloat().NotNullable().WithDefaultValue(0)
+                .WithColumn("RotW").AsFloat().NotNullable().WithDefaultValue(1)
+                .WithColumn("RotX").AsFloat().NotNullable().WithDefaultValue(0)
+                .WithColumn("RotY").AsFloat().NotNullable().WithDefaultValue(0)
+                .WithColumn("RotZ").AsFloat().NotNullable().WithDefaultValue(0)
+                .WithColumn("RestrictionObj").AsInt64().NotNullable().WithDefaultValue(0)
                 .WithColumn("Version").AsInt64().NotNullable().WithDefaultValue(1);
+
+            // Table: EnvCellSurfaces
+            Create.Table("EnvCellSurfaces")
+                .WithColumn("CellId").AsInt64().Indexed().ForeignKey("EnvCells", "CellId").OnDelete(System.Data.Rule.Cascade)
+                .WithColumn("SurfaceId").AsInt32().NotNullable();
+
+            // Table: EnvCellPortals
+            Create.Table("EnvCellPortals")
+                .WithColumn("CellId").AsInt64().Indexed().ForeignKey("EnvCells", "CellId").OnDelete(System.Data.Rule.Cascade)
+                .WithColumn("Flags").AsInt64().NotNullable()
+                .WithColumn("PolygonId").AsInt32().NotNullable()
+                .WithColumn("OtherCellId").AsInt32().NotNullable()
+                .WithColumn("OtherPortalId").AsInt32().NotNullable();
+
+            // Table: EnvCellVisibleCells
+            Create.Table("EnvCellVisibleCells")
+                .WithColumn("CellId").AsInt64().Indexed().ForeignKey("EnvCells", "CellId").OnDelete(System.Data.Rule.Cascade)
+                .WithColumn("VisibleCellId").AsInt32().NotNullable();
         }
 
         public override void Down() {
+            Delete.Table("EnvCellVisibleCells");
+            Delete.Table("EnvCellPortals");
+            Delete.Table("EnvCellSurfaces");
             Delete.Table("EnvCells");
+            Delete.Table("BuildingPortalStabs");
+            Delete.Table("BuildingPortals");
             Delete.Table("Buildings");
             Delete.Table("StaticObjects");
             Delete.Table("LandscapeLayers");

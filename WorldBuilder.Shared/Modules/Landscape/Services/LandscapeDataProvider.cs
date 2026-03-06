@@ -86,15 +86,23 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
             if (repoObjects != null) {
                 foreach (var obj in repoObjects) {
                     if (!visibleLayers.Contains(obj.LayerId)) continue;
-                    merged.StaticObjects[obj.InstanceId] = obj;
+                    if (obj.IsDeleted) {
+                        merged.StaticObjects.Remove(obj.InstanceId);
+                    } else {
+                        merged.StaticObjects[obj.InstanceId] = obj;
+                    }
                 }
             }
 
-            var repoBuildings = await _repo.GetBuildingsAsync(landblockId, null, null, ct);
+            var repoBuildings = await _repo.GetBuildingsAsync(landblockId, null, ct);
             if (repoBuildings != null) {
                 foreach (var bldg in repoBuildings) {
                     if (!visibleLayers.Contains(bldg.LayerId)) continue;
-                    merged.Buildings[bldg.InstanceId] = bldg;
+                    if (bldg.IsDeleted) {
+                        merged.Buildings.Remove(bldg.InstanceId);
+                    } else {
+                        merged.Buildings[bldg.InstanceId] = bldg;
+                    }
                 }
             }
 
@@ -114,7 +122,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                     CellStructure = cell.CellStructure,
                     Position = [cell.Position.Origin.X, cell.Position.Origin.Y, cell.Position.Origin.Z, cell.Position.Orientation.W, cell.Position.Orientation.X, cell.Position.Orientation.Y, cell.Position.Orientation.Z],
                     Surfaces = new List<ushort>(cell.Surfaces),
-                    Portals = new List<DatReaderWriter.Types.CellPortal>(cell.CellPortals),
+                    Portals = cell.CellPortals.Select(p => new WbCellPortal(p)).ToList(),
                     LayerId = effectiveBaseLayerId
                 };
 
@@ -166,7 +174,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
             var repoObjects = await _repo.GetStaticObjectsAsync(null, cellId, null, ct);
             foreach (var obj in repoObjects) {
                 if (!visibleLayers.Contains(obj.LayerId)) continue;
-                properties.StaticObjects[obj.InstanceId] = obj;
+                if (obj.IsDeleted) {
+                    properties.StaticObjects.Remove(obj.InstanceId);
+                } else {
+                    properties.StaticObjects[obj.InstanceId] = obj;
+                }
             }
 
             return properties;

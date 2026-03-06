@@ -30,12 +30,22 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         /// <summary>
         /// Surfaces
         /// </summary>
-        [MemoryPackIgnore] public List<ushort> Surfaces { get; init; } = [];
+        [MemoryPackOrder(8)] public List<ushort> Surfaces { get; init; } = [];
 
         /// <summary>
         /// Portals to other cells
         /// </summary>
-        [MemoryPackIgnore] public List<CellPortal> Portals { get; init; } = [];
+        [MemoryPackOrder(9)] public List<WbCellPortal> Portals { get; init; } = [];
+
+        /// <summary>
+        /// Restriction Obj
+        /// </summary>
+        [MemoryPackOrder(10)] public uint RestrictionObj { get; init; }
+
+        /// <summary>
+        /// Visible Cells
+        /// </summary>
+        [MemoryPackOrder(11)] public List<ushort> VisibleCells { get; init; } = [];
 
         /// <summary>
         /// Objects in this Cell

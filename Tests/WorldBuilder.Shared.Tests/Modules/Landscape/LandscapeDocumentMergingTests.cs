@@ -163,7 +163,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
                 LayerId = layerId
             };
 
-            _mockRepo.Setup(r => r.GetBuildingsAsync(landblockId, null, It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
+            _mockRepo.Setup(r => r.GetBuildingsAsync(landblockId, It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<BuildingObject> { bldg });
 
             // Act

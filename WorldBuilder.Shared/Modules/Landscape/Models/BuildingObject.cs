@@ -30,8 +30,18 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         [MemoryPackOrder(3)] public string LayerId { get; set; } = string.Empty;
 
         /// <summary>
-        /// Optional Cell ID if the building is inside an Environment Cell.
+        /// Number of leaves in the BSP tree.
         /// </summary>
-        [MemoryPackOrder(4)] public uint? CellId { get; init; }
+        [MemoryPackOrder(5)] public uint NumLeaves { get; init; }
+
+        /// <summary>
+        /// Portals connected to this building.
+        /// </summary>
+        [MemoryPackOrder(6)] public List<WbBuildingPortal> Portals { get; init; } = [];
+
+        /// <summary>
+        /// Whether this building has been deleted.
+        /// </summary>
+        [MemoryPackOrder(7)] public bool IsDeleted { get; init; }
     }
 }

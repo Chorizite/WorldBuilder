@@ -364,6 +364,11 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
         return _repo.DeleteStaticObjectAsync(instanceId, tx, ct);
     }
 
+    /// <inheritdoc/>
+    public Task<Result<Unit>> DeleteBuildingAsync(ulong instanceId, ITransaction? tx, CancellationToken ct) {
+        return _repo.DeleteBuildingAsync(instanceId, tx, ct);
+    }
+
     private async Task<T?> LoadDocumentAsync<T>(string id, ITransaction? tx, CancellationToken ct) where T : BaseDocument {
         _logger.LogDebug("Loading document with ID: {DocumentId} from database", id);
 

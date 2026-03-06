@@ -489,7 +489,7 @@ namespace WorldBuilder.Shared.Repositories {
                 var dbTxResult = GetDbTransaction(tx);
                 var dbTx = dbTxResult.IsSuccess ? dbTxResult.Value : null;
 
-                var sql = "SELECT InstanceId, ModelId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, LayerId FROM StaticObjects WHERE IsDeleted = 0";
+                var sql = "SELECT InstanceId, ModelId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, LayerId, IsDeleted FROM StaticObjects WHERE 1=1";
                 if (landblockId != null) sql += " AND LandblockId = @lbId";
                 if (cellId != null) sql += " AND CellId = @cellId";
                 
@@ -505,7 +505,8 @@ namespace WorldBuilder.Shared.Repositories {
                         InstanceId = (ulong)reader.GetInt64(0),
                         SetupId = (uint)reader.GetInt64(1),
                         Position = [reader.GetFloat(2), reader.GetFloat(3), reader.GetFloat(4), reader.GetFloat(5), reader.GetFloat(6), reader.GetFloat(7), reader.GetFloat(8)],
-                        LayerId = reader.GetString(9)
+                        LayerId = reader.GetString(9),
+                        IsDeleted = reader.GetBoolean(10)
                     });
                 }
             }
@@ -560,13 +561,12 @@ namespace WorldBuilder.Shared.Repositories {
         }
 
         /// <inheritdoc/>
-        public async Task<IReadOnlyList<BuildingObject>> GetBuildingsAsync(uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct) {
+        public async Task<IReadOnlyList<BuildingObject>> GetBuildingsAsync(uint? landblockId, ITransaction? tx, CancellationToken ct) {
             var sql = @"
-                SELECT ModelId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, InstanceId, LayerId
+                SELECT ModelId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, InstanceId, LayerId, NumLeaves, IsDeleted
                 FROM Buildings 
-                WHERE IsDeleted = 0";
+                WHERE 1=1";
             if (landblockId != null) sql += " AND LandblockId = @lbId";
-            if (cellId != null) sql += " AND CellId = @cellId";
 
             var results = new List<BuildingObject>();
             try {
@@ -577,18 +577,68 @@ namespace WorldBuilder.Shared.Repositories {
                 cmd.Transaction = dbTx;
                 cmd.CommandText = sql;
                 if (landblockId != null) cmd.Parameters.AddWithValue("@lbId", (long)landblockId);
-                if (cellId != null) cmd.Parameters.AddWithValue("@cellId", (long)cellId);
-                await using var reader = await cmd.ExecuteReaderAsync(ct);
-                while (await reader.ReadAsync(ct)) {
-                    results.Add(new BuildingObject {
-                        ModelId = (uint)reader.GetInt64(0),
-                        Position = new float[] {
-                            reader.GetFloat(1), reader.GetFloat(2), reader.GetFloat(3),
-                            reader.GetFloat(4), reader.GetFloat(5), reader.GetFloat(6), reader.GetFloat(7)
-                        },
-                        InstanceId = (ulong)reader.GetInt64(8),
-                        LayerId = reader.GetString(9)
-                    });
+                
+                var buildingMap = new Dictionary<ulong, BuildingObject>();
+                await using (var reader = await cmd.ExecuteReaderAsync(ct)) {
+                    while (await reader.ReadAsync(ct)) {
+                        var bldg = new BuildingObject {
+                            ModelId = (uint)reader.GetInt64(0),
+                            Position = new float[] {
+                                reader.GetFloat(1), reader.GetFloat(2), reader.GetFloat(3),
+                                reader.GetFloat(4), reader.GetFloat(5), reader.GetFloat(6), reader.GetFloat(7)
+                            },
+                            InstanceId = (ulong)reader.GetInt64(8),
+                            LayerId = reader.GetString(9),
+                            NumLeaves = (uint)reader.GetInt64(10),
+                            IsDeleted = reader.GetBoolean(11),
+                            Portals = new List<WbBuildingPortal>()
+                        };
+                        buildingMap[bldg.InstanceId] = bldg;
+                        results.Add(bldg);
+                    }
+                }
+
+                if (buildingMap.Count > 0) {
+                    var instanceIds = string.Join(",", buildingMap.Keys);
+                    var portalSql = $"SELECT Id, InstanceId, Flags, OtherCellId, OtherPortalId FROM BuildingPortals WHERE InstanceId IN ({instanceIds})";
+                    var portalsById = new Dictionary<long, WbBuildingPortal>();
+
+                    await using (var portalCmd = Connection.CreateCommand()) {
+                        portalCmd.Transaction = dbTx;
+                        portalCmd.CommandText = portalSql;
+                        await using var portalReader = await portalCmd.ExecuteReaderAsync(ct);
+                        while (await portalReader.ReadAsync(ct)) {
+                            var id = portalReader.GetInt64(0);
+                            var instId = (ulong)portalReader.GetInt64(1);
+                            var portal = new WbBuildingPortal {
+                                Flags = (uint)portalReader.GetInt64(2),
+                                OtherCellId = (ushort)portalReader.GetInt32(3),
+                                OtherPortalId = (ushort)portalReader.GetInt32(4),
+                                StabList = new List<ushort>()
+                            };
+                            portalsById[id] = portal;
+                            if (buildingMap.TryGetValue(instId, out var bldg)) {
+                                bldg.Portals.Add(portal);
+                            }
+                        }
+                    }
+
+                    if (portalsById.Count > 0) {
+                        var portalIds = string.Join(",", portalsById.Keys);
+                        var stabSql = $"SELECT PortalId, StabId FROM BuildingPortalStabs WHERE PortalId IN ({portalIds})";
+                        await using (var stabCmd = Connection.CreateCommand()) {
+                            stabCmd.Transaction = dbTx;
+                            stabCmd.CommandText = stabSql;
+                            await using var stabReader = await stabCmd.ExecuteReaderAsync(ct);
+                            while (await stabReader.ReadAsync(ct)) {
+                                var portalId = stabReader.GetInt64(0);
+                                var stabId = (ushort)stabReader.GetInt32(1);
+                                if (portalsById.TryGetValue(portalId, out var portal)) {
+                                    portal.StabList.Add(stabId);
+                                }
+                            }
+                        }
+                    }
                 }
             }
             catch (Exception ex) {
@@ -598,23 +648,23 @@ namespace WorldBuilder.Shared.Repositories {
         }
 
         /// <inheritdoc/>
-        public async Task<Result<Unit>> UpsertBuildingAsync(BuildingObject obj, uint regionId, uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct) {
+        public async Task<Result<Unit>> UpsertBuildingAsync(BuildingObject obj, uint regionId, uint? landblockId, ITransaction? tx, CancellationToken ct) {
             try {
                 var dbTxResult = GetDbTransaction(tx);
                 if (dbTxResult.IsFailure) return Result<Unit>.Failure(dbTxResult.Error);
                 var dbTx = dbTxResult.Value;
 
                 const string sql = @"
-                    INSERT INTO Buildings (InstanceId, RegionId, LayerId, LandblockId, CellId, ModelId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, IsDeleted)
-                    VALUES (@id, @regionId, @layerId, @lbId, @cellId, @modelId, @px, @py, @pz, @rw, @rx, @ry, @rz, 0)
+                    INSERT INTO Buildings (InstanceId, RegionId, LayerId, LandblockId, ModelId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, NumLeaves, IsDeleted)
+                    VALUES (@id, @regionId, @layerId, @lbId, @modelId, @px, @py, @pz, @rw, @rx, @ry, @rz, @nl, 0)
                     ON CONFLICT(InstanceId) DO UPDATE SET
                         RegionId = @regionId,
                         LayerId = @layerId,
                         LandblockId = @lbId,
-                        CellId = @cellId,
                         ModelId = @modelId,
                         PosX = @px, PosY = @py, PosZ = @pz,
                         RotW = @rw, RotX = @rx, RotY = @ry, RotZ = @rz,
+                        NumLeaves = @nl,
                         IsDeleted = 0";
 
                 await using var cmd = Connection.CreateCommand();
@@ -624,7 +674,6 @@ namespace WorldBuilder.Shared.Repositories {
                 cmd.Parameters.AddWithValue("@regionId", (long)regionId);
                 cmd.Parameters.AddWithValue("@layerId", obj.LayerId);
                 cmd.Parameters.AddWithValue("@lbId", (object?)landblockId ?? DBNull.Value);
-                cmd.Parameters.AddWithValue("@cellId", (object?)cellId ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("@modelId", (long)obj.ModelId);
                 cmd.Parameters.AddWithValue("@px", obj.Position.Length > 0 ? obj.Position[0] : 0f);
                 cmd.Parameters.AddWithValue("@py", obj.Position.Length > 1 ? obj.Position[1] : 0f);
@@ -633,7 +682,45 @@ namespace WorldBuilder.Shared.Repositories {
                 cmd.Parameters.AddWithValue("@rx", obj.Position.Length > 4 ? obj.Position[4] : 0f);
                 cmd.Parameters.AddWithValue("@ry", obj.Position.Length > 5 ? obj.Position[5] : 0f);
                 cmd.Parameters.AddWithValue("@rz", obj.Position.Length > 6 ? obj.Position[6] : 0f);
+                cmd.Parameters.AddWithValue("@nl", (long)obj.NumLeaves);
                 await cmd.ExecuteNonQueryAsync(ct);
+
+                // Remove existing portals and stabs (cascade takes care of stabs if we delete portals, or we delete both)
+                await using (var delCmd = Connection.CreateCommand()) {
+                    delCmd.Transaction = dbTx;
+                    delCmd.CommandText = "DELETE FROM BuildingPortals WHERE InstanceId = @id";
+                    delCmd.Parameters.AddWithValue("@id", (long)obj.InstanceId);
+                    await delCmd.ExecuteNonQueryAsync(ct);
+                }
+
+                if (obj.Portals != null) {
+                    foreach (var portal in obj.Portals) {
+                        long portalId;
+                        await using (var pCmd = Connection.CreateCommand()) {
+                            pCmd.Transaction = dbTx;
+                            pCmd.CommandText = "INSERT INTO BuildingPortals (InstanceId, Flags, OtherCellId, OtherPortalId) VALUES (@inst, @flags, @oc, @op) RETURNING Id;";
+                            pCmd.Parameters.AddWithValue("@inst", (long)obj.InstanceId);
+                            pCmd.Parameters.AddWithValue("@flags", (long)portal.Flags);
+                            pCmd.Parameters.AddWithValue("@oc", (int)portal.OtherCellId);
+                            pCmd.Parameters.AddWithValue("@op", (int)portal.OtherPortalId);
+                            var pidObj = await pCmd.ExecuteScalarAsync(ct);
+                            portalId = Convert.ToInt64(pidObj);
+                        }
+
+                        if (portal.StabList != null) {
+                            foreach (var stab in portal.StabList) {
+                                await using (var sCmd = Connection.CreateCommand()) {
+                                    sCmd.Transaction = dbTx;
+                                    sCmd.CommandText = "INSERT INTO BuildingPortalStabs (PortalId, StabId) VALUES (@pid, @sid)";
+                                    sCmd.Parameters.AddWithValue("@pid", portalId);
+                                    sCmd.Parameters.AddWithValue("@sid", (int)stab);
+                                    await sCmd.ExecuteNonQueryAsync(ct);
+                                }
+                            }
+                        }
+                    }
+                }
+
                 return Result<Unit>.Success(Unit.Value);
             }
             catch (Exception ex) {
@@ -648,7 +735,7 @@ namespace WorldBuilder.Shared.Repositories {
                 if (dbTxResult.IsFailure) return Result<Cell>.Failure(dbTxResult.Error);
                 var dbTx = dbTxResult.Value;
 
-                const string sql = "SELECT EnvironmentId, Flags, Data FROM EnvCells WHERE CellId = @id";
+                const string sql = "SELECT EnvironmentId, Flags, CellStructure, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, RestrictionObj, LayerId FROM EnvCells WHERE CellId = @id";
                 await using var cmd = Connection.CreateCommand();
                 cmd.Transaction = dbTx;
                 cmd.CommandText = sql;
@@ -657,18 +744,56 @@ namespace WorldBuilder.Shared.Repositories {
                 if (await reader.ReadAsync(ct)) {
                     var cell = new Cell {
                         EnvironmentId = (ushort)reader.GetInt32(0),
-                        Flags = (uint)reader.GetInt64(1)
+                        Flags = (uint)reader.GetInt64(1),
+                        CellStructure = (ushort)reader.GetInt32(2),
+                        Position = [reader.GetFloat(3), reader.GetFloat(4), reader.GetFloat(5), reader.GetFloat(6), reader.GetFloat(7), reader.GetFloat(8), reader.GetFloat(9)],
+                        RestrictionObj = (uint)reader.GetInt64(10),
+                        LayerId = reader.IsDBNull(11) ? string.Empty : reader.GetString(11),
+                        Surfaces = new List<ushort>(),
+                        Portals = new List<WbCellPortal>(),
+                        VisibleCells = new List<ushort>()
                     };
-                    if (!reader.IsDBNull(2)) {
-                        var data = (byte[])reader.GetValue(2);
-                        var extra = MemoryPackSerializer.Deserialize<Cell>(data);
-                        if (extra != null) {
-                            // Merge extra data (StaticObjects, etc)
-                            foreach (var obj in extra.StaticObjects) {
-                                cell.StaticObjects[obj.Key] = obj.Value;
-                            }
+                    
+                    await reader.CloseAsync();
+
+                    // Surfaces
+                    await using (var surfCmd = Connection.CreateCommand()) {
+                        surfCmd.Transaction = dbTx;
+                        surfCmd.CommandText = "SELECT SurfaceId FROM EnvCellSurfaces WHERE CellId = @id";
+                        surfCmd.Parameters.AddWithValue("@id", (long)cellId);
+                        await using var surfReader = await surfCmd.ExecuteReaderAsync(ct);
+                        while (await surfReader.ReadAsync(ct)) {
+                            cell.Surfaces.Add((ushort)surfReader.GetInt32(0));
                         }
                     }
+
+                    // Portals
+                    await using (var portCmd = Connection.CreateCommand()) {
+                        portCmd.Transaction = dbTx;
+                        portCmd.CommandText = "SELECT Flags, PolygonId, OtherCellId, OtherPortalId FROM EnvCellPortals WHERE CellId = @id";
+                        portCmd.Parameters.AddWithValue("@id", (long)cellId);
+                        await using var portReader = await portCmd.ExecuteReaderAsync(ct);
+                        while (await portReader.ReadAsync(ct)) {
+                            cell.Portals.Add(new WbCellPortal {
+                                Flags = (uint)portReader.GetInt64(0),
+                                PolygonId = (ushort)portReader.GetInt32(1),
+                                OtherCellId = (ushort)portReader.GetInt32(2),
+                                OtherPortalId = (ushort)portReader.GetInt32(3)
+                            });
+                        }
+                    }
+
+                    // VisibleCells
+                    await using (var visCmd = Connection.CreateCommand()) {
+                        visCmd.Transaction = dbTx;
+                        visCmd.CommandText = "SELECT VisibleCellId FROM EnvCellVisibleCells WHERE CellId = @id";
+                        visCmd.Parameters.AddWithValue("@id", (long)cellId);
+                        await using var visReader = await visCmd.ExecuteReaderAsync(ct);
+                        while (await visReader.ReadAsync(ct)) {
+                            cell.VisibleCells.Add((ushort)visReader.GetInt32(0));
+                        }
+                    }
+
                     return Result<Cell>.Success(cell);
                 }
                 return Result<Cell>.Failure($"EnvCell not found: {cellId}", "NOT_FOUND");
@@ -685,15 +810,16 @@ namespace WorldBuilder.Shared.Repositories {
                 if (dbTxResult.IsFailure) return Result<Unit>.Failure(dbTxResult.Error);
                 var dbTx = dbTxResult.Value;
 
-                var data = MemoryPackSerializer.Serialize(cell);
-
                 const string sql = @"
-                    INSERT INTO EnvCells (CellId, RegionId, LayerId, EnvironmentId, Flags, Data, Version)
-                    VALUES (@id, @regionId, @layerId, @envId, @flags, @data, @version)
+                    INSERT INTO EnvCells (CellId, RegionId, LayerId, EnvironmentId, Flags, CellStructure, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, RestrictionObj, Version)
+                    VALUES (@id, @regionId, @layerId, @envId, @flags, @struct, @px, @py, @pz, @rw, @rx, @ry, @rz, @restr, @version)
                     ON CONFLICT(CellId) DO UPDATE SET
                         EnvironmentId = @envId,
                         Flags = @flags,
-                        Data = @data,
+                        CellStructure = @struct,
+                        PosX = @px, PosY = @py, PosZ = @pz,
+                        RotW = @rw, RotX = @rx, RotY = @ry, RotZ = @rz,
+                        RestrictionObj = @restr,
                         Version = Version + 1";
 
                 await using var cmd = Connection.CreateCommand();
@@ -704,9 +830,68 @@ namespace WorldBuilder.Shared.Repositories {
                 cmd.Parameters.AddWithValue("@layerId", cell.LayerId);
                 cmd.Parameters.AddWithValue("@envId", (int)cell.EnvironmentId);
                 cmd.Parameters.AddWithValue("@flags", (long)cell.Flags);
-                cmd.Parameters.AddWithValue("@data", data);
+                cmd.Parameters.AddWithValue("@struct", (int)cell.CellStructure);
+                cmd.Parameters.AddWithValue("@px", cell.Position.Length > 0 ? cell.Position[0] : 0f);
+                cmd.Parameters.AddWithValue("@py", cell.Position.Length > 1 ? cell.Position[1] : 0f);
+                cmd.Parameters.AddWithValue("@pz", cell.Position.Length > 2 ? cell.Position[2] : 0f);
+                cmd.Parameters.AddWithValue("@rw", cell.Position.Length > 3 ? cell.Position[3] : 1f);
+                cmd.Parameters.AddWithValue("@rx", cell.Position.Length > 4 ? cell.Position[4] : 0f);
+                cmd.Parameters.AddWithValue("@ry", cell.Position.Length > 5 ? cell.Position[5] : 0f);
+                cmd.Parameters.AddWithValue("@rz", cell.Position.Length > 6 ? cell.Position[6] : 0f);
+                cmd.Parameters.AddWithValue("@restr", (long)cell.RestrictionObj);
                 cmd.Parameters.AddWithValue("@version", 1);
                 await cmd.ExecuteNonQueryAsync(ct);
+
+                // Delete existing child records
+                await using (var delCmd = Connection.CreateCommand()) {
+                    delCmd.Transaction = dbTx;
+                    delCmd.CommandText = "DELETE FROM EnvCellSurfaces WHERE CellId = @id; DELETE FROM EnvCellPortals WHERE CellId = @id; DELETE FROM EnvCellVisibleCells WHERE CellId = @id;";
+                    delCmd.Parameters.AddWithValue("@id", (long)cellId);
+                    await delCmd.ExecuteNonQueryAsync(ct);
+                }
+
+                // Insert Surfaces
+                if (cell.Surfaces != null) {
+                    foreach (var surface in cell.Surfaces) {
+                        await using (var sCmd = Connection.CreateCommand()) {
+                            sCmd.Transaction = dbTx;
+                            sCmd.CommandText = "INSERT INTO EnvCellSurfaces (CellId, SurfaceId) VALUES (@id, @surf)";
+                            sCmd.Parameters.AddWithValue("@id", (long)cellId);
+                            sCmd.Parameters.AddWithValue("@surf", (int)surface);
+                            await sCmd.ExecuteNonQueryAsync(ct);
+                        }
+                    }
+                }
+
+                // Insert Portals
+                if (cell.Portals != null) {
+                    foreach (var portal in cell.Portals) {
+                        await using (var pCmd = Connection.CreateCommand()) {
+                            pCmd.Transaction = dbTx;
+                            pCmd.CommandText = "INSERT INTO EnvCellPortals (CellId, Flags, PolygonId, OtherCellId, OtherPortalId) VALUES (@id, @flags, @poly, @oc, @op)";
+                            pCmd.Parameters.AddWithValue("@id", (long)cellId);
+                            pCmd.Parameters.AddWithValue("@flags", (long)portal.Flags);
+                            pCmd.Parameters.AddWithValue("@poly", (int)portal.PolygonId);
+                            pCmd.Parameters.AddWithValue("@oc", (int)portal.OtherCellId);
+                            pCmd.Parameters.AddWithValue("@op", (int)portal.OtherPortalId);
+                            await pCmd.ExecuteNonQueryAsync(ct);
+                        }
+                    }
+                }
+
+                // Insert VisibleCells
+                if (cell.VisibleCells != null) {
+                    foreach (var vc in cell.VisibleCells) {
+                        await using (var vCmd = Connection.CreateCommand()) {
+                            vCmd.Transaction = dbTx;
+                            vCmd.CommandText = "INSERT INTO EnvCellVisibleCells (CellId, VisibleCellId) VALUES (@id, @vc)";
+                            vCmd.Parameters.AddWithValue("@id", (long)cellId);
+                            vCmd.Parameters.AddWithValue("@vc", (int)vc);
+                            await vCmd.ExecuteNonQueryAsync(ct);
+                        }
+                    }
+                }
+
                 return Result<Unit>.Success(Unit.Value);
             }
             catch (Exception ex) {
@@ -730,6 +915,25 @@ namespace WorldBuilder.Shared.Repositories {
             }
             catch (Exception ex) {
                 return Result<Unit>.Failure($"Error deleting static object: {ex.Message}", "DATABASE_ERROR");
+            }
+        }
+
+        public async Task<Result<Unit>> DeleteBuildingAsync(ulong instanceId, ITransaction? tx, CancellationToken ct) {
+            try {
+                var dbTxResult = GetDbTransaction(tx);
+                if (dbTxResult.IsFailure) return Result<Unit>.Failure(dbTxResult.Error);
+                var dbTx = dbTxResult.Value;
+
+                const string sql = "UPDATE Buildings SET IsDeleted = 1 WHERE InstanceId = @id";
+                await using var cmd = Connection.CreateCommand();
+                cmd.Transaction = dbTx;
+                cmd.CommandText = sql;
+                cmd.Parameters.AddWithValue("@id", (long)instanceId);
+                await cmd.ExecuteNonQueryAsync(ct);
+                return Result<Unit>.Success(Unit.Value);
+            }
+            catch (Exception ex) {
+                return Result<Unit>.Failure($"Error deleting building: {ex.Message}", "DATABASE_ERROR");
             }
         }
 
