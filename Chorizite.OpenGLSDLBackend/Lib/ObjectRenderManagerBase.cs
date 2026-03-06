@@ -30,7 +30,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         // Queues — generation uses a dictionary for cancellation + priority ordering
         protected readonly ConcurrentDictionary<ushort, ObjectLandblock> _pendingGeneration = new();
-        protected readonly ConcurrentQueue<ObjectLandblock> _uploadQueue = new();
+        protected readonly ConcurrentDictionary<ushort, ObjectLandblock> _uploadQueue = new();
         protected readonly ConcurrentDictionary<ushort, CancellationTokenSource> _generationCTS = new();
         protected int _activeGenerations = 0;
 
@@ -260,6 +260,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
                 _outOfRangeTimers.TryRemove(key, out _);
                 _pendingGeneration.TryRemove(key, out _);
+                _uploadQueue.TryRemove(key, out _);
                 _activeLandblocksDirty = true;
                 NeedsPrepare = true;
             }
@@ -341,36 +342,60 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (!_initialized) return 0;
 
             var sw = Stopwatch.StartNew();
-            while (sw.Elapsed.TotalMilliseconds < timeBudgetMs && _uploadQueue.TryDequeue(out var lb)) {
-                Interlocked.Exchange(ref lb.IsQueuedForUpload, 0);
+            while (sw.Elapsed.TotalMilliseconds < timeBudgetMs && !_uploadQueue.IsEmpty) {
+                ObjectLandblock? bestLb = null;
+                float bestPriority = float.MaxValue;
+                ushort bestKey = 0;
 
-                var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
-                if (!_landblocks.TryGetValue(key, out var currentLb) || currentLb != lb) {
+                Vector2 camDir2D = new Vector2(_cameraForward.X, _cameraForward.Y);
+                if (camDir2D.LengthSquared() > 0.001f) {
+                    camDir2D = Vector2.Normalize(camDir2D);
+                }
+                else {
+                    camDir2D = Vector2.Zero;
+                }
+
+                foreach (var (key, lb) in _uploadQueue) {
+                    float priority = GetPriority(lb, camDir2D, _cameraLbX, _cameraLbY);
+                    if (priority < bestPriority) {
+                        bestPriority = priority;
+                        bestLb = lb;
+                        bestKey = key;
+                    }
+                }
+
+                if (bestLb == null || !_uploadQueue.TryRemove(bestKey, out var lbToUpload))
+                    break;
+
+                Interlocked.Exchange(ref lbToUpload.IsQueuedForUpload, 0);
+
+                var keyCheck = GeometryUtils.PackKey(lbToUpload.GridX, lbToUpload.GridY);
+                if (!_landblocks.TryGetValue(keyCheck, out var currentLb) || currentLb != lbToUpload) {
                     continue;
                 }
 
                 // Skip if this landblock is no longer within render distance (don't skip based on frustum)
-                if (!IsWithinRenderDistance(lb)) {
-                    if (_landblocks.TryRemove(key, out _)) {
-                        UnloadLandblockResources(lb);
+                if (!IsWithinRenderDistance(lbToUpload)) {
+                    if (_landblocks.TryRemove(keyCheck, out _)) {
+                        UnloadLandblockResources(lbToUpload);
                     }
                     continue;
                 }
 
-                lock (lb) {
+                lock (lbToUpload) {
                     // Check if this is a transform-only update (drag preview) with no
                     // pending full regeneration.  If so, take the lightweight path that
                     // re-uploads instance data in-place without freeing/reallocating the
                     // GPU buffer — this avoids the 1-frame flash caused by the full
                     // UploadLandblockMeshes teardown/rebuild cycle.
-                    bool transformOnly = Interlocked.Exchange(ref lb.IsTransformOnlyUpdate, 0) == 1
-                                        && lb.PendingInstances == null
-                                        && lb.GpuReady;
+                    bool transformOnly = Interlocked.Exchange(ref lbToUpload.IsTransformOnlyUpdate, 0) == 1
+                                        && lbToUpload.PendingInstances == null
+                                        && lbToUpload.GpuReady;
                     if (transformOnly) {
-                        UploadTransformOnly(lb);
+                        UploadTransformOnly(lbToUpload);
                     }
                     else {
-                        UploadLandblockMeshes(lb);
+                        UploadLandblockMeshes(lbToUpload);
                     }
                 }
                 _activeLandblocksDirty = true;
@@ -416,7 +441,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                                 // Mark landblock as needing upload if not already queued
                                 if (Interlocked.Exchange(ref lb.IsQueuedForUpload, 1) == 0) {
-                                    _uploadQueue.Enqueue(lb);
+                                    _uploadQueue[key] = lb;
                                 }
                             }
                             return;

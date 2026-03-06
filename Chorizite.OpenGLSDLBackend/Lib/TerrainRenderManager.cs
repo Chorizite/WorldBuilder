@@ -27,7 +27,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         // Job queues
         private readonly ConcurrentDictionary<ushort, TerrainChunk> _pendingGeneration = new();
-        private readonly ConcurrentQueue<TerrainChunk> _uploadQueue = new();
+        private readonly ConcurrentDictionary<ushort, TerrainChunk> _uploadQueue = new();
         private readonly ConcurrentQueue<TerrainChunk> _partialUpdateQueue = new();
         private readonly ConcurrentQueue<TerrainChunk> _readyForUploadQueue = new();
         private readonly ConcurrentDictionary<TerrainChunk, byte> _queuedForPartialUpdate = new();
@@ -64,6 +64,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private IShader? _shader;
         private bool _initialized;
         private Vector3 _cameraPosition;
+        private Vector3 _cameraForward;
         private float _cameraFov;
         private Matrix4x4 _viewMatrix;
         private Matrix4x4 _projectionMatrix;
@@ -216,6 +217,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _projectionMatrix = camera.ProjectionMatrix;
             _viewProjectionMatrix = camera.ViewProjectionMatrix;
             _cameraPosition = camera.Position;
+            _cameraForward = camera.Forward;
             _cameraFov = camera.FieldOfView;
 
             if (!_initialized) return;
@@ -293,6 +295,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var key in _chunkKeysToRemove) {
                 if (_chunks.TryRemove(key, out var chunk)) {
                     _pendingGeneration.TryRemove(key, out _);
+                    _uploadQueue.TryRemove(key, out _);
                     ReleaseChunk(chunk);
                     chunk.Dispose();
                 }
@@ -395,23 +398,67 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Prioritize partial updates for responsiveness (Main thread GPU upload)
             ApplyPartialUpdates(sw, timeBudgetMs);
 
-            while (_uploadQueue.TryPeek(out var chunk)) {
+            // Calculate current chunk
+            var region = _landscapeDoc.Region;
+            if (region is null) return (float)sw.Elapsed.TotalMilliseconds;
+
+            var pos = new Vector2(_cameraPosition.X, _cameraPosition.Y) - region.MapOffset;
+            var chunkX = (int)Math.Floor(pos.X / _chunkSizeInUnits);
+            var chunkY = (int)Math.Floor(pos.Y / _chunkSizeInUnits);
+
+            while (!_uploadQueue.IsEmpty) {
                 if (sw.Elapsed.TotalMilliseconds > timeBudgetMs) {
                     break;
                 }
 
-                if (_uploadQueue.TryDequeue(out chunk)) {
-                    // Skip if this chunk is no longer in render distance (don't skip based on frustum)
-                    if (!IsWithinRenderDistance(chunk, (int)chunk.ChunkX, (int)chunk.ChunkY)) {
-                        var chunkId = (ushort)((chunk.ChunkX << 8) | chunk.ChunkY);
-                        if (_chunks.TryRemove(chunkId, out _)) {
-                            ReleaseChunk(chunk);
-                            chunk.Dispose();
-                        }
-                        continue;
-                    }
-                    UploadChunk(chunk);
+                TerrainChunk? bestChunk = null;
+                float bestPriority = float.MaxValue;
+                ushort bestKey = 0;
+
+                Vector2 camDir2D = new Vector2(_cameraForward.X, _cameraForward.Y);
+                if (camDir2D.LengthSquared() > 0.001f) {
+                    camDir2D = Vector2.Normalize(camDir2D);
                 }
+                else {
+                    camDir2D = Vector2.Zero;
+                }
+
+                foreach (var (key, chunk) in _uploadQueue) {
+                    float dx = (int)chunk.ChunkX - chunkX;
+                    float dy = (int)chunk.ChunkY - chunkY;
+                    float dist = MathF.Sqrt(dx * dx + dy * dy);
+
+                    float priority = dist;
+                    if (dist > 0.1f && camDir2D != Vector2.Zero) {
+                        Vector2 dirToChunk = Vector2.Normalize(new Vector2(dx, dy));
+                        float dot = Vector2.Dot(camDir2D, dirToChunk);
+                        priority -= dot * 5f;
+                    }
+
+                    // Prioritize chunks in frustum
+                    if (IsChunkInFrustum((int)chunk.ChunkX, (int)chunk.ChunkY) != FrustumTestResult.Outside) {
+                        priority -= 20f;
+                    }
+
+                    if (priority < bestPriority) {
+                        bestPriority = priority;
+                        bestChunk = chunk;
+                        bestKey = key;
+                    }
+                }
+
+                if (bestChunk == null || !_uploadQueue.TryRemove(bestKey, out var chunkToUpload))
+                    break;
+
+                // Skip if this chunk is no longer in render distance (don't skip based on frustum)
+                if (!IsWithinRenderDistance(chunkToUpload, chunkX, chunkY)) {
+                    if (_chunks.TryRemove(bestKey, out _)) {
+                        ReleaseChunk(chunkToUpload);
+                        chunkToUpload.Dispose();
+                    }
+                    continue;
+                }
+                UploadChunk(chunkToUpload);
             }
 
             return (float)sw.Elapsed.TotalMilliseconds;
@@ -579,7 +626,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     chunk.GeneratedIndices = indices.AsMemory(0, iCount);
                 }
 
-                _uploadQueue.Enqueue(chunk);
+                _uploadQueue[chunk.GetChunkId()] = chunk;
             }
             catch (OperationCanceledException) {
                 // Ignore

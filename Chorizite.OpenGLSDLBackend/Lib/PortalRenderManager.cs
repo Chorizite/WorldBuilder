@@ -44,7 +44,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Per-landblock portal data
         private readonly ConcurrentDictionary<ushort, PortalLandblock> _landblocks = new();
         private readonly ConcurrentDictionary<ushort, PortalLandblock> _pendingGeneration = new();
-        private readonly ConcurrentQueue<PortalLandblock> _uploadQueue = new();
+        private readonly ConcurrentDictionary<ushort, PortalLandblock> _uploadQueue = new();
         private int _activeGenerations = 0;
 
         public bool ShowPortals { get; set; } = true;
@@ -57,6 +57,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public (uint CellId, ulong PortalIndex)? SelectedPortal { get; set; }
 
         private Vector3 _cameraPosition;
+        private Vector3 _cameraForward;
         private int _cameraLbX;
         private int _cameraLbY;
         private float _lbSizeInUnits;
@@ -137,6 +138,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _lbSizeInUnits = lbSize;
 
             _cameraPosition = camera.Position;
+            _cameraForward = camera.Forward;
             var pos = new Vector2(_cameraPosition.X, _cameraPosition.Y) - region.MapOffset;
             _cameraLbX = (int)Math.Floor(pos.X / lbSize);
             _cameraLbY = (int)Math.Floor(pos.Y / lbSize);
@@ -149,9 +151,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                     var key = GeometryUtils.PackKey(x, y);
                     if (!_landblocks.ContainsKey(key)) {
+                        var minX = x * lbSize + region.MapOffset.X;
+                        var minY = y * lbSize + region.MapOffset.Y;
+                        var maxX = (x + 1) * lbSize + region.MapOffset.X;
+                        var maxY = (y + 1) * lbSize + region.MapOffset.Y;
+
                         var lb = new PortalLandblock {
                             GridX = x,
-                            GridY = y
+                            GridY = y,
+                            BoundingBox = new BoundingBox(
+                                new Vector3(minX, minY, -1000f),
+                                new Vector3(maxX, maxY, 5000f)
+                            )
                         };
                         if (_landblocks.TryAdd(key, lb)) {
                             _pendingGeneration[key] = lb;
@@ -173,10 +184,50 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     NeedsPrepare = true;
                 }
                 _pendingGeneration.TryRemove(key, out _);
+                _uploadQueue.TryRemove(key, out _);
             }
 
-            // Start generation tasks
-            while (_activeGenerations < 4 && _pendingGeneration.TryRemove(_pendingGeneration.Keys.FirstOrDefault(), out var lbToGenerate)) {
+            // Start generation tasks — prioritize nearest landblocks
+            while (_activeGenerations < 4 && !_pendingGeneration.IsEmpty) {
+                PortalLandblock? nearest = null;
+                float bestPriority = float.MaxValue;
+                ushort bestKey = 0;
+
+                Vector2 camDir2D = new Vector2(_cameraForward.X, _cameraForward.Y);
+                if (camDir2D.LengthSquared() > 0.001f) {
+                    camDir2D = Vector2.Normalize(camDir2D);
+                }
+                else {
+                    camDir2D = Vector2.Zero;
+                }
+
+                foreach (var (key, lb) in _pendingGeneration) {
+                    float dx = lb.GridX - _cameraLbX;
+                    float dy = lb.GridY - _cameraLbY;
+                    float dist = MathF.Sqrt(dx * dx + dy * dy);
+
+                    float priority = dist;
+                    if (dist > 0.1f && camDir2D != Vector2.Zero) {
+                        Vector2 dirToChunk = Vector2.Normalize(new Vector2(dx, dy));
+                        float dot = Vector2.Dot(camDir2D, dirToChunk);
+                        priority -= dot * 5f;
+                    }
+
+                    // Prioritize chunks in frustum
+                    if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(lb.BoundingBox.Min, lb.BoundingBox.Max)) != FrustumTestResult.Outside) {
+                        priority -= 20f;
+                    }
+
+                    if (priority < bestPriority) {
+                        bestPriority = priority;
+                        nearest = lb;
+                        bestKey = key;
+                    }
+                }
+
+                if (nearest == null || !_pendingGeneration.TryRemove(bestKey, out var lbToGenerate))
+                    break;
+
                 Interlocked.Increment(ref _activeGenerations);
                 Task.Run(async () => {
                     try {
@@ -191,8 +242,47 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public float ProcessUploads(float timeBudgetMs) {
             var sw = Stopwatch.StartNew();
-            while (sw.Elapsed.TotalMilliseconds < timeBudgetMs && _uploadQueue.TryDequeue(out var lb)) {
-                UploadLandblock(lb);
+            while (sw.Elapsed.TotalMilliseconds < timeBudgetMs && !_uploadQueue.IsEmpty) {
+                PortalLandblock? bestLb = null;
+                float bestPriority = float.MaxValue;
+                ushort bestKey = 0;
+
+                Vector2 camDir2D = new Vector2(_cameraForward.X, _cameraForward.Y);
+                if (camDir2D.LengthSquared() > 0.001f) {
+                    camDir2D = Vector2.Normalize(camDir2D);
+                }
+                else {
+                    camDir2D = Vector2.Zero;
+                }
+
+                foreach (var (key, lb) in _uploadQueue) {
+                    float dx = lb.GridX - _cameraLbX;
+                    float dy = lb.GridY - _cameraLbY;
+                    float dist = MathF.Sqrt(dx * dx + dy * dy);
+
+                    float priority = dist;
+                    if (dist > 0.1f && camDir2D != Vector2.Zero) {
+                        Vector2 dirToChunk = Vector2.Normalize(new Vector2(dx, dy));
+                        float dot = Vector2.Dot(camDir2D, dirToChunk);
+                        priority -= dot * 5f;
+                    }
+
+                    // Prioritize chunks in frustum
+                    if (_frustum.TestBox(new Chorizite.Core.Lib.BoundingBox(lb.BoundingBox.Min, lb.BoundingBox.Max)) != FrustumTestResult.Outside) {
+                        priority -= 20f;
+                    }
+
+                    if (priority < bestPriority) {
+                        bestPriority = priority;
+                        bestLb = lb;
+                        bestKey = key;
+                    }
+                }
+
+                if (bestLb == null || !_uploadQueue.TryRemove(bestKey, out var lbToUpload))
+                    break;
+
+                UploadLandblock(lbToUpload);
                 NeedsPrepare = true;
             }
             return (float)sw.Elapsed.TotalMilliseconds;
@@ -394,6 +484,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private async Task GeneratePortalsForLandblock(PortalLandblock lb) {
             try {
+                var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
                 var lbGlobalX = (uint)lb.GridX;
                 var lbGlobalY = (uint)lb.GridY;
                 var lbId = (uint)((lbGlobalX << 24) | (lbGlobalY << 16));
@@ -459,7 +550,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 lb.PendingPortals = portals;
                 lb.PendingBoundingBox = new BoundingBox(lbMin, lbMax);
                 lb.PendingBuildings = pendingBuildings;
-                _uploadQueue.Enqueue(lb);
+                _uploadQueue[key] = lb;
             }
             catch (Exception ex) {
                 _log.LogError(ex, "Error generating portals for landblock ({X},{Y})", lb.GridX, lb.GridY);

@@ -414,7 +414,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 await PrepareMeshesForInstances(staticObjects, ct);
 
                 lb.MeshDataReady = true;
-                _uploadQueue.Enqueue(lb);
+                _uploadQueue[key] = lb;
             }
             catch (OperationCanceledException) {
                 // Ignore cancellations
