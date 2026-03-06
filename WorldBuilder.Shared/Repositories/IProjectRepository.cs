@@ -45,6 +45,16 @@ namespace WorldBuilder.Shared.Repositories {
 
         Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
 
+        /// <summary>
+        /// Gets all landblock IDs that have modifications (static objects, buildings, or env cells) for a specific layer.
+        /// </summary>
+        /// <param name="regionId">The region ID.</param>
+        /// <param name="layerId">The layer ID.</param>
+        /// <param name="tx">The transaction (optional).</param>
+        /// <param name="ct">The cancellation token.</param>
+        /// <returns>A list of unique landblock IDs.</returns>
+        Task<IReadOnlyList<uint>> GetAffectedLandblocksByLayerAsync(uint regionId, string layerId, ITransaction? tx, CancellationToken ct);
+
         /// <summary>Retrieves all buildings for a landblock.</summary>
         /// <param name="landblockId">The landblock ID.</param>
         /// <param name="tx">The transaction (optional).</param>

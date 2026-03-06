@@ -478,7 +478,23 @@ namespace WorldBuilder.Shared.Models {
             // Ensure all chunks with edits for this region are loaded
             await LoadAllModifiedChunksAsync(dats, documentManager, ct);
 
-            return GetAffectedLandblocks(layerId);
+            var affected = new HashSet<(int x, int y)>();
+
+            // 1. Terrain edits (vertices)
+            foreach (var lb in GetAffectedLandblocks(layerId)) {
+                affected.Add(lb);
+            }
+
+            // 2. Object/Cell edits (from repository)
+            var repoLandblocks = await documentManager.GetAffectedLandblocksByLayerAsync(RegionId, layerId, null, ct);
+            foreach (var lbId in repoLandblocks) {
+                // Landblock ID is 0xXXYY
+                int lbX = (int)(lbId >> 8);
+                int lbY = (int)(lbId & 0xFF);
+                affected.Add((lbX, lbY));
+            }
+
+            return affected;
         }
 
         /// <summary>

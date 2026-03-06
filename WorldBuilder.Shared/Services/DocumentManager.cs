@@ -40,11 +40,10 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
     [MemoryPackIgnore]
     public WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeCacheService LandscapeCacheService => _landscapeCacheService;
 
-    public DocumentManager(IProjectRepository repo, IDatReaderWriter dats, IServiceProvider serviceProvider) {
+    public DocumentManager(IProjectRepository repo, IDatReaderWriter dats, ILogger<DocumentManager> logger, ILoggerFactory? loggerFactory = null) {
         _repo = repo;
         _dats = dats;
-        _logger = serviceProvider.GetRequiredService<ILogger<DocumentManager>>();
-        var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
+        _logger = logger;
         _landscapeDataProvider = new WorldBuilder.Shared.Modules.Landscape.Services.LandscapeDataProvider(repo, loggerFactory);
         _landscapeCacheService = new WorldBuilder.Shared.Modules.Landscape.Services.LandscapeCacheService();
         _cleanupTimer = new System.Threading.Timer(CleanupCache, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
@@ -356,6 +355,11 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
     /// <inheritdoc/>
     public Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct) {
         return _repo.GetStaticObjectsAsync(landblockId, cellId, tx, ct);
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<uint>> GetAffectedLandblocksByLayerAsync(uint regionId, string layerId, ITransaction? tx, CancellationToken ct) {
+        return _repo.GetAffectedLandblocksByLayerAsync(regionId, layerId, tx, ct);
     }
 
     /// <inheritdoc/>

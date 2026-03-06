@@ -22,7 +22,8 @@ namespace WorldBuilder.Shared.Models {
             }
 
             foreach (var layer in exportedLayers) {
-                foreach (var lb in GetAffectedLandblocks(layer.Id)) {
+                if (_documentManager == null) throw new InvalidOperationException("DocumentManager not initialized");
+                foreach (var lb in await GetAffectedLandblocksAsync(layer.Id, datwriter, _documentManager, CancellationToken.None)) {
                     affectedLandblocks.Add(lb);
                 }
             }

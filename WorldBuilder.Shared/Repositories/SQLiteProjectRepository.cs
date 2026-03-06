@@ -483,6 +483,61 @@ namespace WorldBuilder.Shared.Repositories {
         }
 
         /// <inheritdoc/>
+        public async Task<IReadOnlyList<uint>> GetAffectedLandblocksByLayerAsync(uint regionId, string layerId, ITransaction? tx, CancellationToken ct) {
+            var landblockIds = new HashSet<uint>();
+            try {
+                var dbTxResult = GetDbTransaction(tx);
+                var dbTx = dbTxResult.IsSuccess ? dbTxResult.Value : null;
+
+                // 1. Static Objects
+                const string staticSql = "SELECT DISTINCT LandblockId FROM StaticObjects WHERE RegionId = @regionId AND LayerId = @layerId AND LandblockId IS NOT NULL";
+                await using (var cmd = Connection.CreateCommand()) {
+                    cmd.Transaction = dbTx;
+                    cmd.CommandText = staticSql;
+                    cmd.Parameters.AddWithValue("@regionId", (long)regionId);
+                    cmd.Parameters.AddWithValue("@layerId", layerId);
+                    await using var reader = await cmd.ExecuteReaderAsync(ct);
+                    while (await reader.ReadAsync(ct)) {
+                        var lbId = (uint)reader.GetInt64(0);
+                        landblockIds.Add(lbId >> 16);
+                    }
+                }
+
+                // 2. Buildings
+                const string buildingSql = "SELECT DISTINCT LandblockId FROM Buildings WHERE RegionId = @regionId AND LayerId = @layerId AND LandblockId IS NOT NULL";
+                await using (var cmd = Connection.CreateCommand()) {
+                    cmd.Transaction = dbTx;
+                    cmd.CommandText = buildingSql;
+                    cmd.Parameters.AddWithValue("@regionId", (long)regionId);
+                    cmd.Parameters.AddWithValue("@layerId", layerId);
+                    await using var reader = await cmd.ExecuteReaderAsync(ct);
+                    while (await reader.ReadAsync(ct)) {
+                        var lbId = (uint)reader.GetInt64(0);
+                        landblockIds.Add(lbId >> 16);
+                    }
+                }
+
+                // 3. EnvCells
+                const string envCellSql = "SELECT DISTINCT CellId FROM EnvCells WHERE RegionId = @regionId AND LayerId = @layerId";
+                await using (var cmd = Connection.CreateCommand()) {
+                    cmd.Transaction = dbTx;
+                    cmd.CommandText = envCellSql;
+                    cmd.Parameters.AddWithValue("@regionId", (long)regionId);
+                    cmd.Parameters.AddWithValue("@layerId", layerId);
+                    await using var reader = await cmd.ExecuteReaderAsync(ct);
+                    while (await reader.ReadAsync(ct)) {
+                        var cellId = (uint)reader.GetInt64(0);
+                        landblockIds.Add(cellId >> 16);
+                    }
+                }
+            }
+            catch (Exception ex) {
+                _logger?.LogError(ex, "Error retrieving affected landblocks for layer {LayerId} in region {RegionId}", layerId, regionId);
+            }
+            return landblockIds.ToList();
+        }
+
+        /// <inheritdoc/>
         public async Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct) {
             var objects = new List<StaticObject>();
             try {

@@ -110,6 +110,11 @@ namespace WorldBuilder.Shared.Services {
         /// <summary>Retrieves all static objects for a landblock or cell.</summary>
         Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
 
+        /// <summary>
+        /// Gets all landblock IDs that have modifications (static objects, buildings, or env cells) for a specific layer.
+        /// </summary>
+        Task<IReadOnlyList<uint>> GetAffectedLandblocksByLayerAsync(uint regionId, string layerId, ITransaction? tx, CancellationToken ct);
+
         /// <summary>Upserts a static object.</summary>
         Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
 
