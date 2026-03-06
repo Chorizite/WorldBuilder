@@ -308,7 +308,8 @@ public partial class RenderView : Base3DViewport {
 
         int pendingCount = _gameScene.PendingTerrainUploads + _gameScene.PendingTerrainGenerations +
                            _gameScene.PendingTerrainPartialUpdates + _gameScene.PendingSceneryUploads +
-                           _gameScene.PendingSceneryGenerations;
+                           _gameScene.PendingSceneryGenerations + _gameScene.PendingStaticObjectUploads +
+                           _gameScene.PendingStaticObjectGenerations;
         bool isLoading = pendingCount > 0;
 
         if (isLoading != _isLoading || (isLoading && pendingCount != _lastPendingCount)) {

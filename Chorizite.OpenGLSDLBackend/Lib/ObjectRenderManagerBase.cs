@@ -47,9 +47,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly List<ObjectLandblock> _prepareVisibleBuffer = new();
         private readonly List<ObjectLandblock> _prepareIntersectingBuffer = new();
         protected Vector3 _cameraPosition;
+        protected Vector3 _cameraForward;
         protected int _cameraLbX;
         protected int _cameraLbY;
         private int _lastRenderDistance;
+
+        // Throttling
+        private float _scanThreshold = 10f; // units
+        private float _scanRotThreshold = 0.05f; // dot product
 
         // Frustum culling
         protected readonly Frustum _frustum;
@@ -175,12 +180,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             bool cameraMovedLandblock = newCameraLbX != _cameraLbX || newCameraLbY != _cameraLbY;
             bool renderDistanceChanged = RenderDistance != _lastRenderDistance;
+            
+            // Re-scan if moved significantly, rotated significantly, or first time
+            bool moved = Vector3.DistanceSquared(cameraPosition, _cameraPosition) > _scanThreshold * _scanThreshold;
+            bool rotated = Vector3.Dot(camera.Forward, _cameraForward) < (1.0f - _scanRotThreshold);
+            
             _cameraLbX = newCameraLbX;
             _cameraLbY = newCameraLbY;
+            _cameraPosition = cameraPosition;
+            _cameraForward = camera.Forward;
             _lastRenderDistance = RenderDistance;
 
-            // Only queue landblocks within render distance if the camera moved to a new landblock or it's the first time
-            if (cameraMovedLandblock || renderDistanceChanged || _landblocks.IsEmpty) {
+            // Only queue landblocks within render distance if the camera moved, rotated, or it's the first time
+            if (cameraMovedLandblock || renderDistanceChanged || moved || rotated || _landblocks.IsEmpty) {
                 _activeLandblocksDirty = true;
                 NeedsPrepare = true;
                 for (int x = _cameraLbX - RenderDistance; x <= _cameraLbX + RenderDistance; x++) {
@@ -208,6 +220,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 )
                             };
                             if (_landblocks.TryAdd(key, lb)) {
+                                bool inFrustum = _frustum.TestBox(lb.BoundingBox) != FrustumTestResult.Outside;
+                                bool isVeryClose = Math.Abs(x - _cameraLbX) <= 10 && Math.Abs(y - _cameraLbY) <= 10;
+                                if (inFrustum || isVeryClose) {
+                                    _pendingGeneration[key] = lb;
+                                }
+                            }
+                        }
+                        else if (_landblocks.TryGetValue(key, out var lb) && !lb.InstancesReady && !_pendingGeneration.ContainsKey(key)) {
+                            // If it's tracked but not yet generated/queued, check if it should now be queued
+                            bool inFrustum = _frustum.TestBox(lb.BoundingBox) != FrustumTestResult.Outside;
+                            bool isVeryClose = Math.Abs(x - _cameraLbX) <= 10 && Math.Abs(y - _cameraLbY) <= 10;
+                            if (inFrustum || isVeryClose) {
                                 _pendingGeneration[key] = lb;
                             }
                         }

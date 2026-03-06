@@ -69,6 +69,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private Matrix4x4 _projectionMatrix;
         private Matrix4x4 _viewProjectionMatrix;
 
+        // Throttling
+        private Vector3 _lastScanPos;
+        private Vector3 _lastScanForward;
+        private float _scanThreshold = 10f; // units
+        private float _scanRotThreshold = 0.05f; // dot product
+
         public bool NeedsPrepare => true;
 
         // Statistics
@@ -221,23 +227,50 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var chunkX = (int)Math.Floor(pos.X / _chunkSizeInUnits);
             var chunkY = (int)Math.Floor(pos.Y / _chunkSizeInUnits);
 
-            // Queue new chunks
-            for (int x = chunkX - RenderDistance; x <= chunkX + RenderDistance; x++) {
-                for (int y = chunkY - RenderDistance; y <= chunkY + RenderDistance; y++) {
-                    if (x < 0 || y < 0) continue;
+            // Throttle the scan for new chunks
+            bool moved = Vector3.DistanceSquared(camera.Position, _lastScanPos) > _scanThreshold * _scanThreshold;
+            bool rotated = Vector3.Dot(camera.Forward, _lastScanForward) < (1.0f - _scanRotThreshold);
 
-                    var uX = (uint)x;
-                    var uY = (uint)y;
+            if (moved || rotated || _chunks.IsEmpty) {
+                _lastScanPos = camera.Position;
+                _lastScanForward = camera.Forward;
 
-                    var chunkId = (ushort)((uX << 8) | uY);
-                    if (!_chunks.ContainsKey(chunkId)) {
-                        var chunk = new TerrainChunk(_gl, uX, uY);
-                        if (_chunks.TryAdd(chunkId, chunk)) {
-                            _pendingGeneration[chunkId] = chunk;
+                // Queue new chunks
+                for (int x = chunkX - RenderDistance; x <= chunkX + RenderDistance; x++) {
+                    for (int y = chunkY - RenderDistance; y <= chunkY + RenderDistance; y++) {
+                        if (x < 0 || y < 0) continue;
+
+                        var uX = (uint)x;
+                        var uY = (uint)y;
+
+                        var chunkId = (ushort)((uX << 8) | uY);
+                        if (!_chunks.ContainsKey(chunkId)) {
+                            var chunk = new TerrainChunk(_gl, uX, uY);
+                            if (_chunks.TryAdd(chunkId, chunk)) {
+                                // Only queue for generation if in frustum or very close to camera (to avoid pops when turning)
+                                // A radius of 4 chunks (32 landblocks) ensures the immediate vicinity is always loaded.
+                                bool inFrustum = IsChunkInFrustum(x, y) != FrustumTestResult.Outside;
+                                bool isVeryClose = Math.Abs(x - chunkX) <= 4 && Math.Abs(y - chunkY) <= 4;
+                                if (inFrustum || isVeryClose) {
+                                    _pendingGeneration[chunkId] = chunk;
+                                }
+                            }
+                        }
+                        else if (_chunks.TryGetValue(chunkId, out var chunk) && !chunk.IsGenerated && !_pendingGeneration.ContainsKey(chunkId)) {
+                            // If it's tracked but not yet generated/queued, check if it should now be queued
+                            bool inFrustum = IsChunkInFrustum(x, y) != FrustumTestResult.Outside;
+                            bool isVeryClose = Math.Abs(x - chunkX) <= 4 && Math.Abs(y - chunkY) <= 4;
+                            if (inFrustum || isVeryClose) {
+                                _pendingGeneration[chunkId] = chunk;
+                            }
                         }
                     }
                 }
             }
+
+            // Clean up chunks that are out of range (with delay)
+            // ...
+            // (Note: The rest of the function remains outside the throttling block)
 
             // Clean up chunks that are out of range (with delay)
             // Note: We only unload based on distance, not frustum. This ensures chunks stay cached
