@@ -13,6 +13,7 @@ public class DocumentManager : IDocumentManager, IDisposable {
     private readonly IProjectRepository _repo;
     private readonly IDatReaderWriter _dats;
     private readonly ILogger<DocumentManager> _logger;
+    private readonly WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeDataProvider _landscapeDataProvider;
     private readonly ConcurrentDictionary<string, DocumentCacheEntry> _cache = new();
     private readonly SemaphoreSlim _cacheLock = new(1, 1);
     private readonly Timer _cleanupTimer;
@@ -28,10 +29,14 @@ public class DocumentManager : IDocumentManager, IDisposable {
     /// <inheritdoc/>
     public IProjectRepository ProjectRepository => _repo;
 
+    /// <inheritdoc/>
+    public WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeDataProvider LandscapeDataProvider => _landscapeDataProvider;
+
     public DocumentManager(IProjectRepository repo, IDatReaderWriter dats, ILogger<DocumentManager> logger) {
         _repo = repo;
         _dats = dats;
         _logger = logger;
+        _landscapeDataProvider = new WorldBuilder.Shared.Modules.Landscape.Services.LandscapeDataProvider(repo);
         _cleanupTimer = new Timer(CleanupCallback, null, _cleanupInterval, _cleanupInterval);
     }
 

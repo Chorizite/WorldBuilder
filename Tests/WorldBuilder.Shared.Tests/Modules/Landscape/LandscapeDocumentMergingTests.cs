@@ -34,7 +34,11 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             _doc.CellDatabase = _mockCellDatabase.Object;
 
             // Inject mock doc manager
+            var dataProvider = new WorldBuilder.Shared.Modules.Landscape.Services.LandscapeDataProvider(_mockRepo.Object);
+            _mockDocManager.Setup(m => m.LandscapeDataProvider).Returns(dataProvider);
+
             typeof(LandscapeDocument).GetField("_documentManager", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(_doc, _mockDocManager.Object);
+            typeof(LandscapeDocument).GetField("_landscapeDataProvider", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(_doc, dataProvider);
 
             // Bypass dats loading
             typeof(LandscapeDocument).GetField("_didLoadRegionData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(_doc, true);

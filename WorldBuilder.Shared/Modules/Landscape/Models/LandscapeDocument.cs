@@ -44,6 +44,7 @@ namespace WorldBuilder.Shared.Models {
         private bool _didLoadLayers;
         private bool _didLoadRegionData;
         private IDocumentManager? _documentManager;
+        private WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeDataProvider? _landscapeDataProvider;
         private readonly HashSet<string> _layerIds = [];
 
         /// <summary>
@@ -118,6 +119,7 @@ namespace WorldBuilder.Shared.Models {
             await _initLock.WaitAsync(ct);
             try {
                 _documentManager = documentManager;
+                _landscapeDataProvider = documentManager.LandscapeDataProvider;
                 await LoadRegionDataAsync(dats);
                 // LoadCacheFromDatsAsync is deferred until needed (e.g., during export or editing)
                 await LoadLayersAsync(documentManager, ct);
@@ -133,6 +135,7 @@ namespace WorldBuilder.Shared.Models {
             await _initLock.WaitAsync(ct);
             try {
                 _documentManager = documentManager;
+                _landscapeDataProvider = documentManager.LandscapeDataProvider;
                 await LoadRegionDataAsync(dats);
                 await LoadLayersAsync(documentManager, ct);
             }
@@ -580,85 +583,12 @@ namespace WorldBuilder.Shared.Models {
                 return cached;
             }
 
-            var merged = new MergedLandblock();
-
-            // 1. Parse base from DAT
-            var lbFileId = (landblockId & 0xFFFF0000) | 0xFFFE;
-            Dictionary<ulong, StaticObject> baseStatics = new();
-            Dictionary<ulong, BuildingObject> baseBuildings = new();
-
-            if (CellDatabase != null) {
-                if (CellDatabase.TryGet<LandBlockInfo>(lbFileId, out var lbi) && lbi != null) {
-                    for (int i = 0; i < (lbi.Objects?.Count ?? 0); i++) {
-                        var stab = lbi.Objects![i];
-                        if (stab == null) continue;
-
-                        ulong instanceId = InstanceIdConstants.EncodeStaticObject(lbFileId, (ushort)i);
-                        var pos = new float[7];
-                        if (stab.Frame != null) {
-                            pos[0] = stab.Frame.Origin.X;
-                            pos[1] = stab.Frame.Origin.Y;
-                            pos[2] = stab.Frame.Origin.Z;
-                            pos[3] = stab.Frame.Orientation.W;
-                            pos[4] = stab.Frame.Orientation.X;
-                            pos[5] = stab.Frame.Orientation.Y;
-                            pos[6] = stab.Frame.Orientation.Z;
-                        }
-
-                        merged.StaticObjects[instanceId] = new StaticObject {
-                            SetupId = stab.Id,
-                            Position = pos,
-                            InstanceId = instanceId,
-                            LayerId = BaseLayerId ?? "Base"
-                        };
-                    }
-
-                    for (int i = 0; i < (lbi.Buildings?.Count ?? 0); i++) {
-                        var bldg = lbi.Buildings![i];
-                        if (bldg == null) continue;
-
-                        ulong instanceId = InstanceIdConstants.EncodeBuilding(lbFileId, (ushort)i);
-                        var pos = new float[7];
-                        if (bldg.Frame != null) {
-                            pos[0] = bldg.Frame.Origin.X;
-                            pos[1] = bldg.Frame.Origin.Y;
-                            pos[2] = bldg.Frame.Origin.Z;
-                            pos[3] = bldg.Frame.Orientation.W;
-                            pos[4] = bldg.Frame.Orientation.X;
-                            pos[5] = bldg.Frame.Orientation.Y;
-                            pos[6] = bldg.Frame.Orientation.Z;
-                        }
-
-                        merged.Buildings[instanceId] = new BuildingObject {
-                            ModelId = bldg.ModelId,
-                            Position = pos,
-                            InstanceId = instanceId,
-                            LayerId = BaseLayerId ?? "Base"
-                        };
-                    }
-                }
+            if (_landscapeDataProvider == null) {
+                return new MergedLandblock();
             }
 
-            // Apply active layers
-            if (_documentManager != null) {
-                var repoObjects = await _documentManager.ProjectRepository.GetStaticObjectsAsync(landblockId, CancellationToken.None);
-                if (repoObjects != null) {
-                    foreach (var obj in repoObjects) {
-                        var layer = FindItem(obj.LayerId);
-                        if (layer != null && !IsItemVisible(layer)) continue;
-                        merged.StaticObjects[obj.InstanceId] = obj;
-                    }
-                }
-
-                var repoBuildings = await _documentManager.ProjectRepository.GetBuildingsAsync(landblockId, CancellationToken.None);
-                if (repoBuildings != null) {
-                    foreach (var bldg in repoBuildings) {
-                        var layer = FindItem(bldg.LayerId);
-                        if (layer != null && !IsItemVisible(layer)) continue;
-                        merged.Buildings[bldg.InstanceId] = bldg;
-                    }
-                }
-            }
+            var visibleLayerIds = GetAllLayers().Where(IsItemVisible).Select(l => l.Id);
+            var merged = await _landscapeDataProvider.GetMergedLandblockAsync(landblockId, CellDatabase, visibleLayerIds, BaseLayerId, CancellationToken.None);
 
             _mergedLandblockCache[landblockId] = merged;
             return merged;
@@ -679,70 +609,12 @@ namespace WorldBuilder.Shared.Models {
                 return cached;
             }
 
-            var properties = new Cell();
-
-            if (CellDatabase != null && CellDatabase.TryGet<EnvCell>(cellId, out var cell)) {
-                properties = new Cell {
-                    EnvironmentId = cell.EnvironmentId,
-                    Flags = (uint)cell.Flags,
-                    CellStructure = cell.CellStructure,
-                    Position = [cell.Position.Origin.X, cell.Position.Origin.Y, cell.Position.Origin.Z, cell.Position.Orientation.W, cell.Position.Orientation.X, cell.Position.Orientation.Y, cell.Position.Orientation.Z],
-                    Surfaces = new List<ushort>(cell.Surfaces),
-                    Portals = new List<DatReaderWriter.Types.CellPortal>(cell.CellPortals),
-                    LayerId = BaseLayerId ?? "Base"
-                };
-
-                if (cell.StaticObjects != null) {
-                    for (int i = 0; i < cell.StaticObjects.Count; i++) {
-                        var stab = cell.StaticObjects[i];
-                        if (stab == null) continue;
-
-                        ulong instanceId = InstanceIdConstants.EncodeEnvCellStaticObject(cellId, (ushort)i, false);
-                        var pos = new float[7];
-                        if (stab.Frame != null) {
-                            pos[0] = stab.Frame.Origin.X;
-                            pos[1] = stab.Frame.Origin.Y;
-                            pos[2] = stab.Frame.Origin.Z;
-                            pos[3] = stab.Frame.Orientation.W;
-                            pos[4] = stab.Frame.Orientation.X;
-                            pos[5] = stab.Frame.Orientation.Y;
-                            pos[6] = stab.Frame.Orientation.Z;
-                        }
-
-                        properties.StaticObjects[instanceId] = new StaticObject {
-                            SetupId = stab.Id,
-                            Position = pos,
-                            InstanceId = instanceId,
-                            LayerId = BaseLayerId ?? "Base"
-                        };
-                    }
-                }
+            if (_landscapeDataProvider == null) {
+                return new Cell();
             }
 
-            // Apply active layers from repository
-            if (_documentManager != null) {
-                var repoResult = await _documentManager.ProjectRepository.GetEnvCellAsync(cellId, CancellationToken.None);
-                if (repoResult.IsSuccess) {
-                    var repoCell = repoResult.Value;
-                    // Merge properties
-                    properties = new Cell {
-                        EnvironmentId = repoCell.EnvironmentId,
-                        Flags = repoCell.Flags,
-                        CellStructure = properties.CellStructure,
-                        Position = properties.Position,
-                        Surfaces = properties.Surfaces,
-                        Portals = properties.Portals,
-                        LayerId = properties.LayerId,
-                        StaticObjects = properties.StaticObjects
-                    };
-                    // Merge objects with visibility check
-                    foreach (var obj in repoCell.StaticObjects) {
-                        var layer = FindItem(obj.Value.LayerId);
-                        if (layer != null && !IsItemVisible(layer)) continue;
-                        properties.StaticObjects[obj.Key] = obj.Value;
-                    }
-                }
-            }
+            var visibleLayerIds = GetAllLayers().Where(IsItemVisible).Select(l => l.Id);
+            var properties = await _landscapeDataProvider.GetMergedEnvCellAsync(cellId, CellDatabase, visibleLayerIds, BaseLayerId, CancellationToken.None);
 
             lbCache[cellId] = properties;
             return properties;

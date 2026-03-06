@@ -24,6 +24,11 @@ namespace WorldBuilder.Shared.Services {
         /// </summary>
         IProjectRepository ProjectRepository { get; }
 
+        /// <summary>
+        /// Gets the landscape data provider.
+        /// </summary>
+        WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeDataProvider LandscapeDataProvider { get; }
+
         /// <summary>Initializes the document manager.</summary>
         /// <param name="ct">The cancellation token.</param>
         Task InitializeAsync(CancellationToken ct);

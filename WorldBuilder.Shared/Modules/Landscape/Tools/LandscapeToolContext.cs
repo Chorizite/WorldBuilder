@@ -62,7 +62,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <summary>The active landscape document.</summary>
         public LandscapeDocument Document { get; }
         /// <summary>The dat reader/writer.</summary>
-        public Services.IDatReaderWriter Dats { get; }
+        public WorldBuilder.Shared.Services.IDatReaderWriter Dats { get; }
         /// <summary>The command history for undo/redo.</summary>
         public CommandHistory CommandHistory { get; }
         /// <summary>The camera used for viewing the scene.</summary>
@@ -111,7 +111,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <param name="camera">The camera.</param>
         /// <param name="logger">The logger.</param>
         /// <param name="activeLayer">The active layer (optional).</param>
-        public LandscapeToolContext(LandscapeDocument document, Services.IDatReaderWriter dats, CommandHistory commandHistory, ICamera camera, ILogger logger, LandscapeLayer? activeLayer = null) {
+        public LandscapeToolContext(LandscapeDocument document, WorldBuilder.Shared.Services.IDatReaderWriter dats, CommandHistory commandHistory, ICamera camera, ILogger logger, LandscapeLayer? activeLayer = null) {
             Document = document;
             Dats = dats;
             CommandHistory = commandHistory;
