@@ -191,11 +191,11 @@ namespace WorldBuilder.Shared.Repositories {
         }
 
         /// <inheritdoc/>
-        public async Task<Result<Unit>> InsertDocumentAsync(string id, string type, byte[] data, ulong version,
+        public async Task<Result<Unit>> UpsertTerrainPatchAsync(string id, uint regionId, byte[] data, ulong version,
             ITransaction? tx, CancellationToken ct) {
             try {
-                _logger?.LogDebug("Inserting document with ID: {DocumentId}, Type: {DocumentType}, Version: {Version}",
-                    id, type, version);
+                _logger?.LogDebug("Upserting terrain patch with ID: {DocumentId}, Region: {RegionId}, Version: {Version}",
+                    id, regionId, version);
                 var dbTxResult = GetDbTransaction(tx);
                 if (dbTxResult.IsFailure) {
                     return Result<Unit>.Failure(dbTxResult.Error);
@@ -203,170 +203,78 @@ namespace WorldBuilder.Shared.Repositories {
 
                 var dbTx = dbTxResult.Value;
 
-                string sql;
-                if (type == "TerrainPatchDocument") {
-                    sql = @"
-                        INSERT INTO TerrainPatches (Id, RegionId, Data, Version, LastModified)
-                        VALUES (@id, @regionId, @data, @ver, CURRENT_TIMESTAMP)";
-                }
-                else {
-                    sql = @"
-                        INSERT INTO Documents (Id, Type, Data, Version, LastModified)
-                        VALUES (@id, @type, @data, @ver, CURRENT_TIMESTAMP)";
-                }
-
-                // Extract regionId from ID: TerrainPatch_{regionId}_{chunkX}_{chunkY}
-                var parts = id.Split('_');
-                long regionId = parts.Length > 1 && long.TryParse(parts[1], out var rid) ? rid : 0;
+                const string sql = @"
+                    INSERT INTO TerrainPatches (Id, RegionId, Data, Version, LastModified)
+                    VALUES (@id, @regionId, @data, @ver, CURRENT_TIMESTAMP)
+                    ON CONFLICT(Id) DO UPDATE SET
+                        Data = @data,
+                        Version = @ver,
+                        LastModified = CURRENT_TIMESTAMP";
 
                 await using var cmd = Connection.CreateCommand();
                 cmd.Transaction = dbTx;
                 cmd.CommandText = sql;
                 cmd.Parameters.AddWithValue("@id", id);
+                cmd.Parameters.AddWithValue("@regionId", (long)regionId);
                 cmd.Parameters.AddWithValue("@data", data);
                 cmd.Parameters.AddWithValue("@ver", (long)version);
-
-                if (type == "TerrainPatchDocument") {
-                    cmd.Parameters.AddWithValue("@regionId", regionId);
-                }
-                else {
-                    cmd.Parameters.AddWithValue("@type", type);
-                }
 
                 await cmd.ExecuteNonQueryAsync(ct);
-                _logger?.LogDebug("Document with ID {DocumentId} inserted successfully", id);
+                _logger?.LogDebug("Terrain patch with ID {DocumentId} upserted successfully", id);
                 return Result<Unit>.Success(Unit.Value);
             }
             catch (Exception ex) {
-                _logger?.LogError(ex, "Error inserting document with ID: {DocumentId}", id);
-                return Result<Unit>.Failure($"Error inserting document: {ex.Message}", "DATABASE_ERROR");
+                _logger?.LogError(ex, "Error upserting terrain patch with ID: {DocumentId}", id);
+                return Result<Unit>.Failure($"Error upserting terrain patch: {ex.Message}", "DATABASE_ERROR");
             }
         }
 
-        /// <inheritdoc/>
-        public async Task<Result<Unit>> UpdateDocumentAsync(string id, byte[] data, ulong version, ITransaction? tx,
-            CancellationToken ct) {
-            try {
-                _logger?.LogDebug("Updating document with ID: {DocumentId}, Version: {Version}", id, version);
-                var dbTxResult = GetDbTransaction(tx);
-                if (dbTxResult.IsFailure) {
-                    return Result<Unit>.Failure(dbTxResult.Error);
-                }
-
-                var dbTx = dbTxResult.Value;
-
-                // Determine which table to update (we can check both or use type if we had it, but for simplicity check prefix or existing)
-                // For now, let's just try to update both or determine based on ID prefix
-                string sql;
-                if (id.StartsWith("TerrainPatch_")) {
-                    sql = @"
-                        UPDATE TerrainPatches
-                        SET Data = @data,
-                            Version = @ver,
-                            LastModified = CURRENT_TIMESTAMP
-                        WHERE Id = @id AND Version <= @ver";
-                }
-                else {
-                    sql = @"
-                        UPDATE Documents
-                        SET Data = @data,
-                            Version = @ver,
-                            LastModified = CURRENT_TIMESTAMP
-                        WHERE Id = @id AND Version <= @ver";
-                }
-
-                await using var cmd = Connection.CreateCommand();
-                cmd.Transaction = dbTx;
-                cmd.CommandText = sql;
-                cmd.Parameters.AddWithValue("@id", id);
-                cmd.Parameters.AddWithValue("@data", data);
-                cmd.Parameters.AddWithValue("@ver", (long)version);
-                int rows = await cmd.ExecuteNonQueryAsync(ct);
-                if (rows == 0) {
-                    _logger?.LogWarning("UpdateDocumentAsync: Document with ID {DocumentId} not found to update", id);
-                    return Result<Unit>.Failure($"Document with ID {id} not found to update", "DOCUMENT_NOT_FOUND");
-                }
-                _logger?.LogDebug("Document with ID {DocumentId} updated successfully", id);
-                return Result<Unit>.Success(Unit.Value);
-            }
-            catch (Exception ex) {
-                _logger?.LogError(ex, "Error updating document with ID: {DocumentId}", id);
-                return Result<Unit>.Failure($"Error updating document: {ex.Message}", "DATABASE_ERROR");
-            }
-        }
 
         /// <inheritdoc/>
-        public async Task<IReadOnlyList<string>> GetDocumentIdsAsync(string prefix, CancellationToken ct) {
+        public async Task<IReadOnlyList<string>> GetTerrainPatchIdsAsync(uint regionId, CancellationToken ct) {
             var ids = new List<string>();
             try {
-                _logger?.LogDebug("Retrieving document IDs starting with prefix: {Prefix}", prefix);
-                // We might need to check both tables if prefix is ambiguous, but usually it's not.
-                string sql = "SELECT Id FROM TerrainPatches WHERE Id LIKE @prefix || '%' UNION SELECT Id FROM Documents WHERE Id LIKE @prefix || '%'";
+                _logger?.LogDebug("Retrieving terrain patch IDs for region: {RegionId}", regionId);
+                const string sql = "SELECT Id FROM TerrainPatches WHERE RegionId = @regionId";
                 await using var cmd = Connection.CreateCommand();
                 cmd.CommandText = sql;
-                cmd.Parameters.AddWithValue("@prefix", prefix);
+                cmd.Parameters.AddWithValue("@regionId", (long)regionId);
                 await using var reader = await cmd.ExecuteReaderAsync(ct);
                 while (await reader.ReadAsync(ct)) {
                     ids.Add(reader.GetString(0));
                 }
-                _logger?.LogDebug("Retrieved {Count} document IDs starting with prefix: {Prefix}", ids.Count, prefix);
+                _logger?.LogDebug("Retrieved {Count} terrain patch IDs for region: {RegionId}", ids.Count, regionId);
             }
             catch (Exception ex) {
-                _logger?.LogError(ex, "Error retrieving document IDs starting with prefix: {Prefix}", prefix);
+                _logger?.LogError(ex, "Error retrieving terrain patch IDs for region: {RegionId}", regionId);
             }
             return ids;
         }
 
         /// <inheritdoc/>
-        public async Task<Result<byte[]>> GetDocumentBlobAsync<T>(string id, CancellationToken ct)
-            where T : BaseDocument {
+        public async Task<Result<byte[]>> GetTerrainPatchBlobAsync(string id, CancellationToken ct) {
             try {
-                _logger?.LogDebug("Retrieving document blob with ID: {DocumentId}", id);
-                // Try TerrainPatches first, then Documents
-                var sql = "SELECT Data FROM TerrainPatches WHERE Id = @id UNION ALL SELECT Data FROM Documents WHERE Id = @id LIMIT 1";
+                _logger?.LogDebug("Retrieving terrain patch blob with ID: {DocumentId}", id);
+                const string sql = "SELECT Data FROM TerrainPatches WHERE Id = @id";
                 await using var cmd = Connection.CreateCommand();
                 cmd.CommandText = sql;
                 cmd.Parameters.AddWithValue("@id", id);
                 var obj = await cmd.ExecuteScalarAsync(ct);
                 if (obj == null) {
-                    _logger?.LogWarning("Document with ID {DocumentId} not found in database", id);
-                    return Result<byte[]>.Failure($"Document with ID {id} not found in database", "DOCUMENT_NOT_FOUND");
+                    _logger?.LogWarning("Terrain patch with ID {DocumentId} not found in database", id);
+                    return Result<byte[]>.Failure($"Terrain patch with ID {id} not found in database", "DOCUMENT_NOT_FOUND");
                 }
                 else {
-                    _logger?.LogDebug("Document blob with ID {DocumentId} retrieved successfully", id);
+                    _logger?.LogDebug("Terrain patch blob with ID {DocumentId} retrieved successfully", id);
                     return Result<byte[]>.Success((byte[])obj!);
                 }
             }
             catch (Exception ex) {
-                _logger?.LogError(ex, "Error retrieving document blob with ID: {DocumentId}", id);
-                return Result<byte[]>.Failure($"Error retrieving document: {ex.Message}", "DATABASE_ERROR");
+                _logger?.LogError(ex, "Error retrieving terrain patch blob with ID: {DocumentId}", id);
+                return Result<byte[]>.Failure($"Error retrieving terrain patch: {ex.Message}", "DATABASE_ERROR");
             }
         }
 
-        public async Task<Result<Unit>> DeleteDocumentAsync(string id, ITransaction? tx, CancellationToken ct) {
-            try {
-                _logger?.LogDebug("Deleting document with ID: {DocumentId}", id);
-                var dbTxResult = GetDbTransaction(tx);
-                if (dbTxResult.IsFailure) {
-                    return Result<Unit>.Failure(dbTxResult.Error);
-                }
-
-                var dbTx = dbTxResult.Value;
-                const string sql = @"DELETE FROM TerrainPatches WHERE Id = @id";
-
-                await using var cmd = Connection.CreateCommand();
-                cmd.Transaction = dbTx;
-                cmd.CommandText = sql;
-                cmd.Parameters.AddWithValue("@id", id);
-                await cmd.ExecuteNonQueryAsync(ct);
-                _logger?.LogDebug("Document with ID {DocumentId} deleted successfully", id);
-                return Result<Unit>.Success(Unit.Value);
-            }
-            catch (Exception ex) {
-                _logger?.LogError(ex, "Error deleting document with ID: {DocumentId}", id);
-                return Result<Unit>.Failure($"Error deleting document: {ex.Message}", "DATABASE_ERROR");
-            }
-        }
 
         /// <inheritdoc/>
         public async Task<IReadOnlyList<BaseCommand>> GetUnsyncedEventsAsync(CancellationToken ct) {

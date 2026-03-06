@@ -74,9 +74,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
 
                 terrainRental.Document.AddLayer(GroupPath, Name, IsBase, LayerId, Index);
 
-                terrainRental.Document.Version++;
-                var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);
-                if (persistResult.IsFailure) return Result<string>.Failure(persistResult.Error);
 
                 await terrainRental.Document.SyncLayerTreeAsync(tx, ct);
 

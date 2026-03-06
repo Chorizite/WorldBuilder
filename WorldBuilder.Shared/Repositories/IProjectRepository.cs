@@ -80,18 +80,17 @@ namespace WorldBuilder.Shared.Repositories {
         /// <param name="ct">The cancellation token.</param>
         Task<Result<Unit>> UpsertEnvCellAsync(uint cellId, uint regionId, Cell cell, ITransaction? tx, CancellationToken ct);
 
-        /// <summary>Retrieves all document IDs that start with a specific prefix.</summary>
-        /// <param name="prefix">The ID prefix.</param>
+        /// <summary>Retrieves all terrain patch IDs for a specific region.</summary>
+        /// <param name="regionId">The region ID.</param>
         /// <param name="ct">The cancellation token.</param>
-        /// <returns>A task containing a list of matching document IDs.</returns>
-        Task<IReadOnlyList<string>> GetDocumentIdsAsync(string prefix, CancellationToken ct);
+        /// <returns>A task containing a list of terrain patch IDs.</returns>
+        Task<IReadOnlyList<string>> GetTerrainPatchIdsAsync(uint regionId, CancellationToken ct);
 
-        /// <summary>Retrieves a document's serialized data by its ID.</summary>
-        /// <typeparam name="T">The type of the document.</typeparam>
-        /// <param name="id">The document ID.</param>
+        /// <summary>Retrieves a terrain patch's serialized data by its ID.</summary>
+        /// <param name="id">The terrain patch ID.</param>
         /// <param name="ct">The cancellation token.</param>
-        /// <returns>A task containing the result with the document's byte array.</returns>
-        Task<Result<byte[]>> GetDocumentBlobAsync<T>(string id, CancellationToken ct) where T : BaseDocument;
+        /// <returns>A task containing the result with the terrain patch's byte array.</returns>
+        Task<Result<byte[]>> GetTerrainPatchBlobAsync(string id, CancellationToken ct);
 
         /// <summary>Inserts a new command event into the repository.</summary>
         /// <param name="evt">The command event.</param>
@@ -100,26 +99,15 @@ namespace WorldBuilder.Shared.Repositories {
         /// <returns>A task representing the result of the operation.</returns>
         Task<Result<Unit>> InsertEventAsync(BaseCommand evt, ITransaction? tx, CancellationToken ct);
 
-        /// <summary>Inserts a new document into the repository.</summary>
-        /// <param name="id">The document ID.</param>
-        /// <param name="type">The document type string.</param>
-        /// <param name="data">The serialized document data.</param>
-        /// <param name="version">The document version.</param>
+        /// <summary>Upserts a terrain patch into the repository.</summary>
+        /// <param name="id">The terrain patch ID.</param>
+        /// <param name="regionId">The region ID.</param>
+        /// <param name="data">The serialized terrain patch data.</param>
+        /// <param name="version">The terrain patch version.</param>
         /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task representing the result of the operation.</returns>
-        Task<Result<Unit>> InsertDocumentAsync(string id, string type, byte[] data, ulong version, ITransaction? tx,
-            CancellationToken ct);
-
-        /// <summary>Updates an existing document in the repository.</summary>
-        /// <param name="id">The document ID.</param>
-        /// <param name="data">The new serialized document data.</param>
-        /// <param name="version">The new document version.</param>
-        /// <param name="tx">The transaction (optional).</param>
-        /// <param name="ct">The cancellation token.</param>
-        /// <returns>A task representing the result of the operation.</returns>
-        Task<Result<Unit>> UpdateDocumentAsync(string id, byte[] data, ulong version, ITransaction? tx,
-            CancellationToken ct);
+        Task<Result<Unit>> UpsertTerrainPatchAsync(string id, uint regionId, byte[] data, ulong version, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Retrieves a user-specific value by key.</summary>
         /// <param name="key">The key.</param>

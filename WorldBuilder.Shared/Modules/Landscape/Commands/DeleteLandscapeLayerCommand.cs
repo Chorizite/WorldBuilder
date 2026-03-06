@@ -104,16 +104,6 @@ public partial class DeleteLandscapeLayerCommand : BaseCommand<bool> {
             // Goldman
             await terrainRental.Document.RecalculateTerrainCacheAsync(affectedVertices);
 
-            terrainRental.Document.Version++;
-            var affectedLandblocks = affectedVertices.Any() ? terrainRental.Document.GetAffectedLandblocks(affectedVertices).ToList() : new List<(int, int)>();
-            terrainRental.Document.NotifyLandblockChanged(affectedLandblocks);
-
-            var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);
-
-            if (persistResult.IsFailure) {
-                return Result<bool>.Failure(persistResult.Error);
-            }
-
             return Result<bool>.Success(true);
         }
         catch (Exception ex) {

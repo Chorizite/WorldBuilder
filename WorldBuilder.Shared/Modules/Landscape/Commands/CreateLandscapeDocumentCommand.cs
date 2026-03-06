@@ -59,13 +59,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
                     return Result<DocumentRental<LandscapeDocument>?>.Failure(layerResult.Error);
                 }
 
-                terrainRental.Document.Version++;
-                var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);
-
-                if (persistResult.IsFailure) {
-                    return Result<DocumentRental<LandscapeDocument>?>.Failure(persistResult.Error);
-                }
-
                 return Result<DocumentRental<LandscapeDocument>?>.Success(terrainRental);
             }
             catch (Exception ex) {

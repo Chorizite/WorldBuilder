@@ -9,7 +9,7 @@ using WorldBuilder.Shared.Repositories;
 
 namespace WorldBuilder.Shared.Services;
 
-public class DocumentManager : IDocumentManager, IDisposable {
+public partial class DocumentManager : IDocumentManager, IDisposable {
     private readonly IProjectRepository _repo;
     private readonly IDatReaderWriter _dats;
     private readonly ILogger<DocumentManager> _logger;
@@ -82,7 +82,13 @@ public class DocumentManager : IDocumentManager, IDisposable {
     }
 
     public async Task<IReadOnlyList<string>> GetDocumentIdsAsync(string prefix, CancellationToken ct) {
-        return await _repo.GetDocumentIdsAsync(prefix, ct);
+        if (prefix.StartsWith("TerrainPatch_")) {
+            var parts = prefix.Split('_');
+            if (parts.Length > 1 && uint.TryParse(parts[1], out var regionId)) {
+                return await _repo.GetTerrainPatchIdsAsync(regionId, ct);
+            }
+        }
+        return new List<string>();
     }
 
     public async Task<Result<DocumentRental<T>>> CreateDocumentAsync<T>(T document, ITransaction tx,
@@ -105,15 +111,22 @@ public class DocumentManager : IDocumentManager, IDisposable {
                     "DOCUMENT_EXISTS");
             }
 
-            // Persist to database
-            var blob = document.Serialize();
-            var insertResult =
-                await _repo.InsertDocumentAsync(document.Id, typeof(T).Name, blob, document.Version, tx, ct);
-            if (insertResult.IsFailure) {
-                return Result<DocumentRental<T>>.Failure(insertResult.Error);
-            }
+            // Persist to database if it's a terrain patch
+            if (document is TerrainPatchDocument tp) {
+                var blob = tp.Serialize();
+                // Extract regionId from ID: TerrainPatch_{regionId}_{chunkX}_{chunkY}
+                var parts = TP_ID_REGEX().Match(document.Id);
+                uint regionId = parts.Success ? uint.Parse(parts.Groups[1].Value) : 0;
 
-            _logger.LogDebug("Document with ID {DocumentId} inserted into database", document.Id);
+                var insertResult = await _repo.UpsertTerrainPatchAsync(document.Id, regionId, blob, document.Version, tx, ct);
+                if (insertResult.IsFailure) {
+                    return Result<DocumentRental<T>>.Failure(insertResult.Error);
+                }
+                _logger.LogDebug("Terrain patch with ID {DocumentId} inserted into database", document.Id);
+            }
+            else {
+                _logger.LogDebug("Document with ID {DocumentId} is virtual, skipping database insertion", document.Id);
+            }
 
             // Add to cache
             var entry = new DocumentCacheEntry(document);
@@ -128,6 +141,9 @@ public class DocumentManager : IDocumentManager, IDisposable {
             _cacheLock.Release();
         }
     }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"TerrainPatch_(\d+)_")]
+    private static partial System.Text.RegularExpressions.Regex TP_ID_REGEX();
 
     public async Task<Result<DocumentRental<T>>> RentDocumentAsync<T>(string id, CancellationToken ct)
         where T : BaseDocument {
@@ -152,18 +168,27 @@ public class DocumentManager : IDocumentManager, IDisposable {
                 }
             }
 
-            _logger.LogDebug("Document with ID {DocumentId} not found in cache, loading from database", id);
-            var newDoc = await LoadDocumentAsync<T>(id, ct);
+            _logger.LogDebug("Document with ID {DocumentId} not found in cache, loading/creating", id);
+            T? newDoc = null;
+
+            if (typeof(T) == typeof(LandscapeDocument)) {
+                _logger.LogDebug("Creating virtual LandscapeDocument for ID {DocumentId}", id);
+                newDoc = new LandscapeDocument(id) as T;
+            }
+            else if (typeof(T) == typeof(TerrainPatchDocument)) {
+                newDoc = await LoadDocumentAsync<T>(id, ct);
+            }
+
             if (newDoc == null) {
-                _logger.LogWarning("Document with ID {DocumentId} not found in database", id);
-                return Result<DocumentRental<T>>.Failure($"Document with ID {id} not found in database",
+                _logger.LogWarning("Document with ID {DocumentId} not found or could not be created", id);
+                return Result<DocumentRental<T>>.Failure($"Document with ID {id} not found",
                     "DOCUMENT_NOT_FOUND");
             }
 
             var newEntry = new DocumentCacheEntry(newDoc);
             newEntry.IncrementRentCount(newDoc);
             _cache[id] = newEntry;
-            _logger.LogDebug("Document with ID {DocumentId} loaded from database and added to cache (Instance: {Hash})", id, newDoc.GetHashCode());
+            _logger.LogDebug("Document with ID {DocumentId} loaded/created and added to cache (Instance: {Hash})", id, newDoc.GetHashCode());
 
             return Result<DocumentRental<T>>.Success(new DocumentRental<T>(newDoc, () => ReturnDocument(id)));
         }
@@ -197,14 +222,23 @@ public class DocumentManager : IDocumentManager, IDisposable {
         }
 
         var doc = rental.Document;
-        _logger.LogDebug("Persisting document with ID: {DocumentId}, Version: {Version} (Instance: {Hash})", doc.Id, doc.Version, doc.GetHashCode());
-        var blob = doc.Serialize();
-        var updateResult = await _repo.UpdateDocumentAsync(doc.Id, blob, doc.Version, tx, ct);
-        if (updateResult.IsFailure) {
-            return Result<Unit>.Failure(updateResult.Error);
+
+        if (doc is TerrainPatchDocument tp) {
+            _logger.LogDebug("Persisting terrain patch with ID: {DocumentId}, Version: {Version} (Instance: {Hash})", doc.Id, doc.Version, doc.GetHashCode());
+            var blob = tp.Serialize();
+            var parts = TP_ID_REGEX().Match(doc.Id);
+            uint regionId = parts.Success ? uint.Parse(parts.Groups[1].Value) : 0;
+
+            var updateResult = await _repo.UpsertTerrainPatchAsync(doc.Id, regionId, blob, doc.Version, tx, ct);
+            if (updateResult.IsFailure) {
+                return Result<Unit>.Failure(updateResult.Error);
+            }
+            _logger.LogDebug("Terrain patch with ID {DocumentId} persisted to database", doc.Id);
+        }
+        else {
+            _logger.LogDebug("Document with ID {DocumentId} is virtual, skipping persistence", doc.Id);
         }
 
-        _logger.LogDebug("Document with ID {DocumentId} persisted to database", doc.Id);
         return Result<Unit>.Success(Unit.Value);
     }
 
@@ -281,7 +315,15 @@ public class DocumentManager : IDocumentManager, IDisposable {
 
     private async Task<T?> LoadDocumentAsync<T>(string id, CancellationToken ct) where T : BaseDocument {
         _logger.LogDebug("Loading document with ID: {DocumentId} from database", id);
-        var blobResult = await _repo.GetDocumentBlobAsync<T>(id, ct);
+
+        Result<byte[]> blobResult;
+        if (typeof(T) == typeof(TerrainPatchDocument)) {
+            blobResult = await _repo.GetTerrainPatchBlobAsync(id, ct);
+        }
+        else {
+            return null; // No other types persisted in Documents table anymore
+        }
+
         if (blobResult.IsFailure || blobResult.Value == null) {
             _logger.LogWarning("Document with ID {DocumentId} not found in database", id);
             return null;
