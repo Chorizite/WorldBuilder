@@ -8,6 +8,12 @@ namespace WorldBuilder.Shared.Migrations {
     [Migration(1, "Initial schema for Hybrid Storage Architecture")]
     public class Migration_001_InitialSchema : Migration {
         public override void Up() {
+            // Table: Documents (Generic blob storage for other document types)
+            Create.Table("Documents")
+                .WithColumn("Id").AsString().PrimaryKey()
+                .WithColumn("Type").AsString().NotNullable()
+                .WithColumn("Version").AsInt64().NotNullable().WithDefaultValue(1)
+                .WithColumn("Data").AsBinary().NotNullable();
 
             // Table: TerrainPatches (Optimized for terrain data)
             Create.Table("TerrainPatches")
@@ -59,6 +65,7 @@ namespace WorldBuilder.Shared.Migrations {
                 .WithColumn("RegionId").AsInt64().Indexed()
                 .WithColumn("LayerId").AsString().Indexed().ForeignKey("LandscapeLayers", "Id")
                 .WithColumn("LandblockId").AsInt64().Indexed()
+                .WithColumn("CellId").AsInt64().Nullable().Indexed()
                 .WithColumn("ModelId").AsInt64().NotNullable()
                 .WithColumn("PosX").AsFloat().NotNullable()
                 .WithColumn("PosY").AsFloat().NotNullable()
@@ -82,9 +89,20 @@ namespace WorldBuilder.Shared.Migrations {
             Create.Table("UserKeyValues")
                 .WithColumn("Key").AsString().PrimaryKey()
                 .WithColumn("Value").AsString().Nullable();
+
+            // Table: EnvCells (Properties only, objects are in StaticObjects)
+            Create.Table("EnvCells")
+                .WithColumn("CellId").AsInt64().PrimaryKey()
+                .WithColumn("RegionId").AsInt64().Indexed("idx_envcells_regionid")
+                .WithColumn("LayerId").AsString().Indexed("idx_envcells_layerid").ForeignKey("LandscapeLayers", "Id")
+                .WithColumn("EnvironmentId").AsInt32().NotNullable()
+                .WithColumn("Flags").AsInt64().NotNullable()
+                .WithColumn("Data").AsBinary().Nullable() // For any remaining blob data like cell structure/portals
+                .WithColumn("Version").AsInt64().NotNullable().WithDefaultValue(1);
         }
 
         public override void Down() {
+            Delete.Table("EnvCells");
             Delete.Table("Buildings");
             Delete.Table("StaticObjects");
             Delete.Table("LandscapeLayers");
@@ -92,6 +110,7 @@ namespace WorldBuilder.Shared.Migrations {
             Delete.Table("TerrainPatches");
             Delete.Table("Events");
             Delete.Table("UserKeyValues");
+            Delete.Table("Documents");
         }
     }
 }

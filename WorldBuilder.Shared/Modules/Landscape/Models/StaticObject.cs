@@ -1,13 +1,11 @@
 using MemoryPack;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Models
-{
+namespace WorldBuilder.Shared.Modules.Landscape.Models {
     /// <summary>
     /// Represents a static object, either in landscape or inside cells.
     /// </summary>
     [MemoryPackable]
-    public partial class StaticObject
-    {
+    public partial class StaticObject {
         /// <summary>
         /// The ID of the model (GfxObj/Setup).
         /// </summary>
@@ -30,5 +28,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models
         /// Landscape Layer ID owning this static instance.
         /// </summary>
         [MemoryPackOrder(3)] public string LayerId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Optional Cell ID if the object is inside an Environment Cell.
+        /// </summary>
+        [MemoryPackOrder(4)] public uint? CellId { get; init; }
     }
 }

@@ -1,13 +1,11 @@
 using MemoryPack;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Models
-{
+namespace WorldBuilder.Shared.Modules.Landscape.Models {
     /// <summary>
     /// Represents a building (has inside cells).
     /// </summary>
     [MemoryPackable]
-    public partial class BuildingObject
-    {
+    public partial class BuildingObject {
         /// <summary>
         /// Internal SetupModel or GfxObj id.
         /// </summary>
@@ -30,5 +28,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models
         /// Landscape Layer ID owning this building instance.
         /// </summary>
         [MemoryPackOrder(3)] public string LayerId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Optional Cell ID if the building is inside an Environment Cell.
+        /// </summary>
+        [MemoryPackOrder(4)] public uint? CellId { get; init; }
     }
 }

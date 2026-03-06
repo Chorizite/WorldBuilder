@@ -130,17 +130,22 @@ namespace WorldBuilder.Shared.Tests.Services {
 
                 // Act - rollback the transaction
                 await transaction.RollbackAsync();
+                
+                // Confirm transaction is rolled back by checking the underlying connection state
+                if (transaction is DatabaseTransactionAdapter adapter) {
+                    Assert.Null(adapter.UnderlyingTransaction.Connection);
+                }
 
-                // Verify: try to load from DB directly by bypassing cache (if possible)
-                // For this test, we'll use a fresh DocumentManager instance to avoid cache
-                var freshRepo = new SQLiteProjectRepository(_db.ConnectionString, new NullLogger<SQLiteProjectRepository>());
-                var freshDats = new Mock<IDatReaderWriter>().Object;
-                var freshDocManager = new DocumentManager(freshRepo, freshDats, new NullLogger<DocumentManager>());
-                await freshDocManager.InitializeAsync(CancellationToken.None);
-
-                // Document should not exist in database after rollback
-                var retrievedRentalResult = await freshDocManager.RentDocumentAsync<LandscapeDocument>(document.Id, CancellationToken.None);
-                Assert.True(retrievedRentalResult.IsFailure); // Document should not exist in DB since transaction was rolled back
+                // Verify: try to load from DB directly by bypassing all managers and cache
+                using (var checkConn = new Microsoft.Data.Sqlite.SqliteConnection(_db.ConnectionString)) {
+                    await checkConn.OpenAsync();
+                    using (var cmd = checkConn.CreateCommand()) {
+                        cmd.CommandText = "SELECT COUNT(*) FROM Documents WHERE Id = @id";
+                        cmd.Parameters.AddWithValue("@id", document.Id);
+                        var count = (long)(await cmd.ExecuteScalarAsync() ?? 0L);
+                        Assert.Equal(0, count);
+                    }
+                }
             }
             finally {
                 await transaction.DisposeAsync();

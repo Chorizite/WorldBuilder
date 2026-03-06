@@ -46,8 +46,10 @@ public partial class AddStaticObjectCommand : BaseCommand<bool> {
             await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
             var repository = documentManager.ProjectRepository;
-            var result = await repository.UpsertStaticObjectAsync(Object, terrainRental.Document.RegionId, LandblockId, tx, ct);
+            var result = await repository.UpsertStaticObjectAsync(Object, terrainRental.Document.RegionId, LandblockId, Object.CellId, tx, ct);
             if (result.IsFailure) return Result<bool>.Failure(result.Error);
+
+            terrainRental.Document.NotifyLandblockChanged([((int)(LandblockId >> 24), (int)((LandblockId >> 16) & 0xFF))]);
 
             return Result<bool>.Success(true);
         }

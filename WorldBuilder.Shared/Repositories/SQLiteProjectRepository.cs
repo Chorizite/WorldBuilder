@@ -458,13 +458,18 @@ namespace WorldBuilder.Shared.Repositories {
         }
 
         /// <inheritdoc/>
-        public async Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(uint landblockId, CancellationToken ct) {
+        public async Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(uint? landblockId, uint? cellId, CancellationToken ct) {
             var objects = new List<StaticObject>();
             try {
-                const string sql = "SELECT InstanceId, ModelId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, LayerId FROM StaticObjects WHERE LandblockId = @lbId AND IsDeleted = 0";
+                var sql = "SELECT InstanceId, ModelId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, LayerId FROM StaticObjects WHERE IsDeleted = 0";
+                if (landblockId != null) sql += " AND LandblockId = @lbId";
+                if (cellId != null) sql += " AND CellId = @cellId";
+                
                 await using var cmd = Connection.CreateCommand();
                 cmd.CommandText = sql;
-                cmd.Parameters.AddWithValue("@lbId", (long)landblockId);
+                if (landblockId != null) cmd.Parameters.AddWithValue("@lbId", (long)landblockId);
+                if (cellId != null) cmd.Parameters.AddWithValue("@cellId", (long)cellId);
+                
                 await using var reader = await cmd.ExecuteReaderAsync(ct);
                 while (await reader.ReadAsync(ct)) {
                     objects.Add(new StaticObject {
@@ -482,7 +487,7 @@ namespace WorldBuilder.Shared.Repositories {
         }
 
         /// <inheritdoc/>
-        public async Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, uint landblockId, ITransaction? tx, CancellationToken ct) {
+        public async Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct) {
             try {
                 var dbTxResult = GetDbTransaction(tx);
                 if (dbTxResult.IsFailure) return Result<Unit>.Failure(dbTxResult.Error);
@@ -507,8 +512,8 @@ namespace WorldBuilder.Shared.Repositories {
                 cmd.Parameters.AddWithValue("@id", (long)obj.InstanceId);
                 cmd.Parameters.AddWithValue("@regionId", (long)regionId);
                 cmd.Parameters.AddWithValue("@layerId", obj.LayerId);
-                cmd.Parameters.AddWithValue("@lbId", (long)landblockId);
-                cmd.Parameters.AddWithValue("@cellId", DBNull.Value);
+                cmd.Parameters.AddWithValue("@lbId", (object?)landblockId ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@cellId", (object?)cellId ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("@modelId", (long)obj.SetupId);
                 cmd.Parameters.AddWithValue("@px", obj.Position.Length > 0 ? obj.Position[0] : 0f);
                 cmd.Parameters.AddWithValue("@py", obj.Position.Length > 1 ? obj.Position[1] : 0f);
@@ -526,17 +531,20 @@ namespace WorldBuilder.Shared.Repositories {
         }
 
         /// <inheritdoc/>
-        public async Task<IReadOnlyList<BuildingObject>> GetBuildingsAsync(uint landblockId, CancellationToken ct) {
-            const string sql = @"
+        public async Task<IReadOnlyList<BuildingObject>> GetBuildingsAsync(uint? landblockId, uint? cellId, CancellationToken ct) {
+            var sql = @"
                 SELECT ModelId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, InstanceId, LayerId
                 FROM Buildings 
-                WHERE LandblockId = @landblockId AND IsDeleted = 0";
+                WHERE IsDeleted = 0";
+            if (landblockId != null) sql += " AND LandblockId = @lbId";
+            if (cellId != null) sql += " AND CellId = @cellId";
 
             var results = new List<BuildingObject>();
             try {
                 await using var cmd = Connection.CreateCommand();
                 cmd.CommandText = sql;
-                cmd.Parameters.AddWithValue("@landblockId", (long)landblockId);
+                if (landblockId != null) cmd.Parameters.AddWithValue("@lbId", (long)landblockId);
+                if (cellId != null) cmd.Parameters.AddWithValue("@cellId", (long)cellId);
                 await using var reader = await cmd.ExecuteReaderAsync(ct);
                 while (await reader.ReadAsync(ct)) {
                     results.Add(new BuildingObject {
@@ -557,19 +565,20 @@ namespace WorldBuilder.Shared.Repositories {
         }
 
         /// <inheritdoc/>
-        public async Task<Result<Unit>> UpsertBuildingAsync(BuildingObject obj, uint regionId, uint landblockId, ITransaction? tx, CancellationToken ct) {
+        public async Task<Result<Unit>> UpsertBuildingAsync(BuildingObject obj, uint regionId, uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct) {
             try {
                 var dbTxResult = GetDbTransaction(tx);
                 if (dbTxResult.IsFailure) return Result<Unit>.Failure(dbTxResult.Error);
                 var dbTx = dbTxResult.Value;
 
                 const string sql = @"
-                    INSERT INTO Buildings (InstanceId, RegionId, LayerId, LandblockId, ModelId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, IsDeleted)
-                    VALUES (@id, @regionId, @layerId, @lbId, @modelId, @px, @py, @pz, @rw, @rx, @ry, @rz, 0)
+                    INSERT INTO Buildings (InstanceId, RegionId, LayerId, LandblockId, CellId, ModelId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, IsDeleted)
+                    VALUES (@id, @regionId, @layerId, @lbId, @cellId, @modelId, @px, @py, @pz, @rw, @rx, @ry, @rz, 0)
                     ON CONFLICT(InstanceId) DO UPDATE SET
                         RegionId = @regionId,
                         LayerId = @layerId,
                         LandblockId = @lbId,
+                        CellId = @cellId,
                         ModelId = @modelId,
                         PosX = @px, PosY = @py, PosZ = @pz,
                         RotW = @rw, RotX = @rx, RotY = @ry, RotZ = @rz,
@@ -581,7 +590,8 @@ namespace WorldBuilder.Shared.Repositories {
                 cmd.Parameters.AddWithValue("@id", (long)obj.InstanceId);
                 cmd.Parameters.AddWithValue("@regionId", (long)regionId);
                 cmd.Parameters.AddWithValue("@layerId", obj.LayerId);
-                cmd.Parameters.AddWithValue("@lbId", (long)landblockId);
+                cmd.Parameters.AddWithValue("@lbId", (object?)landblockId ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@cellId", (object?)cellId ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("@modelId", (long)obj.ModelId);
                 cmd.Parameters.AddWithValue("@px", obj.Position.Length > 0 ? obj.Position[0] : 0f);
                 cmd.Parameters.AddWithValue("@py", obj.Position.Length > 1 ? obj.Position[1] : 0f);
@@ -666,7 +676,6 @@ namespace WorldBuilder.Shared.Repositories {
             }
         }
 
-        /// <inheritdoc/>
         public async Task<Result<Unit>> DeleteStaticObjectAsync(ulong instanceId, ITransaction? tx, CancellationToken ct) {
             try {
                 var dbTxResult = GetDbTransaction(tx);
@@ -683,6 +692,55 @@ namespace WorldBuilder.Shared.Repositories {
             }
             catch (Exception ex) {
                 return Result<Unit>.Failure($"Error deleting static object: {ex.Message}", "DATABASE_ERROR");
+            }
+        }
+
+        public async Task<Result<Unit>> CreateDocumentAsync<T>(T document, ITransaction? tx, CancellationToken ct) where T : BaseDocument {
+            return await UpsertDocumentAsync(document, tx, ct);
+        }
+
+        public async Task<Result<byte[]>> GetDocumentBlobAsync(string id, CancellationToken ct) {
+            try {
+                const string sql = "SELECT Data FROM Documents WHERE Id = @id";
+                await using var cmd = Connection.CreateCommand();
+                cmd.CommandText = sql;
+                cmd.Parameters.AddWithValue("@id", id);
+                var obj = await cmd.ExecuteScalarAsync(ct);
+                if (obj == null) return Result<byte[]>.Failure("Document not found", "NOT_FOUND");
+                return Result<byte[]>.Success((byte[])obj);
+            }
+            catch (Exception ex) {
+                return Result<byte[]>.Failure($"Error getting document: {ex.Message}", "DATABASE_ERROR");
+            }
+        }
+
+        public async Task<Result<Unit>> UpsertDocumentAsync<T>(T document, ITransaction? tx, CancellationToken ct) where T : BaseDocument {
+            Microsoft.Data.Sqlite.SqliteTransaction? dbTx = null;
+            try {
+                var dbTxResult = GetDbTransaction(tx);
+                if (dbTxResult.IsFailure) return Result<Unit>.Failure(dbTxResult.Error);
+                dbTx = dbTxResult.Value;
+
+                const string sql = @"
+                    INSERT INTO Documents (Id, Type, Version, Data)
+                    VALUES (@id, @type, @ver, @data)
+                    ON CONFLICT(Id) DO UPDATE SET
+                        Version = @ver,
+                        Data = @data";
+
+                await using var cmd = Connection.CreateCommand();
+                cmd.Transaction = dbTx;
+                cmd.CommandText = sql;
+                cmd.Parameters.AddWithValue("@id", document.Id);
+                cmd.Parameters.AddWithValue("@type", typeof(T).FullName);
+                cmd.Parameters.AddWithValue("@ver", (long)document.Version);
+                cmd.Parameters.AddWithValue("@data", document.Serialize());
+
+                await cmd.ExecuteNonQueryAsync(ct);
+                return Result<Unit>.Success(Unit.Value);
+            }
+            catch (Exception ex) {
+                return Result<Unit>.Failure($"Error upserting document {document.Id} (Tx:{dbTx?.GetHashCode() ?? 0}, Conn:{Connection.GetHashCode()}): {ex.Message}", "DATABASE_ERROR");
             }
         }
 

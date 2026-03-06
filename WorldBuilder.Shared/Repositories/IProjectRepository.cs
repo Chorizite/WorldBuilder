@@ -42,15 +42,15 @@ namespace WorldBuilder.Shared.Repositories {
         /// <param name="ct">The cancellation token.</param>
         Task<Result<Unit>> DeleteLayerAsync(string id, ITransaction? tx, CancellationToken ct);
 
-        Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(uint landblockId, CancellationToken ct);
+        Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(uint? landblockId, uint? cellId, CancellationToken ct);
 
         /// <summary>Retrieves all buildings for a landblock.</summary>
         /// <param name="landblockId">The landblock ID.</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing a list of building objects.</returns>
-        Task<IReadOnlyList<BuildingObject>> GetBuildingsAsync(uint landblockId, CancellationToken ct);
+        Task<IReadOnlyList<BuildingObject>> GetBuildingsAsync(uint? landblockId, uint? cellId, CancellationToken ct);
 
-        Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, uint landblockId, ITransaction? tx, CancellationToken ct);
+        Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Upserts a building object.</summary>
         /// <param name="obj">The building object to upsert.</param>
@@ -58,7 +58,7 @@ namespace WorldBuilder.Shared.Repositories {
         /// <param name="landblockId">The landblock ID it belongs to.</param>
         /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
-        Task<Result<Unit>> UpsertBuildingAsync(BuildingObject obj, uint regionId, uint landblockId, ITransaction? tx, CancellationToken ct);
+        Task<Result<Unit>> UpsertBuildingAsync(BuildingObject obj, uint regionId, uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Deletes a static object by instance ID.</summary>
         /// <param name="instanceId">The instance ID.</param>
@@ -136,5 +136,14 @@ namespace WorldBuilder.Shared.Repositories {
         /// <returns>A task representing the result of the operation.</returns>
         Task<Result<Unit>> UpdateEventServerTimestampAsync(string eventId, ulong serverTimestamp, ITransaction? tx,
             CancellationToken ct);
+
+        /// <summary>Creates a new document record.</summary>
+        Task<Result<Unit>> CreateDocumentAsync<T>(T document, ITransaction? tx, CancellationToken ct) where T : BaseDocument;
+
+        /// <summary>Retrieves a document record by ID.</summary>
+        Task<Result<byte[]>> GetDocumentBlobAsync(string id, CancellationToken ct);
+
+        /// <summary>Upserts a document record.</summary>
+        Task<Result<Unit>> UpsertDocumentAsync<T>(T document, ITransaction? tx, CancellationToken ct) where T : BaseDocument;
     }
 }

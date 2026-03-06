@@ -125,7 +125,11 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
                 _logger.LogDebug("Terrain patch with ID {DocumentId} inserted into database", document.Id);
             }
             else {
-                _logger.LogDebug("Document with ID {DocumentId} is virtual, skipping database insertion", document.Id);
+                var insertResult = await _repo.UpsertDocumentAsync(document, tx, ct);
+                if (insertResult.IsFailure) {
+                    return Result<DocumentRental<T>>.Failure(insertResult.Error);
+                }
+                _logger.LogDebug("Document with ID {DocumentId} inserted into database", document.Id);
             }
 
             // Add to cache
@@ -171,7 +175,7 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
             _logger.LogDebug("Document with ID {DocumentId} not found in cache, loading/creating", id);
             T? newDoc = null;
 
-            if (typeof(T) == typeof(LandscapeDocument)) {
+            if (typeof(T) == typeof(LandscapeDocument) && id.StartsWith("LandscapeDocument_")) {
                 _logger.LogDebug("Creating virtual LandscapeDocument for ID {DocumentId}", id);
                 newDoc = new LandscapeDocument(id) as T;
             }
@@ -236,7 +240,11 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
             _logger.LogDebug("Terrain patch with ID {DocumentId} persisted to database", doc.Id);
         }
         else {
-            _logger.LogDebug("Document with ID {DocumentId} is virtual, skipping persistence", doc.Id);
+            var updateResult = await _repo.UpsertDocumentAsync(doc, tx, ct);
+            if (updateResult.IsFailure) {
+                return Result<Unit>.Failure(updateResult.Error);
+            }
+            _logger.LogDebug("Document with ID {DocumentId} persisted to database", doc.Id);
         }
 
         return Result<Unit>.Success(Unit.Value);
@@ -321,7 +329,7 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
             blobResult = await _repo.GetTerrainPatchBlobAsync(id, ct);
         }
         else {
-            return null; // No other types persisted in Documents table anymore
+            blobResult = await _repo.GetDocumentBlobAsync(id, ct);
         }
 
         if (blobResult.IsFailure || blobResult.Value == null) {

@@ -57,8 +57,15 @@ public partial class UpdateStaticObjectCommand : BaseCommand<bool> {
 
             // If the landblock changed, we don't strictly need to delete and re-insert because InstanceId is the PK 
             // and UpsertStaticObjectAsync updates the LandblockId column.
-            var result = await repository.UpsertStaticObjectAsync(NewObject, terrainRental.Document.RegionId, NewLandblockId, tx, ct);
+            var result = await repository.UpsertStaticObjectAsync(NewObject, terrainRental.Document.RegionId, NewLandblockId, NewObject.CellId, tx, ct);
             if (result.IsFailure) return Result<bool>.Failure(result.Error);
+
+            var affected = new List<(int, int)>();
+            affected.Add(((int)(OldLandblockId >> 24), (int)((OldLandblockId >> 16) & 0xFF)));
+            if (NewLandblockId != OldLandblockId) {
+                affected.Add(((int)(NewLandblockId >> 24), (int)((NewLandblockId >> 16) & 0xFF)));
+            }
+            terrainRental.Document.NotifyLandblockChanged(affected);
 
             return Result<bool>.Success(true);
         }

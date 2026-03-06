@@ -7,7 +7,7 @@ namespace WorldBuilder.Shared.Models {
         /// <summary>
         /// Adds a new layer or group to the tree.
         /// </summary>
-        public void AddLayer(IReadOnlyList<string> groupPath, string name, bool isBase, string layerId, int index = -1) {
+        public virtual void AddLayer(IReadOnlyList<string> groupPath, string name, bool isBase, string layerId, int index = -1) {
             if (_layerIds.Contains(layerId)) {
                 throw new InvalidOperationException($"Layer ID already exists: {layerId}");
             }
@@ -28,12 +28,15 @@ namespace WorldBuilder.Shared.Models {
             }
 
             _layerIds.Add(layerId);
+            Version++;
+            _didLoadLayers = true;
+            NotifyLandblockChanged(null);
         }
 
         /// <summary>
         /// Adds a new group to the tree
         /// </summary>
-        public void AddGroup(IReadOnlyList<string> groupPath, string name, string groupId, int index = -1) {
+        public virtual void AddGroup(IReadOnlyList<string> groupPath, string name, string groupId, int index = -1) {
             if (_layerIds.Contains(groupId)) {
                 throw new InvalidOperationException($"Group ID already exists: {groupId}");
             }
@@ -50,12 +53,15 @@ namespace WorldBuilder.Shared.Models {
             }
 
             _layerIds.Add(groupId);
+            Version++;
+            _didLoadLayers = true;
+            NotifyLandblockChanged(null);
         }
 
         /// <summary>
         /// Removes a layer from the tree
         /// </summary>
-        public void RemoveLayer(IReadOnlyList<string> groupPath, string layerId) {
+        public virtual void RemoveLayer(IReadOnlyList<string> groupPath, string layerId) {
             var parent = FindParentGroup(groupPath);
             var targetList = parent?.Children ?? LayerTree;
 
@@ -68,6 +74,8 @@ namespace WorldBuilder.Shared.Models {
 
             targetList.Remove(layer);
             RemoveIdsRecursive(layer);
+            Version++;
+            NotifyLandblockChanged(null);
         }
 
         private void RemoveIdsRecursive(LandscapeLayerBase item) {
@@ -82,7 +90,7 @@ namespace WorldBuilder.Shared.Models {
         /// <summary>
         /// Reorders a layer
         /// </summary>
-        public void ReorderLayer(IReadOnlyList<string> groupPath, string layerId, int newIndex) {
+        public virtual void ReorderLayer(IReadOnlyList<string> groupPath, string layerId, int newIndex) {
             var parent = FindParentGroup(groupPath);
             var targetList = parent?.Children ?? LayerTree;
 
@@ -95,21 +103,25 @@ namespace WorldBuilder.Shared.Models {
                 throw new InvalidOperationException($"Invalid new index: {newIndex} (list size: {targetList.Count})");
             }
 
-            if (oldIndex == newIndex) return;
+            if (oldIndex != newIndex) {
+                var layerToMove = targetList[oldIndex];
+                if (layerToMove is LandscapeLayer tl && tl.IsBase && (newIndex != 0 || oldIndex != 0)) {
+                    throw new InvalidOperationException("Cannot reorder the base layer from position 0.");
+                }
 
-            var layer = targetList[oldIndex];
-            if (layer is LandscapeLayer tl && tl.IsBase && (newIndex != 0 || oldIndex != 0)) {
-                throw new InvalidOperationException("Cannot reorder the base layer from position 0.");
+                targetList.RemoveAt(oldIndex);
+                targetList.Insert(newIndex, layerToMove);
             }
 
-            targetList.RemoveAt(oldIndex);
-            targetList.Insert(newIndex, layer);
+            Version++;
+            _didLoadLayers = true;
+            NotifyLandblockChanged(null);
         }
 
         /// <summary>
         /// Inserts an existing item (layer or group) into the tree. Used for Undo/Restore.
         /// </summary>
-        public void InsertItem(IReadOnlyList<string> groupPath, int index, LandscapeLayerBase item) {
+        public virtual void InsertItem(IReadOnlyList<string> groupPath, int index, LandscapeLayerBase item) {
             var parent = FindParentGroup(groupPath);
             var targetList = parent?.Children ?? LayerTree;
 
@@ -131,6 +143,9 @@ namespace WorldBuilder.Shared.Models {
 
             // Re-register IDs recursively
             RegisterIdsRecursive(item);
+            Version++;
+            _didLoadLayers = true;
+            NotifyLandblockChanged(null);
         }
 
         private void RegisterIdsRecursive(LandscapeLayerBase item) {
@@ -142,7 +157,7 @@ namespace WorldBuilder.Shared.Models {
             }
         }
 
-        public LandscapeLayerBase? FindItem(string id) {
+        public virtual LandscapeLayerBase? FindItem(string id) {
             return GetAllLayersAndGroups().FirstOrDefault(l => l.Id == id);
         }
 
@@ -207,7 +222,7 @@ namespace WorldBuilder.Shared.Models {
                 .FirstOrDefault(g => g.Children.Any(c => c.Id == id));
         }
 
-        public LandscapeLayerGroup? FindParentGroup(IReadOnlyList<string> groupPath) {
+        public virtual LandscapeLayerGroup? FindParentGroup(IReadOnlyList<string> groupPath) {
             LandscapeLayerGroup? current = null;
             var searchList = LayerTree;
             foreach (var id in groupPath) {
@@ -222,7 +237,15 @@ namespace WorldBuilder.Shared.Models {
         private async Task LoadLayersAsync(IDocumentManager documentManager, CancellationToken ct) {
             if (_didLoadLayers) return;
 
+            if (documentManager.ProjectRepository == null) {
+                _didLoadLayers = true;
+                return;
+            }
             var items = await documentManager.ProjectRepository.GetLayersAsync(RegionId, ct);
+            if (items == null) {
+                _didLoadLayers = true;
+                return;
+            }
             _layerIds.Clear();
             LayerTree.Clear();
 

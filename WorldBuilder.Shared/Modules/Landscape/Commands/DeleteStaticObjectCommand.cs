@@ -60,6 +60,8 @@ public partial class DeleteStaticObjectCommand : BaseCommand<bool> {
             var result = await repository.DeleteStaticObjectAsync(InstanceId, tx, ct);
             if (result.IsFailure) return Result<bool>.Failure(result.Error);
 
+            terrainRental.Document.NotifyLandblockChanged([((int)(LandblockId >> 24), (int)((LandblockId >> 16) & 0xFF))]);
+
             return Result<bool>.Success(true);
         }
         catch (Exception ex) {
