@@ -17,8 +17,8 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             _mockDats = new Mock<IDatReaderWriter>();
             _mockTx = new Mock<ITransaction>();
 
-            // Setup generic PersistDocumentAsync for LandscapeChunkDocument
-            _mockDocManager.Setup(m => m.PersistDocumentAsync(It.IsAny<DocumentRental<LandscapeChunkDocument>>(), It.IsAny<ITransaction>(), It.IsAny<CancellationToken>()))
+            // Setup generic PersistDocumentAsync for TerrainPatchDocument
+            _mockDocManager.Setup(m => m.PersistDocumentAsync(It.IsAny<DocumentRental<TerrainPatchDocument>>(), It.IsAny<ITransaction>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
         }
 
@@ -42,7 +42,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             // Pre-load chunk for index 100
             var (chunkId, _) = terrainDoc.GetLocalVertexIndex(100u);
             var chunk = new LandscapeChunk(chunkId);
-            chunk.EditsRental = new DocumentRental<LandscapeChunkDocument>(new LandscapeChunkDocument($"LandscapeChunkDocument_{chunkId}"), () => { });
+            chunk.EditsRental = new DocumentRental<TerrainPatchDocument>(new TerrainPatchDocument($"TerrainPatch_0_{chunkId}_0"), () => { });
             terrainDoc.LoadedChunks[chunkId] = chunk;
 
             var rental = new DocumentRental<LandscapeDocument>(terrainDoc, () => { });

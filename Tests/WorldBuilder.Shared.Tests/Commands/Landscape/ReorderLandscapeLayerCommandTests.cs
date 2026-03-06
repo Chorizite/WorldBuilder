@@ -4,12 +4,14 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Services;
 using WorldBuilder.Shared.Tests.Mocks;
+using WorldBuilder.Shared.Repositories;
 
 namespace WorldBuilder.Shared.Tests.Commands.Landscape {
     public class ReorderLandscapeLayerCommandTests {
         private readonly Mock<IDocumentManager> _mockDocManager;
         private readonly MockDatReaderWriter _dats;
         private readonly Mock<ITransaction> _mockTx;
+        private readonly Mock<IProjectRepository> _mockRepo;
         private readonly string _terrainDocId = "LandscapeDocument_1";
         private const string L1 = "LandscapeLayerDocument_1";
         private const string L2 = "LandscapeLayerDocument_2";
@@ -19,6 +21,10 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             _mockDocManager = new Mock<IDocumentManager>();
             _dats = new MockDatReaderWriter();
             _mockTx = new Mock<ITransaction>();
+            _mockRepo = new Mock<IProjectRepository>();
+            _mockDocManager.Setup(m => m.ProjectRepository).Returns(_mockRepo.Object);
+            _mockRepo.Setup(r => r.UpsertLayerAsync(It.IsAny<LandscapeLayerBase>(), It.IsAny<uint>(), It.IsAny<int>(), It.IsAny<ITransaction>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<Unit>.Success(Unit.Value));
         }
 
         private (LandscapeDocument, DocumentRental<LandscapeDocument>) CreateMockTerrainRental() {

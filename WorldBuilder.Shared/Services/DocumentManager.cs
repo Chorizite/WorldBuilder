@@ -25,6 +25,9 @@ public class DocumentManager : IDocumentManager, IDisposable {
     /// </summary>
     public string UserId { get; private set; } = new Guid().ToString();
 
+    /// <inheritdoc/>
+    public IProjectRepository ProjectRepository => _repo;
+
     public DocumentManager(IProjectRepository repo, IDatReaderWriter dats, ILogger<DocumentManager> logger) {
         _repo = repo;
         _dats = dats;

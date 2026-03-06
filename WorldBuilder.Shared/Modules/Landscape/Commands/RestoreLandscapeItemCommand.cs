@@ -58,6 +58,8 @@ public partial class RestoreLandscapeItemCommand : BaseCommand<bool> {
 
             terrainRental.Document.InsertItem(GroupPath, Index, Item);
 
+            await terrainRental.Document.SyncLayerTreeAsync(tx, ct);
+
             await terrainRental.Document.RecalculateTerrainCacheAsync(affectedVertices);
 
             terrainRental.Document.Version++;

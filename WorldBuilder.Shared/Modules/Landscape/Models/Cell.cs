@@ -1,14 +1,12 @@
 using DatReaderWriter.Types;
 using MemoryPack;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Models
-{
+namespace WorldBuilder.Shared.Modules.Landscape.Models {
     /// <summary>
     /// EnvCell.
     /// </summary>
     [MemoryPackable]
-    public partial class Cell
-    {
+    public partial class Cell {
         /// <summary>
         /// Environment file id
         /// </summary>
@@ -42,7 +40,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models
         /// <summary>
         /// Objects in this Cell
         /// </summary>
-        [MemoryPackOrder(5)] public List<StaticObject> StaticObjects { get; init; } = [];
+        [MemoryPackOrder(5)] public Dictionary<ulong, StaticObject> StaticObjects { get; init; } = [];
 
         /// <summary>
         /// The Landscape Layer responsible for owning this Cell

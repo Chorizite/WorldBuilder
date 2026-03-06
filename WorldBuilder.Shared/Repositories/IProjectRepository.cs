@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Modules.Landscape.Models;
 
 namespace WorldBuilder.Shared.Repositories {
     /// <summary>
@@ -20,6 +21,58 @@ namespace WorldBuilder.Shared.Repositories {
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing the transaction.</returns>
         Task<ITransaction> CreateTransactionAsync(CancellationToken ct);
+
+        /// <summary>Retrieves all landscape layers for a region.</summary>
+        /// <param name="regionId">The region ID.</param>
+        /// <param name="ct">The cancellation token.</param>
+        /// <returns>A task containing a list of landscape layers.</returns>
+        Task<IReadOnlyList<LandscapeLayerBase>> GetLayersAsync(uint regionId, CancellationToken ct);
+
+        /// <summary>Upserts a landscape layer.</summary>
+        /// <param name="layer">The layer to upsert.</param>
+        /// <param name="regionId">The region ID it belongs to.</param>
+        /// <param name="sortOrder">The sort order within its parent.</param>
+        /// <param name="tx">The transaction (optional).</param>
+        /// <param name="ct">The cancellation token.</param>
+        Task<Result<Unit>> UpsertLayerAsync(LandscapeLayerBase layer, uint regionId, int sortOrder, ITransaction? tx, CancellationToken ct);
+
+        Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(uint landblockId, CancellationToken ct);
+
+        /// <summary>Retrieves all buildings for a landblock.</summary>
+        /// <param name="landblockId">The landblock ID.</param>
+        /// <param name="ct">The cancellation token.</param>
+        /// <returns>A task containing a list of building objects.</returns>
+        Task<IReadOnlyList<BuildingObject>> GetBuildingsAsync(uint landblockId, CancellationToken ct);
+
+        Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, uint landblockId, ITransaction? tx, CancellationToken ct);
+
+        /// <summary>Upserts a building object.</summary>
+        /// <param name="obj">The building object to upsert.</param>
+        /// <param name="regionId">The region ID it belongs to.</param>
+        /// <param name="landblockId">The landblock ID it belongs to.</param>
+        /// <param name="tx">The transaction (optional).</param>
+        /// <param name="ct">The cancellation token.</param>
+        Task<Result<Unit>> UpsertBuildingAsync(BuildingObject obj, uint regionId, uint landblockId, ITransaction? tx, CancellationToken ct);
+
+        /// <summary>Deletes a static object by instance ID.</summary>
+        /// <param name="instanceId">The instance ID.</param>
+        /// <param name="tx">The transaction (optional).</param>
+        /// <param name="ct">The cancellation token.</param>
+        Task<Result<Unit>> DeleteStaticObjectAsync(ulong instanceId, ITransaction? tx, CancellationToken ct);
+
+        /// <summary>Retrieves an EnvCell by ID.</summary>
+        /// <param name="cellId">The cell ID.</param>
+        /// <param name="ct">The cancellation token.</param>
+        /// <returns>A task containing the cell result.</returns>
+        Task<Result<Cell>> GetEnvCellAsync(uint cellId, CancellationToken ct);
+
+        /// <summary>Upserts an EnvCell.</summary>
+        /// <param name="cellId">The cell ID.</param>
+        /// <param name="regionId">The region ID.</param>
+        /// <param name="cell">The cell data.</param>
+        /// <param name="tx">The transaction (optional).</param>
+        /// <param name="ct">The cancellation token.</param>
+        Task<Result<Unit>> UpsertEnvCellAsync(uint cellId, uint regionId, Cell cell, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Retrieves all document IDs that start with a specific prefix.</summary>
         /// <param name="prefix">The ID prefix.</param>

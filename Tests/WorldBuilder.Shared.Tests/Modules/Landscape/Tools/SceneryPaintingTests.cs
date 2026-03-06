@@ -101,7 +101,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             // Initialize LoadedChunks
             var chunk = new LandscapeChunk(0);
-            chunk.EditsRental = new DocumentRental<LandscapeChunkDocument>(new LandscapeChunkDocument("LandscapeChunkDocument_0"), () => { });
+            chunk.EditsRental = new DocumentRental<TerrainPatchDocument>(new TerrainPatchDocument("TerrainPatch_0_0_0"), () => { });
             doc.LoadedChunks[0] = chunk;
 
             var layerId = Guid.NewGuid().ToString();

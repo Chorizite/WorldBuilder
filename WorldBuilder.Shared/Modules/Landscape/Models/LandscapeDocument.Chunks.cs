@@ -18,8 +18,8 @@ namespace WorldBuilder.Shared.Models {
                 chunk = new LandscapeChunk(chunkId);
 
                 // Rent the chunk document for edits if it exists
-                var chunkDocId = LandscapeChunkDocument.GetId(RegionId, chunk.ChunkX, chunk.ChunkY);
-                var rentResult = await documentManager.RentDocumentAsync<LandscapeChunkDocument>(chunkDocId, ct);
+                var chunkDocId = TerrainPatchDocument.GetId(RegionId, chunk.ChunkX, chunk.ChunkY);
+                var rentResult = await documentManager.RentDocumentAsync<TerrainPatchDocument>(chunkDocId, ct);
                 if (rentResult.IsSuccess) {
                     chunk.EditsRental = rentResult.Value;
                 }
@@ -27,7 +27,7 @@ namespace WorldBuilder.Shared.Models {
                     // It doesn't exist in the database yet. 
                     // use a detached document and only persist it
                     // if an edit is actually made to this chunk.
-                    chunk.EditsDetached = new LandscapeChunkDocument(chunkDocId);
+                    chunk.EditsDetached = new TerrainPatchDocument(chunkDocId);
                 }
 
                 await LoadBaseDataForChunkAsync(chunk, ct);
@@ -43,7 +43,7 @@ namespace WorldBuilder.Shared.Models {
                             int lbY = (int)(chunk.ChunkY * LandscapeChunk.LandblocksPerChunk + ly);
                             if (lbX >= Region.MapWidthInLandblocks || lbY >= Region.MapHeightInLandblocks) continue;
                             var lbId = ((uint)lbX << 8 | (uint)lbY) << 16 | 0xFFFE;
-                            GetMergedLandblock(lbId); // Populates the cache
+                            await GetMergedLandblockAsync(lbId); // Populates the cache
                         }
                     }
                 }

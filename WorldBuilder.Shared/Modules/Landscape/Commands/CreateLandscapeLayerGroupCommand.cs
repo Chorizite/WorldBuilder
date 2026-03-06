@@ -56,6 +56,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
 
                 terrainRental.Document.AddGroup(GroupPath, Name, GroupId, Index);
 
+                await terrainRental.Document.SyncLayerTreeAsync(tx, ct);
+
                 terrainRental.Document.Version++;
                 var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);
 

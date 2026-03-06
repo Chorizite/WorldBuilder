@@ -10,23 +10,32 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands {
         }
 
         [Fact]
-        public void Execute_ShouldUpdateLayerName() {
+        public void Execute_ShouldInvokeCallbackWithNewName() {
             // Arrange
             var layer = new TestLayer { Name = "Old Name" };
-            var command = new RenameLandscapeLayerCommand(layer, "New Name");
+            string? callbackName = null;
+            var command = new RenameLayerUICommand(layer, "New Name", name => {
+                layer.Name = name;
+                callbackName = name;
+            });
 
             // Act
             command.Execute();
 
             // Assert
             Assert.Equal("New Name", layer.Name);
+            Assert.Equal("New Name", callbackName);
         }
 
         [Fact]
-        public void Undo_ShouldRevertLayerName() {
+        public void Undo_ShouldInvokeCallbackWithOldName() {
             // Arrange
             var layer = new TestLayer { Name = "Old Name" };
-            var command = new RenameLandscapeLayerCommand(layer, "New Name");
+            string? callbackName = null;
+            var command = new RenameLayerUICommand(layer, "New Name", name => {
+                layer.Name = name;
+                callbackName = name;
+            });
 
             // Act
             command.Execute();
@@ -34,20 +43,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands {
 
             // Assert
             Assert.Equal("Old Name", layer.Name);
-        }
-
-        [Fact]
-        public void Execute_ShouldInvokeCallback() {
-            // Arrange
-            var layer = new TestLayer { Name = "Old Name" };
-            string? callbackName = null;
-            var command = new RenameLandscapeLayerCommand(layer, "New Name", name => callbackName = name);
-
-            // Act
-            command.Execute();
-
-            // Assert
-            Assert.Equal("New Name", callbackName);
+            Assert.Equal("Old Name", callbackName);
         }
     }
 }

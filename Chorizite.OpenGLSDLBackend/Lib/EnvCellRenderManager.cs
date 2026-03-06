@@ -527,7 +527,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (!_hasBuildingsCache.TryGetValue(lbId, out var hasBuildings)) {
                 var mergedLb = LandscapeDoc.GetMergedLandblock(lbId);
                 hasBuildings = mergedLb.Buildings.Count > 0;
-                _hasBuildingsCache[lbId] = hasBuildings;
+                if (hasBuildings) {
+                    _hasBuildingsCache[lbId] = hasBuildings;
+                }
             }
 
             if (hasBuildings) {
@@ -567,7 +569,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var cellDb = LandscapeDoc.CellDatabase;
                 if (cellDb != null && mergedLb.Buildings.Count > 0) {
                     if (cellDb.TryGet<LandBlockInfo>(lbId, out var lbi)) {
-                        foreach (var building in mergedLb.Buildings) {
+                        foreach (var building in mergedLb.Buildings.Values) {
                             int index = InstanceIdConstants.GetObjectIndex(building.InstanceId);
                             if (index < lbi.Buildings.Count) {
                                 var bInfo = lbi.Buildings[index];
@@ -594,7 +596,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 // Recursively gather connected EnvCells
                 while (cellsToProcess.Count > 0) {
                     var cellId = cellsToProcess.Dequeue();
-                    var envCell = LandscapeDoc.GetMergedEnvCell(cellId);
+                    var envCell = await LandscapeDoc.GetMergedEnvCellAsync(cellId);
 
                     if (envCell.EnvironmentId != 0) {
                         // We always add the cell to instances so GetEnvCellAt can find it,
@@ -660,7 +662,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                         // Add static objects within the cell
                         if (envCell.StaticObjects.Count > 0) {
-                            foreach (var stab in envCell.StaticObjects) {
+                            foreach (var stab in envCell.StaticObjects.Values) {
                                 var datStabPos = new Vector3(stab.Position[0], stab.Position[1], stab.Position[2]);
                                 var stabWorldPos = new Vector3(
                                     new Vector2(lbGlobalX * lbSizeUnits + datStabPos.X, lbGlobalY * lbSizeUnits + datStabPos.Y) + regionInfo.MapOffset,

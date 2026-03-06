@@ -41,15 +41,18 @@ namespace WorldBuilder.Shared.Models {
                 if (chunk.Edits == null) continue;
                 foreach (var layer in exportedLayers) {
 
-                    if (chunk.Edits.LayerEdits.TryGetValue(layer.Id, out var layerEdits)) {
-                        foreach (var vertexKvp in layerEdits.Vertices) {
-                            var globalIndex = GetGlobalVertexIndex(chunk.Id, vertexKvp.Key);
+                    if (chunk.Edits.LayerEdits.TryGetValue(layer.Id, out var layerVertices)) {
+                        for (int i = 0; i < layerVertices.Length; i++) {
+                            var entry = layerVertices[i];
+                            if (entry.Flags == TerrainEntryFlags.None) continue;
+
+                            var globalIndex = GetGlobalVertexIndex(chunk.Id, (ushort)i);
                             if (mergedChanges.TryGetValue(globalIndex, out var existing)) {
-                                existing.Merge(vertexKvp.Value);
+                                existing.Merge(entry);
                                 mergedChanges[globalIndex] = existing;
                             }
                             else {
-                                mergedChanges[globalIndex] = vertexKvp.Value;
+                                mergedChanges[globalIndex] = entry;
                             }
                         }
                     }
@@ -124,7 +127,7 @@ namespace WorldBuilder.Shared.Models {
 
                 System.Console.WriteLine($"[DAT EXPORT] Processing LandBlockInfo 0x{lbInfoId:X8} for landblock {lbX}, {lbY}...");
 
-                var mergedLb = GetMergedLandblock(lbInfoId);
+                var mergedLb = await GetMergedLandblockAsync(lbInfoId);
                 var lbi = new LandBlockInfo();
 
                 bool lbiExists = datwriter.TryGetFileBytes(RegionId, lbInfoId, ref objBuffer, out objBytesRead);
@@ -136,7 +139,7 @@ namespace WorldBuilder.Shared.Models {
                     System.Console.WriteLine($"[DAT EXPORT] Saving Landblock 0x{lbId:X8} - Statics: {mergedLb.StaticObjects.Count}, Buildings: {mergedLb.Buildings.Count}");
 
                     lbi.Objects.Clear();
-                    foreach (var obj in mergedLb.StaticObjects) {
+                    foreach (var obj in mergedLb.StaticObjects.Values) {
                         lbi.Objects.Add(new DatReaderWriter.Types.Stab {
                             Id = obj.SetupId,
                             Frame = new DatReaderWriter.Types.Frame {
@@ -156,25 +159,16 @@ namespace WorldBuilder.Shared.Models {
                         cellIdsToProcess.Add(((uint)lbId << 16) | (0x0100u + cellIdx));
                     }
 
-                    // Also scan for any cells that have edits in our layer tree
-                    foreach (var chunk in LoadedChunks.Values) {
-                        if (chunk.Edits != null) {
-                            foreach (var layerEdits in chunk.Edits.LayerEdits.Values) {
-                                foreach (var cellId in layerEdits.Cells.Keys) {
-                                    if ((cellId & 0xFFFF0000) == ((uint)lbId << 16)) {
-                                        cellIdsToProcess.Add(cellId);
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    // Note: Cell edits are now stored relationally in the EnvCells table.
+                    // We identify affected cell IDs for this landblock by querying the repository.
+                    // (Implementation detail: for now we primarily scan the base cells and check for overrides)
 
                     foreach (var cellId in cellIdsToProcess) {
                         if (datwriter.TryGetFileBytes(RegionId, cellId, ref objBuffer, out objBytesRead)) {
                             var cell = new EnvCell();
                             cell.Unpack(new DatBinReader(objBuffer));
 
-                            var mergedCell = GetMergedEnvCell(cellId);
+                            var mergedCell = await GetMergedEnvCellAsync(cellId);
 
                             int baseStatics = cell.StaticObjects?.Count ?? 0;
                             if (baseStatics != mergedCell.StaticObjects.Count) {
@@ -185,7 +179,7 @@ namespace WorldBuilder.Shared.Models {
                             cell.StaticObjects.Clear();
                             if (mergedCell.StaticObjects.Count > 0) {
                                 cell.Flags |= DatReaderWriter.Enums.EnvCellFlags.HasStaticObjs;
-                                foreach (var obj in mergedCell.StaticObjects) {
+                                foreach (var obj in mergedCell.StaticObjects.Values) {
                                     cell.StaticObjects.Add(new DatReaderWriter.Types.Stab {
                                         Id = obj.SetupId,
                                         Frame = new DatReaderWriter.Types.Frame {

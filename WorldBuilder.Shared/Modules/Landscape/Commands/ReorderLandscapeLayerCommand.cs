@@ -75,6 +75,8 @@ public partial class ReorderLandscapeLayerCommand : BaseCommand<bool> {
 
             terrainRental.Document.ReorderLayer(GroupPath, LayerId, NewIndex);
 
+            await terrainRental.Document.SyncLayerTreeAsync(tx, ct);
+
             await terrainRental.Document.RecalculateTerrainCacheAsync(affectedVertices);
 
             terrainRental.Document.Version++;

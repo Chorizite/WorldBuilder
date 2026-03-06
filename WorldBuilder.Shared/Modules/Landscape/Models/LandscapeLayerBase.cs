@@ -26,5 +26,9 @@ namespace WorldBuilder.Shared.Models {
         /// <summary>Whether this item is visible in the editor.</summary>
         [MemoryPackIgnore]
         public bool IsVisible { get; set; } = true;
+
+        /// <summary>The ID of the parent group (not persisted in binary blob, for relational storage).</summary>
+        [MemoryPackIgnore]
+        public string? ParentId { get; set; }
     }
 }

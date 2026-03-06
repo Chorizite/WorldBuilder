@@ -56,8 +56,9 @@ public partial class DeleteStaticObjectCommand : BaseCommand<bool> {
             using var terrainRental = rentResult.Value;
             await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
-            var result = await terrainRental.Document.DeleteStaticObjectAsync(LayerId, LandblockId, InstanceId, dats, documentManager, tx, ct);
-            if (result.IsFailure) return result;
+            var repository = documentManager.ProjectRepository;
+            var result = await repository.DeleteStaticObjectAsync(InstanceId, tx, ct);
+            if (result.IsFailure) return Result<bool>.Failure(result.Error);
 
             var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);
             if (persistResult.IsFailure) return Result<bool>.Failure(persistResult.Error);

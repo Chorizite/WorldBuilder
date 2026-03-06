@@ -618,12 +618,12 @@ public class GameScene : IDisposable {
         }
 
         var merged = _landscapeDoc.GetMergedLandblock(landblockId);
-        foreach (var obj in merged.StaticObjects) {
+        foreach (var obj in merged.StaticObjects.Values) {
             if (obj.InstanceId == instanceId) {
                 return obj.LayerId;
             }
         }
-        foreach (var obj in merged.Buildings) {
+        foreach (var obj in merged.Buildings.Values) {
             if (obj.InstanceId == instanceId) {
                 return obj.LayerId;
             }

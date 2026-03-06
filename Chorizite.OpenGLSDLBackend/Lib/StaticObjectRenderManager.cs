@@ -326,10 +326,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var staticObjects = new List<SceneryInstance>();
                 var lbSizeUnits = regionInfo.LandblockSizeInUnits; // 192
 
-                var mergedLb = LandscapeDoc.GetMergedLandblock(lbId);
+                var mergedLb = await LandscapeDoc.GetMergedLandblockAsync(lbId);
 
                 // Placed objects
-                foreach (var obj in mergedLb.StaticObjects) {
+                foreach (var obj in mergedLb.StaticObjects.Values) {
                     if (obj.SetupId == 0) continue;
 
                     var isSetup = (obj.SetupId >> 24) == 0x02;
@@ -363,7 +363,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 // Buildings
-                foreach (var building in mergedLb.Buildings) {
+                foreach (var building in mergedLb.Buildings.Values) {
                     if (building.ModelId == 0) continue;
 
                     var isSetup = (building.ModelId >> 24) == 0x02;

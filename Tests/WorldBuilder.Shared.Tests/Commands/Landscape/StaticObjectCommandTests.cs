@@ -4,6 +4,7 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Services;
+using WorldBuilder.Shared.Repositories;
 
 namespace WorldBuilder.Shared.Tests.Commands.Landscape;
 
@@ -13,12 +14,17 @@ public class StaticObjectCommandTests {
     private readonly Mock<ITransaction> _mockTx;
     private readonly string _terrainDocId = "LandscapeDocument_1";
 
+    private readonly Mock<IProjectRepository> _mockRepo;
+
     public StaticObjectCommandTests() {
         _mockDocManager = new Mock<IDocumentManager>();
         _mockDats = new Mock<IDatReaderWriter>();
         _mockTx = new Mock<ITransaction>();
+        _mockRepo = new Mock<IProjectRepository>();
 
-        _mockDocManager.Setup(m => m.PersistDocumentAsync(It.IsAny<DocumentRental<LandscapeChunkDocument>>(), It.IsAny<ITransaction>(), It.IsAny<CancellationToken>()))
+        _mockDocManager.Setup(m => m.ProjectRepository).Returns(_mockRepo.Object);
+
+        _mockDocManager.Setup(m => m.PersistDocumentAsync(It.IsAny<DocumentRental<TerrainPatchDocument>>(), It.IsAny<ITransaction>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<Unit>.Success(Unit.Value));
     }
 
@@ -39,14 +45,14 @@ public class StaticObjectCommandTests {
         return (terrainDoc, rental);
     }
 
-    private void SetupChunk(LandscapeDocument terrainDoc, uint landblockId) {
+    private async Task SetupChunk(LandscapeDocument terrainDoc, uint landblockId) {
         var x = (int)(landblockId >> 24);
         var y = (int)((landblockId >> 16) & 0xFF);
-        ushort chunkId = (ushort)(( (uint)(x / 8) << 8) | (uint)(y / 8));
-        
+        ushort chunkId = (ushort)(((uint)(x / 8) << 8) | (uint)(y / 8));
+
         if (!terrainDoc.LoadedChunks.ContainsKey(chunkId)) {
             var chunk = new LandscapeChunk(chunkId);
-            chunk.EditsRental = new DocumentRental<LandscapeChunkDocument>(new LandscapeChunkDocument($"LandscapeChunkDocument_{chunkId}"), () => { });
+            chunk.EditsRental = new DocumentRental<TerrainPatchDocument>(new TerrainPatchDocument($"TerrainPatch_0_{chunkId}_0"), () => { });
             terrainDoc.LoadedChunks[chunkId] = chunk;
         }
     }
@@ -57,9 +63,9 @@ public class StaticObjectCommandTests {
         var layerId = Guid.NewGuid().ToString();
         var (terrainDoc, terrainRental) = CreateMockTerrainRental();
         terrainDoc.AddLayer([], "Test Layer", false, layerId);
-        
+
         uint lbId = (10u << 24) | (10u << 16) | 0xFFFE;
-        SetupChunk(terrainDoc, lbId);
+        await SetupChunk(terrainDoc, lbId);
 
         var obj = new StaticObject { InstanceId = 123, SetupId = 0x01000001 };
         var command = new AddStaticObjectCommand {
@@ -69,6 +75,10 @@ public class StaticObjectCommandTests {
             Object = obj
         };
 
+        // Repo setup for Add
+        _mockRepo.Setup(r => r.UpsertStaticObjectAsync(obj, It.IsAny<uint>(), lbId, It.IsAny<ITransaction>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<Unit>.Success(Unit.Value));
+
         _mockDocManager.Setup(m => m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
         _mockDocManager.Setup(m => m.PersistDocumentAsync(terrainRental, _mockTx.Object, It.IsAny<CancellationToken>()))
@@ -79,8 +89,13 @@ public class StaticObjectCommandTests {
 
         // Assert
         Assert.True(result.IsSuccess);
-        var merged = terrainDoc.GetMergedLandblock(lbId);
-        Assert.Contains(merged.StaticObjects, x => x.InstanceId == 123);
+
+        // Setup repo to return the object for merging test
+        _mockRepo.Setup(r => r.GetStaticObjectsAsync(lbId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<StaticObject> { obj });
+
+        var merged = await terrainDoc.GetMergedLandblockAsync(lbId);
+        Assert.Contains(merged.StaticObjects.Values, x => x.InstanceId == 123);
     }
 
     [Fact]
@@ -89,12 +104,12 @@ public class StaticObjectCommandTests {
         var layerId = Guid.NewGuid().ToString();
         var (terrainDoc, terrainRental) = CreateMockTerrainRental();
         terrainDoc.AddLayer([], "Test Layer", false, layerId);
-        
+
         uint lbId = (10u << 24) | (10u << 16) | 0xFFFE;
-        SetupChunk(terrainDoc, lbId);
+        await SetupChunk(terrainDoc, lbId);
 
         var obj = new StaticObject { InstanceId = 123, SetupId = 0x01000001 };
-        terrainDoc.AddStaticObject(layerId, lbId, obj);
+        // terrainDoc.AddStaticObject(layerId, lbId, obj); // This line is no longer needed as the command will handle the repo interaction
 
         var command = new DeleteStaticObjectCommand {
             TerrainDocumentId = _terrainDocId,
@@ -104,6 +119,10 @@ public class StaticObjectCommandTests {
             PreviousState = obj
         };
 
+        // Repo setup
+        _mockRepo.Setup(r => r.DeleteStaticObjectAsync(123, It.IsAny<ITransaction>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<Unit>.Success(Unit.Value));
+
         _mockDocManager.Setup(m => m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
         _mockDocManager.Setup(m => m.PersistDocumentAsync(terrainRental, _mockTx.Object, It.IsAny<CancellationToken>()))
@@ -114,8 +133,13 @@ public class StaticObjectCommandTests {
 
         // Assert
         Assert.True(result.IsSuccess);
-        var merged = terrainDoc.GetMergedLandblock(lbId);
-        Assert.DoesNotContain(merged.StaticObjects, x => x.InstanceId == 123);
+
+        // Mock repo returns empty list after delete
+        _mockRepo.Setup(r => r.GetStaticObjectsAsync(lbId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<StaticObject>());
+
+        var merged = await terrainDoc.GetMergedLandblockAsync(lbId);
+        Assert.DoesNotContain(merged.StaticObjects.Values, x => x.InstanceId == 123);
     }
 
     [Fact]
@@ -124,14 +148,14 @@ public class StaticObjectCommandTests {
         var layerId = Guid.NewGuid().ToString();
         var (terrainDoc, terrainRental) = CreateMockTerrainRental();
         terrainDoc.AddLayer([], "Test Layer", false, layerId);
-        
+
         uint oldLbId = (10u << 24) | (10u << 16) | 0xFFFE;
         uint newLbId = (11u << 24) | (11u << 16) | 0xFFFE;
-        SetupChunk(terrainDoc, oldLbId);
-        SetupChunk(terrainDoc, newLbId);
+        await SetupChunk(terrainDoc, oldLbId);
+        await SetupChunk(terrainDoc, newLbId);
 
         var oldObj = new StaticObject { InstanceId = 123, SetupId = 0x01000001, Position = [1, 1, 1, 0, 0, 0, 1] };
-        terrainDoc.AddStaticObject(layerId, oldLbId, oldObj);
+        // terrainDoc.AddStaticObject(layerId, oldLbId, oldObj); // This line is no longer needed
 
         var newObj = new StaticObject { InstanceId = 123, SetupId = 0x01000001, Position = [2, 2, 2, 0, 0, 0, 1] };
         var command = new UpdateStaticObjectCommand {
@@ -143,6 +167,12 @@ public class StaticObjectCommandTests {
             NewObject = newObj
         };
 
+        // Repo setups
+        _mockRepo.Setup(r => r.DeleteStaticObjectAsync(123, It.IsAny<ITransaction>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<Unit>.Success(Unit.Value));
+        _mockRepo.Setup(r => r.UpsertStaticObjectAsync(newObj, It.IsAny<uint>(), newLbId, It.IsAny<ITransaction>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<Unit>.Success(Unit.Value));
+
         _mockDocManager.Setup(m => m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
         _mockDocManager.Setup(m => m.PersistDocumentAsync(terrainRental, _mockTx.Object, It.IsAny<CancellationToken>()))
@@ -153,10 +183,17 @@ public class StaticObjectCommandTests {
 
         // Assert
         Assert.True(result.IsSuccess);
-        var oldMerged = terrainDoc.GetMergedLandblock(oldLbId);
-        var newMerged = terrainDoc.GetMergedLandblock(newLbId);
-        Assert.DoesNotContain(oldMerged.StaticObjects, x => x.InstanceId == 123);
-        Assert.Contains(newMerged.StaticObjects, x => x.InstanceId == 123 && x.Position[0] == 2);
+
+        // Mock repo results
+        _mockRepo.Setup(r => r.GetStaticObjectsAsync(oldLbId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<StaticObject>());
+        _mockRepo.Setup(r => r.GetStaticObjectsAsync(newLbId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<StaticObject> { newObj });
+
+        var oldMerged = await terrainDoc.GetMergedLandblockAsync(oldLbId);
+        var newMerged = await terrainDoc.GetMergedLandblockAsync(newLbId);
+        Assert.DoesNotContain(oldMerged.StaticObjects.Values, x => x.InstanceId == 123);
+        Assert.Contains(newMerged.StaticObjects.Values, x => x.InstanceId == 123 && x.Position[0] == 2);
     }
 
     [Fact]
@@ -166,7 +203,7 @@ public class StaticObjectCommandTests {
         var (terrainDoc, terrainRental) = CreateMockTerrainRental();
         terrainDoc.AddLayer([], "Test Layer", false, layerId);
         uint lbId = (10u << 24) | (10u << 16) | 0xFFFE;
-        SetupChunk(terrainDoc, lbId);
+        await SetupChunk(terrainDoc, lbId);
 
         var obj = new StaticObject { InstanceId = 123, SetupId = 0x01000001 };
         var command = new AddStaticObjectCommand {
@@ -184,11 +221,21 @@ public class StaticObjectCommandTests {
         // Act
         await command.ApplyResultAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
         var inverse = command.CreateInverse();
+
+        // Mock repo for undo (Delete)
+        _mockRepo.Setup(r => r.DeleteStaticObjectAsync(123, It.IsAny<ITransaction>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<Unit>.Success(Unit.Value));
+
         var undoResult = await inverse.ApplyAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, default);
 
         // Assert
         Assert.True(undoResult.IsSuccess);
-        var merged = terrainDoc.GetMergedLandblock(lbId);
-        Assert.DoesNotContain(merged.StaticObjects, x => x.InstanceId == 123);
+
+        // Mock repo returns empty list after undo
+        _mockRepo.Setup(r => r.GetStaticObjectsAsync(lbId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<StaticObject>());
+
+        var merged = await terrainDoc.GetMergedLandblockAsync(lbId);
+        Assert.DoesNotContain(merged.StaticObjects.Values, x => x.InstanceId == 123);
     }
 }

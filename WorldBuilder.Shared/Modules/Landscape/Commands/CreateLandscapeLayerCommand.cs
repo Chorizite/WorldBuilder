@@ -67,32 +67,23 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
             IDocumentManager documentManager, IDatReaderWriter dats, ITransaction tx, CancellationToken ct) {
             try {
                 var rentResult = await documentManager.RentDocumentAsync<LandscapeDocument>(TerrainDocumentId, ct);
-                if (rentResult.IsFailure) {
-                    return Result<string>.Failure(rentResult.Error);
-                }
+                if (rentResult.IsFailure) return Result<string>.Failure(rentResult.Error);
 
                 using var terrainRental = rentResult.Value;
-                if (terrainRental == null) {
-                    return Result<string>.Failure(
-                        Error.NotFound($"Terrain not found: {TerrainDocumentId}"));
-                }
-
                 await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
                 terrainRental.Document.AddLayer(GroupPath, Name, IsBase, LayerId, Index);
 
                 terrainRental.Document.Version++;
                 var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);
+                if (persistResult.IsFailure) return Result<string>.Failure(persistResult.Error);
 
-                if (persistResult.IsFailure) {
-                    return Result<string>.Failure(persistResult.Error);
-                }
+                await terrainRental.Document.SyncLayerTreeAsync(tx, ct);
 
                 return Result<string>.Success(LayerId);
             }
             catch (Exception ex) {
-                return Result<string>.Failure(
-                    Error.Failure($"Error creating landscape layer: {ex.Message}"));
+                return Result<string>.Failure(Error.Failure($"Error creating landscape layer: {ex.Message}"));
             }
         }
     }

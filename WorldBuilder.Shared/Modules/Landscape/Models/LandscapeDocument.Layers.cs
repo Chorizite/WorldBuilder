@@ -150,7 +150,8 @@ namespace WorldBuilder.Shared.Models {
             return GetLayersRecursive(LayerTree);
         }
 
-        internal IEnumerable<LandscapeLayerBase> GetLayersRecursive(IEnumerable<LandscapeLayerBase> items) {
+        internal IEnumerable<LandscapeLayerBase> GetLayersRecursive(IEnumerable<LandscapeLayerBase>? items) {
+            if (items == null) yield break;
             foreach (var item in items) {
                 yield return item;
                 if (item is LandscapeLayerGroup group) {
@@ -208,11 +209,11 @@ namespace WorldBuilder.Shared.Models {
 
         public LandscapeLayerGroup? FindParentGroup(IReadOnlyList<string> groupPath) {
             LandscapeLayerGroup? current = null;
+            var searchList = LayerTree;
             foreach (var id in groupPath) {
-                current = (LayerTree.Concat(current?.Children ?? Enumerable.Empty<LandscapeLayerBase>()))
-                          .OfType<LandscapeLayerGroup>()
-                          .FirstOrDefault(g => g.Id == id)
+                current = searchList.OfType<LandscapeLayerGroup>().FirstOrDefault(g => g.Id == id)
                           ?? throw new InvalidOperationException($"Group not found: {id}");
+                searchList = current.Children;
             }
 
             return current;

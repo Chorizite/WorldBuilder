@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Repositories;
 
 namespace WorldBuilder.Shared.Services {
     /// <summary>
@@ -17,6 +18,11 @@ namespace WorldBuilder.Shared.Services {
         /// Gets the user id of the current local user.
         /// </summary>
         string UserId { get; }
+
+        /// <summary>
+        /// Gets the project repository.
+        /// </summary>
+        IProjectRepository ProjectRepository { get; }
 
         /// <summary>Initializes the document manager.</summary>
         /// <param name="ct">The cancellation token.</param>

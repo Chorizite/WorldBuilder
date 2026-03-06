@@ -45,8 +45,9 @@ public partial class AddStaticObjectCommand : BaseCommand<bool> {
             using var terrainRental = rentResult.Value;
             await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
-            var result = await terrainRental.Document.AddStaticObjectAsync(LayerId, LandblockId, Object, dats, documentManager, tx, ct);
-            if (result.IsFailure) return result;
+            var repository = documentManager.ProjectRepository;
+            var result = await repository.UpsertStaticObjectAsync(Object, terrainRental.Document.RegionId, LandblockId, tx, ct);
+            if (result.IsFailure) return Result<bool>.Failure(result.Error);
 
             var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);
             if (persistResult.IsFailure) return Result<bool>.Failure(persistResult.Error);

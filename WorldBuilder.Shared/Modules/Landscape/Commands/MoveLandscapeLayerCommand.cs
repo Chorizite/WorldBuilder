@@ -73,6 +73,8 @@ public partial class MoveLandscapeLayerCommand : BaseCommand<bool> {
             terrainRental.Document.RemoveLayer(SourceGroupPath, LayerId);
             terrainRental.Document.InsertItem(DestinationGroupPath, DestinationIndex, item);
 
+            await terrainRental.Document.SyncLayerTreeAsync(tx, ct);
+
             await terrainRental.Document.RecalculateTerrainCacheAsync(affectedVertices);
             terrainRental.Document.Version++;
 
