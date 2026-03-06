@@ -148,7 +148,7 @@ namespace WorldBuilder.Shared.Models {
             if (documentManager == null) return;
 
             var prefix = "TerrainPatch_" + RegionId + "_";
-            var ids = await documentManager.GetDocumentIdsAsync(prefix, ct);
+            var ids = await documentManager.GetDocumentIdsAsync(prefix, null, ct);
             System.Console.WriteLine($"[DAT EXPORT] Found {ids.Count} modified terrain patch documents for region {RegionId} in database.");
 
             foreach (var id in ids) {
@@ -554,14 +554,13 @@ namespace WorldBuilder.Shared.Models {
         public virtual async Task SyncLayerTreeAsync(ITransaction? tx, CancellationToken ct) {
             if (_documentManager == null) return;
             await SyncLayerTreeInternalAsync(LayerTree, null, tx, ct);
-            await _documentManager.ProjectRepository.UpsertDocumentAsync(this, tx, ct);
         }
 
         private async Task SyncLayerTreeInternalAsync(IEnumerable<LandscapeLayerBase> items, string? parentId, ITransaction? tx, CancellationToken ct) {
             int sortOrder = 0;
             foreach (var item in items) {
                 item.ParentId = parentId;
-                await _documentManager!.ProjectRepository.UpsertLayerAsync(item, RegionId, sortOrder++, tx, ct);
+                await _documentManager!.UpsertLayerAsync(item, RegionId, sortOrder++, tx, ct);
                 if (item is LandscapeLayerGroup group) {
                     await SyncLayerTreeInternalAsync(group.Children, group.Id, tx, ct);
                 }

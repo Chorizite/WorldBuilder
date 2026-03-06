@@ -82,7 +82,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
             }
 
             // 2. Apply active layers (overrides from repository)
-            var repoObjects = await _repo.GetStaticObjectsAsync(landblockId, null, ct);
+            var repoObjects = await _repo.GetStaticObjectsAsync(landblockId, null, null, ct);
             if (repoObjects != null) {
                 foreach (var obj in repoObjects) {
                     if (!visibleLayers.Contains(obj.LayerId)) continue;
@@ -90,7 +90,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                 }
             }
 
-            var repoBuildings = await _repo.GetBuildingsAsync(landblockId, null, ct);
+            var repoBuildings = await _repo.GetBuildingsAsync(landblockId, null, null, ct);
             if (repoBuildings != null) {
                 foreach (var bldg in repoBuildings) {
                     if (!visibleLayers.Contains(bldg.LayerId)) continue;
@@ -146,7 +146,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
             }
 
             // 2. Apply active layers (overrides from repository)
-            var repoResult = await _repo.GetEnvCellAsync(cellId, ct);
+            var repoResult = await _repo.GetEnvCellAsync(cellId, null, ct);
             if (repoResult.IsSuccess) {
                 var repoCell = repoResult.Value;
                 // Merge properties
@@ -163,7 +163,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
             }
 
             // Sync objects from relational table
-            var repoObjects = await _repo.GetStaticObjectsAsync(null, cellId, ct);
+            var repoObjects = await _repo.GetStaticObjectsAsync(null, cellId, null, ct);
             foreach (var obj in repoObjects) {
                 if (!visibleLayers.Contains(obj.LayerId)) continue;
                 properties.StaticObjects[obj.InstanceId] = obj;

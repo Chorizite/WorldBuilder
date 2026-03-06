@@ -19,7 +19,7 @@ namespace WorldBuilder.Shared.Models {
 
                 // Rent the chunk document for edits if it exists
                 var chunkDocId = TerrainPatchDocument.GetId(RegionId, chunk.ChunkX, chunk.ChunkY);
-                var rentResult = await documentManager.RentDocumentAsync<TerrainPatchDocument>(chunkDocId, ct);
+                var rentResult = await documentManager.RentDocumentAsync<TerrainPatchDocument>(chunkDocId, null, ct);
                 if (rentResult.IsSuccess) {
                     chunk.EditsRental = rentResult.Value;
                 }

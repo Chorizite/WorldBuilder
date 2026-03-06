@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Repositories;
 
 namespace WorldBuilder.Shared.Services {
@@ -46,38 +47,41 @@ namespace WorldBuilder.Shared.Services {
         /// <summary>Retrieves a user-specific value, or a default value if not found.</summary>
         /// <param name="key">The key.</param>
         /// <param name="defaultValue">The default value.</param>
+        /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing the result with the value string.</returns>
-        Task<Result<string>> GetUserValueAsync(string key, string defaultValue, CancellationToken ct);
+        Task<Result<string>> GetUserValueAsync(string key, string defaultValue, ITransaction? tx = null, CancellationToken ct = default);
 
         /// <summary>Retrieves all document IDs that start with a specific prefix.</summary>
         /// <param name="prefix">The ID prefix.</param>
+        /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing a list of matching document IDs.</returns>
-        Task<IReadOnlyList<string>> GetDocumentIdsAsync(string prefix, CancellationToken ct);
+        Task<IReadOnlyList<string>> GetDocumentIdsAsync(string prefix, ITransaction? tx = null, CancellationToken ct = default);
 
         /// <summary>Creates a new document and returns a rental for it.</summary>
         /// <typeparam name="T">The type of document.</typeparam>
         /// <param name="document">The document instance.</param>
-        /// <param name="tx">The transaction.</param>
+        /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing the document rental result.</returns>
-        Task<Result<DocumentRental<T>>> CreateDocumentAsync<T>(T document, ITransaction tx, CancellationToken ct) where T : BaseDocument;
+        Task<Result<DocumentRental<T>>> CreateDocumentAsync<T>(T document, ITransaction? tx, CancellationToken ct) where T : BaseDocument;
 
         /// <summary>Rents an existing document by its ID.</summary>
         /// <typeparam name="T">The type of document.</typeparam>
         /// <param name="id">The document ID.</param>
+        /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing the document rental result.</returns>
-        Task<Result<DocumentRental<T>>> RentDocumentAsync<T>(string id, CancellationToken ct) where T : BaseDocument;
+        Task<Result<DocumentRental<T>>> RentDocumentAsync<T>(string id, ITransaction? tx, CancellationToken ct) where T : BaseDocument;
 
         /// <summary>Persists changes made to a rented document.</summary>
         /// <typeparam name="T">The type of document.</typeparam>
         /// <param name="rental">The document rental.</param>
-        /// <param name="tx">The transaction.</param>
+        /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task representing the result of the operation.</returns>
-        Task<Result<Unit>> PersistDocumentAsync<T>(DocumentRental<T> rental, ITransaction tx, CancellationToken ct) where T : BaseDocument;
+        Task<Result<Unit>> PersistDocumentAsync<T>(DocumentRental<T> rental, ITransaction? tx, CancellationToken ct) where T : BaseDocument;
 
         /// <summary>Applies a local command event to the document system.</summary>
         /// <param name="evt">The command event.</param>
@@ -93,5 +97,23 @@ namespace WorldBuilder.Shared.Services {
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing the typed result.</returns>
         Task<Result<TResult>> ApplyLocalEventAsync<TResult>(BaseCommand<TResult> evt, ITransaction tx, CancellationToken ct);
+
+        /// <summary>Retrieves all landscape layers for a region.</summary>
+        Task<IReadOnlyList<LandscapeLayerBase>> GetLayersAsync(uint regionId, ITransaction? tx, CancellationToken ct);
+
+        /// <summary>Upserts a landscape layer.</summary>
+        Task<Result<Unit>> UpsertLayerAsync(LandscapeLayerBase layer, uint regionId, int sortOrder, ITransaction? tx, CancellationToken ct);
+
+        /// <summary>Deletes a landscape layer or group.</summary>
+        Task<Result<Unit>> DeleteLayerAsync(string id, ITransaction? tx, CancellationToken ct);
+
+        /// <summary>Retrieves all static objects for a landblock or cell.</summary>
+        Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
+
+        /// <summary>Upserts a static object.</summary>
+        Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
+
+        /// <summary>Deletes a static object by instance ID.</summary>
+        Task<Result<Unit>> DeleteStaticObjectAsync(ulong instanceId, ITransaction? tx, CancellationToken ct);
     }
 }

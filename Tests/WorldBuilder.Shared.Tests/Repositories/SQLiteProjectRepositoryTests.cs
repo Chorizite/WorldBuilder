@@ -106,7 +106,7 @@ namespace WorldBuilder.Shared.Tests.Repositories {
             var data = new byte[] { 1, 2, 3 };
             await _repo.UpsertTerrainPatchAsync(patchId, 1, data, 1, null, default);
 
-            var result = await _repo.GetTerrainPatchBlobAsync(patchId, default);
+            var result = await _repo.GetTerrainPatchBlobAsync(patchId, null, default);
             Assert.True(result.IsSuccess);
             Assert.Equal(data, result.Value);
         }

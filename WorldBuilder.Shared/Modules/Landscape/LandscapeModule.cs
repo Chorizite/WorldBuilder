@@ -39,7 +39,7 @@ namespace WorldBuilder.Shared.Modules.Landscape {
 
 
             // Try to rent first without transaction to avoid deadlock on read
-            var rentResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(id, ct);
+            var rentResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(id, null, ct);
             DocumentRental<LandscapeDocument> terrainRental;
 
             if (rentResult.IsFailure) {
@@ -54,7 +54,7 @@ namespace WorldBuilder.Shared.Modules.Landscape {
                     }
 
                     // Get the created document
-                    var createResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(id, ct);
+                    var createResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(id, null, ct);
                     if (createResult.IsFailure) {
                         throw new InvalidOperationException(
                             $"Failed to rent created TerrainDocument for regionId: {regionId}. Error: {createResult.Error.Message}");

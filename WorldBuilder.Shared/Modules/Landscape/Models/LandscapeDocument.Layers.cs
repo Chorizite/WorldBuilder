@@ -237,11 +237,7 @@ namespace WorldBuilder.Shared.Models {
         private async Task LoadLayersAsync(IDocumentManager documentManager, CancellationToken ct) {
             if (_didLoadLayers) return;
 
-            if (documentManager.ProjectRepository == null) {
-                _didLoadLayers = true;
-                return;
-            }
-            var items = await documentManager.ProjectRepository.GetLayersAsync(RegionId, ct);
+            var items = await documentManager.GetLayersAsync(RegionId, null, ct);
             if (items == null) {
                 _didLoadLayers = true;
                 return;

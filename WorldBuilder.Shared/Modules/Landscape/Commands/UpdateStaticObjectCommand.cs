@@ -47,17 +47,15 @@ public partial class UpdateStaticObjectCommand : BaseCommand<bool> {
 
     public override async Task<Result<bool>> ApplyResultAsync(IDocumentManager documentManager, IDatReaderWriter dats, ITransaction tx, CancellationToken ct) {
         try {
-            var rentResult = await documentManager.RentDocumentAsync<LandscapeDocument>(TerrainDocumentId, ct);
+            var rentResult = await documentManager.RentDocumentAsync<LandscapeDocument>(TerrainDocumentId, tx, ct);
             if (rentResult.IsFailure) return Result<bool>.Failure(rentResult.Error);
 
             using var terrainRental = rentResult.Value;
             await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
-            var repository = documentManager.ProjectRepository;
-
             // If the landblock changed, we don't strictly need to delete and re-insert because InstanceId is the PK 
             // and UpsertStaticObjectAsync updates the LandblockId column.
-            var result = await repository.UpsertStaticObjectAsync(NewObject, terrainRental.Document.RegionId, NewLandblockId, NewObject.CellId, tx, ct);
+            var result = await documentManager.UpsertStaticObjectAsync(NewObject, terrainRental.Document.RegionId, NewLandblockId, NewObject.CellId, tx, ct);
             if (result.IsFailure) return Result<bool>.Failure(result.Error);
 
             var affected = new List<(int, int)>();

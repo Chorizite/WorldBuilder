@@ -24,9 +24,10 @@ namespace WorldBuilder.Shared.Repositories {
 
         /// <summary>Retrieves all landscape layers for a region.</summary>
         /// <param name="regionId">The region ID.</param>
+        /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing a list of landscape layers.</returns>
-        Task<IReadOnlyList<LandscapeLayerBase>> GetLayersAsync(uint regionId, CancellationToken ct);
+        Task<IReadOnlyList<LandscapeLayerBase>> GetLayersAsync(uint regionId, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Upserts a landscape layer.</summary>
         /// <param name="layer">The layer to upsert.</param>
@@ -42,13 +43,14 @@ namespace WorldBuilder.Shared.Repositories {
         /// <param name="ct">The cancellation token.</param>
         Task<Result<Unit>> DeleteLayerAsync(string id, ITransaction? tx, CancellationToken ct);
 
-        Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(uint? landblockId, uint? cellId, CancellationToken ct);
+        Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Retrieves all buildings for a landblock.</summary>
         /// <param name="landblockId">The landblock ID.</param>
+        /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing a list of building objects.</returns>
-        Task<IReadOnlyList<BuildingObject>> GetBuildingsAsync(uint? landblockId, uint? cellId, CancellationToken ct);
+        Task<IReadOnlyList<BuildingObject>> GetBuildingsAsync(uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
 
         Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
 
@@ -68,9 +70,10 @@ namespace WorldBuilder.Shared.Repositories {
 
         /// <summary>Retrieves an EnvCell by ID.</summary>
         /// <param name="cellId">The cell ID.</param>
+        /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing the cell result.</returns>
-        Task<Result<Cell>> GetEnvCellAsync(uint cellId, CancellationToken ct);
+        Task<Result<Cell>> GetEnvCellAsync(uint cellId, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Upserts an EnvCell.</summary>
         /// <param name="cellId">The cell ID.</param>
@@ -82,15 +85,17 @@ namespace WorldBuilder.Shared.Repositories {
 
         /// <summary>Retrieves all terrain patch IDs for a specific region.</summary>
         /// <param name="regionId">The region ID.</param>
+        /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing a list of terrain patch IDs.</returns>
-        Task<IReadOnlyList<string>> GetTerrainPatchIdsAsync(uint regionId, CancellationToken ct);
+        Task<IReadOnlyList<string>> GetTerrainPatchIdsAsync(uint regionId, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Retrieves a terrain patch's serialized data by its ID.</summary>
         /// <param name="id">The terrain patch ID.</param>
+        /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing the result with the terrain patch's byte array.</returns>
-        Task<Result<byte[]>> GetTerrainPatchBlobAsync(string id, CancellationToken ct);
+        Task<Result<byte[]>> GetTerrainPatchBlobAsync(string id, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Inserts a new command event into the repository.</summary>
         /// <param name="evt">The command event.</param>
@@ -111,9 +116,10 @@ namespace WorldBuilder.Shared.Repositories {
 
         /// <summary>Retrieves a user-specific value by key.</summary>
         /// <param name="key">The key.</param>
+        /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing the result with the value string.</returns>
-        Task<Result<string>> GetUserValueAsync(string key, CancellationToken ct);
+        Task<Result<string>> GetUserValueAsync(string key, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Updates or inserts a user-specific value.</summary>
         /// <param name="key">The key.</param>
@@ -124,9 +130,10 @@ namespace WorldBuilder.Shared.Repositories {
         Task<Result<Unit>> UpsertUserValueAsync(string key, string value, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Retrieves all events that haven't been synced with the server.</summary>
+        /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing a list of unsynced events.</returns>
-        Task<IReadOnlyList<BaseCommand>> GetUnsyncedEventsAsync(CancellationToken ct);
+        Task<IReadOnlyList<BaseCommand>> GetUnsyncedEventsAsync(ITransaction? tx, CancellationToken ct);
 
         /// <summary>Updates the server timestamp for a specific event.</summary>
         /// <param name="eventId">The event ID.</param>
@@ -136,14 +143,5 @@ namespace WorldBuilder.Shared.Repositories {
         /// <returns>A task representing the result of the operation.</returns>
         Task<Result<Unit>> UpdateEventServerTimestampAsync(string eventId, ulong serverTimestamp, ITransaction? tx,
             CancellationToken ct);
-
-        /// <summary>Creates a new document record.</summary>
-        Task<Result<Unit>> CreateDocumentAsync<T>(T document, ITransaction? tx, CancellationToken ct) where T : BaseDocument;
-
-        /// <summary>Retrieves a document record by ID.</summary>
-        Task<Result<byte[]>> GetDocumentBlobAsync(string id, CancellationToken ct);
-
-        /// <summary>Upserts a document record.</summary>
-        Task<Result<Unit>> UpsertDocumentAsync<T>(T document, ITransaction? tx, CancellationToken ct) where T : BaseDocument;
     }
 }

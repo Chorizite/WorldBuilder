@@ -70,7 +70,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             };
 
             // Non-base objects are fetched from repo
-            _mockRepo.Setup(r => r.GetStaticObjectsAsync(landblockId, null, It.IsAny<CancellationToken>()))
+            _mockRepo.Setup(r => r.GetStaticObjectsAsync(landblockId, null, It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<StaticObject> { obj });
 
             // Act
@@ -95,7 +95,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             _doc.LoadedChunks[chunkId] = chunk;
 
             var obj = new StaticObject { InstanceId = 100, LayerId = layerId };
-            _mockRepo.Setup(r => r.GetStaticObjectsAsync(landblockId, null, It.IsAny<CancellationToken>()))
+            _mockRepo.Setup(r => r.GetStaticObjectsAsync(landblockId, null, It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<StaticObject> { obj });
 
             // Act
@@ -131,7 +131,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             // because they are deleted in all active layers. 
             // Wait, actually repo only returns non-base objects. 
             // Base objects are always loaded from DAT, but filtered out if they are marked as deleted in the repo.
-            _mockRepo.Setup(r => r.GetStaticObjectsAsync(landblockId, null, It.IsAny<CancellationToken>()))
+            _mockRepo.Setup(r => r.GetStaticObjectsAsync(landblockId, null, It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<StaticObject>()); // No overrides
 
             // Act
@@ -163,7 +163,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
                 LayerId = layerId
             };
 
-            _mockRepo.Setup(r => r.GetBuildingsAsync(landblockId, null, It.IsAny<CancellationToken>()))
+            _mockRepo.Setup(r => r.GetBuildingsAsync(landblockId, null, It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<BuildingObject> { bldg });
 
             // Act
@@ -203,11 +203,11 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
                 StaticObjects = new Dictionary<ulong, StaticObject> { { obj.InstanceId, obj } }
             };
 
-            _mockRepo.Setup(r => r.GetEnvCellAsync(cellId, It.IsAny<CancellationToken>()))
+            _mockRepo.Setup(r => r.GetEnvCellAsync(cellId, It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<Cell>.Success(repoCell));
 
             // Sync objects for this cell
-            _mockRepo.Setup(r => r.GetStaticObjectsAsync(null, cellId, It.IsAny<CancellationToken>()))
+            _mockRepo.Setup(r => r.GetStaticObjectsAsync(null, cellId, It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<StaticObject> { obj });
 
             // Act
@@ -246,9 +246,9 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             _doc.LoadedChunks[chunkId] = chunk;
 
             // Mock repo — A has no objects (deleted or not present in layer), B remains as is
-            _mockRepo.Setup(r => r.GetStaticObjectsAsync(lbA, null, It.IsAny<CancellationToken>()))
+            _mockRepo.Setup(r => r.GetStaticObjectsAsync(lbA, null, It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<StaticObject>());
-            _mockRepo.Setup(r => r.GetStaticObjectsAsync(lbB, null, It.IsAny<CancellationToken>()))
+            _mockRepo.Setup(r => r.GetStaticObjectsAsync(lbB, null, It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<StaticObject>());
 
             // Act

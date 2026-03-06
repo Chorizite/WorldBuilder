@@ -42,7 +42,7 @@ namespace WorldBuilder.Shared.Tests.Services {
         [Fact]
         public async Task RentDocumentAsync_ReturnsNull_WhenDocumentMissing() {
             var docId = $"MockTerrainDocument_{Guid.NewGuid()}";
-            var docResult = await _mgr.RentDocumentAsync<LandscapeDocument>(docId, default);
+            var docResult = await _mgr.RentDocumentAsync<LandscapeDocument>(docId, null, default);
             Assert.True(docResult.IsFailure);
         }
     }

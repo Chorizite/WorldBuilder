@@ -8,13 +8,6 @@ namespace WorldBuilder.Shared.Migrations {
     [Migration(1, "Initial schema for Hybrid Storage Architecture")]
     public class Migration_001_InitialSchema : Migration {
         public override void Up() {
-            // Table: Documents (Generic blob storage for other document types)
-            Create.Table("Documents")
-                .WithColumn("Id").AsString().PrimaryKey()
-                .WithColumn("Type").AsString().NotNullable()
-                .WithColumn("Version").AsInt64().NotNullable().WithDefaultValue(1)
-                .WithColumn("Data").AsBinary().NotNullable();
-
             // Table: TerrainPatches (Optimized for terrain data)
             Create.Table("TerrainPatches")
                 .WithColumn("Id").AsString().PrimaryKey()
@@ -110,7 +103,6 @@ namespace WorldBuilder.Shared.Migrations {
             Delete.Table("TerrainPatches");
             Delete.Table("Events");
             Delete.Table("UserKeyValues");
-            Delete.Table("Documents");
         }
     }
 }

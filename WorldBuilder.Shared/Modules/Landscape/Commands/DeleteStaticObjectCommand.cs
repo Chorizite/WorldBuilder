@@ -50,14 +50,13 @@ public partial class DeleteStaticObjectCommand : BaseCommand<bool> {
 
     public override async Task<Result<bool>> ApplyResultAsync(IDocumentManager documentManager, IDatReaderWriter dats, ITransaction tx, CancellationToken ct) {
         try {
-            var rentResult = await documentManager.RentDocumentAsync<LandscapeDocument>(TerrainDocumentId, ct);
+            var rentResult = await documentManager.RentDocumentAsync<LandscapeDocument>(TerrainDocumentId, tx, ct);
             if (rentResult.IsFailure) return Result<bool>.Failure(rentResult.Error);
 
             using var terrainRental = rentResult.Value;
             await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
-            var repository = documentManager.ProjectRepository;
-            var result = await repository.DeleteStaticObjectAsync(InstanceId, tx, ct);
+            var result = await documentManager.DeleteStaticObjectAsync(InstanceId, tx, ct);
             if (result.IsFailure) return Result<bool>.Failure(result.Error);
 
             terrainRental.Document.NotifyLandblockChanged([((int)(LandblockId >> 24), (int)((LandblockId >> 16) & 0xFF))]);

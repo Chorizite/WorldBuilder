@@ -61,7 +61,7 @@ public partial class DeleteLandscapeLayerCommand : BaseCommand<bool> {
     public override async Task<Result<bool>> ApplyResultAsync(IDocumentManager documentManager, IDatReaderWriter dats,
         ITransaction tx, CancellationToken ct) {
         try {
-            var rentResult = await documentManager.RentDocumentAsync<LandscapeDocument>(TerrainDocumentId, ct);
+            var rentResult = await documentManager.RentDocumentAsync<LandscapeDocument>(TerrainDocumentId, tx, ct);
             if (rentResult.IsFailure) {
                 return Result<bool>.Failure(rentResult.Error);
             }
@@ -98,7 +98,7 @@ public partial class DeleteLandscapeLayerCommand : BaseCommand<bool> {
 
             terrainRental.Document.RemoveLayer(GroupPath, LayerId);
 
-            await documentManager.ProjectRepository.DeleteLayerAsync(LayerId, tx, ct);
+            await documentManager.DeleteLayerAsync(LayerId, tx, ct);
 
             await terrainRental.Document.SyncLayerTreeAsync(tx, ct);
             // Goldman
