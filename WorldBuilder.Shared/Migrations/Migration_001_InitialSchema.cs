@@ -24,13 +24,22 @@ namespace WorldBuilder.Shared.Migrations {
                 .WithColumn("Version").AsInt64().NotNullable()
                 .WithColumn("LastModified").AsDateTime().WithDefault(SystemMethods.CurrentDateTime);
 
+            // Table: LandscapeGroups
+            Create.Table("LandscapeGroups")
+                .WithColumn("Id").AsString().PrimaryKey()
+                .WithColumn("RegionId").AsInt64().Indexed("idx_landscapegroups_regionid")
+                .WithColumn("Name").AsString().NotNullable()
+                .WithColumn("ParentId").AsString().Nullable().Indexed("idx_landscapegroups_parentid").ForeignKey("LandscapeGroups", "Id").OnDelete(System.Data.Rule.Cascade)
+                .WithColumn("IsExported").AsBoolean().WithDefaultValue(true)
+                .WithColumn("SortOrder").AsInt32().NotNullable();
+
             // Table: LandscapeLayers
             Create.Table("LandscapeLayers")
                 .WithColumn("Id").AsString().PrimaryKey()
                 .WithColumn("RegionId").AsInt64().Indexed("idx_landscapelayers_regionid")
-                .WithColumn("Type").AsString().NotNullable() // "Layer" or "Group"
                 .WithColumn("Name").AsString().NotNullable()
-                .WithColumn("ParentId").AsString().Nullable().Indexed("idx_landscapelayers_parentid")
+                .WithColumn("ParentId").AsString().Nullable().Indexed("idx_landscapelayers_parentid").ForeignKey("LandscapeGroups", "Id").OnDelete(System.Data.Rule.Cascade)
+                .WithColumn("IsExported").AsBoolean().WithDefaultValue(true)
                 .WithColumn("IsBase").AsBoolean().WithDefaultValue(false)
                 .WithColumn("SortOrder").AsInt32().NotNullable();
 
@@ -86,6 +95,7 @@ namespace WorldBuilder.Shared.Migrations {
             Delete.Table("Buildings");
             Delete.Table("StaticObjects");
             Delete.Table("LandscapeLayers");
+            Delete.Table("LandscapeGroups");
             Delete.Table("TerrainPatches");
             Delete.Table("Documents");
             Delete.Table("Events");

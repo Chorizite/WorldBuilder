@@ -425,36 +425,45 @@ namespace WorldBuilder.Shared.Repositories {
 
         /// <inheritdoc/>
         public async Task<IReadOnlyList<LandscapeLayerBase>> GetLayersAsync(uint regionId, CancellationToken ct) {
-            var layers = new List<LandscapeLayerBase>();
+            var items = new List<LandscapeLayerBase>();
             try {
-                const string sql = "SELECT Id, Type, Name, ParentId, IsBase, SortOrder FROM LandscapeLayers WHERE RegionId = @regionId ORDER BY SortOrder ASC";
-                await using var cmd = Connection.CreateCommand();
-                cmd.CommandText = sql;
-                cmd.Parameters.AddWithValue("@regionId", (long)regionId);
-                await using var reader = await cmd.ExecuteReaderAsync(ct);
-                while (await reader.ReadAsync(ct)) {
-                    var type = reader.GetString(1);
-                    LandscapeLayerBase item;
-                    if (type == "Layer") {
-                        item = new LandscapeLayer {
+                // Load Groups
+                const string groupSql = "SELECT Id, Name, ParentId, IsExported, SortOrder FROM LandscapeGroups WHERE RegionId = @regionId";
+                await using (var cmd = Connection.CreateCommand()) {
+                    cmd.CommandText = groupSql;
+                    cmd.Parameters.AddWithValue("@regionId", (long)regionId);
+                    await using var reader = await cmd.ExecuteReaderAsync(ct);
+                    while (await reader.ReadAsync(ct)) {
+                        items.Add(new LandscapeLayerGroup {
                             Id = reader.GetString(0),
-                            Name = reader.GetString(2),
+                            Name = reader.GetString(1),
+                            ParentId = reader.IsDBNull(2) ? null : reader.GetString(2),
+                            IsExported = reader.GetBoolean(3)
+                        });
+                    }
+                }
+
+                // Load Layers
+                const string layerSql = "SELECT Id, Name, ParentId, IsExported, IsBase, SortOrder FROM LandscapeLayers WHERE RegionId = @regionId";
+                await using (var cmd = Connection.CreateCommand()) {
+                    cmd.CommandText = layerSql;
+                    cmd.Parameters.AddWithValue("@regionId", (long)regionId);
+                    await using var reader = await cmd.ExecuteReaderAsync(ct);
+                    while (await reader.ReadAsync(ct)) {
+                        items.Add(new LandscapeLayer {
+                            Id = reader.GetString(0),
+                            Name = reader.GetString(1),
+                            ParentId = reader.IsDBNull(2) ? null : reader.GetString(2),
+                            IsExported = reader.GetBoolean(3),
                             IsBase = reader.GetBoolean(4)
-                        };
+                        });
                     }
-                    else {
-                        item = new LandscapeLayerGroup {
-                            Id = reader.GetString(0),
-                            Name = reader.GetString(2)
-                        };
-                    }
-                    layers.Add(item);
                 }
             }
             catch (Exception ex) {
                 _logger?.LogError(ex, "Error retrieving layers for region {RegionId}", regionId);
             }
-            return layers;
+            return items;
         }
 
         /// <inheritdoc/>
@@ -464,30 +473,79 @@ namespace WorldBuilder.Shared.Repositories {
                 if (dbTxResult.IsFailure) return Result<Unit>.Failure(dbTxResult.Error);
                 var dbTx = dbTxResult.Value;
 
-                const string sql = @"
-                    INSERT INTO LandscapeLayers (Id, RegionId, Type, Name, ParentId, IsBase, SortOrder)
-                    VALUES (@id, @regionId, @type, @name, @parentId, @isBase, @sortOrder)
-                    ON CONFLICT(Id) DO UPDATE SET
-                        Name = @name,
-                        ParentId = @parentId,
-                        IsBase = @isBase,
-                        SortOrder = @sortOrder";
+                string sql;
+                if (layer is LandscapeLayerGroup) {
+                    sql = @"
+                        INSERT INTO LandscapeGroups (Id, RegionId, Name, ParentId, IsExported, SortOrder)
+                        VALUES (@id, @regionId, @name, @parentId, @isExported, @sortOrder)
+                        ON CONFLICT(Id) DO UPDATE SET
+                            Name = @name,
+                            ParentId = @parentId,
+                            IsExported = @isExported,
+                            SortOrder = @sortOrder";
+                }
+                else {
+                    sql = @"
+                        INSERT INTO LandscapeLayers (Id, RegionId, Name, ParentId, IsExported, IsBase, SortOrder)
+                        VALUES (@id, @regionId, @name, @parentId, @isExported, @isBase, @sortOrder)
+                        ON CONFLICT(Id) DO UPDATE SET
+                            Name = @name,
+                            ParentId = @parentId,
+                            IsExported = @isExported,
+                            IsBase = @isBase,
+                            SortOrder = @sortOrder";
+                }
 
                 await using var cmd = Connection.CreateCommand();
                 cmd.Transaction = dbTx;
                 cmd.CommandText = sql;
                 cmd.Parameters.AddWithValue("@id", layer.Id);
                 cmd.Parameters.AddWithValue("@regionId", (long)regionId);
-                cmd.Parameters.AddWithValue("@type", layer is LandscapeLayer ? "Layer" : "Group");
                 cmd.Parameters.AddWithValue("@name", layer.Name);
                 cmd.Parameters.AddWithValue("@parentId", (object?)layer.ParentId ?? DBNull.Value);
-                cmd.Parameters.AddWithValue("@isBase", layer is LandscapeLayer l2 && l2.IsBase);
+                cmd.Parameters.AddWithValue("@isExported", layer.IsExported);
                 cmd.Parameters.AddWithValue("@sortOrder", sortOrder);
+
+                if (layer is LandscapeLayer l) {
+                    cmd.Parameters.AddWithValue("@isBase", l.IsBase);
+                }
+
                 await cmd.ExecuteNonQueryAsync(ct);
                 return Result<Unit>.Success(Unit.Value);
             }
             catch (Exception ex) {
                 return Result<Unit>.Failure($"Error upserting layer: {ex.Message}", "DATABASE_ERROR");
+            }
+        }
+
+        public async Task<Result<Unit>> DeleteLayerAsync(string id, ITransaction? tx, CancellationToken ct) {
+            try {
+                var dbTxResult = GetDbTransaction(tx);
+                if (dbTxResult.IsFailure) return Result<Unit>.Failure(dbTxResult.Error);
+                var dbTx = dbTxResult.Value;
+
+                // Try deleting from both tables
+                const string groupSql = "DELETE FROM LandscapeGroups WHERE Id = @id";
+                const string layerSql = "DELETE FROM LandscapeLayers WHERE Id = @id";
+
+                await using (var cmd = Connection.CreateCommand()) {
+                    cmd.Transaction = dbTx;
+                    cmd.CommandText = groupSql;
+                    cmd.Parameters.AddWithValue("@id", id);
+                    await cmd.ExecuteNonQueryAsync(ct);
+                }
+
+                await using (var cmd = Connection.CreateCommand()) {
+                    cmd.Transaction = dbTx;
+                    cmd.CommandText = layerSql;
+                    cmd.Parameters.AddWithValue("@id", id);
+                    await cmd.ExecuteNonQueryAsync(ct);
+                }
+
+                return Result<Unit>.Success(Unit.Value);
+            }
+            catch (Exception ex) {
+                return Result<Unit>.Failure($"Error deleting layer: {ex.Message}", "DATABASE_ERROR");
             }
         }
 

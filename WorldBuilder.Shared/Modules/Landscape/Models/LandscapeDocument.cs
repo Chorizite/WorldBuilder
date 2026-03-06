@@ -66,8 +66,7 @@ namespace WorldBuilder.Shared.Models {
         /// <summary>
         /// The terrain layer tree
         /// </summary>
-        [MemoryPackInclude]
-        [MemoryPackOrder(10)]
+        [MemoryPackIgnore]
         public List<LandscapeLayerBase> LayerTree { get; init; } = [];
 
         /// <summary>

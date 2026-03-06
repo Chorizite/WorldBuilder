@@ -36,6 +36,12 @@ namespace WorldBuilder.Shared.Repositories {
         /// <param name="ct">The cancellation token.</param>
         Task<Result<Unit>> UpsertLayerAsync(LandscapeLayerBase layer, uint regionId, int sortOrder, ITransaction? tx, CancellationToken ct);
 
+        /// <summary>Deletes a landscape layer or group.</summary>
+        /// <param name="id">The layer or group ID.</param>
+        /// <param name="tx">The transaction (optional).</param>
+        /// <param name="ct">The cancellation token.</param>
+        Task<Result<Unit>> DeleteLayerAsync(string id, ITransaction? tx, CancellationToken ct);
+
         Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(uint landblockId, CancellationToken ct);
 
         /// <summary>Retrieves all buildings for a landblock.</summary>

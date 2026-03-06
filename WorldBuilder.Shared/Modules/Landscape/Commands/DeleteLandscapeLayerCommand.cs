@@ -98,8 +98,10 @@ public partial class DeleteLandscapeLayerCommand : BaseCommand<bool> {
 
             terrainRental.Document.RemoveLayer(GroupPath, LayerId);
 
-            await terrainRental.Document.SyncLayerTreeAsync(tx, ct);
+            await documentManager.ProjectRepository.DeleteLayerAsync(LayerId, tx, ct);
 
+            await terrainRental.Document.SyncLayerTreeAsync(tx, ct);
+            // Goldman
             await terrainRental.Document.RecalculateTerrainCacheAsync(affectedVertices);
 
             terrainRental.Document.Version++;

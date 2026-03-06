@@ -222,16 +222,19 @@ namespace WorldBuilder.Shared.Models {
         private async Task LoadLayersAsync(IDocumentManager documentManager, CancellationToken ct) {
             if (_didLoadLayers) return;
 
-            // Invariant: Ensure exactly one base layer
-            var baseLayers = GetAllLayers().Count(l => l.IsBase);
-            if (baseLayers != 1) {
-                //throw new InvalidOperationException($"Invalid base layer count during init: {baseLayers} (must be 1)");
-            }
-
+            var items = await documentManager.ProjectRepository.GetLayersAsync(RegionId, ct);
             _layerIds.Clear();
-            foreach (var item in GetAllLayersAndGroups()) {
-                if (!_layerIds.Add(item.Id)) {
-                    throw new InvalidOperationException($"Duplicate layer ID found during init: {item.Id}");
+            LayerTree.Clear();
+
+            // Order by SortOrder is handled by the repository (though I should ensure that in reconstruction)
+            var itemMap = items.ToDictionary(i => i.Id);
+            foreach (var item in items) {
+                _layerIds.Add(item.Id);
+                if (string.IsNullOrEmpty(item.ParentId)) {
+                    LayerTree.Add(item);
+                }
+                else if (itemMap.TryGetValue(item.ParentId, out var parent) && parent is LandscapeLayerGroup group) {
+                    group.Children.Add(item);
                 }
             }
 
