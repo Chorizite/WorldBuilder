@@ -22,7 +22,7 @@ namespace WorldBuilder.Shared.Models {
 
         public event EventHandler<LandblockChangedEventArgs>? LandblockChanged;
 
-        public void NotifyLandblockChanged(IEnumerable<(int x, int y)>? affectedLandblocks) {
+        public void NotifyLandblockChanged(IEnumerable<(int x, int y)>? affectedLandblocks, LandblockChangeType changeType = LandblockChangeType.All) {
             if (_documentManager?.LandscapeCacheService != null) {
                 if (affectedLandblocks == null) {
                     _documentManager.LandscapeCacheService.InvalidateAll(Id);
@@ -35,7 +35,7 @@ namespace WorldBuilder.Shared.Models {
                     }
                 }
             }
-            LandblockChanged?.Invoke(this, new LandblockChangedEventArgs(affectedLandblocks));
+            LandblockChanged?.Invoke(this, new LandblockChangedEventArgs(affectedLandblocks, changeType));
         }
 
         private bool _didLoadLayers;
@@ -335,7 +335,7 @@ namespace WorldBuilder.Shared.Models {
                 Version++;
 
                 var affectedLandblocks = GetAffectedLandblocks(changes.Keys);
-                NotifyLandblockChanged(affectedLandblocks);
+                NotifyLandblockChanged(affectedLandblocks, LandblockChangeType.Terrain);
 
                 // Persist modified chunk documents
                 foreach (var chunkId in affectedChunks) {
@@ -599,6 +599,33 @@ namespace WorldBuilder.Shared.Models {
             var visibleLayerIds = GetAllLayers().Where(IsItemVisible).Select(l => l.Id);
             return await _documentManager.LandscapeCacheService.GetOrAddEnvCellAsync(Id, cellId, () =>
                 _landscapeDataProvider.GetMergedEnvCellAsync(cellId, CellDatabase, visibleLayerIds, BaseLayerId, CancellationToken.None));
+        }
+
+        public async Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint landblockId, uint? cellId, uint? oldLandblockId = null, ITransaction? tx = null, CancellationToken ct = default) {
+            if (_documentManager == null) return Result<Unit>.Failure(Error.Failure("DocumentManager not initialized"));
+            
+            var result = await _documentManager.UpsertStaticObjectAsync(obj, RegionId, landblockId, cellId, tx, ct);
+            if (result.IsSuccess) {
+                var affected = new List<(int, int)>();
+                affected.Add(((int)(landblockId >> 24), (int)((landblockId >> 16) & 0xFF)));
+                if (oldLandblockId.HasValue && oldLandblockId.Value != landblockId) {
+                    affected.Add(((int)(oldLandblockId.Value >> 24), (int)((oldLandblockId.Value >> 16) & 0xFF)));
+                }
+                NotifyLandblockChanged(affected, LandblockChangeType.Objects);
+            }
+            return result;
+        }
+
+        public async Task<Result<Unit>> DeleteStaticObjectAsync(ulong instanceId, uint landblockId, ITransaction? tx = null, CancellationToken ct = default) {
+            if (_documentManager == null) return Result<Unit>.Failure(Error.Failure("DocumentManager not initialized"));
+
+            var result = await _documentManager.DeleteStaticObjectAsync(instanceId, tx, ct);
+            if (result.IsSuccess) {
+                var affected = new List<(int, int)>();
+                affected.Add(((int)(landblockId >> 24), (int)((landblockId >> 16) & 0xFF)));
+                NotifyLandblockChanged(affected, LandblockChangeType.Objects);
+            }
+            return result;
         }
 
         /// <inheritdoc/>

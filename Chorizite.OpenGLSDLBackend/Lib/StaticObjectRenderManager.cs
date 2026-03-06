@@ -209,13 +209,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             int currentOffset = 0;
             foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
                 if (_showStaticObjects) {
-                    AddMdiCommandsForGroup(lb, gfxObjId, transforms.Count, currentOffset);
+                    AddMdiCommandsForGroup(lb.MdiCommands, gfxObjId, transforms.Count, lb.InstanceBufferOffset, currentOffset);
                 }
                 currentOffset += transforms.Count;
             }
             foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
                 if (_showBuildings) {
-                    AddMdiCommandsForGroup(lb, gfxObjId, transforms.Count, currentOffset);
+                    AddMdiCommandsForGroup(lb.MdiCommands, gfxObjId, transforms.Count, lb.InstanceBufferOffset, currentOffset);
                 }
                 currentOffset += transforms.Count;
             }

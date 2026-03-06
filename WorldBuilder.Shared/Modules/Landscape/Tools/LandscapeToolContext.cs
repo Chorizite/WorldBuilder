@@ -120,6 +120,36 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             ActiveLayer = activeLayer;
         }
 
+        private int _batchDepth = 0;
+        private readonly HashSet<uint> _batchedVertices = new HashSet<uint>();
+
+        public void BeginBatchUpdate() {
+            _batchDepth++;
+        }
+
+        public void EndBatchUpdate() {
+            if (_batchDepth == 0) return;
+            _batchDepth--;
+            if (_batchDepth == 0 && _batchedVertices.Count > 0) {
+                Document.RecalculateTerrainCache(_batchedVertices);
+                RequestSave?.Invoke(Document.Id, Document.GetAffectedChunks(_batchedVertices));
+                Document.NotifyLandblockChanged(Document.GetAffectedLandblocks(_batchedVertices), LandblockChangeType.Terrain);
+                _batchedVertices.Clear();
+            }
+        }
+
+        public void RegisterTerrainChange(IEnumerable<uint> affectedVertices) {
+            if (_batchDepth > 0) {
+                foreach (var v in affectedVertices) {
+                    _batchedVertices.Add(v);
+                }
+            } else {
+                Document.RecalculateTerrainCache(affectedVertices);
+                RequestSave?.Invoke(Document.Id, Document.GetAffectedChunks(affectedVertices));
+                Document.NotifyLandblockChanged(Document.GetAffectedLandblocks(affectedVertices), LandblockChangeType.Terrain);
+            }
+        }
+
         /// <summary>
         /// Invalidates all landblocks that share the specified vertex.
         /// Handles boundary vertices (invalidating 2 landblocks) and corner vertices (invalidating 4 landblocks).

@@ -30,7 +30,7 @@ namespace WorldBuilder.Shared.Models {
             _layerIds.Add(layerId);
             Version++;
             _didLoadLayers = true;
-            NotifyLandblockChanged(null);
+            NotifyLandblockChanged(null, LandblockChangeType.Terrain);
         }
 
         /// <summary>
@@ -55,7 +55,7 @@ namespace WorldBuilder.Shared.Models {
             _layerIds.Add(groupId);
             Version++;
             _didLoadLayers = true;
-            NotifyLandblockChanged(null);
+            NotifyLandblockChanged(null, LandblockChangeType.Terrain);
         }
 
         /// <summary>
@@ -75,7 +75,7 @@ namespace WorldBuilder.Shared.Models {
             targetList.Remove(layer);
             RemoveIdsRecursive(layer);
             Version++;
-            NotifyLandblockChanged(null);
+            NotifyLandblockChanged(null, LandblockChangeType.Terrain);
         }
 
         private void RemoveIdsRecursive(LandscapeLayerBase item) {
@@ -115,7 +115,7 @@ namespace WorldBuilder.Shared.Models {
 
             Version++;
             _didLoadLayers = true;
-            NotifyLandblockChanged(null);
+            NotifyLandblockChanged(null, LandblockChangeType.Terrain);
         }
 
         /// <summary>
@@ -145,7 +145,7 @@ namespace WorldBuilder.Shared.Models {
             RegisterIdsRecursive(item);
             Version++;
             _didLoadLayers = true;
-            NotifyLandblockChanged(null);
+            NotifyLandblockChanged(null, LandblockChangeType.Terrain);
         }
 
         private void RegisterIdsRecursive(LandscapeLayerBase item) {
@@ -194,7 +194,7 @@ namespace WorldBuilder.Shared.Models {
                 await RecalculateTerrainCacheAsync(affectedVertices);
 
                 var affectedLandblocks = affectedVertices.Any() ? GetAffectedLandblocks(affectedVertices) : new List<(int, int)>();
-                NotifyLandblockChanged(affectedLandblocks);
+                NotifyLandblockChanged(affectedLandblocks, LandblockChangeType.Terrain);
             }
         }
 

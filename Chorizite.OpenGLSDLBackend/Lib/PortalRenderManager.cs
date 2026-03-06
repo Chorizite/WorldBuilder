@@ -109,6 +109,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void OnLandblockChanged(object? sender, LandblockChangedEventArgs e) {
+            if (e.ChangeType != LandblockChangeType.All && !e.ChangeType.HasFlag(LandblockChangeType.Objects) && !e.ChangeType.HasFlag(LandblockChangeType.Cells)) return;
+
             if (e.AffectedLandblocks == null) {
                 foreach (var lb in _landblocks.Values) {
                     lb.Ready = false;

@@ -175,6 +175,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         private void OnLandblockChanged(object? sender, LandblockChangedEventArgs e) {
+            if (e.ChangeType != LandblockChangeType.All && !e.ChangeType.HasFlag(LandblockChangeType.Terrain)) return;
+
             if (e.AffectedLandblocks == null) {
                 _log.LogTrace("LandblockChanged: All landblocks invalidated");
                 InvalidateLandblock(-1, -1);

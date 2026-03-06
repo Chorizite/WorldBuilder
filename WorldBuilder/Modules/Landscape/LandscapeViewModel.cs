@@ -479,10 +479,10 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         _invalidateCallback = (x, y) => {
             if (ActiveDocument != null) {
                 if (x == -1 && y == -1) {
-                    ActiveDocument.NotifyLandblockChanged(null);
+                    ActiveDocument.NotifyLandblockChanged(null, LandblockChangeType.All);
                 }
                 else {
-                    ActiveDocument.NotifyLandblockChanged(new[] { (x, y) });
+                    ActiveDocument.NotifyLandblockChanged(new[] { (x, y) }, LandblockChangeType.All);
                 }
             }
         };

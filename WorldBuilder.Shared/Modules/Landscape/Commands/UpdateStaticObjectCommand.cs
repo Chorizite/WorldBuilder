@@ -56,21 +56,14 @@ public partial class UpdateStaticObjectCommand : BaseCommand<bool> {
             // If the instance ID changed (e.g. moving between landblocks), we must tombstone the old instance ID
             // so that it no longer appears from base DAT files in the old landblock.
             if (OldObject.InstanceId != 0 && OldObject.InstanceId != NewObject.InstanceId) {
-                var deleteResult = await documentManager.DeleteStaticObjectAsync(OldObject.InstanceId, tx, ct);
+                var deleteResult = await terrainRental.Document.DeleteStaticObjectAsync(OldObject.InstanceId, OldLandblockId, tx, ct);
                 if (deleteResult.IsFailure) return Result<bool>.Failure(deleteResult.Error);
+                var upsertResult = await terrainRental.Document.UpsertStaticObjectAsync(NewObject, NewLandblockId, NewObject.CellId, null, tx, ct);
+                return upsertResult.IsSuccess ? Result<bool>.Success(true) : Result<bool>.Failure(upsertResult.Error);
             }
 
-            var result = await documentManager.UpsertStaticObjectAsync(NewObject, terrainRental.Document.RegionId, NewLandblockId, NewObject.CellId, tx, ct);
-            if (result.IsFailure) return Result<bool>.Failure(result.Error);
-
-            var affected = new List<(int, int)>();
-            affected.Add(((int)(OldLandblockId >> 24), (int)((OldLandblockId >> 16) & 0xFF)));
-            if (NewLandblockId != OldLandblockId) {
-                affected.Add(((int)(NewLandblockId >> 24), (int)((NewLandblockId >> 16) & 0xFF)));
-            }
-            terrainRental.Document.NotifyLandblockChanged(affected);
-
-            return Result<bool>.Success(true);
+            var result = await terrainRental.Document.UpsertStaticObjectAsync(NewObject, NewLandblockId, NewObject.CellId, OldLandblockId, tx, ct);
+            return result.IsSuccess ? Result<bool>.Success(true) : Result<bool>.Failure(result.Error);
         }
         catch (Exception ex) {
             return Result<bool>.Failure(Error.Failure($"Error updating static object: {ex.Message}"));

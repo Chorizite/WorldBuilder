@@ -756,6 +756,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #region Private: Core Logic
 
         private void OnLandblockChanged(object? sender, LandblockChangedEventArgs e) {
+            if (e.ChangeType != LandblockChangeType.All && !e.ChangeType.HasFlag(LandblockChangeType.Objects)) return;
+
             if (e.AffectedLandblocks == null) {
                 foreach (var lb in _landblocks.Values) {
                     lb.MeshDataReady = false;
@@ -810,12 +812,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             PopulatePartGroups(lb, instancesToUpload);
 
             if (UseInstanceBuffer) {
-                // Free previous slice if we're re-uploading
-                if (lb.InstanceBufferOffset >= 0) {
-                    FreeInstanceSlice(lb.InstanceBufferOffset, lb.InstanceCount);
-                    lb.InstanceBufferOffset = -1;
-                }
-
                 // Consolidation for optimized rendering
                 var allInstances = new List<InstanceData>();
 
@@ -826,19 +822,45 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     allInstances.AddRange(transforms);
                 }
 
-                lb.InstanceCount = allInstances.Count;
-                if (lb.InstanceCount > 0) {
-                    lb.InstanceBufferOffset = AllocateInstanceSlice(lb.InstanceCount);
-                    if (lb.InstanceBufferOffset >= 0) {
-                        UploadInstanceData(lb.InstanceBufferOffset, allInstances);
+                int newInstanceCount = allInstances.Count;
+                int newInstanceBufferOffset = -1;
+                var newMdiCommands = new Dictionary<CullMode, List<LandblockMdiCommand>>();
+
+                if (newInstanceCount > 0) {
+                    newInstanceBufferOffset = AllocateInstanceSlice(newInstanceCount);
+                    if (newInstanceBufferOffset >= 0) {
+                        UploadInstanceData(newInstanceBufferOffset, allInstances);
+                        
+                        // Pre-calculate MDI commands using the NEW offset
+                        foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
+                            AddMdiCommandsForGroup(newMdiCommands, gfxObjId, transforms.Count, newInstanceBufferOffset, 0);
+                        }
+                        int currentOffset = 0;
+                        foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
+                            currentOffset += transforms.Count;
+                        }
+                        foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
+                            AddMdiCommandsForGroup(newMdiCommands, gfxObjId, transforms.Count, newInstanceBufferOffset, currentOffset);
+                            currentOffset += transforms.Count;
+                        }
                     }
                     else {
-                        Log.LogWarning("Failed to allocate {Count} instances for landblock ({X},{Y}). Instance buffer may be full.", lb.InstanceCount, lb.GridX, lb.GridY);
+                        Log.LogWarning("Failed to allocate {Count} instances for landblock ({X},{Y}). Instance buffer may be full.", newInstanceCount, lb.GridX, lb.GridY);
                     }
                 }
 
-                // Pre-calculate MDI commands and batch data (also clears old commands)
-                BuildMdiCommands(lb);
+                // Atomic swap of the render state
+                var oldOffset = lb.InstanceBufferOffset;
+                var oldCount = lb.InstanceCount;
+                
+                lb.InstanceBufferOffset = newInstanceBufferOffset;
+                lb.InstanceCount = newInstanceCount;
+                lb.MdiCommands = newMdiCommands;
+
+                // Free previous slice after swapping
+                if (oldOffset >= 0) {
+                    FreeInstanceSlice(oldOffset, oldCount);
+                }
             }
 
             if (lb.PendingInstances != null) {
@@ -917,29 +939,29 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             int currentOffset = 0;
             foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
-                AddMdiCommandsForGroup(lb, gfxObjId, transforms.Count, currentOffset);
+                AddMdiCommandsForGroup(lb.MdiCommands, gfxObjId, transforms.Count, lb.InstanceBufferOffset, currentOffset);
                 currentOffset += transforms.Count;
             }
             foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
-                AddMdiCommandsForGroup(lb, gfxObjId, transforms.Count, currentOffset);
+                AddMdiCommandsForGroup(lb.MdiCommands, gfxObjId, transforms.Count, lb.InstanceBufferOffset, currentOffset);
                 currentOffset += transforms.Count;
             }
         }
 
-        protected void AddMdiCommandsForGroup(ObjectLandblock lb, ulong gfxObjId, int instanceCount, int groupOffset) {
+        protected void AddMdiCommandsForGroup(Dictionary<CullMode, List<LandblockMdiCommand>> mdiCommands, ulong gfxObjId, int instanceCount, int instanceBufferOffset, int groupOffset) {
             var renderData = MeshManager.TryGetRenderData(gfxObjId);
             if (renderData != null && !renderData.IsSetup) {
                 foreach (var batch in renderData.Batches) {
-                    if (!lb.MdiCommands.TryGetValue(batch.CullMode, out var list)) {
+                    if (!mdiCommands.TryGetValue(batch.CullMode, out var list)) {
                         list = new List<LandblockMdiCommand>();
-                        lb.MdiCommands[batch.CullMode] = list;
+                        mdiCommands[batch.CullMode] = list;
                     }
 
                     var cmdAtlas = batch.Atlas.TextureArray as ManagedGLTextureArray ?? throw new Exception("Atlas.TextureArray must be ManagedGLTextureArray");
                     var sortKey = (ulong)(cmdAtlas.NativePtr & 0xFFF) << 52; // Atlas (12 bits)
                     sortKey |= (ulong)(renderData.VAO & 0x3FF) << 42;        // VAO (10 bits)
                     sortKey |= (ulong)(batch.IBO & 0x3FF) << 32;            // IBO (10 bits)
-                    sortKey |= (uint)(lb.InstanceBufferOffset + groupOffset); // BaseInstance (32 bits)
+                    sortKey |= (uint)(instanceBufferOffset + groupOffset); // BaseInstance (32 bits)
 
                     list.Add(new LandblockMdiCommand {
                         SortKey = sortKey,
@@ -954,7 +976,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             InstanceCount = (uint)instanceCount,
                             FirstIndex = batch.FirstIndex,
                             BaseVertex = (int)batch.BaseVertex,
-                            BaseInstance = (uint)(lb.InstanceBufferOffset + groupOffset)
+                            BaseInstance = (uint)(instanceBufferOffset + groupOffset)
                         },
                         BatchData = new ModernBatchData {
                             TextureHandle = batch.BindlessTextureHandle,

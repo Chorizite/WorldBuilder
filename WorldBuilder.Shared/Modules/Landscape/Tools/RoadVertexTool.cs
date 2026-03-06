@@ -23,7 +23,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             var hit = Raycast(e.Position.X, e.Position.Y);
             if (hit.Hit) {
                 _isPainting = true;
-                _currentStroke = new CompoundCommand("Road Stroke");
+                _currentStroke = new CompoundCommand("Road Stroke", Context.BeginBatchUpdate, Context.EndBatchUpdate);
                 _lastSnappedPos = null;
                 ApplyPaint(hit);
                 return true;

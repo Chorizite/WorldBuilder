@@ -69,7 +69,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             if (hit.Hit) {
                 _isPainting = true;
                 _lastHit = hit;
-                _currentStroke = new CompoundCommand("Brush Stroke");
+                _currentStroke = new CompoundCommand("Brush Stroke", Context.BeginBatchUpdate, Context.EndBatchUpdate);
                 ApplyPaint(hit);
                 return true;
             }
