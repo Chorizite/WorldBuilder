@@ -14,6 +14,7 @@ public class DocumentManager : IDocumentManager, IDisposable {
     private readonly IDatReaderWriter _dats;
     private readonly ILogger<DocumentManager> _logger;
     private readonly WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeDataProvider _landscapeDataProvider;
+    private readonly WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeCacheService _landscapeCacheService;
     private readonly ConcurrentDictionary<string, DocumentCacheEntry> _cache = new();
     private readonly SemaphoreSlim _cacheLock = new(1, 1);
     private readonly Timer _cleanupTimer;
@@ -32,11 +33,15 @@ public class DocumentManager : IDocumentManager, IDisposable {
     /// <inheritdoc/>
     public WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeDataProvider LandscapeDataProvider => _landscapeDataProvider;
 
+    /// <inheritdoc/>
+    public WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeCacheService LandscapeCacheService => _landscapeCacheService;
+
     public DocumentManager(IProjectRepository repo, IDatReaderWriter dats, ILogger<DocumentManager> logger) {
         _repo = repo;
         _dats = dats;
         _logger = logger;
         _landscapeDataProvider = new WorldBuilder.Shared.Modules.Landscape.Services.LandscapeDataProvider(repo);
+        _landscapeCacheService = new WorldBuilder.Shared.Modules.Landscape.Services.LandscapeCacheService();
         _cleanupTimer = new Timer(CleanupCallback, null, _cleanupInterval, _cleanupInterval);
     }
 
@@ -313,6 +318,7 @@ public class DocumentManager : IDocumentManager, IDisposable {
 
             foreach (var key in toRemove) {
                 _cache.TryRemove(key, out _);
+                _landscapeCacheService.InvalidateAll(key);
                 _logger.LogDebug("Removed document {DocumentId} from cache", key);
             }
 

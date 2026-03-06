@@ -22,20 +22,17 @@ namespace WorldBuilder.Shared.Models {
 
         public event EventHandler<LandblockChangedEventArgs>? LandblockChanged;
 
-        private readonly ConcurrentDictionary<uint, MergedLandblock> _mergedLandblockCache = new();
-        private readonly ConcurrentDictionary<uint, ConcurrentDictionary<uint, Cell>> _mergedEnvCellCache = new();
-
         public void NotifyLandblockChanged(IEnumerable<(int x, int y)>? affectedLandblocks) {
-            if (affectedLandblocks == null) {
-                _mergedLandblockCache.Clear();
-                _mergedEnvCellCache.Clear();
-            }
-            else {
-                foreach (var (x, y) in affectedLandblocks) {
-                    var lbPrefix = (uint)((x << 24) | (y << 16));
-                    var lbId = lbPrefix | 0xFFFE;
-                    _mergedLandblockCache.TryRemove(lbId, out _);
-                    _mergedEnvCellCache.TryRemove(lbPrefix, out _);
+            if (_documentManager != null) {
+                if (affectedLandblocks == null) {
+                    _documentManager.LandscapeCacheService.InvalidateAll(Id);
+                }
+                else {
+                    foreach (var (x, y) in affectedLandblocks) {
+                        var lbPrefix = (uint)((x << 24) | (y << 16));
+                        var lbId = lbPrefix | 0xFFFE;
+                        _documentManager.LandscapeCacheService.InvalidateLandblock(Id, lbId);
+                    }
                 }
             }
             LandblockChanged?.Invoke(this, new LandblockChangedEventArgs(affectedLandblocks));
@@ -572,52 +569,31 @@ namespace WorldBuilder.Shared.Models {
         }
 
         public MergedLandblock GetMergedLandblock(uint landblockId) {
-            if (_mergedLandblockCache.TryGetValue(landblockId, out var cached)) {
-                return cached;
-            }
             return new MergedLandblock();
         }
 
         public async Task<MergedLandblock> GetMergedLandblockAsync(uint landblockId) {
-            if (_mergedLandblockCache.TryGetValue(landblockId, out var cached)) {
-                return cached;
-            }
-
-            if (_landscapeDataProvider == null) {
+            if (_documentManager == null || _landscapeDataProvider == null) {
                 return new MergedLandblock();
             }
 
             var visibleLayerIds = GetAllLayers().Where(IsItemVisible).Select(l => l.Id);
-            var merged = await _landscapeDataProvider.GetMergedLandblockAsync(landblockId, CellDatabase, visibleLayerIds, BaseLayerId, CancellationToken.None);
-
-            _mergedLandblockCache[landblockId] = merged;
-            return merged;
+            return await _documentManager.LandscapeCacheService.GetOrAddLandblockAsync(Id, landblockId, () =>
+                _landscapeDataProvider.GetMergedLandblockAsync(landblockId, CellDatabase, visibleLayerIds, BaseLayerId, CancellationToken.None));
         }
 
         public Cell GetMergedEnvCell(uint cellId) {
-            var lbPrefix = cellId & 0xFFFF0000;
-            if (_mergedEnvCellCache.TryGetValue(lbPrefix, out var lbCache) && lbCache.TryGetValue(cellId, out var cached)) {
-                return cached;
-            }
             return new Cell();
         }
 
         public async Task<Cell> GetMergedEnvCellAsync(uint cellId) {
-            var lbPrefix = cellId & 0xFFFF0000;
-            var lbCache = _mergedEnvCellCache.GetOrAdd(lbPrefix, _ => new());
-            if (lbCache.TryGetValue(cellId, out var cached)) {
-                return cached;
-            }
-
-            if (_landscapeDataProvider == null) {
+            if (_documentManager == null || _landscapeDataProvider == null) {
                 return new Cell();
             }
 
             var visibleLayerIds = GetAllLayers().Where(IsItemVisible).Select(l => l.Id);
-            var properties = await _landscapeDataProvider.GetMergedEnvCellAsync(cellId, CellDatabase, visibleLayerIds, BaseLayerId, CancellationToken.None);
-
-            lbCache[cellId] = properties;
-            return properties;
+            return await _documentManager.LandscapeCacheService.GetOrAddEnvCellAsync(Id, cellId, () =>
+                _landscapeDataProvider.GetMergedEnvCellAsync(cellId, CellDatabase, visibleLayerIds, BaseLayerId, CancellationToken.None));
         }
 
         /// <inheritdoc/>

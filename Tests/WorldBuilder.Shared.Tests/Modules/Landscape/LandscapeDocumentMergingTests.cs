@@ -35,7 +35,9 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
 
             // Inject mock doc manager
             var dataProvider = new WorldBuilder.Shared.Modules.Landscape.Services.LandscapeDataProvider(_mockRepo.Object);
+            var cacheService = new WorldBuilder.Shared.Modules.Landscape.Services.LandscapeCacheService();
             _mockDocManager.Setup(m => m.LandscapeDataProvider).Returns(dataProvider);
+            _mockDocManager.Setup(m => m.LandscapeCacheService).Returns(cacheService);
 
             typeof(LandscapeDocument).GetField("_documentManager", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(_doc, _mockDocManager.Object);
             typeof(LandscapeDocument).GetField("_landscapeDataProvider", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(_doc, dataProvider);

@@ -29,6 +29,11 @@ namespace WorldBuilder.Shared.Services {
         /// </summary>
         WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeDataProvider LandscapeDataProvider { get; }
 
+        /// <summary>
+        /// Gets the landscape cache service.
+        /// </summary>
+        WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeCacheService LandscapeCacheService { get; }
+
         /// <summary>Initializes the document manager.</summary>
         /// <param name="ct">The cancellation token.</param>
         Task InitializeAsync(CancellationToken ct);
