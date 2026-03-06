@@ -34,6 +34,7 @@
                 <MenuItem Header="Debug">
                     <MenuItem Command="{Binding OpenDebugWindowCommand}" Header="Avalonia Debug" />
                     <MenuItem Command="{Binding OpenGpuDebugWindowCommand}" Header="GPU Debug" />
+                    <MenuItem Command="{Binding OpenAppLogWindowCommand}" Header="App Logs" />
                 </MenuItem>
                 
                 <MenuItem Command="{Binding OpenSettingsWindowCommand}" Header="Settings" />

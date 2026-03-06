@@ -44,6 +44,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     private readonly CancellationTokenSource _cts = new();
     private Window? _settingsWindow;
     private Window? _gpuDebugWindow;
+    private Window? _appLogWindow;
+    private AppLogService? _appLogService;
 
     /// <summary>
     /// Gets a value indicating whether the application is in dark mode.
@@ -143,6 +145,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
         _themeService.PropertyChanged += OnThemeServicePropertyChanged;
 
         WeakReferenceMessenger.Default.RegisterAll(this);
+
+        _appLogService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<AppLogService>(_serviceProvider);
+        _appLogService.OnErrorLogged += (s, e) => {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => OpenAppLogWindow());
+        };
 
         _ = UpdateStatsLoop();
     }
@@ -337,6 +344,28 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
 
          _gpuDebugWindow.Closed += (s, e) => _gpuDebugWindow = null;
      }
+
+    [RelayCommand]
+    private void OpenAppLogWindow() {
+        if (_appLogWindow != null) {
+            _appLogWindow.Activate();
+            return;
+        }
+
+        if (_appLogService == null) return;
+
+        _appLogWindow = new Views.AppLogWindow(_appLogService);
+
+        var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+        if (desktop?.MainWindow != null) {
+            _appLogWindow.Show(desktop.MainWindow);
+        }
+        else {
+            _appLogWindow.Show();
+        }
+
+        _appLogWindow.Closed += (s, e) => _appLogWindow = null;
+    }
 
     [RelayCommand]
     private void OpenDebugWindow() {
