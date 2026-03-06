@@ -590,6 +590,46 @@ namespace WorldBuilder.Shared.Repositories {
         }
 
         /// <inheritdoc/>
+        public async Task<IReadOnlyDictionary<uint, IReadOnlyList<StaticObject>>> GetStaticObjectsForLandblocksAsync(IEnumerable<uint> landblockIds, ITransaction? tx, CancellationToken ct) {
+            var results = new Dictionary<uint, List<StaticObject>>();
+            var ids = landblockIds.ToList();
+            if (ids.Count == 0) return new Dictionary<uint, IReadOnlyList<StaticObject>>();
+
+            try {
+                var dbTxResult = GetDbTransaction(tx);
+                var dbTx = dbTxResult.IsSuccess ? dbTxResult.Value : null;
+
+                var sql = $"SELECT InstanceId, ModelId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, LayerId, IsDeleted, LandblockId FROM StaticObjects WHERE LandblockId IN ({string.Join(",", ids.Select(i => (long)i))})";
+                
+                await using var cmd = Connection.CreateCommand();
+                cmd.Transaction = dbTx;
+                cmd.CommandText = sql;
+                
+                await using var reader = await cmd.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct)) {
+                    var lbId = (uint)reader.GetInt64(11);
+                    if (!results.TryGetValue(lbId, out var list)) {
+                        list = new List<StaticObject>();
+                        results[lbId] = list;
+                    }
+
+                    list.Add(new StaticObject {
+                        InstanceId = (ulong)reader.GetInt64(0),
+                        SetupId = (uint)reader.GetInt64(1),
+                        Position = new System.Numerics.Vector3(reader.GetFloat(2), reader.GetFloat(3), reader.GetFloat(4)),
+                        Rotation = new System.Numerics.Quaternion(reader.GetFloat(6), reader.GetFloat(7), reader.GetFloat(8), reader.GetFloat(5)),
+                        LayerId = reader.GetString(9),
+                        IsDeleted = reader.GetInt32(10) != 0
+                    });
+                }
+            }
+            catch (Exception ex) {
+                _logger?.LogError(ex, "Error retrieving static objects for multiple landblocks");
+            }
+            return results.ToDictionary(k => k.Key, v => (IReadOnlyList<StaticObject>)v.Value);
+        }
+
+        /// <inheritdoc/>
         public async Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct) {
             try {
                 var dbTxResult = GetDbTransaction(tx);
@@ -717,6 +757,99 @@ namespace WorldBuilder.Shared.Repositories {
                 _logger?.LogError(ex, "Error getting buildings for landblock {LandblockId}", landblockId);
             }
             return results;
+        }
+
+        /// <inheritdoc/>
+        public async Task<IReadOnlyDictionary<uint, IReadOnlyList<BuildingObject>>> GetBuildingsForLandblocksAsync(IEnumerable<uint> landblockIds, ITransaction? tx, CancellationToken ct) {
+            var lbIds = landblockIds.ToList();
+            if (lbIds.Count == 0) return new Dictionary<uint, IReadOnlyList<BuildingObject>>();
+
+            var results = new Dictionary<uint, List<BuildingObject>>();
+            try {
+                var dbTxResult = GetDbTransaction(tx);
+                var dbTx = dbTxResult.IsSuccess ? dbTxResult.Value : null;
+
+                var idString = string.Join(",", lbIds.Select(i => (long)i));
+                var sql = $@"
+                    SELECT ModelId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, InstanceId, LayerId, NumLeaves, IsDeleted, LandblockId
+                    FROM Buildings 
+                    WHERE LandblockId IN ({idString})";
+
+                var buildingMap = new Dictionary<ulong, BuildingObject>();
+                await using var cmd = Connection.CreateCommand();
+                cmd.Transaction = dbTx;
+                cmd.CommandText = sql;
+                
+                await using (var reader = await cmd.ExecuteReaderAsync(ct)) {
+                    while (await reader.ReadAsync(ct)) {
+                        var bldg = new BuildingObject {
+                            ModelId = (uint)reader.GetInt64(0),
+                            Position = new System.Numerics.Vector3(reader.GetFloat(1), reader.GetFloat(2), reader.GetFloat(3)),
+                            Rotation = new System.Numerics.Quaternion(reader.GetFloat(5), reader.GetFloat(6), reader.GetFloat(7), reader.GetFloat(4)),
+                            InstanceId = (ulong)reader.GetInt64(8),
+                            LayerId = reader.GetString(9),
+                            NumLeaves = (uint)reader.GetInt64(10),
+                            IsDeleted = reader.GetBoolean(11),
+                            Portals = new List<WbBuildingPortal>()
+                        };
+                        var lbId = (uint)reader.GetInt64(12);
+                        buildingMap[bldg.InstanceId] = bldg;
+                        
+                        if (!results.TryGetValue(lbId, out var list)) {
+                            list = new List<BuildingObject>();
+                            results[lbId] = list;
+                        }
+                        list.Add(bldg);
+                    }
+                }
+
+                if (buildingMap.Count > 0) {
+                    var instanceIds = string.Join(",", buildingMap.Keys);
+                    var portalSql = $"SELECT Id, InstanceId, Flags, OtherCellId, OtherPortalId FROM BuildingPortals WHERE InstanceId IN ({instanceIds})";
+                    var portalsById = new Dictionary<long, WbBuildingPortal>();
+
+                    await using (var portalCmd = Connection.CreateCommand()) {
+                        portalCmd.Transaction = dbTx;
+                        portalCmd.CommandText = portalSql;
+                        await using var portalReader = await portalCmd.ExecuteReaderAsync(ct);
+                        while (await portalReader.ReadAsync(ct)) {
+                            var id = portalReader.GetInt64(0);
+                            var instId = (ulong)portalReader.GetInt64(1);
+                            var portal = new WbBuildingPortal {
+                                Flags = (uint)portalReader.GetInt64(2),
+                                OtherCellId = (ushort)portalReader.GetInt32(3),
+                                OtherPortalId = (ushort)portalReader.GetInt32(4),
+                                StabList = new List<ushort>()
+                            };
+                            portalsById[id] = portal;
+                            if (buildingMap.TryGetValue(instId, out var bldg)) {
+                                bldg.Portals.Add(portal);
+                            }
+                        }
+                    }
+
+                    if (portalsById.Count > 0) {
+                        var portalIds = string.Join(",", portalsById.Keys);
+                        var stabSql = $"SELECT PortalId, StabId FROM BuildingPortalStabs WHERE PortalId IN ({portalIds})";
+                        await using (var stabCmd = Connection.CreateCommand()) {
+                            stabCmd.Transaction = dbTx;
+                            stabCmd.CommandText = stabSql;
+                            await using var stabReader = await stabCmd.ExecuteReaderAsync(ct);
+                            while (await stabReader.ReadAsync(ct)) {
+                                var portalId = stabReader.GetInt64(0);
+                                var stabId = (ushort)stabReader.GetInt32(1);
+                                if (portalsById.TryGetValue(portalId, out var portal)) {
+                                    portal.StabList.Add(stabId);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) {
+                _logger?.LogError(ex, "Error retrieving buildings for multiple landblocks");
+            }
+            return results.ToDictionary(k => k.Key, v => (IReadOnlyList<BuildingObject>)v.Value);
         }
 
         /// <inheritdoc/>

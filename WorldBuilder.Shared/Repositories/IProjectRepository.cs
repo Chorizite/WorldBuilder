@@ -50,6 +50,13 @@ namespace WorldBuilder.Shared.Repositories {
 
         Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
 
+        /// <summary>Retrieves all static objects for a set of landblocks.</summary>
+        /// <param name="landblockIds">The landblock IDs.</param>
+        /// <param name="tx">The transaction (optional).</param>
+        /// <param name="ct">The cancellation token.</param>
+        /// <returns>A dictionary mapping landblock ID to its list of static objects.</returns>
+        Task<IReadOnlyDictionary<uint, IReadOnlyList<StaticObject>>> GetStaticObjectsForLandblocksAsync(IEnumerable<uint> landblockIds, ITransaction? tx, CancellationToken ct);
+
         /// <summary>
         /// Gets all landblock IDs that have modifications (static objects, buildings, or env cells) for a specific layer.
         /// </summary>
@@ -66,6 +73,13 @@ namespace WorldBuilder.Shared.Repositories {
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing a list of building objects.</returns>
         Task<IReadOnlyList<BuildingObject>> GetBuildingsAsync(uint? landblockId, ITransaction? tx, CancellationToken ct);
+
+        /// <summary>Retrieves all buildings for a set of landblocks.</summary>
+        /// <param name="landblockIds">The landblock IDs.</param>
+        /// <param name="tx">The transaction (optional).</param>
+        /// <param name="ct">The cancellation token.</param>
+        /// <returns>A dictionary mapping landblock ID to its list of building objects.</returns>
+        Task<IReadOnlyDictionary<uint, IReadOnlyList<BuildingObject>>> GetBuildingsForLandblocksAsync(IEnumerable<uint> landblockIds, ITransaction? tx, CancellationToken ct);
 
         Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
 
