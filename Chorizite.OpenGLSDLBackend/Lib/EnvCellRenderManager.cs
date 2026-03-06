@@ -176,7 +176,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.Position = rayOrigin + rayDirection * d;
                                 hit.LocalPosition = instance.LocalPosition;
                                 hit.Rotation = instance.Rotation;
-                                hit.LandblockId = InstanceIdConstants.GetRawId(instance.InstanceId);
+                                hit.LandblockId = (uint)key << 16 | 0xFFFE;
                                 hit.Normal = normal;
                             }
                         }
@@ -220,6 +220,26 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #endregion
 
         #region Protected: Overrides
+
+        public override void UpdateInstanceTransform(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
+            var type = InstanceIdConstants.GetType(instanceId);
+            if (type == InspectorSelectionType.EnvCellStaticObject || type == InspectorSelectionType.EnvCell) {
+                ushort key = (ushort)(landblockId >> 16);
+                if (key == 0 || !_landblocks.ContainsKey(key)) {
+                    foreach (var (lbKey, lb) in _landblocks) {
+                        lock (lb) {
+                            for (int i = 0; i < lb.Instances.Count; i++) {
+                                if (lb.Instances[i].InstanceId == instanceId) {
+                                    base.UpdateInstanceTransform((uint)lbKey << 16 | 0xFFFE, instanceId, position, rotation, currentCellId);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            base.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId);
+        }
 
         public override void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null, bool isOutside = false) {
 

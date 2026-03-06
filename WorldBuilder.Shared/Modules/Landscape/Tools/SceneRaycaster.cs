@@ -12,7 +12,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <summary>
         /// Performs a general selection raycast against static objects and env cells.
         /// </summary>
-        public static SceneRaycastHit PerformRaycast(LandscapeToolContext context, ViewportInputEvent e) {
+        public static SceneRaycastHit PerformRaycast(LandscapeToolContext context, ViewportInputEvent e, bool includeBuildings = false, bool includeStaticObjects = true, bool includeEnvCellObjects = true) {
             if (context == null) return SceneRaycastHit.NoHit;
 
             var ray = RaycastingUtils.GetRayFromScreen(
@@ -28,12 +28,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             SceneRaycastHit bestHit = SceneRaycastHit.NoHit;
 
             if (context.RaycastStaticObject != null &&
-                context.RaycastStaticObject(origin, direction, false, true, out var staticHit, 0)) {
+                context.RaycastStaticObject(origin, direction, includeBuildings, includeStaticObjects, out var staticHit, 0)) {
                 bestHit = staticHit;
             }
 
             if (context.RaycastEnvCells != null &&
-                context.RaycastEnvCells(origin, direction, false, true, out var envHit, 0)) {
+                context.RaycastEnvCells(origin, direction, false, includeEnvCellObjects, out var envHit, 0)) {
                 if (!bestHit.Hit || envHit.Distance < bestHit.Distance) {
                     bestHit = envHit;
                 }

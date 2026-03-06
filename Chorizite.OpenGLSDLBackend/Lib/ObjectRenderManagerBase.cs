@@ -361,7 +361,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Updates the transform of a specific instance in its owner landblock.
         /// This is used for realtime previews during manipulation.
         /// </summary>
-        public void UpdateInstanceTransform(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
+        public virtual void UpdateInstanceTransform(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
             ushort key = (ushort)(landblockId >> 16);
             if (_landblocks.TryGetValue(key, out var lb)) {
                 lock (lb) {
@@ -832,11 +832,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         UploadInstanceData(newInstanceBufferOffset, allInstances);
                         
                         // Pre-calculate MDI commands using the NEW offset
-                        foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
-                            AddMdiCommandsForGroup(newMdiCommands, gfxObjId, transforms.Count, newInstanceBufferOffset, 0);
-                        }
                         int currentOffset = 0;
                         foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
+                            AddMdiCommandsForGroup(newMdiCommands, gfxObjId, transforms.Count, newInstanceBufferOffset, currentOffset);
                             currentOffset += transforms.Count;
                         }
                         foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {

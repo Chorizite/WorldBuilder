@@ -296,12 +296,22 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 if (ActiveDocument == null) return;
 
                 _ = Task.Run(async () => {
+                    StaticObject oldObject;
+                    var type = InstanceIdConstants.GetType(oldInstanceId);
+                    if (type == InspectorSelectionType.EnvCellStaticObject) {
+                        var cellId = InstanceIdConstants.GetRawId(oldInstanceId);
+                        oldObject = (await ActiveDocument.GetMergedEnvCellAsync(cellId)).StaticObjects.GetValueOrDefault(oldInstanceId) ?? new StaticObject();
+                    }
+                    else {
+                        oldObject = (await ActiveDocument.GetMergedLandblockAsync(oldLbId)).StaticObjects.GetValueOrDefault(oldInstanceId) ?? new StaticObject();
+                    }
+
                     var command = new UpdateStaticObjectCommand {
                         TerrainDocumentId = ActiveDocument.Id,
                         LayerId = layerId,
                         OldLandblockId = oldLbId,
                         NewLandblockId = newLbId,
-                        OldObject = (await ActiveDocument.GetMergedLandblockAsync(oldLbId)).StaticObjects.GetValueOrDefault(oldInstanceId) ?? new StaticObject(),
+                        OldObject = oldObject,
                         NewObject = newObj,
                         UserId = "system" // Or get from context
                     };

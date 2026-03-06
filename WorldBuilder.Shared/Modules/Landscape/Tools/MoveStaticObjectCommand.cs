@@ -38,10 +38,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             _oldObject = oldObject;
 
             ulong newInstanceId = oldObject.InstanceId;
-            if (newLandblockId != oldLandblockId) {
-                if (newType == InspectorSelectionType.EnvCellStaticObject || InstanceIdConstants.GetType(oldObject.InstanceId) == InspectorSelectionType.EnvCellStaticObject) {
+            if (newLandblockId != oldLandblockId || newObject.CellId != oldObject.CellId) {
+                if (newType == InspectorSelectionType.EnvCellStaticObject) {
                     ushort index = InstanceIdConstants.GetObjectIndex(oldObject.InstanceId);
-                    newInstanceId = InstanceIdConstants.EncodeEnvCellStaticObject(newLandblockId, index, true);
+                    newInstanceId = InstanceIdConstants.EncodeEnvCellStaticObject(newObject.CellId!.Value, index, true);
                 }
                 else {
                     ushort newIndex = (ushort)(Guid.NewGuid().GetHashCode() & 0xFFFF);
@@ -54,7 +54,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                     SetupId = newObject.SetupId,
                     InstanceId = newInstanceId,
                     LayerId = newObject.LayerId,
-                    Position = newObject.Position
+                    Position = newObject.Position,
+                    Rotation = newObject.Rotation,
+                    CellId = newObject.CellId
                 };
             }
             else {

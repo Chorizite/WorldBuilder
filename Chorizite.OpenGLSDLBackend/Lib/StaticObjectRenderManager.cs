@@ -173,8 +173,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 lock (lb) {
                     foreach (var instance in lb.Instances) {
-                        if (instance.IsBuilding) continue;
-                        if (!settings.SelectStaticObjects) continue;
+                        if (instance.IsBuilding && !settings.SelectBuildings) continue;
+                        if (!instance.IsBuilding && !settings.SelectStaticObjects) continue;
 
                         // Skip if instance is outside frustum
                         if (!_frustum.Intersects(instance.BoundingBox)) continue;
