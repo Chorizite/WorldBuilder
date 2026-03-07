@@ -12,14 +12,16 @@ using DropPosition = WorldBuilder.ViewModels.DropPosition;
 namespace WorldBuilder.Modules.Landscape.Views.Components;
 
 public partial class BookmarksPanel : UserControl {
-    private BookmarkNode? _draggedBookmark;
     private bool _isDragging;
-    private Point _dragStartPoint;
+    private BookmarkNode? _draggedBookmark;
+
     private TreeDataGridRow? _currentTargetRow;
-    private DropPosition _lastDropPosition = DropPosition.None;
     private BookmarkNode? _currentTargetBookmark;
     private DropPosition _currentDropPosition = DropPosition.None;
+
+    private TreeDataGridRow? _lastClickItem;
     private DateTime _lastClickTime;
+    private static readonly TimeSpan _doubleClickTime = TimeSpan.FromMilliseconds(500);
 
     public BookmarksPanel() {
         InitializeComponent();
@@ -31,7 +33,6 @@ public partial class BookmarksPanel : UserControl {
         BookmarkTreeView.AddHandler(PointerPressedEvent, OnPointerPressed, handledEventsToo: true);
         BookmarkTreeView.AddHandler(PointerMovedEvent, OnPointerMoved);
         BookmarkTreeView.AddHandler(PointerReleasedEvent, OnPointerReleased);
-        BookmarkTreeView.AddHandler(DoubleTappedEvent, OnDoubleTapped);
     }
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e) {
@@ -46,13 +47,30 @@ public partial class BookmarksPanel : UserControl {
         if (treeDataGridRow?.DataContext is BookmarkNode bookmarkNode) {
             var point = e.GetCurrentPoint(treeDataGridRow);
             
-            if (point.Properties.IsLeftButtonPressed) {
-                _isDragging = false;
+            if (point.Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonPressed) {
+
+                // Manually handle double tap due to bugs w/ TreeDataGrid OnPointerPressed + handledEventsToo=true
+                var clickTime = DateTime.Now;
+                if (treeDataGridRow == _lastClickItem && clickTime - _lastClickTime <= _doubleClickTime)
+                {
+                    OnDoubleTapped(sender, e);
+                    _lastClickTime = DateTime.MinValue;     // prevent triple click
+                }
+                _lastClickItem = treeDataGridRow;
+                _lastClickTime = clickTime;
+                
+                // Clear any previous drop information when starting a new drag
+                _currentTargetRow = null;
+                _currentTargetBookmark = null;
+                _currentDropPosition = DropPosition.None;
+
+                // Start new dragging event.
+                // Even if this isn't a "true" drag yet, LMB release will be handled in OnPointerMoved and OnPointerReleased
                 _draggedBookmark = bookmarkNode;
-                _dragStartPoint = e.GetPosition(treeDataGridRow);
-                _lastClickTime = DateTime.Now;
+                _isDragging = true;
+
             }
-            else  if (point.Properties.IsRightButtonPressed) {
+            else  if (point.Properties.PointerUpdateKind == PointerUpdateKind.RightButtonPressed) {
                 treeDataGridRow.ContextMenu = BuildContextMenu(bookmarkNode, viewModel);
             }
         }
@@ -91,37 +109,9 @@ public partial class BookmarksPanel : UserControl {
     }
 
     private void OnPointerMoved(object? sender, PointerEventArgs e) {
-        if (_draggedBookmark == null) return;
-        
-        if (_isDragging) {
-            HandleDragging(sender, e);
-            return;
-        }
-        // weird bug with OnBookmarkTreePointerPressed, handledEventsToo: true -> OnBookmarkTreePointerMoved automatic calls
-        // blocking BookmarkTreeView_DoubleTapped w/ 'no' symbol
-        if (DateTime.Now.Subtract(_lastClickTime).TotalMilliseconds < 200) {
-            return;
-        }
-        // Check if we've moved enough to start dragging
-        var currentPosition = e.GetPosition(BookmarkTreeView);
-        var deltaX = Math.Abs(currentPosition.X - _dragStartPoint.X);
-        var deltaY = Math.Abs(currentPosition.Y - _dragStartPoint.Y);
-
-        if (deltaX > 3 || deltaY > 3) {
-            // Clear any previous drop information when starting a new drag
-            _currentTargetRow = null;
-            _currentTargetBookmark = null;
-            _currentDropPosition = DropPosition.None;
-
-            _isDragging = true;
-        }
-    }
-
-
-    private void HandleDragging(object? sender, PointerEventArgs e) {
         if (sender == null || _draggedBookmark == null) return;
 
-        //Console.WriteLine($"OnDragOver - {sender}");
+        //Console.WriteLine($"OnPointerMoved - {sender}");
 
         var point = e.GetCurrentPoint(this);
         if (!point.Properties.IsLeftButtonPressed || !IsPointerWithinBounds(e)) {
@@ -176,11 +166,9 @@ public partial class BookmarksPanel : UserControl {
             }
 
             // Log if this is a new target OR drop position changed
-            if (_currentTargetRow != treeViewItem || _lastDropPosition != dropPosition) {
+            if (_currentTargetRow != treeViewItem || _currentDropPosition != dropPosition) {
+
                 _currentTargetRow = treeViewItem;
-                _lastDropPosition = dropPosition;
-                
-                // Store the current drop information for OnDrop
                 _currentTargetBookmark = targetBookmark;
                 _currentDropPosition = dropPosition;
             }
@@ -192,7 +180,6 @@ public partial class BookmarksPanel : UserControl {
             // No valid target, clear indicators
             if (_currentTargetRow != null) {
                 _currentTargetRow = null;
-                _lastDropPosition = DropPosition.None;
                 _currentTargetBookmark = null;
                 _currentDropPosition = DropPosition.None;
             }
@@ -294,7 +281,7 @@ public partial class BookmarksPanel : UserControl {
             case DropPosition.Below:
                 indicator.Width = itemBounds.Width;
                 Canvas.SetLeft(indicator, itemPosition.Value.X);
-                Canvas.SetTop(indicator, itemPosition.Value.Y + itemBounds.Height - 2);
+                Canvas.SetTop(indicator, itemPosition.Value.Y + itemBounds.Height);
                 break;
             case DropPosition.Inside:
                 indicator.Background = Brushes.Transparent;
@@ -350,7 +337,7 @@ public partial class BookmarksPanel : UserControl {
         }
     }
 
-    private void OnDoubleTapped(object? sender, TappedEventArgs e) {
+    private void OnDoubleTapped(object? sender, PointerPressedEventArgs e) {
         //Console.WriteLine("BookmarkTreeView_DoubleTapped");
         var treeDataGrid = sender as TreeDataGrid;
         var selectedItem = treeDataGrid?.RowSelection?.SelectedItem as BookmarkNode;
