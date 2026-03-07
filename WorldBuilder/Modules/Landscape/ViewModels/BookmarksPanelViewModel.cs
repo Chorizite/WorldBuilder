@@ -49,13 +49,6 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
                 }
             };
 
-            // Sync TreeDataGrid selection with ViewModel SelectedItem (TreeView → TreeDataGrid)
-            if (Bookmarks.RowSelection != null) {
-                Bookmarks.RowSelection.SelectionChanged += (s, e) => {
-                    SelectedItem = Bookmarks.RowSelection.SelectedItem;
-                };
-            }
-
             SearchResults = new HierarchicalTreeDataGridSource<BookmarkNode>(_searchResultsCollection) {
                 Columns = {
                     new HierarchicalExpanderColumn<BookmarkNode>(
@@ -66,12 +59,21 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
                 }
             };
 
-            // Sync SearchResults selection with ViewModel SelectedItem (TreeView → TreeDataGrid)
-            if (SearchResults.RowSelection != null) {
-                SearchResults.RowSelection.SelectionChanged += (s, e) => {
-                    SelectedItem = SearchResults.RowSelection.SelectedItem;
-                };
-            }
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                // Sync TreeDataGrid selection with ViewModel SelectedItem (TreeView → TreeDataGrid)
+                if (Bookmarks.RowSelection != null) {
+                    Bookmarks.RowSelection.SelectionChanged += (s, e) => {
+                        SelectedItem = Bookmarks.RowSelection.SelectedItem;
+                    };
+                }
+
+                // Sync SearchResults selection with ViewModel SelectedItem (TreeView → TreeDataGrid)
+                if (SearchResults.RowSelection != null) {
+                    SearchResults.RowSelection.SelectionChanged += (s, e) => {
+                        SelectedItem = SearchResults.RowSelection.SelectedItem;
+                    };
+                }
+            });
         }
 
         [RelayCommand]

@@ -23,7 +23,10 @@ public partial class BookmarksPanel : UserControl {
 
     public BookmarksPanel() {
         InitializeComponent();
+        this.AttachedToVisualTree += OnAttachedToVisualTree;
+    }
 
+    private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e) {
         // Add handler with handledEventsToo to bypass TreeDataGrid's internal selection handling
         BookmarkTreeView.AddHandler(PointerPressedEvent, OnPointerPressed, handledEventsToo: true);
         BookmarkTreeView.AddHandler(PointerMovedEvent, OnPointerMoved);
