@@ -22,32 +22,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             protected set => SetProperty(ref _isActive, value);
         }
 
-        private bool _showBrush;
+        protected ILandscapeBrush? _brush;
         /// <inheritdoc/>
-        public bool ShowBrush {
-            get => _showBrush;
-            protected set => SetProperty(ref _showBrush, value);
-        }
-
-        private Vector3 _brushPosition;
-        /// <inheritdoc/>
-        public Vector3 BrushPosition {
-            get => _brushPosition;
-            protected set => SetProperty(ref _brushPosition, value);
-        }
-
-        private float _brushRadius = 30f;
-        /// <inheritdoc/>
-        public float BrushRadius {
-            get => _brushRadius;
-            protected set => SetProperty(ref _brushRadius, value);
-        }
-
-        private BrushShape _brushShape = BrushShape.Circle;
-        /// <inheritdoc/>
-        public BrushShape BrushShape {
-            get => _brushShape;
-            protected set => SetProperty(ref _brushShape, value);
+        public virtual ILandscapeBrush? Brush {
+            get => _brush;
+            protected set => SetProperty(ref _brush, value);
         }
 
         protected LandscapeToolContext? Context;
@@ -62,19 +41,25 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <inheritdoc/>
         public virtual void Deactivate() {
             IsActive = false;
-            ShowBrush = false;
+            if (_brush != null) {
+                _brush.IsVisible = false;
+            }
             Context = null;
         }
 
         /// <inheritdoc/>
         public virtual void Suspend() {
-            _wasBrushShowingBeforeSuspension = ShowBrush;
-            ShowBrush = false;
+            if (_brush != null) {
+                _wasBrushShowingBeforeSuspension = _brush.IsVisible;
+                _brush.IsVisible = false;
+            }
         }
 
         /// <inheritdoc/>
         public virtual void Resume() {
-            ShowBrush = _wasBrushShowingBeforeSuspension;
+            if (_brush != null) {
+                _brush.IsVisible = _wasBrushShowingBeforeSuspension;
+            }
         }
 
         /// <inheritdoc/>

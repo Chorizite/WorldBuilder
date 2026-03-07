@@ -235,9 +235,11 @@ public partial class RenderView : Base3DViewport {
 
         if (inputEvent.IsRightDown) {
             e.Pointer.Capture(this);
+            ClearToolState();
         }
+
         if (_gameScene?.State.AltMouseLook ?? false) {
-            PlatformMouse.OnPointerPressed(this, e, inputEvent, ClearToolState);
+            PlatformMouse.OnPointerPressed(this, e, inputEvent);
         }
     }
 
@@ -258,9 +260,11 @@ public partial class RenderView : Base3DViewport {
 
         if (e.InitialPressMouseButton == MouseButton.Right) {
             e.Pointer.Capture(null);
+            ResumeToolState(inputEvent);
         }
+
         if (_gameScene?.State.AltMouseLook ?? false) {
-            PlatformMouse.OnPointerReleased(this, e, ResumeToolState);
+            PlatformMouse.OnPointerReleased(this, e);
         }
     }
 
@@ -479,19 +483,22 @@ public partial class RenderView : Base3DViewport {
     private bool _prevShowBrush;
 
     private void ClearToolState() {
+        _prevShowBrush = ShowBrush;
         // Suspend the current tool during AltMouseLook
         if (DataContext is LandscapeViewModel vm && vm.ActiveTool != null) {
             vm.ActiveTool.Suspend();
         }
-        _prevShowBrush = ShowBrush;
         ShowBrush = false;
     }
 
-    private void ResumeToolState() {
+    private void ResumeToolState(ViewportInputEvent? e = null) {
+        ShowBrush = _prevShowBrush;
         // Re-activate the current tool when AltMouseLook ends
         if (DataContext is LandscapeViewModel vm && vm.ActiveTool != null) {
             vm.ActiveTool.Resume();
+            if (e != null) {
+                vm.OnPointerMoved(e);
+            }
         }
-        ShowBrush = _prevShowBrush;
     }
 }

@@ -171,6 +171,9 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         if (oldValue is INotifyPropertyChanged oldNotify) {
             oldNotify.PropertyChanged -= OnToolPropertyChanged;
         }
+        if (oldValue?.Brush != null) {
+            oldValue.Brush.PropertyChanged -= OnBrushPropertyChanged;
+        }
 
         oldValue?.Deactivate();
 
@@ -188,8 +191,13 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
         if (newValue is INotifyPropertyChanged newNotify) {
             newNotify.PropertyChanged += OnToolPropertyChanged;
-            SyncBrushFromTool(newValue as ILandscapeTool);
         }
+
+        if (newValue?.Brush != null) {
+            newValue.Brush.PropertyChanged += OnBrushPropertyChanged;
+        }
+
+        SyncBrushFromTool(newValue);
 
         if (newValue != null && _toolContext != null) {
             newValue.Activate(_toolContext);
@@ -200,21 +208,31 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
     private void OnToolPropertyChanged(object? sender, PropertyChangedEventArgs e) {
         if (sender is ILandscapeTool tool) {
-            if (e.PropertyName == nameof(ILandscapeTool.ShowBrush) ||
-                e.PropertyName == nameof(ILandscapeTool.BrushPosition) ||
-                e.PropertyName == nameof(ILandscapeTool.BrushRadius) ||
-                e.PropertyName == nameof(ILandscapeTool.BrushShape)) {
+            if (e.PropertyName == nameof(ILandscapeTool.Brush)) {
+                if (tool.Brush != null) {
+                    tool.Brush.PropertyChanged += OnBrushPropertyChanged;
+                }
                 SyncBrushFromTool(tool);
             }
         }
     }
 
+    private void OnBrushPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+        if (sender is ILandscapeBrush brush && ActiveTool?.Brush == brush) {
+            SyncBrushFromTool(ActiveTool);
+        }
+    }
+
     private void SyncBrushFromTool(ILandscapeTool? tool) {
-        if (tool == null) return;
-        ShowBrush = tool.ShowBrush;
-        BrushPosition = tool.BrushPosition;
-        BrushRadius = tool.BrushRadius;
-        BrushShape = tool.BrushShape;
+        if (tool?.Brush == null) {
+            ShowBrush = false;
+            return;
+        }
+
+        ShowBrush = tool.Brush.IsVisible;
+        BrushPosition = tool.Brush.Position;
+        BrushRadius = tool.Brush.Radius;
+        BrushShape = tool.Brush.Shape;
     }
 
     private void OnInspectorToolPropertyChanged(object? sender, PropertyChangedEventArgs e) {
@@ -603,6 +621,8 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         if (_toolContext != null) {
             _toolContext.ViewportSize = e.ViewportSize;
         }
+
+        if (e.IsRightDown) return;
 
         ActiveTool?.OnPointerMoved(e);
     }

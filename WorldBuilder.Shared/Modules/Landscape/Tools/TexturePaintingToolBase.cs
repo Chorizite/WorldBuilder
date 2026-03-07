@@ -66,6 +66,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         /// <inheritdoc/>
         public override void Activate(LandscapeToolContext context) {
+            Brush ??= new LandscapeBrush();
             base.Activate(context);
             OnPropertyChanged(nameof(ActiveDocument));
             OnPropertyChanged(nameof(AllSceneries));
@@ -79,13 +80,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         protected void UpdateEyeDropper(ViewportInputEvent e) {
-            if (Context?.RaycastTerrain == null || Context.Document.Region == null) return;
+            if (Context?.RaycastTerrain == null || Context.Document.Region == null || Brush == null) return;
 
             var terrainHit = Context.RaycastTerrain((float)e.Position.X, (float)e.Position.Y);
             if (terrainHit.Hit) {
-                BrushPosition = terrainHit.NearestVertice;
-                ShowBrush = true;
-                BrushShape = BrushShape.Crosshair;
+                Brush.Position = terrainHit.NearestVertice;
+                Brush.IsVisible = true;
+                Brush.Shape = BrushShape.Crosshair;
                 
                 int vx = (int)(terrainHit.LandblockX * terrainHit.LandblockCellLength + terrainHit.VerticeX);
                 int vy = (int)(terrainHit.LandblockY * terrainHit.LandblockCellLength + terrainHit.VerticeY);
@@ -98,7 +99,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 }
             }
             else {
-                ShowBrush = false;
+                Brush.IsVisible = false;
             }
         }
     }

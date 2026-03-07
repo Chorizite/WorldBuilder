@@ -17,7 +17,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         public int RoadBits { get; set; } = 1;
 
+        /// <inheritdoc/>
         public override void Activate(LandscapeToolContext context) {
+            Brush ??= new LandscapeBrush();
             base.Activate(context);
             _startPoint = null;
         }
@@ -54,11 +56,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             if (Context?.Document.Region == null) return false;
 
             var hit = Raycast(e.Position.X, e.Position.Y);
-            if (hit.Hit) {
-                BrushPosition = hit.NearestVertice;
-                ShowBrush = true;
-                BrushShape = BrushShape.Circle;
-                BrushRadius = BrushTool.GetWorldRadius(1);
+            if (hit.Hit && Brush != null) {
+                Brush.Position = hit.NearestVertice;
+                Brush.IsVisible = true;
+                Brush.Shape = BrushShape.Circle;
+                Brush.Radius = BrushTool.GetWorldRadius(1);
 
                 if (_startPoint != null) {
                     UpdatePreview(hit.NearestVertice);
@@ -66,7 +68,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 return true;
             }
             else {
-                ShowBrush = false;
+                if (Brush != null) Brush.IsVisible = false;
             }
 
             return false;

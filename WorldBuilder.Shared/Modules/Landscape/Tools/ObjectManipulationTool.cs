@@ -44,7 +44,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         public override void Activate(LandscapeToolContext context) {
             base.Activate(context);
-            ShowBrush = false;
             context.CommandHistory.OnChange += OnCommandHistoryChanged;
         }
 

@@ -15,17 +15,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <summary>Whether the tool is currently active.</summary>
         bool IsActive { get; }
 
-        /// <summary>Whether the tool should show a brush overlay.</summary>
-        bool ShowBrush { get; }
-
-        /// <summary>The current world position of the brush.</summary>
-        Vector3 BrushPosition { get; }
-
-        /// <summary>The current world radius of the brush.</summary>
-        float BrushRadius { get; }
-
-        /// <summary>The shape of the brush.</summary>
-        BrushShape BrushShape { get; }
+        /// <summary>The brush used by this tool, if any.</summary>
+        ILandscapeBrush? Brush { get; }
 
         /// <summary>Activates the tool with the provided context.</summary>
         /// <param name="context">The tool context.</param>

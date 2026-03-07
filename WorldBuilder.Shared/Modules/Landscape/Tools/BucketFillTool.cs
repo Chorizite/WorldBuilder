@@ -27,6 +27,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             set => SetProperty(ref _onlyFillSameScenery, value);
         }
 
+        /// <inheritdoc/>
+        public override void Activate(LandscapeToolContext context) {
+            Brush ??= new LandscapeBrush();
+            base.Activate(context);
+        }
+
         public override bool OnPointerPressed(ViewportInputEvent e) {
             if (Context == null || !e.IsLeftDown) return false;
 
@@ -56,15 +62,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             var hit = Raycast(e.Position.X, e.Position.Y);
-            if (hit.Hit) {
-                BrushPosition = hit.HitPosition;
-                ShowBrush = true;
-                BrushShape = BrushShape.Circle;
-                BrushRadius = 1f; // Small radius for fill cursor
+            if (hit.Hit && Brush != null) {
+                Brush.Position = hit.HitPosition;
+                Brush.IsVisible = true;
+                Brush.Shape = BrushShape.Circle;
+                Brush.Radius = 1f; // Small radius for fill cursor
                 return true;
             }
             else {
-                ShowBrush = false;
+                if (Brush != null) Brush.IsVisible = false;
             }
 
             return false;
