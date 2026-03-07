@@ -3,6 +3,7 @@ using Moq;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
@@ -26,12 +27,12 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var tool = new BrushTool();
             tool.BrushSize = 1;
             // Radius ~13.2
-            Assert.True(tool.BrushRadius < 24f);
-            Assert.True(tool.BrushRadius > 0f);
+            Assert.True(tool.Brush!.Radius < 24f);
+            Assert.True(tool.Brush!.Radius > 0f);
 
             tool.BrushSize = 2;
             // Radius ~25.2
-            Assert.True(tool.BrushRadius > 24f);
+            Assert.True(tool.Brush!.Radius > 24f);
         }
 
         [Fact]
@@ -47,7 +48,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             }
 
             var center = new Vector3(24, 24, 0); // Vertex (1,1) -> Index 10
-            var cmd = new PaintCommand(context, center, tool.BrushRadius, 5);
+            var cmd = new PaintCommand(context, center, tool.Brush!.Radius, 5);
 
             // Act
             cmd.Execute();
@@ -70,7 +71,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             context.Document.RecalculateTerrainCache();
 
             var center = new Vector3(24, 24, 0);
-            var cmd = new PaintCommand(context, center, tool.BrushRadius, 5);
+            var cmd = new PaintCommand(context, center, tool.Brush!.Radius, 5);
 
             // Act
             cmd.Execute();
@@ -91,7 +92,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var context = CreateContext();
             var layer = context.ActiveLayer;
             var center = new Vector3(24, 24, 0);
-            var cmd = new PaintCommand(context, center, tool.BrushRadius, 5);
+            var cmd = new PaintCommand(context, center, tool.Brush!.Radius, 5);
 
             // Act
             cmd.Execute();
@@ -111,7 +112,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var context = CreateContext();
             context.RequestSave = (id, chunks) => saveRequested = true;
             var center = new Vector3(24, 24, 0);
-            var cmd = new PaintCommand(context, center, tool.BrushRadius, 5);
+            var cmd = new PaintCommand(context, center, tool.Brush!.Radius, 5);
 
             // Act
             cmd.Execute();
@@ -129,7 +130,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var context = CreateContext();
             var layer = context.ActiveLayer;
             var center = new Vector3(24, 24, 0);
-            var cmd = new PaintCommand(context, center, tool.BrushRadius, 5);
+            var cmd = new PaintCommand(context, center, tool.Brush!.Radius, 5);
 
             // Act
             cmd.Execute();
@@ -157,7 +158,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             }
 
             var center = new Vector3(24f + offset, 24f + offset, 0);
-            var cmd = new PaintCommand(context, center, tool.BrushRadius, 5);
+            var cmd = new PaintCommand(context, center, tool.Brush!.Radius, 5);
 
             // Act
             cmd.Execute();
@@ -196,8 +197,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var layerId = Guid.NewGuid().ToString();
             doc.AddLayer([], "Active Layer", true, layerId);
             var activeLayer = (LandscapeLayer)doc.FindItem(layerId)!;
-
-            return new LandscapeToolContext(doc, new Mock<IDatReaderWriter>().Object, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer);
-        }
-    }
-}
+            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer);
+            }
+            }
+            }

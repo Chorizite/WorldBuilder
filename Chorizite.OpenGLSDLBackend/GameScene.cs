@@ -138,10 +138,8 @@ public class GameScene : IDisposable {
 
     private (int x, int y)? _hoveredVertex;
     private (int x, int y)? _selectedVertex;
-    private ObjectManipulationTool? _manipulationTool;
+    private ILandscapeTool? _activeTool;
     private Lib.BackendGizmoDrawer? _gizmoDrawer;
-
-    private InspectorTool? _inspectorTool;
 
     private uint _currentEnvCellId;
 
@@ -540,11 +538,15 @@ public class GameScene : IDisposable {
     }
 
     public void SetInspectorTool(InspectorTool? tool) {
-        _inspectorTool = tool;
+        _activeTool = tool;
     }
 
     public void SetManipulationTool(ObjectManipulationTool? tool) {
-        _manipulationTool = tool;
+        _activeTool = tool;
+    }
+
+    public void SetActiveTool(ILandscapeTool? tool) {
+        _activeTool = tool;
     }
 
     /// <summary>
@@ -631,28 +633,6 @@ public class GameScene : IDisposable {
         return null;
     }
 
-    private void DrawVertexDebug(int vx, int vy, Vector4 color) {
-        if (_landscapeDoc?.Region == null || _debugRenderer == null) return;
-
-        var region = _landscapeDoc.Region;
-        if (vx < 0 || vx >= region.MapWidthInVertices || vy < 0 || vy >= region.MapHeightInVertices) return;
-
-        float cellSize = region.CellSizeInUnits;
-        int lbCellLen = region.LandblockCellLength;
-        Vector2 mapOffset = region.MapOffset;
-
-        int lbX = vx / lbCellLen;
-        int lbY = vy / lbCellLen;
-        int localVx = vx % lbCellLen;
-        int localVy = vy % lbCellLen;
-
-        float x = lbX * (cellSize * lbCellLen) + localVx * cellSize + mapOffset.X;
-        float y = lbY * (cellSize * lbCellLen) + localVy * cellSize + mapOffset.Y;
-        float z = _landscapeDoc.GetHeight(vx, vy);
-
-        var pos = new Vector3(x, y, z);
-        _debugRenderer.DrawSphere(pos, 1.5f, color);
-    }
 
     public void SetHoveredObject(InspectorSelectionType type, uint landblockId, ulong instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
         SetObjectHighlight(ref _hoveredVertex, type, landblockId, instanceId, objectId, vx, vy, (m, val) => {
@@ -960,71 +940,33 @@ public class GameScene : IDisposable {
                 SelectPortals = false
             };
 
-            if (_inspectorTool != null && _inspectorTool.ShowBoundingBoxes) {
+            if (_activeTool is InspectorTool inspectorTool && inspectorTool.ShowBoundingBoxes) {
                 debugSettings.ShowBoundingBoxes = true;
-                debugSettings.SelectVertices |= _inspectorTool.SelectVertices;
-                debugSettings.SelectBuildings |= _inspectorTool.SelectBuildings && _state.ShowBuildings;
-                debugSettings.SelectStaticObjects |= _inspectorTool.SelectStaticObjects && _state.ShowStaticObjects;
-                debugSettings.SelectScenery |= _inspectorTool.SelectScenery && _state.ShowScenery;
-                debugSettings.SelectEnvCells |= _inspectorTool.SelectEnvCells && _state.ShowEnvCells;
-                debugSettings.SelectEnvCellStaticObjects |= _inspectorTool.SelectEnvCellStaticObjects && _state.ShowEnvCells;
-                debugSettings.SelectPortals |= _inspectorTool.SelectPortals && _state.ShowPortals;
+                debugSettings.SelectVertices |= inspectorTool.SelectVertices;
+                debugSettings.SelectBuildings |= inspectorTool.SelectBuildings && _state.ShowBuildings;
+                debugSettings.SelectStaticObjects |= inspectorTool.SelectStaticObjects && _state.ShowStaticObjects;
+                debugSettings.SelectScenery |= inspectorTool.SelectScenery && _state.ShowScenery;
+                debugSettings.SelectEnvCells |= inspectorTool.SelectEnvCells && _state.ShowEnvCells;
+                debugSettings.SelectEnvCellStaticObjects |= inspectorTool.SelectEnvCellStaticObjects && _state.ShowEnvCells;
+                debugSettings.SelectPortals |= inspectorTool.SelectPortals && _state.ShowPortals;
             }
 
-            // Also show bounding boxes if the manipulation tool option is checked
-            if (_manipulationTool != null && _manipulationTool.ShowBoundingBoxes) {
+            if (_activeTool is ObjectManipulationTool manipulationTool && manipulationTool.ShowBoundingBoxes) {
                 debugSettings.ShowBoundingBoxes = true;
-                debugSettings.SelectStaticObjects |= _manipulationTool.SelectStaticObjects && _state.ShowStaticObjects;
-                debugSettings.SelectEnvCellStaticObjects |= _manipulationTool.SelectEnvCellStaticObjects && _state.ShowEnvCells;
-                debugSettings.SelectBuildings |= _manipulationTool.SelectBuildings && _state.ShowBuildings;
+                debugSettings.SelectStaticObjects |= manipulationTool.SelectStaticObjects && _state.ShowStaticObjects;
+                debugSettings.SelectEnvCellStaticObjects |= manipulationTool.SelectEnvCellStaticObjects && _state.ShowEnvCells;
+                debugSettings.SelectBuildings |= manipulationTool.SelectBuildings && _state.ShowBuildings;
             }
 
             _sceneryManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
             _staticObjectManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
             _envCellManager?.SubmitDebugShapes(_debugRenderer, debugSettings);
-
-            if (_inspectorTool != null && _inspectorTool.SelectVertices && _landscapeDoc?.Region != null) {
-                var region = _landscapeDoc.Region;
-                var lbSize = region.CellSizeInUnits * region.LandblockCellLength;
-                var pos = new Vector2(_cameraController.CurrentCamera.Position.X, _cameraController.CurrentCamera.Position.Y) - region.MapOffset;
-                int camLbX = (int)Math.Floor(pos.X / lbSize);
-                int camLbY = (int)Math.Floor(pos.Y / lbSize);
-
-                int range = _state.ObjectRenderDistance;
-                for (int lbX = camLbX - range; lbX <= camLbX + range; lbX++) {
-                    for (int lbY = camLbY - range; lbY <= camLbY + range; lbY++) {
-                        if (lbX < 0 || lbX >= region.MapWidthInLandblocks || lbY < 0 || lbY >= region.MapHeightInLandblocks) continue;
-
-                        if (GetLandblockFrustumResult(lbX, lbY) == FrustumTestResult.Outside) continue;
-
-                        for (int vx = 0; vx < 8; vx++) {
-                            for (int vy = 0; vy < 8; vy++) {
-                                int gvx = lbX * 8 + vx;
-                                int gvy = lbY * 8 + vy;
-                                if (_hoveredVertex.HasValue && _hoveredVertex.Value.x == gvx && _hoveredVertex.Value.y == gvy) continue;
-                                if (_selectedVertex.HasValue && _selectedVertex.Value.x == gvx && _selectedVertex.Value.y == gvy) continue;
-
-                                DrawVertexDebug(gvx, gvy, _inspectorTool.VertexColor);
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (_inspectorTool == null || (_inspectorTool.ShowBoundingBoxes && _inspectorTool.SelectVertices)) {
-                if (_hoveredVertex.HasValue) {
-                    DrawVertexDebug(_hoveredVertex.Value.x, _hoveredVertex.Value.y, LandscapeColorsSettings.Instance.Hover);
-                }
-                if (_selectedVertex.HasValue) {
-                    DrawVertexDebug(_selectedVertex.Value.x, _selectedVertex.Value.y, LandscapeColorsSettings.Instance.Selection);
-                }
-            }
         }
 
         _debugRenderer?.Render(snapshotView, snapshotProj);
 
-        // Render the manipulation gizmo if active
-        if (_manipulationTool != null && _manipulationTool.HasSelection && _debugRenderer != null) {
+        // Render tool visuals
+        if (_activeTool != null && _debugRenderer != null) {
             if (_gizmoDrawer == null) {
                 var gVertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Gizmo.vert");
                 var gFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Gizmo.frag");
@@ -1032,8 +974,7 @@ public class GameScene : IDisposable {
                 _gizmoDrawer = new Lib.BackendGizmoDrawer(_gl, _graphicsDevice, _debugRenderer);
                 _gizmoDrawer.SetShader(gizmoShader);
             }
-            _manipulationTool.GizmoState.CameraPosition = _cameraController.CurrentCamera.Position;
-            WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo.GizmoRenderer.Draw(_gizmoDrawer, _manipulationTool.GizmoState);
+            _activeTool.Render(_gizmoDrawer);
             _gizmoDrawer.Render(snapshotView, snapshotProj);
             _debugRenderer.Render(snapshotView, snapshotProj, false);
         }

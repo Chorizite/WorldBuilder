@@ -28,13 +28,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             get => _brushSize;
             set {
                 if (SetProperty(ref _brushSize, value)) {
-                    BrushRadius = GetWorldRadius(_brushSize);
+                    if (Brush != null) Brush.Radius = GetWorldRadius(_brushSize);
                 }
             }
         }
 
         public BrushTool() {
-            BrushRadius = GetWorldRadius(_brushSize);
+            _brush = new LandscapeBrush();
+            Brush!.Radius = GetWorldRadius(_brushSize);
         }
 
         /// <summary>
@@ -49,7 +50,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <inheritdoc/>
         public override void Activate(LandscapeToolContext context) {
             base.Activate(context);
-            BrushRadius = GetWorldRadius(_brushSize);
+            if (Brush != null) Brush.Radius = GetWorldRadius(_brushSize);
             OnPropertyChanged(nameof(ActiveDocument));
             OnPropertyChanged(nameof(AllSceneries));
             SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == 255);
@@ -90,11 +91,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             var hit = Raycast(e.Position.X, e.Position.Y);
-            if (hit.Hit) {
-                BrushPosition = hit.NearestVertice;
-                ShowBrush = true;
-                BrushShape = BrushShape.Circle;
-                BrushRadius = this.BrushRadius; // Sync radius
+            if (hit.Hit && Brush != null) {
+                Brush.Position = hit.NearestVertice;
+                Brush.IsVisible = true;
+                Brush.Shape = BrushShape.Circle;
+                Brush.Radius = GetWorldRadius(_brushSize); // Sync radius
 
                 if (_isPainting) {
                     ApplyPaint(hit);
@@ -103,7 +104,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 return true;
             }
             else {
-                ShowBrush = false;
+                if (Brush != null) Brush.IsVisible = false;
             }
 
             return false;
@@ -121,13 +122,25 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             return false;
         }
 
+        public override bool OnKeyDown(ViewportInputEvent e) {
+            if (e.Key == "OemOpenBrackets") {
+                BrushSize = Math.Max(1, BrushSize - 1);
+                return true;
+            }
+            if (e.Key == "OemCloseBrackets") {
+                BrushSize++;
+                return true;
+            }
+            return base.OnKeyDown(e);
+        }
+
         private void ApplyPaint(TerrainRaycastHit hit) {
             if (Context == null || _currentStroke == null) return;
             // Snap to nearest vertex
             var center = hit.NearestVertice;
 
             byte? sceneryIndex = (SelectedScenery == null || SelectedScenery.Index == 255) ? null : SelectedScenery.Index;
-            var command = new PaintCommand(Context, center, BrushRadius, (int)Texture, sceneryIndex);
+            var command = new PaintCommand(Context, center, Brush?.Radius ?? 0f, (int)Texture, sceneryIndex);
             _currentStroke.Add(command);
             command.Execute();
         }

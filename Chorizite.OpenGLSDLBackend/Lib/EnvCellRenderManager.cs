@@ -210,7 +210,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         else if (isHovered) color = LandscapeColorsSettings.Instance.Hover;
                         else color = settings.StaticObjectColor;
 
-                        debug.DrawBox(instance.LocalBoundingBox, instance.Transform, color);
+                        debug.DrawBox(instance.LocalBoundingBox.ToShared(), instance.Transform, color);
                     }
                 }
             }

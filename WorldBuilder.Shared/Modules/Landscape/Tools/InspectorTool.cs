@@ -91,6 +91,73 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             ClearHover();
         }
 
+        public override void Suspend() {
+            base.Suspend();
+            ClearHover();
+        }
+
+        public override void Render(IDebugRenderer debugRenderer) {
+            if (Context == null || Context.Document.Region == null) return;
+
+            if (SelectVertices) {
+                var region = Context.Document.Region;
+                var lbSize = region.CellSizeInUnits * region.LandblockCellLength;
+                var pos = new Vector2(Context.Camera.Position.X, Context.Camera.Position.Y) - region.MapOffset;
+                int camLbX = (int)Math.Floor(pos.X / lbSize);
+                int camLbY = (int)Math.Floor(pos.Y / lbSize);
+
+                int range = Context.EditorState.ObjectRenderDistance;
+                for (int lbX = camLbX - range; lbX <= camLbX + range; lbX++) {
+                    for (int lbY = camLbY - range; lbY <= camLbY + range; lbY++) {
+                        if (lbX < 0 || lbX >= region.MapWidthInLandblocks || lbY < 0 || lbY >= region.MapHeightInLandblocks) continue;
+
+                        // TODO: Frustum culling?
+                        
+                        for (int vx = 0; vx < 8; vx++) {
+                            for (int vy = 0; vy < 8; vy++) {
+                                int gvx = lbX * 8 + vx;
+                                int gvy = lbY * 8 + vy;
+                                if (Context.HoveredObject.Type == InspectorSelectionType.Vertex && Context.HoveredObject.VertexX == gvx && Context.HoveredObject.VertexY == gvy) continue;
+                                if (Context.SelectedObject.Type == InspectorSelectionType.Vertex && Context.SelectedObject.VertexX == gvx && Context.SelectedObject.VertexY == gvy) continue;
+
+                                DrawVertexDebug(debugRenderer, gvx, gvy, VertexColor);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (Context.HoveredObject.Type == InspectorSelectionType.Vertex) {
+                DrawVertexDebug(debugRenderer, Context.HoveredObject.VertexX, Context.HoveredObject.VertexY, LandscapeColorsSettings.Instance.Hover);
+            }
+            if (Context.SelectedObject.Type == InspectorSelectionType.Vertex) {
+                DrawVertexDebug(debugRenderer, Context.SelectedObject.VertexX, Context.SelectedObject.VertexY, LandscapeColorsSettings.Instance.Selection);
+            }
+        }
+
+        private void DrawVertexDebug(IDebugRenderer debugRenderer, int vx, int vy, Vector4 color) {
+            if (Context?.Document.Region == null) return;
+
+            var region = Context.Document.Region;
+            if (vx < 0 || vx >= region.MapWidthInVertices || vy < 0 || vy >= region.MapHeightInVertices) return;
+
+            float cellSize = region.CellSizeInUnits;
+            int lbCellLen = region.LandblockCellLength;
+            Vector2 mapOffset = region.MapOffset;
+
+            int lbX = vx / lbCellLen;
+            int lbY = vy / lbCellLen;
+            int localVx = vx % lbCellLen;
+            int localVy = vy % lbCellLen;
+
+            float x = lbX * (cellSize * lbCellLen) + localVx * cellSize + mapOffset.X;
+            float y = lbY * (cellSize * lbCellLen) + localVy * cellSize + mapOffset.Y;
+            float z = Context.Document.GetHeight(vx, vy);
+
+            var pos = new Vector3(x, y, z);
+            debugRenderer.DrawSphere(pos, 1.5f, color);
+        }
+
         private void OnColorsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
             if (string.IsNullOrEmpty(e.PropertyName)) {
                 OnPropertyChanged(nameof(VertexColor));

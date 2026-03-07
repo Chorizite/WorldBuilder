@@ -40,5 +40,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             return new BoundingBox(min, max);
         }
+
+        public static WorldBuilder.Shared.Lib.BoundingBox ToShared(this BoundingBox box) {
+            return new WorldBuilder.Shared.Lib.BoundingBox(box.Min, box.Max);
+        }
     }
 }

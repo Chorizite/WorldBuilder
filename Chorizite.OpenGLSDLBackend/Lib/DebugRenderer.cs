@@ -4,12 +4,13 @@ using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Lib;
 using Chorizite.Core.Render;
 using Chorizite.Core.Lib;
 using DatReaderWriter.Types;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
-    public unsafe class DebugRenderer : IDisposable {
+    public unsafe class DebugRenderer : IDebugRenderer, IDisposable {
         private readonly GL _gl;
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private uint _quadVbo;
@@ -95,11 +96,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             });
         }
 
-        public void DrawBox(BoundingBox box, Vector4 color) {
+        public void DrawBox(WorldBuilder.Shared.Lib.BoundingBox box, Vector4 color) {
             DrawBox(box, Matrix4x4.Identity, color);
         }
 
-        public void DrawBox(BoundingBox box, Matrix4x4 transform, Vector4 color) {
+        public void DrawBox(WorldBuilder.Shared.Lib.BoundingBox box, Matrix4x4 transform, Vector4 color) {
             var min = box.Min;
             var max = box.Max;
 
@@ -202,6 +203,39 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             DrawLine(end, headBase - perp1 * headWidth, color, thickness);
             DrawLine(end, headBase + perp2 * headWidth, color, thickness);
             DrawLine(end, headBase - perp2 * headWidth, color, thickness);
+        }
+
+        public void DrawCylinder(Vector3 start, Vector3 end, float radius, Vector4 color) {
+            var dir = end - start;
+            if (dir.LengthSquared() < 0.0001f) return;
+            var axis = Vector3.Normalize(dir);
+            DrawCircle(start, radius, axis, color);
+            DrawCircle(end, radius, axis, color);
+            DrawLine(start, end, color);
+        }
+
+        public void DrawCone(Vector3 origin, Vector3 direction, float length, float radius, Vector4 color) {
+            DrawCircle(origin, radius, direction, color);
+            DrawLine(origin, origin + direction * length, color);
+        }
+
+        public void DrawTorus(Vector3 center, Vector3 axis, float radius, float tubeRadius, Vector4 color) {
+            DrawCircle(center, radius, axis, color);
+        }
+
+        public void DrawPlane(Vector3 origin, Vector3 axis1, Vector3 axis2, float size, Vector4 color) {
+            DrawLine(origin, origin + axis1 * size, color);
+            DrawLine(origin, origin + axis2 * size, color);
+            DrawLine(origin + axis1 * size, origin + axis1 * size + axis2 * size, color);
+            DrawLine(origin + axis2 * size, origin + axis1 * size + axis2 * size, color);
+        }
+
+        public void DrawCenterBox(Vector3 center, float size, Vector4 color) {
+            DrawBox(new WorldBuilder.Shared.Lib.BoundingBox(center - new Vector3(size / 2), center + new Vector3(size / 2)), color);
+        }
+
+        public void DrawPie(Vector3 center, float radius, Vector3 axis, Vector3 startAxis, float angle, Vector4 color) {
+            DrawCircle(center, radius, axis, color);
         }
 
         public void Render(Matrix4x4 view, Matrix4x4 projection, bool depthTest = true) {

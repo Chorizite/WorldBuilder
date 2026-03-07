@@ -44,7 +44,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         public override void Activate(LandscapeToolContext context) {
             base.Activate(context);
-            ShowBrush = false;
             context.CommandHistory.OnChange += OnCommandHistoryChanged;
         }
 
@@ -55,6 +54,18 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             ClearSelection();
             ClearHover();
             base.Deactivate();
+        }
+
+        public override void Suspend() {
+            base.Suspend();
+            ClearHover();
+        }
+
+        public override void Render(IDebugRenderer debugRenderer) {
+            if (HasSelection && Context != null) {
+                GizmoState.CameraPosition = Context.Camera.Position;
+                GizmoRenderer.Draw(debugRenderer, GizmoState);
+            }
         }
 
         private void ClearHover() {

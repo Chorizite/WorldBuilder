@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Numerics;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
@@ -21,35 +22,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             protected set => SetProperty(ref _isActive, value);
         }
 
-        private bool _showBrush;
+        protected ILandscapeBrush? _brush;
         /// <inheritdoc/>
-        public bool ShowBrush {
-            get => _showBrush;
-            protected set => SetProperty(ref _showBrush, value);
-        }
-
-        private Vector3 _brushPosition;
-        /// <inheritdoc/>
-        public Vector3 BrushPosition {
-            get => _brushPosition;
-            protected set => SetProperty(ref _brushPosition, value);
-        }
-
-        private float _brushRadius = 30f;
-        /// <inheritdoc/>
-        public float BrushRadius {
-            get => _brushRadius;
-            protected set => SetProperty(ref _brushRadius, value);
-        }
-
-        private BrushShape _brushShape = BrushShape.Circle;
-        /// <inheritdoc/>
-        public BrushShape BrushShape {
-            get => _brushShape;
-            protected set => SetProperty(ref _brushShape, value);
+        public virtual ILandscapeBrush? Brush {
+            get => _brush;
+            protected set => SetProperty(ref _brush, value);
         }
 
         protected LandscapeToolContext? Context;
+        private bool _wasBrushShowingBeforeSuspension;
 
         /// <inheritdoc/>
         public virtual void Activate(LandscapeToolContext context) {
@@ -60,12 +41,33 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <inheritdoc/>
         public virtual void Deactivate() {
             IsActive = false;
-            ShowBrush = false;
+            if (_brush != null) {
+                _brush.IsVisible = false;
+            }
             Context = null;
         }
 
         /// <inheritdoc/>
+        public virtual void Suspend() {
+            if (_brush != null) {
+                _wasBrushShowingBeforeSuspension = _brush.IsVisible;
+                _brush.IsVisible = false;
+            }
+        }
+
+        /// <inheritdoc/>
+        public virtual void Resume() {
+            if (_brush != null) {
+                _brush.IsVisible = _wasBrushShowingBeforeSuspension;
+            }
+        }
+
+        /// <inheritdoc/>
         public virtual void Update(double deltaTime) {
+        }
+
+        /// <inheritdoc/>
+        public virtual void Render(IDebugRenderer debugRenderer) {
         }
 
         /// <inheritdoc/>
@@ -78,6 +80,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public virtual bool OnPointerReleased(ViewportInputEvent e) {
             return false;
         }
+
+        /// <inheritdoc/>
+        public virtual bool OnKeyDown(ViewportInputEvent e) => false;
+
+        /// <inheritdoc/>
+        public virtual bool OnKeyUp(ViewportInputEvent e) => false;
 
         protected TerrainRaycastHit Raycast(double x, double y) {
             if (Context == null || Context.Document.Region == null) return new TerrainRaycastHit();

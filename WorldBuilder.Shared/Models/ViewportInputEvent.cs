@@ -23,5 +23,9 @@ namespace WorldBuilder.Shared.Models {
         public bool AltDown { get; set; }
         /// <summary>The button that was released, if any.</summary>
         public int? ReleasedButton { get; set; }
+        /// <summary>The key that was pressed or released, if any.</summary>
+        public string? Key { get; set; }
+        /// <summary>The mouse wheel delta, if any.</summary>
+        public float? WheelDelta { get; set; }
     }
 }
