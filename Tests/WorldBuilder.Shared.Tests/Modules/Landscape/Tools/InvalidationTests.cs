@@ -2,6 +2,7 @@ using WorldBuilder.Shared.Services;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System.Collections.Generic;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
@@ -101,7 +102,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var regionProp = typeof(LandscapeDocument).GetProperty("Region");
             regionProp?.SetValue(doc, regionMock.Object);
 
-            var context = new LandscapeToolContext(doc, new Mock<IDatReaderWriter>().Object, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object);
+            var context = new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object);
             context.InvalidateLandblock = onInvalidate;
             return context;
         }

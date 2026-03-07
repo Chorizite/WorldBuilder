@@ -195,8 +195,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             newValue.Activate(_toolContext);
         }
 
-        _gameScene?.SetInspectorTool(newValue as InspectorTool);
-        _gameScene?.SetManipulationTool(newValue as ObjectManipulationTool);
+        _gameScene?.SetActiveTool(newValue);
     }
 
     private void OnToolPropertyChanged(object? sender, PropertyChangedEventArgs e) {
@@ -263,7 +262,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 _toolContext.InspectorSelected -= OnInspectorSelected;
             }
 
-            _toolContext = new LandscapeToolContext(ActiveDocument, _dats, CommandHistory, Camera, _log, ActiveLayer);
+            _toolContext = new LandscapeToolContext(ActiveDocument, EditorState, _dats, CommandHistory, Camera, _log, ActiveLayer);
             _toolContext.RequestSave = RequestSave;
             if (_invalidateCallback != null) {
                 _toolContext.InvalidateLandblock = _invalidateCallback;
@@ -346,8 +345,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             };
 
             _gameScene?.SetToolContext(_toolContext);
-            _gameScene?.SetInspectorTool(ActiveTool as InspectorTool);
-            _gameScene?.SetManipulationTool(ActiveTool as ObjectManipulationTool);
+            _gameScene?.SetActiveTool(ActiveTool);
 
             ActiveTool?.Activate(_toolContext);
         }
@@ -356,11 +354,6 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         }
     }
 
-    public void ActivateCurrentTool() {
-        if (ActiveTool != null && _toolContext != null) {
-            ActiveTool.Activate(_toolContext);
-        }
-    }
 
     private void OnInspectorHovered(object? sender, InspectorSelectionEventArgs e) {
         _gameScene?.SetHoveredObject(e.Selection.Type, e.Selection.LandblockId, e.Selection.InstanceId, e.Selection.ObjectId, e.Selection.VertexX, e.Selection.VertexY);

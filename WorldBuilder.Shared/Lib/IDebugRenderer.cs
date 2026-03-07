@@ -1,11 +1,11 @@
+using System;
 using System.Numerics;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
+namespace WorldBuilder.Shared.Lib {
     /// <summary>
-    /// Abstraction for drawing debug lines and solid 3D shapes, allowing gizmo rendering
-    /// to work with both the real backend renderer and test mocks.
+    /// Abstraction for drawing debug lines and solid 3D shapes.
     /// </summary>
-    public interface IGizmoDrawer {
+    public interface IDebugRenderer {
         /// <summary>Draws a line between two world-space points.</summary>
         void DrawLine(Vector3 start, Vector3 end, Vector4 color, float thickness = 2.0f);
 
@@ -14,6 +14,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
 
         /// <summary>Draws a line with an arrowhead at the end.</summary>
         void DrawArrow(Vector3 start, Vector3 end, Vector4 color, float headLength = 0.3f, float thickness = 2.0f);
+
+        /// <summary>Draws an axis-aligned bounding box.</summary>
+        void DrawBox(BoundingBox box, Vector4 color);
+
+        /// <summary>Draws a bounding box with a transform.</summary>
+        void DrawBox(BoundingBox box, Matrix4x4 transform, Vector4 color);
+
+        /// <summary>Draws a wireframe sphere.</summary>
+        void DrawSphere(Vector3 center, float radius, Vector4 color, int segments = 16);
 
         /// <summary>Draws a 3D cylinder.</summary>
         void DrawCylinder(Vector3 start, Vector3 end, float radius, Vector4 color);

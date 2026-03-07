@@ -187,7 +187,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         else if (instance.IsBuilding) color = settings.BuildingColor;
                         else color = settings.StaticObjectColor;
 
-                        debug.DrawBox(instance.LocalBoundingBox, instance.Transform, color);
+                        debug.DrawBox(instance.LocalBoundingBox.ToShared(), instance.Transform, color);
                     }
                 }
             }

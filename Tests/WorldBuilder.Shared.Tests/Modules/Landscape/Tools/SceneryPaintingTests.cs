@@ -1,6 +1,7 @@
 using Moq;
 using System;
 using System.Numerics;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Modules.Landscape.Models;
@@ -109,7 +110,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             doc.AddLayer([], "Active Layer", true, layerId);
             var activeLayer = (LandscapeLayer)doc.FindItem(layerId)!;
 
-            return new LandscapeToolContext(doc, new Mock<IDatReaderWriter>().Object, new CommandHistory(), new Mock<ICamera>().Object, new Mock<Microsoft.Extensions.Logging.ILogger>().Object, activeLayer);
+            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), new Mock<ICamera>().Object, new Mock<Microsoft.Extensions.Logging.ILogger>().Object, activeLayer);
         }
     }
 }

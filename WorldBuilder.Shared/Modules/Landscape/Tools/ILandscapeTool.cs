@@ -1,6 +1,7 @@
 using System.Numerics;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     /// <summary>
@@ -33,9 +34,19 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <summary>Deactivates the tool.</summary>
         void Deactivate();
 
+        /// <summary>Temporarily suspends the tool (e.g., during mouselook).</summary>
+        void Suspend();
+
+        /// <summary>Resumes the tool after suspension.</summary>
+        void Resume();
+
         /// <summary>Updates the tool's state.</summary>
         /// <param name="deltaTime">The time since the last update.</param>
         void Update(double deltaTime);
+
+        /// <summary>Renders any debug or visual aids for the tool.</summary>
+        /// <param name="debugRenderer">The debug renderer to use.</param>
+        void Render(IDebugRenderer debugRenderer);
 
         /// <summary>Called when a pointer (mouse/touch) is pressed.</summary>
         /// <param name="e">The input event.</param>
@@ -51,5 +62,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <param name="e">The input event.</param>
         /// <returns>True if the event was handled; otherwise, false.</returns>
         bool OnPointerReleased(ViewportInputEvent e);
+
+        /// <summary>Called when a key is pressed.</summary>
+        /// <param name="e">The input event containing the key information.</param>
+        /// <returns>True if the event was handled; otherwise, false.</returns>
+        bool OnKeyDown(ViewportInputEvent e);
+
+        /// <summary>Called when a key is released.</summary>
+        /// <param name="e">The input event containing the key information.</param>
+        /// <returns>True if the event was handled; otherwise, false.</returns>
+        bool OnKeyUp(ViewportInputEvent e);
     }
 }

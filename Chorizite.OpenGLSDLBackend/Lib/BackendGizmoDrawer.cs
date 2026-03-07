@@ -4,10 +4,10 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo;
+using WorldBuilder.Shared.Lib;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
-    public unsafe class BackendGizmoDrawer : IGizmoDrawer, IDisposable {
+    public unsafe class BackendGizmoDrawer : IDebugRenderer, IDisposable {
         private readonly GL _gl;
         private readonly OpenGLGraphicsDevice _graphicsDevice;
 
@@ -325,6 +325,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public void DrawArrow(Vector3 start, Vector3 end, Vector4 color, float headLength = 0.3f, float thickness = 2f) {
             _debugRendererFallback.DrawArrow(start, end, color, headLength, thickness);
+        }
+
+        public void DrawBox(WorldBuilder.Shared.Lib.BoundingBox box, Vector4 color) {
+            _debugRendererFallback.DrawBox(box, color);
+        }
+
+        public void DrawBox(WorldBuilder.Shared.Lib.BoundingBox box, Matrix4x4 transform, Vector4 color) {
+            _debugRendererFallback.DrawBox(box, transform, color);
+        }
+
+        public void DrawSphere(Vector3 center, float radius, Vector4 color, int segments = 16) {
+            _debugRendererFallback.DrawSphere(center, radius, color, segments);
         }
 
         public void DrawCylinder(Vector3 start, Vector3 end, float radius, Vector4 color) {

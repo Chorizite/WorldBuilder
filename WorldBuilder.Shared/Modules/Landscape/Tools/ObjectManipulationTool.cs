@@ -57,6 +57,18 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             base.Deactivate();
         }
 
+        public override void Suspend() {
+            base.Suspend();
+            ClearHover();
+        }
+
+        public override void Render(IDebugRenderer debugRenderer) {
+            if (HasSelection && Context != null) {
+                GizmoState.CameraPosition = Context.Camera.Position;
+                GizmoRenderer.Draw(debugRenderer, GizmoState);
+            }
+        }
+
         private void ClearHover() {
             if (_lastHoveredHit.Hit) {
                 _lastHoveredHit = SceneRaycastHit.NoHit;

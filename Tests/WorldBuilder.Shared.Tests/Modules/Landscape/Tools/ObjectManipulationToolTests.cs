@@ -3,6 +3,7 @@ using Moq;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
@@ -118,9 +119,8 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             var cameraMock = new Mock<ICamera>();
             cameraMock.Setup(c => c.ProjectionMatrix).Returns(Matrix4x4.Identity);
-            cameraMock.Setup(c => c.ViewMatrix).Returns(Matrix4x4.Identity);
 
-            return new LandscapeToolContext(doc, new Mock<IDatReaderWriter>().Object, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object);
+            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object);
         }
     }
 }

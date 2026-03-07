@@ -121,6 +121,18 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             return false;
         }
 
+        public override bool OnKeyDown(ViewportInputEvent e) {
+            if (e.Key == "OemOpenBrackets") {
+                BrushSize = Math.Max(1, BrushSize - 1);
+                return true;
+            }
+            if (e.Key == "OemCloseBrackets") {
+                BrushSize++;
+                return true;
+            }
+            return base.OnKeyDown(e);
+        }
+
         private void ApplyPaint(TerrainRaycastHit hit) {
             if (Context == null || _currentStroke == null) return;
             // Snap to nearest vertex

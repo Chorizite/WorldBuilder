@@ -130,6 +130,14 @@ public partial class RenderView : Base3DViewport {
     }
 
     protected override void OnGlKeyDown(KeyEventArgs e) {
+        if (DataContext is LandscapeViewModel vm && vm.ActiveTool != null) {
+            var inputEvent = CreateInputEvent(e);
+            if (vm.ActiveTool.OnKeyDown(inputEvent)) {
+                e.Handled = true;
+                return;
+            }
+        }
+
         // Handle Tab key specially to prevent focus navigation
         if (e.Key == Key.Tab) {
             _gameScene?.HandleKeyDown("Tab");
@@ -165,7 +173,27 @@ public partial class RenderView : Base3DViewport {
     }
 
     protected override void OnGlKeyUp(KeyEventArgs e) {
+        if (DataContext is LandscapeViewModel vm && vm.ActiveTool != null) {
+            var inputEvent = CreateInputEvent(e);
+            if (vm.ActiveTool.OnKeyUp(inputEvent)) {
+                e.Handled = true;
+                return;
+            }
+        }
         _gameScene?.HandleKeyUp(e.Key.ToString());
+    }
+
+    private ViewportInputEvent CreateInputEvent(KeyEventArgs e) {
+        var size = new Vector2((float)Bounds.Width, (float)Bounds.Height) * InputScale;
+        return new ViewportInputEvent {
+            Position = _lastPointerPosition,
+            Delta = Vector2.Zero,
+            ViewportSize = size,
+            ShiftDown = (e.KeyModifiers & KeyModifiers.Shift) != 0,
+            CtrlDown = (e.KeyModifiers & KeyModifiers.Control) != 0,
+            AltDown = (e.KeyModifiers & KeyModifiers.Alt) != 0,
+            Key = e.Key.ToString()
+        };
     }
 
     private ViewportInputEvent CreateInputEvent(PointerEventArgs e) {
@@ -451,9 +479,9 @@ public partial class RenderView : Base3DViewport {
     private bool _prevShowBrush;
 
     private void ClearToolState() {
-        // Deactivate the current tool during AltMouseLook
+        // Suspend the current tool during AltMouseLook
         if (DataContext is LandscapeViewModel vm && vm.ActiveTool != null) {
-            vm.ActiveTool.Deactivate();
+            vm.ActiveTool.Suspend();
         }
         _prevShowBrush = ShowBrush;
         ShowBrush = false;
@@ -462,7 +490,7 @@ public partial class RenderView : Base3DViewport {
     private void ResumeToolState() {
         // Re-activate the current tool when AltMouseLook ends
         if (DataContext is LandscapeViewModel vm && vm.ActiveTool != null) {
-            vm.ActivateCurrentTool();
+            vm.ActiveTool.Resume();
         }
         ShowBrush = _prevShowBrush;
     }

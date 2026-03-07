@@ -1,9 +1,10 @@
 using System;
 using System.Numerics;
+using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
     /// <summary>
-    /// Stateless helper that submits gizmo shapes to an <see cref="IGizmoDrawer"/>.
+    /// Stateless helper that submits gizmo shapes to an <see cref="IDebugRenderer"/>.
     /// </summary>
     public static class GizmoRenderer {
         // Axis colors
@@ -22,12 +23,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
         /// <summary>
         /// Renders the gizmo for the given state.
         /// </summary>
-        public static void Draw(IGizmoDrawer drawer, GizmoState state) {
+        public static void Draw(IDebugRenderer drawer, GizmoState state) {
             DrawTranslationGizmo(drawer, state);
             DrawRotationGizmo(drawer, state);
         }
 
-        private static void DrawTranslationGizmo(IGizmoDrawer drawer, GizmoState state) {
+        private static void DrawTranslationGizmo(IDebugRenderer drawer, GizmoState state) {
             var origin = state.Position;
             var highlight = state.IsDragging ? state.ActiveComponent : state.HoveredComponent;
 
@@ -86,7 +87,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
             drawer.DrawCenterBox(origin, size * 0.15f, centerColor);
         }
 
-        private static void DrawRotationGizmo(IGizmoDrawer drawer, GizmoState state) {
+        private static void DrawRotationGizmo(IDebugRenderer drawer, GizmoState state) {
             var origin = state.Position;
             var highlight = state.IsDragging ? state.ActiveComponent : state.HoveredComponent;
 

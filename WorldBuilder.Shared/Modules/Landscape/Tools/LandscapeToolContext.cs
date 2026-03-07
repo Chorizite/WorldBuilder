@@ -22,11 +22,19 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public event EventHandler<InspectorSelectionEventArgs>? InspectorHovered;
         public event EventHandler<InspectorSelectionEventArgs>? InspectorSelected;
 
+        /// <summary>The currently selected object in the scene.</summary>
+        public ISelectedObjectInfo SelectedObject { get; private set; } = SceneRaycastHit.NoHit;
+
+        /// <summary>The currently hovered object in the scene.</summary>
+        public ISelectedObjectInfo HoveredObject { get; private set; } = SceneRaycastHit.NoHit;
+
         public void NotifyInspectorHovered(ISelectedObjectInfo selection) {
+            HoveredObject = selection;
             InspectorHovered?.Invoke(this, new InspectorSelectionEventArgs(selection));
         }
 
         public void NotifyInspectorSelected(ISelectedObjectInfo selection) {
+            SelectedObject = selection;
             InspectorSelected?.Invoke(this, new InspectorSelectionEventArgs(selection));
         }
 
@@ -62,6 +70,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         /// <summary>The active landscape document.</summary>
         public LandscapeDocument Document { get; }
+        /// <summary>The current editor state.</summary>
+        public EditorState EditorState { get; }
         /// <summary>The dat reader/writer.</summary>
         public WorldBuilder.Shared.Services.IDatReaderWriter Dats { get; }
         /// <summary>The command history for undo/redo.</summary>
@@ -107,13 +117,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         /// <summary>Initializes a new instance of the <see cref="LandscapeToolContext"/> class.</summary>
         /// <param name="document">The landscape document.</param>
+        /// <param name="editorState">The editor state.</param>
         /// <param name="dats">The dat reader/writer.</param>
         /// <param name="commandHistory">The command history.</param>
         /// <param name="camera">The camera.</param>
         /// <param name="logger">The logger.</param>
         /// <param name="activeLayer">The active layer (optional).</param>
-        public LandscapeToolContext(LandscapeDocument document, WorldBuilder.Shared.Services.IDatReaderWriter dats, CommandHistory commandHistory, ICamera camera, ILogger logger, LandscapeLayer? activeLayer = null) {
+        public LandscapeToolContext(LandscapeDocument document, EditorState editorState, WorldBuilder.Shared.Services.IDatReaderWriter dats, CommandHistory commandHistory, ICamera camera, ILogger logger, LandscapeLayer? activeLayer = null) {
             Document = document;
+            EditorState = editorState;
             Dats = dats;
             CommandHistory = commandHistory;
             Camera = camera;

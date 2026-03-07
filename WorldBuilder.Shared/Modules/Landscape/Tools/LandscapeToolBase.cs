@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Numerics;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
@@ -50,6 +51,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         protected LandscapeToolContext? Context;
+        private bool _wasBrushShowingBeforeSuspension;
 
         /// <inheritdoc/>
         public virtual void Activate(LandscapeToolContext context) {
@@ -65,7 +67,22 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         /// <inheritdoc/>
+        public virtual void Suspend() {
+            _wasBrushShowingBeforeSuspension = ShowBrush;
+            ShowBrush = false;
+        }
+
+        /// <inheritdoc/>
+        public virtual void Resume() {
+            ShowBrush = _wasBrushShowingBeforeSuspension;
+        }
+
+        /// <inheritdoc/>
         public virtual void Update(double deltaTime) {
+        }
+
+        /// <inheritdoc/>
+        public virtual void Render(IDebugRenderer debugRenderer) {
         }
 
         /// <inheritdoc/>
@@ -78,6 +95,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public virtual bool OnPointerReleased(ViewportInputEvent e) {
             return false;
         }
+
+        /// <inheritdoc/>
+        public virtual bool OnKeyDown(ViewportInputEvent e) => false;
+
+        /// <inheritdoc/>
+        public virtual bool OnKeyUp(ViewportInputEvent e) => false;
 
         protected TerrainRaycastHit Raycast(double x, double y) {
             if (Context == null || Context.Document.Region == null) return new TerrainRaycastHit();
