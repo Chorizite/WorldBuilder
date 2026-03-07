@@ -28,6 +28,7 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddLogging((c) => {
                 c.AddProvider(new ColorConsoleLoggerProvider());
                 c.SetMinimumLevel(LogLevel.Debug);
+                c.Services.AddSingleton<ILoggerProvider>(sp => new AppLogProvider(sp.GetRequiredService<AppLogService>()));
             });
 
             collection.AddSingleton<WorldBuilderSettings>();
@@ -39,6 +40,8 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton<SharedOpenGLContextManager>();
             collection.AddSingleton<PerformanceService>();
             collection.AddSingleton<BookmarksManager>();
+            collection.AddSingleton<AppLogService>();
+            
 
             // Register dialog service
             collection.AddSingleton<IDialogService>(provider => new DialogService(
@@ -97,6 +100,7 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton(rootProvider.GetRequiredService<IDialogService>());
             collection.AddSingleton(rootProvider.GetRequiredService<PerformanceService>());
             collection.AddSingleton(rootProvider.GetRequiredService<BookmarksManager>());
+            collection.AddSingleton(rootProvider.GetRequiredService<AppLogService>());
 
             collection.AddSingleton((Project)project);
             collection.AddSingleton<IProject>(project);

@@ -51,6 +51,8 @@ public partial class App : Application {
     /// Initializes a new instance of the App class.
     /// </summary>
     public App() {
+        CommandLineOptions = CommandLineOptions.Parse(Environment.GetCommandLineArgs());
+        
         Services = ApplicationBootstrapper.BuildServiceProvider(CommandLineOptions);
         _projectManager = Services.GetService<ProjectManager>();
         ProjectManager = _projectManager;
@@ -138,11 +140,19 @@ public partial class App : Application {
 
         var projectSelectionVM = Services?.GetService<SplashPageViewModel>();
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) {
-            var args = desktop.Args;
-            if (args?.Length == 1) {
-                var projectPath = args[0];
-                if (File.Exists(projectPath)) {
-                    WeakReferenceMessenger.Default.Send(new OpenProjectMessage(projectPath));
+            if (!string.IsNullOrEmpty(CommandLineOptions.ProjectPath)) {
+                if (File.Exists(CommandLineOptions.ProjectPath)) {
+                    var log = Services?.GetService<ILogger<App>>();
+                    var extension = Path.GetExtension(CommandLineOptions.ProjectPath).ToLower();
+
+                    if (extension == ".dat") {
+                        log?.LogInformation("Opening DAT file from CLI: {Path}", CommandLineOptions.ProjectPath);
+                        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(CommandLineOptions.ProjectPath));
+                    }
+                    else {
+                        log?.LogInformation("Opening project from CLI: {Path}", CommandLineOptions.ProjectPath);
+                        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(CommandLineOptions.ProjectPath));
+                    }
                     return;
                 }
             }
