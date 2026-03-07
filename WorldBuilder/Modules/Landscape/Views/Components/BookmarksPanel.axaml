@@ -84,6 +84,7 @@
                     <TreeDataGrid.Styles>
                         <Style Selector="TreeDataGridRow">
                             <Setter Property="MinHeight" Value="16" />
+                            <Setter Property="Background" Value="Transparent" />
                         </Style>
                     </TreeDataGrid.Styles>
                     <TreeDataGrid.DataTemplates>
