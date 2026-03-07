@@ -65,8 +65,7 @@ public partial class BookmarksPanel : UserControl {
                 _currentDropPosition = DropPosition.None;
 
                 // Start new dragging event.
-                // Even if this isn't a "true" drag yet,
-                // LMB release will be handled OnPointerMoved and OnPointerReleased
+                // Even if this isn't a "true" drag yet, LMB release will be handled in OnPointerMoved and OnPointerReleased
                 _draggedBookmark = bookmarkNode;
                 _isDragging = true;
 
