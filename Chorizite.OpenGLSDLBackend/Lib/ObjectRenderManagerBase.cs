@@ -805,7 +805,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #region Private: Core Logic
 
         private void OnLandblockChanged(object? sender, LandblockChangedEventArgs e) {
-            if (e.ChangeType != LandblockChangeType.All && !e.ChangeType.HasFlag(LandblockChangeType.Objects)) return;
+            if (e.ChangeType != LandblockChangeType.All && !e.ChangeType.HasFlag(LandblockChangeType.Objects) && !e.ChangeType.HasFlag(LandblockChangeType.Terrain)) return;
 
             if (e.AffectedLandblocks == null) {
                 foreach (var lb in _landblocks.Values) {

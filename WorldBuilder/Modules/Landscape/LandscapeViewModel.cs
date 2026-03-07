@@ -495,6 +495,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                     ActiveDocument.NotifyLandblockChanged(new[] { (x, y) }, LandblockChangeType.All);
                 }
             }
+            invalidateCallback(x, y);
         };
         UpdateToolContext();
     }
