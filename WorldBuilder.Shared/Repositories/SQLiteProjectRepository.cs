@@ -1,4 +1,4 @@
-﻿using FluentMigrator.Runner;
+using FluentMigrator.Runner;
 using MemoryPack;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
@@ -277,6 +277,37 @@ namespace WorldBuilder.Shared.Repositories {
                 _logger?.LogError(ex, "Error retrieving terrain patch IDs for region: {RegionId}", regionId);
             }
             return ids;
+        }
+
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<TerrainPatch>> GetTerrainPatchesAsync(uint regionId, ITransaction? tx, CancellationToken ct) {
+            var patches = new List<TerrainPatch>();
+            try {
+                _logger?.LogDebug("Retrieving all terrain patches for region: {RegionId}", regionId);
+                var dbTxResult = GetDbTransaction(tx);
+                var dbTx = dbTxResult.IsSuccess ? dbTxResult.Value : null;
+
+                const string sql = "SELECT Id, RegionId, Data, Version, LastModified FROM TerrainPatches WHERE RegionId = @regionId";
+                await using var cmd = Connection.CreateCommand();
+                cmd.Transaction = dbTx;
+                cmd.CommandText = sql;
+                cmd.Parameters.AddWithValue("@regionId", (long)regionId);
+                await using var reader = await cmd.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct)) {
+                    patches.Add(new TerrainPatch {
+                        Id = reader.GetString(0),
+                        RegionId = (uint)reader.GetInt64(1),
+                        Data = (byte[])reader["Data"],
+                        Version = (ulong)reader.GetInt64(3),
+                        LastModified = reader.GetDateTime(4)
+                    });
+                }
+                _logger?.LogDebug("Retrieved {Count} terrain patches for region: {RegionId}", patches.Count, regionId);
+            }
+            catch (Exception ex) {
+                _logger?.LogError(ex, "Error retrieving terrain patches for region: {RegionId}", regionId);
+            }
+            return patches;
         }
 
         /// <inheritdoc/>

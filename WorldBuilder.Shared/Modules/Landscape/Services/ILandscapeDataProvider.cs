@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using WorldBuilder.Shared.Lib;
+using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Services;
 
@@ -43,5 +45,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services
         /// <param name="ct">The cancellation token.</param>
         /// <returns>The merged environment cell data.</returns>
         Task<Cell> GetMergedEnvCellAsync(uint cellId, IDatDatabase? cellDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct);
+
+        /// <summary>
+        /// Gets merged terrain data for a region, applying changes from visible layers.
+        /// </summary>
+        /// <param name="regionId">The region ID.</param>
+        /// <param name="visibleLayerIds">The set of visible layer IDs.</param>
+        /// <param name="regionInfo">The region info for vertex index calculation.</param>
+        /// <param name="ct">The cancellation token.</param>
+        /// <returns>A dictionary mapping global vertex index to its merged terrain entry.</returns>
+        Task<IReadOnlyDictionary<uint, TerrainEntry>> GetMergedTerrainAsync(uint regionId, IEnumerable<string> visibleLayerIds, ITerrainInfo regionInfo, CancellationToken ct);
     }
 }

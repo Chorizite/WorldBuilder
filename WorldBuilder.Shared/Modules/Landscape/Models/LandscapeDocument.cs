@@ -16,7 +16,6 @@ namespace WorldBuilder.Shared.Models {
     /// <summary>
     /// Represents a landscape document, which manages a collection of terrain layers and handles data merging.
     /// </summary>
-    [MemoryPackable]
     public partial class LandscapeDocument : BaseDocument {
         private static readonly IWorldCoordinateService _coords = new WorldCoordinateService();
 
@@ -56,46 +55,38 @@ namespace WorldBuilder.Shared.Models {
         /// <summary>
         /// Gets the ID of the base layer.
         /// </summary>
-        [MemoryPackIgnore]
         public string? BaseLayerId => GetAllLayers().FirstOrDefault(l => l.IsBase)?.Id;
 
         private readonly SemaphoreSlim _initLock = new(1, 1);
-        private readonly SemaphoreSlim _dbLock = new(1, 1);
         private readonly SemaphoreSlim _ioSemaphore = new(Math.Max(2, System.Environment.ProcessorCount / 2));
         private readonly ConcurrentDictionary<ushort, SemaphoreSlim> _chunkLocks = new();
 
         /// <summary>
         /// The loaded terrain chunks.
         /// </summary>
-        [MemoryPackIgnore]
         public ConcurrentDictionary<ushort, LandscapeChunk> LoadedChunks { get; } = new();
 
         /// <summary>
         /// The terrain layer tree
         /// </summary>
-        [MemoryPackIgnore]
         public virtual List<LandscapeLayerBase> LayerTree { get; init; } = [];
 
         /// <summary>
         /// Region info + helpers
         /// </summary>
-        [MemoryPackIgnore]
         public ITerrainInfo? Region { get; set; }
 
         /// <summary>
         /// The region id this document belongs to
         /// </summary>
-        [MemoryPackIgnore]
         public uint RegionId => (Id.Split('_').Length > 1 && uint.TryParse(Id.Split('_')[1], out var rid)) ? rid : 0;
 
         /// <summary>
         /// The cell database for this region
         /// </summary>
-        [MemoryPackIgnore]
         public IDatDatabase? CellDatabase { get; set; }
 
         /// <summary>Initializes a new instance of the <see cref="LandscapeDocument"/> class.</summary>
-        [MemoryPackConstructor]
         public LandscapeDocument() : base() {
         }
 
@@ -784,7 +775,6 @@ namespace WorldBuilder.Shared.Models {
             }
             LoadedChunks.Clear();
             _initLock.Dispose();
-            _dbLock.Dispose();
             foreach (var semaphore in _chunkLocks.Values) {
                 semaphore.Dispose();
             }

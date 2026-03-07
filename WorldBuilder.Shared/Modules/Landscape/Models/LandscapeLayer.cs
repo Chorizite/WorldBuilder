@@ -1,25 +1,23 @@
-﻿using MemoryPack;
+using MemoryPack;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
 namespace WorldBuilder.Shared.Models {
     /// <summary>
-    /// Represents a single terrain layer within a landscape document.
+    /// Represents a single terrain layer.
     /// </summary>
     [MemoryPackable]
     public partial class LandscapeLayer : LandscapeLayerBase {
-        /// <summary>Whether this layer is the base layer (immutable representation of the .dat data).</summary>
-        [MemoryPackOrder(11)] public bool IsBase { get; init; }
+        /// <summary>Whether this is the base layer.</summary>
+        [MemoryPackOrder(0)] public bool IsBase { get; set; }
 
         /// <summary>Initializes a new instance of the <see cref="LandscapeLayer"/> class.</summary>
-        /// <param name="id">The unique identifier for the layer.</param>
-        /// <param name="isBase">Whether this is the base layer.</param>
-        public LandscapeLayer(string id, bool isBase = false) {
+        [MemoryPackConstructor]
+        public LandscapeLayer() : base() { }
+
+        /// <summary>Initializes a new instance of the <see cref="LandscapeLayer"/> class with an ID and base status.</summary>
+        public LandscapeLayer(string id, bool isBase = false) : base() {
             Id = id;
             IsBase = isBase;
-        }
-
-        [MemoryPackConstructor]
-        public LandscapeLayer() : base() {
         }
     }
 }

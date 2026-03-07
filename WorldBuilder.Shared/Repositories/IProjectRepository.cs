@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
@@ -138,6 +138,13 @@ namespace WorldBuilder.Shared.Repositories {
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task representing the result of the operation.</returns>
         Task<Result<Unit>> InsertEventAsync(BaseCommand evt, ITransaction? tx, CancellationToken ct);
+
+        /// <summary>Retrieves all terrain patches for a specific region.</summary>
+        /// <param name="regionId">The region ID.</param>
+        /// <param name="tx">The transaction (optional).</param>
+        /// <param name="ct">The cancellation token.</param>
+        /// <returns>A task containing a list of terrain patches.</returns>
+        Task<IReadOnlyList<TerrainPatch>> GetTerrainPatchesAsync(uint regionId, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Upserts a terrain patch into the repository.</summary>
         /// <param name="id">The terrain patch ID.</param>

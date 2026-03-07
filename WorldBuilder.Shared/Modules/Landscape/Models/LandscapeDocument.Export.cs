@@ -9,24 +9,29 @@ namespace WorldBuilder.Shared.Models {
             System.Console.WriteLine($"[DAT EXPORT] SaveToDatsInternal started for Region {RegionId}");
             if (Region == null || CellDatabase == null) return false;
 
-            // Ensure all chunks with edits are loaded so we don't miss any affected landblocks
-            await LoadAllModifiedChunksAsync(datwriter, _documentManager, CancellationToken.None);
+            // Ensure all chunks with edits are loaded/persisted so the provider sees them
+            // In a real flow, the UI/caller should ensure documents are persisted before export.
+            
+            // Identify visible layers (we export what is visible or marked as exported)
+            var visibleLayerIds = GetAllLayers().Where(l => l.IsVisible || IsItemExported(l)).Select(l => l.Id).ToList();
 
-            // Identify affected landblocks from exported layers
+            if (_landscapeDataProvider == null) throw new InvalidOperationException("LandscapeDataProvider not initialized");
+            
+            var mergedChanges = await _landscapeDataProvider.GetMergedTerrainAsync(RegionId, visibleLayerIds, Region, CancellationToken.None);
+            
+            // Identify affected landblocks from merged changes
             var affectedLandblocks = new HashSet<(int x, int y)>();
-            var exportedLayers = GetAllLayers().Where(IsItemExported).ToList();
+            int mapWidth = Region.MapWidthInVertices;
+            int strideMinusOne = Region.LandblockVerticeLength - 1;
 
-            var baseLayer = GetAllLayers().FirstOrDefault(l => l.IsBase);
-            if (baseLayer != null && !exportedLayers.Contains(baseLayer)) {
-                exportedLayers.Add(baseLayer);
+            foreach (var vertexIndex in mergedChanges.Keys) {
+                int vy = (int)(vertexIndex / mapWidth);
+                int vx = (int)(vertexIndex % mapWidth);
+                affectedLandblocks.Add((vx / strideMinusOne, vy / strideMinusOne));
             }
 
-            foreach (var layer in exportedLayers) {
-                if (_documentManager == null) throw new InvalidOperationException("DocumentManager not initialized");
-                foreach (var lb in await GetAffectedLandblocksAsync(layer.Id, datwriter, _documentManager, CancellationToken.None)) {
-                    affectedLandblocks.Add(lb);
-                }
-            }
+            int vertexStride = Region.LandblockVerticeLength;
+            int localSize = vertexStride * vertexStride;
 
             int totalAffected = affectedLandblocks.Count;
             System.Console.WriteLine($"[DAT EXPORT] Found {totalAffected} affected landblocks to export.");
@@ -36,34 +41,6 @@ namespace WorldBuilder.Shared.Models {
                 return true;
             }
 
-            // Merge changes from all exported layers into a single sparse map
-            var mergedChanges = new Dictionary<uint, TerrainEntry>();
-            foreach (var chunk in LoadedChunks.Values) {
-                if (chunk.Edits == null) continue;
-                foreach (var layer in exportedLayers) {
-
-                    if (chunk.Edits.LayerEdits.TryGetValue(layer.Id, out var layerVertices)) {
-                        for (int i = 0; i < layerVertices.Length; i++) {
-                            var entry = layerVertices[i];
-                            if (entry.Flags == TerrainEntryFlags.None) continue;
-
-                            var globalIndex = GetGlobalVertexIndex(chunk.Id, (ushort)i);
-                            if (mergedChanges.TryGetValue(globalIndex, out var existing)) {
-                                existing.Merge(entry);
-                                mergedChanges[globalIndex] = existing;
-                            }
-                            else {
-                                mergedChanges[globalIndex] = entry;
-                            }
-                        }
-                    }
-                }
-            }
-
-            int vertexStride = Region.LandblockVerticeLength;
-            int mapWidth = Region.MapWidthInVertices;
-            int strideMinusOne = vertexStride - 1;
-            int localSize = vertexStride * vertexStride;
 
             int processed = 0;
             // Export only affected landblocks

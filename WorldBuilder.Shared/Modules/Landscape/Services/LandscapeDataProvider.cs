@@ -1,16 +1,18 @@
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Types;
+using MemoryPack;
 using Microsoft.Extensions.Logging;
+using WorldBuilder.Shared.Lib;
+using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Repositories;
+using WorldBuilder.Shared.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
-using WorldBuilder.Shared.Lib;
-using WorldBuilder.Shared.Modules.Landscape.Models;
-using WorldBuilder.Shared.Repositories;
-using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Services {
     /// <summary>
@@ -246,6 +248,67 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
             }
 
             return properties;
+        }
+
+        /// <inheritdoc/>
+        public async Task<IReadOnlyDictionary<uint, TerrainEntry>> GetMergedTerrainAsync(uint regionId, IEnumerable<string> visibleLayerIds, ITerrainInfo regionInfo, CancellationToken ct) {
+            var mergedChanges = new Dictionary<uint, TerrainEntry>();
+            var visibleLayers = new HashSet<string>(visibleLayerIds);
+
+            // Fetch all terrain patches for the region
+            var patches = await _repo.GetTerrainPatchesAsync(regionId, null, ct);
+            if (patches == null) return mergedChanges;
+
+            int mapWidth = regionInfo.MapWidthInVertices;
+            int vertexStride = regionInfo.LandblockVerticeLength;
+            int strideMinusOne = vertexStride - 1;
+
+            foreach (var patch in patches) {
+                if (patch.Data == null || patch.Data.Length == 0) continue;
+
+                try {
+                    var doc = MemoryPackSerializer.Deserialize<TerrainPatchDocument>(patch.Data);
+                    if (doc == null) continue;
+
+                    // Extract chunk coords from ID: TerrainPatch_{regionId}_{chunkX}_{chunkY}
+                    var parts = doc.Id.Split('_');
+                    if (parts.Length < 4) continue;
+                    if (!uint.TryParse(parts[2], out var chunkX) || !uint.TryParse(parts[3], out var chunkY)) continue;
+
+                    // Calculate base offsets for this chunk
+                    int chunkBaseVx = (int)(chunkX * LandscapeChunk.LandblocksPerChunk * strideMinusOne);
+                    int chunkBaseVy = (int)(chunkY * LandscapeChunk.LandblocksPerChunk * strideMinusOne);
+
+                    foreach (var layerId in visibleLayers) {
+                        if (doc.LayerEdits.TryGetValue(layerId, out var layerVertices)) {
+                            for (int i = 0; i < layerVertices.Length; i++) {
+                                var entry = layerVertices[i];
+                                if (entry.Flags == TerrainEntryFlags.None) continue;
+
+                                // Calculate local chunk coords (65x65)
+                                int localY = i / LandscapeChunk.ChunkVertexStride;
+                                int localX = i % LandscapeChunk.ChunkVertexStride;
+
+                                // Calculate global vertex index
+                                uint globalVertexIndex = (uint)((chunkBaseVy + localY) * mapWidth + (chunkBaseVx + localX));
+
+                                if (mergedChanges.TryGetValue(globalVertexIndex, out var existing)) {
+                                    existing.Merge(entry);
+                                    mergedChanges[globalVertexIndex] = existing;
+                                }
+                                else {
+                                    mergedChanges[globalVertexIndex] = entry;
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex) {
+                    _log?.LogError(ex, "Error deserializing terrain patch {PatchId}", patch.Id);
+                }
+            }
+
+            return mergedChanges;
         }
     }
 }
