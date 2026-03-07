@@ -281,7 +281,7 @@ public partial class BookmarksPanel : UserControl {
             case DropPosition.Below:
                 indicator.Width = itemBounds.Width;
                 Canvas.SetLeft(indicator, itemPosition.Value.X);
-                Canvas.SetTop(indicator, itemPosition.Value.Y + itemBounds.Height - 2);
+                Canvas.SetTop(indicator, itemPosition.Value.Y + itemBounds.Height);
                 break;
             case DropPosition.Inside:
                 indicator.Background = Brushes.Transparent;
