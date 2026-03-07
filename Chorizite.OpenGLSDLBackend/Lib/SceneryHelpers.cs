@@ -28,11 +28,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 y = (float)(unchecked((uint)(1813693831u * iy - (iq + 72719u) * (1360117743u * iy * ix + 1888038839u) - 1109124029u * ix))
                     * 2.3283064e-10 * obj.DisplaceY + loc.Origin.Y);
 
-            var quadrant = unchecked((uint)(1813693831u * iy - ix * (1870387557u * iy + 1109124029u) - 402451965u)) * 2.3283064e-10f;
+            var quadrantVal = unchecked((uint)(1813693831u * iy - ix * (1870387557u * iy + 1109124029u) - 402451965u)) * 2.3283064e-10f;
 
-            if (quadrant >= 0.75) return new Vector3(y, -x, z);
-            if (quadrant >= 0.5) return new Vector3(-x, -y, z);
-            if (quadrant >= 0.25) return new Vector3(-y, x, z);
+            if (quadrantVal >= 0.75) return new Vector3(y, -x, z);
+            if (quadrantVal >= 0.5) return new Vector3(-x, -y, z);
+            if (quadrantVal >= 0.25) return new Vector3(-y, x, z);
             return new Vector3(x, y, z);
         }
 
@@ -61,7 +61,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             var degrees = (float)(unchecked((uint)(1813693831u * y - (k + 63127u) * (1360117743u * y * x + 1888038839u) - 1109124029u * x))
                 * 2.3283064e-10 * obj.MaxRotation);
-
+            
             return SetHeading(baseOrientation, degrees);
         }
 

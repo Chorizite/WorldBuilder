@@ -40,7 +40,7 @@ public partial class LandscapeLayerUpdateCommand : BaseCommand<bool> {
 
     public override async Task<Result<bool>> ApplyResultAsync(IDocumentManager documentManager, IDatReaderWriter dats, ITransaction tx, CancellationToken ct) {
         try {
-            var rentResult = await documentManager.RentDocumentAsync<LandscapeDocument>(TerrainDocumentId, ct);
+            var rentResult = await documentManager.RentDocumentAsync<LandscapeDocument>(TerrainDocumentId, tx, ct);
             if (rentResult.IsFailure) {
                 return Result<bool>.Failure(rentResult.Error);
             }
@@ -49,16 +49,7 @@ public partial class LandscapeLayerUpdateCommand : BaseCommand<bool> {
             await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
             var result = await terrainRental.Document.ApplyVertexUpdatesAsync(LayerId, Changes, dats, documentManager, tx, ct);
-            if (result.IsFailure) {
-                return result;
-            }
-
-            var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);
-            if (persistResult.IsFailure) {
-                return Result<bool>.Failure(persistResult.Error);
-            }
-
-            return Result<bool>.Success(true);
+            return result;
         }
         catch (Exception ex) {
             return Result<bool>.Failure(Error.Failure($"Error updating terrain: {ex.Message}"));

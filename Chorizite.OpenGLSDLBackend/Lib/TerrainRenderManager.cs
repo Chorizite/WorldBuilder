@@ -15,6 +15,7 @@ using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Lib;
 using WorldBuilder.Shared.Services;
+using BoundingBox = Chorizite.Core.Lib.BoundingBox;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
     public class TerrainRenderManager : IDisposable, IRenderManager {
@@ -27,7 +28,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         // Job queues
         private readonly ConcurrentDictionary<ushort, TerrainChunk> _pendingGeneration = new();
-        private readonly ConcurrentQueue<TerrainChunk> _uploadQueue = new();
+        private readonly ConcurrentDictionary<ushort, TerrainChunk> _uploadQueue = new();
         private readonly ConcurrentQueue<TerrainChunk> _partialUpdateQueue = new();
         private readonly ConcurrentQueue<TerrainChunk> _readyForUploadQueue = new();
         private readonly ConcurrentDictionary<TerrainChunk, byte> _queuedForPartialUpdate = new();
@@ -64,10 +65,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private IShader? _shader;
         private bool _initialized;
         private Vector3 _cameraPosition;
+        private Vector3 _cameraForward;
         private float _cameraFov;
         private Matrix4x4 _viewMatrix;
         private Matrix4x4 _projectionMatrix;
         private Matrix4x4 _viewProjectionMatrix;
+
+        // Throttling
+        private Vector3 _lastScanPos;
+        private Vector3 _lastScanForward;
+        private float _scanThreshold = 10f; // units
+        private float _scanRotThreshold = 0.05f; // dot product
 
         public bool NeedsPrepare => true;
 
@@ -175,6 +183,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         private void OnLandblockChanged(object? sender, LandblockChangedEventArgs e) {
+            if (e.ChangeType != LandblockChangeType.All && !e.ChangeType.HasFlag(LandblockChangeType.Terrain)) return;
+
             if (e.AffectedLandblocks == null) {
                 _log.LogTrace("LandblockChanged: All landblocks invalidated");
                 InvalidateLandblock(-1, -1);
@@ -208,6 +218,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _projectionMatrix = camera.ProjectionMatrix;
             _viewProjectionMatrix = camera.ViewProjectionMatrix;
             _cameraPosition = camera.Position;
+            _cameraForward = camera.Forward;
             _cameraFov = camera.FieldOfView;
 
             if (!_initialized) return;
@@ -219,23 +230,50 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var chunkX = (int)Math.Floor(pos.X / _chunkSizeInUnits);
             var chunkY = (int)Math.Floor(pos.Y / _chunkSizeInUnits);
 
-            // Queue new chunks
-            for (int x = chunkX - RenderDistance; x <= chunkX + RenderDistance; x++) {
-                for (int y = chunkY - RenderDistance; y <= chunkY + RenderDistance; y++) {
-                    if (x < 0 || y < 0) continue;
+            // Throttle the scan for new chunks
+            bool moved = Vector3.DistanceSquared(camera.Position, _lastScanPos) > _scanThreshold * _scanThreshold;
+            bool rotated = Vector3.Dot(camera.Forward, _lastScanForward) < (1.0f - _scanRotThreshold);
 
-                    var uX = (uint)x;
-                    var uY = (uint)y;
+            if (moved || rotated || _chunks.IsEmpty) {
+                _lastScanPos = camera.Position;
+                _lastScanForward = camera.Forward;
 
-                    var chunkId = (ushort)((uX << 8) | uY);
-                    if (!_chunks.ContainsKey(chunkId)) {
-                        var chunk = new TerrainChunk(_gl, uX, uY);
-                        if (_chunks.TryAdd(chunkId, chunk)) {
-                            _pendingGeneration[chunkId] = chunk;
+                // Queue new chunks
+                for (int x = chunkX - RenderDistance; x <= chunkX + RenderDistance; x++) {
+                    for (int y = chunkY - RenderDistance; y <= chunkY + RenderDistance; y++) {
+                        if (x < 0 || y < 0) continue;
+
+                        var uX = (uint)x;
+                        var uY = (uint)y;
+
+                        var chunkId = (ushort)((uX << 8) | uY);
+                        if (!_chunks.ContainsKey(chunkId)) {
+                            var chunk = new TerrainChunk(_gl, uX, uY);
+                            if (_chunks.TryAdd(chunkId, chunk)) {
+                                // Only queue for generation if in frustum or very close to camera (to avoid pops when turning)
+                                // A radius of 4 chunks (32 landblocks) ensures the immediate vicinity is always loaded.
+                                bool inFrustum = IsChunkInFrustum(x, y) != FrustumTestResult.Outside;
+                                bool isVeryClose = Math.Abs(x - chunkX) <= 4 && Math.Abs(y - chunkY) <= 4;
+                                if (inFrustum || isVeryClose) {
+                                    _pendingGeneration[chunkId] = chunk;
+                                }
+                            }
+                        }
+                        else if (_chunks.TryGetValue(chunkId, out var chunk) && !chunk.IsGenerated && !_pendingGeneration.ContainsKey(chunkId)) {
+                            // If it's tracked but not yet generated/queued, check if it should now be queued
+                            bool inFrustum = IsChunkInFrustum(x, y) != FrustumTestResult.Outside;
+                            bool isVeryClose = Math.Abs(x - chunkX) <= 4 && Math.Abs(y - chunkY) <= 4;
+                            if (inFrustum || isVeryClose) {
+                                _pendingGeneration[chunkId] = chunk;
+                            }
                         }
                     }
                 }
             }
+
+            // Clean up chunks that are out of range (with delay)
+            // ...
+            // (Note: The rest of the function remains outside the throttling block)
 
             // Clean up chunks that are out of range (with delay)
             // Note: We only unload based on distance, not frustum. This ensures chunks stay cached
@@ -258,6 +296,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var key in _chunkKeysToRemove) {
                 if (_chunks.TryRemove(key, out var chunk)) {
                     _pendingGeneration.TryRemove(key, out _);
+                    _uploadQueue.TryRemove(key, out _);
                     ReleaseChunk(chunk);
                     chunk.Dispose();
                 }
@@ -360,23 +399,67 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Prioritize partial updates for responsiveness (Main thread GPU upload)
             ApplyPartialUpdates(sw, timeBudgetMs);
 
-            while (_uploadQueue.TryPeek(out var chunk)) {
+            // Calculate current chunk
+            var region = _landscapeDoc.Region;
+            if (region is null) return (float)sw.Elapsed.TotalMilliseconds;
+
+            var pos = new Vector2(_cameraPosition.X, _cameraPosition.Y) - region.MapOffset;
+            var chunkX = (int)Math.Floor(pos.X / _chunkSizeInUnits);
+            var chunkY = (int)Math.Floor(pos.Y / _chunkSizeInUnits);
+
+            while (!_uploadQueue.IsEmpty) {
                 if (sw.Elapsed.TotalMilliseconds > timeBudgetMs) {
                     break;
                 }
 
-                if (_uploadQueue.TryDequeue(out chunk)) {
-                    // Skip if this chunk is no longer in render distance (don't skip based on frustum)
-                    if (!IsWithinRenderDistance(chunk, (int)chunk.ChunkX, (int)chunk.ChunkY)) {
-                        var chunkId = (ushort)((chunk.ChunkX << 8) | chunk.ChunkY);
-                        if (_chunks.TryRemove(chunkId, out _)) {
-                            ReleaseChunk(chunk);
-                            chunk.Dispose();
-                        }
-                        continue;
-                    }
-                    UploadChunk(chunk);
+                TerrainChunk? bestChunk = null;
+                float bestPriority = float.MaxValue;
+                ushort bestKey = 0;
+
+                Vector2 camDir2D = new Vector2(_cameraForward.X, _cameraForward.Y);
+                if (camDir2D.LengthSquared() > 0.001f) {
+                    camDir2D = Vector2.Normalize(camDir2D);
                 }
+                else {
+                    camDir2D = Vector2.Zero;
+                }
+
+                foreach (var (key, chunk) in _uploadQueue) {
+                    float dx = (int)chunk.ChunkX - chunkX;
+                    float dy = (int)chunk.ChunkY - chunkY;
+                    float dist = MathF.Sqrt(dx * dx + dy * dy);
+
+                    float priority = dist;
+                    if (dist > 0.1f && camDir2D != Vector2.Zero) {
+                        Vector2 dirToChunk = Vector2.Normalize(new Vector2(dx, dy));
+                        float dot = Vector2.Dot(camDir2D, dirToChunk);
+                        priority -= dot * 5f;
+                    }
+
+                    // Prioritize chunks in frustum
+                    if (IsChunkInFrustum((int)chunk.ChunkX, (int)chunk.ChunkY) != FrustumTestResult.Outside) {
+                        priority -= 20f;
+                    }
+
+                    if (priority < bestPriority) {
+                        bestPriority = priority;
+                        bestChunk = chunk;
+                        bestKey = key;
+                    }
+                }
+
+                if (bestChunk == null || !_uploadQueue.TryRemove(bestKey, out var chunkToUpload))
+                    break;
+
+                // Skip if this chunk is no longer in render distance (don't skip based on frustum)
+                if (!IsWithinRenderDistance(chunkToUpload, chunkX, chunkY)) {
+                    if (_chunks.TryRemove(bestKey, out _)) {
+                        ReleaseChunk(chunkToUpload);
+                        chunkToUpload.Dispose();
+                    }
+                    continue;
+                }
+                UploadChunk(chunkToUpload);
             }
 
             return (float)sw.Elapsed.TotalMilliseconds;
@@ -544,7 +627,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     chunk.GeneratedIndices = indices.AsMemory(0, iCount);
                 }
 
-                _uploadQueue.Enqueue(chunk);
+                _uploadQueue[chunk.GetChunkId()] = chunk;
             }
             catch (OperationCanceledException) {
                 // Ignore

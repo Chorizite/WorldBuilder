@@ -78,7 +78,7 @@ namespace WorldBuilder.Shared.Services {
                         try {
                             foreach (var regionId in regionIds) {
                                 var id = LandscapeDocument.GetIdFromRegion(regionId);
-                                var rentResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(id, CancellationToken.None);
+                                var rentResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(id, null, CancellationToken.None);
 
                                 if (rentResult.IsSuccess) {
                                     var rental = rentResult.Value;

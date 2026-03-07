@@ -51,7 +51,7 @@ namespace WorldBuilder.Shared.Tests.Services {
         [Fact]
         public async Task CreateDocumentAsync_WithTransaction_Succeeds() {
             // Arrange
-            var document = new LandscapeDocument();
+            var document = new TerrainPatchDocument("TerrainPatch_1_0_0");
             var transaction = await _documentManager!.CreateTransactionAsync(CancellationToken.None);
 
             try {
@@ -72,7 +72,7 @@ namespace WorldBuilder.Shared.Tests.Services {
         [Fact]
         public async Task PersistDocumentAsync_WithTransaction_Succeeds() {
             // Arrange
-            var document = new LandscapeDocument();
+            var document = new TerrainPatchDocument("TerrainPatch_1_0_0");
             var transaction = await _documentManager!.CreateTransactionAsync(CancellationToken.None);
 
             try {
@@ -88,7 +88,7 @@ namespace WorldBuilder.Shared.Tests.Services {
                 await transaction.CommitAsync();
 
                 // Verify the document was persisted by getting it outside the transaction
-                var newRentalResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(document.Id, CancellationToken.None);
+                var newRentalResult = await _documentManager.RentDocumentAsync<TerrainPatchDocument>(document.Id, null, CancellationToken.None);
                 if (newRentalResult.IsSuccess) {
                     var newRental = newRentalResult.Value;
                     Assert.NotNull(newRental);
@@ -106,7 +106,7 @@ namespace WorldBuilder.Shared.Tests.Services {
         [Fact]
         public async Task TransactionRollback_RestoresPreviousState() {
             // Arrange
-            var document = new LandscapeDocument();
+            var document = new TerrainPatchDocument("TerrainPatch_1_0_0");
             var transaction = await _documentManager!.CreateTransactionAsync(CancellationToken.None);
 
             try {
@@ -121,7 +121,7 @@ namespace WorldBuilder.Shared.Tests.Services {
                 Assert.True(persistResult.IsSuccess);
 
                 // Before rollback, document should exist in DB (through cache)
-                var beforeRollbackResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(document.Id, CancellationToken.None);
+                var beforeRollbackResult = await _documentManager.RentDocumentAsync<TerrainPatchDocument>(document.Id, null, CancellationToken.None);
                 if (beforeRollbackResult.IsSuccess) {
                     var beforeRollback = beforeRollbackResult.Value;
                     Assert.NotNull(beforeRollback);
@@ -130,17 +130,22 @@ namespace WorldBuilder.Shared.Tests.Services {
 
                 // Act - rollback the transaction
                 await transaction.RollbackAsync();
+                
+                // Confirm transaction is rolled back by checking the underlying connection state
+                if (transaction is DatabaseTransactionAdapter adapter) {
+                    Assert.Null(adapter.UnderlyingTransaction.Connection);
+                }
 
-                // Verify: try to load from DB directly by bypassing cache (if possible)
-                // For this test, we'll use a fresh DocumentManager instance to avoid cache
-                var freshRepo = new SQLiteProjectRepository(_db.ConnectionString, new NullLogger<SQLiteProjectRepository>());
-                var freshDats = new Mock<IDatReaderWriter>().Object;
-                var freshDocManager = new DocumentManager(freshRepo, freshDats, new NullLogger<DocumentManager>());
-                await freshDocManager.InitializeAsync(CancellationToken.None);
-
-                // Document should not exist in database after rollback
-                var retrievedRentalResult = await freshDocManager.RentDocumentAsync<LandscapeDocument>(document.Id, CancellationToken.None);
-                Assert.True(retrievedRentalResult.IsFailure); // Document should not exist in DB since transaction was rolled back
+                // Verify: try to load from DB directly by bypassing all managers and cache
+                using (var checkConn = new Microsoft.Data.Sqlite.SqliteConnection(_db.ConnectionString)) {
+                    await checkConn.OpenAsync();
+                    using (var cmd = checkConn.CreateCommand()) {
+                        cmd.CommandText = "SELECT COUNT(*) FROM TerrainPatches WHERE Id = @id";
+                        cmd.Parameters.AddWithValue("@id", document.Id);
+                        var count = (long)(await cmd.ExecuteScalarAsync() ?? 0L);
+                        Assert.Equal(0, count);
+                    }
+                }
             }
             finally {
                 await transaction.DisposeAsync();

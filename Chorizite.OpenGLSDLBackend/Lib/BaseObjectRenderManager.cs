@@ -23,6 +23,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public static uint CurrentVAO;
         public static uint CurrentIBO;
         public static uint CurrentAtlas;
+        public static uint CurrentInstanceBuffer;
         public static CullMode? CurrentCullMode;
 
         // Global instance buffers for all landblocks managed by this manager
@@ -279,24 +280,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         vaoChanged = true;
                     }
 
-                    if (vaoChanged || lastBaseInstance != cmd.Command.BaseInstance) {
+                    if (vaoChanged || lastBaseInstance != cmd.Command.BaseInstance || CurrentInstanceBuffer != _worldInstanceBuffer) {
                         Gl.BindBuffer(GLEnum.ArrayBuffer, _worldInstanceBuffer);
                         var offset = (byte*)0 + (cmd.Command.BaseInstance * sizeof(InstanceData));
 
                         for (uint j = 0; j < 4; j++) {
                             var loc = 3 + j;
-                            if (vaoChanged) {
+                            if (vaoChanged || CurrentInstanceBuffer != _worldInstanceBuffer) {
                                 Gl.EnableVertexAttribArray(loc);
                                 Gl.VertexAttribDivisor(loc, 1);
                             }
                             Gl.VertexAttribPointer(loc, 4, GLEnum.Float, false, stride, (void*)(offset + (j * 16)));
                         }
-                        if (vaoChanged) {
+                        if (vaoChanged || CurrentInstanceBuffer != _worldInstanceBuffer) {
                             Gl.EnableVertexAttribArray(8);
                             Gl.VertexAttribDivisor(8, 1);
                         }
                         Gl.VertexAttribIPointer(8, 1, GLEnum.UnsignedInt, stride, (void*)(offset + 64));
 
+                        CurrentInstanceBuffer = _worldInstanceBuffer;
                         lastBaseInstance = cmd.Command.BaseInstance;
                     }
 

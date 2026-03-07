@@ -1,5 +1,6 @@
-﻿using MemoryPack;
+using MemoryPack;
 using WorldBuilder.Shared.Services;
+using WorldBuilder.Shared.Modules.Landscape.Models;
 
 namespace WorldBuilder.Shared.Models;
 
@@ -8,8 +9,7 @@ namespace WorldBuilder.Shared.Models;
 /// Documents are serializable entities that represent a piece of data that can be versioned and persisted.
 /// </summary>
 [MemoryPackable]
-[MemoryPackUnion(0, typeof(LandscapeDocument))]
-[MemoryPackUnion(1, typeof(LandscapeChunkDocument))]
+[MemoryPackUnion(0, typeof(TerrainPatchDocument))]
 public abstract partial class BaseDocument : IDisposable {
     /// <summary>The unique identifier for the document.</summary>
     [MemoryPackOrder(0)]

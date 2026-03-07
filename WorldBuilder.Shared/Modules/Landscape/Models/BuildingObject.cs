@@ -1,34 +1,53 @@
 using MemoryPack;
+using System.Collections.Generic;
+using System.Numerics;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Models
-{
+namespace WorldBuilder.Shared.Modules.Landscape.Models {
     /// <summary>
     /// Represents a building (has inside cells).
     /// </summary>
     [MemoryPackable]
-    public partial class BuildingObject
-    {
+    public partial class BuildingObject {
         /// <summary>
         /// Internal SetupModel or GfxObj id.
         /// </summary>
         [MemoryPackOrder(0)] public uint ModelId { get; init; }
 
         /// <summary>
-        /// Holds Position and Quaternion rotations.
-        /// x, y, z, qx, qy, qz, qw
+        /// Position relative to landblock origin.
         /// </summary>
-        [MemoryPackOrder(1)] public float[] Position { get; init; } = [];
+        [MemoryPackOrder(1)] public Vector3 Position { get; set; }
+
+        /// <summary>
+        /// Rotation quaternion.
+        /// </summary>
+        [MemoryPackOrder(2)] public Quaternion Rotation { get; set; } = Quaternion.Identity;
 
         /// <summary>
         /// Pseudo-ID tracking this specific instance.
         /// Base dat objects get an ID corresponding to their array index.
         /// Custom spawned objects get generated IDs.
         /// </summary>
-        [MemoryPackOrder(2)] public ulong InstanceId { get; init; }
+        [MemoryPackOrder(3)] public ulong InstanceId { get; init; }
 
         /// <summary>
         /// Landscape Layer ID owning this building instance.
         /// </summary>
-        [MemoryPackOrder(3)] public string LayerId { get; set; } = string.Empty;
+        [MemoryPackOrder(4)] public string LayerId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Number of leaves in the BSP tree.
+        /// </summary>
+        [MemoryPackOrder(5)] public uint NumLeaves { get; init; }
+
+        /// <summary>
+        /// Portals connected to this building.
+        /// </summary>
+        [MemoryPackOrder(6)] public List<WbBuildingPortal> Portals { get; init; } = [];
+
+        /// <summary>
+        /// Whether this building has been deleted.
+        /// </summary>
+        [MemoryPackOrder(7)] public bool IsDeleted { get; init; }
     }
 }

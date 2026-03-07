@@ -33,9 +33,9 @@ public partial class LayerItemViewModel : ViewModelBase {
         Model.IsExported = value;
         _onChanged?.Invoke(this, LayerChangeType.PropertyChange);
     }
-    
+
     [ObservableProperty] private bool _isExported;
-    
+
     private bool _isExpanded = true;
     public bool IsExpanded {
         get => _isExpanded;
@@ -87,7 +87,7 @@ public partial class LayerItemViewModel : ViewModelBase {
             IsEditing = false;
 
             if (Name != _model.Name) {
-                var command = new RenameLandscapeLayerCommand(_model, Name, (newName) => {
+                var command = new RenameLayerUICommand(_model, Name, (newName) => {
                     Name = newName;
                     _onChanged?.Invoke(this, LayerChangeType.PropertyChange);
                 });

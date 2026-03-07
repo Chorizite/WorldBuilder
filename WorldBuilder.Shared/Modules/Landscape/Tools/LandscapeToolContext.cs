@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
@@ -62,7 +63,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <summary>The active landscape document.</summary>
         public LandscapeDocument Document { get; }
         /// <summary>The dat reader/writer.</summary>
-        public Services.IDatReaderWriter Dats { get; }
+        public WorldBuilder.Shared.Services.IDatReaderWriter Dats { get; }
         /// <summary>The command history for undo/redo.</summary>
         public CommandHistory CommandHistory { get; }
         /// <summary>The camera used for viewing the scene.</summary>
@@ -81,10 +82,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public Action<int, int>? InvalidateLandblock { get; set; }
 
         /// <summary>Delegate for retrieving a static object's world bounding box.</summary>
-        public Func<uint, ulong, WorldBuilder.Shared.Numerics.BoundingBox?>? GetStaticObjectBounds { get; set; }
+        public Func<uint, ulong, BoundingBox?>? GetStaticObjectBounds { get; set; }
 
         /// <summary>Delegate for retrieving a static object's local bounding box.</summary>
-        public Func<uint, ulong, WorldBuilder.Shared.Numerics.BoundingBox?>? GetStaticObjectLocalBounds { get; set; }
+        public Func<uint, ulong, BoundingBox?>? GetStaticObjectLocalBounds { get; set; }
 
         /// <summary>Delegate for retrieving a static object's current transform.</summary>
         public Func<uint, ulong, (Vector3 position, Quaternion rotation, Vector3 localPosition)?>? GetStaticObjectTransform { get; set; }
@@ -111,13 +112,43 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <param name="camera">The camera.</param>
         /// <param name="logger">The logger.</param>
         /// <param name="activeLayer">The active layer (optional).</param>
-        public LandscapeToolContext(LandscapeDocument document, Services.IDatReaderWriter dats, CommandHistory commandHistory, ICamera camera, ILogger logger, LandscapeLayer? activeLayer = null) {
+        public LandscapeToolContext(LandscapeDocument document, WorldBuilder.Shared.Services.IDatReaderWriter dats, CommandHistory commandHistory, ICamera camera, ILogger logger, LandscapeLayer? activeLayer = null) {
             Document = document;
             Dats = dats;
             CommandHistory = commandHistory;
             Camera = camera;
             Logger = logger;
             ActiveLayer = activeLayer;
+        }
+
+        private int _batchDepth = 0;
+        private readonly HashSet<uint> _batchedVertices = new HashSet<uint>();
+
+        public void BeginBatchUpdate() {
+            _batchDepth++;
+        }
+
+        public void EndBatchUpdate() {
+            if (_batchDepth == 0) return;
+            _batchDepth--;
+            if (_batchDepth == 0 && _batchedVertices.Count > 0) {
+                Document.RecalculateTerrainCache(_batchedVertices);
+                RequestSave?.Invoke(Document.Id, Document.GetAffectedChunks(_batchedVertices));
+                Document.NotifyLandblockChanged(Document.GetAffectedLandblocks(_batchedVertices), LandblockChangeType.Terrain);
+                _batchedVertices.Clear();
+            }
+        }
+
+        public void RegisterTerrainChange(IEnumerable<uint> affectedVertices) {
+            if (_batchDepth > 0) {
+                foreach (var v in affectedVertices) {
+                    _batchedVertices.Add(v);
+                }
+            } else {
+                Document.RecalculateTerrainCache(affectedVertices);
+                RequestSave?.Invoke(Document.Id, Document.GetAffectedChunks(affectedVertices));
+                Document.NotifyLandblockChanged(Document.GetAffectedLandblocks(affectedVertices), LandblockChangeType.Terrain);
+            }
         }
 
         /// <summary>

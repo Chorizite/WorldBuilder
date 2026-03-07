@@ -1,4 +1,4 @@
-﻿using MemoryPack;
+using MemoryPack;
 
 namespace WorldBuilder.Shared.Models;
 
@@ -7,18 +7,18 @@ namespace WorldBuilder.Shared.Models;
 /// </summary>
 [MemoryPackable]
 public partial class LandscapeLayerGroup : LandscapeLayerBase {
-    /// <summary>The child layers and groups contained within this group.</summary>
+    /// <summary>The child layers and groups.</summary>
     [MemoryPackInclude]
-    [MemoryPackOrder(10)]
-    public List<LandscapeLayerBase> Children { get; set; } = []; // List of LandscapeLayer or LandscapeLayerGroup
+    [MemoryPackOrder(0)]
+    public List<LandscapeLayerBase> Children { get; init; } = [];
 
     /// <summary>Initializes a new instance of the <see cref="LandscapeLayerGroup"/> class.</summary>
     [MemoryPackConstructor]
-    public LandscapeLayerGroup() { }
+    public LandscapeLayerGroup() : base() { }
 
-    /// <summary>Initializes a new instance of the <see cref="LandscapeLayerGroup"/> class with a specific name.</summary>
+    /// <summary>Initializes a new instance of the <see cref="LandscapeLayerGroup"/> class with a name.</summary>
     /// <param name="name">The group name.</param>
-    public LandscapeLayerGroup(string name) {
-        Name = name ?? throw new ArgumentNullException(nameof(name));
+    public LandscapeLayerGroup(string name) : base() {
+        Name = name;
     }
 }

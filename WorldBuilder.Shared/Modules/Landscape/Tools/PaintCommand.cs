@@ -75,13 +75,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             if (affectedVertices.Count > 0) {
-                _document.RecalculateTerrainCache(affectedVertices);
-
-                _context.RequestSave?.Invoke(_document.Id, _document.GetAffectedChunks(affectedVertices));
-
-                foreach (var lb in _document.GetAffectedLandblocks(affectedVertices)) {
-                    _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
-                }
+                _context.RegisterTerrainChange(affectedVertices);
             }
         }
 
@@ -139,13 +133,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             if (affectedVertices.Count > 0) {
-                _document.RecalculateTerrainCache(affectedVertices);
-
-                _context.RequestSave?.Invoke(_document.Id, _document.GetAffectedChunks(affectedVertices));
-
-                foreach (var lb in _document.GetAffectedLandblocks(affectedVertices)) {
-                    _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
-                }
+                _context.RegisterTerrainChange(affectedVertices);
             }
         }
     }

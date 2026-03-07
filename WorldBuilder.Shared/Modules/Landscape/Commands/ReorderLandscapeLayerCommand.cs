@@ -58,7 +58,7 @@ public partial class ReorderLandscapeLayerCommand : BaseCommand<bool> {
     public override async Task<Result<bool>> ApplyResultAsync(IDocumentManager documentManager, IDatReaderWriter dats,
         ITransaction tx, CancellationToken ct) {
         try {
-            var rentResult = await documentManager.RentDocumentAsync<LandscapeDocument>(TerrainDocumentId, ct);
+            var rentResult = await documentManager.RentDocumentAsync<LandscapeDocument>(TerrainDocumentId, tx, ct);
             if (rentResult.IsFailure) {
                 return Result<bool>.Failure(rentResult.Error);
             }
@@ -75,17 +75,9 @@ public partial class ReorderLandscapeLayerCommand : BaseCommand<bool> {
 
             terrainRental.Document.ReorderLayer(GroupPath, LayerId, NewIndex);
 
+            await terrainRental.Document.SyncLayerTreeAsync(tx, ct);
+
             await terrainRental.Document.RecalculateTerrainCacheAsync(affectedVertices);
-
-            terrainRental.Document.Version++;
-            var affectedLandblocks = affectedVertices.Any() ? terrainRental.Document.GetAffectedLandblocks(affectedVertices) : new List<(int, int)>();
-            terrainRental.Document.NotifyLandblockChanged(affectedLandblocks);
-
-            var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);
-
-            if (persistResult.IsFailure) {
-                return Result<bool>.Failure(persistResult.Error);
-            }
 
             return Result<bool>.Success(true);
         }

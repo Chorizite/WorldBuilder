@@ -1,11 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
 using WorldBuilder.Shared.Models;
-using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Tools {
+namespace WorldBuilder.Shared.Modules.Landscape.Commands {
     /// <summary>
     /// A command that sets the road bit for a single terrain vertex.
     /// </summary>
@@ -44,6 +41,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             if (_document.Region == null || _activeLayer == null) return;
             var region = _document.Region;
 
+            var affectedIndices = new List<uint>();
             foreach (var kvp in _previousState) {
                 uint index = (uint)kvp.Key;
                 if (kvp.Value.HasValue) {
@@ -52,13 +50,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 else {
                     _document.RemoveVertex(_activeLayer.Id, index);
                 }
-
-                _document.RecalculateTerrainCache(new[] { index });
-                var (vx, vy) = region.GetVertexCoordinates(index);
-                _context.InvalidateLandblocksForVertex(vx, vy);
+                affectedIndices.Add(index);
             }
 
-            _context.RequestSave?.Invoke(_document.Id, _document.GetAffectedChunks(_previousState.Keys.Select(k => (uint)k)));
+            if (affectedIndices.Count > 0) {
+                _context.RegisterTerrainChange(affectedIndices);
+            }
         }
 
         private void ApplyChange(bool record = false) {
@@ -89,11 +86,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 entry.Road = (byte)_roadBits;
                 _document.SetVertex(_activeLayer.Id, (uint)index, entry);
 
-                _document.RecalculateTerrainCache(new[] { (uint)index });
-
-                _context.InvalidateLandblocksForVertex(vx, vy);
-
-                _context.RequestSave?.Invoke(_document.Id, _document.GetAffectedChunks(new[] { (uint)index }));
+                _context.RegisterTerrainChange(new[] { (uint)index });
             }
         }
     }

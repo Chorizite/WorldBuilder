@@ -1,13 +1,9 @@
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Numerics;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
-using WorldBuilder.Shared.Modules.Landscape.Lib;
-using WorldBuilder.Shared.Numerics;
 
-namespace WorldBuilder.Shared.Modules.Landscape {
+namespace WorldBuilder.Shared.Modules.Landscape.Lib {
     /// <summary>
     /// Provides utility methods for raycasting against terrain.
     /// </summary>

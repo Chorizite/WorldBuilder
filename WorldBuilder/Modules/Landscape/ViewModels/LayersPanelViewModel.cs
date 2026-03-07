@@ -102,7 +102,6 @@ public partial class LayersPanelViewModel : ViewModelBase {
         foreach (var item in Items.SelectMany(GetRangeRecursive)) {
             _settings.Project.LayerExpanded[item.Model.Id] = item.IsExpanded;
         }
-        // Save() is no longer needed here as RequestSave() is triggered by PropertyChanged on ProjectSettings
     }
 
     private LayerItemViewModel CreateVM(LandscapeLayerBase model, LayerItemViewModel? parent, Dictionary<string, bool> expansionState) {

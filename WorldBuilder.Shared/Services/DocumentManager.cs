@@ -1,41 +1,58 @@
-﻿using DatReaderWriter.Lib;
+using DatReaderWriter.Lib;
 using MemoryPack;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Data.Common;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Repositories;
 
 namespace WorldBuilder.Shared.Services;
 
-public class DocumentManager : IDocumentManager, IDisposable {
+public partial class DocumentManager : IDocumentManager, IDisposable {
     private readonly IProjectRepository _repo;
     private readonly IDatReaderWriter _dats;
     private readonly ILogger<DocumentManager> _logger;
     private readonly ConcurrentDictionary<string, DocumentCacheEntry> _cache = new();
     private readonly SemaphoreSlim _cacheLock = new(1, 1);
-    private readonly Timer _cleanupTimer;
-    private readonly TimeSpan _cleanupInterval = TimeSpan.FromSeconds(30);
-    private readonly TimeSpan _unusedTimeout = TimeSpan.FromSeconds(60);
+    private readonly System.Threading.Timer _cleanupTimer;
+    private readonly WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeDataProvider _landscapeDataProvider;
+    private readonly WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeCacheService _landscapeCacheService;
     private bool _disposed;
 
     /// <summary>
     /// The user id of the current local user
     /// </summary>
+    [MemoryPackIgnore]
     public string UserId { get; private set; } = new Guid().ToString();
 
-    public DocumentManager(IProjectRepository repo, IDatReaderWriter dats, ILogger<DocumentManager> logger) {
+    /// <inheritdoc/>
+    [MemoryPackIgnore]
+    public IProjectRepository ProjectRepository => _repo;
+
+    /// <inheritdoc/>
+    [MemoryPackIgnore]
+    public WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeDataProvider LandscapeDataProvider => _landscapeDataProvider;
+
+    /// <inheritdoc/>
+    [MemoryPackIgnore]
+    public WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeCacheService LandscapeCacheService => _landscapeCacheService;
+
+    public DocumentManager(IProjectRepository repo, IDatReaderWriter dats, ILogger<DocumentManager> logger, ILoggerFactory? loggerFactory = null) {
         _repo = repo;
         _dats = dats;
         _logger = logger;
-        _cleanupTimer = new Timer(CleanupCallback, null, _cleanupInterval, _cleanupInterval);
+        _landscapeDataProvider = new WorldBuilder.Shared.Modules.Landscape.Services.LandscapeDataProvider(repo, loggerFactory);
+        _landscapeCacheService = new WorldBuilder.Shared.Modules.Landscape.Services.LandscapeCacheService();
+        _cleanupTimer = new System.Threading.Timer(CleanupCache, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
     }
 
     public async Task InitializeAsync(CancellationToken ct) {
         _logger.LogInformation("Initializing DocumentManager");
         await _repo.InitializeDatabaseAsync(ct);
-        var userIdResult = await GetUserValueAsync("UserId", UserId, ct);
+        var userIdResult = await GetUserValueAsync("UserId", UserId, null, ct);
         if (userIdResult.IsSuccess) {
             UserId = userIdResult.Value;
         }
@@ -47,33 +64,41 @@ public class DocumentManager : IDocumentManager, IDisposable {
         return await _repo.CreateTransactionAsync(ct);
     }
 
-    public async Task<Result<string>> GetUserValueAsync(string key, string defaultValue, CancellationToken ct) {
-        var valueResult = await _repo.GetUserValueAsync(key, ct);
+    public async Task<Result<string>> GetUserValueAsync(string key, string defaultValue, ITransaction? tx, CancellationToken ct) {
+        var valueResult = await _repo.GetUserValueAsync(key, tx, ct);
         if (valueResult.IsFailure) {
             return Result<string>.Failure(valueResult.Error);
         }
 
         var value = valueResult.Value;
         if (value is null) {
-            await using var tx = await _repo.CreateTransactionAsync(ct);
-            var upsertResult = await _repo.UpsertUserValueAsync(key, defaultValue, tx, ct);
+            await using var localTx = tx == null ? await _repo.CreateTransactionAsync(ct) : null;
+            var useTx = tx ?? localTx!;
+
+            var upsertResult = await _repo.UpsertUserValueAsync(key, defaultValue, useTx, ct);
             if (upsertResult.IsFailure) {
                 return Result<string>.Failure(upsertResult.Error);
             }
 
-            await tx.CommitAsync(ct);
+            if (localTx != null) await localTx.CommitAsync(ct);
             return Result<string>.Success(defaultValue);
         }
 
         return Result<string>.Success(value);
     }
 
-    public async Task<IReadOnlyList<string>> GetDocumentIdsAsync(string prefix, CancellationToken ct) {
-        return await _repo.GetDocumentIdsAsync(prefix, ct);
+    public async Task<IReadOnlyList<string>> GetDocumentIdsAsync(string prefix, ITransaction? tx, CancellationToken ct) {
+        if (prefix.StartsWith("TerrainPatch_")) {
+            var parts = prefix.Split('_');
+            if (parts.Length > 1 && uint.TryParse(parts[1], out var regionId)) {
+                return await _repo.GetTerrainPatchIdsAsync(regionId, tx, ct);
+            }
+        }
+        return new List<string>();
     }
 
-    public async Task<Result<DocumentRental<T>>> CreateDocumentAsync<T>(T document, ITransaction tx,
-        CancellationToken ct) where T : BaseDocument {
+    public async Task<Result<DocumentRental<T>>> CreateDocumentAsync<T>(T document, ITransaction? tx = null,
+        CancellationToken ct = default) where T : BaseDocument {
         if (_disposed) {
             return Result<DocumentRental<T>>.Failure("DocumentManager is disposed", "OBJECT_DISPOSED");
         }
@@ -92,15 +117,25 @@ public class DocumentManager : IDocumentManager, IDisposable {
                     "DOCUMENT_EXISTS");
             }
 
-            // Persist to database
-            var blob = document.Serialize();
-            var insertResult =
-                await _repo.InsertDocumentAsync(document.Id, typeof(T).Name, blob, document.Version, tx, ct);
-            if (insertResult.IsFailure) {
-                return Result<DocumentRental<T>>.Failure(insertResult.Error);
-            }
+            // Persist to database if it's a terrain patch
+            if (document is TerrainPatchDocument tp) {
+                var blob = tp.Serialize();
+                // Extract regionId from ID: TerrainPatch_{regionId}_{chunkX}_{chunkY}
+                var parts = TP_ID_REGEX().Match(document.Id);
+                uint regionId = parts.Success ? uint.Parse(parts.Groups[1].Value) : 0;
 
-            _logger.LogDebug("Document with ID {DocumentId} inserted into database", document.Id);
+                var insertResult = await _repo.UpsertTerrainPatchAsync(document.Id, regionId, blob, document.Version, tx, ct);
+                if (insertResult.IsFailure) {
+                    return Result<DocumentRental<T>>.Failure(insertResult.Error);
+                }
+                _logger.LogDebug("Terrain patch with ID {DocumentId} inserted into database", document.Id);
+            }
+            else if (document is LandscapeDocument) {
+                _logger.LogDebug("Virtual LandscapeDocument with ID {DocumentId} added to system", document.Id);
+            }
+            else {
+                return Result<DocumentRental<T>>.Failure($"Document type {typeof(T).Name} is not supported for generic persistence", "UNSUPPORTED_TYPE");
+            }
 
             // Add to cache
             var entry = new DocumentCacheEntry(document);
@@ -116,7 +151,10 @@ public class DocumentManager : IDocumentManager, IDisposable {
         }
     }
 
-    public async Task<Result<DocumentRental<T>>> RentDocumentAsync<T>(string id, CancellationToken ct)
+    [System.Text.RegularExpressions.GeneratedRegex(@"TerrainPatch_(\d+)_")]
+    private static partial System.Text.RegularExpressions.Regex TP_ID_REGEX();
+
+    public async Task<Result<DocumentRental<T>>> RentDocumentAsync<T>(string id, ITransaction? tx = null, CancellationToken ct = default)
         where T : BaseDocument {
         if (_disposed) {
             return Result<DocumentRental<T>>.Failure("DocumentManager is disposed", "OBJECT_DISPOSED");
@@ -139,18 +177,27 @@ public class DocumentManager : IDocumentManager, IDisposable {
                 }
             }
 
-            _logger.LogDebug("Document with ID {DocumentId} not found in cache, loading from database", id);
-            var newDoc = await LoadDocumentAsync<T>(id, ct);
+            _logger.LogDebug("Document with ID {DocumentId} not found in cache, loading/creating", id);
+            T? newDoc = null;
+
+            if (typeof(T) == typeof(LandscapeDocument) && id.StartsWith("LandscapeDocument_")) {
+                _logger.LogDebug("Creating virtual LandscapeDocument for ID {DocumentId}", id);
+                newDoc = new LandscapeDocument(id) as T;
+            }
+            else if (typeof(T) == typeof(TerrainPatchDocument)) {
+                newDoc = await LoadDocumentAsync<T>(id, tx, ct);
+            }
+
             if (newDoc == null) {
-                _logger.LogWarning("Document with ID {DocumentId} not found in database", id);
-                return Result<DocumentRental<T>>.Failure($"Document with ID {id} not found in database",
+                _logger.LogWarning("Document with ID {DocumentId} not found or could not be created", id);
+                return Result<DocumentRental<T>>.Failure($"Document with ID {id} not found",
                     "DOCUMENT_NOT_FOUND");
             }
 
             var newEntry = new DocumentCacheEntry(newDoc);
             newEntry.IncrementRentCount(newDoc);
             _cache[id] = newEntry;
-            _logger.LogDebug("Document with ID {DocumentId} loaded from database and added to cache (Instance: {Hash})", id, newDoc.GetHashCode());
+            _logger.LogDebug("Document with ID {DocumentId} loaded/created and added to cache (Instance: {Hash})", id, newDoc.GetHashCode());
 
             return Result<DocumentRental<T>>.Success(new DocumentRental<T>(newDoc, () => ReturnDocument(id)));
         }
@@ -173,8 +220,8 @@ public class DocumentManager : IDocumentManager, IDisposable {
         }
     }
 
-    public async Task<Result<Unit>> PersistDocumentAsync<T>(DocumentRental<T> rental, ITransaction tx,
-        CancellationToken ct) where T : BaseDocument {
+    public async Task<Result<Unit>> PersistDocumentAsync<T>(DocumentRental<T> rental, ITransaction? tx = null,
+        CancellationToken ct = default) where T : BaseDocument {
         if (_disposed) {
             return Result<Unit>.Failure("DocumentManager is disposed", "OBJECT_DISPOSED");
         }
@@ -184,14 +231,26 @@ public class DocumentManager : IDocumentManager, IDisposable {
         }
 
         var doc = rental.Document;
-        _logger.LogDebug("Persisting document with ID: {DocumentId}, Version: {Version} (Instance: {Hash})", doc.Id, doc.Version, doc.GetHashCode());
-        var blob = doc.Serialize();
-        var updateResult = await _repo.UpdateDocumentAsync(doc.Id, blob, doc.Version, tx, ct);
-        if (updateResult.IsFailure) {
-            return Result<Unit>.Failure(updateResult.Error);
+
+        if (doc is TerrainPatchDocument tp) {
+            _logger.LogDebug("Persisting terrain patch with ID: {DocumentId}, Version: {Version} (Instance: {Hash})", doc.Id, doc.Version, doc.GetHashCode());
+            var blob = tp.Serialize();
+            var parts = TP_ID_REGEX().Match(doc.Id);
+            uint regionId = parts.Success ? uint.Parse(parts.Groups[1].Value) : 0;
+
+            var updateResult = await _repo.UpsertTerrainPatchAsync(doc.Id, regionId, blob, doc.Version, tx, ct);
+            if (updateResult.IsFailure) {
+                return Result<Unit>.Failure(updateResult.Error);
+            }
+            _logger.LogDebug("Terrain patch with ID {DocumentId} persisted to database", doc.Id);
+        }
+        else if (doc is LandscapeDocument) {
+            _logger.LogDebug("LandscapeDocument {DocumentId} persist requested, skipping blob storage", doc.Id);
+        }
+        else {
+            return Result<Unit>.Failure($"Document type {typeof(T).Name} is not supported for generic persistence", "UNSUPPORTED_TYPE");
         }
 
-        _logger.LogDebug("Document with ID {DocumentId} persisted to database", doc.Id);
         return Result<Unit>.Success(Unit.Value);
     }
 
@@ -204,14 +263,17 @@ public class DocumentManager : IDocumentManager, IDisposable {
             return Result<bool>.Failure("Event cannot be null", "ARGUMENT_NULL");
         }
 
-        _logger.LogDebug("Applying event {EventId} of type {EventType} for user {UserId}", evt.Id, evt.GetType().Name,
+        _logger.LogInformation("Applying event {EventId} of type {EventType} for user {UserId}", evt.Id, evt.GetType().Name,
             UserId);
 
         evt.UserId = UserId;
 
+        var oldTx = TransactionContext.Current;
+        TransactionContext.Current = tx;
         try {
             var res = await evt.ApplyAsync(this, _dats, tx, ct);
             if (res.IsFailure) {
+                _logger.LogError("Event {EventId} application failed: {Error}", evt.Id, res.Error);
                 return Result<bool>.Failure(res.Error);
             }
 
@@ -220,13 +282,16 @@ public class DocumentManager : IDocumentManager, IDisposable {
                 return Result<bool>.Failure(insertEventResult.Error);
             }
 
-            _logger.LogDebug("Event {EventId} applied successfully with result: {Result}", evt.Id, res.Value);
+            _logger.LogInformation("Event {EventId} applied successfully", evt.Id);
 
             return res;
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error applying event {EventId} of type {EventType}", evt.Id, evt.GetType().Name);
             return Result<bool>.Failure($"Error applying event: {ex.Message}", "EVENT_APPLICATION_ERROR");
+        }
+        finally {
+            TransactionContext.Current = oldTx;
         }
     }
 
@@ -240,14 +305,17 @@ public class DocumentManager : IDocumentManager, IDisposable {
             return Result<TResult>.Failure("Event cannot be null", "ARGUMENT_NULL");
         }
 
-        _logger.LogDebug("Applying event {EventId} of type {EventType} for user {UserId}", evt.Id, evt.GetType().Name,
+        _logger.LogInformation("Applying event {EventId} of type {EventType} for user {UserId}", evt.Id, evt.GetType().Name,
             UserId);
 
         evt.UserId = UserId;
 
+        var oldTx = TransactionContext.Current;
+        TransactionContext.Current = tx;
         try {
             var res = await evt.ApplyResultAsync(this, _dats, tx, ct);
             if (res.IsFailure) {
+                _logger.LogError("Event {EventId} application failed: {Error}", evt.Id, res.Error);
                 return Result<TResult>.Failure(res.Error);
             }
 
@@ -256,7 +324,7 @@ public class DocumentManager : IDocumentManager, IDisposable {
                 return Result<TResult>.Failure(insertEventResult.Error);
             }
 
-            _logger.LogDebug("Event {EventId} applied successfully", evt.Id);
+            _logger.LogInformation("Event {EventId} applied successfully", evt.Id);
 
             return res;
         }
@@ -264,56 +332,86 @@ public class DocumentManager : IDocumentManager, IDisposable {
             _logger.LogError(ex, "Error applying event {EventId} of type {EventType}", evt.Id, evt.GetType().Name);
             return Result<TResult>.Failure($"Error applying event: {ex.Message}", "EVENT_APPLICATION_ERROR");
         }
+        finally {
+            TransactionContext.Current = oldTx;
+        }
     }
 
-    private async Task<T?> LoadDocumentAsync<T>(string id, CancellationToken ct) where T : BaseDocument {
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<LandscapeLayerBase>> GetLayersAsync(uint regionId, ITransaction? tx, CancellationToken ct) {
+        return _repo.GetLayersAsync(regionId, tx, ct);
+    }
+
+    /// <inheritdoc/>
+    public Task<Result<Unit>> UpsertLayerAsync(LandscapeLayerBase layer, uint regionId, int sortOrder, ITransaction? tx, CancellationToken ct) {
+        return _repo.UpsertLayerAsync(layer, regionId, sortOrder, tx, ct);
+    }
+
+    /// <inheritdoc/>
+    public Task<Result<Unit>> DeleteLayerAsync(string id, ITransaction? tx, CancellationToken ct) {
+        return _repo.DeleteLayerAsync(id, tx, ct);
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct) {
+        return _repo.GetStaticObjectsAsync(landblockId, cellId, tx, ct);
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<uint>> GetAffectedLandblocksByLayerAsync(uint regionId, string layerId, ITransaction? tx, CancellationToken ct) {
+        return _repo.GetAffectedLandblocksByLayerAsync(regionId, layerId, tx, ct);
+    }
+
+    /// <inheritdoc/>
+    public Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct) {
+        return _repo.UpsertStaticObjectAsync(obj, regionId, landblockId, cellId, tx, ct);
+    }
+
+    /// <inheritdoc/>
+    public Task<Result<Unit>> DeleteStaticObjectAsync(ulong instanceId, ITransaction? tx, CancellationToken ct) {
+        return _repo.DeleteStaticObjectAsync(instanceId, tx, ct);
+    }
+
+    /// <inheritdoc/>
+    public Task<Result<Unit>> DeleteBuildingAsync(ulong instanceId, ITransaction? tx, CancellationToken ct) {
+        return _repo.DeleteBuildingAsync(instanceId, tx, ct);
+    }
+
+    private async Task<T?> LoadDocumentAsync<T>(string id, ITransaction? tx, CancellationToken ct) where T : BaseDocument {
         _logger.LogDebug("Loading document with ID: {DocumentId} from database", id);
-        var blobResult = await _repo.GetDocumentBlobAsync<T>(id, ct);
-        if (blobResult.IsFailure || blobResult.Value == null) {
-            _logger.LogWarning("Document with ID {DocumentId} not found in database", id);
-            return null;
+
+        if (typeof(T) == typeof(TerrainPatchDocument)) {
+            var blobResult = await _repo.GetTerrainPatchBlobAsync(id, tx, ct);
+            if (blobResult.IsFailure || blobResult.Value == null) {
+                _logger.LogWarning("Terrain patch with ID {DocumentId} not found in database", id);
+                return null;
+            }
+            _logger.LogDebug("Terrain patch with ID {DocumentId} loaded from database", id);
+            return BaseDocument.Deserialize<T>(blobResult.Value);
         }
 
-        _logger.LogDebug("Document with ID {DocumentId} loaded from database", id);
-        return BaseDocument.Deserialize<T>(blobResult.Value);
+        return null;
     }
 
-    private void CleanupCallback(object? state) {
+    private void CleanupCache(object? state) {
         if (_disposed) return;
-
-        _logger.LogDebug("Starting cache cleanup");
 
         _cacheLock.Wait();
         try {
             var now = DateTime.UtcNow;
-            var toRemove = new List<string>();
+            var expiredThreshold = now.AddMinutes(-5);
 
             foreach (var kvp in _cache) {
-                var entry = kvp.Value;
-
-                // Remove if not rented and past timeout
-                if (entry.RentCount == 0 && now - entry.LastAccessTime > _unusedTimeout) {
-                    _logger.LogDebug("Marking document {DocumentId} for removal due to timeout", kvp.Key);
-                    toRemove.Add(kvp.Key);
-                }
-                // Clean up weak references that have been collected
-                else if (!entry.IsAlive) {
-                    _logger.LogDebug("Marking document {DocumentId} for removal due to garbage collection", kvp.Key);
-                    toRemove.Add(kvp.Key);
+                if (kvp.Value.RentCount == 0 && kvp.Value.LastAccessTime < expiredThreshold) {
+                    if (_cache.TryRemove(kvp.Key, out var entry)) {
+                        entry.Dispose();
+                        _logger.LogDebug("Evicted document {DocumentId} from cache", kvp.Key);
+                    }
                 }
             }
-
-            foreach (var key in toRemove) {
-                _cache.TryRemove(key, out _);
-                _logger.LogDebug("Removed document {DocumentId} from cache", key);
-            }
-
-            if (toRemove.Count > 0) {
-                _logger.LogDebug("Cache cleanup completed, {RemovedCount} documents removed", toRemove.Count);
-            }
-            else {
-                _logger.LogDebug("Cache cleanup completed, no documents removed");
-            }
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error during cache cleanup");
         }
         finally {
             _cacheLock.Release();
@@ -322,9 +420,6 @@ public class DocumentManager : IDocumentManager, IDisposable {
 
     public void Dispose() {
         if (_disposed) return;
-
-        _logger.LogInformation("Disposing DocumentManager");
-
         _disposed = true;
         _cleanupTimer?.Dispose();
         _cacheLock?.Dispose();

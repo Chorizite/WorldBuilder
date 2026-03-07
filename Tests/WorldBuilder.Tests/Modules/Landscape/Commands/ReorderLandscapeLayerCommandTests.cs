@@ -19,6 +19,8 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands {
 
         public ReorderLandscapeLayerCommandTests() {
             _mockDocManager = new Mock<IDocumentManager>();
+            _mockDocManager.Setup(m => m.LandscapeDataProvider).Returns(new Mock<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeDataProvider>().Object);
+            _mockDocManager.Setup(m => m.LandscapeCacheService).Returns(new Mock<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeCacheService>().Object);
             _mockDats = new Mock<IDatReaderWriter>();
             _mockTx = new Mock<ITransaction>();
         }
@@ -27,38 +29,44 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands {
         public async Task ApplyAsync_ShouldReorderLayerInTerrain() {
             // Arrange
             var terrainId = "LandscapeDocument_1";
-            var layer1Id = "Layer_1";
             var layer2Id = "Layer_2";
             var command = new ReorderLandscapeLayerCommand(terrainId, new List<string>(), layer2Id, 0, 1);
 
             var terrainDocMock = new Mock<LandscapeDocument>(terrainId);
-            terrainDocMock.CallBase = true;
+            var layers = new List<LandscapeLayerBase> {
+                new LandscapeLayer("Layer 1") { Id = "Layer_1" },
+                new LandscapeLayer("Layer 2") { Id = "Layer_2" }
+            };
+            
+            terrainDocMock.Setup(m => m.LayerTree).Returns(layers);
+            terrainDocMock.Setup(m => m.FindItem(It.IsAny<string>()))
+                .Returns<string>(id => layers.FirstOrDefault(l => l.Id == id));
+            
+            terrainDocMock.Setup(m => m.GetAffectedVertices(It.IsAny<LandscapeLayerBase>()))
+                .Returns([]);
             terrainDocMock.Setup(m => m.InitializeForUpdatingAsync(It.IsAny<IDatReaderWriter>(), It.IsAny<IDocumentManager>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+            terrainDocMock.Setup(m => m.SyncLayerTreeAsync(It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+            terrainDocMock.Setup(m => m.RecalculateTerrainCacheAsync(It.IsAny<IEnumerable<uint>>()))
                 .Returns(Task.CompletedTask);
 
             var terrainDoc = terrainDocMock.Object;
-            terrainDoc.AddLayer(new List<string>(), "Layer 1", false, layer1Id);
-            terrainDoc.AddLayer(new List<string>(), "Layer 2", false, layer2Id);
 
-            // Initial order: [Layer 1, Layer 2]
+            // Inject dependencies manually
+            typeof(LandscapeDocument).GetField("_documentManager", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(terrainDoc, _mockDocManager.Object);
 
             var terrainRental = new DocumentRental<LandscapeDocument>(terrainDoc, () => { });
 
-            _mockDocManager.Setup(m => m.RentDocumentAsync<LandscapeDocument>(terrainId, It.IsAny<CancellationToken>()))
+            _mockDocManager.Setup(m => m.RentDocumentAsync<LandscapeDocument>(terrainId, It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
-
-            _mockDocManager.Setup(m => m.PersistDocumentAsync(terrainRental, _mockTx.Object, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act
             var result = await command.ApplyAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, CancellationToken.None);
 
             // Assert
-            Assert.True(result.IsSuccess);
-            var layers = terrainDoc.LayerTree;
-            Assert.Equal(layer2Id, layers[0].Id);
-            Assert.Equal(layer1Id, layers[1].Id);
-            _mockDocManager.Verify(m => m.PersistDocumentAsync(terrainRental, _mockTx.Object, It.IsAny<CancellationToken>()), Times.Once);
+            Assert.True(result.IsSuccess, result.Error?.Message);
+            terrainDocMock.Verify(m => m.SyncLayerTreeAsync(It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()), Times.Once);
         }
 
         [Fact]

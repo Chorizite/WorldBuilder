@@ -34,11 +34,11 @@ namespace WorldBuilder.Shared.Tests.Services {
             await tx.CommitAsync(default);
 
             // Act
-            var rent1Result = await _mgr.RentDocumentAsync<LandscapeDocument>(docId, default);
+            var rent1Result = await _mgr.RentDocumentAsync<LandscapeDocument>(docId, null, default);
             Assert.True(rent1Result.IsSuccess);
             using var rental1 = rent1Result.Value;
 
-            var rent2Result = await _mgr.RentDocumentAsync<LandscapeDocument>(docId, default);
+            var rent2Result = await _mgr.RentDocumentAsync<LandscapeDocument>(docId, null, default);
             Assert.True(rent2Result.IsSuccess);
             using var rental2 = rent2Result.Value;
 
@@ -58,12 +58,12 @@ namespace WorldBuilder.Shared.Tests.Services {
             // Act
             BaseDocument? instance1;
             {
-                var rentResult = await _mgr.RentDocumentAsync<LandscapeDocument>(docId, default);
+                var rentResult = await _mgr.RentDocumentAsync<LandscapeDocument>(docId, null, default);
                 using var rental = rentResult.Value;
                 instance1 = rental.Document;
             }
 
-            var rentResult2 = await _mgr.RentDocumentAsync<LandscapeDocument>(docId, default);
+            var rentResult2 = await _mgr.RentDocumentAsync<LandscapeDocument>(docId, null, default);
             using var rental2 = rentResult2.Value;
             var instance2 = rental2.Document;
 
@@ -72,7 +72,7 @@ namespace WorldBuilder.Shared.Tests.Services {
         }
 
         private async Task<WeakReference> CreateRentalAndGetWeakRef(string docId) {
-            var rentResult = await _mgr.RentDocumentAsync<LandscapeDocument>(docId, default);
+            var rentResult = await _mgr.RentDocumentAsync<LandscapeDocument>(docId, null, default);
             using var rental = rentResult.Value;
             return new WeakReference(rental.Document);
         }

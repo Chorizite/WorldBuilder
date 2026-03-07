@@ -18,8 +18,8 @@ namespace WorldBuilder.Shared.Models {
                 chunk = new LandscapeChunk(chunkId);
 
                 // Rent the chunk document for edits if it exists
-                var chunkDocId = LandscapeChunkDocument.GetId(RegionId, chunk.ChunkX, chunk.ChunkY);
-                var rentResult = await documentManager.RentDocumentAsync<LandscapeChunkDocument>(chunkDocId, ct);
+                var chunkDocId = TerrainPatchDocument.GetId(RegionId, chunk.ChunkX, chunk.ChunkY);
+                var rentResult = await documentManager.RentDocumentAsync<TerrainPatchDocument>(chunkDocId, null, ct);
                 if (rentResult.IsSuccess) {
                     chunk.EditsRental = rentResult.Value;
                 }
@@ -27,7 +27,7 @@ namespace WorldBuilder.Shared.Models {
                     // It doesn't exist in the database yet. 
                     // use a detached document and only persist it
                     // if an edit is actually made to this chunk.
-                    chunk.EditsDetached = new LandscapeChunkDocument(chunkDocId);
+                    chunk.EditsDetached = new TerrainPatchDocument(chunkDocId);
                 }
 
                 await LoadBaseDataForChunkAsync(chunk, ct);
@@ -37,14 +37,19 @@ namespace WorldBuilder.Shared.Models {
                 // Pre-warm the merged landblock cache for all 64 landblocks in this chunk
                 // to prevent expensive cache-miss + DAT re-parse in StaticObjectRenderManager
                 if (Region != null) {
+                    var landblockIds = new List<uint>();
                     for (uint ly = 0; ly < LandscapeChunk.LandblocksPerChunk; ly++) {
                         for (uint lx = 0; lx < LandscapeChunk.LandblocksPerChunk; lx++) {
                             int lbX = (int)(chunk.ChunkX * LandscapeChunk.LandblocksPerChunk + lx);
                             int lbY = (int)(chunk.ChunkY * LandscapeChunk.LandblocksPerChunk + ly);
                             if (lbX >= Region.MapWidthInLandblocks || lbY >= Region.MapHeightInLandblocks) continue;
                             var lbId = ((uint)lbX << 8 | (uint)lbY) << 16 | 0xFFFE;
-                            GetMergedLandblock(lbId); // Populates the cache
+                            landblockIds.Add(lbId);
                         }
+                    }
+
+                    if (landblockIds.Count > 0) {
+                        await GetMergedLandblocksAsync(landblockIds);
                     }
                 }
 
@@ -57,7 +62,6 @@ namespace WorldBuilder.Shared.Models {
 
         private async Task LoadBaseDataForChunkAsync(LandscapeChunk chunk, CancellationToken ct) {
             if (Region is null) throw new InvalidOperationException("Region not loaded yet.");
-            if (CellDatabase is null) throw new InvalidOperationException("CellDatabase not loaded yet.");
 
             uint chunkX = chunk.ChunkX;
             uint chunkY = chunk.ChunkY;
@@ -65,14 +69,47 @@ namespace WorldBuilder.Shared.Models {
             int widthInLandblocks = Region.MapWidthInLandblocks;
             int vertexStride = Region.LandblockVerticeLength;
             int mapWidth = Region.MapWidthInVertices;
+            int strideMinusOne = vertexStride - 1;
+
+            if (_baseTerrainCache != null) {
+                // Use the cache
+                for (uint ly = 0; ly < LandscapeChunk.LandblocksPerChunk; ly++) {
+                    for (uint lx = 0; lx < LandscapeChunk.LandblocksPerChunk; lx++) {
+                        int lbX = (int)(chunkX * LandscapeChunk.LandblocksPerChunk + lx);
+                        int lbY = (int)(chunkY * LandscapeChunk.LandblocksPerChunk + ly);
+
+                        if (lbX >= Region.MapWidthInLandblocks || lbY >= Region.MapHeightInLandblocks) continue;
+
+                        for (int localY = 0; localY < vertexStride; localY++) {
+                            for (int localX = 0; localX < vertexStride; localX++) {
+                                int chunkVertexX = (int)(lx * strideMinusOne + localX);
+                                int chunkVertexY = (int)(ly * strideMinusOne + localY);
+
+                                if (chunkVertexX >= LandscapeChunk.ChunkVertexStride || chunkVertexY >= LandscapeChunk.ChunkVertexStride) continue;
+
+                                int chunkVertexIndex = chunkVertexY * LandscapeChunk.ChunkVertexStride + chunkVertexX;
+                                int globalVertexX = lbX * strideMinusOne + localX;
+                                int globalVertexY = lbY * strideMinusOne + localY;
+
+                                if (globalVertexX >= mapWidth || globalVertexY >= Region.MapHeightInVertices) continue;
+
+                                int globalIndex = globalVertexY * mapWidth + globalVertexX;
+                                chunk.BaseEntries[chunkVertexIndex] = TerrainEntry.Unpack(_baseTerrainCache[globalIndex]);
+                            }
+                        }
+                    }
+                }
+                return;
+            }
+
+            if (CellDatabase is null) throw new InvalidOperationException("CellDatabase not loaded yet.");
 
             // Throttle concurrent DAT reads to prevent I/O contention
             await _ioSemaphore.WaitAsync(ct);
             try {
                 await Task.Run(() => {
                     var lb = new LandBlock();
-                    var buffer = new byte[256];
-                    int strideMinusOne = vertexStride - 1;
+                    var buffer = new byte[1024 * 16];
 
                     for (uint ly = 0; ly < LandscapeChunk.LandblocksPerChunk; ly++) {
                         for (uint lx = 0; lx < LandscapeChunk.LandblocksPerChunk; lx++) {

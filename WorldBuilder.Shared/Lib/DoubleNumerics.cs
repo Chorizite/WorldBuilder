@@ -1,7 +1,6 @@
-using System;
 using System.Numerics;
 
-namespace WorldBuilder.Shared.Numerics {
+namespace WorldBuilder.Shared.Lib {
     /// <summary>
     /// A 3D vector using double precision floating point numbers.
     /// </summary>

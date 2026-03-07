@@ -34,7 +34,7 @@ namespace WorldBuilder.Shared.Tests.Repositories {
         public async Task InitializeDatabaseAsync_CreatesAllTablesAndIndexes() {
             var tables = await GetTableNamesAsync();
 
-            Assert.Contains("Documents", tables);
+            Assert.Contains("TerrainPatches", tables);
             Assert.Contains("Events", tables);
 
             var indexes = await GetIndexNamesAsync();
@@ -46,21 +46,21 @@ namespace WorldBuilder.Shared.Tests.Repositories {
             await _repo.InitializeDatabaseAsync(default);
             await _repo.InitializeDatabaseAsync(default); // no error
             var tables = await GetTableNamesAsync();
-            Assert.Contains("Documents", tables);
+            Assert.Contains("TerrainPatches", tables);
         }
 
         [Fact]
-        public async Task UpsertDocumentAsync_UpdatesLastModified_OnConflict() {
-            var docId = new LandscapeDocument().Id;
+        public async Task UpsertTerrainPatchAsync_UpdatesLastModified_OnConflict() {
+            var patchId = "TerrainPatch_1_0_0";
             var initial = DateTime.UtcNow.AddSeconds(-10);
 
             // Insert initial
             await using (var cmd = _repo.Connection.CreateCommand()) {
                 cmd.CommandText = @"
-            INSERT INTO Documents (Id, Type, Data, Version, LastModified)
-            VALUES (@id, @type, @data, @ver, @ts)";
-                cmd.Parameters.AddWithValue("@id", docId);
-                cmd.Parameters.AddWithValue("@type", "TerrainDocument");
+            INSERT INTO TerrainPatches (Id, RegionId, Data, Version, LastModified)
+            VALUES (@id, @regionId, @data, @ver, @ts)";
+                cmd.Parameters.AddWithValue("@id", patchId);
+                cmd.Parameters.AddWithValue("@regionId", 1L);
                 cmd.Parameters.AddWithValue("@data", new byte[] { 1 });
                 cmd.Parameters.AddWithValue("@ver", 1L);
                 cmd.Parameters.AddWithValue("@ts", initial);
@@ -71,38 +71,29 @@ namespace WorldBuilder.Shared.Tests.Repositories {
 
             // Upsert update
             var tx = await _repo.CreateTransactionAsync(default);
-            await _repo.UpdateDocumentAsync(docId, new byte[] { 2 }, 2, tx, default);
+            await _repo.UpsertTerrainPatchAsync(patchId, 1, new byte[] { 2 }, 2, tx, default);
             await tx.CommitAsync(default);
 
             // Verify LastModified updated
             await using var readCmd = _repo.Connection.CreateCommand();
-            readCmd.CommandText = "SELECT LastModified FROM Documents WHERE Id = @id";
-            readCmd.Parameters.AddWithValue("@id", docId);
+            readCmd.CommandText = "SELECT LastModified FROM TerrainPatches WHERE Id = @id";
+            readCmd.Parameters.AddWithValue("@id", patchId);
             var lastModObj = await readCmd.ExecuteScalarAsync();
-            var lastMod = DateTime.Parse(lastModObj?.ToString() ?? throw new InvalidOperationException("LastModified not found"));
+            var lastModString = lastModObj?.ToString() ?? throw new InvalidOperationException("LastModified not found");
+            var lastMod = DateTime.Parse(lastModString);
 
             Assert.True(lastMod > initial);
         }
 
         [Fact]
-        public async Task UpdateDocumentAsync_Fails_WhenVersionIsLower() {
-            var docId = "TestDoc_1";
-            var data1 = new byte[] { 1 };
-            var data2 = new byte[] { 2 };
+        public async Task GetTerrainPatchBlobAsync_ReturnsData() {
+            var patchId = "TerrainPatch_1_0_0";
+            var data = new byte[] { 1, 2, 3 };
+            await _repo.UpsertTerrainPatchAsync(patchId, 1, data, 1, null, default);
 
-            // Insert initial version 10
-            await _repo.InsertDocumentAsync(docId, "TestType", data1, 10, null, default);
-
-            // Try to update with version 5
-            var result = await _repo.UpdateDocumentAsync(docId, data2, 5, null, default);
-
-            // Assert
-            Assert.True(result.IsFailure);
-            Assert.Equal("DOCUMENT_NOT_FOUND", result.Error.Code);
-
-            // Verify data is still version 10
-            var blobResult = await _repo.GetDocumentBlobAsync<LandscapeDocument>(docId, default);
-            Assert.Equal(data1, blobResult.Value);
+            var result = await _repo.GetTerrainPatchBlobAsync(patchId, null, default);
+            Assert.True(result.IsSuccess);
+            Assert.Equal(data, result.Value);
         }
 
         private async Task<List<string>> GetTableNamesAsync() {

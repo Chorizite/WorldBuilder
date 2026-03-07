@@ -27,7 +27,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.ViewModels {
             Assert.Equal("New Name", vm.Name);
             Assert.Equal("New Name", model.Name);
             Assert.Single(history.History);
-            Assert.IsType<RenameLandscapeLayerCommand>(history.History.First());
+            Assert.IsType<RenameLayerUICommand>(history.History.First());
         }
 
         [Fact]

@@ -13,7 +13,7 @@ public readonly record struct Result<T, TError> {
     /// <summary>Gets a value indicating whether the operation was successful.</summary>
     public bool IsSuccess { get; }
     /// <summary>Gets a value indicating whether the operation failed.</summary>
-    public bool IsFailure => !IsSuccess;
+    public bool IsFailure => !IsSuccess && Error != null;
 
     private Result(T value, TError error, bool isSuccess) {
         Value = value!;
@@ -58,7 +58,7 @@ public readonly record struct Result<T> {
     /// <summary>Gets a value indicating whether the operation was successful.</summary>
     public bool IsSuccess { get; }
     /// <summary>Gets a value indicating whether the operation failed.</summary>
-    public bool IsFailure => !IsSuccess;
+    public bool IsFailure => !IsSuccess && Error != null;
 
     private Result(T value, Error error, bool isSuccess) {
         Value = value!;

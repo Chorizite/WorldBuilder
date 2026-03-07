@@ -4,12 +4,14 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Services;
 using WorldBuilder.Shared.Tests.Mocks;
+using WorldBuilder.Shared.Repositories;
 
 namespace WorldBuilder.Shared.Tests.Commands.Landscape {
     public class ReorderLandscapeLayerCommandTests {
         private readonly Mock<IDocumentManager> _mockDocManager;
         private readonly MockDatReaderWriter _dats;
         private readonly Mock<ITransaction> _mockTx;
+        private readonly Mock<IProjectRepository> _mockRepo;
         private readonly string _terrainDocId = "LandscapeDocument_1";
         private const string L1 = "LandscapeLayerDocument_1";
         private const string L2 = "LandscapeLayerDocument_2";
@@ -17,13 +19,32 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
         public ReorderLandscapeLayerCommandTests() {
             _mockDocManager = new Mock<IDocumentManager>();
+            _mockDocManager.Setup(m => m.GetLayersAsync(It.IsAny<uint>(), It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>())).ReturnsAsync(new List<LandscapeLayerBase>());
+            _mockDocManager.Setup(m => m.LandscapeDataProvider).Returns(new Mock<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeDataProvider>().Object);
             _dats = new MockDatReaderWriter();
             _mockTx = new Mock<ITransaction>();
+            _mockRepo = new Mock<IProjectRepository>();
+            _mockDocManager.Setup(m => m.ProjectRepository).Returns(_mockRepo.Object);
+            _mockRepo.Setup(r => r.UpsertLayerAsync(It.IsAny<LandscapeLayerBase>(), It.IsAny<uint>(), It.IsAny<int>(), It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<Unit>.Success(Unit.Value));
         }
 
         private (LandscapeDocument, DocumentRental<LandscapeDocument>) CreateMockTerrainRental() {
             var terrainDoc = new LandscapeDocument(_terrainDocId);
+
+            // Bypass dats loading
+            typeof(LandscapeDocument).GetField("_didLoadRegionData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(terrainDoc, true);
+            typeof(LandscapeDocument).GetField("_didLoadLayers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(terrainDoc, true);
+
+            // Inject dependencies manually
+            typeof(LandscapeDocument).GetField("_documentManager", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(terrainDoc, _mockDocManager.Object);
+            typeof(LandscapeDocument).GetField("_landscapeDataProvider", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(terrainDoc, _mockDocManager.Object.LandscapeDataProvider);
+
             var rental = new DocumentRental<LandscapeDocument>(terrainDoc, () => { });
+
+            _mockDocManager.Setup(m => m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(rental));
+
             return (terrainDoc, rental);
         }
 
@@ -50,10 +71,10 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
 
             _mockDocManager.Setup(m =>
-                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
             _mockDocManager.Setup(m => m.PersistDocumentAsync(It.IsAny<DocumentRental<LandscapeDocument>>(),
-                    _mockTx.Object, It.IsAny<CancellationToken>()))
+                    It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act
@@ -89,10 +110,10 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
 
             _mockDocManager.Setup(m =>
-                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
             _mockDocManager.Setup(m => m.PersistDocumentAsync(It.IsAny<DocumentRental<LandscapeDocument>>(),
-                    _mockTx.Object, It.IsAny<CancellationToken>()))
+                    It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act
@@ -124,10 +145,10 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
 
             _mockDocManager.Setup(m =>
-                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
             _mockDocManager.Setup(m => m.PersistDocumentAsync(It.IsAny<DocumentRental<LandscapeDocument>>(),
-                    _mockTx.Object, It.IsAny<CancellationToken>()))
+                    It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act
@@ -159,10 +180,10 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
 
             _mockDocManager.Setup(m =>
-                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
             _mockDocManager.Setup(m => m.PersistDocumentAsync(It.IsAny<DocumentRental<LandscapeDocument>>(),
-                    _mockTx.Object, It.IsAny<CancellationToken>()))
+                    It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act
@@ -189,7 +210,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
 
             _mockDocManager.Setup(m =>
-                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
 
             // Act & Assert
@@ -216,10 +237,10 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
 
             _mockDocManager.Setup(m =>
-                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
             _mockDocManager.Setup(m => m.PersistDocumentAsync(It.IsAny<DocumentRental<LandscapeDocument>>(),
-                    _mockTx.Object, It.IsAny<CancellationToken>()))
+                    It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act
@@ -247,7 +268,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
 
             _mockDocManager.Setup(m =>
-                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
 
             // Act & Assert
@@ -273,7 +294,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
 
             _mockDocManager.Setup(m =>
-                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
 
             // Act & Assert
@@ -299,10 +320,10 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
 
             _mockDocManager.Setup(m =>
-                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
             _mockDocManager.Setup(m => m.PersistDocumentAsync(It.IsAny<DocumentRental<LandscapeDocument>>(),
-                    _mockTx.Object, It.IsAny<CancellationToken>()))
+                    It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act
@@ -325,7 +346,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
             };
 
             _mockDocManager.Setup(m =>
-                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Failure("Not Found"));
 
             // Act
@@ -334,7 +355,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
             // Assert
             Assert.True(result.IsFailure);
-            Assert.Equal("Not Found", result.Error.Message);
+            Assert.Equal($"Terrain not found: {_terrainDocId}", result.Error.Message);
         }
 
         [Fact]
@@ -353,7 +374,7 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
 
             _mockDocManager.Setup(m =>
-                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
 
             // Act
@@ -405,10 +426,10 @@ namespace WorldBuilder.Shared.Tests.Commands.Landscape {
 
 
             _mockDocManager.Setup(m =>
-                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, It.IsAny<CancellationToken>()))
+                    m.RentDocumentAsync<LandscapeDocument>(_terrainDocId, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
             _mockDocManager.Setup(m => m.PersistDocumentAsync(It.IsAny<DocumentRental<LandscapeDocument>>(),
-                    _mockTx.Object, It.IsAny<CancellationToken>()))
+                    It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act - Forward -> [L1, L3, L2]

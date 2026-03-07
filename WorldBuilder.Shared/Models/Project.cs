@@ -182,7 +182,25 @@ public class Project : IProject, IAsyncDisposable {
         progress?.Report(("Initializing database...", 1.0f));
 
         var projectPath = Path.Combine(projectDirectory, $"{projectName}.wbproj");
-        return await Open(projectPath, ct);
+        var projectResult = await Open(projectPath, ct);
+        if (projectResult.IsFailure) return projectResult;
+
+        var project = projectResult.Value;
+
+        // Generate terrain cache for each region
+        var regions = project.Services.GetRequiredService<IDatReaderWriter>().RegionFileMap.Keys.ToList();
+        float regionCount = regions.Count;
+        for (int i = 0; i < regions.Count; i++) {
+            var regionId = regions[i];
+            progress?.Report(($"Generating terrain cache for region {regionId}...", (float)i / regionCount));
+            var landscapeDoc = new LandscapeDocument(regionId);
+            await landscapeDoc.InitializeForEditingAsync(project.Services.GetRequiredService<IDatReaderWriter>(), project.Services.GetRequiredService<IDocumentManager>(), ct);
+            var cache = await landscapeDoc.GenerateBaseCacheAsync(project.Services.GetRequiredService<IDatReaderWriter>(), progress, ct);
+            var cachePath = WorldBuilder.Shared.Modules.Landscape.Lib.TerrainCacheManager.GetCachePath(project.ProjectDirectory, regionId);
+            await WorldBuilder.Shared.Modules.Landscape.Lib.TerrainCacheManager.SaveAsync(cachePath, cache, regionId, landscapeDoc.Region!.MapWidthInVertices, landscapeDoc.Region.MapHeightInVertices);
+        }
+
+        return Result<Project>.Success(project);
     }
 
     public void Dispose() {

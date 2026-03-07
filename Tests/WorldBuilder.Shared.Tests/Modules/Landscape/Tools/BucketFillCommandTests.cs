@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Services;
@@ -143,7 +144,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
                 for (uint x = 0; x < numChunksX; x++) {
                     ushort id = LandscapeChunk.GetId(x, y);
                     var chunk = new LandscapeChunk(id);
-                    chunk.EditsRental = new DocumentRental<LandscapeChunkDocument>(new LandscapeChunkDocument($"LandscapeChunkDocument_{id}"), () => { });
+                    chunk.EditsRental = new DocumentRental<TerrainPatchDocument>(new TerrainPatchDocument($"TerrainPatch_0_{id}_0"), () => { });
                     doc.LoadedChunks[id] = chunk;
                 }
             }

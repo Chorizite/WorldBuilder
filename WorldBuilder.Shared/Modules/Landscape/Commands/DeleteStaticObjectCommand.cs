@@ -50,19 +50,29 @@ public partial class DeleteStaticObjectCommand : BaseCommand<bool> {
 
     public override async Task<Result<bool>> ApplyResultAsync(IDocumentManager documentManager, IDatReaderWriter dats, ITransaction tx, CancellationToken ct) {
         try {
-            var rentResult = await documentManager.RentDocumentAsync<LandscapeDocument>(TerrainDocumentId, ct);
+            var rentResult = await documentManager.RentDocumentAsync<LandscapeDocument>(TerrainDocumentId, tx, ct);
             if (rentResult.IsFailure) return Result<bool>.Failure(rentResult.Error);
 
             using var terrainRental = rentResult.Value;
             await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
-            var result = await terrainRental.Document.DeleteStaticObjectAsync(LayerId, LandblockId, InstanceId, dats, documentManager, tx, ct);
-            if (result.IsFailure) return result;
-
-            var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);
-            if (persistResult.IsFailure) return Result<bool>.Failure(persistResult.Error);
-
-            return Result<bool>.Success(true);
+            Result<Unit> result;
+            if (PreviousState != null) {
+                var tombstone = new StaticObject {
+                    InstanceId = InstanceId,
+                    SetupId = PreviousState.SetupId,
+                    LayerId = LayerId,
+                    Position = PreviousState.Position,
+                    Rotation = PreviousState.Rotation,
+                    CellId = PreviousState.CellId,
+                    IsDeleted = true
+                };
+                result = await terrainRental.Document.UpsertStaticObjectAsync(tombstone, LandblockId, PreviousState.CellId, null, PreviousState.CellId, tx, ct);
+            }
+            else {
+                result = await terrainRental.Document.DeleteStaticObjectAsync(InstanceId, LandblockId, tx, ct);
+            }
+            return result.IsSuccess ? Result<bool>.Success(true) : Result<bool>.Failure(result.Error);
         }
         catch (Exception ex) {
             return Result<bool>.Failure(Error.Failure($"Error deleting static object: {ex.Message}"));

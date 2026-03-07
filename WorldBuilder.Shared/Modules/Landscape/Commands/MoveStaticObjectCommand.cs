@@ -1,9 +1,7 @@
-using System;
-using System.Numerics;
-using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Tools {
+namespace WorldBuilder.Shared.Modules.Landscape.Commands {
     /// <summary>
     /// A command that moves/rotates a static object, supporting undo/redo.
     /// Uses a delegate to perform the actual document update (since it's async).
@@ -38,10 +36,24 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             _oldObject = oldObject;
 
             ulong newInstanceId = oldObject.InstanceId;
-            if (newLandblockId != oldLandblockId) {
-                if (newType == InspectorSelectionType.EnvCellStaticObject || oldObject.InstanceId >= InstanceIdConstants.EnvCellStaticObjectFlag) {
-                    ushort index = InstanceIdConstants.GetObjectIndex(oldObject.InstanceId);
-                    newInstanceId = InstanceIdConstants.EncodeEnvCellStaticObject(newLandblockId, index, true);
+            if (newLandblockId != oldLandblockId || newObject.CellId != oldObject.CellId) {
+                if (newType == InspectorSelectionType.EnvCellStaticObject) {
+                    ushort newIndex = 0xFFFF;
+                    newInstanceId = InstanceIdConstants.EncodeEnvCellStaticObject(newObject.CellId!.Value, newIndex, true);
+                    var cell = _context.Document.GetMergedEnvCell(newObject.CellId!.Value);
+                    while (cell.StaticObjects.ContainsKey(newInstanceId) && newIndex > 0) {
+                        newIndex--;
+                        newInstanceId = InstanceIdConstants.EncodeEnvCellStaticObject(newObject.CellId!.Value, newIndex, true);
+                    }
+                }
+                else {
+                    ushort newIndex = 0xFFFF;
+                    newInstanceId = InstanceIdConstants.Encode(InspectorSelectionType.StaticObject, ObjectState.Added, newLandblockId, newIndex);
+                    var lb = _context.Document.GetMergedLandblock(newLandblockId);
+                    while (lb.StaticObjects.ContainsKey(newInstanceId) && newIndex > 0) {
+                        newIndex--;
+                        newInstanceId = InstanceIdConstants.Encode(InspectorSelectionType.StaticObject, ObjectState.Added, newLandblockId, newIndex);
+                    }
                 }
             }
 
@@ -50,7 +62,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                     SetupId = newObject.SetupId,
                     InstanceId = newInstanceId,
                     LayerId = newObject.LayerId,
-                    Position = newObject.Position
+                    Position = newObject.Position,
+                    Rotation = newObject.Rotation,
+                    CellId = newObject.CellId
                 };
             }
             else {

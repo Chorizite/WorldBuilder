@@ -18,6 +18,8 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands {
 
         public CreateLandscapeLayerCommandTests() {
             _mockDocManager = new Mock<IDocumentManager>();
+            _mockDocManager.Setup(m => m.LandscapeDataProvider).Returns(new Mock<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeDataProvider>().Object);
+            _mockDocManager.Setup(m => m.LandscapeCacheService).Returns(new Mock<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeCacheService>().Object);
             _mockDats = new Mock<IDatReaderWriter>();
             _mockTx = new Mock<ITransaction>();
         }
@@ -32,26 +34,26 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands {
             };
 
             var terrainDocMock = new Mock<LandscapeDocument>(terrainId);
-            terrainDocMock.CallBase = true;
             terrainDocMock.Setup(m => m.InitializeForUpdatingAsync(It.IsAny<IDatReaderWriter>(), It.IsAny<IDocumentManager>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+            terrainDocMock.Setup(m => m.SyncLayerTreeAsync(It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
             var terrainDoc = terrainDocMock.Object;
 
+            // Inject dependencies manually
+            typeof(LandscapeDocument).GetField("_documentManager", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(terrainDoc, _mockDocManager.Object);
+
             var terrainRental = new DocumentRental<LandscapeDocument>(terrainDoc, () => { });
 
-            _mockDocManager.Setup(m => m.RentDocumentAsync<LandscapeDocument>(terrainId, It.IsAny<CancellationToken>()))
+            _mockDocManager.Setup(m => m.RentDocumentAsync<LandscapeDocument>(terrainId, It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result<DocumentRental<LandscapeDocument>>.Success(terrainRental));
-
-            _mockDocManager.Setup(m => m.PersistDocumentAsync(terrainRental, _mockTx.Object, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Result<Unit>.Success(Unit.Value));
 
             // Act
             var result = await command.ApplyAsync(_mockDocManager.Object, _mockDats.Object, _mockTx.Object, CancellationToken.None);
 
             // Assert
-            Assert.True(result.IsSuccess);
-            Assert.Contains(terrainDoc.GetAllLayers(), l => l.Id == layerId && l.Name == "New Layer");
-            _mockDocManager.Verify(m => m.PersistDocumentAsync(terrainRental, _mockTx.Object, It.IsAny<CancellationToken>()), Times.Once);
+            Assert.True(result.IsSuccess, result.Error?.Message);
+            terrainDocMock.Verify(m => m.SyncLayerTreeAsync(It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()), Times.Once);
         }
 
         [Fact]

@@ -39,19 +39,14 @@ public partial class AddStaticObjectCommand : BaseCommand<bool> {
 
     public override async Task<Result<bool>> ApplyResultAsync(IDocumentManager documentManager, IDatReaderWriter dats, ITransaction tx, CancellationToken ct) {
         try {
-            var rentResult = await documentManager.RentDocumentAsync<LandscapeDocument>(TerrainDocumentId, ct);
+            var rentResult = await documentManager.RentDocumentAsync<LandscapeDocument>(TerrainDocumentId, tx, ct);
             if (rentResult.IsFailure) return Result<bool>.Failure(rentResult.Error);
 
             using var terrainRental = rentResult.Value;
             await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
-            var result = await terrainRental.Document.AddStaticObjectAsync(LayerId, LandblockId, Object, dats, documentManager, tx, ct);
-            if (result.IsFailure) return result;
-
-            var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);
-            if (persistResult.IsFailure) return Result<bool>.Failure(persistResult.Error);
-
-            return Result<bool>.Success(true);
+            var result = await terrainRental.Document.UpsertStaticObjectAsync(Object, LandblockId, Object.CellId, null, null, tx, ct);
+            return result.IsSuccess ? Result<bool>.Success(true) : Result<bool>.Failure(result.Error);
         }
         catch (Exception ex) {
             return Result<bool>.Failure(Error.Failure($"Error adding static object: {ex.Message}"));

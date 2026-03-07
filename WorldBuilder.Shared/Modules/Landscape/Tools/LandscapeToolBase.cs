@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Numerics;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Modules.Landscape.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {

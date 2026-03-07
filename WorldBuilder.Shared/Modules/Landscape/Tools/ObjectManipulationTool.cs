@@ -1,10 +1,11 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using System;
 using System.Numerics;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo;
-using WorldBuilder.Shared.Numerics;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     /// <summary>
@@ -19,6 +20,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         [ObservableProperty] private bool _isLocalSpace;
         [ObservableProperty] private bool _alignToSurface;
         [ObservableProperty] private bool _showBoundingBoxes;
+        [ObservableProperty] private bool _selectBuildings = false;
+        [ObservableProperty] private bool _selectStaticObjects = true;
+        [ObservableProperty] private bool _selectEnvCellStaticObjects = true;
 
         partial void OnIsLocalSpaceChanged(bool value) {
             GizmoState.IsLocalSpace = value;
@@ -67,8 +71,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 var targetObj = (e.ChangeType == CommandChangeType.Undo) ? moveCommand.OldObject : moveCommand.NewObject;
                 var targetLbId = (e.ChangeType == CommandChangeType.Undo) ? moveCommand.OldLandblockId : moveCommand.NewLandblockId;
 
-                var localPosition = new Vector3(targetObj.Position[0], targetObj.Position[1], targetObj.Position[2]);
-                var rotation = new Quaternion(targetObj.Position[4], targetObj.Position[5], targetObj.Position[6], targetObj.Position[3]);
+                var localPosition = targetObj.Position;
+                var rotation = targetObj.Rotation;
                 var worldPosition = ComputeWorldPosition(targetLbId, localPosition);
 
                 // If this was our selection, follow it (even if InstanceId changed)
@@ -99,10 +103,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                     RefreshGizmoPosition();
                 }
 
-                // Push the transform to the renderer so the object moves to match
-                // (same-landblock moves skip NotifyLandblockChanged, so the renderer
-                // won't regenerate — it needs this direct transform update instead).
-                Context?.NotifyObjectPositionPreview?.Invoke(targetLbId, targetObj.InstanceId, worldPosition, rotation, targetLbId);
+                Context?.NotifyObjectPositionPreview?.Invoke(targetLbId, targetObj.InstanceId, worldPosition, rotation, targetObj.CellId ?? 0);
             }
             else {
                 RefreshGizmoPosition();
@@ -180,16 +181,17 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             // Not hitting gizmo — try to select a static object
-            SceneRaycastHit hit = SceneRaycaster.PerformRaycast(Context, e);
+            SceneRaycastHit hit = SceneRaycaster.PerformRaycast(Context, e, SelectBuildings, SelectStaticObjects, SelectEnvCellStaticObjects);
 
             if (hit.Hit && (hit.Type == InspectorSelectionType.StaticObject ||
-                                 hit.Type == InspectorSelectionType.EnvCellStaticObject)) {
+                                 hit.Type == InspectorSelectionType.EnvCellStaticObject ||
+                                 hit.Type == InspectorSelectionType.Building)) {
                 SelectObject(hit);
                 Context.NotifyInspectorSelected(hit);
                 return true;
             }
 
-            // Clicked empty space — deselect
+            // Clicked empty space - deselect
             ClearSelection();
             return false;
         }
@@ -254,7 +256,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             // Update object hover
-            var hit = SceneRaycaster.PerformRaycast(Context, e);
+            var hit = SceneRaycaster.PerformRaycast(Context, e, SelectBuildings, SelectStaticObjects, SelectEnvCellStaticObjects);
             if (hit.Type != _lastHoveredHit.Type || hit.LandblockId != _lastHoveredHit.LandblockId || hit.InstanceId != _lastHoveredHit.InstanceId || hit.ObjectId != _lastHoveredHit.ObjectId) {
                 _lastHoveredHit = hit;
                 Context.NotifyInspectorHovered(hit);
@@ -304,39 +306,43 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
             // Resolve the layer ID
             if (Context?.GetStaticObjectLayerId != null) {
-                GizmoState.LayerId = Context.GetStaticObjectLayerId(hit.LandblockId, hit.InstanceId) ?? string.Empty;
+                var layerId = Context.GetStaticObjectLayerId(hit.LandblockId, hit.InstanceId);
+                if (string.IsNullOrEmpty(layerId)) {
+                    GizmoState.LayerId = Context.ActiveLayer?.Id ?? string.Empty;
+                }
+                else {
+                    GizmoState.LayerId = layerId;
+                }
             }
         }
 
         private void CaptureObjectStateForUndo() {
             _dragStartLandblockId = GizmoState.LandblockId;
-            _dragStartObject = CreateStaticObject(GizmoState.LocalPosition, GizmoState.Rotation);
+            uint? cellId = (GizmoState.SelectionType == InspectorSelectionType.EnvCellStaticObject) ? InstanceIdConstants.GetRawId(GizmoState.InstanceId) : null;
+            _dragStartObject = CreateStaticObject(GizmoState.LocalPosition, GizmoState.Rotation, cellId);
         }
 
         private void CommitManipulation() {
             if (Context == null || _dragStartObject == null) return;
 
             // Determine if the object crossed landblock boundaries or moved into/out of a cell
-            uint newLandblockId = _dragStartLandblockId;
+            uint newLandblockId = Context.ComputeLandblockId!(GizmoState.Position);
+            uint? newCellId = null;
             InspectorSelectionType newType = GizmoState.SelectionType;
 
             if (Context.GetEnvCellAt != null) {
                 var cellId = Context.GetEnvCellAt(GizmoState.Position);
                 if (cellId != 0) {
-                    newLandblockId = cellId;
+                    newCellId = cellId;
                     if (newType == InspectorSelectionType.StaticObject) {
                         newType = InspectorSelectionType.EnvCellStaticObject;
                     }
                 }
-                else if (Context.ComputeLandblockId != null) {
-                    newLandblockId = Context.ComputeLandblockId(GizmoState.Position);
+                else {
                     if (newType == InspectorSelectionType.EnvCellStaticObject) {
                         newType = InspectorSelectionType.StaticObject;
                     }
                 }
-            }
-            else if (Context.ComputeLandblockId != null) {
-                newLandblockId = Context.ComputeLandblockId(GizmoState.Position);
             }
 
             // Recalculate local position relative to the NEW landblock/cell origin
@@ -345,7 +351,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
             // ID re-encoding logic is now handled by MoveStaticObjectCommand.
             // We just pass the new block ID and standard StaticObject.
-            var newObject = CreateStaticObject(newLocalPosition, GizmoState.Rotation);
+            var newObject = CreateStaticObject(newLocalPosition, GizmoState.Rotation, newCellId);
 
             var command = new MoveStaticObjectCommand(
                 Context,
@@ -365,7 +371,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         private Quaternion ApplySurfaceSnappingRotation(StaticObject startObj, Vector3 hitNormal) {
-            var startRot = new Quaternion(startObj.Position[4], startObj.Position[5], startObj.Position[6], startObj.Position[3]);
+            var startRot = startObj.Rotation;
 
             var oldUp = _dragStartNormal;
             var newUp = Vector3.Normalize(hitNormal);
@@ -386,15 +392,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             return startRot;
         }
 
-        private StaticObject CreateStaticObject(Vector3 localPosition, Quaternion rotation) {
+        private StaticObject CreateStaticObject(Vector3 localPosition, Quaternion rotation, uint? cellId = null) {
             return new StaticObject {
                 SetupId = GizmoState.ObjectId,
                 InstanceId = GizmoState.InstanceId,
                 LayerId = GizmoState.LayerId,
-                Position = new[] {
-                    localPosition.X, localPosition.Y, localPosition.Z,
-                    rotation.W, rotation.X, rotation.Y, rotation.Z
-                }
+                Position = localPosition,
+                Rotation = rotation,
+                CellId = cellId
             };
         }
 

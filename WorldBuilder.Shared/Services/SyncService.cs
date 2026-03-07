@@ -128,7 +128,7 @@ public class SyncService {
     }
 
     private async Task SendUnsyncedEventsAsync(CancellationToken ct) {
-        var unsyncedEvents = await _repo.GetUnsyncedEventsAsync(ct);
+        var unsyncedEvents = await _repo.GetUnsyncedEventsAsync(null, ct);
         _logger?.LogInformation("Sending {Count} unsynced events", unsyncedEvents.Count);
 
         foreach (var evt in unsyncedEvents) {

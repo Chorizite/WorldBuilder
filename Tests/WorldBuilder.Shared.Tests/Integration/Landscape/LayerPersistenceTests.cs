@@ -63,7 +63,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
 
             // 4. Try to Load
             {
-                var rentResult = await newDocManager.RentDocumentAsync<LandscapeDocument>(docId, default);
+                var rentResult = await newDocManager.RentDocumentAsync<LandscapeDocument>(docId, null, default);
                 Assert.True(rentResult.IsSuccess);
                 using var rental = rentResult.Value;
 

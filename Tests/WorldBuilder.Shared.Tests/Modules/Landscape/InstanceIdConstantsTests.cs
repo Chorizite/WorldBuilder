@@ -3,130 +3,82 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 
 namespace WorldBuilder.Shared.Tests.Modules.Landscape {
     public class InstanceIdConstantsTests {
+
         [Theory]
-        [InlineData(0, InspectorSelectionType.Vertex, InstanceIdConstants.VertexFlag)]
-        [InlineData(12345, InspectorSelectionType.Building, InstanceIdConstants.BuildingFlag | 12345UL)]
-        [InlineData(0xFFFFFFFF, InspectorSelectionType.StaticObject, InstanceIdConstants.StaticObjectFlag | 0xFFFFFFFFUL)]
-        [InlineData(1, InspectorSelectionType.Scenery, InstanceIdConstants.SceneryFlag | 1UL)]
-        [InlineData(42, InspectorSelectionType.Portal, InstanceIdConstants.PortalFlag | 42UL)]
-        [InlineData(100, InspectorSelectionType.EnvCell, InstanceIdConstants.EnvCellFlag | 100UL)]
-        [InlineData(100, InspectorSelectionType.None, 100UL)]
-        public void Encode_CorrectlyCombinesFlagAndId(uint id, InspectorSelectionType type, ulong expected) {
+        [InlineData(InspectorSelectionType.Vertex, ObjectState.Original, 0x00000001, 0x0000)]
+        [InlineData(InspectorSelectionType.Building, ObjectState.Added, 0xFFFFFFFF, 0xFFFF)]
+        [InlineData(InspectorSelectionType.StaticObject, ObjectState.Modified, 0x12345678, 0x1234)]
+        [InlineData(InspectorSelectionType.Scenery, ObjectState.Deleted, 0x00000000, 0x0000)]
+        [InlineData(InspectorSelectionType.Portal, ObjectState.Original, 0x0A0A0000, 0x0001)]
+        [InlineData(InspectorSelectionType.EnvCell, ObjectState.Added, 0x0A0A0001, 0x0002)]
+        [InlineData(InspectorSelectionType.EnvCellStaticObject, ObjectState.Modified, 0x0B0B0002, 0x0003)]
+        public void Encode_CorrectlyCombinesFields(InspectorSelectionType type, ObjectState state, uint contextId, ushort index) {
+            var result = InstanceIdConstants.Encode(type, state, contextId, index);
+
+            Assert.Equal(type, InstanceIdConstants.GetType(result));
+            Assert.Equal(state, InstanceIdConstants.GetState(result));
+            Assert.Equal(contextId, InstanceIdConstants.GetContextId(result));
+            Assert.Equal(index, InstanceIdConstants.GetObjectIndex(result));
+        }
+
+        [Fact]
+        public void LegacyEncode_CorrectlyDefaultsStateAndIndex() {
+            uint id = 12345;
+            InspectorSelectionType type = InspectorSelectionType.Vertex;
             var result = InstanceIdConstants.Encode(id, type);
-            Assert.Equal(expected, result);
+
+            Assert.Equal(type, InstanceIdConstants.GetType(result));
+            Assert.Equal(ObjectState.Original, InstanceIdConstants.GetState(result));
+            Assert.Equal(id, InstanceIdConstants.GetContextId(result));
+            Assert.Equal(0, InstanceIdConstants.GetObjectIndex(result));
         }
 
         [Theory]
-        [InlineData(InstanceIdConstants.VertexFlag | 1UL, InspectorSelectionType.Vertex)]
-        [InlineData(InstanceIdConstants.BuildingFlag | 0xFFFFFFFFUL, InspectorSelectionType.Building)]
-        [InlineData(InstanceIdConstants.StaticObjectFlag, InspectorSelectionType.StaticObject)]
-        [InlineData(InstanceIdConstants.SceneryFlag | 123, InspectorSelectionType.Scenery)]
-        [InlineData(InstanceIdConstants.PortalFlag | 999, InspectorSelectionType.Portal)]
-        [InlineData(InstanceIdConstants.EnvCellFlag | 0x12345678UL, InspectorSelectionType.EnvCell)]
-        [InlineData(InstanceIdConstants.EnvCellStaticObjectFlag | 0x12345678UL, InspectorSelectionType.EnvCellStaticObject)]
-        [InlineData(500UL, InspectorSelectionType.None)]
-        public void GetType_CorrectlyIdentifiesType(ulong instanceId, InspectorSelectionType expected) {
-            var result = InstanceIdConstants.GetType(instanceId);
-            Assert.Equal(expected, result);
-        }
-
-        [Theory]
-        [InlineData(0x12345678U, 5, false)]
-        [InlineData(0x12345678U, 0x7FFF, true)]
+        [InlineData(0x12345678, 42, true)]
+        [InlineData(0x87654321, 99, false)]
         public void EncodeEnvCellStaticObject_CorrectlyEncodes(uint cellId, ushort index, bool isCustom) {
             var result = InstanceIdConstants.EncodeEnvCellStaticObject(cellId, index, isCustom);
+
             Assert.Equal(InspectorSelectionType.EnvCellStaticObject, InstanceIdConstants.GetType(result));
-            Assert.Equal(cellId, InstanceIdConstants.GetRawId(result));
-            Assert.Equal(index, InstanceIdConstants.GetSecondaryId(result));
+            Assert.Equal(isCustom ? ObjectState.Added : ObjectState.Original, InstanceIdConstants.GetState(result));
+            Assert.Equal(cellId, InstanceIdConstants.GetContextId(result));
+            Assert.Equal(index, InstanceIdConstants.GetObjectIndex(result));
             Assert.Equal(isCustom, InstanceIdConstants.IsCustomObject(result));
         }
 
-        [Theory]
-        [InlineData(InstanceIdConstants.VertexFlag | 0x12345678UL, 0x12345678U)]
-        [InlineData(0xFFFFFFFFUL, 0xFFFFFFFFU)]
-        [InlineData(InstanceIdConstants.SceneryFlag, 0U)]
-        [InlineData(12345UL, 12345U)]
-        public void GetRawId_CorrectlyExtractsLower32Bits(ulong instanceId, uint expected) {
-            var result = InstanceIdConstants.GetRawId(instanceId);
-            Assert.Equal(expected, result);
-        }
-
         [Fact]
-        public void Flags_AreInUpper32Bits() {
-            // All flags should be greater than uint.MaxValue
-            Assert.True(InstanceIdConstants.VertexFlag > uint.MaxValue);
-            Assert.True(InstanceIdConstants.BuildingFlag > uint.MaxValue);
-            Assert.True(InstanceIdConstants.StaticObjectFlag > uint.MaxValue);
-            Assert.True(InstanceIdConstants.SceneryFlag > uint.MaxValue);
-            Assert.True(InstanceIdConstants.PortalFlag > uint.MaxValue);
-            Assert.True(InstanceIdConstants.EnvCellFlag > uint.MaxValue);
-            Assert.True(InstanceIdConstants.EnvCellStaticObjectFlag > uint.MaxValue);
-        }
+        public void EncodeStaticObject_CorrectlyEncodes() {
+            uint landblockId = 0x0A0A0000;
+            ushort index = 5;
 
-        [Fact]
-        public void Flags_DoNotOverlap() {
-            var flags = new[] {
-                InstanceIdConstants.VertexFlag,
-                InstanceIdConstants.BuildingFlag,
-                InstanceIdConstants.StaticObjectFlag,
-                InstanceIdConstants.SceneryFlag,
-                InstanceIdConstants.PortalFlag,
-                InstanceIdConstants.EnvCellFlag,
-                InstanceIdConstants.EnvCellStaticObjectFlag
-            };
-
-            for (int i = 0; i < flags.Length; i++) {
-                for (int j = i + 1; j < flags.Length; j++) {
-                    Assert.Equal(0UL, flags[i] & flags[j]);
-                }
-            }
-        }
-
-        [Theory]
-        [InlineData(0x0A0A0000u, 0, InspectorSelectionType.StaticObject)]
-        [InlineData(0x12340000u, 5, InspectorSelectionType.StaticObject)]
-        [InlineData(0xFFFF0000u, 0xFFFF, InspectorSelectionType.StaticObject)]
-        public void EncodeStaticObject_CorrectlyEncodesLandblockAndIndex(uint landblockId, ushort index, InspectorSelectionType expectedType) {
             var result = InstanceIdConstants.EncodeStaticObject(landblockId, index);
 
-            Assert.Equal(expectedType, InstanceIdConstants.GetType(result));
+            Assert.Equal(InspectorSelectionType.StaticObject, InstanceIdConstants.GetType(result));
+            Assert.Equal(ObjectState.Original, InstanceIdConstants.GetState(result));
+            Assert.Equal(landblockId, InstanceIdConstants.GetContextId(result));
             Assert.Equal(index, InstanceIdConstants.GetObjectIndex(result));
-            Assert.Equal((ushort)((landblockId >> 16) & 0xFFFF), InstanceIdConstants.GetLandblockPrefix(result));
         }
 
-        [Theory]
-        [InlineData(0x0A0A0000u, 0, InspectorSelectionType.Building)]
-        [InlineData(0x12340000u, 3, InspectorSelectionType.Building)]
-        public void EncodeBuilding_CorrectlyEncodesLandblockAndIndex(uint landblockId, ushort index, InspectorSelectionType expectedType) {
+        [Fact]
+        public void EncodeBuilding_CorrectlyEncodes() {
+            uint landblockId = 0x12340000;
+            ushort index = 10;
+
             var result = InstanceIdConstants.EncodeBuilding(landblockId, index);
 
-            Assert.Equal(expectedType, InstanceIdConstants.GetType(result));
+            Assert.Equal(InspectorSelectionType.Building, InstanceIdConstants.GetType(result));
+            Assert.Equal(ObjectState.Original, InstanceIdConstants.GetState(result));
+            Assert.Equal(landblockId, InstanceIdConstants.GetContextId(result));
             Assert.Equal(index, InstanceIdConstants.GetObjectIndex(result));
-            Assert.Equal((ushort)((landblockId >> 16) & 0xFFFF), InstanceIdConstants.GetLandblockPrefix(result));
         }
 
         [Fact]
-        public void EncodeStaticObject_DifferentLandblocks_ProduceUniqueIds() {
-            // Two different landblocks, same array index — must produce different InstanceIds
-            uint lbA = (10u << 24) | (10u << 16) | 0xFFFE;
-            uint lbB = (11u << 24) | (11u << 16) | 0xFFFE;
+        public void LegacyAliases_FunctionCorrectly() {
+            var id = InstanceIdConstants.Encode(InspectorSelectionType.EnvCell, ObjectState.Added, 0x11112222, 0x3333);
 
-            var idA = InstanceIdConstants.EncodeStaticObject(lbA, 0);
-            var idB = InstanceIdConstants.EncodeStaticObject(lbB, 0);
-
-            Assert.NotEqual(idA, idB);
-        }
-
-        [Fact]
-        public void GetObjectIndex_ExtractsLower16Bits() {
-            var id = InstanceIdConstants.EncodeStaticObject(0x12340000u, 42);
-            Assert.Equal((ushort)42, InstanceIdConstants.GetObjectIndex(id));
-        }
-
-        [Fact]
-        public void GetLandblockPrefix_ExtractsBits16To31() {
-            var id = InstanceIdConstants.EncodeStaticObject(0x12340000u, 0);
-            Assert.Equal((ushort)0x1234, InstanceIdConstants.GetLandblockPrefix(id));
+            Assert.Equal(0x11112222u, InstanceIdConstants.GetRawId(id));
+            Assert.Equal(0x3333, InstanceIdConstants.GetSecondaryId(id));
+            Assert.True(InstanceIdConstants.IsCustomObject(id));
         }
     }
 }

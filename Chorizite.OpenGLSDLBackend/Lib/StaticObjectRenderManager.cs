@@ -15,7 +15,6 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
-using WorldBuilder.Shared.Numerics;
 using WorldBuilder.Shared.Services;
 using BoundingBox = Chorizite.Core.Lib.BoundingBox;
 
@@ -173,8 +172,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 lock (lb) {
                     foreach (var instance in lb.Instances) {
-                        if (instance.IsBuilding) continue;
-                        if (!settings.SelectStaticObjects) continue;
+                        if (instance.IsBuilding && !settings.SelectBuildings) continue;
+                        if (!instance.IsBuilding && !settings.SelectStaticObjects) continue;
 
                         // Skip if instance is outside frustum
                         if (!_frustum.Intersects(instance.BoundingBox)) continue;
@@ -209,13 +208,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             int currentOffset = 0;
             foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
                 if (_showStaticObjects) {
-                    AddMdiCommandsForGroup(lb, gfxObjId, transforms.Count, currentOffset);
+                    AddMdiCommandsForGroup(lb.MdiCommands, gfxObjId, transforms.Count, lb.InstanceBufferOffset, currentOffset);
                 }
                 currentOffset += transforms.Count;
             }
             foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
                 if (_showBuildings) {
-                    AddMdiCommandsForGroup(lb, gfxObjId, transforms.Count, currentOffset);
+                    AddMdiCommandsForGroup(lb.MdiCommands, gfxObjId, transforms.Count, lb.InstanceBufferOffset, currentOffset);
                 }
                 currentOffset += transforms.Count;
             }
@@ -326,20 +325,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var staticObjects = new List<SceneryInstance>();
                 var lbSizeUnits = regionInfo.LandblockSizeInUnits; // 192
 
-                var mergedLb = LandscapeDoc.GetMergedLandblock(lbId);
+                var mergedLb = await LandscapeDoc.GetMergedLandblockAsync(lbId);
 
                 // Placed objects
-                foreach (var obj in mergedLb.StaticObjects) {
+                foreach (var obj in mergedLb.StaticObjects.Values) {
                     if (obj.SetupId == 0) continue;
 
                     var isSetup = (obj.SetupId >> 24) == 0x02;
-                    var localPos = new Vector3(obj.Position[0], obj.Position[1], obj.Position[2]);
+                    var localPos = obj.Position;
                     var worldPos = new Vector3(
-                        new Vector2(lbGlobalX * lbSizeUnits + obj.Position[0], lbGlobalY * lbSizeUnits + obj.Position[1]) + regionInfo.MapOffset,
-                        obj.Position[2]
+                        new Vector2(lbGlobalX * lbSizeUnits + obj.Position.X, lbGlobalY * lbSizeUnits + obj.Position.Y) + regionInfo.MapOffset,
+                        obj.Position.Z
                     );
 
-                    var rotation = new Quaternion(obj.Position[4], obj.Position[5], obj.Position[6], obj.Position[3]);
+                    var rotation = obj.Rotation;
 
                     var transform = Matrix4x4.CreateFromQuaternion(rotation)
                         * Matrix4x4.CreateTranslation(worldPos);
@@ -363,17 +362,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 // Buildings
-                foreach (var building in mergedLb.Buildings) {
+                foreach (var building in mergedLb.Buildings.Values) {
                     if (building.ModelId == 0) continue;
 
                     var isSetup = (building.ModelId >> 24) == 0x02;
-                    var localPos = new Vector3(building.Position[0], building.Position[1], building.Position[2]);
+                    var localPos = building.Position;
                     var worldPos = new Vector3(
-                        new Vector2(lbGlobalX * lbSizeUnits + building.Position[0], lbGlobalY * lbSizeUnits + building.Position[1]) + regionInfo.MapOffset,
-                        building.Position[2]
+                        new Vector2(lbGlobalX * lbSizeUnits + building.Position.X, lbGlobalY * lbSizeUnits + building.Position.Y) + regionInfo.MapOffset,
+                        building.Position.Z
                     );
 
-                    var rotation = new Quaternion(building.Position[4], building.Position[5], building.Position[6], building.Position[3]);
+                    var rotation = building.Rotation;
 
                     var transform = Matrix4x4.CreateFromQuaternion(rotation)
                         * Matrix4x4.CreateTranslation(worldPos);
@@ -414,7 +413,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 await PrepareMeshesForInstances(staticObjects, ct);
 
                 lb.MeshDataReady = true;
-                _uploadQueue.Enqueue(lb);
+                _uploadQueue[key] = lb;
             }
             catch (OperationCanceledException) {
                 // Ignore cancellations

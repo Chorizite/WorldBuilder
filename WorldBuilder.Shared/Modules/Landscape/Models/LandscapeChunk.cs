@@ -6,14 +6,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
     /// Represents a loaded chunk of merged terrain data.
     /// </summary>
     public class LandscapeChunk : IDisposable {
-        public DocumentRental<LandscapeChunkDocument>? EditsRental { get; set; }
-        
+        public DocumentRental<TerrainPatchDocument>? EditsRental { get; set; }
+
         /// <summary>
         /// A detached (not yet persisted) chunk document. Used for deferred creation.
         /// </summary>
-        public LandscapeChunkDocument? EditsDetached { get; set; }
+        public TerrainPatchDocument? EditsDetached { get; set; }
 
-        public LandscapeChunkDocument? Edits => EditsRental?.Document ?? EditsDetached;
+        public TerrainPatchDocument? Edits => EditsRental?.Document ?? EditsDetached;
 
         public const int LandblocksPerChunk = 8;
         public const int ChunkVertexStride = 65; // (8 blocks * 8 vertices/block) + 1

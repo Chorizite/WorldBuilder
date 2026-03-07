@@ -16,7 +16,6 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
-using WorldBuilder.Shared.Numerics;
 using WorldBuilder.Shared.Services;
 using BoundingBox = Chorizite.Core.Lib.BoundingBox;
 
@@ -48,8 +47,29 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #region Public: Scenery-Specific API
 
         public void SubmitDebugShapes(DebugRenderer? debug, DebugRenderSettings settings) {
-            // Only static objects should have their bounding box shown for now.
-            return;
+            if (debug == null || LandscapeDoc.Region == null || !settings.ShowBoundingBoxes || !settings.SelectScenery) return;
+
+            foreach (var lb in _landblocks.Values) {
+                if (!lb.InstancesReady || !IsWithinRenderDistance(lb)) continue;
+                if (_frustum.TestBox(lb.BoundingBox) == FrustumTestResult.Outside) continue;
+
+                lock (lb) {
+                    foreach (var instance in lb.Instances) {
+                        // Skip if instance is outside frustum
+                        if (!_frustum.Intersects(instance.BoundingBox)) continue;
+
+                        var isSelected = SelectedInstance.HasValue && SelectedInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && SelectedInstance.Value.InstanceId == instance.InstanceId;
+                        var isHovered = HoveredInstance.HasValue && HoveredInstance.Value.LandblockKey == GeometryUtils.PackKey(lb.GridX, lb.GridY) && HoveredInstance.Value.InstanceId == instance.InstanceId;
+
+                        Vector4 color;
+                        if (isSelected) color = LandscapeColorsSettings.Instance.Selection;
+                        else if (isHovered) color = LandscapeColorsSettings.Instance.Hover;
+                        else color = settings.SceneryColor;
+
+                        debug.DrawBox(instance.LocalBoundingBox, instance.Transform, color);
+                    }
+                }
+            }
         }
 
         public bool Raycast(Vector3 origin, Vector3 direction, out SceneRaycastHit hit, float maxDistance = float.MaxValue) {
@@ -295,9 +315,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 lock (lb) {
                     lb.PendingInstances = scenery;
+                    lb.InstancesReady = true;
                     lb.MeshDataReady = true;
                 }
-                _uploadQueue.Enqueue(lb);
+                _uploadQueue[key] = lb;
             }
             catch (OperationCanceledException) {
                 // Ignore cancellations

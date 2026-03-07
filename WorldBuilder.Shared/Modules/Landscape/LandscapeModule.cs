@@ -39,44 +39,29 @@ namespace WorldBuilder.Shared.Modules.Landscape {
 
 
             // Try to rent first without transaction to avoid deadlock on read
-            var rentResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(id, ct);
-            DocumentRental<LandscapeDocument> terrainRental;
+            var rentResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(id, null, ct);
+            DocumentRental<LandscapeDocument> terrainRental = rentResult.Value;
 
-            if (rentResult.IsFailure) {
+            await terrainRental.Document.InitializeForEditingAsync(_dats, _documentManager, ct);
+
+            // If there are no layers, it means the document has not been initialized with a base layer yet
+            if (!terrainRental.Document.GetAllLayers().Any()) {
                 await using var tx = await _documentManager.CreateTransactionAsync(ct);
                 try {
-                    // document doesn't exist, create it
-                    var res = await _documentManager.ApplyLocalEventAsync(new CreateLandscapeDocumentCommand(regionId),
-                        tx, ct);
-                    if (res.IsFailure) {
+                    // Create base layer doc
+                    var createLayerCommand = new CreateLandscapeLayerCommand(id, [], "Base Layer", true);
+                    var layerResult = await _documentManager.ApplyLocalEventAsync(createLayerCommand, tx, ct);
+                    
+                    if (layerResult.IsFailure) {
                         throw new InvalidOperationException(
-                            $"Failed to create TerrainDocument for regionId: {regionId}. Error: {res.Error.Message}");
+                            $"Failed to create base layer for regionId: {regionId}. Error: {layerResult.Error.Message}");
                     }
-
-                    // Get the created document
-                    var createResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(id, ct);
-                    if (createResult.IsFailure) {
-                        throw new InvalidOperationException(
-                            $"Failed to rent created TerrainDocument for regionId: {regionId}. Error: {createResult.Error.Message}");
-                    }
-
-                    terrainRental = createResult.Value;
-
-
-                    await terrainRental.Document.InitializeForEditingAsync(_dats, _documentManager, ct);
-
                     await tx.CommitAsync(ct);
                 }
                 catch (Exception) {
                     await tx.RollbackAsync(ct);
                     throw;
                 }
-            }
-            else {
-                terrainRental = rentResult.Value;
-
-
-                await terrainRental.Document.InitializeForEditingAsync(_dats, _documentManager, ct);
             }
 
 

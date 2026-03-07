@@ -215,7 +215,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         private (Vector3 Origin, Vector3 Direction) GetRay(ViewportInputEvent e, ICamera camera) {
-            var ray = WorldBuilder.Shared.Numerics.RaycastingUtils.GetRayFromScreen(
+            var ray = RaycastingUtils.GetRayFromScreen(
                 camera, 
                 e.Position.X, 
                 e.Position.Y, 

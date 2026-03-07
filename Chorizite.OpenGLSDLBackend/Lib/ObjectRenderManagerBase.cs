@@ -14,7 +14,6 @@ using System.Threading.Tasks;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
-using WorldBuilder.Shared.Numerics;
 using WorldBuilder.Shared.Services;
 using BoundingBox = Chorizite.Core.Lib.BoundingBox;
 
@@ -30,7 +29,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         // Queues — generation uses a dictionary for cancellation + priority ordering
         protected readonly ConcurrentDictionary<ushort, ObjectLandblock> _pendingGeneration = new();
-        protected readonly ConcurrentQueue<ObjectLandblock> _uploadQueue = new();
+        protected readonly ConcurrentDictionary<ushort, ObjectLandblock> _uploadQueue = new();
         protected readonly ConcurrentDictionary<ushort, CancellationTokenSource> _generationCTS = new();
         protected int _activeGenerations = 0;
 
@@ -47,9 +46,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly List<ObjectLandblock> _prepareVisibleBuffer = new();
         private readonly List<ObjectLandblock> _prepareIntersectingBuffer = new();
         protected Vector3 _cameraPosition;
+        protected Vector3 _cameraForward;
         protected int _cameraLbX;
         protected int _cameraLbY;
         private int _lastRenderDistance;
+
+        // Throttling
+        private float _scanThreshold = 10f; // units
+        private float _scanRotThreshold = 0.05f; // dot product
 
         // Frustum culling
         protected readonly Frustum _frustum;
@@ -175,12 +179,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             bool cameraMovedLandblock = newCameraLbX != _cameraLbX || newCameraLbY != _cameraLbY;
             bool renderDistanceChanged = RenderDistance != _lastRenderDistance;
+            
+            // Re-scan if moved significantly, rotated significantly, or first time
+            bool moved = Vector3.DistanceSquared(cameraPosition, _cameraPosition) > _scanThreshold * _scanThreshold;
+            bool rotated = Vector3.Dot(camera.Forward, _cameraForward) < (1.0f - _scanRotThreshold);
+            
             _cameraLbX = newCameraLbX;
             _cameraLbY = newCameraLbY;
+            _cameraPosition = cameraPosition;
+            _cameraForward = camera.Forward;
             _lastRenderDistance = RenderDistance;
 
-            // Only queue landblocks within render distance if the camera moved to a new landblock or it's the first time
-            if (cameraMovedLandblock || renderDistanceChanged || _landblocks.IsEmpty) {
+            // Only queue landblocks within render distance if the camera moved, rotated, or it's the first time
+            if (cameraMovedLandblock || renderDistanceChanged || moved || rotated || _landblocks.IsEmpty) {
                 _activeLandblocksDirty = true;
                 NeedsPrepare = true;
                 for (int x = _cameraLbX - RenderDistance; x <= _cameraLbX + RenderDistance; x++) {
@@ -208,6 +219,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 )
                             };
                             if (_landblocks.TryAdd(key, lb)) {
+                                bool inFrustum = _frustum.TestBox(lb.BoundingBox) != FrustumTestResult.Outside;
+                                bool isVeryClose = Math.Abs(x - _cameraLbX) <= 10 && Math.Abs(y - _cameraLbY) <= 10;
+                                if (inFrustum || isVeryClose) {
+                                    _pendingGeneration[key] = lb;
+                                }
+                            }
+                        }
+                        else if (_landblocks.TryGetValue(key, out var lb) && !lb.InstancesReady && !_pendingGeneration.ContainsKey(key)) {
+                            // If it's tracked but not yet generated/queued, check if it should now be queued
+                            bool inFrustum = _frustum.TestBox(lb.BoundingBox) != FrustumTestResult.Outside;
+                            bool isVeryClose = Math.Abs(x - _cameraLbX) <= 10 && Math.Abs(y - _cameraLbY) <= 10;
+                            if (inFrustum || isVeryClose) {
                                 _pendingGeneration[key] = lb;
                             }
                         }
@@ -236,6 +259,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
                 _outOfRangeTimers.TryRemove(key, out _);
                 _pendingGeneration.TryRemove(key, out _);
+                _uploadQueue.TryRemove(key, out _);
                 _activeLandblocksDirty = true;
                 NeedsPrepare = true;
             }
@@ -317,36 +341,60 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (!_initialized) return 0;
 
             var sw = Stopwatch.StartNew();
-            while (sw.Elapsed.TotalMilliseconds < timeBudgetMs && _uploadQueue.TryDequeue(out var lb)) {
-                Interlocked.Exchange(ref lb.IsQueuedForUpload, 0);
+            while (sw.Elapsed.TotalMilliseconds < timeBudgetMs && !_uploadQueue.IsEmpty) {
+                ObjectLandblock? bestLb = null;
+                float bestPriority = float.MaxValue;
+                ushort bestKey = 0;
 
-                var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
-                if (!_landblocks.TryGetValue(key, out var currentLb) || currentLb != lb) {
+                Vector2 camDir2D = new Vector2(_cameraForward.X, _cameraForward.Y);
+                if (camDir2D.LengthSquared() > 0.001f) {
+                    camDir2D = Vector2.Normalize(camDir2D);
+                }
+                else {
+                    camDir2D = Vector2.Zero;
+                }
+
+                foreach (var (key, lb) in _uploadQueue) {
+                    float priority = GetPriority(lb, camDir2D, _cameraLbX, _cameraLbY);
+                    if (priority < bestPriority) {
+                        bestPriority = priority;
+                        bestLb = lb;
+                        bestKey = key;
+                    }
+                }
+
+                if (bestLb == null || !_uploadQueue.TryRemove(bestKey, out var lbToUpload))
+                    break;
+
+                Interlocked.Exchange(ref lbToUpload.IsQueuedForUpload, 0);
+
+                var keyCheck = GeometryUtils.PackKey(lbToUpload.GridX, lbToUpload.GridY);
+                if (!_landblocks.TryGetValue(keyCheck, out var currentLb) || currentLb != lbToUpload) {
                     continue;
                 }
 
                 // Skip if this landblock is no longer within render distance (don't skip based on frustum)
-                if (!IsWithinRenderDistance(lb)) {
-                    if (_landblocks.TryRemove(key, out _)) {
-                        UnloadLandblockResources(lb);
+                if (!IsWithinRenderDistance(lbToUpload)) {
+                    if (_landblocks.TryRemove(keyCheck, out _)) {
+                        UnloadLandblockResources(lbToUpload);
                     }
                     continue;
                 }
 
-                lock (lb) {
+                lock (lbToUpload) {
                     // Check if this is a transform-only update (drag preview) with no
                     // pending full regeneration.  If so, take the lightweight path that
                     // re-uploads instance data in-place without freeing/reallocating the
                     // GPU buffer — this avoids the 1-frame flash caused by the full
                     // UploadLandblockMeshes teardown/rebuild cycle.
-                    bool transformOnly = Interlocked.Exchange(ref lb.IsTransformOnlyUpdate, 0) == 1
-                                        && lb.PendingInstances == null
-                                        && lb.GpuReady;
+                    bool transformOnly = Interlocked.Exchange(ref lbToUpload.IsTransformOnlyUpdate, 0) == 1
+                                        && lbToUpload.PendingInstances == null
+                                        && lbToUpload.GpuReady;
                     if (transformOnly) {
-                        UploadTransformOnly(lb);
+                        UploadTransformOnly(lbToUpload);
                     }
                     else {
-                        UploadLandblockMeshes(lb);
+                        UploadLandblockMeshes(lbToUpload);
                     }
                 }
                 _activeLandblocksDirty = true;
@@ -361,7 +409,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Updates the transform of a specific instance in its owner landblock.
         /// This is used for realtime previews during manipulation.
         /// </summary>
-        public void UpdateInstanceTransform(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
+        public virtual void UpdateInstanceTransform(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
             ushort key = (ushort)(landblockId >> 16);
             if (_landblocks.TryGetValue(key, out var lb)) {
                 lock (lb) {
@@ -392,7 +440,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                                 // Mark landblock as needing upload if not already queued
                                 if (Interlocked.Exchange(ref lb.IsQueuedForUpload, 1) == 0) {
-                                    _uploadQueue.Enqueue(lb);
+                                    _uploadQueue[key] = lb;
                                 }
                             }
                             return;
@@ -457,14 +505,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>
         /// Gets the world bounding box for a specific static object instance.
         /// </summary>
-        public WorldBuilder.Shared.Numerics.BoundingBox? GetInstanceBounds(uint landblockId, ulong instanceId) {
+        public WorldBuilder.Shared.Lib.BoundingBox? GetInstanceBounds(uint landblockId, ulong instanceId) {
             ushort key = (ushort)(landblockId >> 16);
             if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) return null;
 
             lock (lb) {
                 foreach (var instance in lb.Instances) {
                     if (instance.InstanceId == instanceId) {
-                        return new WorldBuilder.Shared.Numerics.BoundingBox(
+                        return new WorldBuilder.Shared.Lib.BoundingBox(
                             instance.BoundingBox.Min,
                             instance.BoundingBox.Max);
                     }
@@ -476,14 +524,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>
         /// Gets the local bounding box for a specific static object instance.
         /// </summary>
-        public WorldBuilder.Shared.Numerics.BoundingBox? GetInstanceLocalBounds(uint landblockId, ulong instanceId) {
+        public WorldBuilder.Shared.Lib.BoundingBox? GetInstanceLocalBounds(uint landblockId, ulong instanceId) {
             ushort key = (ushort)(landblockId >> 16);
             if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) return null;
 
             lock (lb) {
                 foreach (var instance in lb.Instances) {
                     if (instance.InstanceId == instanceId) {
-                        return new WorldBuilder.Shared.Numerics.BoundingBox(
+                        return new WorldBuilder.Shared.Lib.BoundingBox(
                             instance.LocalBoundingBox.Min,
                             instance.LocalBoundingBox.Max);
                     }
@@ -756,6 +804,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #region Private: Core Logic
 
         private void OnLandblockChanged(object? sender, LandblockChangedEventArgs e) {
+            if (e.ChangeType != LandblockChangeType.All && !e.ChangeType.HasFlag(LandblockChangeType.Objects) && !e.ChangeType.HasFlag(LandblockChangeType.Terrain)) return;
+
             if (e.AffectedLandblocks == null) {
                 foreach (var lb in _landblocks.Values) {
                     lb.MeshDataReady = false;
@@ -810,12 +860,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             PopulatePartGroups(lb, instancesToUpload);
 
             if (UseInstanceBuffer) {
-                // Free previous slice if we're re-uploading
-                if (lb.InstanceBufferOffset >= 0) {
-                    FreeInstanceSlice(lb.InstanceBufferOffset, lb.InstanceCount);
-                    lb.InstanceBufferOffset = -1;
-                }
-
                 // Consolidation for optimized rendering
                 var allInstances = new List<InstanceData>();
 
@@ -826,19 +870,43 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     allInstances.AddRange(transforms);
                 }
 
-                lb.InstanceCount = allInstances.Count;
-                if (lb.InstanceCount > 0) {
-                    lb.InstanceBufferOffset = AllocateInstanceSlice(lb.InstanceCount);
-                    if (lb.InstanceBufferOffset >= 0) {
-                        UploadInstanceData(lb.InstanceBufferOffset, allInstances);
+                int newInstanceCount = allInstances.Count;
+                int newInstanceBufferOffset = -1;
+                var newMdiCommands = new Dictionary<CullMode, List<LandblockMdiCommand>>();
+
+                if (newInstanceCount > 0) {
+                    newInstanceBufferOffset = AllocateInstanceSlice(newInstanceCount);
+                    if (newInstanceBufferOffset >= 0) {
+                        UploadInstanceData(newInstanceBufferOffset, allInstances);
+                        
+                        // Pre-calculate MDI commands using the NEW offset
+                        int currentOffset = 0;
+                        foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
+                            AddMdiCommandsForGroup(newMdiCommands, gfxObjId, transforms.Count, newInstanceBufferOffset, currentOffset);
+                            currentOffset += transforms.Count;
+                        }
+                        foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
+                            AddMdiCommandsForGroup(newMdiCommands, gfxObjId, transforms.Count, newInstanceBufferOffset, currentOffset);
+                            currentOffset += transforms.Count;
+                        }
                     }
                     else {
-                        Log.LogWarning("Failed to allocate {Count} instances for landblock ({X},{Y}). Instance buffer may be full.", lb.InstanceCount, lb.GridX, lb.GridY);
+                        Log.LogWarning("Failed to allocate {Count} instances for landblock ({X},{Y}). Instance buffer may be full.", newInstanceCount, lb.GridX, lb.GridY);
                     }
                 }
 
-                // Pre-calculate MDI commands and batch data (also clears old commands)
-                BuildMdiCommands(lb);
+                // Atomic swap of the render state
+                var oldOffset = lb.InstanceBufferOffset;
+                var oldCount = lb.InstanceCount;
+                
+                lb.InstanceBufferOffset = newInstanceBufferOffset;
+                lb.InstanceCount = newInstanceCount;
+                lb.MdiCommands = newMdiCommands;
+
+                // Free previous slice after swapping
+                if (oldOffset >= 0) {
+                    FreeInstanceSlice(oldOffset, oldCount);
+                }
             }
 
             if (lb.PendingInstances != null) {
@@ -917,29 +985,29 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             int currentOffset = 0;
             foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
-                AddMdiCommandsForGroup(lb, gfxObjId, transforms.Count, currentOffset);
+                AddMdiCommandsForGroup(lb.MdiCommands, gfxObjId, transforms.Count, lb.InstanceBufferOffset, currentOffset);
                 currentOffset += transforms.Count;
             }
             foreach (var (gfxObjId, transforms) in lb.BuildingPartGroups) {
-                AddMdiCommandsForGroup(lb, gfxObjId, transforms.Count, currentOffset);
+                AddMdiCommandsForGroup(lb.MdiCommands, gfxObjId, transforms.Count, lb.InstanceBufferOffset, currentOffset);
                 currentOffset += transforms.Count;
             }
         }
 
-        protected void AddMdiCommandsForGroup(ObjectLandblock lb, ulong gfxObjId, int instanceCount, int groupOffset) {
+        protected void AddMdiCommandsForGroup(Dictionary<CullMode, List<LandblockMdiCommand>> mdiCommands, ulong gfxObjId, int instanceCount, int instanceBufferOffset, int groupOffset) {
             var renderData = MeshManager.TryGetRenderData(gfxObjId);
             if (renderData != null && !renderData.IsSetup) {
                 foreach (var batch in renderData.Batches) {
-                    if (!lb.MdiCommands.TryGetValue(batch.CullMode, out var list)) {
+                    if (!mdiCommands.TryGetValue(batch.CullMode, out var list)) {
                         list = new List<LandblockMdiCommand>();
-                        lb.MdiCommands[batch.CullMode] = list;
+                        mdiCommands[batch.CullMode] = list;
                     }
 
                     var cmdAtlas = batch.Atlas.TextureArray as ManagedGLTextureArray ?? throw new Exception("Atlas.TextureArray must be ManagedGLTextureArray");
                     var sortKey = (ulong)(cmdAtlas.NativePtr & 0xFFF) << 52; // Atlas (12 bits)
                     sortKey |= (ulong)(renderData.VAO & 0x3FF) << 42;        // VAO (10 bits)
                     sortKey |= (ulong)(batch.IBO & 0x3FF) << 32;            // IBO (10 bits)
-                    sortKey |= (uint)(lb.InstanceBufferOffset + groupOffset); // BaseInstance (32 bits)
+                    sortKey |= (uint)(instanceBufferOffset + groupOffset); // BaseInstance (32 bits)
 
                     list.Add(new LandblockMdiCommand {
                         SortKey = sortKey,
@@ -954,7 +1022,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             InstanceCount = (uint)instanceCount,
                             FirstIndex = batch.FirstIndex,
                             BaseVertex = (int)batch.BaseVertex,
-                            BaseInstance = (uint)(lb.InstanceBufferOffset + groupOffset)
+                            BaseInstance = (uint)(instanceBufferOffset + groupOffset)
                         },
                         BatchData = new ModernBatchData {
                             TextureHandle = batch.BindlessTextureHandle,

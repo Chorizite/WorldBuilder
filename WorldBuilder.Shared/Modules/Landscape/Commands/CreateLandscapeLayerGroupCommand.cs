@@ -46,7 +46,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
         public override async Task<Result<bool>> ApplyResultAsync(IDocumentManager documentManager,
             IDatReaderWriter dats, ITransaction tx, CancellationToken ct) {
             try {
-                var rentResult = await documentManager.RentDocumentAsync<LandscapeDocument>(TerrainDocumentId, ct);
+                var rentResult = await documentManager.RentDocumentAsync<LandscapeDocument>(TerrainDocumentId, tx, ct);
                 if (rentResult.IsFailure) {
                     return Result<bool>.Failure(rentResult.Error);
                 }
@@ -56,7 +56,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
 
                 terrainRental.Document.AddGroup(GroupPath, Name, GroupId, Index);
 
-                terrainRental.Document.Version++;
+                await terrainRental.Document.SyncLayerTreeAsync(tx, ct);
+
                 var persistResult = await documentManager.PersistDocumentAsync(terrainRental, tx, ct);
 
                 if (persistResult.IsFailure) {

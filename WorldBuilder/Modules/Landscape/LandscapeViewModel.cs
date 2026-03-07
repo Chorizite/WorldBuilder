@@ -26,6 +26,8 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Shared.Modules.Landscape.Commands;
+using WorldBuilder.Shared.Modules.Landscape.Lib;
 using WorldBuilder.Shared.Services;
 using WorldBuilder.ViewModels;
 using ICamera = WorldBuilder.Shared.Models.ICamera;
@@ -295,7 +297,27 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 if (ActiveDocument == null) return;
 
                 _ = Task.Run(async () => {
-                    var result = await ActiveDocument.UpdateStaticObjectAsync(layerId, oldLbId, oldInstanceId, newLbId, newObj, _dats, _documentManager, null!, default);
+                    StaticObject oldObject;
+                    var type = InstanceIdConstants.GetType(oldInstanceId);
+                    if (type == InspectorSelectionType.EnvCellStaticObject) {
+                        var cellId = InstanceIdConstants.GetRawId(oldInstanceId);
+                        oldObject = (await ActiveDocument.GetMergedEnvCellAsync(cellId)).StaticObjects.GetValueOrDefault(oldInstanceId) ?? new StaticObject();
+                    }
+                    else {
+                        oldObject = (await ActiveDocument.GetMergedLandblockAsync(oldLbId)).StaticObjects.GetValueOrDefault(oldInstanceId) ?? new StaticObject();
+                    }
+
+                    var command = new UpdateStaticObjectCommand {
+                        TerrainDocumentId = ActiveDocument.Id,
+                        LayerId = layerId,
+                        OldLandblockId = oldLbId,
+                        NewLandblockId = newLbId,
+                        OldObject = oldObject,
+                        NewObject = newObj,
+                        UserId = ""
+                    };
+
+                    var result = await _documentManager.ApplyLocalEventAsync(command, null!, default);
                     if (result.IsSuccess) {
                         RequestSave(ActiveDocument.Id);
                     }
@@ -348,7 +370,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         _gameScene?.SetSelectedObject(e.Selection.Type, e.Selection.LandblockId, e.Selection.InstanceId, e.Selection.ObjectId, e.Selection.VertexX, e.Selection.VertexY);
 
         // Auto-select layer if an object is selected
-        if (e.Selection.Type == InspectorSelectionType.StaticObject || 
+        if (e.Selection.Type == InspectorSelectionType.StaticObject ||
             e.Selection.Type == InspectorSelectionType.Building ||
             e.Selection.Type == InspectorSelectionType.Scenery ||
             e.Selection.Type == InspectorSelectionType.EnvCellStaticObject ||
@@ -468,12 +490,13 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         _invalidateCallback = (x, y) => {
             if (ActiveDocument != null) {
                 if (x == -1 && y == -1) {
-                    ActiveDocument.NotifyLandblockChanged(null);
+                    ActiveDocument.NotifyLandblockChanged(null, LandblockChangeType.All);
                 }
                 else {
-                    ActiveDocument.NotifyLandblockChanged(new[] { (x, y) });
+                    ActiveDocument.NotifyLandblockChanged(new[] { (x, y) }, LandblockChangeType.All);
                 }
             }
+            invalidateCallback(x, y);
         };
         UpdateToolContext();
     }

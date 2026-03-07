@@ -16,6 +16,7 @@ using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Services;
+using BoundingBox = WorldBuilder.Shared.Lib.BoundingBox;
 
 
 namespace Chorizite.OpenGLSDLBackend;
@@ -570,7 +571,7 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Gets the world-space bounding box for a static object.
     /// </summary>
-    public WorldBuilder.Shared.Numerics.BoundingBox? GetStaticObjectBounds(uint landblockId, ulong instanceId) {
+    public BoundingBox? GetStaticObjectBounds(uint landblockId, ulong instanceId) {
         var type = InstanceIdConstants.GetType(instanceId);
         if (type == InspectorSelectionType.EnvCellStaticObject) {
             return _envCellManager?.GetInstanceBounds(landblockId, instanceId);
@@ -581,7 +582,7 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Gets the local-space bounding box for a static object.
     /// </summary>
-    public WorldBuilder.Shared.Numerics.BoundingBox? GetStaticObjectLocalBounds(uint landblockId, ulong instanceId) {
+    public BoundingBox? GetStaticObjectLocalBounds(uint landblockId, ulong instanceId) {
         var type = InstanceIdConstants.GetType(instanceId);
         if (type == InspectorSelectionType.EnvCellStaticObject) {
             return _envCellManager?.GetInstanceLocalBounds(landblockId, instanceId);
@@ -599,31 +600,30 @@ public class GameScene : IDisposable {
         if (type == InspectorSelectionType.EnvCellStaticObject) {
             var cellId = InstanceIdConstants.GetRawId(instanceId);
             var mergedCell = _landscapeDoc.GetMergedEnvCell(cellId);
-            var secondaryId = InstanceIdConstants.GetSecondaryId(instanceId);
-            if (mergedCell.StaticObjects != null && secondaryId < mergedCell.StaticObjects.Count) {
-                return mergedCell.StaticObjects[secondaryId].LayerId;
+            if (mergedCell.StaticObjects != null && mergedCell.StaticObjects.TryGetValue(instanceId, out var obj)) {
+                return obj.LayerId;
             }
             return null;
         }
 
         if (type == InspectorSelectionType.EnvCell) {
-            var cellId = (uint)instanceId;
+            var cellId = InstanceIdConstants.GetRawId(instanceId);
             var mergedCell = _landscapeDoc.GetMergedEnvCell(cellId);
             return mergedCell.LayerId;
         }
 
         if (type == InspectorSelectionType.Portal || type == InspectorSelectionType.Scenery) {
             // Portals and Scenery currently always belong to the Base layer
-            return "Base";
+            return _landscapeDoc.BaseLayerId ?? string.Empty;
         }
 
         var merged = _landscapeDoc.GetMergedLandblock(landblockId);
-        foreach (var obj in merged.StaticObjects) {
+        foreach (var obj in merged.StaticObjects.Values) {
             if (obj.InstanceId == instanceId) {
                 return obj.LayerId;
             }
         }
-        foreach (var obj in merged.Buildings) {
+        foreach (var obj in merged.Buildings.Values) {
             if (obj.InstanceId == instanceId) {
                 return obj.LayerId;
             }
@@ -949,23 +949,34 @@ public class GameScene : IDisposable {
         sw.Restart();
 
         if (_state.ShowDebugShapes) {
-            var debugSettings = new DebugRenderSettings();
-            if (_inspectorTool != null) {
-                debugSettings.ShowBoundingBoxes = _inspectorTool.ShowBoundingBoxes;
-                debugSettings.SelectVertices = _inspectorTool.SelectVertices;
-                debugSettings.SelectBuildings = _inspectorTool.SelectBuildings && _state.ShowBuildings;
-                debugSettings.SelectStaticObjects = _inspectorTool.SelectStaticObjects && _state.ShowStaticObjects;
-                debugSettings.SelectScenery = _inspectorTool.SelectScenery && _state.ShowScenery;
-                debugSettings.SelectEnvCells = _inspectorTool.SelectEnvCells && _state.ShowEnvCells;
-                debugSettings.SelectEnvCellStaticObjects = _inspectorTool.SelectEnvCellStaticObjects && _state.ShowEnvCells;
-                debugSettings.SelectPortals = _inspectorTool.SelectPortals && _state.ShowPortals;
+            var debugSettings = new DebugRenderSettings {
+                ShowBoundingBoxes = false,
+                SelectVertices = false,
+                SelectBuildings = false,
+                SelectStaticObjects = false,
+                SelectScenery = false,
+                SelectEnvCells = false,
+                SelectEnvCellStaticObjects = false,
+                SelectPortals = false
+            };
+
+            if (_inspectorTool != null && _inspectorTool.ShowBoundingBoxes) {
+                debugSettings.ShowBoundingBoxes = true;
+                debugSettings.SelectVertices |= _inspectorTool.SelectVertices;
+                debugSettings.SelectBuildings |= _inspectorTool.SelectBuildings && _state.ShowBuildings;
+                debugSettings.SelectStaticObjects |= _inspectorTool.SelectStaticObjects && _state.ShowStaticObjects;
+                debugSettings.SelectScenery |= _inspectorTool.SelectScenery && _state.ShowScenery;
+                debugSettings.SelectEnvCells |= _inspectorTool.SelectEnvCells && _state.ShowEnvCells;
+                debugSettings.SelectEnvCellStaticObjects |= _inspectorTool.SelectEnvCellStaticObjects && _state.ShowEnvCells;
+                debugSettings.SelectPortals |= _inspectorTool.SelectPortals && _state.ShowPortals;
             }
 
             // Also show bounding boxes if the manipulation tool option is checked
             if (_manipulationTool != null && _manipulationTool.ShowBoundingBoxes) {
                 debugSettings.ShowBoundingBoxes = true;
-                debugSettings.SelectStaticObjects = _state.ShowStaticObjects;
-                debugSettings.SelectEnvCellStaticObjects = _state.ShowEnvCells;
+                debugSettings.SelectStaticObjects |= _manipulationTool.SelectStaticObjects && _state.ShowStaticObjects;
+                debugSettings.SelectEnvCellStaticObjects |= _manipulationTool.SelectEnvCellStaticObjects && _state.ShowEnvCells;
+                debugSettings.SelectBuildings |= _manipulationTool.SelectBuildings && _state.ShowBuildings;
             }
 
             _sceneryManager?.SubmitDebugShapes(_debugRenderer, debugSettings);

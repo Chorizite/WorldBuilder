@@ -46,7 +46,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
             Assert.NotNull(result.Value);
 
             var docId = LandscapeDocument.GetIdFromRegion(_regionId);
-            var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, default);
+            var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, null, default);
             Assert.True(rentResult.IsSuccess);
             using var rental = rentResult.Value;
 
@@ -77,7 +77,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
 
             // 3. Edit Terrain (Simulation)
             {
-                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, default);
+                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, null, default);
                 using var rental = rentResult.Value;
                 Assert.Contains(rental.Document.GetAllLayers(), l => l.Id == layerId);
             }
@@ -97,7 +97,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
 
             // 5. Verify Deleted
             {
-                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, default);
+                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, null, default);
                 using var rental = rentResult.Value;
                 Assert.DoesNotContain(rental.Document.GetAllLayers(), l => l.Id == layerId);
             }
@@ -138,7 +138,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
 
             // Verify Order: Base (0), L2 (1), L1 (2)
             {
-                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, default);
+                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, null, default);
                 using var rental = rentResult.Value;
                 var layers = rental.Document.GetAllLayers().ToList();
                 Assert.Equal(3, layers.Count);
@@ -187,7 +187,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
 
             // Verify Navigation
             {
-                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, default);
+                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, null, default);
                 using var rental = rentResult.Value;
 
                 var parentB = rental.Document.FindParentGroup([groupAId, groupBId]);
@@ -221,7 +221,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
 
             // Verify exists
             {
-                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, default);
+                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, null, default);
                 using var rental = rentResult.Value;
                 Assert.Contains(rental.Document.GetAllLayers(), l => l.Id == layerId);
             }
@@ -231,7 +231,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
 
             // Verify gone
             {
-                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, default);
+                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, null, default);
                 using var rental = rentResult.Value;
                 Assert.DoesNotContain(rental.Document.GetAllLayers(), l => l.Id == layerId);
             }
@@ -241,7 +241,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
 
             // Verify back
             {
-                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, default);
+                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, null, default);
                 using var rental = rentResult.Value;
                 Assert.Contains(rental.Document.GetAllLayers(), l => l.Id == layerId);
             }
@@ -293,7 +293,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
 
             // Verify Order: Base, L2, L1
             {
-                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, default);
+                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, null, default);
                 using var rental = rentResult.Value;
                 var layers = rental.Document.GetAllLayers().ToList();
                 Assert.Equal(l2Id, layers[1].Id);
@@ -304,7 +304,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
 
             // Verify Order: Base, L1, L2
             {
-                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, default);
+                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, null, default);
                 using var rental = rentResult.Value;
                 var layers = rental.Document.GetAllLayers().ToList();
                 Assert.Equal(l1Id, layers[1].Id);
@@ -350,7 +350,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
 
             // Verify recreates
             {
-                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, default);
+                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, null, default);
                 using var rental = rentResult.Value;
                 Assert.Contains(rental.Document.GetAllLayers(), l => l.Id == layerId);
             }
@@ -388,7 +388,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
             // Undo 2
             await undoStack.UndoAsync(default);
             {
-                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, default);
+                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, null, default);
                 using var rental = rentResult.Value;
                 Assert.Single(rental.Document.GetAllLayers(), l => !l.IsBase);
             }
@@ -396,7 +396,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
             // Undo 1
             await undoStack.UndoAsync(default);
             {
-                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, default);
+                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, null, default);
                 using var rental = rentResult.Value;
                 Assert.DoesNotContain(rental.Document.GetAllLayers(), l => !l.IsBase);
             }
@@ -413,7 +413,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
 
             ulong initialVersion;
             {
-                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, default);
+                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, null, default);
                 using var rental = rentResult.Value;
                 initialVersion = rental.Document.Version;
             }
@@ -428,7 +428,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
 
             // Verify version incremented
             {
-                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, default);
+                var rentResult = await _docManager.RentDocumentAsync<LandscapeDocument>(docId, null, default);
                 using var rental = rentResult.Value;
                 Assert.True(rental.Document.Version > initialVersion);
             }

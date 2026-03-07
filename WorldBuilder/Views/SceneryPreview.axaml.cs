@@ -34,7 +34,7 @@ public partial class SceneryPreview : Base3DViewport {
     private double _totalTime;
 
     public override DebugRenderSettings RenderSettings => new DebugRenderSettings();
-    
+
     public static readonly StyledProperty<TerrainTextureType> TextureProperty =
         AvaloniaProperty.Register<SceneryPreview, TerrainTextureType>(nameof(Texture));
 
@@ -71,8 +71,8 @@ public partial class SceneryPreview : Base3DViewport {
             builder.SetMinimumLevel(LogLevel.Debug);
         });
 
-        var portalService = WorldBuilder.App.Services?.GetService<ProjectManager>()?.GetProjectService<IPortalService>() ?? 
-                            WorldBuilder.App.Services?.GetService<IPortalService>() ?? 
+        var portalService = WorldBuilder.App.Services?.GetService<ProjectManager>()?.GetProjectService<IPortalService>() ??
+                            WorldBuilder.App.Services?.GetService<IPortalService>() ??
                             new PortalService(Dats ?? WorldBuilder.App.Services?.GetService<ProjectManager>()?.GetProjectService<IDatReaderWriter>()!);
         var perfService = WorldBuilder.App.Services?.GetService<PerformanceService>();
         _gameScene = new GameScene(gl, Renderer!.GraphicsDevice, loggerFactory, portalService, perfService);
@@ -121,7 +121,7 @@ public partial class SceneryPreview : Base3DViewport {
 
                         // Ensure chunk 0 is loaded so SetVertex works
                         var chunk = new LandscapeChunk(0);
-                        chunk.EditsDetached = new LandscapeChunkDocument(LandscapeChunkDocument.GetId(regionId, 0, 0));
+                        chunk.EditsDetached = new TerrainPatchDocument(TerrainPatchDocument.GetId(regionId, 0, 0));
                         _previewDoc.LoadedChunks[0] = chunk;
                     }
                 }

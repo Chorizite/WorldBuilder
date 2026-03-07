@@ -1,12 +1,9 @@
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
 using WorldBuilder.Shared.Models;
-using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Tools {
+namespace WorldBuilder.Shared.Modules.Landscape.Commands {
     /// <summary>
     /// A command that performs a bucket fill operation on the terrain textures.
     /// </summary>
@@ -68,13 +65,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             if (affectedVertices.Count > 0) {
-                _document.RecalculateTerrainCache(affectedVertices);
-
-                _context.RequestSave?.Invoke(_document.Id, _document.GetAffectedChunks(affectedVertices));
-
-                foreach (var lb in _document.GetAffectedLandblocks(affectedVertices)) {
-                    _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
-                }
+                _context.RegisterTerrainChange(affectedVertices);
             }
         }
 
@@ -113,13 +104,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             if (affectedVertices.Count > 0) {
-                _document.RecalculateTerrainCache(affectedVertices);
-
-                _context.RequestSave?.Invoke(_document.Id, _document.GetAffectedChunks(affectedVertices));
-
-                foreach (var lb in _document.GetAffectedLandblocks(affectedVertices)) {
-                    _context.InvalidateLandblock?.Invoke(lb.x, lb.y);
-                }
+                _context.RegisterTerrainChange(affectedVertices);
             }
         }
 

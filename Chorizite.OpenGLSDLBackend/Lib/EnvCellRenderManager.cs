@@ -16,7 +16,6 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
-using WorldBuilder.Shared.Numerics;
 using WorldBuilder.Shared.Services;
 using BoundingBox = Chorizite.Core.Lib.BoundingBox;
 using System.Runtime.InteropServices;
@@ -176,7 +175,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.Position = rayOrigin + rayDirection * d;
                                 hit.LocalPosition = instance.LocalPosition;
                                 hit.Rotation = instance.Rotation;
-                                hit.LandblockId = InstanceIdConstants.GetRawId(instance.InstanceId);
+                                hit.LandblockId = (uint)key << 16 | 0xFFFE;
                                 hit.Normal = normal;
                             }
                         }
@@ -220,6 +219,26 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #endregion
 
         #region Protected: Overrides
+
+        public override void UpdateInstanceTransform(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
+            var type = InstanceIdConstants.GetType(instanceId);
+            if (type == InspectorSelectionType.EnvCellStaticObject || type == InspectorSelectionType.EnvCell) {
+                ushort key = (ushort)(landblockId >> 16);
+                if (key == 0 || !_landblocks.ContainsKey(key)) {
+                    foreach (var (lbKey, lb) in _landblocks) {
+                        lock (lb) {
+                            for (int i = 0; i < lb.Instances.Count; i++) {
+                                if (lb.Instances[i].InstanceId == instanceId) {
+                                    base.UpdateInstanceTransform((uint)lbKey << 16 | 0xFFFE, instanceId, position, rotation, currentCellId);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            base.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId);
+        }
 
         public override void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null, bool isOutside = false) {
 
@@ -527,7 +546,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (!_hasBuildingsCache.TryGetValue(lbId, out var hasBuildings)) {
                 var mergedLb = LandscapeDoc.GetMergedLandblock(lbId);
                 hasBuildings = mergedLb.Buildings.Count > 0;
-                _hasBuildingsCache[lbId] = hasBuildings;
+                if (hasBuildings) {
+                    _hasBuildingsCache[lbId] = hasBuildings;
+                }
             }
 
             if (hasBuildings) {
@@ -554,7 +575,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var instances = new List<SceneryInstance>();
                 var lbSizeUnits = regionInfo.LandblockSizeInUnits; // 192
 
-                var mergedLb = LandscapeDoc.GetMergedLandblock(lbId);
+                var mergedLb = await LandscapeDoc.GetMergedLandblockAsync(lbId);
 
                 // Find entry portals from buildings in this landblock
                 var discoveredCellIds = new HashSet<uint>();
@@ -567,7 +588,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var cellDb = LandscapeDoc.CellDatabase;
                 if (cellDb != null && mergedLb.Buildings.Count > 0) {
                     if (cellDb.TryGet<LandBlockInfo>(lbId, out var lbi)) {
-                        foreach (var building in mergedLb.Buildings) {
+                        foreach (var building in mergedLb.Buildings.Values) {
                             int index = InstanceIdConstants.GetObjectIndex(building.InstanceId);
                             if (index < lbi.Buildings.Count) {
                                 var bInfo = lbi.Buildings[index];
@@ -594,7 +615,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 // Recursively gather connected EnvCells
                 while (cellsToProcess.Count > 0) {
                     var cellId = cellsToProcess.Dequeue();
-                    var envCell = LandscapeDoc.GetMergedEnvCell(cellId);
+                    var envCell = await LandscapeDoc.GetMergedEnvCellAsync(cellId);
 
                     if (envCell.EnvironmentId != 0) {
                         // We always add the cell to instances so GetEnvCellAt can find it,
@@ -607,18 +628,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         }
 
                         // Calculate world position
-                        var datPos = new Vector3(envCell.Position[0], envCell.Position[1], envCell.Position[2]);
+                        var datPos = envCell.Position;
                         var worldPos = new Vector3(
                             new Vector2(lbGlobalX * lbSizeUnits + datPos.X, lbGlobalY * lbSizeUnits + datPos.Y) + regionInfo.MapOffset,
                             datPos.Z
                         );
 
-                        var rotation = new System.Numerics.Quaternion(
-                            envCell.Position[4],
-                            envCell.Position[5],
-                            envCell.Position[6],
-                            envCell.Position[3]
-                        );
+                        var rotation = envCell.Rotation;
 
                         var transform = Matrix4x4.CreateFromQuaternion(rotation)
                             * Matrix4x4.CreateTranslation(worldPos);
@@ -660,19 +676,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                         // Add static objects within the cell
                         if (envCell.StaticObjects.Count > 0) {
-                            foreach (var stab in envCell.StaticObjects) {
-                                var datStabPos = new Vector3(stab.Position[0], stab.Position[1], stab.Position[2]);
+                            foreach (var stab in envCell.StaticObjects.Values) {
+                                var datStabPos = stab.Position;
                                 var stabWorldPos = new Vector3(
                                     new Vector2(lbGlobalX * lbSizeUnits + datStabPos.X, lbGlobalY * lbSizeUnits + datStabPos.Y) + regionInfo.MapOffset,
                                     datStabPos.Z
                                 );
 
-                                var stabWorldRot = new System.Numerics.Quaternion(
-                                    stab.Position[4],
-                                    stab.Position[5],
-                                    stab.Position[6],
-                                    stab.Position[3]
-                                );
+                                var stabWorldRot = stab.Rotation;
                                 var stabWorldTransform = Matrix4x4.CreateFromQuaternion(stabWorldRot) * Matrix4x4.CreateTranslation(stabWorldPos);
 
                                 var isSetup = (stab.SetupId >> 24) == 0x02;
@@ -775,7 +786,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 lb.MeshDataReady = true;
-                _uploadQueue.Enqueue(lb);
+                _uploadQueue[key] = lb;
             }
             catch (OperationCanceledException) {
                 // Ignore cancellations

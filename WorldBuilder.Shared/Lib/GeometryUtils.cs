@@ -1,7 +1,6 @@
-using System;
 using System.Numerics;
 
-namespace WorldBuilder.Shared.Numerics {
+namespace WorldBuilder.Shared.Lib {
     public static class GeometryUtils {
 
         public static bool RayIntersectsBox(Vector3 rayOrigin, Vector3 rayDirection, Vector3 min, Vector3 max, out float distance) {

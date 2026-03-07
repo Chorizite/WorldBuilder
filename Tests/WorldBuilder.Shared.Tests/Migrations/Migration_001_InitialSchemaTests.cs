@@ -31,7 +31,7 @@ namespace WorldBuilder.Shared.Tests.Migrations {
             connection.Open();
 
             var tables = GetTableNames(connection);
-            Assert.Contains("Documents", tables);
+            Assert.Contains("TerrainPatches", tables);
             Assert.Contains("Events", tables);
 
             var indexes = GetIndexNames(connection);

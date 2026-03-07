@@ -9,23 +9,34 @@ namespace WorldBuilder.Shared.Models {
             System.Console.WriteLine($"[DAT EXPORT] SaveToDatsInternal started for Region {RegionId}");
             if (Region == null || CellDatabase == null) return false;
 
-            // Ensure all chunks with edits are loaded so we don't miss any affected landblocks
-            await LoadAllModifiedChunksAsync(datwriter, _documentManager, CancellationToken.None);
-
-            // Identify affected landblocks from exported layers
-            var affectedLandblocks = new HashSet<(int x, int y)>();
-            var exportedLayers = GetAllLayers().Where(IsItemExported).ToList();
-
-            var baseLayer = GetAllLayers().FirstOrDefault(l => l.IsBase);
-            if (baseLayer != null && !exportedLayers.Contains(baseLayer)) {
-                exportedLayers.Add(baseLayer);
+            // Identify layers marked for export
+            var allLayers = GetAllLayers().ToList();
+            var exportLayerIds = allLayers.Where(IsItemExported).Select(l => l.Id).ToList();
+            
+            System.Console.WriteLine($"[DAT EXPORT] SaveToDatsInternal: Document has {allLayers.Count} total layers.");
+            foreach (var l in allLayers) {
+                System.Console.WriteLine($"[DAT EXPORT]   Layer: '{l.Name}' (ID: {l.Id}), IsBase: {l.IsBase}, IsExported: {l.IsExported}, IsVisible: {l.IsVisible}");
             }
+            System.Console.WriteLine($"[DAT EXPORT] Exporting {exportLayerIds.Count} layers based on IsItemExported: {string.Join(", ", exportLayerIds)}");
 
-            foreach (var layer in exportedLayers) {
-                foreach (var lb in GetAffectedLandblocks(layer.Id)) {
+            if (_landscapeDataProvider == null) throw new InvalidOperationException("LandscapeDataProvider not initialized");
+            
+            var mergedChanges = await _landscapeDataProvider.GetMergedTerrainAsync(RegionId, exportLayerIds, Region, CancellationToken.None);
+            
+            // Identify affected landblocks from both terrain and objects across all exported layers
+            var affectedLandblocks = new HashSet<(int x, int y)>();
+            foreach (var layerId in exportLayerIds) {
+                var layerAffected = await GetAffectedLandblocksAsync(layerId, datwriter, _documentManager!, CancellationToken.None);
+                foreach (var lb in layerAffected) {
                     affectedLandblocks.Add(lb);
                 }
             }
+
+            int mapWidth = Region.MapWidthInVertices;
+            int strideMinusOne = Region.LandblockVerticeLength - 1;
+
+            int vertexStride = Region.LandblockVerticeLength;
+            int localSize = vertexStride * vertexStride;
 
             int totalAffected = affectedLandblocks.Count;
             System.Console.WriteLine($"[DAT EXPORT] Found {totalAffected} affected landblocks to export.");
@@ -35,31 +46,6 @@ namespace WorldBuilder.Shared.Models {
                 return true;
             }
 
-            // Merge changes from all exported layers into a single sparse map
-            var mergedChanges = new Dictionary<uint, TerrainEntry>();
-            foreach (var chunk in LoadedChunks.Values) {
-                if (chunk.Edits == null) continue;
-                foreach (var layer in exportedLayers) {
-
-                    if (chunk.Edits.LayerEdits.TryGetValue(layer.Id, out var layerEdits)) {
-                        foreach (var vertexKvp in layerEdits.Vertices) {
-                            var globalIndex = GetGlobalVertexIndex(chunk.Id, vertexKvp.Key);
-                            if (mergedChanges.TryGetValue(globalIndex, out var existing)) {
-                                existing.Merge(vertexKvp.Value);
-                                mergedChanges[globalIndex] = existing;
-                            }
-                            else {
-                                mergedChanges[globalIndex] = vertexKvp.Value;
-                            }
-                        }
-                    }
-                }
-            }
-
-            int vertexStride = Region.LandblockVerticeLength;
-            int mapWidth = Region.MapWidthInVertices;
-            int strideMinusOne = vertexStride - 1;
-            int localSize = vertexStride * vertexStride;
 
             int processed = 0;
             // Export only affected landblocks
@@ -124,7 +110,7 @@ namespace WorldBuilder.Shared.Models {
 
                 System.Console.WriteLine($"[DAT EXPORT] Processing LandBlockInfo 0x{lbInfoId:X8} for landblock {lbX}, {lbY}...");
 
-                var mergedLb = GetMergedLandblock(lbInfoId);
+                var mergedLb = await GetMergedLandblockAsync(lbInfoId, exportLayerIds);
                 var lbi = new LandBlockInfo();
 
                 bool lbiExists = datwriter.TryGetFileBytes(RegionId, lbInfoId, ref objBuffer, out objBytesRead);
@@ -136,12 +122,12 @@ namespace WorldBuilder.Shared.Models {
                     System.Console.WriteLine($"[DAT EXPORT] Saving Landblock 0x{lbId:X8} - Statics: {mergedLb.StaticObjects.Count}, Buildings: {mergedLb.Buildings.Count}");
 
                     lbi.Objects.Clear();
-                    foreach (var obj in mergedLb.StaticObjects) {
+                    foreach (var obj in mergedLb.StaticObjects.Values) {
                         lbi.Objects.Add(new DatReaderWriter.Types.Stab {
                             Id = obj.SetupId,
                             Frame = new DatReaderWriter.Types.Frame {
-                                Origin = new System.Numerics.Vector3(obj.Position[0], obj.Position[1], obj.Position[2]),
-                                Orientation = new System.Numerics.Quaternion(obj.Position[4], obj.Position[5], obj.Position[6], obj.Position[3])
+                                Origin = obj.Position,
+                                Orientation = obj.Rotation
                             }
                         });
                     }
@@ -156,25 +142,12 @@ namespace WorldBuilder.Shared.Models {
                         cellIdsToProcess.Add(((uint)lbId << 16) | (0x0100u + cellIdx));
                     }
 
-                    // Also scan for any cells that have edits in our layer tree
-                    foreach (var chunk in LoadedChunks.Values) {
-                        if (chunk.Edits != null) {
-                            foreach (var layerEdits in chunk.Edits.LayerEdits.Values) {
-                                foreach (var cellId in layerEdits.Cells.Keys) {
-                                    if ((cellId & 0xFFFF0000) == ((uint)lbId << 16)) {
-                                        cellIdsToProcess.Add(cellId);
-                                    }
-                                }
-                            }
-                        }
-                    }
-
                     foreach (var cellId in cellIdsToProcess) {
                         if (datwriter.TryGetFileBytes(RegionId, cellId, ref objBuffer, out objBytesRead)) {
                             var cell = new EnvCell();
                             cell.Unpack(new DatBinReader(objBuffer));
 
-                            var mergedCell = GetMergedEnvCell(cellId);
+                            var mergedCell = await GetMergedEnvCellAsync(cellId, exportLayerIds);
 
                             int baseStatics = cell.StaticObjects?.Count ?? 0;
                             if (baseStatics != mergedCell.StaticObjects.Count) {
@@ -185,12 +158,12 @@ namespace WorldBuilder.Shared.Models {
                             cell.StaticObjects.Clear();
                             if (mergedCell.StaticObjects.Count > 0) {
                                 cell.Flags |= DatReaderWriter.Enums.EnvCellFlags.HasStaticObjs;
-                                foreach (var obj in mergedCell.StaticObjects) {
+                                foreach (var obj in mergedCell.StaticObjects.Values) {
                                     cell.StaticObjects.Add(new DatReaderWriter.Types.Stab {
                                         Id = obj.SetupId,
                                         Frame = new DatReaderWriter.Types.Frame {
-                                            Origin = new System.Numerics.Vector3(obj.Position[0], obj.Position[1], obj.Position[2]),
-                                            Orientation = new System.Numerics.Quaternion(obj.Position[4], obj.Position[5], obj.Position[6], obj.Position[3])
+                                            Origin = obj.Position,
+                                            Orientation = obj.Rotation
                                         }
                                     });
                                 }

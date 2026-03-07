@@ -16,91 +16,87 @@ namespace WorldBuilder.Shared.Models {
     /// <summary>
     /// Represents a landscape document, which manages a collection of terrain layers and handles data merging.
     /// </summary>
-    [MemoryPackable]
     public partial class LandscapeDocument : BaseDocument {
         private static readonly IWorldCoordinateService _coords = new WorldCoordinateService();
 
         public event EventHandler<LandblockChangedEventArgs>? LandblockChanged;
 
-        private readonly ConcurrentDictionary<uint, MergedLandblock> _mergedLandblockCache = new();
-        private readonly ConcurrentDictionary<uint, ConcurrentDictionary<uint, Cell>> _mergedEnvCellCache = new();
-
-        public void NotifyLandblockChanged(IEnumerable<(int x, int y)>? affectedLandblocks) {
-            if (affectedLandblocks == null) {
-                _mergedLandblockCache.Clear();
-                _mergedEnvCellCache.Clear();
-            }
-            else {
-                foreach (var (x, y) in affectedLandblocks) {
-                    var lbPrefix = (uint)((x << 24) | (y << 16));
-                    var lbId = lbPrefix | 0xFFFE;
-                    _mergedLandblockCache.TryRemove(lbId, out _);
-                    _mergedEnvCellCache.TryRemove(lbPrefix, out _);
+        public void NotifyLandblockChanged(IEnumerable<(int x, int y)>? affectedLandblocks, LandblockChangeType changeType = LandblockChangeType.All) {
+            if (_documentManager?.LandscapeCacheService != null) {
+                if (affectedLandblocks == null) {
+                    _documentManager.LandscapeCacheService.InvalidateAll(Id);
+                }
+                else {
+                    foreach (var (x, y) in affectedLandblocks) {
+                        var lbPrefix = (uint)((x << 24) | (y << 16));
+                        var lbId = lbPrefix | 0xFFFE;
+                        if (changeType == LandblockChangeType.Objects && x >= 0 && x < 256 && y >= 0 && y < 256) {
+                            // If it's a specific cellId being passed via the x/y hack (where x is cellId low word)
+                            // then we should invalidate just that cell.
+                            // NOTE: Currently LandscapeDocument.UpsertStaticObjectAsync passes landblock coords.
+                            _documentManager.LandscapeCacheService.InvalidateLandblock(Id, lbId);
+                        }
+                        else {
+                            _documentManager.LandscapeCacheService.InvalidateLandblock(Id, lbId);
+                        }
+                    }
                 }
             }
-            LandblockChanged?.Invoke(this, new LandblockChangedEventArgs(affectedLandblocks));
+            LandblockChanged?.Invoke(this, new LandblockChangedEventArgs(affectedLandblocks, changeType));
         }
 
         private bool _didLoadLayers;
         private bool _didLoadRegionData;
         private IDocumentManager? _documentManager;
+        private WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeDataProvider? _landscapeDataProvider;
         private readonly HashSet<string> _layerIds = [];
+        private uint[]? _baseTerrainCache;
 
         /// <summary>
         /// Gets the ID of the base layer.
         /// </summary>
-        [MemoryPackIgnore]
         public string? BaseLayerId => GetAllLayers().FirstOrDefault(l => l.IsBase)?.Id;
 
         private readonly SemaphoreSlim _initLock = new(1, 1);
-        private readonly SemaphoreSlim _dbLock = new(1, 1);
         private readonly SemaphoreSlim _ioSemaphore = new(Math.Max(2, System.Environment.ProcessorCount / 2));
         private readonly ConcurrentDictionary<ushort, SemaphoreSlim> _chunkLocks = new();
 
         /// <summary>
         /// The loaded terrain chunks.
         /// </summary>
-        [MemoryPackIgnore]
         public ConcurrentDictionary<ushort, LandscapeChunk> LoadedChunks { get; } = new();
 
         /// <summary>
         /// The terrain layer tree
         /// </summary>
-        [MemoryPackInclude]
-        [MemoryPackOrder(10)]
-        public List<LandscapeLayerBase> LayerTree { get; init; } = [];
+        public virtual List<LandscapeLayerBase> LayerTree { get; init; } = [];
 
         /// <summary>
         /// Region info + helpers
         /// </summary>
-        [MemoryPackIgnore]
         public ITerrainInfo? Region { get; set; }
 
         /// <summary>
         /// The region id this document belongs to
         /// </summary>
-        [MemoryPackIgnore]
-        public uint RegionId => uint.Parse(Id.Split('_')[1]);
+        public uint RegionId => (Id.Split('_').Length > 1 && uint.TryParse(Id.Split('_')[1], out var rid)) ? rid : 0;
 
         /// <summary>
         /// The cell database for this region
         /// </summary>
-        [MemoryPackIgnore]
         public IDatDatabase? CellDatabase { get; set; }
 
         /// <summary>Initializes a new instance of the <see cref="LandscapeDocument"/> class.</summary>
-        [MemoryPackConstructor]
         public LandscapeDocument() : base() {
         }
 
         /// <summary>Initializes a new instance of the <see cref="LandscapeDocument"/> class with a specific ID.</summary>
         /// <param name="id">The document ID.</param>
         public LandscapeDocument(string id) : base(id) {
-            if (!id.StartsWith($"{nameof(LandscapeDocument)}_"))
-                throw new ArgumentException($"TerrainDocument Id must start with '{nameof(LandscapeDocument)}_'",
-                    nameof(id));
-            if (!uint.TryParse(id.Split('_')[1], out _))
-                throw new ArgumentException($"Invalid terrain document region id: {id}");
+            if (id.Split('_').Length > 1 && uint.TryParse(id.Split('_')[1], out var regionId)) {
+                // Numeric region ID found
+            }
+            // Allow other IDs for tests or other purposes
         }
 
         /// <summary>Initializes a new instance of the <see cref="LandscapeDocument"/> class for a specific region.</summary>
@@ -119,7 +115,9 @@ namespace WorldBuilder.Shared.Models {
             await _initLock.WaitAsync(ct);
             try {
                 _documentManager = documentManager;
+                _landscapeDataProvider = documentManager.LandscapeDataProvider;
                 await LoadRegionDataAsync(dats);
+                await LoadBaseCacheAsync();
                 // LoadCacheFromDatsAsync is deferred until needed (e.g., during export or editing)
                 await LoadLayersAsync(documentManager, ct);
             }
@@ -134,7 +132,9 @@ namespace WorldBuilder.Shared.Models {
             await _initLock.WaitAsync(ct);
             try {
                 _documentManager = documentManager;
+                _landscapeDataProvider = documentManager.LandscapeDataProvider;
                 await LoadRegionDataAsync(dats);
+                await LoadBaseCacheAsync();
                 await LoadLayersAsync(documentManager, ct);
             }
             finally {
@@ -142,23 +142,91 @@ namespace WorldBuilder.Shared.Models {
             }
         }
 
+        private async Task LoadBaseCacheAsync() {
+            if (Region == null || _documentManager?.ProjectRepository == null) return;
+            var projectDir = _documentManager.ProjectRepository.ProjectDirectory;
+            if (string.IsNullOrEmpty(projectDir)) return;
+
+            var cachePath = WorldBuilder.Shared.Modules.Landscape.Lib.TerrainCacheManager.GetCachePath(projectDir, RegionId);
+            _baseTerrainCache = await WorldBuilder.Shared.Modules.Landscape.Lib.TerrainCacheManager.LoadAsync(cachePath, RegionId, Region.MapWidthInVertices, Region.MapHeightInVertices);
+        }
+
+        public async Task<uint[]> GenerateBaseCacheAsync(IDatReaderWriter dats, IProgress<(string message, float progress)>? progress = null, CancellationToken ct = default) {
+            if (Region == null) await LoadRegionDataAsync(dats);
+            if (Region == null || CellDatabase == null) throw new InvalidOperationException("Region or CellDatabase not loaded.");
+
+            int mapWidthInVertices = Region.MapWidthInVertices;
+            int mapHeightInVertices = Region.MapHeightInVertices;
+            int totalLandblocks = Region.MapWidthInLandblocks * Region.MapHeightInLandblocks;
+            uint[] cache = new uint[mapWidthInVertices * mapHeightInVertices];
+
+            int processedLandblocks = 0;
+            int vertexStride = Region.LandblockVerticeLength;
+            int strideMinusOne = vertexStride - 1;
+
+            var lb = new LandBlock();
+            var buffer = new byte[1024 * 16]; // Larger buffer for landblock data
+
+            for (int ly = 0; ly < Region.MapHeightInLandblocks; ly++) {
+                for (int lx = 0; lx < Region.MapWidthInLandblocks; lx++) {
+                    ct.ThrowIfCancellationRequested();
+
+                    var lbId = Region.GetLandblockId(lx, ly);
+                    var lbFileId = (uint)((lbId << 16) | 0xFFFF);
+
+                    if (CellDatabase.TryGetFileBytes(lbFileId, ref buffer, out _)) {
+                        lb.Unpack(new DatReaderWriter.Lib.IO.DatBinReader(buffer));
+
+                        for (int localIdx = 0; localIdx < lb.Terrain.Length; localIdx++) {
+                            int localY = localIdx % vertexStride;
+                            int localX = localIdx / vertexStride;
+
+                            int globalX = lx * strideMinusOne + localX;
+                            int globalY = ly * strideMinusOne + localY;
+
+                            if (globalX >= mapWidthInVertices || globalY >= mapHeightInVertices) continue;
+
+                            int globalIndex = globalY * mapWidthInVertices + globalX;
+                            var terrainInfo = lb.Terrain[localIdx];
+
+                            var entry = new TerrainEntry {
+                                Height = lb.Height[localIdx],
+                                Type = (byte)terrainInfo.Type,
+                                Scenery = terrainInfo.Scenery,
+                                Road = terrainInfo.Road
+                            };
+                            cache[globalIndex] = entry.Pack();
+                        }
+                    }
+
+                    processedLandblocks++;
+                    if (processedLandblocks % 100 == 0) {
+                        progress?.Report(($"Generating terrain cache ({processedLandblocks}/{totalLandblocks})...", (float)processedLandblocks / totalLandblocks));
+                    }
+                }
+            }
+
+            _baseTerrainCache = cache;
+            return cache;
+        }
+
         /// <summary>
-        /// Loads all chunks for this region that have modified data in the document manager.
+        /// Loads all chunks for this region that have modified terrain data in the document manager.
         /// </summary>
         public async Task LoadAllModifiedChunksAsync(IDatReaderWriter dats, IDocumentManager? documentManager = null, CancellationToken ct = default) {
             documentManager ??= _documentManager;
             if (documentManager == null) return;
 
-            var prefix = $"{nameof(LandscapeChunkDocument)}_{RegionId}_";
-            var ids = await documentManager.GetDocumentIdsAsync(prefix, ct);
-            System.Console.WriteLine($"[DAT EXPORT] Found {ids.Count} modified chunk documents for region {RegionId} in database.");
+            var prefix = "TerrainPatch_" + RegionId + "_";
+            var ids = await documentManager.GetDocumentIdsAsync(prefix, null, ct);
+            System.Console.WriteLine($"[DAT EXPORT] Found {ids.Count} modified terrain patch documents for region {RegionId} in database.");
 
             foreach (var id in ids) {
-                // Parse chunk coordinates from ID: LandscapeChunkDocument_{regionId}_{chunkX}_{chunkY}
+                // Parse chunk coordinates from ID: TerrainPatch_{regionId}_{chunkX}_{chunkY}
                 var parts = id.Split('_');
                 if (parts.Length == 4 && uint.TryParse(parts[2], out var cx) && uint.TryParse(parts[3], out var cy)) {
                     var chunkId = (ushort)((cx << 8) | cy);
-                    System.Console.WriteLine($"[DAT EXPORT] Loading modified chunk {cx}, {cy} (ID: 0x{chunkId:X4})");
+                    System.Console.WriteLine($"[DAT EXPORT] Loading modified terrain patch {cx}, {cy} (ID: 0x{chunkId:X4})");
                     await GetOrLoadChunkAsync(chunkId, dats, documentManager, ct);
                 }
             }
@@ -174,11 +242,11 @@ namespace WorldBuilder.Shared.Models {
 
         private void SetVertexInternal(string layerId, ushort chunkId, ushort localIndex, TerrainEntry entry) {
             if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
-                if (!chunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
-                    layerEdits = new LandscapeChunkEdits();
-                    chunk.Edits.LayerEdits[layerId] = layerEdits;
+                if (!chunk.Edits.LayerEdits.TryGetValue(layerId, out var vertices)) {
+                    vertices = new TerrainEntry[LandscapeChunk.ChunkVertexCount];
+                    chunk.Edits.LayerEdits[layerId] = vertices;
                 }
-                layerEdits.Vertices[localIndex] = entry;
+                vertices[localIndex] = entry;
                 chunk.Edits.Version++;
             }
         }
@@ -195,8 +263,9 @@ namespace WorldBuilder.Shared.Models {
             result = default;
             var (chunkId, localIndex) = GetLocalVertexIndex(vertexIndex);
             if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
-                if (chunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
-                    return layerEdits.Vertices.TryGetValue(localIndex, out result);
+                if (chunk.Edits.LayerEdits.TryGetValue(layerId, out var vertices)) {
+                    result = vertices[localIndex];
+                    return result.Flags != TerrainEntryFlags.None;
                 }
             }
             return false;
@@ -252,69 +321,21 @@ namespace WorldBuilder.Shared.Models {
 
         private void RemoveVertexInternal(string layerId, ushort chunkId, ushort localIndex) {
             if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
-                if (chunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
-                    layerEdits.Vertices.Remove(localIndex);
+                if (chunk.Edits.LayerEdits.TryGetValue(layerId, out var vertices)) {
+                    vertices[localIndex] = default;
                     chunk.Edits.Version++;
                 }
             }
         }
 
-        public void AddStaticObject(string layerId, uint landblockId, StaticObject obj) {
-            ushort chunkId = _coords.GetChunkIdForLandblock(landblockId);
-            if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
-                if (!chunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
-                    layerEdits = new LandscapeChunkEdits();
-                    chunk.Edits.LayerEdits[layerId] = layerEdits;
-                }
-
-                if ((landblockId & 0xFFFF) >= 0x0100 && (landblockId & 0xFFFF) < 0xFFFE) {
-                    // It's an env cell
-                    if (!layerEdits.Cells.TryGetValue(landblockId, out var cell)) {
-                        var baseCell = GetMergedEnvCell(landblockId);
-                        cell = new Cell {
-                            LayerId = layerId,
-                            EnvironmentId = baseCell.EnvironmentId,
-                            Flags = baseCell.Flags,
-                            CellStructure = baseCell.CellStructure,
-                            Position = (float[])baseCell.Position.Clone(),
-                            Surfaces = new List<ushort>(baseCell.Surfaces),
-                            Portals = new List<DatReaderWriter.Types.CellPortal>(baseCell.Portals)
-                        };
-                        layerEdits.Cells[landblockId] = cell;
-                    }
-                    cell.StaticObjects.Add(obj);
-                }
-                else {
-                    // It's a regular landblock
-                    if (!layerEdits.ExteriorStaticObjects.TryGetValue(landblockId, out var list)) {
-                        list = [];
-                        layerEdits.ExteriorStaticObjects[landblockId] = list;
-                    }
-                    list.Add(obj);
-                }
-                chunk.Edits.Version++;
-            }
-        }
-
-        public void RemoveInstance(string layerId, ushort chunkId, ulong instanceId) {
-            if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
-                if (!chunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
-                    layerEdits = new LandscapeChunkEdits();
-                    chunk.Edits.LayerEdits[layerId] = layerEdits;
-                }
-                if (!layerEdits.DeletedInstanceIds.Contains(instanceId)) {
-                    layerEdits.DeletedInstanceIds.Add(instanceId);
-                    chunk.Edits.Version++;
-                }
-            }
-        }
-
-        public IEnumerable<uint> GetAffectedVertices(LandscapeLayerBase item) {
+        public virtual IEnumerable<uint> GetAffectedVertices(LandscapeLayerBase item) {
             if (item is LandscapeLayer layer) {
                 foreach (var chunk in LoadedChunks.Values) {
-                    if (chunk.Edits != null && chunk.Edits.LayerEdits.TryGetValue(layer.Id, out var layerEdits)) {
-                        foreach (var localIndex in layerEdits.Vertices.Keys) {
-                            yield return GetGlobalVertexIndex(chunk.Id, localIndex);
+                    if (chunk.Edits != null && chunk.Edits.LayerEdits.TryGetValue(layer.Id, out var vertices)) {
+                        for (ushort localIndex = 0; localIndex < vertices.Length; localIndex++) {
+                            if (vertices[localIndex].Flags != TerrainEntryFlags.None) {
+                                yield return GetGlobalVertexIndex(chunk.Id, localIndex);
+                            }
                         }
                     }
                 }
@@ -347,7 +368,7 @@ namespace WorldBuilder.Shared.Models {
         /// </summary>
         /// <param name="affectedVertices">Optional list of vertex indices to recalculate. If null, the entire cache is recalculated.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        public async Task RecalculateTerrainCacheAsync(IEnumerable<uint>? affectedVertices = null) {
+        public virtual async Task RecalculateTerrainCacheAsync(IEnumerable<uint>? affectedVertices = null) {
             await Task.Run(() => RecalculateTerrainCacheInternal(affectedVertices));
         }
 
@@ -381,7 +402,7 @@ namespace WorldBuilder.Shared.Models {
                 Version++;
 
                 var affectedLandblocks = GetAffectedLandblocks(changes.Keys);
-                NotifyLandblockChanged(affectedLandblocks);
+                NotifyLandblockChanged(affectedLandblocks, LandblockChangeType.Terrain);
 
                 // Persist modified chunk documents
                 foreach (var chunkId in affectedChunks) {
@@ -446,12 +467,9 @@ namespace WorldBuilder.Shared.Models {
             foreach (var layer in GetAllLayers()) {
                 if (!IsItemVisible(layer)) continue;
 
-                if (chunk.Edits != null && chunk.Edits.LayerEdits.TryGetValue(layer.Id, out var layerEdits)) {
-                    foreach (var kvp in layerEdits.Vertices) {
-                        var localIndex = kvp.Key;
-                        if (localIndex < newEntries.Length) {
-                            newEntries[localIndex].Merge(kvp.Value);
-                        }
+                if (chunk.Edits != null && chunk.Edits.LayerEdits.TryGetValue(layer.Id, out var layerVertices)) {
+                    for (int i = 0; i < newEntries.Length; i++) {
+                        newEntries[i].Merge(layerVertices[i]);
                     }
                 }
             }
@@ -480,10 +498,10 @@ namespace WorldBuilder.Shared.Models {
             foreach (var layer in GetAllLayers()) {
                 if (!IsItemVisible(layer)) continue;
 
-                if (chunk.Edits != null && chunk.Edits.LayerEdits.TryGetValue(layer.Id, out var layerEdits)) {
+                if (chunk.Edits != null && chunk.Edits.LayerEdits.TryGetValue(layer.Id, out var layerVertices)) {
                     foreach (var localIndex in affectedLocalIndices) {
-                        if (localIndex < newEntries.Length && layerEdits.Vertices.TryGetValue(localIndex, out var entry)) {
-                            newEntries[localIndex].Merge(entry);
+                        if (localIndex < newEntries.Length) {
+                            newEntries[localIndex].Merge(layerVertices[localIndex]);
                         }
                     }
                 }
@@ -519,7 +537,23 @@ namespace WorldBuilder.Shared.Models {
             // Ensure all chunks with edits for this region are loaded
             await LoadAllModifiedChunksAsync(dats, documentManager, ct);
 
-            return GetAffectedLandblocks(layerId);
+            var affected = new HashSet<(int x, int y)>();
+
+            // 1. Terrain edits (vertices)
+            foreach (var lb in GetAffectedLandblocks(layerId)) {
+                affected.Add(lb);
+            }
+
+            // 2. Object/Cell edits (from repository)
+            var repoLandblocks = await documentManager.GetAffectedLandblocksByLayerAsync(RegionId, layerId, null, ct);
+            foreach (var lbId in repoLandblocks) {
+                // Landblock ID is 0xXXYY
+                int lbX = (int)(lbId >> 8);
+                int lbY = (int)(lbId & 0xFF);
+                affected.Add((lbX, lbY));
+            }
+
+            return affected;
         }
 
         /// <summary>
@@ -539,51 +573,6 @@ namespace WorldBuilder.Shared.Models {
             foreach (var lb in GetAffectedLandblocks(affectedVertices)) {
                 affected.Add(lb);
             }
-
-            if (affected.Count > 0) {
-                System.Console.WriteLine($"[DAT EXPORT] Layer '{layer.Name}' has {affected.Count} affected landblocks from vertex edits.");
-            }
-
-            // Collect from object edits in all chunks for this layer
-            foreach (var chunk in LoadedChunks.Values) {
-                if (chunk.Edits != null) {
-                    if (chunk.Edits.LayerEdits.TryGetValue(layerId, out var layerEdits)) {
-                        int layerCount = 0;
-                        foreach (var lbId in layerEdits.ExteriorStaticObjects.Keys) {
-                            affected.Add(((int)(lbId >> 24), (int)((lbId >> 16) & 0xFF)));
-                            layerCount++;
-                        }
-                        foreach (var lbId in layerEdits.Buildings.Keys) {
-                            affected.Add(((int)(lbId >> 24), (int)((lbId >> 16) & 0xFF)));
-                            layerCount++;
-                        }
-                        foreach (var cellId in layerEdits.Cells.Keys) {
-                            affected.Add(((int)(cellId >> 24), (int)((cellId >> 16) & 0xFF)));
-                            layerCount++;
-                        }
-                        foreach (var instanceId in layerEdits.DeletedInstanceIds) {
-                            var type = InstanceIdConstants.GetType(instanceId);
-                            if (type == InspectorSelectionType.EnvCellStaticObject) {
-                                var cellId = InstanceIdConstants.GetRawId(instanceId);
-                                affected.Add(((int)(cellId >> 24), (int)((cellId >> 16) & 0xFF)));
-                                layerCount++;
-                            }
-                            else if (type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) {
-                                var prefix = InstanceIdConstants.GetLandblockPrefix(instanceId);
-                                affected.Add(((int)(prefix >> 8), (int)(prefix & 0xFF)));
-                                layerCount++;
-                            }
-                        }
-                        if (layerCount > 0) {
-                            System.Console.WriteLine($"[DAT EXPORT] Layer '{layer.Name}' ({layerId}) has {layerCount} object edits in chunk {chunk.Id:X4}. Total unique affected landblocks for this layer: {affected.Count}");
-                        }
-                    }
-                    else if (chunk.Edits.LayerEdits.Count > 0) {
-                        System.Console.WriteLine($"[DAT EXPORT] Chunk {chunk.Id:X4} does not contain edits for layer '{layerId}'. Available layers: {string.Join(", ", chunk.Edits.LayerEdits.Keys)}");
-                    }
-                }
-            }
-
             return affected;
         }
 
@@ -638,193 +627,138 @@ namespace WorldBuilder.Shared.Models {
             return Region == null ? ((ushort)0, (ushort)0) : _coords.GetLocalVertexIndex(globalVertexIndex, Region);
         }
 
+        /// <summary>
+        /// Syncs the current layer tree structure to the relational repository.
+        /// </summary>
+        public virtual async Task SyncLayerTreeAsync(ITransaction? tx, CancellationToken ct) {
+            if (_documentManager == null) return;
+            await SyncLayerTreeInternalAsync(LayerTree, null, tx, ct);
+        }
+
+        private async Task SyncLayerTreeInternalAsync(IEnumerable<LandscapeLayerBase> items, string? parentId, ITransaction? tx, CancellationToken ct) {
+            int sortOrder = 0;
+            foreach (var item in items) {
+                item.ParentId = parentId;
+                await _documentManager!.UpsertLayerAsync(item, RegionId, sortOrder++, tx, ct);
+                if (item is LandscapeLayerGroup group) {
+                    await SyncLayerTreeInternalAsync(group.Children, group.Id, tx, ct);
+                }
+            }
+        }
+
         public MergedLandblock GetMergedLandblock(uint landblockId) {
-            if (_mergedLandblockCache.TryGetValue(landblockId, out var cached)) {
-                return cached;
+            if (_documentManager != null && _documentManager.LandscapeCacheService.TryGetLandblock(Id, landblockId, out var lb)) {
+                return lb!;
+            }
+            return new MergedLandblock();
+        }
+
+        public async Task<MergedLandblock> GetMergedLandblockAsync(uint landblockId, IEnumerable<string>? layerIds = null) {
+            if (_documentManager?.LandscapeCacheService == null || _landscapeDataProvider == null) {
+                return new MergedLandblock();
             }
 
-            var merged = new MergedLandblock();
+            var filterLayerIds = layerIds ?? GetAllLayers().Where(IsItemVisible).Select(l => l.Id);
+            return await _documentManager.LandscapeCacheService.GetOrAddLandblockAsync(Id, landblockId, () =>
+                _landscapeDataProvider.GetMergedLandblockAsync(landblockId, CellDatabase, filterLayerIds, BaseLayerId, CancellationToken.None));
+        }
 
-            // 1. Parse base from DAT
-            var lbFileId = (landblockId & 0xFFFF0000) | 0xFFFE;
-            Dictionary<ulong, StaticObject> baseStatics = new();
-            Dictionary<ulong, BuildingObject> baseBuildings = new();
+        public async Task<IReadOnlyDictionary<uint, MergedLandblock>> GetMergedLandblocksAsync(IEnumerable<uint> landblockIds, IEnumerable<string>? layerIds = null) {
+            if (_documentManager?.LandscapeCacheService == null || _landscapeDataProvider == null) {
+                return new Dictionary<uint, MergedLandblock>();
+            }
 
-            if (CellDatabase != null && CellDatabase.TryGetFileBytes(lbFileId, out var _)) {
-                if (CellDatabase.TryGet<LandBlockInfo>(lbFileId, out var lbi)) {
-                    for (int i = 0; i < lbi.Objects.Count; i++) {
-                        ulong instanceId = InstanceIdConstants.EncodeStaticObject(lbFileId, (ushort)i);
-                        baseStatics[instanceId] = new StaticObject {
-                            SetupId = lbi.Objects[i].Id,
-                            Position = [lbi.Objects[i].Frame.Origin.X, lbi.Objects[i].Frame.Origin.Y, lbi.Objects[i].Frame.Origin.Z, lbi.Objects[i].Frame.Orientation.W, lbi.Objects[i].Frame.Orientation.X, lbi.Objects[i].Frame.Orientation.Y, lbi.Objects[i].Frame.Orientation.Z],
-                            InstanceId = instanceId,
-                            LayerId = BaseLayerId ?? "Base"
-                        };
-                    }
+            var ids = landblockIds.ToList();
+            var results = new Dictionary<uint, MergedLandblock>();
+            var missingIds = new List<uint>();
 
-                    for (int i = 0; i < lbi.Buildings.Count; i++) {
-                        ulong instanceId = InstanceIdConstants.EncodeBuilding(lbFileId, (ushort)i);
-                        baseBuildings[instanceId] = new BuildingObject {
-                            ModelId = lbi.Buildings[i].ModelId,
-                            Position = [lbi.Buildings[i].Frame.Origin.X, lbi.Buildings[i].Frame.Origin.Y, lbi.Buildings[i].Frame.Origin.Z, lbi.Buildings[i].Frame.Orientation.W, lbi.Buildings[i].Frame.Orientation.X, lbi.Buildings[i].Frame.Orientation.Y, lbi.Buildings[i].Frame.Orientation.Z],
-                            InstanceId = instanceId,
-                            LayerId = BaseLayerId ?? "Base"
-                        };
+            foreach (var id in ids) {
+                if (_documentManager.LandscapeCacheService.TryGetLandblock(Id, id, out var lb)) {
+                    results[id] = lb!;
+                }
+                else {
+                    missingIds.Add(id);
+                }
+            }
+
+            if (missingIds.Count > 0) {
+                var filterLayerIds = layerIds ?? GetAllLayers().Where(IsItemVisible).Select(l => l.Id).ToList();
+                var mergedData = await _landscapeDataProvider.GetMergedLandblocksAsync(missingIds, CellDatabase, filterLayerIds, BaseLayerId, CancellationToken.None);
+                
+                if (mergedData != null) {
+                    foreach (var kvp in mergedData) {
+                        await _documentManager.LandscapeCacheService.GetOrAddLandblockAsync(Id, kvp.Key, () => Task.FromResult(kvp.Value));
+                        results[kvp.Key] = kvp.Value;
                     }
                 }
             }
 
-            // Apply Base Edits from the base layer in the chunk's document
-            ushort chunkId = _coords.GetChunkIdForLandblock(landblockId);
-
-            if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
-                var baseId = BaseLayerId;
-                if (baseId != null && chunk.Edits.LayerEdits.TryGetValue(baseId, out var baseEdits)) {
-                    foreach (var rmId in baseEdits.DeletedInstanceIds) {
-                        baseStatics.Remove(rmId);
-                        // Building removals are also in DeletedInstanceIds
-                        baseBuildings.Remove(rmId);
-                    }
-
-                    // Modifications are additions with the same InstanceId
-                    if (baseEdits.ExteriorStaticObjects.TryGetValue(landblockId, out var modStatics)) {
-                        foreach (var mod in modStatics) {
-                            baseStatics[mod.InstanceId] = mod;
-                        }
-                    }
-
-                    if (baseEdits.Buildings.TryGetValue(landblockId, out var modBuildings)) {
-                        foreach (var mod in modBuildings) {
-                            baseBuildings[mod.InstanceId] = mod;
-                        }
-                    }
-                }
-            }
-
-            merged.StaticObjects.AddRange(baseStatics.Values);
-            merged.Buildings.AddRange(baseBuildings.Values);
-
-            // Apply active layers
-            ushort chunkIdForLayers = _coords.GetChunkIdForLandblock(landblockId);
-            if (LoadedChunks.TryGetValue(chunkIdForLayers, out var chunkDoc)) {
-                var baseId = BaseLayerId;
-                foreach (var layer in GetAllLayers()) {
-                    if (!IsItemVisible(layer) || layer.Id == baseId) continue;
-
-                    if (chunkDoc.Edits != null && chunkDoc.Edits.LayerEdits.TryGetValue(layer.Id, out var layerEdits)) {
-                        // Remove tombstones
-                        if (layerEdits.DeletedInstanceIds.Count > 0) {
-                            merged.StaticObjects.RemoveAll(x => layerEdits.DeletedInstanceIds.Contains(x.InstanceId));
-                            merged.Buildings.RemoveAll(x => layerEdits.DeletedInstanceIds.Contains(x.InstanceId));
-                        }
-
-                        // Add owned objects
-                        if (layerEdits.ExteriorStaticObjects.TryGetValue(landblockId, out var statics)) {
-                            merged.StaticObjects.AddRange(statics);
-                        }
-                        if (layerEdits.Buildings.TryGetValue(landblockId, out var bldgs)) {
-                            merged.Buildings.AddRange(bldgs);
-                        }
-                    }
-                }
-            }
-
-            _mergedLandblockCache[landblockId] = merged;
-            return merged;
+            return results;
         }
 
         public Cell GetMergedEnvCell(uint cellId) {
-            var lbPrefix = cellId & 0xFFFF0000;
-            var lbCache = _mergedEnvCellCache.GetOrAdd(lbPrefix, _ => new());
-            if (lbCache.TryGetValue(cellId, out var cached)) {
-                return cached;
+            if (_documentManager != null && _documentManager.LandscapeCacheService.TryGetEnvCell(Id, cellId, out var cell)) {
+                return cell!;
+            }
+            return new Cell();
+        }
+
+        public async Task<Cell> GetMergedEnvCellAsync(uint cellId, IEnumerable<string>? layerIds = null) {
+            if (_documentManager == null || _landscapeDataProvider == null) {
+                return new Cell();
             }
 
-            var properties = new Cell();
+            var filterLayerIds = layerIds ?? GetAllLayers().Where(IsItemVisible).Select(l => l.Id);
+            return await _documentManager.LandscapeCacheService.GetOrAddEnvCellAsync(Id, cellId, () =>
+                _landscapeDataProvider.GetMergedEnvCellAsync(cellId, CellDatabase, filterLayerIds, BaseLayerId, CancellationToken.None));
+        }
 
-            if (CellDatabase != null && CellDatabase.TryGet<EnvCell>(cellId, out var cell)) {
-                properties = new Cell {
-                    EnvironmentId = cell.EnvironmentId,
-                    Flags = (uint)cell.Flags,
-                    CellStructure = cell.CellStructure,
-                    Position = [cell.Position.Origin.X, cell.Position.Origin.Y, cell.Position.Origin.Z, cell.Position.Orientation.W, cell.Position.Orientation.X, cell.Position.Orientation.Y, cell.Position.Orientation.Z],
-                    Surfaces = new List<ushort>(cell.Surfaces),
-                    Portals = new List<DatReaderWriter.Types.CellPortal>(cell.CellPortals),
-                    LayerId = BaseLayerId ?? "Base"
-                };
-
-                Dictionary<ulong, StaticObject> baseStatics = new();
-                if (cell.StaticObjects != null) {
-                    for (int i = 0; i < cell.StaticObjects.Count; i++) {
-                        ulong instanceId = InstanceIdConstants.EncodeEnvCellStaticObject(cellId, (ushort)i, false);
-                        baseStatics[instanceId] = new StaticObject {
-                            SetupId = cell.StaticObjects[i].Id,
-                            Position = [cell.StaticObjects[i].Frame.Origin.X, cell.StaticObjects[i].Frame.Origin.Y, cell.StaticObjects[i].Frame.Origin.Z, cell.StaticObjects[i].Frame.Orientation.W, cell.StaticObjects[i].Frame.Orientation.X, cell.StaticObjects[i].Frame.Orientation.Y, cell.StaticObjects[i].Frame.Orientation.Z],
-                            InstanceId = instanceId,
-                            LayerId = BaseLayerId ?? "Base"
-                        };
-                    }
+        public async Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint landblockId, uint? cellId, uint? oldLandblockId = null, uint? oldCellId = null, ITransaction? tx = null, CancellationToken ct = default) {
+            if (_documentManager == null) return Result<Unit>.Failure(Error.Failure("DocumentManager not initialized"));
+            
+            var result = await _documentManager.UpsertStaticObjectAsync(obj, RegionId, landblockId, cellId, tx, ct);
+            if (result.IsSuccess) {
+                var affectedLandblocks = new List<(int, int)>();
+                
+                if (landblockId != 0) {
+                    affectedLandblocks.Add(((int)(landblockId >> 24), (int)((landblockId >> 16) & 0xFF)));
+                }
+                
+                if (cellId.HasValue) {
+                    _documentManager.LandscapeCacheService.InvalidateEnvCell(Id, cellId.Value);
+                    // Also invalidate the landblock containing the cell just in case the renderer
+                    // is using landblock-level caches (scenery renderer does this).
+                    var cellLb = cellId.Value & 0xFFFF0000;
+                    affectedLandblocks.Add(((int)(cellLb >> 24), (int)((cellLb >> 16) & 0xFF)));
                 }
 
-                // Apply Base Edits
-                ushort chunkId = _coords.GetChunkIdForLandblock(cellId);
-
-                if (LoadedChunks.TryGetValue(chunkId, out var chunk) && chunk.Edits != null) {
-                    var baseId = BaseLayerId;
-                    if (baseId != null && chunk.Edits.LayerEdits.TryGetValue(baseId, out var baseEdits)) {
-                        if (baseEdits.Cells.TryGetValue(cellId, out var cellEdits)) {
-                            properties = new Cell {
-                                EnvironmentId = cellEdits.EnvironmentId,
-                                Flags = cellEdits.Flags,
-                                CellStructure = cellEdits.CellStructure,
-                                Position = cellEdits.Position,
-                                Surfaces = properties.Surfaces, // Keep from DAT
-                                Portals = properties.Portals,   // Keep from DAT
-                                LayerId = BaseLayerId ?? "Base",
-                                StaticObjects = cellEdits.StaticObjects != null ? new List<StaticObject>(cellEdits.StaticObjects) : new List<StaticObject>()
-                            };
-                        }
-
-                        foreach (var rmId in baseEdits.DeletedInstanceIds) {
-                            baseStatics.Remove(rmId);
-                        }
-
-                        // Modifications are additions with same InstanceId
-                        if (baseEdits.ExteriorStaticObjects.TryGetValue(cellId, out var modStatics)) {
-                            foreach (var mod in modStatics) {
-                                baseStatics[mod.InstanceId] = mod;
-                            }
-                        }
-                    }
+                if (oldLandblockId.HasValue && oldLandblockId.Value != 0 && oldLandblockId.Value != landblockId) {
+                    affectedLandblocks.Add(((int)(oldLandblockId.Value >> 24), (int)((oldLandblockId.Value >> 16) & 0xFF)));
                 }
 
-                properties.StaticObjects.AddRange(baseStatics.Values);
-            }
+                if (oldCellId.HasValue && oldCellId.Value != cellId) {
+                    _documentManager.LandscapeCacheService.InvalidateEnvCell(Id, oldCellId.Value);
+                    var oldCellLb = oldCellId.Value & 0xFFFF0000;
+                    affectedLandblocks.Add(((int)(oldCellLb >> 24), (int)((oldCellLb >> 16) & 0xFF)));
+                }
 
-            // Apply active layers
-            ushort chunkIdForLayers = _coords.GetChunkIdForLandblock(cellId);
-            if (LoadedChunks.TryGetValue(chunkIdForLayers, out var chunkRef)) {
-                var baseId = BaseLayerId;
-                foreach (var layer in GetAllLayers()) {
-                    if (!IsItemVisible(layer) || layer.Id == baseId) continue;
-
-                    if (chunkRef.Edits != null && chunkRef.Edits.LayerEdits.TryGetValue(layer.Id, out var layerEdits)) {
-                        if (layerEdits.DeletedInstanceIds.Count > 0) {
-                            properties.StaticObjects.RemoveAll(x => layerEdits.DeletedInstanceIds.Contains(x.InstanceId));
-                        }
-
-                        // Add owned objects
-                        if (layerEdits.Cells.TryGetValue(cellId, out var cellProps)) {
-                            if (cellProps.StaticObjects != null) {
-                                properties.StaticObjects.AddRange(cellProps.StaticObjects);
-                            }
-                        }
-                    }
+                if (affectedLandblocks.Count > 0) {
+                    NotifyLandblockChanged(affectedLandblocks.Distinct(), LandblockChangeType.Objects);
                 }
             }
+            return result;
+        }
 
-            lbCache[cellId] = properties;
-            return properties;
+        public async Task<Result<Unit>> DeleteStaticObjectAsync(ulong instanceId, uint landblockId, ITransaction? tx = null, CancellationToken ct = default) {
+            if (_documentManager == null) return Result<Unit>.Failure(Error.Failure("DocumentManager not initialized"));
+
+            var result = await _documentManager.DeleteStaticObjectAsync(instanceId, tx, ct);
+            if (result.IsSuccess) {
+                var affected = new List<(int, int)>();
+                affected.Add(((int)(landblockId >> 24), (int)((landblockId >> 16) & 0xFF)));
+                NotifyLandblockChanged(affected, LandblockChangeType.Objects);
+            }
+            return result;
         }
 
         /// <inheritdoc/>
@@ -834,7 +768,6 @@ namespace WorldBuilder.Shared.Models {
             }
             LoadedChunks.Clear();
             _initLock.Dispose();
-            _dbLock.Dispose();
             foreach (var semaphore in _chunkLocks.Values) {
                 semaphore.Dispose();
             }

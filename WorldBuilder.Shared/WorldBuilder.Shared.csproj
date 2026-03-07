@@ -25,4 +25,8 @@
 		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
         <PackageReference Include="CommunityToolkit.Mvvm" />
 	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Numerics\" />
+	</ItemGroup>
 </Project>
