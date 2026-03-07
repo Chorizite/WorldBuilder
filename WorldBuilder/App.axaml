@@ -5,8 +5,11 @@
     xmlns:services="clr-namespace:WorldBuilder.Services"
     RequestedThemeVariant="Default">
     <!--  "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options.  -->
+    <Application.Resources>
+    </Application.Resources>
     <Application.Styles>
         <StyleInclude Source="avares://WorldBuilder/Themes/DefaultTheme.axaml" />
+        <StyleInclude Source="avares://WorldBuilder/Themes/CustomTreeDataGrid.axaml"/>
     </Application.Styles>
     <Application.DataTemplates>
         <services:CombinedViewLocator />

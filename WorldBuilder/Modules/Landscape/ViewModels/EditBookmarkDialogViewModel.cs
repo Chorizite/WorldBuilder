@@ -26,12 +26,16 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
         [ObservableProperty]
         private string _bookmarkLocation = string.Empty;
 
+        private Bookmark? _createdBookmark;
+
         private readonly WorldBuilderSettings? _settings;
         private readonly BookmarksManager? _bookmarksManager;
 
         private ObservableCollection<BookmarkNode>? _bookmarkFolders;
 
         public bool? DialogResult { get; set; }
+
+        public Bookmark? CreatedBookmark => _createdBookmark;
 
         public event EventHandler? RequestClose;
 
@@ -124,6 +128,10 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
 
                 // Add bookmark to the selected folder or root level
                 await _bookmarksManager.AddBookmark(BookmarkLocation, InputText, targetFolder);
+
+                // Find the newly added bookmark (it will be the last one in the container)
+                var container = targetFolder?.Items ?? _bookmarksManager.Bookmarks;
+                _createdBookmark = container.Last() as Bookmark;
 
                 DialogResult = true;
             }

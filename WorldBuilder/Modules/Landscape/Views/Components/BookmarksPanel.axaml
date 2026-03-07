@@ -12,172 +12,90 @@
     x:CompileBindings="False"
     x:DataType="landscape:BookmarksPanelViewModel">
     <UserControl.Resources>
-        <conv:ThemeBasedColorConverter x:Key="ThemeBasedColorConverter" />
+        <conv:SearchSourceConverter x:Key="SearchSourceConverter" />
     </UserControl.Resources>
 
     <Grid RowDefinitions="Auto, *">
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="4" Margin="4">
-            <Button Command="{Binding AddBookmarkCommand}" ToolTip.Tip="Add New Bookmark (Ctrl+B)">
-                <icons:MaterialIcon Kind="Plus" Width="16" Height="16" />
-            </Button>
-            <Button Command="{Binding AddFolderCommand}" ToolTip.Tip="Add New Folder">
-                <icons:MaterialIcon Kind="FolderPlus" Width="16" Height="16" />
-            </Button>
-            <Button
-                Command="{Binding DeleteBookmarkCommand}"
-                CommandParameter="{Binding SelectedItem}"
-                IsEnabled="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}"
-                ToolTip.Tip="Delete Selected Bookmark">
-                <icons:MaterialIcon Kind="Delete" Width="16" Height="16" />
-            </Button>
-            <Button
-                x:Name="GoToButton"
-                Command="{Binding GoToBookmarkCommand}"
-                CommandParameter="{Binding SelectedItem}"
-                IsEnabled="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}"
-                ToolTip.Tip="Go To Selected Bookmark">
-                <icons:MaterialIcon Kind="ArrowRight" Width="16" Height="16" />
-            </Button>
-        </StackPanel>
+        <Grid Grid.Row="0" Margin="4" ColumnDefinitions="Auto, *">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
+                <Button Command="{Binding AddBookmarkCommand}" ToolTip.Tip="Add New Bookmark (Ctrl+B)">
+                    <icons:MaterialIcon Kind="Plus" Width="16" Height="16" />
+                </Button>
+                <Button Command="{Binding AddFolderCommand}" ToolTip.Tip="Add New Folder">
+                    <icons:MaterialIcon Kind="FolderPlus" Width="16" Height="16" />
+                </Button>
+                <Button
+                    Command="{Binding DeleteBookmarkCommand}"
+                    CommandParameter="{Binding SelectedItem}"
+                    IsEnabled="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                    ToolTip.Tip="Delete Selected Bookmark">
+                    <icons:MaterialIcon Kind="Delete" Width="16" Height="16" />
+                </Button>
+                <Button
+                    x:Name="GoToButton"
+                    Command="{Binding GoToBookmarkCommand}"
+                    CommandParameter="{Binding SelectedItem}"
+                    IsEnabled="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                    ToolTip.Tip="Go To Selected Bookmark">
+                    <icons:MaterialIcon Kind="ArrowRight" Width="16" Height="16" />
+                </Button>
+            </StackPanel>
+            <TextBox Grid.Column="1" 
+                     Text="{Binding SearchText}" 
+                     Watermark="Search bookmarks..." 
+                     Margin="4,0,0,0" />
+        </Grid>
 
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-            <Grid>
-                <!-- Drop indicator line -->
-                <Border
-                    x:Name="DropIndicator"
-                    Height="2"
-                    Background="{DynamicResource SemiColorPrimary}"
-                    IsVisible="False"
-                    HorizontalAlignment="Left"
-                    Width="70"
-                    VerticalAlignment="Top"
-                    Opacity="0.5" />
-
-                <TreeView
+            <Grid Margin="4,0,0,0">
+                <!-- Overlay for drop indicator -->
+                <Canvas x:Name="DropIndicatorCanvas" IsHitTestVisible="False" />
+                
+                <TreeDataGrid
                     x:Name="BookmarkTreeView"
-                    ItemsSource="{Binding BookmarksManager.Bookmarks}"
-                    SelectedItem="{Binding SelectedItem}"
                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                    DoubleTapped="BookmarkTreeView_DoubleTapped"
-                    DragDrop.AllowDrop="True"
-                    DragDrop.DragOver="OnDragOver"
-                    DragDrop.Drop="OnDrop">
-                    <TreeView.KeyBindings>
-                        <KeyBinding Gesture="Enter" Command="{Binding EnterKeyCommand}" CommandParameter="{Binding SelectedItem}" />
-                        <KeyBinding Gesture="Delete" Command="{Binding DeleteBookmarkCommand}" CommandParameter="{Binding SelectedItem}" />
-                    </TreeView.KeyBindings>
-                    <TreeView.Styles>
-                        <Style Selector="TreeViewItem">
-                            <Setter Property="Padding" Value="0,4" />
-                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
-                        </Style>
-                        <Style Selector="Border.drag-over-folder">
-                            <Setter Property="BorderBrush" Value="{Binding $parent[UserControl].DataContext, Converter={StaticResource ThemeBasedColorConverter}}" />
-                            <Setter Property="BorderThickness" Value="2" />
-                            <Setter Property="Margin" Value="-2" />
-                        </Style>
-                        <!-- Drop indicator border template -->
-                        <Style Selector="Border.drop-indicator">
-                            <Setter Property="Height" Value="2" />
-                            <Setter Property="Background" Value="{DynamicResource SemiColorPrimary}" />
-                            <Setter Property="CornerRadius" Value="0" />
-                            <Setter Property="IsHitTestVisible" Value="False" />
-                            <Setter Property="Opacity" Value="0.5" />
-                            <Setter Property="HorizontalAlignment" Value="Left" />
-                            <Setter Property="Width" Value="70" />
-                        </Style>
-                        <!-- Item content panel template -->
-                        <Style Selector="StackPanel.item-content">
-                            <Setter Property="Orientation" Value="Horizontal" />
-                            <Setter Property="HorizontalAlignment" Value="Stretch" />
+                    KeyDown="OnTreeDataGridKeyDown"
+                    ShowColumnHeaders="False">
+                    <TreeDataGrid.Resources>
+                        
+                        <!-- Template for bookmark/folder cells -->
+                        <DataTemplate x:Key="BookmarkCellTemplate">
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,8" VerticalAlignment="Center"
+                                        PointerEntered="OnBookmarkItemPointerEntered" 
+                                        PointerExited="OnBookmarkItemPointerExited">
+                                <icons:MaterialIcon 
+                                    Width="16" 
+                                    Height="16" 
+                                    Kind="{Binding IconKind}"
+                                    Foreground="{Binding IconColor}"
+                                    Opacity="{Binding IconOpacity}"
+                                    VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </TreeDataGrid.Resources>
+                    <TreeDataGrid.Source>
+                        <MultiBinding Converter="{StaticResource SearchSourceConverter}">
+                            <Binding Path="SearchText" />
+                            <Binding Path="Bookmarks" />
+                            <Binding Path="SearchResults" />
+                        </MultiBinding>
+                    </TreeDataGrid.Source>
+                    <TreeDataGrid.Styles>
+                        <Style Selector="TreeDataGridRow">
+                            <Setter Property="MinHeight" Value="16" />
                             <Setter Property="Background" Value="Transparent" />
                         </Style>
-                    </TreeView.Styles>
-                    <TreeView.DataTemplates>
-                        <!-- Folder Template -->
-                        <TreeDataTemplate x:DataType="viewmodels:BookmarkFolder" ItemsSource="{Binding Items}">
-                            <Border Classes.drag-over-folder="{Binding DropPosition, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static viewmodels:DropPosition.Inside}}">
-                                <Grid>
-                                    <Grid.ContextMenu>
-                                        <ContextMenu Opening="OnContextMenuOpening">
-                                            <Separator />
-                                            <MenuItem Header="Rename" Command="{Binding $parent[TreeView].DataContext.RenameBookmarkCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
-                                            <Separator />
-                                            <MenuItem Header="Move Up" Command="{Binding $parent[TreeView].DataContext.MoveUpCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
-                                            <MenuItem Header="Move Down" Command="{Binding $parent[TreeView].DataContext.MoveDownCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
-                                            <Separator />
-                                            <MenuItem Header="Delete" Command="{Binding $parent[TreeView].DataContext.DeleteBookmarkCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
-                                        </ContextMenu>
-                                    </Grid.ContextMenu>
-                                    <!-- Drop Indicators -->
-                                    <Border Classes="drop-indicator" VerticalAlignment="Top" Margin="0,-2,0,0">
-                                        <Border.IsVisible>
-                                            <Binding Path="DropPosition" Converter="{x:Static ObjectConverters.Equal}" ConverterParameter="{x:Static viewmodels:DropPosition.Above}" />
-                                        </Border.IsVisible>
-                                    </Border>
-                                    <Border Classes="drop-indicator" VerticalAlignment="Bottom" Margin="0,0,0,-2">
-                                        <Border.IsVisible>
-                                            <Binding Path="DropPosition" Converter="{x:Static ObjectConverters.Equal}" ConverterParameter="{x:Static viewmodels:DropPosition.Below}" />
-                                        </Border.IsVisible>
-                                    </Border>
-                                    <!-- Content -->
-                                    <StackPanel
-                                        Classes="item-content"
-                                        PointerPressed="OnBookmarkItemPointerPressed"
-                                        PointerMoved="OnBookmarkItemPointerMoved"
-                                        PointerReleased="OnBookmarkItemPointerReleased"
-                                        PointerEntered="OnBookmarkItemPointerEntered"
-                                        PointerExited="OnBookmarkItemPointerExited">
-                                        <icons:MaterialIcon Kind="Folder" Margin="0,0,8,0" Foreground="#D9B860" />
-                                        <TextBlock Text="{Binding Name}" />
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
+                    </TreeDataGrid.Styles>
+                    <TreeDataGrid.DataTemplates>
+						<TreeDataTemplate x:DataType="viewmodels:BookmarkFolder" ItemsSource="{Binding Items}">
+                            <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource BookmarkCellTemplate}" />
                         </TreeDataTemplate>
-
-                        <!-- Bookmark Template -->
                         <DataTemplate x:DataType="viewmodels:Bookmark">
-                            <Grid>
-                                <Grid.ContextMenu>
-                                    <ContextMenu>
-                                        <MenuItem Header="Go To" Command="{Binding $parent[TreeView].DataContext.GoToBookmarkCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
-                                        <MenuItem Header="Update to Current Location" Command="{Binding $parent[TreeView].DataContext.UpdateBookmarkCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
-                                        <MenuItem Header="Rename" Command="{Binding $parent[TreeView].DataContext.RenameBookmarkCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
-                                        <Separator />
-                                        <MenuItem Header="Copy Location" Command="{Binding $parent[TreeView].DataContext.CopyLocationCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
-                                        <Separator />
-                                        <MenuItem Header="Move Up" Command="{Binding $parent[TreeView].DataContext.MoveUpCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
-                                        <MenuItem Header="Move Down" Command="{Binding $parent[TreeView].DataContext.MoveDownCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
-                                        <Separator />
-                                        <MenuItem Header="Delete" Command="{Binding $parent[TreeView].DataContext.DeleteBookmarkCommand}" CommandParameter="{Binding $parent[TreeView].DataContext.SelectedItem}" />
-                                    </ContextMenu>
-                                </Grid.ContextMenu>
-                                <!-- Drop Indicators -->
-                                <Border Classes="drop-indicator" VerticalAlignment="Top" Margin="0,-8,0,0">
-                                    <Border.IsVisible>
-                                        <Binding Path="DropPosition" Converter="{x:Static ObjectConverters.Equal}" ConverterParameter="{x:Static viewmodels:DropPosition.Above}" />
-                                    </Border.IsVisible>
-                                </Border>
-                                <Border Classes="drop-indicator" VerticalAlignment="Bottom" Margin="0,0,0,-8">
-                                    <Border.IsVisible>
-                                        <Binding Path="DropPosition" Converter="{x:Static ObjectConverters.Equal}" ConverterParameter="{x:Static viewmodels:DropPosition.Below}" />
-                                    </Border.IsVisible>
-                                </Border>
-                                <!-- Content -->
-                                <StackPanel
-                                    Classes="item-content"
-                                    PointerPressed="OnBookmarkItemPointerPressed"
-                                    PointerMoved="OnBookmarkItemPointerMoved"
-                                    PointerReleased="OnBookmarkItemPointerReleased"
-                                    PointerEntered="OnBookmarkItemPointerEntered"
-                                    PointerExited="OnBookmarkItemPointerExited">
-                                    <icons:MaterialIcon Kind="MapMarker" Margin="0,0,6,0" Opacity="0.96" />
-                                    <TextBlock Text="{Binding Name}" />
-                                </StackPanel>
-                            </Grid>
+                            <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource BookmarkCellTemplate}" />
                         </DataTemplate>
-                    </TreeView.DataTemplates>
-                </TreeView>
+                    </TreeDataGrid.DataTemplates>
+                </TreeDataGrid>
             </Grid>
         </ScrollViewer>
     </Grid>
