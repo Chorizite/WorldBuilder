@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Serilog; 
 using System;
 using WorldBuilder.Lib.Extensions;
 using WorldBuilder.Services;
@@ -16,12 +17,26 @@ namespace WorldBuilder.Lib {
         /// <returns>A configured IServiceProvider instance</returns>
         public static IServiceProvider BuildServiceProvider(CommandLineOptions options) {
             var services = new ServiceCollection();
-
-            // Add core application services
+        
+            var logPath = Path.Combine(AppContext.BaseDirectory, "logs", "worldbuilder.log");
+            
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .WriteTo.File(logPath, 
+                    rollingInterval: RollingInterval.Day,
+                    flushToDiskInterval: TimeSpan.FromSeconds(1),
+                    shared: true) 
+                .CreateLogger();
+        
+            services.AddLogging(builder => {
+                builder.ClearProviders();
+                builder.AddSerilog(dispose: true);
+            });
+        
             services.AddSingleton(options);
             services.AddWorldBuilderCoreServices();
             services.AddWorldBuilderViewModels();
-
+        
             return services.BuildServiceProvider();
         }
 
