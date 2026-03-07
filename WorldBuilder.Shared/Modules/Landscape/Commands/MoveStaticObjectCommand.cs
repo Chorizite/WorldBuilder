@@ -38,15 +38,22 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
             ulong newInstanceId = oldObject.InstanceId;
             if (newLandblockId != oldLandblockId || newObject.CellId != oldObject.CellId) {
                 if (newType == InspectorSelectionType.EnvCellStaticObject) {
-                    // Start at the top slot (0xFFFF) and move down to avoid collisions with base objects (0..N)
-                    // We don't have easy access to the full cell contents here, so we use a high-numbered
-                    // random-ish offset that is very unlikely to collide with base objects.
-                    ushort newIndex = (ushort)(0xFFFF - (Guid.NewGuid().GetHashCode() & 0x0FFF));
+                    ushort newIndex = 0xFFFF;
                     newInstanceId = InstanceIdConstants.EncodeEnvCellStaticObject(newObject.CellId!.Value, newIndex, true);
+                    var cell = _context.Document.GetMergedEnvCell(newObject.CellId!.Value);
+                    while (cell.StaticObjects.ContainsKey(newInstanceId) && newIndex > 0) {
+                        newIndex--;
+                        newInstanceId = InstanceIdConstants.EncodeEnvCellStaticObject(newObject.CellId!.Value, newIndex, true);
+                    }
                 }
                 else {
-                    ushort newIndex = (ushort)(Guid.NewGuid().GetHashCode() & 0xFFFF);
+                    ushort newIndex = 0xFFFF;
                     newInstanceId = InstanceIdConstants.Encode(InspectorSelectionType.StaticObject, ObjectState.Added, newLandblockId, newIndex);
+                    var lb = _context.Document.GetMergedLandblock(newLandblockId);
+                    while (lb.StaticObjects.ContainsKey(newInstanceId) && newIndex > 0) {
+                        newIndex--;
+                        newInstanceId = InstanceIdConstants.Encode(InspectorSelectionType.StaticObject, ObjectState.Added, newLandblockId, newIndex);
+                    }
                 }
             }
 
