@@ -12,23 +12,31 @@ namespace WorldBuilder.Shared.Models {
             // Ensure all chunks with edits are loaded/persisted so the provider sees them
             // In a real flow, the UI/caller should ensure documents are persisted before export.
             
-            // Identify visible layers (we export what is visible or marked as exported)
-            var visibleLayerIds = GetAllLayers().Where(l => l.IsVisible || IsItemExported(l)).Select(l => l.Id).ToList();
+            // Identify layers marked for export
+            var allLayers = GetAllLayers().ToList();
+            var exportLayerIds = allLayers.Where(IsItemExported).Select(l => l.Id).ToList();
+            
+            System.Console.WriteLine($"[DAT EXPORT] SaveToDatsInternal: Document has {allLayers.Count} total layers.");
+            foreach (var l in allLayers) {
+                System.Console.WriteLine($"[DAT EXPORT]   Layer: '{l.Name}' (ID: {l.Id}), IsBase: {l.IsBase}, IsExported: {l.IsExported}, IsVisible: {l.IsVisible}");
+            }
+            System.Console.WriteLine($"[DAT EXPORT] Exporting {exportLayerIds.Count} layers based on IsItemExported: {string.Join(", ", exportLayerIds)}");
 
             if (_landscapeDataProvider == null) throw new InvalidOperationException("LandscapeDataProvider not initialized");
             
-            var mergedChanges = await _landscapeDataProvider.GetMergedTerrainAsync(RegionId, visibleLayerIds, Region, CancellationToken.None);
+            var mergedChanges = await _landscapeDataProvider.GetMergedTerrainAsync(RegionId, exportLayerIds, Region, CancellationToken.None);
             
-            // Identify affected landblocks from merged changes
+            // Identify affected landblocks from both terrain and objects across all exported layers
             var affectedLandblocks = new HashSet<(int x, int y)>();
+            foreach (var layerId in exportLayerIds) {
+                var layerAffected = await GetAffectedLandblocksAsync(layerId, datwriter, _documentManager!, CancellationToken.None);
+                foreach (var lb in layerAffected) {
+                    affectedLandblocks.Add(lb);
+                }
+            }
+
             int mapWidth = Region.MapWidthInVertices;
             int strideMinusOne = Region.LandblockVerticeLength - 1;
-
-            foreach (var vertexIndex in mergedChanges.Keys) {
-                int vy = (int)(vertexIndex / mapWidth);
-                int vx = (int)(vertexIndex % mapWidth);
-                affectedLandblocks.Add((vx / strideMinusOne, vy / strideMinusOne));
-            }
 
             int vertexStride = Region.LandblockVerticeLength;
             int localSize = vertexStride * vertexStride;
@@ -105,7 +113,7 @@ namespace WorldBuilder.Shared.Models {
 
                 System.Console.WriteLine($"[DAT EXPORT] Processing LandBlockInfo 0x{lbInfoId:X8} for landblock {lbX}, {lbY}...");
 
-                var mergedLb = await GetMergedLandblockAsync(lbInfoId);
+                var mergedLb = await GetMergedLandblockAsync(lbInfoId, exportLayerIds);
                 var lbi = new LandBlockInfo();
 
                 bool lbiExists = datwriter.TryGetFileBytes(RegionId, lbInfoId, ref objBuffer, out objBytesRead);
@@ -146,7 +154,7 @@ namespace WorldBuilder.Shared.Models {
                             var cell = new EnvCell();
                             cell.Unpack(new DatBinReader(objBuffer));
 
-                            var mergedCell = await GetMergedEnvCellAsync(cellId);
+                            var mergedCell = await GetMergedEnvCellAsync(cellId, exportLayerIds);
 
                             int baseStatics = cell.StaticObjects?.Count ?? 0;
                             if (baseStatics != mergedCell.StaticObjects.Count) {

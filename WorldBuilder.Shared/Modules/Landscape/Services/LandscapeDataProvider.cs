@@ -257,7 +257,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
 
             // Fetch all terrain patches for the region
             var patches = await _repo.GetTerrainPatchesAsync(regionId, null, ct);
-            if (patches == null) return mergedChanges;
+            if (patches == null || patches.Count == 0) {
+                System.Console.WriteLine($"[DAT EXPORT] GetMergedTerrainAsync: No patches found for region {regionId}");
+                return mergedChanges;
+            }
+
+            System.Console.WriteLine($"[DAT EXPORT] GetMergedTerrainAsync: Found {patches.Count} patches for region {regionId}. Layers to merge: {string.Join(", ", visibleLayerIds)}");
 
             int mapWidth = regionInfo.MapWidthInVertices;
             int vertexStride = regionInfo.LandblockVerticeLength;
@@ -267,11 +272,19 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                 if (patch.Data == null || patch.Data.Length == 0) continue;
 
                 try {
-                    var doc = MemoryPackSerializer.Deserialize<TerrainPatchDocument>(patch.Data);
-                    if (doc == null) continue;
+                    var doc = BaseDocument.Deserialize<TerrainPatchDocument>(patch.Data);
+                    if (doc == null) {
+                        System.Console.WriteLine($"[DAT EXPORT] GetMergedTerrainAsync: Failed to deserialize patch {patch.Id}");
+                        continue;
+                    }
+
+                    if (doc.LayerEdits == null) {
+                        System.Console.WriteLine($"[DAT EXPORT] GetMergedTerrainAsync: Patch {patch.Id} has null LayerEdits.");
+                        continue;
+                    }
 
                     // Extract chunk coords from ID: TerrainPatch_{regionId}_{chunkX}_{chunkY}
-                    var parts = doc.Id.Split('_');
+                    var parts = patch.Id.Split('_');
                     if (parts.Length < 4) continue;
                     if (!uint.TryParse(parts[2], out var chunkX) || !uint.TryParse(parts[3], out var chunkY)) continue;
 
@@ -280,12 +293,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                     int chunkBaseVy = (int)(chunkY * LandscapeChunk.LandblocksPerChunk * strideMinusOne);
 
                     foreach (var layerId in visibleLayers) {
-                        if (doc.LayerEdits.TryGetValue(layerId, out var layerVertices)) {
+                        if (doc.LayerEdits.TryGetValue(layerId, out var layerVertices) && layerVertices != null) {
+                            int layerModifiedCount = 0;
                             for (int i = 0; i < layerVertices.Length; i++) {
                                 var entry = layerVertices[i];
                                 if (entry.Flags == TerrainEntryFlags.None) continue;
 
+                                layerModifiedCount++;
                                 // Calculate local chunk coords (65x65)
+                                // Standard AC/WB stride is usually X then Y or Y then X.
+                                // LandscapeDocument use (y * stride + x) usually.
                                 int localY = i / LandscapeChunk.ChunkVertexStride;
                                 int localX = i % LandscapeChunk.ChunkVertexStride;
 
@@ -300,11 +317,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                                     mergedChanges[globalVertexIndex] = entry;
                                 }
                             }
+                            if (layerModifiedCount > 0) {
+                                System.Console.WriteLine($"[DAT EXPORT] GetMergedTerrainAsync: Patch {patch.Id}, Layer {layerId} has {layerModifiedCount} modified vertices.");
+                            }
                         }
                     }
                 }
                 catch (Exception ex) {
-                    _log?.LogError(ex, "Error deserializing terrain patch {PatchId}", patch.Id);
+                    System.Console.WriteLine($"[DAT EXPORT] GetMergedTerrainAsync: Error processing patch {patch.Id}: {ex.Message}");
                 }
             }
 

@@ -660,17 +660,17 @@ namespace WorldBuilder.Shared.Models {
             return new MergedLandblock();
         }
 
-        public async Task<MergedLandblock> GetMergedLandblockAsync(uint landblockId) {
+        public async Task<MergedLandblock> GetMergedLandblockAsync(uint landblockId, IEnumerable<string>? layerIds = null) {
             if (_documentManager?.LandscapeCacheService == null || _landscapeDataProvider == null) {
                 return new MergedLandblock();
             }
 
-            var visibleLayerIds = GetAllLayers().Where(IsItemVisible).Select(l => l.Id);
+            var filterLayerIds = layerIds ?? GetAllLayers().Where(IsItemVisible).Select(l => l.Id);
             return await _documentManager.LandscapeCacheService.GetOrAddLandblockAsync(Id, landblockId, () =>
-                _landscapeDataProvider.GetMergedLandblockAsync(landblockId, CellDatabase, visibleLayerIds, BaseLayerId, CancellationToken.None));
+                _landscapeDataProvider.GetMergedLandblockAsync(landblockId, CellDatabase, filterLayerIds, BaseLayerId, CancellationToken.None));
         }
 
-        public async Task<IReadOnlyDictionary<uint, MergedLandblock>> GetMergedLandblocksAsync(IEnumerable<uint> landblockIds) {
+        public async Task<IReadOnlyDictionary<uint, MergedLandblock>> GetMergedLandblocksAsync(IEnumerable<uint> landblockIds, IEnumerable<string>? layerIds = null) {
             if (_documentManager?.LandscapeCacheService == null || _landscapeDataProvider == null) {
                 return new Dictionary<uint, MergedLandblock>();
             }
@@ -689,8 +689,8 @@ namespace WorldBuilder.Shared.Models {
             }
 
             if (missingIds.Count > 0) {
-                var visibleLayerIds = GetAllLayers().Where(IsItemVisible).Select(l => l.Id).ToList();
-                var mergedData = await _landscapeDataProvider.GetMergedLandblocksAsync(missingIds, CellDatabase, visibleLayerIds, BaseLayerId, CancellationToken.None);
+                var filterLayerIds = layerIds ?? GetAllLayers().Where(IsItemVisible).Select(l => l.Id).ToList();
+                var mergedData = await _landscapeDataProvider.GetMergedLandblocksAsync(missingIds, CellDatabase, filterLayerIds, BaseLayerId, CancellationToken.None);
                 
                 if (mergedData != null) {
                     foreach (var kvp in mergedData) {
@@ -710,14 +710,14 @@ namespace WorldBuilder.Shared.Models {
             return new Cell();
         }
 
-        public async Task<Cell> GetMergedEnvCellAsync(uint cellId) {
+        public async Task<Cell> GetMergedEnvCellAsync(uint cellId, IEnumerable<string>? layerIds = null) {
             if (_documentManager == null || _landscapeDataProvider == null) {
                 return new Cell();
             }
 
-            var visibleLayerIds = GetAllLayers().Where(IsItemVisible).Select(l => l.Id);
+            var filterLayerIds = layerIds ?? GetAllLayers().Where(IsItemVisible).Select(l => l.Id);
             return await _documentManager.LandscapeCacheService.GetOrAddEnvCellAsync(Id, cellId, () =>
-                _landscapeDataProvider.GetMergedEnvCellAsync(cellId, CellDatabase, visibleLayerIds, BaseLayerId, CancellationToken.None));
+                _landscapeDataProvider.GetMergedEnvCellAsync(cellId, CellDatabase, filterLayerIds, BaseLayerId, CancellationToken.None));
         }
 
         public async Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint landblockId, uint? cellId, uint? oldLandblockId = null, uint? oldCellId = null, ITransaction? tx = null, CancellationToken ct = default) {
