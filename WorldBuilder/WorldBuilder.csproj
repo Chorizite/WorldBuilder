@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
 		<PublishAot>true</PublishAot>
@@ -11,6 +11,7 @@
 	<ItemGroup>
 		<PackageReference Include="Avalonia" />
 		<PackageReference Include="Avalonia.Controls.ItemsRepeater" />
+		<PackageReference Include="Avalonia.Controls.TreeDataGrid" />
 		<PackageReference Include="Avalonia.Skia" />
 		<PackageReference Include="Semi.Avalonia" />
 		<PackageReference Include="Semi.Avalonia.ColorPicker" />
