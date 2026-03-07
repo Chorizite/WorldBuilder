@@ -54,9 +54,6 @@
                 <TreeDataGrid
                     x:Name="BookmarkTreeView"
                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                    DragDrop.AllowDrop="True"
-                    DragDrop.DragOver="OnDragOver"
-                    DragDrop.Drop="OnDrop"
                     KeyDown="OnTreeDataGridKeyDown"
                     ShowColumnHeaders="False">
                     <TreeDataGrid.Resources>
