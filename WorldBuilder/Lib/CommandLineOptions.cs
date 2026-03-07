@@ -22,7 +22,7 @@ namespace WorldBuilder.Lib {
             var options = new CommandLineOptions();
             if (args == null) return options;
 
-            for (int i = 0; i < args.Length; i++) {
+            for (int i = 1; i < args.Length; i++) {
                 var arg = args[i];
 
                 if (arg.Equals("--disable-bindless", System.StringComparison.OrdinalIgnoreCase)) {
@@ -32,6 +32,9 @@ namespace WorldBuilder.Lib {
                     if (i + 1 < args.Length) {
                         options.ProjectPath = args[++i];
                     }
+                }
+                else if (!arg.StartsWith("-") && string.IsNullOrEmpty(options.ProjectPath)) {
+                    options.ProjectPath = arg;
                 }
             }
             return options;
