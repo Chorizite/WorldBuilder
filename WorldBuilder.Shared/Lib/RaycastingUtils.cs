@@ -1,8 +1,7 @@
-using System;
 using System.Numerics;
 using WorldBuilder.Shared.Models;
 
-namespace WorldBuilder.Shared.Numerics {
+namespace WorldBuilder.Shared.Lib {
     public static class RaycastingUtils {
         /// <summary>
         /// Converts a screen position to a world-space ray using double precision matrices.

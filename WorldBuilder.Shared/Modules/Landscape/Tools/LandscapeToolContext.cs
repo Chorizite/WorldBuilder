@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
@@ -81,10 +82,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public Action<int, int>? InvalidateLandblock { get; set; }
 
         /// <summary>Delegate for retrieving a static object's world bounding box.</summary>
-        public Func<uint, ulong, WorldBuilder.Shared.Numerics.BoundingBox?>? GetStaticObjectBounds { get; set; }
+        public Func<uint, ulong, BoundingBox?>? GetStaticObjectBounds { get; set; }
 
         /// <summary>Delegate for retrieving a static object's local bounding box.</summary>
-        public Func<uint, ulong, WorldBuilder.Shared.Numerics.BoundingBox?>? GetStaticObjectLocalBounds { get; set; }
+        public Func<uint, ulong, BoundingBox?>? GetStaticObjectLocalBounds { get; set; }
 
         /// <summary>Delegate for retrieving a static object's current transform.</summary>
         public Func<uint, ulong, (Vector3 position, Quaternion rotation, Vector3 localPosition)?>? GetStaticObjectTransform { get; set; }

@@ -1,12 +1,9 @@
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
 using WorldBuilder.Shared.Models;
-using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Tools {
+namespace WorldBuilder.Shared.Modules.Landscape.Commands {
     /// <summary>
     /// A command that performs a bucket fill operation on the terrain textures.
     /// </summary>

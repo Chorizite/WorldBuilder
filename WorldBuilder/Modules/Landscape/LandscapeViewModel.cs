@@ -27,6 +27,7 @@ using WorldBuilder.Shared.Modules.Landscape;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
+using WorldBuilder.Shared.Modules.Landscape.Lib;
 using WorldBuilder.Shared.Services;
 using WorldBuilder.ViewModels;
 using ICamera = WorldBuilder.Shared.Models.ICamera;
@@ -313,7 +314,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                         NewLandblockId = newLbId,
                         OldObject = oldObject,
                         NewObject = newObj,
-                        UserId = "system" // Or get from context
+                        UserId = ""
                     };
 
                     var result = await _documentManager.ApplyLocalEventAsync(command, null!, default);

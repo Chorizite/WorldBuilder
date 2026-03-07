@@ -1,10 +1,11 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using System;
 using System.Numerics;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo;
-using WorldBuilder.Shared.Numerics;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     /// <summary>
@@ -102,9 +103,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                     RefreshGizmoPosition();
                 }
 
-                // Push the transform to the renderer so the object moves to match
-                // (same-landblock moves skip NotifyLandblockChanged, so the renderer
-                // won't regenerate — it needs this direct transform update instead).
                 Context?.NotifyObjectPositionPreview?.Invoke(targetLbId, targetObj.InstanceId, worldPosition, rotation, targetObj.CellId ?? 0);
             }
             else {
@@ -193,7 +191,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 return true;
             }
 
-            // Clicked empty space — deselect
+            // Clicked empty space - deselect
             ClearSelection();
             return false;
         }

@@ -86,21 +86,6 @@ namespace WorldBuilder.Shared.Tests.Repositories {
         }
 
         [Fact]
-        public async Task UpsertTerrainPatchAsync_DoesNotUpdate_WhenVersionIsLower() {
-            var patchId = "TerrainPatch_1_0_0";
-            var data1 = new byte[] { 1 };
-            var data2 = new byte[] { 2 };
-
-            // Insert initial version 10
-            await _repo.UpsertTerrainPatchAsync(patchId, 1, data1, 10, null, default);
-
-            // SQLite ON CONFLICT DO UPDATE SET doesn't easily handle WHERE version <= @ver 
-            // without a more complex statement or separate SELECT. 
-            // Our implementation uses REPLACE/UPSERT which usually overwrites.
-            // Let's re-verify our implementation of UpsertTerrainPatchAsync.
-        }
-
-        [Fact]
         public async Task GetTerrainPatchBlobAsync_ReturnsData() {
             var patchId = "TerrainPatch_1_0_0";
             var data = new byte[] { 1, 2, 3 };

@@ -1,9 +1,7 @@
-using System;
-using System.Numerics;
-using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Tools;
 
-namespace WorldBuilder.Shared.Modules.Landscape.Tools {
+namespace WorldBuilder.Shared.Modules.Landscape.Commands {
     /// <summary>
     /// A command that moves/rotates a static object, supporting undo/redo.
     /// Uses a delegate to perform the actual document update (since it's async).

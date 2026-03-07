@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Numerics;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.ViewModels;
 
 using WorldBuilder.Shared.Modules.Landscape.Tools;
@@ -25,7 +26,7 @@ public partial class BuildingViewModel : ViewModelBase, ISelectedObjectInfo {
     public float Y => LocalPosition.Y;
     public float Z => LocalPosition.Z;
 
-    public Vector3 RotationEuler => WorldBuilder.Shared.Numerics.GeometryUtils.QuaternionToEuler(Rotation);
+    public Vector3 RotationEuler => GeometryUtils.QuaternionToEuler(Rotation);
     public float RotationX => RotationEuler.X;
     public float RotationY => RotationEuler.Y;
     public float RotationZ => RotationEuler.Z;

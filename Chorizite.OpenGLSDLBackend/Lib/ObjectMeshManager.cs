@@ -16,7 +16,6 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using WorldBuilder.Shared.Numerics;
 using WorldBuilder.Shared.Services;
 using PixelFormat = Silk.NET.OpenGL.PixelFormat;
 using BoundingBox = Chorizite.Core.Lib.BoundingBox;
@@ -25,6 +24,7 @@ using BCnEncoder.Shared;
 using BCnEncoder.ImageSharp;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+using WorldBuilder.Shared.Lib;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
     /// <summary>

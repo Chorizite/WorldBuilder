@@ -328,9 +328,6 @@ namespace WorldBuilder.Shared.Models {
             }
         }
 
-        // AddStaticObject, RemoveInstance, and other object-related methods are removed from here
-        // as they now operate directly on the IProjectRepository via Commands.
-
         public virtual IEnumerable<uint> GetAffectedVertices(LandscapeLayerBase item) {
             if (item is LandscapeLayer layer) {
                 foreach (var chunk in LoadedChunks.Values) {
@@ -576,10 +573,6 @@ namespace WorldBuilder.Shared.Models {
             foreach (var lb in GetAffectedLandblocks(affectedVertices)) {
                 affected.Add(lb);
             }
-
-            // Note: Object edits are now tracked via StaticObjects table and don't need to be collected from chunks here.
-            // This method might need to be further updated to query the repository for affected landblocks.
-
             return affected;
         }
 

@@ -38,11 +38,6 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands {
                 .Returns(Task.CompletedTask);
             terrainDocMock.Setup(m => m.SyncLayerTreeAsync(It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
-
-            // Mock AddLayer since it's not virtual, we ensure the mock is configured
-            // but for non-virtual methods, Moq can't intercept them unless we make them virtual.
-            // Let's make AddLayer, RemoveLayer virtual as well.
-
             var terrainDoc = terrainDocMock.Object;
 
             // Inject dependencies manually

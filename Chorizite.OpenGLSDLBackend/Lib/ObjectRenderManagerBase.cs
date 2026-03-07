@@ -14,7 +14,6 @@ using System.Threading.Tasks;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
-using WorldBuilder.Shared.Numerics;
 using WorldBuilder.Shared.Services;
 using BoundingBox = Chorizite.Core.Lib.BoundingBox;
 
@@ -506,14 +505,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>
         /// Gets the world bounding box for a specific static object instance.
         /// </summary>
-        public WorldBuilder.Shared.Numerics.BoundingBox? GetInstanceBounds(uint landblockId, ulong instanceId) {
+        public WorldBuilder.Shared.Lib.BoundingBox? GetInstanceBounds(uint landblockId, ulong instanceId) {
             ushort key = (ushort)(landblockId >> 16);
             if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) return null;
 
             lock (lb) {
                 foreach (var instance in lb.Instances) {
                     if (instance.InstanceId == instanceId) {
-                        return new WorldBuilder.Shared.Numerics.BoundingBox(
+                        return new WorldBuilder.Shared.Lib.BoundingBox(
                             instance.BoundingBox.Min,
                             instance.BoundingBox.Max);
                     }
@@ -525,14 +524,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>
         /// Gets the local bounding box for a specific static object instance.
         /// </summary>
-        public WorldBuilder.Shared.Numerics.BoundingBox? GetInstanceLocalBounds(uint landblockId, ulong instanceId) {
+        public WorldBuilder.Shared.Lib.BoundingBox? GetInstanceLocalBounds(uint landblockId, ulong instanceId) {
             ushort key = (ushort)(landblockId >> 16);
             if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) return null;
 
             lock (lb) {
                 foreach (var instance in lb.Instances) {
                     if (instance.InstanceId == instanceId) {
-                        return new WorldBuilder.Shared.Numerics.BoundingBox(
+                        return new WorldBuilder.Shared.Lib.BoundingBox(
                             instance.LocalBoundingBox.Min,
                             instance.LocalBoundingBox.Max);
                     }

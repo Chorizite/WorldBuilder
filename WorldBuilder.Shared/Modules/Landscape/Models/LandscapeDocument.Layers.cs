@@ -245,7 +245,6 @@ namespace WorldBuilder.Shared.Models {
             _layerIds.Clear();
             LayerTree.Clear();
 
-            // Order by SortOrder is handled by the repository (though I should ensure that in reconstruction)
             var itemMap = items.ToDictionary(i => i.Id);
             foreach (var item in items) {
                 _layerIds.Add(item.Id);

@@ -5,8 +5,8 @@ using System.Numerics;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
 using DatReaderWriter.Types;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
-using WorldBuilder.Shared.Numerics;
 
 namespace WorldBuilder.Shared.Services {
     public class PortalService : IPortalService {

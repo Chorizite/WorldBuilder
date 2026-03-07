@@ -1,6 +1,6 @@
 using System;
 using System.Numerics;
-using WorldBuilder.Shared.Numerics;
+using WorldBuilder.Shared.Lib;
 using Xunit;
 
 namespace WorldBuilder.Shared.Tests.Numerics {

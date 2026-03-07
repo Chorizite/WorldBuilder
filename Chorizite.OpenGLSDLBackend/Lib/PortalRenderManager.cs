@@ -19,12 +19,11 @@ using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
-using WorldBuilder.Shared.Numerics;
 using WorldBuilder.Shared.Services;
 using VertexAttribType = Chorizite.Core.Render.Enums.VertexAttribType;
 using BufferUsage = Chorizite.Core.Render.Enums.BufferUsage;
 using PrimitiveType = Silk.NET.OpenGL.PrimitiveType;
-using BoundingBox = WorldBuilder.Shared.Numerics.BoundingBox;
+using BoundingBox = WorldBuilder.Shared.Lib.BoundingBox;
 using ICamera = WorldBuilder.Shared.Models.ICamera;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Numerics;
-using WorldBuilder.Shared.Numerics;
+using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Shared.Services {
     public interface IPortalService {

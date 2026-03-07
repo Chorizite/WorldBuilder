@@ -122,7 +122,6 @@ public class StaticObjectCommandTests {
         await SetupChunk(terrainDoc, lbId);
 
         var obj = new StaticObject { InstanceId = 123, SetupId = 0x01000001, LayerId = layerId };
-        // terrainDoc.AddStaticObject(layerId, lbId, obj); // This line is no longer needed as the command will handle the repo interaction
 
         var command = new DeleteStaticObjectCommand {
             TerrainDocumentId = _terrainDocId,
@@ -168,8 +167,6 @@ public class StaticObjectCommandTests {
         await SetupChunk(terrainDoc, newLbId);
 
         var oldObj = new StaticObject { InstanceId = 123, SetupId = 0x01000001, Position = new System.Numerics.Vector3(1, 1, 1), Rotation = System.Numerics.Quaternion.Identity, LayerId = layerId };
-        // terrainDoc.AddStaticObject(layerId, oldLbId, oldObj); // This line is no longer needed
-
         var newObj = new StaticObject { InstanceId = 123, SetupId = 0x01000001, Position = new System.Numerics.Vector3(2, 2, 2), Rotation = System.Numerics.Quaternion.Identity, LayerId = layerId };
         var command = new UpdateStaticObjectCommand {
             TerrainDocumentId = _terrainDocId,

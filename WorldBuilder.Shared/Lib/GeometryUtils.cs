@@ -1,7 +1,6 @@
-using System;
 using System.Numerics;
 
-namespace WorldBuilder.Shared.Numerics {
+namespace WorldBuilder.Shared.Lib {
     public static class GeometryUtils {
 
         public static bool RayIntersectsBox(Vector3 rayOrigin, Vector3 rayDirection, Vector3 min, Vector3 max, out float distance) {
@@ -165,25 +164,6 @@ namespace WorldBuilder.Shared.Numerics {
             float thc = MathF.Sqrt(r2 - d2);
             distance = tca - thc;
             return true;
-        }
-
-        /// <summary>
-        /// Creates a rotation from one vector to another.
-        /// </summary>
-        public static Quaternion CreateFromTwoVectors(Vector3 u, Vector3 v) {
-            float dot = Vector3.Dot(u, v);
-            float w = MathF.Sqrt(u.LengthSquared() * v.LengthSquared()) + dot;
-            Vector3 res;
-
-            if (w < 0.0001f) {
-                res = MathF.Abs(u.X) > MathF.Abs(u.Z) ? new Vector3(-u.Y, u.X, 0.0f) : new Vector3(0.0f, -u.Z, u.Y);
-                w = 0.0f;
-            }
-            else {
-                res = Vector3.Cross(u, v);
-            }
-
-            return Quaternion.Normalize(new Quaternion(res.X, res.Y, res.Z, w));
         }
 
         public static ushort PackKey(int x, int y) => (ushort)((x << 8) | y);

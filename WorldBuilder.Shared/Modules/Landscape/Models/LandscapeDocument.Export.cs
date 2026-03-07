@@ -9,9 +9,6 @@ namespace WorldBuilder.Shared.Models {
             System.Console.WriteLine($"[DAT EXPORT] SaveToDatsInternal started for Region {RegionId}");
             if (Region == null || CellDatabase == null) return false;
 
-            // Ensure all chunks with edits are loaded/persisted so the provider sees them
-            // In a real flow, the UI/caller should ensure documents are persisted before export.
-            
             // Identify layers marked for export
             var allLayers = GetAllLayers().ToList();
             var exportLayerIds = allLayers.Where(IsItemExported).Select(l => l.Id).ToList();
@@ -144,10 +141,6 @@ namespace WorldBuilder.Shared.Models {
                     for (uint cellIdx = 1; cellIdx <= lbi.NumCells; cellIdx++) {
                         cellIdsToProcess.Add(((uint)lbId << 16) | (0x0100u + cellIdx));
                     }
-
-                    // Note: Cell edits are now stored relationally in the EnvCells table.
-                    // We identify affected cell IDs for this landblock by querying the repository.
-                    // (Implementation detail: for now we primarily scan the base cells and check for overrides)
 
                     foreach (var cellId in cellIdsToProcess) {
                         if (datwriter.TryGetFileBytes(RegionId, cellId, ref objBuffer, out objBytesRead)) {

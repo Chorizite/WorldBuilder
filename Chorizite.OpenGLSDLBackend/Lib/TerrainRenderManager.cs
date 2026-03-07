@@ -15,6 +15,7 @@ using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Lib;
 using WorldBuilder.Shared.Services;
+using BoundingBox = Chorizite.Core.Lib.BoundingBox;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
     public class TerrainRenderManager : IDisposable, IRenderManager {

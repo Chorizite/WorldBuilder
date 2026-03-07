@@ -300,9 +300,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                                 if (entry.Flags == TerrainEntryFlags.None) continue;
 
                                 layerModifiedCount++;
-                                // Calculate local chunk coords (65x65)
-                                // Standard AC/WB stride is usually X then Y or Y then X.
-                                // LandscapeDocument use (y * stride + x) usually.
                                 int localY = i / LandscapeChunk.ChunkVertexStride;
                                 int localX = i % LandscapeChunk.ChunkVertexStride;
 

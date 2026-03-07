@@ -56,12 +56,6 @@ namespace WorldBuilder.Shared.Modules.Landscape {
                         throw new InvalidOperationException(
                             $"Failed to create base layer for regionId: {regionId}. Error: {layerResult.Error.Message}");
                     }
-
-                    // We also want to record the CreateLandscapeDocumentCommand so it exists in history
-                    // But we bypass CreateDocumentAsync failing by removing the CreateDocumentAsync call in the command?
-                    // Or we just don't record CreateLandscapeDocumentCommand here.
-                    // Let's just create the base layer.
-                    
                     await tx.CommitAsync(ct);
                 }
                 catch (Exception) {

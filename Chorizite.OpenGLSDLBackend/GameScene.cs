@@ -16,6 +16,7 @@ using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Services;
+using BoundingBox = WorldBuilder.Shared.Lib.BoundingBox;
 
 
 namespace Chorizite.OpenGLSDLBackend;
@@ -570,7 +571,7 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Gets the world-space bounding box for a static object.
     /// </summary>
-    public WorldBuilder.Shared.Numerics.BoundingBox? GetStaticObjectBounds(uint landblockId, ulong instanceId) {
+    public BoundingBox? GetStaticObjectBounds(uint landblockId, ulong instanceId) {
         var type = InstanceIdConstants.GetType(instanceId);
         if (type == InspectorSelectionType.EnvCellStaticObject) {
             return _envCellManager?.GetInstanceBounds(landblockId, instanceId);
@@ -581,7 +582,7 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Gets the local-space bounding box for a static object.
     /// </summary>
-    public WorldBuilder.Shared.Numerics.BoundingBox? GetStaticObjectLocalBounds(uint landblockId, ulong instanceId) {
+    public BoundingBox? GetStaticObjectLocalBounds(uint landblockId, ulong instanceId) {
         var type = InstanceIdConstants.GetType(instanceId);
         if (type == InspectorSelectionType.EnvCellStaticObject) {
             return _envCellManager?.GetInstanceLocalBounds(landblockId, instanceId);

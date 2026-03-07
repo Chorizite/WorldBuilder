@@ -1,7 +1,6 @@
 using DatReaderWriter.Types;
 using System;
 using System.Numerics;
-using WorldBuilder.Shared.Numerics;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
     /// <summary>
