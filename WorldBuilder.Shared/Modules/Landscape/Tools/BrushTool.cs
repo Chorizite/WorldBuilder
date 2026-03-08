@@ -29,8 +29,18 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             set {
                 if (SetProperty(ref _brushSize, value)) {
                     if (Brush != null) Brush.Radius = GetWorldRadius(_brushSize);
+                    OnPropertyChanged(nameof(BrushSize));
+                    SaveSettings();
                 }
             }
+        }
+
+        protected override void OnTextureChanged(TerrainTextureType value) {
+            SaveSettings();
+        }
+
+        protected override void OnSelectedSceneryChanged(SceneryItem? value) {
+            SaveSettings();
         }
 
         public BrushTool() {
@@ -53,7 +63,18 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             if (Brush != null) Brush.Radius = GetWorldRadius(_brushSize);
             OnPropertyChanged(nameof(ActiveDocument));
             OnPropertyChanged(nameof(AllSceneries));
-            SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == 255);
+
+            // Load settings from project
+            if (context.ToolSettingsProvider?.BrushToolSettings != null) {
+                var settings = context.ToolSettingsProvider.BrushToolSettings;
+                if (settings != null) {
+                    BrushSize = settings.BrushSize;
+                    Texture = (TerrainTextureType)settings.Texture;
+                    SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == settings.SelectedScenery);
+                }
+            } else {
+                SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == 255);
+            }
         }
 
         public override bool OnPointerPressed(ViewportInputEvent e) {
@@ -143,6 +164,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             var command = new PaintCommand(Context, center, Brush?.Radius ?? 0f, (int)Texture, sceneryIndex);
             _currentStroke.Add(command);
             command.Execute();
+        }
+
+        protected void SaveSettings() {
+            if (Context?.ToolSettingsProvider != null) {
+                Context.ToolSettingsProvider.UpdateBrushToolSettings(new BrushToolSettingsData {
+                    BrushSize = _brushSize,
+                    Texture = (int)Texture,
+                    SelectedScenery = SelectedScenery?.Index ?? 255
+                });
+            }
         }
     }
 }

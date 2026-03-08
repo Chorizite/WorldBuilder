@@ -17,20 +17,49 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <summary>Gets or sets whether to fill only connected areas (flood fill) or globally replace.</summary>
         public bool IsContiguous {
             get => _isContiguous;
-            set => SetProperty(ref _isContiguous, value);
+            set {
+                if (SetProperty(ref _isContiguous, value)) {
+                    SaveSettings();
+                }
+            }
         }
 
         private bool _onlyFillSameScenery = false;
         /// <summary>Gets or sets whether to only fill if the source scenery matches the target scenery.</summary>
         public bool OnlyFillSameScenery {
             get => _onlyFillSameScenery;
-            set => SetProperty(ref _onlyFillSameScenery, value);
+            set {
+                if (SetProperty(ref _onlyFillSameScenery, value)) {
+                    SaveSettings();
+                }
+            }
+        }
+
+        protected override void OnTextureChanged(TerrainTextureType value) {
+            SaveSettings();
+        }
+
+        protected override void OnSelectedSceneryChanged(SceneryItem? value) {
+            SaveSettings();
         }
 
         /// <inheritdoc/>
         public override void Activate(LandscapeToolContext context) {
             Brush ??= new LandscapeBrush();
             base.Activate(context);
+            
+            // Load settings from project
+            if (context.ToolSettingsProvider?.BucketFillToolSettings != null) {
+                var settings = context.ToolSettingsProvider.BucketFillToolSettings;
+                if (settings != null) {
+                    _isContiguous = settings.IsContiguous;
+                    _onlyFillSameScenery = settings.OnlyFillSameScenery;
+                    base.Texture = (TerrainTextureType)settings.Texture;
+                    base.SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == settings.SelectedScenery);
+                }
+            } else {
+                SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == 255);
+            }
         }
 
         public override bool OnPointerPressed(ViewportInputEvent e) {
@@ -74,6 +103,18 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             return false;
+        }
+
+        /// <inheritdoc/>
+        protected void SaveSettings() {
+            if (Context?.ToolSettingsProvider != null) {
+                Context.ToolSettingsProvider.UpdateBucketFillToolSettings(new BucketFillToolSettingsData {
+                    IsContiguous = _isContiguous,
+                    OnlyFillSameScenery = _onlyFillSameScenery,
+                    Texture = (int)Texture,
+                    SelectedScenery = SelectedScenery?.Index ?? 255
+                });
+            }
         }
     }
 }

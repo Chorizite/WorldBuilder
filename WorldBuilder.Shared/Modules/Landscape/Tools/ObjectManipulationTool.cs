@@ -26,6 +26,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         partial void OnIsLocalSpaceChanged(bool value) {
             GizmoState.IsLocalSpace = value;
+            SaveSettings();
+        }
+
+        partial void OnAlignToSurfaceChanged(bool value) {
+            SaveSettings();
+        }
+
+        partial void OnShowBoundingBoxesChanged(bool value) {
+            SaveSettings();
         }
 
         /// <summary>
@@ -45,6 +54,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public override void Activate(LandscapeToolContext context) {
             base.Activate(context);
             context.CommandHistory.OnChange += OnCommandHistoryChanged;
+            
+            // Load settings from project
+            if (context.ToolSettingsProvider?.ObjectManipulationToolSettings != null) {
+                var settings = context.ToolSettingsProvider.ObjectManipulationToolSettings;
+                IsLocalSpace = settings.IsLocalSpace;
+                AlignToSurface = settings.AlignToSurface;
+                ShowBoundingBoxes = settings.ShowBoundingBoxes;
+            }
         }
 
         public override void Deactivate() {
@@ -436,6 +453,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             return (ray.Origin.ToVector3(), ray.Direction.ToVector3());
         }
 
+        private void SaveSettings() {
+            if (Context?.ToolSettingsProvider != null) {
+                Context.ToolSettingsProvider.UpdateObjectManipulationToolSettings(new ObjectManipulationToolSettingsData {
+                    IsLocalSpace = IsLocalSpace,
+                    AlignToSurface = AlignToSurface,
+                    ShowBoundingBoxes = ShowBoundingBoxes
+                });
+            }
+        }
 
 
         // GetGroundHitPoint moved to SceneRaycaster

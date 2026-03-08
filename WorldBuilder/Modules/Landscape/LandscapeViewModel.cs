@@ -282,6 +282,9 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
             _toolContext = new LandscapeToolContext(ActiveDocument, EditorState, _dats, CommandHistory, Camera, _log, ActiveLayer);
             _toolContext.RequestSave = RequestSave;
+            if (_settings?.Project != null) {
+                _toolContext.ToolSettingsProvider = new ToolSettingsProvider(_settings.Project);
+            }
             if (_invalidateCallback != null) {
                 _toolContext.InvalidateLandblock = _invalidateCallback;
             }

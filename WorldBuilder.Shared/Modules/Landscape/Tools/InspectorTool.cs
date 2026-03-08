@@ -83,6 +83,21 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public override void Activate(LandscapeToolContext context) {
             base.Activate(context);
             LandscapeColorsSettings.Instance.PropertyChanged += OnColorsChanged;
+            
+            // Load settings from project
+            if (context.ToolSettingsProvider?.InspectorToolSettings != null) {
+                var settings = context.ToolSettingsProvider.InspectorToolSettings;
+                if (settings != null) {
+                    SelectVertices = settings.SelectVertices;
+                    SelectBuildings = settings.SelectBuildings;
+                    SelectStaticObjects = settings.SelectStaticObjects;
+                    SelectScenery = settings.SelectScenery;
+                    SelectPortals = settings.SelectPortals;
+                    SelectEnvCells = settings.SelectEnvCells;
+                    SelectEnvCellStaticObjects = settings.SelectEnvCellStaticObjects;
+                    ShowBoundingBoxes = settings.ShowBoundingBoxes;
+                }
+            }
         }
 
         public override void Deactivate() {
@@ -294,6 +309,53 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         public override bool OnPointerReleased(ViewportInputEvent e) {
             return false;
+        }
+
+        partial void OnSelectVerticesChanged(bool value) {
+            SaveSettings();
+        }
+
+        partial void OnSelectBuildingsChanged(bool value) {
+            SaveSettings();
+        }
+
+        partial void OnSelectStaticObjectsChanged(bool value) {
+            SaveSettings();
+        }
+
+        partial void OnSelectSceneryChanged(bool value) {
+            SaveSettings();
+        }
+
+        partial void OnSelectPortalsChanged(bool value) {
+            SaveSettings();
+        }
+
+        partial void OnSelectEnvCellsChanged(bool value) {
+            SaveSettings();
+        }
+
+        partial void OnSelectEnvCellStaticObjectsChanged(bool value) {
+            SaveSettings();
+        }
+
+        partial void OnShowBoundingBoxesChanged(bool value) {
+            SaveSettings();
+        }
+
+        private void SaveSettings() {
+            if (Context?.ToolSettingsProvider != null) {
+                Context.ToolSettingsProvider.UpdateInspectorToolSettings(new InspectorToolSettingsData {
+                    SelectVertices = SelectVertices,
+                    SelectBuildings = SelectBuildings,
+                    SelectStaticObjects = SelectStaticObjects,
+                    SelectScenery = SelectScenery,
+                    SelectPortals = SelectPortals,
+                    SelectEnvCells = SelectEnvCells,
+                    SelectEnvCellStaticObjects = SelectEnvCellStaticObjects,
+                    ShowBoundingBoxes = ShowBoundingBoxes
+                });
+            }
         }
     }
 }

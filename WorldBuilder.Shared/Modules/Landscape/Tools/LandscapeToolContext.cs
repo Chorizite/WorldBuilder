@@ -87,6 +87,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public LandscapeLayer? ActiveLayer { get; }
         /// <summary>Action to request a save operation.</summary>
         public Action<string, IEnumerable<ushort>?>? RequestSave { get; set; }
+        /// <summary>The tool settings provider for persisting tool settings.</summary>
+        public IToolSettingsProvider? ToolSettingsProvider { get; set; }
 
         /// <summary>Action to invalidate a specific landblock, triggering a re-render.</summary>
         public Action<int, int>? InvalidateLandblock { get; set; }

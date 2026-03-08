@@ -195,17 +195,117 @@ namespace WorldBuilder.Lib.Settings {
         public int LastDatExportCellIteration { get => _lastDatExportCellIteration; set => SetProperty(ref _lastDatExportCellIteration, value); }
     }
 
-    [SettingCategory("Landscape Tools", ParentCategory = "Project", Order = 2)]
     public partial class LandscapeToolsSettings : ObservableObject {
-        [SettingDisplayName("Saved Brush Size")]
-        [SettingDescription("Default brush size for landscape tools.")]
-        [SettingRange(1.0, 50.0, 1.0, 5.0)]
-        private float _brushSize = 5.0f;
-        public float BrushSize { get => _brushSize; set => SetProperty(ref _brushSize, value); }
+        [SettingHidden]
+        private BrushToolSettings _brushTool = new();
+        public BrushToolSettings BrushTool {
+            get => _brushTool;
+            set {
+                if (_brushTool != null) _brushTool.PropertyChanged -= OnSubSettingsPropertyChanged;
+                if (SetProperty(ref _brushTool, value) && _brushTool != null) {
+                    _brushTool.PropertyChanged += OnSubSettingsPropertyChanged;
+                }
+            }
+        }
 
-        [SettingDisplayName("Saved Tool Filtering Option")]
-        [SettingDescription("Default filtering option used by the landscape brush tools.")]
-        private int _toolFilteringOption = 0;
-        public int ToolFilteringOption { get => _toolFilteringOption; set => SetProperty(ref _toolFilteringOption, value); }
+        [SettingHidden]
+        private BucketFillToolSettings _bucketFillTool = new();
+        public BucketFillToolSettings BucketFillTool {
+            get => _bucketFillTool;
+            set {
+                if (_bucketFillTool != null) _bucketFillTool.PropertyChanged -= OnSubSettingsPropertyChanged;
+                if (SetProperty(ref _bucketFillTool, value) && _bucketFillTool != null) {
+                    _bucketFillTool.PropertyChanged += OnSubSettingsPropertyChanged;
+                }
+            }
+        }
+
+        [SettingHidden]
+        private ObjectManipulationToolSettings _objectManipulationTool = new();
+        public ObjectManipulationToolSettings ObjectManipulationTool {
+            get => _objectManipulationTool;
+            set {
+                if (_objectManipulationTool != null) _objectManipulationTool.PropertyChanged -= OnSubSettingsPropertyChanged;
+                if (SetProperty(ref _objectManipulationTool, value) && _objectManipulationTool != null) {
+                    _objectManipulationTool.PropertyChanged += OnSubSettingsPropertyChanged;
+                }
+            }
+        }
+
+        [SettingHidden]
+        private InspectorToolSettings _inspectorTool = new();
+        public InspectorToolSettings InspectorTool {
+            get => _inspectorTool;
+            set {
+                if (_inspectorTool != null) _inspectorTool.PropertyChanged -= OnSubSettingsPropertyChanged;
+                if (SetProperty(ref _inspectorTool, value) && _inspectorTool != null) {
+                    _inspectorTool.PropertyChanged += OnSubSettingsPropertyChanged;
+                }
+            }
+        }
+
+        private void OnSubSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) { }
+    }
+
+    public partial class BrushToolSettings : ObservableObject {
+        private int _brushSize = 1;
+        public int BrushSize { get => _brushSize; set => SetProperty(ref _brushSize, value); }
+
+        private int _texture = 0;
+        public int Texture { get => _texture; set => SetProperty(ref _texture, value); }
+
+        private int _selectedScenery = 255;
+        public int SelectedScenery { get => _selectedScenery; set => SetProperty(ref _selectedScenery, value); }
+    }
+
+    public partial class BucketFillToolSettings : ObservableObject {
+        private bool _isContiguous = true;
+        public bool IsContiguous { get => _isContiguous; set => SetProperty(ref _isContiguous, value); }
+
+        private bool _onlyFillSameScenery = false;
+        public bool OnlyFillSameScenery { get => _onlyFillSameScenery; set => SetProperty(ref _onlyFillSameScenery, value); }
+
+        private int _texture = 0;
+        public int Texture { get => _texture; set => SetProperty(ref _texture, value); }
+
+        private int _selectedScenery = 255;
+        public int SelectedScenery { get => _selectedScenery; set => SetProperty(ref _selectedScenery, value); }
+    }
+
+    public partial class ObjectManipulationToolSettings : ObservableObject {
+        private bool _alignToSurface = false;
+        public bool AlignToSurface { get => _alignToSurface; set => SetProperty(ref _alignToSurface, value); }
+
+        private bool _showBoundingBoxes = false;
+        public bool ShowBoundingBoxes { get => _showBoundingBoxes; set => SetProperty(ref _showBoundingBoxes, value); }
+
+        private bool _isLocalSpace = false;
+        public bool IsLocalSpace { get => _isLocalSpace; set => SetProperty(ref _isLocalSpace, value); }
+    }
+
+    public partial class InspectorToolSettings : ObservableObject {
+        private bool _selectVertices = false;
+        public bool SelectVertices { get => _selectVertices; set => SetProperty(ref _selectVertices, value); }
+
+        private bool _selectBuildings = true;
+        public bool SelectBuildings { get => _selectBuildings; set => SetProperty(ref _selectBuildings, value); }
+
+        private bool _selectStaticObjects = true;
+        public bool SelectStaticObjects { get => _selectStaticObjects; set => SetProperty(ref _selectStaticObjects, value); }
+
+        private bool _selectScenery = false;
+        public bool SelectScenery { get => _selectScenery; set => SetProperty(ref _selectScenery, value); }
+
+        private bool _selectEnvCells = true;
+        public bool SelectEnvCells { get => _selectEnvCells; set => SetProperty(ref _selectEnvCells, value); }
+
+        private bool _selectEnvCellStaticObjects = true;
+        public bool SelectEnvCellStaticObjects { get => _selectEnvCellStaticObjects; set => SetProperty(ref _selectEnvCellStaticObjects, value); }
+
+        private bool _selectPortals = true;
+        public bool SelectPortals { get => _selectPortals; set => SetProperty(ref _selectPortals, value); }
+
+        private bool _showBoundingBoxes = true;
+        public bool ShowBoundingBoxes { get => _showBoundingBoxes; set => SetProperty(ref _showBoundingBoxes, value); }
     }
 }
