@@ -187,7 +187,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 Context.NotifyInspectorSelected(hit);
                 return true;
             }
-            else {
+            else if (Context.SelectedObject.Type != InspectorSelectionType.None) {
                 Context.NotifyInspectorSelected(SceneRaycastHit.NoHit);
             }
             return false;
