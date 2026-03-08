@@ -192,7 +192,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             // Not hitting gizmo — try to select a static object
-            SceneRaycastHit hit = SceneRaycaster.PerformRaycast(Context, e, SelectBuildings, SelectStaticObjects, SelectEnvCellStaticObjects);
+            SceneRaycastHit hit = SceneRaycaster.PerformRaycast(Context, e, SelectBuildings, SelectStaticObjects, SelectEnvCellStaticObjects, selectEnvCells: false);
 
             if (hit.Hit && (hit.Type == InspectorSelectionType.StaticObject ||
                                  hit.Type == InspectorSelectionType.EnvCellStaticObject ||
@@ -267,7 +267,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             // Update object hover
-            var hit = SceneRaycaster.PerformRaycast(Context, e, SelectBuildings, SelectStaticObjects, SelectEnvCellStaticObjects);
+            var hit = SceneRaycaster.PerformRaycast(Context, e, SelectBuildings, SelectStaticObjects, SelectEnvCellStaticObjects, selectEnvCells: false);
             if (hit.Type != _lastHoveredHit.Type || hit.LandblockId != _lastHoveredHit.LandblockId || hit.InstanceId != _lastHoveredHit.InstanceId || hit.ObjectId != _lastHoveredHit.ObjectId) {
                 _lastHoveredHit = hit;
                 Context.NotifyInspectorHovered(hit);

@@ -29,6 +29,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly IDatReaderWriter _dats;
         private readonly StaticObjectRenderManager _staticObjectManager;
 
+        // Visibility filters
+        private bool _showScenery = true;
+
         // Caches
         private readonly ConcurrentDictionary<uint, Scene> _sceneCache = new();
 
@@ -46,8 +49,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Public: Scenery-Specific API
 
+        /// <summary>
+        /// Sets the visibility filter for scenery.
+        /// Call before <see cref="ObjectRenderManagerBase.PrepareRenderBatches"/>.
+        /// </summary>
+        public void SetVisibilityFilters(bool showScenery) {
+            if (_showScenery == showScenery) return;
+            _showScenery = showScenery;
+
+            foreach (var lb in _landblocks.Values) {
+                if (lb.GpuReady) {
+                    lock (lb) {
+                        BuildMdiCommands(lb);
+                    }
+                }
+            }
+        }
+
         public void SubmitDebugShapes(DebugRenderer? debug, DebugRenderSettings settings) {
-            if (debug == null || LandscapeDoc.Region == null || !settings.ShowBoundingBoxes || !settings.SelectScenery) return;
+            if (debug == null || LandscapeDoc.Region == null || !settings.ShowBoundingBoxes || !settings.SelectScenery || !_showScenery) return;
 
             foreach (var lb in _landblocks.Values) {
                 if (!lb.InstancesReady || !IsWithinRenderDistance(lb)) continue;
@@ -72,8 +92,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public bool Raycast(Vector3 origin, Vector3 direction, out SceneRaycastHit hit, float maxDistance = float.MaxValue) {
+        public bool Raycast(Vector3 origin, Vector3 direction, out SceneRaycastHit hit, bool isCollision = false, float maxDistance = float.MaxValue) {
             hit = SceneRaycastHit.NoHit;
+
+            if (!isCollision && !_showScenery) return false;
 
             foreach (var kvp in _landblocks) {
                 if (!kvp.Value.GpuReady) continue;
@@ -116,6 +138,23 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #endregion
 
         #region Protected: Generation Override
+
+        protected override void BuildMdiCommands(ObjectLandblock lb) {
+            lb.MdiCommands.Clear();
+            if (lb.InstanceBufferOffset < 0) return;
+
+            if (!_showScenery) return;
+
+            int currentOffset = 0;
+            foreach (var (gfxObjId, transforms) in lb.StaticPartGroups) {
+                AddMdiCommandsForGroup(lb.MdiCommands, gfxObjId, transforms.Count, lb.InstanceBufferOffset, currentOffset);
+                currentOffset += transforms.Count;
+            }
+        }
+
+        protected override bool ShouldIncludeInstance(SceneryInstance instance) {
+            return _showScenery;
+        }
 
         public override void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null, bool isOutside = false) {
             base.PrepareRenderBatches(viewProjectionMatrix, cameraPosition, filter, isOutside);

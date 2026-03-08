@@ -131,6 +131,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public virtual bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false, float maxDistance = float.MaxValue, ulong ignoreInstanceId = 0) {
             hit = SceneRaycastHit.NoHit;
 
+            if (!isCollision && !_showEnvCells) return false;
+
             // Early exit: Don't collide with interiors if we are outside
             if (isCollision && currentCellId == 0) return false;
 
@@ -472,10 +474,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     Gl.PolygonOffset(-1.0f, -1.0f);
                     Gl.DepthFunc(GLEnum.Lequal);
                     if (SelectedInstance.HasValue) {
-                        RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
+                        var type = InstanceIdConstants.GetType(SelectedInstance.Value.InstanceId);
+                        if (type == InspectorSelectionType.EnvCell) {
+                            RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
+                        }
                     }
                     if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
-                        RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
+                        var type = InstanceIdConstants.GetType(HoveredInstance.Value.InstanceId);
+                        if (type == InspectorSelectionType.EnvCell) {
+                            RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
+                        }
                     }
                     Gl.DepthFunc(GLEnum.Less);
                     Gl.Disable(EnableCap.PolygonOffsetFill);
@@ -483,6 +491,34 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 _shader.SetUniform("uHighlightColor", Vector4.Zero);
                 _shader.SetUniform("uRenderPass", (int)renderPass);
+                Gl.BindVertexArray(0);
+                CurrentVAO = 0;
+            }
+        }
+
+        public override void RenderHighlight(RenderPass renderPass, IShader? shader = null, Vector4? color = null, float outlineWidth = 1.0f) {
+            lock (_renderLock) {
+                var currentShader = shader ?? _shader!;
+                if (currentShader == null || currentShader.ProgramId == 0) return;
+
+                currentShader.Bind();
+                currentShader.SetUniform("uRenderPass", (int)renderPass);
+                currentShader.SetUniform("uOutlineWidth", outlineWidth);
+
+                if (SelectedInstance.HasValue) {
+                    var type = InstanceIdConstants.GetType(SelectedInstance.Value.InstanceId);
+                    if (type == InspectorSelectionType.EnvCellStaticObject) {
+                        RenderSelectedInstance(SelectedInstance.Value, color ?? LandscapeColorsSettings.Instance.Selection, renderPass, currentShader);
+                    }
+                }
+                if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
+                    var type = InstanceIdConstants.GetType(HoveredInstance.Value.InstanceId);
+                    if (type == InspectorSelectionType.EnvCellStaticObject) {
+                        RenderSelectedInstance(HoveredInstance.Value, color ?? LandscapeColorsSettings.Instance.Hover, renderPass, currentShader);
+                    }
+                }
+
+                currentShader.SetUniform("uHighlightColor", Vector4.Zero);
                 Gl.BindVertexArray(0);
                 CurrentVAO = 0;
             }

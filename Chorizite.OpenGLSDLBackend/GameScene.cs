@@ -90,6 +90,7 @@ public class GameScene : IDisposable {
         if (_sceneryManager != null) {
             _sceneryManager.RenderDistance = _state.ObjectRenderDistance;
             _sceneryManager.LightIntensity = _state.LightIntensity;
+            _sceneryManager.SetVisibilityFilters(_state.ShowScenery);
         }
 
         if (_staticObjectManager != null) {
@@ -380,6 +381,7 @@ public class GameScene : IDisposable {
         _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager, _staticObjectManager, documentManager, _visibilityManager.CullingFrustum);
         _sceneryManager.RenderDistance = _state.ObjectRenderDistance;
         _sceneryManager.LightIntensity = _state.LightIntensity;
+        _sceneryManager.SetVisibilityFilters(_state.ShowScenery);
         if (_initialized && _sceneryShader != null) {
             _sceneryManager.Initialize(_sceneryShader);
         }
@@ -692,10 +694,10 @@ public class GameScene : IDisposable {
         return false;
     }
 
-    public bool RaycastScenery(Vector3 origin, Vector3 direction, out SceneRaycastHit hit, float maxDistance = float.MaxValue) {
+    public bool RaycastScenery(Vector3 origin, Vector3 direction, out SceneRaycastHit hit, bool isCollision = false, float maxDistance = float.MaxValue) {
         hit = SceneRaycastHit.NoHit;
 
-        if (_sceneryManager != null && _sceneryManager.Raycast(origin, direction, out hit, maxDistance)) {
+        if (_sceneryManager != null && _sceneryManager.Raycast(origin, direction, out hit, isCollision, maxDistance)) {
             return true;
         }
         return false;

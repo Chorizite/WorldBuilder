@@ -125,6 +125,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     foreach (var instance in lb.Instances) {
                         if (ignoreInstanceId != 0 && instance.InstanceId == ignoreInstanceId) continue;
 
+                        if (!isCollision) {
+                            if (instance.IsBuilding && !_showBuildings) continue;
+                            if (!instance.IsBuilding && !_showStaticObjects) continue;
+                        }
+
                         if (instance.IsBuilding && !targets.HasFlag(RaycastTarget.Buildings)) continue;
                         if (!instance.IsBuilding && !targets.HasFlag(RaycastTarget.StaticObjects)) continue;
 
