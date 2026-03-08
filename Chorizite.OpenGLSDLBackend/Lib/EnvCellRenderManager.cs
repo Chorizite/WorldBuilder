@@ -484,6 +484,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _shader.SetUniform("uHighlightColor", Vector4.Zero);
                 _shader.SetUniform("uRenderPass", (int)renderPass);
                 Gl.BindVertexArray(0);
+                CurrentVAO = 0;
             }
         }
 

@@ -453,61 +453,75 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (renderData.Batches.Count == 0 || instanceCount == 0) return;
 
             shader.Bind();
-            shader.SetUniform("uFilterByCell", 0);
+            bool isOutline = shader.Name == "Outline";
 
-            bool vaoChanged = false;
-            if (CurrentVAO != renderData.VAO) {
-                Gl.BindVertexArray(renderData.VAO);
-                CurrentVAO = renderData.VAO;
-                vaoChanged = true;
+            if (!isOutline) {
+                var glslShader = shader as GLSLShader;
+                if (glslShader != null && glslShader.HasUniform("uFilterByCell")) {
+                    shader.SetUniform("uFilterByCell", 0);
+                }
             }
 
-            Gl.BindBuffer(GLEnum.ArrayBuffer, instanceVbo);
-            var stride = (uint)sizeof(InstanceData);
-            var offset = (byte*)0 + (instanceOffset * sizeof(InstanceData));
+            var targetVao = renderData.VAO;
+            if (targetVao == 0 && _useModernRendering) {
+                targetVao = MeshManager.GlobalBuffer!.VAO;
+            }
 
-            for (uint i = 0; i < 4; i++) {
-                var loc = 3 + i;
+            if (targetVao != 0) {
+                bool vaoChanged = false;
+                if (CurrentVAO != targetVao) {
+                    Gl.BindVertexArray(targetVao);
+                    CurrentVAO = targetVao;
+                    vaoChanged = true;
+                }
+
+                Gl.BindBuffer(GLEnum.ArrayBuffer, instanceVbo);
+                var stride = (uint)sizeof(InstanceData);
+                var offset = (byte*)0 + (instanceOffset * sizeof(InstanceData));
+
+                for (uint i = 0; i < 4; i++) {
+                    var loc = 3 + i;
+                    if (vaoChanged) {
+                        Gl.EnableVertexAttribArray(loc);
+                        Gl.VertexAttribDivisor(loc, 1);
+                    }
+                    Gl.VertexAttribPointer(loc, 4, GLEnum.Float, false, stride, (void*)(offset + (i * 16)));
+                }
                 if (vaoChanged) {
-                    Gl.EnableVertexAttribArray(loc);
-                    Gl.VertexAttribDivisor(loc, 1);
+                    Gl.EnableVertexAttribArray(8);
+                    Gl.VertexAttribDivisor(8, 1);
                 }
-                Gl.VertexAttribPointer(loc, 4, GLEnum.Float, false, stride, (void*)(offset + (i * 16)));
-            }
-            if (vaoChanged) {
-                Gl.EnableVertexAttribArray(8);
-                Gl.VertexAttribDivisor(8, 1);
-            }
-            Gl.VertexAttribIPointer(8, 1, GLEnum.UnsignedInt, stride, (void*)(offset + 64));
+                Gl.VertexAttribIPointer(8, 1, GLEnum.UnsignedInt, stride, (void*)(offset + 64));
 
-            foreach (var batch in renderData.Batches) {
-                if (batch.IsTransparent && renderPass == RenderPass.Opaque) {
-                    // Transparent batches should be rendered in both passes
+                foreach (var batch in renderData.Batches) {
+                    if (renderPass != RenderPass.SinglePass) {
+                        if (batch.IsTransparent && renderPass == RenderPass.Opaque) {
+                            // Transparent batches should be rendered in both passes
+                        }
+                        else if (batch.IsTransparent != (renderPass == RenderPass.Transparent)) continue;
+                    }
+
+                    var cullMode = showCulling ? batch.CullMode : CullMode.None;
+                    if (CurrentCullMode != cullMode) {
+                        SetCullMode(cullMode);
+                        CurrentCullMode = cullMode;
+                    }
+
+                    if (CurrentAtlas != (uint)batch.Atlas.TextureArray.NativePtr) {
+                        batch.Atlas.TextureArray.Bind(0);
+                        shader.SetUniform("uTextureArray", 0);
+                        CurrentAtlas = (uint)batch.Atlas.TextureArray.NativePtr;
+                    }
+                    Gl.VertexAttrib1(7, (float)batch.TextureIndex);
+
+                    if (CurrentIBO != batch.IBO) {
+                        Gl.BindBuffer(GLEnum.ElementArrayBuffer, batch.IBO);
+                        CurrentIBO = batch.IBO;
+                    }
+
+                    Gl.DrawElementsInstancedBaseVertex(PrimitiveType.Triangles, (uint)batch.IndexCount,
+                        DrawElementsType.UnsignedShort, (void*)(batch.FirstIndex * sizeof(ushort)), (uint)instanceCount, (int)batch.BaseVertex);
                 }
-                else if (batch.IsTransparent != (renderPass == RenderPass.Transparent)) continue;
-
-                var cullMode = showCulling ? batch.CullMode : CullMode.None;
-                if (CurrentCullMode != cullMode) {
-                    SetCullMode(cullMode);
-                    CurrentCullMode = cullMode;
-                }
-
-                Gl.DisableVertexAttribArray(7);
-                Gl.VertexAttrib1(7, (float)batch.TextureIndex);
-
-                if (CurrentAtlas != (uint)batch.Atlas.TextureArray.NativePtr) {
-                    batch.Atlas.TextureArray.Bind(0);
-                    shader.SetUniform("uTextureArray", 0);
-                    CurrentAtlas = (uint)batch.Atlas.TextureArray.NativePtr;
-                }
-
-                if (CurrentIBO != batch.IBO) {
-                    Gl.BindBuffer(GLEnum.ElementArrayBuffer, batch.IBO);
-                    CurrentIBO = batch.IBO;
-                }
-
-                Gl.DrawElementsInstancedBaseVertex(PrimitiveType.Triangles, (uint)batch.IndexCount,
-                    DrawElementsType.UnsignedShort, (void*)(batch.FirstIndex * sizeof(ushort)), (uint)instanceCount, (int)batch.BaseVertex);
             }
         }
 
@@ -536,10 +550,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             foreach (var call in drawCalls) {
                 foreach (var batch in call.renderData.Batches) {
-                    if (batch.IsTransparent && renderPass == RenderPass.Opaque) {
-                        // Transparent batches should be rendered in both passes
+                    if (renderPass != RenderPass.SinglePass) {
+                        if (batch.IsTransparent && renderPass == RenderPass.Opaque) {
+                            // Transparent batches should be rendered in both passes
+                        }
+                        else if (batch.IsTransparent != (renderPass == RenderPass.Transparent)) continue;
                     }
-                    else if (batch.IsTransparent != (renderPass == RenderPass.Transparent)) continue;
 
                     var cullMode = showCulling ? batch.CullMode : CullMode.None;
                     if (!batchesByCullMode.TryGetValue(cullMode, out var list)) {

@@ -56,6 +56,12 @@
 	  <EmbeddedResource Include="Shaders\InstancedLine.frag">
 	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 	  </EmbeddedResource>
+	  <EmbeddedResource Include="Shaders\Outline.vert">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Shaders\Outline.frag">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="Shaders\PortalStencil.vert" />
 	  <EmbeddedResource Include="Shaders\PortalStencil.frag" />
 	  <None Remove="Shaders\Terrain.frag" />

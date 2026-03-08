@@ -43,6 +43,7 @@ public class GameScene : IDisposable {
     private IShader? _terrainShader;
     private IShader? _sceneryShader;
     private IShader? _stencilShader;
+    private IShader? _outlineShader;
     private ManagedGLUniformBuffer? _sceneDataBuffer;
     private bool _initialized;
     private int _width;
@@ -298,6 +299,11 @@ public class GameScene : IDisposable {
         var pVertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.PortalStencil.vert");
         var pFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.PortalStencil.frag");
         _stencilShader = _graphicsDevice.CreateShader("PortalStencil", pVertSource, pFragSource);
+
+        // Create outline shader
+        var oVertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Outline.vert");
+        var oFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Outline.frag");
+        _outlineShader = _graphicsDevice.CreateShader("Outline", oVertSource, oFragSource);
 
         _sceneDataBuffer = new ManagedGLUniformBuffer(_graphicsDevice, Chorizite.Core.Render.Enums.BufferUsage.Dynamic, System.Runtime.InteropServices.Marshal.SizeOf<SceneData>());
 
@@ -928,6 +934,9 @@ public class GameScene : IDisposable {
         if (_performanceTracker != null) _performanceTracker.TransparentTime = sw.Elapsed.TotalMilliseconds;
         sw.Restart();
 
+        // Pass 3: Selection Outlines
+        RenderSelectionOutlines();
+
         if (_state.ShowDebugShapes) {
             var debugSettings = new DebugRenderSettings {
                 ShowBoundingBoxes = false,
@@ -980,6 +989,48 @@ public class GameScene : IDisposable {
         }
 
         if (_performanceTracker != null) _performanceTracker.DebugTime = sw.Elapsed.TotalMilliseconds;
+    }
+
+    private void RenderSelectionOutlines() {
+        if (_outlineShader == null || _outlineShader.ProgramId == 0) return;
+
+        // 1. Gather all managers that might have highlights
+        var managers = _renderManagers.OfType<ObjectRenderManagerBase>().ToList();
+        if (managers.All(m => !m.SelectedInstance.HasValue && !m.HoveredInstance.HasValue)) return;
+
+        using var glScope = new GLStateScope(_gl);
+        _sceneDataBuffer?.Bind(0);
+
+        // 2. Prepare stencil trick
+        _gl.Enable(EnableCap.StencilTest);
+        _gl.StencilMask(0xFF);
+        _gl.ClearStencil(0);
+        _gl.Clear(ClearBufferMask.StencilBufferBit);
+        _gl.StencilFunc(StencilFunction.Always, 1, 0xFF);
+        _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Replace);
+        _gl.ColorMask(false, false, false, false);
+        _gl.DepthMask(false); // Don't write to depth
+        _gl.Disable(EnableCap.DepthTest); // Mark stencil for the object even through walls
+
+        foreach (var manager in managers) {
+            // Render silhouettes to stencil using the outline shader with 0 width.
+            // This is safer than using the scenery shader which might have complex state requirements.
+            manager.RenderHighlight(RenderPass.SinglePass, _outlineShader, Vector4.Zero, 0.0f);
+        }
+
+        // 3. Render outlines
+        _gl.ColorMask(true, true, true, false); // Keep alpha intact
+        _gl.StencilFunc((StencilFunction)GLEnum.Notequal, 1, 0xFF);
+        _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
+        
+        foreach (var manager in managers) {
+            manager.RenderHighlight(RenderPass.SinglePass, _outlineShader, null, 5.0f);
+        }
+
+        // 4. Reset stencil state manually
+        _gl.StencilFunc(StencilFunction.Always, 0, 0xFF);
+        _gl.StencilMask(0xFF);
+        _gl.Disable(EnableCap.StencilTest);
     }
 
     #region Input Handlers
