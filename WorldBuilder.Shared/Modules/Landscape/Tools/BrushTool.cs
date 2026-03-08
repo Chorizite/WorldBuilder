@@ -60,9 +60,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <inheritdoc/>
         public override void Activate(LandscapeToolContext context) {
             base.Activate(context);
-            if (Brush != null) Brush.Radius = GetWorldRadius(_brushSize);
-            OnPropertyChanged(nameof(ActiveDocument));
-            OnPropertyChanged(nameof(AllSceneries));
 
             // Load settings from project
             if (context.ToolSettingsProvider?.BrushToolSettings != null) {
@@ -75,6 +72,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             } else {
                 SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == 255);
             }
+
+            if (Brush != null) Brush.Radius = GetWorldRadius(_brushSize);
+            OnPropertyChanged(nameof(ActiveDocument));
+            OnPropertyChanged(nameof(AllSceneries));
         }
 
         public override bool OnPointerPressed(ViewportInputEvent e) {

@@ -54,8 +54,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 if (settings != null) {
                     _isContiguous = settings.IsContiguous;
                     _onlyFillSameScenery = settings.OnlyFillSameScenery;
-                    base.Texture = (TerrainTextureType)settings.Texture;
-                    base.SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == settings.SelectedScenery);
+                    Texture = (TerrainTextureType)settings.Texture;
+                    SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == settings.SelectedScenery);
                 }
             } else {
                 SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == 255);
