@@ -21,18 +21,27 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             get => _texture;
             set {
                 if (SetProperty(ref _texture, value)) {
+                    OnTextureChanged(value);
                     OnPropertyChanged(nameof(AllSceneries));
                     SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == 255);
                 }
             }
         }
 
+        protected virtual void OnTextureChanged(TerrainTextureType value) { }
+
         private SceneryItem? _selectedScenery;
         /// <inheritdoc/>
         public SceneryItem? SelectedScenery {
             get => _selectedScenery;
-            set => SetProperty(ref _selectedScenery, value);
+            set {
+                if (SetProperty(ref _selectedScenery, value)) {
+                    OnSelectedSceneryChanged(value);
+                }
+            }
         }
+
+        protected virtual void OnSelectedSceneryChanged(SceneryItem? value) { }
 
         /// <inheritdoc/>
         public IEnumerable<TerrainTextureType> AllTextures => _allTextures;
@@ -70,7 +79,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             base.Activate(context);
             OnPropertyChanged(nameof(ActiveDocument));
             OnPropertyChanged(nameof(AllSceneries));
-            SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == 255);
+            // Don't override loaded values - let derived classes handle this
+            // SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == 255);
         }
 
         /// <inheritdoc/>
