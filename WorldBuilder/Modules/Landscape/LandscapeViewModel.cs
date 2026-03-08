@@ -288,13 +288,22 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
             _toolContext.RaycastStaticObject = (Vector3 origin, Vector3 dir, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, ulong ignoreInstanceId) => {
                 hit = SceneRaycastHit.NoHit;
-                return _gameScene?.RaycastStaticObjects(origin, dir, includeBuildings && EditorState.ShowBuildings, includeStaticObjects && EditorState.ShowStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId) ?? false;
+                return _gameScene?.RaycastStaticObjects(origin, dir, includeBuildings, includeStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId) ?? false;
             };
 
             _toolContext.RaycastScenery = (Vector3 origin, Vector3 dir, out SceneRaycastHit hit) => {
                 hit = SceneRaycastHit.NoHit;
-                if (!EditorState.ShowScenery) return false;
                 return _gameScene?.RaycastScenery(origin, dir, out hit) ?? false;
+            };
+
+            _toolContext.RaycastPortals = (Vector3 origin, Vector3 dir, out SceneRaycastHit hit) => {
+                hit = SceneRaycastHit.NoHit;
+                return _gameScene?.RaycastPortals(origin, dir, out hit) ?? false;
+            };
+
+            _toolContext.RaycastEnvCells = (Vector3 origin, Vector3 dir, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, ulong ignoreInstanceId) => {
+                hit = SceneRaycastHit.NoHit;
+                return _gameScene?.RaycastEnvCells(origin, dir, includeCells, includeStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId) ?? false;
             };
 
             _toolContext.RaycastTerrain = (float x, float y) => {

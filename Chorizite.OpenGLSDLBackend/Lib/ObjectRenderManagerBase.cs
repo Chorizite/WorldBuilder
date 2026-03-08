@@ -629,21 +629,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 // Draw highlighted / selected objects on top
-                Gl.Enable(EnableCap.PolygonOffsetFill);
-                Gl.PolygonOffset(-1.0f, -1.0f);
-                Gl.DepthFunc(GLEnum.Lequal);
-                if (SelectedInstance.HasValue) {
-                    RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
-                }
-                if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
-                    RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
-                }
-                Gl.DepthFunc(GLEnum.Less);
-                Gl.Disable(EnableCap.PolygonOffsetFill);
-
                 _shader.SetUniform("uHighlightColor", Vector4.Zero);
                 _shader.SetUniform("uRenderPass", (int)renderPass);
                 Gl.BindVertexArray(0);
+                CurrentVAO = 0;
 
                 // Clear MDI dirty flag after all rendering is complete for this frame.
                 // Both opaque and transparent passes will have been issued by now.
@@ -1057,13 +1046,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        protected unsafe void RenderSelectedInstance(SelectedStaticObject selected, Vector4 highlightColor, RenderPass renderPass) {
+        protected unsafe void RenderSelectedInstance(SelectedStaticObject selected, Vector4 highlightColor, RenderPass renderPass, IShader? shader = null) {
+            var currentShader = shader ?? _shader!;
             if (_landblocks.TryGetValue(selected.LandblockKey, out var lb)) {
                 var instance = lb.Instances.FirstOrDefault(i => i.InstanceId == selected.InstanceId);
                 if (instance.ObjectId != 0) {
                     var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
                     if (renderData != null) {
-                        _shader!.SetUniform("uHighlightColor", highlightColor);
+                        currentShader.SetUniform("uHighlightColor", highlightColor);
+                        currentShader.SetUniform("uOutlineColor", highlightColor);
 
                         var drawCalls = new List<(ObjectRenderData renderData, int count, int offset)>();
                         var allInstances = new List<InstanceData>();
@@ -1082,18 +1073,40 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             allInstances.Add(new InstanceData { Transform = instance.Transform, CellId = InstanceIdConstants.GetRawId(instance.InstanceId) });
                         }
 
-                        if (_useModernRendering) {
-                            RenderModernMDI(_shader!, drawCalls, allInstances, renderPass);
+                        if (_useModernRendering && (shader == null || shader == _shader)) {
+                            RenderModernMDI(currentShader, drawCalls, allInstances, renderPass);
                         }
                         else {
                             GraphicsDevice.UpdateInstanceBuffer(allInstances);
 
                             foreach (var call in drawCalls) {
-                                RenderObjectBatches(_shader!, call.renderData, call.count, call.offset, renderPass);
+                                RenderObjectBatches(currentShader, call.renderData, call.count, call.offset, renderPass);
                             }
                         }
                     }
                 }
+            }
+        }
+
+        public virtual void RenderHighlight(RenderPass renderPass, IShader? shader = null, Vector4? color = null, float outlineWidth = 1.0f) {
+            lock (_renderLock) {
+                var currentShader = shader ?? _shader!;
+                if (currentShader == null || currentShader.ProgramId == 0) return;
+
+                currentShader.Bind();
+                currentShader.SetUniform("uRenderPass", (int)renderPass);
+                currentShader.SetUniform("uOutlineWidth", outlineWidth);
+
+                if (SelectedInstance.HasValue) {
+                    RenderSelectedInstance(SelectedInstance.Value, color ?? LandscapeColorsSettings.Instance.Selection, renderPass, currentShader);
+                }
+                if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
+                    RenderSelectedInstance(HoveredInstance.Value, color ?? LandscapeColorsSettings.Instance.Hover, renderPass, currentShader);
+                }
+
+                currentShader.SetUniform("uHighlightColor", Vector4.Zero);
+                Gl.BindVertexArray(0);
+                CurrentVAO = 0;
             }
         }
 

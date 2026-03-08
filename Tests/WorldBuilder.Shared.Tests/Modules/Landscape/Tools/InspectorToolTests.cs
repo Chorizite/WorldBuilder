@@ -139,7 +139,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             InspectorSelectionEventArgs? capturedArgs = null;
             context.InspectorSelected += (s, e) => capturedArgs = e;
 
-            // Object raycast should not even be called if filters are off
+            // Object raycast SHOULD be called even if filters are off (to check for blockers)
             bool objectRaycastCalled = false;
             context.RaycastStaticObject = (Vector3 o, Vector3 d, bool b, bool s, out SceneRaycastHit h, ulong ignoreInstanceId) => {
                 objectRaycastCalled = true;
@@ -168,9 +168,8 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             tool.OnPointerPressed(inputEvent);
 
             // Assert
-            Assert.False(objectRaycastCalled);
-            Assert.NotNull(capturedArgs);
-            Assert.Equal(InspectorSelectionType.Vertex, capturedArgs.Selection.Type);
+            Assert.True(objectRaycastCalled);
+            Assert.Null(capturedArgs); // Object at dist 5 blocks terrain at dist 10
         }
 
         private LandscapeToolContext CreateContext() {

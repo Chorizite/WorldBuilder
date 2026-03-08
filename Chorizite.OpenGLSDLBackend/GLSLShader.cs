@@ -20,6 +20,10 @@ namespace Chorizite.OpenGLSDLBackend {
         private GL GL => _device.GL;
         public uint Program { get; protected set; }
 
+        public bool HasUniform(string name) {
+            return GetUniformLocation(Program, name) != -1;
+        }
+
         public GLSLShader(OpenGLGraphicsDevice device, string name, string vertSource, string fragSource, ILogger log) : base(name, vertSource, fragSource, log) {
             _device = device;
 
