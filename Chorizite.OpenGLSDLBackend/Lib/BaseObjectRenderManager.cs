@@ -34,17 +34,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly object _allocationLock = new();
 
         // Modern rendering MDI buffers
-        private uint _mdiCommandBuffer;
-        private int _mdiCommandCapacity = 1024 * 32;
-        private uint _modernBatchBuffer;
+        private readonly uint[] _mdiCommandBuffers = new uint[3];
+        private readonly int[] _mdiCommandCapacities = [1024 * 32, 1024 * 32, 1024 * 32];
+        private readonly uint[] _modernBatchBuffers = new uint[3];
 
         // Scratch buffers for dynamic updates (highlights, selections, etc)
-        private uint _scratchMdiCommandBuffer;
-        private int _scratchMdiCommandCapacity = 1024 * 2;
-        private uint _scratchModernBatchBuffer;
+        private readonly uint[] _scratchMdiCommandBuffers = new uint[3];
+        private readonly int[] _scratchMdiCommandCapacities = [1024 * 2, 1024 * 2, 1024 * 2];
+        private readonly uint[] _scratchModernBatchBuffers = new uint[3];
 
-        private uint _modernInstanceBuffer; // Scratch buffer for non-consolidated modern draws
-        private int _modernInstanceCapacity = 1024 * 16;
+        private readonly uint[] _modernInstanceBuffers = new uint[3]; // Scratch buffer for non-consolidated modern draws
+        private readonly int[] _modernInstanceCapacities = [1024 * 16, 1024 * 16, 1024 * 16];
 
         // MDI dirty tracking — when false, RenderConsolidatedMDI skips buffer orphaning
         // and reuses the previously uploaded GPU buffers. This avoids driver-specific issues
@@ -84,35 +84,41 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     GpuMemoryTracker.TrackAllocation(_worldInstanceCapacity * sizeof(InstanceData), GpuResourceType.Buffer);
                 }
 
-                Gl.GenBuffers(1, out _mdiCommandBuffer);
-                Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _mdiCommandBuffer);
-                Gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_mdiCommandCapacity * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
-                GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
-                GpuMemoryTracker.TrackAllocation(_mdiCommandCapacity * sizeof(DrawElementsIndirectCommand), GpuResourceType.Buffer);
+                for (int i = 0; i < 3; i++) {
+                    Gl.GenBuffers(1, out _mdiCommandBuffers[i]);
+                    Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _mdiCommandBuffers[i]);
+                    Gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_mdiCommandCapacities[i] * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
+                    GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
+                    GpuMemoryTracker.TrackAllocation(_mdiCommandCapacities[i] * sizeof(DrawElementsIndirectCommand), GpuResourceType.Buffer);
 
-                Gl.GenBuffers(1, out _modernBatchBuffer);
-                Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernBatchBuffer);
-                Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_mdiCommandCapacity * sizeof(ModernBatchData)), null, GLEnum.DynamicDraw);
-                GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
-                GpuMemoryTracker.TrackAllocation(_mdiCommandCapacity * sizeof(ModernBatchData), GpuResourceType.Buffer);
+                    Gl.GenBuffers(1, out _modernBatchBuffers[i]);
+                    Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernBatchBuffers[i]);
+                    Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_mdiCommandCapacities[i] * sizeof(ModernBatchData)), null, GLEnum.DynamicDraw);
+                    GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
+                    GpuMemoryTracker.TrackAllocation(_mdiCommandCapacities[i] * sizeof(ModernBatchData), GpuResourceType.Buffer);
+                }
 
-                Gl.GenBuffers(1, out _scratchMdiCommandBuffer);
-                Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _scratchMdiCommandBuffer);
-                Gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_scratchMdiCommandCapacity * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
-                GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
-                GpuMemoryTracker.TrackAllocation(_scratchMdiCommandCapacity * sizeof(DrawElementsIndirectCommand), GpuResourceType.Buffer);
+                for (int i = 0; i < 3; i++) {
+                    Gl.GenBuffers(1, out _scratchMdiCommandBuffers[i]);
+                    Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _scratchMdiCommandBuffers[i]);
+                    Gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_scratchMdiCommandCapacities[i] * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
+                    GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
+                    GpuMemoryTracker.TrackAllocation(_scratchMdiCommandCapacities[i] * sizeof(DrawElementsIndirectCommand), GpuResourceType.Buffer);
 
-                Gl.GenBuffers(1, out _scratchModernBatchBuffer);
-                Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _scratchModernBatchBuffer);
-                Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_scratchMdiCommandCapacity * sizeof(ModernBatchData)), null, GLEnum.DynamicDraw);
-                GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
-                GpuMemoryTracker.TrackAllocation(_scratchMdiCommandCapacity * sizeof(ModernBatchData), GpuResourceType.Buffer);
+                    Gl.GenBuffers(1, out _scratchModernBatchBuffers[i]);
+                    Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _scratchModernBatchBuffers[i]);
+                    Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_scratchMdiCommandCapacities[i] * sizeof(ModernBatchData)), null, GLEnum.DynamicDraw);
+                    GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
+                    GpuMemoryTracker.TrackAllocation(_scratchMdiCommandCapacities[i] * sizeof(ModernBatchData), GpuResourceType.Buffer);
+                }
 
-                Gl.GenBuffers(1, out _modernInstanceBuffer);
-                Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernInstanceBuffer);
-                Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_modernInstanceCapacity * sizeof(InstanceData)), null, GLEnum.DynamicDraw);
-                GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
-                GpuMemoryTracker.TrackAllocation(_modernInstanceCapacity * sizeof(InstanceData), GpuResourceType.Buffer);
+                for (int i = 0; i < 3; i++) {
+                    Gl.GenBuffers(1, out _modernInstanceBuffers[i]);
+                    Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernInstanceBuffers[i]);
+                    Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_modernInstanceCapacities[i] * sizeof(InstanceData)), null, GLEnum.DynamicDraw);
+                    GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
+                    GpuMemoryTracker.TrackAllocation(_modernInstanceCapacities[i] * sizeof(InstanceData), GpuResourceType.Buffer);
+                }
             }
 
             GLHelpers.CheckErrors(Gl);
@@ -142,24 +148,28 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         (long)(_worldInstanceCapacity - totalFree) * sizeof(InstanceData));
                 }
 
+                long totalMdiCommandCapacity = _mdiCommandCapacities[0] + _mdiCommandCapacities[1] + _mdiCommandCapacities[2];
+                long totalScratchMdiCommandCapacity = _scratchMdiCommandCapacities[0] + _scratchMdiCommandCapacities[1] + _scratchMdiCommandCapacities[2];
+                long totalModernInstanceCapacity = _modernInstanceCapacities[0] + _modernInstanceCapacities[1] + _modernInstanceCapacities[2];
+
                 GpuMemoryTracker.TrackNamedBuffer($"{name} MDI Command Buffer",
-                    (long)_mdiCommandCapacity * sizeof(DrawElementsIndirectCommand),
+                    totalMdiCommandCapacity * sizeof(DrawElementsIndirectCommand),
                     0);
 
                 GpuMemoryTracker.TrackNamedBuffer($"{name} Modern Batch Buffer",
-                    (long)_mdiCommandCapacity * sizeof(ModernBatchData),
+                    totalMdiCommandCapacity * sizeof(ModernBatchData),
                     0);
 
                 GpuMemoryTracker.TrackNamedBuffer($"{name} Scratch MDI Command Buffer",
-                    (long)_scratchMdiCommandCapacity * sizeof(DrawElementsIndirectCommand),
+                    totalScratchMdiCommandCapacity * sizeof(DrawElementsIndirectCommand),
                     0);
 
                 GpuMemoryTracker.TrackNamedBuffer($"{name} Scratch Modern Batch Buffer",
-                    (long)_scratchMdiCommandCapacity * sizeof(ModernBatchData),
+                    totalScratchMdiCommandCapacity * sizeof(ModernBatchData),
                     0);
 
                 GpuMemoryTracker.TrackNamedBuffer($"{name} Modern Instance Buffer",
-                    (long)_modernInstanceCapacity * sizeof(InstanceData),
+                    totalModernInstanceCapacity * sizeof(InstanceData),
                     0);
             }
         }
@@ -335,6 +345,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public unsafe void RenderConsolidatedMDI(IShader shader, List<ObjectLandblock> landblocks, RenderPass renderPass) {
             if (landblocks.Count == 0) return;
 
+            int passIdx = (int)renderPass;
+            if (passIdx < 0 || passIdx > 2) return;
+
             shader.Bind();
             shader.SetUniform("uFilterByCell", 0);
 
@@ -365,12 +378,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     return;
                 }
 
-                if (totalDraws > _mdiCommandCapacity) {
-                    _mdiCommandCapacity = Math.Max(_mdiCommandCapacity * 2, totalDraws);
-                    Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _mdiCommandBuffer);
-                    Gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_mdiCommandCapacity * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
-                    Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernBatchBuffer);
-                    Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_mdiCommandCapacity * sizeof(ModernBatchData)), null, GLEnum.DynamicDraw);
+                if (totalDraws > _mdiCommandCapacities[passIdx]) {
+                    _mdiCommandCapacities[passIdx] = Math.Max(_mdiCommandCapacities[passIdx] * 2, totalDraws);
+                    Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _mdiCommandBuffers[passIdx]);
+                    Gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_mdiCommandCapacities[passIdx] * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
+                    Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernBatchBuffers[passIdx]);
+                    Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_mdiCommandCapacities[passIdx] * sizeof(ModernBatchData)), null, GLEnum.DynamicDraw);
                 }
 
                 if (_commands.Length < totalDraws) Array.Resize(ref _commands, Math.Max(_commands.Length * 2, totalDraws));
@@ -386,12 +399,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 // Upload commands and batch data
-                Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _mdiCommandBuffer);
+                Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _mdiCommandBuffers[passIdx]);
                 fixed (DrawElementsIndirectCommand* ptr = _commands) {
                     Gl.BufferSubData(GLEnum.DrawIndirectBuffer, 0, (nuint)(totalDraws * sizeof(DrawElementsIndirectCommand)), ptr);
                 }
 
-                Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernBatchBuffer);
+                Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernBatchBuffers[passIdx]);
                 fixed (ModernBatchData* ptr = _modernBatches) {
                     Gl.BufferSubData(GLEnum.ShaderStorageBuffer, 0, (nuint)(totalDraws * sizeof(ModernBatchData)), ptr);
                 }
@@ -425,7 +438,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             Gl.BindBufferBase(GLEnum.ShaderStorageBuffer, 0, _worldInstanceSSBO);
-            Gl.BindBufferBase(GLEnum.ShaderStorageBuffer, 1, _modernBatchBuffer);
+            Gl.BindBufferBase(GLEnum.ShaderStorageBuffer, 1, _modernBatchBuffers[passIdx]);
 
             int currentDrawOffset = 0;
             for (int i = 0; i < 4; i++) {
@@ -542,6 +555,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected unsafe void RenderModernMDI(IShader shader, List<(ObjectRenderData renderData, int count, int offset)> drawCalls, List<InstanceData> allInstances, RenderPass renderPass, bool showCulling = true) {
             if (drawCalls.Count == 0 || allInstances.Count == 0) return;
 
+            int passIdx = (int)renderPass;
+            if (passIdx < 0 || passIdx > 2) return;
+
             shader.Bind();
             shader.SetUniform("uFilterByCell", 0);
 
@@ -570,19 +586,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (totalDraws == 0) return;
 
             // Resize buffers if needed
-            if (totalDraws > _scratchMdiCommandCapacity) {
-                _scratchMdiCommandCapacity = Math.Max(_scratchMdiCommandCapacity * 2, totalDraws);
-                Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _scratchMdiCommandBuffer);
-                Gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_scratchMdiCommandCapacity * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
-                Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _scratchModernBatchBuffer);
-                Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_scratchMdiCommandCapacity * sizeof(ModernBatchData)), null, GLEnum.DynamicDraw);
+            if (totalDraws > _scratchMdiCommandCapacities[passIdx]) {
+                _scratchMdiCommandCapacities[passIdx] = Math.Max(_scratchMdiCommandCapacities[passIdx] * 2, totalDraws);
+                Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _scratchMdiCommandBuffers[passIdx]);
+                Gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_scratchMdiCommandCapacities[passIdx] * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
+                Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _scratchModernBatchBuffers[passIdx]);
+                Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_scratchMdiCommandCapacities[passIdx] * sizeof(ModernBatchData)), null, GLEnum.DynamicDraw);
             }
 
             int uniqueInstanceCount = allInstances.Count;
-            if (uniqueInstanceCount > _modernInstanceCapacity) {
-                _modernInstanceCapacity = Math.Max(_modernInstanceCapacity * 2, uniqueInstanceCount);
-                Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernInstanceBuffer);
-                Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_modernInstanceCapacity * sizeof(InstanceData)), null, GLEnum.DynamicDraw);
+            if (uniqueInstanceCount > _modernInstanceCapacities[passIdx]) {
+                _modernInstanceCapacities[passIdx] = Math.Max(_modernInstanceCapacities[passIdx] * 2, uniqueInstanceCount);
+                Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernInstanceBuffers[passIdx]);
+                Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_modernInstanceCapacities[passIdx] * sizeof(InstanceData)), null, GLEnum.DynamicDraw);
             }
 
             if (_commands.Length < totalDraws) Array.Resize(ref _commands, Math.Max(_commands.Length * 2, totalDraws));
@@ -609,14 +625,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             // 3. Upload (with orphaning)
-            Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _scratchMdiCommandBuffer);
+            Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _scratchMdiCommandBuffers[passIdx]);
             // Orphan only what we need to avoid excess memory allocation/driver overhead
             Gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(totalDraws * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
             fixed (DrawElementsIndirectCommand* ptr = _commands) {
                 Gl.BufferSubData(GLEnum.DrawIndirectBuffer, 0, (nuint)(totalDraws * sizeof(DrawElementsIndirectCommand)), ptr);
             }
 
-            Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernInstanceBuffer);
+            Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernInstanceBuffers[passIdx]);
             // Orphan only what we need to avoid excess memory allocation/driver overhead
             Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(uniqueInstanceCount * sizeof(InstanceData)), null, GLEnum.DynamicDraw);
             var instancesSpan = CollectionsMarshal.AsSpan(allInstances);
@@ -624,7 +640,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 Gl.BufferSubData(GLEnum.ShaderStorageBuffer, 0, (nuint)(uniqueInstanceCount * sizeof(InstanceData)), ptr);
             }
 
-            Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _scratchModernBatchBuffer);
+            Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _scratchModernBatchBuffers[passIdx]);
             // Orphan only what we need to avoid excess memory allocation/driver overhead
             Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(totalDraws * sizeof(ModernBatchData)), null, GLEnum.DynamicDraw);
             fixed (ModernBatchData* ptr = _modernBatches) {
@@ -638,8 +654,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 CurrentVAO = globalVao;
             }
 
-            Gl.BindBufferBase(GLEnum.ShaderStorageBuffer, 0, _modernInstanceBuffer);
-            Gl.BindBufferBase(GLEnum.ShaderStorageBuffer, 1, _scratchModernBatchBuffer);
+            Gl.BindBufferBase(GLEnum.ShaderStorageBuffer, 0, _modernInstanceBuffers[passIdx]);
+            Gl.BindBufferBase(GLEnum.ShaderStorageBuffer, 1, _scratchModernBatchBuffers[passIdx]);
 
             int currentDrawOffset = 0;
             foreach (var group in batchesByCullMode) {
@@ -705,30 +721,34 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             GpuMemoryTracker.UntrackNamedBuffer($"{name} Scratch Modern Batch Buffer");
             GpuMemoryTracker.UntrackNamedBuffer($"{name} Modern Instance Buffer");
 
-            if (_mdiCommandBuffer != 0) {
-                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
-                GpuMemoryTracker.TrackDeallocation(_mdiCommandCapacity * sizeof(DrawElementsIndirectCommand), GpuResourceType.Buffer);
-                Gl.DeleteBuffer(_mdiCommandBuffer);
+            for (int i = 0; i < 3; i++) {
+                if (_mdiCommandBuffers[i] != 0) {
+                    GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+                    GpuMemoryTracker.TrackDeallocation(_mdiCommandCapacities[i] * sizeof(DrawElementsIndirectCommand), GpuResourceType.Buffer);
+                    Gl.DeleteBuffer(_mdiCommandBuffers[i]);
+                }
+                if (_modernBatchBuffers[i] != 0) {
+                    GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+                    GpuMemoryTracker.TrackDeallocation(_mdiCommandCapacities[i] * sizeof(ModernBatchData), GpuResourceType.Buffer);
+                    Gl.DeleteBuffer(_modernBatchBuffers[i]);
+                }
             }
-            if (_modernBatchBuffer != 0) {
-                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
-                GpuMemoryTracker.TrackDeallocation(_mdiCommandCapacity * sizeof(ModernBatchData), GpuResourceType.Buffer);
-                Gl.DeleteBuffer(_modernBatchBuffer);
-            }
-            if (_scratchMdiCommandBuffer != 0) {
-                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
-                GpuMemoryTracker.TrackDeallocation(_scratchMdiCommandCapacity * sizeof(DrawElementsIndirectCommand), GpuResourceType.Buffer);
-                Gl.DeleteBuffer(_scratchMdiCommandBuffer);
-            }
-            if (_scratchModernBatchBuffer != 0) {
-                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
-                GpuMemoryTracker.TrackDeallocation(_scratchMdiCommandCapacity * sizeof(ModernBatchData), GpuResourceType.Buffer);
-                Gl.DeleteBuffer(_scratchModernBatchBuffer);
-            }
-            if (_modernInstanceBuffer != 0) {
-                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
-                GpuMemoryTracker.TrackDeallocation(_modernInstanceCapacity * sizeof(InstanceData), GpuResourceType.Buffer);
-                Gl.DeleteBuffer(_modernInstanceBuffer);
+            for (int i = 0; i < 3; i++) {
+                if (_scratchMdiCommandBuffers[i] != 0) {
+                    GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+                    GpuMemoryTracker.TrackDeallocation(_scratchMdiCommandCapacities[i] * sizeof(DrawElementsIndirectCommand), GpuResourceType.Buffer);
+                    Gl.DeleteBuffer(_scratchMdiCommandBuffers[i]);
+                }
+                if (_scratchModernBatchBuffers[i] != 0) {
+                    GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+                    GpuMemoryTracker.TrackDeallocation(_scratchMdiCommandCapacities[i] * sizeof(ModernBatchData), GpuResourceType.Buffer);
+                    Gl.DeleteBuffer(_scratchModernBatchBuffers[i]);
+                }
+                if (_modernInstanceBuffers[i] != 0) {
+                    GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+                    GpuMemoryTracker.TrackDeallocation(_modernInstanceCapacities[i] * sizeof(InstanceData), GpuResourceType.Buffer);
+                    Gl.DeleteBuffer(_modernInstanceBuffers[i]);
+                }
             }
             if (_worldInstanceBuffer != 0) {
                 GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
