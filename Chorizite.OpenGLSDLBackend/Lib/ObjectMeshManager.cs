@@ -202,6 +202,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (_renderData.TryGetValue(id, out var data)) {
                 _usageCount.AddOrUpdate(id, 1, (_, count) => count + 1);
 
+                if (data.IsSetup) {
+                    foreach (var (partId, _) in data.SetupParts) {
+                        IncrementRefCount(partId);
+                    }
+                }
+                else {
+                    // Increment ref counts for all textures in this GfxObj
+                    foreach (var batch in data.Batches) {
+                        if (batch.Atlas != null) {
+                            batch.Atlas.AddTexture(batch.Key, Array.Empty<byte>());
+                        }
+                    }
+                }
+
                 // If it was in LRU, remove it as it's now in use
                 lock (_lruList) {
                     _lruList.Remove(id);
@@ -508,6 +522,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             IncrementRefCount(partId);
                             lock (_lruList) {
                                 _lruList.Remove(partId);
+                            }
+                        }
+                    }
+                    else {
+                        // Increment ref counts for all textures in this GfxObj
+                        foreach (var batch in existing.Batches) {
+                            if (batch.Atlas != null) {
+                                batch.Atlas.AddTexture(batch.Key, Array.Empty<byte>()); 
                             }
                         }
                     }
