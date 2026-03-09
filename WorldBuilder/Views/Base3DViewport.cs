@@ -1,4 +1,4 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -38,7 +38,7 @@ namespace WorldBuilder.Views {
                     _visual.SendHandlerMessage(new InvalidateMessage());
                 }
                 else {
-                    Dispatcher.UIThread.Post(() => _visual.SendHandlerMessage(new InvalidateMessage()), DispatcherPriority.Render);
+                    Dispatcher.UIThread.Post(() => _visual?.SendHandlerMessage(new InvalidateMessage()), DispatcherPriority.Render);
                 }
             }
         }

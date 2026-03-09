@@ -11,13 +11,7 @@
              x:DataType="vm:SurfaceTextureBrowserViewModel">
     <Grid ColumnDefinitions="300, 5, *">
         <!-- Sidebar -->
-        <ListBox Grid.Column="0" ItemsSource="{Binding FileIds}" SelectedItem="{Binding SelectedFileId}" Margin="5">
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <TextBlock Text="{Binding StringFormat='{}{0:X8}'}" />
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
+        <ListBox Grid.Column="0" ItemsSource="{Binding FileIds}" SelectedItem="{Binding SelectedFileIdDisplay}" IsTextSearchEnabled="True" Margin="5" />
 
         <GridSplitter Grid.Column="1" Background="{DynamicResource SemiColorBorder}" ResizeDirection="Columns"/>
 
@@ -33,7 +27,7 @@
                 <TabControl.ContentTemplate>
                     <DataTemplate>
                         <views:DatObjectPreview 
-                            DataId="{Binding}"
+                            DataId="{Binding $parent[UserControl].((vm:SurfaceTextureBrowserViewModel)DataContext).SelectedFileId}"
                             Dats="{Binding $parent[UserControl].((vm:SurfaceTextureBrowserViewModel)DataContext).Dats}"
                             ShowWireframe="{Binding $parent[UserControl].((vm:SurfaceTextureBrowserViewModel)DataContext).ShowWireframe, Mode=TwoWay}"
                             WireframeColor="{Binding $parent[UserControl].((vm:SurfaceTextureBrowserViewModel)DataContext).WireframeColor}"

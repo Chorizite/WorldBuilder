@@ -44,7 +44,7 @@
         </Style>
         <!-- Shared overview styles, used by SurfaceTextureOverviewView and EnvCellOverviewView -->
         <Style Selector="ListBoxItem">
-            <Setter Property="Padding" Value="2"/>
+            <Setter Property="Padding" Value="5"/>
             <Setter Property="Background" Value="Transparent"/>
         </Style>
         <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
