@@ -254,6 +254,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 }
             }
             else {
+                // Freecam
                 if (deltaTime > 0) NeedsRender = true;
             }
         }
