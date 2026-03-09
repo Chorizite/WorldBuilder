@@ -162,7 +162,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         // LRU Cache for Unused objects
         private readonly LinkedList<ulong> _lruList = new();
-        private readonly long _maxGpuMemory = 512 * 1024 * 1024; // 512MB
+        private readonly long _maxGpuMemory = 1024 * 1024 * 1024; // 1GB
         private long _currentGpuMemory = 0;
 
         // Shared atlases grouped by (Width, Height, Format)
@@ -251,7 +251,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     _lruList.Remove(id);
                     _lruList.AddLast(id);
                 }
-                EvictOldResources();
             }
         }
 
@@ -267,14 +266,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         _lruList.Remove(id);
                         _lruList.AddLast(id);
                     }
-                    EvictOldResources();
                 }
             }
         }
 
-        private void EvictOldResources() {
+        private void EvictOldResources(long neededBytes = 0) {
             lock (_lruList) {
-                while (_currentGpuMemory > _maxGpuMemory && _lruList.Count > 0) {
+                while ((_currentGpuMemory + neededBytes) > _maxGpuMemory && _lruList.Count > 0) {
                     var idToEvict = _lruList.First!.Value;
                     _lruList.RemoveFirst();
 
@@ -519,6 +517,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     }
                     return existing;
                 }
+
+                // Estimated size - evict before allocation
+                long estimatedSize = meshData.IsSetup ? 1024 : 
+                    (meshData.Vertices.Length * VertexPositionNormalTexture.Size) +
+                    meshData.TextureBatches.Values.SelectMany(l => l).Sum(b => (long)b.Indices.Count * sizeof(ushort));
+                
+                EvictOldResources(estimatedSize);
+
                 _preparationTasks.TryRemove(meshData.ObjectId, out _);
                 if (meshData.IsSetup) {
                     // Upload EnvCell geometry if present to ensure it's in _renderData
