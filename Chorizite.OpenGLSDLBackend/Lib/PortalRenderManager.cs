@@ -115,7 +115,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 foreach (var lb in _landblocks.Values) {
                     lb.Ready = false;
                     var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
-                    _pendingGeneration[key] = lb;
+                    if (!lb.IsGenerating && !_pendingGeneration.ContainsKey(key)) {
+                        _pendingGeneration[key] = lb;
+                    }
                 }
             }
             else {
@@ -123,7 +125,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     var key = GeometryUtils.PackKey(lbX, lbY);
                     if (_landblocks.TryGetValue(key, out var lb)) {
                         lb.Ready = false;
-                        _pendingGeneration[key] = lb;
+                        if (!lb.IsGenerating && !_pendingGeneration.ContainsKey(key)) {
+                            _pendingGeneration[key] = lb;
+                        }
                     }
                 }
             }
@@ -174,7 +178,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var keysToRemove = _landblocks.Keys.Where(key => {
                 var x = key >> 8;
                 var y = key & 0xFF;
-                return Math.Abs(x - _cameraLbX) > RenderDistance || Math.Abs(y - _cameraLbY) > RenderDistance;
+                return Math.Abs(x - _cameraLbX) > RenderDistance + 2 || Math.Abs(y - _cameraLbY) > RenderDistance + 2;
             }).ToList();
 
             foreach (var key in keysToRemove) {
@@ -228,11 +232,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     break;
 
                 Interlocked.Increment(ref _activeGenerations);
+                lbToGenerate.IsGenerating = true;
                 Task.Run(async () => {
                     try {
                         await GeneratePortalsForLandblock(lbToGenerate);
                     }
                     finally {
+                        lbToGenerate.IsGenerating = false;
                         Interlocked.Decrement(ref _activeGenerations);
                     }
                 });
@@ -451,7 +457,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         private bool IsWithinRenderDistance(PortalLandblock lb) {
-            return Math.Abs(lb.GridX - _cameraLbX) <= RenderDistance && Math.Abs(lb.GridY - _cameraLbY) <= RenderDistance;
+            return Math.Abs(lb.GridX - _cameraLbX) <= RenderDistance + 2 && Math.Abs(lb.GridY - _cameraLbY) <= RenderDistance + 2;
         }
 
         private FrustumTestResult GetLandblockFrustumResult(int gridX, int gridY) {
@@ -650,6 +656,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private class PortalLandblock {
             public int GridX;
             public int GridY;
+            public bool IsGenerating;
             public List<WorldBuilder.Shared.Services.PortalData> Portals = new();
             public List<WorldBuilder.Shared.Services.PortalData>? PendingPortals;
             public BoundingBox BoundingBox;

@@ -63,6 +63,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
         public bool IsGenerated { get; set; }
+        public bool IsGenerating { get; set; }
 
         // GPU Resources
         public int GlobalSlotIndex { get; set; } = -1;

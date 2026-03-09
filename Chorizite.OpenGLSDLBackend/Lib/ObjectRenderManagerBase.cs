@@ -226,7 +226,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 }
                             }
                         }
-                        else if (_landblocks.TryGetValue(key, out var lb) && !lb.InstancesReady && !_pendingGeneration.ContainsKey(key)) {
+                        else if (_landblocks.TryGetValue(key, out var lb) && !lb.InstancesReady && !_pendingGeneration.ContainsKey(key) && !_generationCTS.ContainsKey(key) && !_uploadQueue.ContainsKey(key)) {
                             // If it's tracked but not yet generated/queued, check if it should now be queued
                             bool inFrustum = _frustum.TestBox(lb.BoundingBox) != FrustumTestResult.Outside;
                             bool isVeryClose = Math.Abs(x - _cameraLbX) <= 10 && Math.Abs(y - _cameraLbY) <= 10;
@@ -241,7 +241,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Unload landblocks outside render distance (with delay)
             _keysToRemoveBuffer.Clear();
             foreach (var (key, lb) in _landblocks) {
-                if (Math.Abs(lb.GridX - _cameraLbX) > RenderDistance || Math.Abs(lb.GridY - _cameraLbY) > RenderDistance) {
+                if (Math.Abs(lb.GridX - _cameraLbX) > RenderDistance + 2 || Math.Abs(lb.GridY - _cameraLbY) > RenderDistance + 2) {
                     var elapsed = _outOfRangeTimers.AddOrUpdate(key, deltaTime, (_, e) => e + deltaTime);
                     if (elapsed >= UnloadDelay) {
                         _keysToRemoveBuffer.Add(key);
@@ -311,7 +311,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 int chosenDist = Math.Max(Math.Abs(lbToGenerate.GridX - _cameraLbX), Math.Abs(lbToGenerate.GridY - _cameraLbY));
 
                 // Skip if now out of range (don't skip based on frustum - that causes flickering when camera pans)
-                if (chosenDist > RenderDistance) {
+                if (chosenDist > RenderDistance + 2) {
                     if (_landblocks.TryRemove(bestKey, out _)) {
                         UnloadLandblockResources(lbToGenerate);
                     }
@@ -784,8 +784,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Protected: Shared Helpers
         protected bool IsWithinRenderDistance(ObjectLandblock lb) {
-            return Math.Abs(lb.GridX - _cameraLbX) <= RenderDistance
-                && Math.Abs(lb.GridY - _cameraLbY) <= RenderDistance;
+            return Math.Abs(lb.GridX - _cameraLbX) <= RenderDistance + 2
+                && Math.Abs(lb.GridY - _cameraLbY) <= RenderDistance + 2;
         }
 
         #endregion
