@@ -380,10 +380,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 if (totalDraws > _mdiCommandCapacities[passIdx]) {
                     _mdiCommandCapacities[passIdx] = Math.Max(_mdiCommandCapacities[passIdx] * 2, totalDraws);
-                    Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _mdiCommandBuffers[passIdx]);
-                    Gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_mdiCommandCapacities[passIdx] * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
-                    Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernBatchBuffers[passIdx]);
-                    Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_mdiCommandCapacities[passIdx] * sizeof(ModernBatchData)), null, GLEnum.DynamicDraw);
                 }
 
                 if (_commands.Length < totalDraws) Array.Resize(ref _commands, Math.Max(_commands.Length * 2, totalDraws));
@@ -398,13 +394,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     }
                 }
 
-                // Upload commands and batch data
+                // Upload commands and batch data (with orphaning)
                 Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _mdiCommandBuffers[passIdx]);
+                Gl.BufferData(GLEnum.DrawIndirectBuffer, (nuint)(_mdiCommandCapacities[passIdx] * sizeof(DrawElementsIndirectCommand)), null, GLEnum.DynamicDraw);
                 fixed (DrawElementsIndirectCommand* ptr = _commands) {
                     Gl.BufferSubData(GLEnum.DrawIndirectBuffer, 0, (nuint)(totalDraws * sizeof(DrawElementsIndirectCommand)), ptr);
                 }
 
                 Gl.BindBuffer(GLEnum.ShaderStorageBuffer, _modernBatchBuffers[passIdx]);
+                Gl.BufferData(GLEnum.ShaderStorageBuffer, (nuint)(_mdiCommandCapacities[passIdx] * sizeof(ModernBatchData)), null, GLEnum.DynamicDraw);
                 fixed (ModernBatchData* ptr = _modernBatches) {
                     Gl.BufferSubData(GLEnum.ShaderStorageBuffer, 0, (nuint)(totalDraws * sizeof(ModernBatchData)), ptr);
                 }
