@@ -37,10 +37,24 @@ namespace WorldBuilder.Services {
         /// </summary>
         public string GetGlVersion() {
             if (_glVersion != null && _glVersion != "GL: Unknown") return _glVersion;
-
             _glVersion = _glContextManager.GlVersion ?? "GL: Unknown";
             return _glVersion;
         }
+
+        /// <summary>
+        /// Gets the OpenGL major version supported by the context.
+        /// </summary>
+        public int GetGlMajorVersion() => _glContextManager.MajorVersion;
+
+        /// <summary>
+        /// Gets the OpenGL minor version supported by the context.
+        /// </summary>
+        public int GetGlMinorVersion() => _glContextManager.MinorVersion;
+
+        /// <summary>
+        /// Gets whether OpenGL 4.3 or higher is supported by the context.
+        /// </summary>
+        public bool GetHasOpenGL43() => _glContextManager.HasOpenGL43;
 
         /// <summary>
         /// Gets whether bindless texturing is supported by the context.
@@ -50,11 +64,19 @@ namespace WorldBuilder.Services {
         }
 
         /// <summary>
-        /// Gets whether OpenGL 4.3 or higher is supported by the context.
+        /// Gets whether bindless texturing is supported by the hardware.
         /// </summary>
-        public bool GetHasOpenGL43() {
-            return _glContextManager.HasOpenGL43;
-        }
+        public bool IsBindlessSupportedByHardware() => _glContextManager.IsBindlessSupportedByHardware;
+
+        /// <summary>
+        /// Gets whether the legacy rendering pipeline was forced by a command line argument.
+        /// </summary>
+        public bool IsLegacyRenderingForcedByCLI() => _glContextManager.IsLegacyRenderingForcedByCLI;
+
+        /// <summary>
+        /// Gets whether the legacy rendering pipeline was forced by the application settings.
+        /// </summary>
+        public bool IsLegacyRenderingForcedBySettings() => _glContextManager.IsLegacyRenderingForcedBySettings;
 
         /// <summary>
         /// Gets whether the modern rendering pipeline is supported (requires OpenGL 4.3+ and Bindless).
