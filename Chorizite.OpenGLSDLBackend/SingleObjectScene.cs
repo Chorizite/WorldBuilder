@@ -253,6 +253,9 @@ namespace Chorizite.OpenGLSDLBackend {
                     if (deltaTime > 0) NeedsRender = true;
                 }
             }
+            else {
+                if (deltaTime > 0) NeedsRender = true;
+            }
         }
 
         public void HandleKeyDown(string key) {
