@@ -34,9 +34,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private bool _showEnvCells = true;
 
-        // Grouped instances by cellId for efficient portal-based rendering
-        private readonly Dictionary<uint, Dictionary<ulong, List<InstanceData>>> _batchedByCell = new();
-
         protected override bool RenderHighlightsWhenEmpty => true;
 
         protected override int MaxConcurrentGenerations => Math.Max(4, System.Environment.ProcessorCount * 2);
@@ -270,7 +267,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     var testResult = _frustum.TestBox(lb.TotalEnvCellBounds);
                     if (testResult == FrustumTestResult.Outside) return;
 
-                    var seenOutsideCells = lb.SeenOutsideCells;
                     var lbBatchedByCell = threadLocalBatchedByCell.Value!;
                     var lbGlobalGroups = threadLocalGlobalGroups.Value!;
 
@@ -344,17 +340,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             // Atomic swap under lock
             lock (_renderLock) {
-                _batchedByCell.Clear();
-                foreach (var kvp in newBatchedByCell) _batchedByCell[kvp.Key] = kvp.Value;
-
-                _visibleGroups.Clear();
-                foreach (var kvp in newVisibleGroups) _visibleGroups[kvp.Key] = kvp.Value;
-
-                _visibleGfxObjIds.Clear();
-                _visibleGfxObjIds.AddRange(newVisibleGfxObjIds);
-
-                _postPreparePoolIndex = _poolIndex;
+                _activeSnapshot = new VisibilitySnapshot {
+                    BatchedByCell = newBatchedByCell,
+                    VisibleGroups = newVisibleGroups,
+                    VisibleGfxObjIds = newVisibleGfxObjIds,
+                    VisibleLandblocks = new List<ObjectLandblock>(), // EnvCells don't use consolidated MDI yet
+                    PostPreparePoolIndex = _poolIndex
+                };
+                _poolIndex = 0;
                 NeedsPrepare = false;
+                MarkMdiDirty();
             }
         }
 
@@ -388,8 +383,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || (_cameraPosition.Z > 4000 && renderPass != RenderPass.SinglePass)) return;
 
             lock (_renderLock) {
+                var snapshot = _activeSnapshot;
                 _shader.Bind();
-                _poolIndex = _postPreparePoolIndex;
+                _poolIndex = snapshot.PostPreparePoolIndex;
                 CurrentVAO = 0;
                 CurrentIBO = 0;
                 CurrentAtlas = 0;
@@ -404,8 +400,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 if (filter == null) {
                     // Optimized path: Use global groups batched across all cells
-                    foreach (var gfxObjId in _visibleGfxObjIds) {
-                        if (_visibleGroups.TryGetValue(gfxObjId, out var transforms)) {
+                    foreach (var gfxObjId in snapshot.VisibleGfxObjIds) {
+                        if (snapshot.VisibleGroups.TryGetValue(gfxObjId, out var transforms)) {
                             var renderData = MeshManager.TryGetRenderData(gfxObjId);
                             if (renderData != null && !renderData.IsSetup) {
                                 drawCalls.Add((renderData, transforms.Count, allInstances.Count));
@@ -420,7 +416,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     var ownedLists = new HashSet<List<InstanceData>>();
 
                     foreach (var cellId in filter) {
-                        if (_batchedByCell.TryGetValue(cellId, out var gfxDict)) {
+                        if (snapshot.BatchedByCell.TryGetValue(cellId, out var gfxDict)) {
                             foreach (var (gfxObjId, transforms) in gfxDict) {
                                 if (transforms.Count > 0) {
                                     if (!filteredGroups.TryGetValue(gfxObjId, out var list)) {
@@ -470,7 +466,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 // Draw highlighted / selected objects on top
-                if (RenderHighlightsWhenEmpty || _batchedByCell.Count > 0) {
+                if (RenderHighlightsWhenEmpty || snapshot.BatchedByCell.Count > 0) {
                     Gl.Enable(EnableCap.PolygonOffsetFill);
                     Gl.PolygonOffset(-1.0f, -1.0f);
                     Gl.DepthFunc(GLEnum.Lequal);
