@@ -898,11 +898,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             if (lb.PendingInstances != null) {
+                // Increment ref counts for NEW instances first to prevent accidental eviction of shared objects
+                IncrementInstanceRefCounts(lb.PendingInstances);
+
                 // Decrement ref counts for OLD instances
                 DecrementInstanceRefCounts(lb.Instances);
-
-                // Increment ref counts for NEW instances
-                IncrementInstanceRefCounts(lb.PendingInstances);
 
                 lb.Instances = lb.PendingInstances;
                 lb.PendingInstances = null;
