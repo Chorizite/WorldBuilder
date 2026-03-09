@@ -68,12 +68,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected readonly object _activeLandblocksLock = new();
         protected readonly object _renderLock = new();
         protected bool _activeLandblocksDirty = true;
-        protected readonly List<ObjectLandblock> _visibleLandblocks = new();
+        protected VisibilitySnapshot _activeSnapshot = new();
         protected readonly List<ObjectLandblock> _intersectingLandblocks = new();
-
-        // Grouped instances for rendering
-        protected readonly Dictionary<ulong, List<InstanceData>> _visibleGroups = new();
-        protected readonly List<ulong> _visibleGfxObjIds = new();
 
         public bool NeedsPrepare { get; protected set; } = true;
 
@@ -226,7 +222,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 }
                             }
                         }
-                        else if (_landblocks.TryGetValue(key, out var lb) && !lb.InstancesReady && !_pendingGeneration.ContainsKey(key)) {
+                        else if (_landblocks.TryGetValue(key, out var lb) && !lb.InstancesReady && !_pendingGeneration.ContainsKey(key) && !_generationCTS.ContainsKey(key) && !_uploadQueue.ContainsKey(key)) {
                             // If it's tracked but not yet generated/queued, check if it should now be queued
                             bool inFrustum = _frustum.TestBox(lb.BoundingBox) != FrustumTestResult.Outside;
                             bool isVeryClose = Math.Abs(x - _cameraLbX) <= 10 && Math.Abs(y - _cameraLbY) <= 10;
@@ -241,7 +237,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Unload landblocks outside render distance (with delay)
             _keysToRemoveBuffer.Clear();
             foreach (var (key, lb) in _landblocks) {
-                if (Math.Abs(lb.GridX - _cameraLbX) > RenderDistance || Math.Abs(lb.GridY - _cameraLbY) > RenderDistance) {
+                if (Math.Abs(lb.GridX - _cameraLbX) > RenderDistance + 2 || Math.Abs(lb.GridY - _cameraLbY) > RenderDistance + 2) {
                     var elapsed = _outOfRangeTimers.AddOrUpdate(key, deltaTime, (_, e) => e + deltaTime);
                     if (elapsed >= UnloadDelay) {
                         _keysToRemoveBuffer.Add(key);
@@ -311,7 +307,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 int chosenDist = Math.Max(Math.Abs(lbToGenerate.GridX - _cameraLbX), Math.Abs(lbToGenerate.GridY - _cameraLbY));
 
                 // Skip if now out of range (don't skip based on frustum - that causes flickering when camera pans)
-                if (chosenDist > RenderDistance) {
+                if (chosenDist > RenderDistance + 2) {
                     if (_landblocks.TryRemove(bestKey, out _)) {
                         UnloadLandblockResources(lbToGenerate);
                     }
@@ -473,8 +469,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             // Build new lists locally to avoid clearing the ones currently being used by the Render thread
-            _prepareVisibleBuffer.Clear();
-            _prepareIntersectingBuffer.Clear();
+            var visibleLandblocks = new List<ObjectLandblock>();
+            var intersectingLandblocks = new List<ObjectLandblock>();
 
             lock (_activeLandblocksLock) {
                 if (_activeLandblocks.Count > 0) {
@@ -482,21 +478,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         var testResult = _frustum.TestBox(lb.BoundingBox);
                         if (testResult == FrustumTestResult.Outside) continue;
 
-                        _prepareVisibleBuffer.Add(lb);
+                        visibleLandblocks.Add(lb);
                     }
                 }
             }
 
             // Atomic swap under lock
             lock (_renderLock) {
-                _visibleLandblocks.Clear();
-                _visibleLandblocks.AddRange(_prepareVisibleBuffer);
-                _intersectingLandblocks.Clear();
-                _intersectingLandblocks.AddRange(_prepareIntersectingBuffer);
-                _visibleGroups.Clear();
-                _visibleGfxObjIds.Clear();
+                _activeSnapshot = new VisibilitySnapshot {
+                    VisibleLandblocks = visibleLandblocks,
+                    IntersectingLandblocks = intersectingLandblocks,
+                    VisibleGroups = new Dictionary<ulong, List<InstanceData>>(),
+                    VisibleGfxObjIds = new List<ulong>(),
+                    PostPreparePoolIndex = _poolIndex
+                };
                 _poolIndex = 0;
-                _postPreparePoolIndex = 0;
                 NeedsPrepare = false;
                 MarkMdiDirty();
             }
@@ -558,17 +554,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || _cameraPosition.Z > 4000) return;
 
             lock (_renderLock) {
+                var snapshot = _activeSnapshot;
                 _shader.Bind();
-                _poolIndex = _postPreparePoolIndex;
+                _poolIndex = snapshot.PostPreparePoolIndex;
                 BaseObjectRenderManager.CurrentVAO = 0;
                 BaseObjectRenderManager.CurrentIBO = 0;
                 BaseObjectRenderManager.CurrentAtlas = 0;
+                BaseObjectRenderManager.CurrentInstanceBuffer = 0;
                 BaseObjectRenderManager.CurrentCullMode = null;
 
                 _shader.SetUniform("uRenderPass", (int)renderPass);
                 _shader.SetUniform("uHighlightColor", Vector4.Zero);
 
-                if (_visibleLandblocks.Count == 0 && _visibleGfxObjIds.Count == 0) {
+                if (snapshot.IsEmpty) {
                     if (RenderHighlightsWhenEmpty) {
                         Gl.Enable(EnableCap.PolygonOffsetFill);
                         Gl.PolygonOffset(-1.0f, -1.0f);
@@ -586,23 +584,23 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 // 1. Render fully visible landblocks using the consolidated pipeline (extremely fast)
-                if (_visibleLandblocks.Count > 0) {
+                if (snapshot.VisibleLandblocks.Count > 0) {
                     if (_useModernRendering) {
-                        RenderConsolidatedMDI(_shader, _visibleLandblocks, renderPass);
+                        RenderConsolidatedMDI(_shader, snapshot.VisibleLandblocks, renderPass);
                     }
                     else {
-                        RenderConsolidated(_shader, _visibleLandblocks, renderPass);
+                        RenderConsolidated(_shader, snapshot.VisibleLandblocks, renderPass);
                     }
                 }
 
                 // 2. Render intersecting landblocks using the consolidated buffer (slow path - needs per-frame upload)
-                if (_visibleGfxObjIds.Count > 0) {
+                if (snapshot.VisibleGfxObjIds.Count > 0) {
                     // Gather all instance data and build draw calls
                     var allInstances = new List<InstanceData>();
                     var drawCalls = new List<(ObjectRenderData renderData, int count, int offset)>();
 
-                    foreach (var gfxObjId in _visibleGfxObjIds) {
-                        if (_visibleGroups.TryGetValue(gfxObjId, out var transforms)) {
+                    foreach (var gfxObjId in snapshot.VisibleGfxObjIds) {
+                        if (snapshot.VisibleGroups.TryGetValue(gfxObjId, out var transforms)) {
                             var renderData = MeshManager.TryGetRenderData(gfxObjId);
                             if (renderData != null && !renderData.IsSetup) {
                                 drawCalls.Add((renderData, transforms.Count, allInstances.Count));
@@ -639,6 +637,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (renderPass != RenderPass.Opaque) {
                     _mdiDirty = false;
                 }
+                GLHelpers.CheckErrors(Gl);
             }
         }
 
@@ -784,8 +783,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Protected: Shared Helpers
         protected bool IsWithinRenderDistance(ObjectLandblock lb) {
-            return Math.Abs(lb.GridX - _cameraLbX) <= RenderDistance
-                && Math.Abs(lb.GridY - _cameraLbY) <= RenderDistance;
+            return Math.Abs(lb.GridX - _cameraLbX) <= RenderDistance + 2
+                && Math.Abs(lb.GridY - _cameraLbY) <= RenderDistance + 2;
         }
 
         #endregion

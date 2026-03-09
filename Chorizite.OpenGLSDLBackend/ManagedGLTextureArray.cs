@@ -1,4 +1,4 @@
-﻿using Chorizite.Core.Render;
+using Chorizite.Core.Render;
 using Chorizite.Core.Render.Enums;
 using Chorizite.OpenGLSDLBackend.Extensions;
 using Chorizite.OpenGLSDLBackend.Lib;
@@ -143,10 +143,20 @@ namespace Chorizite.OpenGLSDLBackend {
                 return;
             }
 
+            GL.GetInteger(GLEnum.ActiveTexture, out int oldActiveTexture);
+            GLEnum targetTextureUnit = GLEnum.Texture0 + slot;
+            bool changedUnit = (GLEnum)oldActiveTexture != targetTextureUnit;
+
+            if (changedUnit) {
+                GL.ActiveTexture(targetTextureUnit);
+            }
+            
             GL.BindSampler((uint)slot, 0);
-            GL.ActiveTexture(GLEnum.Texture0 + slot);
-            GLHelpers.CheckErrors(GL);
             GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
+            
+            if (changedUnit) {
+                GL.ActiveTexture((GLEnum)oldActiveTexture);
+            }
             GLHelpers.CheckErrors(GL);
         }
 
@@ -250,8 +260,13 @@ namespace Chorizite.OpenGLSDLBackend {
 
         private unsafe void ProcessDirtyUpdatesInternal() {
             if (_pendingUpdates.Count == 0 && !_needsMipmapRegeneration) return;
+            
+            GLHelpers.CheckErrors(GL);
 
+            GL.GetInteger(GLEnum.ActiveTexture, out int oldActiveTexture);
             BaseObjectRenderManager.CurrentAtlas = 0;
+            
+            GL.GetInteger(GLEnum.TextureBinding2DArray, out int oldBinding);
             GL.BindTexture(GLEnum.Texture2DArray, (uint)NativePtr);
 
             bool wasResident = false;
@@ -291,7 +306,6 @@ namespace Chorizite.OpenGLSDLBackend {
                 else {
                     try {
                         GL.GenerateMipmap(GLEnum.Texture2DArray);
-                        GLHelpers.CheckErrorsWithContext(GL, "Generating mipmaps for texture array");
                     }
                     catch (Exception ex) {
                         _logger.LogWarning(ex, "Failed to generate mipmaps for texture array (Slot={Slot}).", Slot);
@@ -304,6 +318,10 @@ namespace Chorizite.OpenGLSDLBackend {
             if (wasResident && BindlessHandle != 0 && _device.BindlessExtension != null) {
                 _device.BindlessExtension.MakeTextureHandleResident(BindlessHandle);
             }
+
+            GL.BindTexture(GLEnum.Texture2DArray, (uint)oldBinding);
+            GL.ActiveTexture((GLEnum)oldActiveTexture);
+            GLHelpers.CheckErrors(GL);
         }
 
         private void ClearLayerForMipmap(int layer) {

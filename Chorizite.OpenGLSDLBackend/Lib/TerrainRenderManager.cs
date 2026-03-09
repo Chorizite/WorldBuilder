@@ -116,8 +116,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private LandSurfaceManager? _surfaceManager;
         private bool _ownsSurfaceManager;
 
-        public static uint CurrentVAO;
-
         public TerrainRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc, IDatReaderWriter dats,
             OpenGLGraphicsDevice graphicsDevice, IDocumentManager documentManager, Frustum frustum, LandSurfaceManager? surfaceManager = null) {
             _gl = gl;
@@ -259,7 +257,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 }
                             }
                         }
-                        else if (_chunks.TryGetValue(chunkId, out var chunk) && !chunk.IsGenerated && !_pendingGeneration.ContainsKey(chunkId)) {
+                        else if (_chunks.TryGetValue(chunkId, out var chunk) && !chunk.IsGenerated && !chunk.IsGenerating && !_pendingGeneration.ContainsKey(chunkId) && !_uploadQueue.ContainsKey(chunkId)) {
                             // If it's tracked but not yet generated/queued, check if it should now be queued
                             bool inFrustum = IsChunkInFrustum(x, y) != FrustumTestResult.Outside;
                             bool isVeryClose = Math.Abs(x - chunkX) <= 4 && Math.Abs(y - chunkY) <= 4;
@@ -282,7 +280,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var (key, chunk) in _chunks) {
                 int dx = (int)chunk.ChunkX - chunkX;
                 int dy = (int)chunk.ChunkY - chunkY;
-                if (Math.Abs(dx) > RenderDistance || Math.Abs(dy) > RenderDistance) {
+                if (Math.Abs(dx) > RenderDistance + 2 || Math.Abs(dy) > RenderDistance + 2) {
                     var elapsed = _outOfRangeTimers.AddOrUpdate(key, deltaTime, (_, e) => e + deltaTime);
                     if (elapsed >= UnloadDelay) {
                         _chunkKeysToRemove.Add(key);
@@ -349,7 +347,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 int chosenDist = Math.Max(Math.Abs((int)chunkToGenerate.ChunkX - chunkX), Math.Abs((int)chunkToGenerate.ChunkY - chunkY));
 
                 // Skip if now out of range (don't skip based on frustum - that causes flickering when camera pans)
-                if (chosenDist > RenderDistance) {
+                if (chosenDist > RenderDistance + 2) {
                     if (_chunks.TryRemove(bestKey, out _)) {
                         ReleaseChunk(chunkToGenerate);
                         chunkToGenerate.Dispose();
@@ -358,11 +356,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 System.Threading.Interlocked.Increment(ref _activeGenerations);
+                chunkToGenerate.IsGenerating = true;
                 Task.Run(async () => {
                     try {
                         await GenerateChunk(chunkToGenerate, _cts.Token);
                     }
                     finally {
+                        chunkToGenerate.IsGenerating = false;
                         System.Threading.Interlocked.Decrement(ref _activeGenerations);
                     }
                 }, _cts.Token);
@@ -384,8 +384,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         private bool IsWithinRenderDistance(TerrainChunk chunk, int cameraChunkX, int cameraChunkY) {
-            return Math.Abs((int)chunk.ChunkX - cameraChunkX) <= RenderDistance
-                && Math.Abs((int)chunk.ChunkY - cameraChunkY) <= RenderDistance;
+            return Math.Abs((int)chunk.ChunkX - cameraChunkX) <= RenderDistance + 2
+                && Math.Abs((int)chunk.ChunkY - cameraChunkY) <= RenderDistance + 2;
         }
 
         public float ProcessUploads(float timeBudgetMs) {
@@ -718,6 +718,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private unsafe void UploadChunk(TerrainChunk chunk) {
             if (chunk.GeneratedVertices.Length == 0) {
                 //_log.LogWarning("Skipping upload for chunk {CX},{CY}: No vertices", chunk.ChunkX, chunk.ChunkY);
+                chunk.IsGenerated = true;
                 return;
             }
 
@@ -791,7 +792,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public unsafe void Render(Matrix4x4 viewMatrix, Matrix4x4 projectionMatrix, Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, float fieldOfView) {
             if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0)) return;
 
-            CurrentVAO = 0;
+            BaseObjectRenderManager.CurrentVAO = 0;
 
             _shader.Bind();
 
@@ -876,6 +877,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         _gl.BufferSubData(GLEnum.DrawIndirectBuffer, 0, (nuint)(_visibleChunksBuffer.Count * sizeof(DrawElementsIndirectCommand)), pCmds);
                     }
 
+                    _gl.MemoryBarrier(MemoryBarrierMask.CommandBarrierBit);
+
                     _gl.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, (void*)0, (uint)_visibleChunksBuffer.Count, (uint)sizeof(DrawElementsIndirectCommand));
 
                     _gl.BindBuffer(GLEnum.DrawIndirectBuffer, 0);
@@ -892,6 +895,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             _gl.BindVertexArray(0);
             BaseObjectRenderManager.CurrentVAO = 0;
+            GLHelpers.CheckErrors(_gl);
         }
 
         public void GenerateMipmaps() {
