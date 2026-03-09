@@ -804,8 +804,8 @@ public class GameScene : IDisposable {
 
             _portalManager?.ResetNeedsPrepare();
 
-            if (System.Environment.ProcessorCount <= 4) {
-                // On low-core CPUs, serialize to avoid thread pool contention
+            if (true) {
+                // Serialized to avoid thread pool contention
                 if (_state.ShowScenery) {
                     _sceneryManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
                 }
@@ -824,36 +824,6 @@ public class GameScene : IDisposable {
                     _envCellManager.PrepareRenderBatches(snapshotVP, snapshotPos, envCellFilter, !isInside && _state.EnableCameraCollision);
                 }
                 _terrainManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
-            }
-            else {
-                Parallel.Invoke(
-                    () => {
-                        if (_state.ShowScenery) {
-                            _sceneryManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
-                        }
-                    },
-                    () => {
-                        if (_state.ShowStaticObjects || _state.ShowBuildings) {
-                            _staticObjectManager?.SetVisibilityFilters(_state.ShowBuildings, _state.ShowStaticObjects);
-                            _staticObjectManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
-                        }
-                    },
-                    () => {
-                        if (_state.ShowEnvCells && _envCellManager != null) {
-                            _envCellManager.SetVisibilityFilters(_state.ShowEnvCells);
-
-                            HashSet<uint>? envCellFilter = visibleEnvCells;
-                            if (!isInside && !_state.EnableCameraCollision) {
-                                envCellFilter = null;
-                            }
-
-                            _envCellManager.PrepareRenderBatches(snapshotVP, snapshotPos, envCellFilter, !isInside && _state.EnableCameraCollision);
-                        }
-                    },
-                    () => {
-                        _terrainManager?.PrepareRenderBatches(snapshotVP, snapshotPos);
-                    }
-                );
             }
             _lastPrepareCameraPos = snapshotPos;
             _lastPrepareCameraRot = snapshotRot;

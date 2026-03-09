@@ -71,8 +71,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             object lockObj = new object();
 
             var localRegion = region;
-            var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = System.Environment.ProcessorCount };
-            Parallel.ForEach(validBlocks, parallelOptions, block => {
+            foreach (var block in validBlocks) {
                 var landblockID = localRegion!.GetLandblockId((int)block.lx, (int)block.ly);
                 var (lbMinZ, lbMaxZ) = GenerateLandblockGeometry(
                     block.lx, block.ly, landblockID,
@@ -86,11 +85,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 chunk.LandblockBoundsMinZ[localIdx] = lbMinZ;
                 chunk.LandblockBoundsMaxZ[localIdx] = lbMaxZ;
 
-                lock (lockObj) {
-                    minZ = Math.Min(minZ, lbMinZ);
-                    maxZ = Math.Max(maxZ, lbMaxZ);
-                }
-            });
+                minZ = Math.Min(minZ, lbMinZ);
+                maxZ = Math.Max(maxZ, lbMaxZ);
+            }
 
             var mapOffset = region!.MapOffset;
             chunk.Bounds = new BoundingBox(

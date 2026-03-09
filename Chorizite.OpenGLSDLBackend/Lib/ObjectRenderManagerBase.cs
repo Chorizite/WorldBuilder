@@ -104,7 +104,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public Vector3 LightDirection { get; set; } = Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f));
 
         /// <summary>Maximum number of concurrent background generation tasks.</summary>
-        protected virtual int MaxConcurrentGenerations => Math.Max(2, System.Environment.ProcessorCount / 2);
+        protected virtual int MaxConcurrentGenerations => 1;
 
         /// <summary>
         /// When true, highlighted/selected objects are rendered even when the visible list
@@ -318,18 +318,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var genCts = new CancellationTokenSource();
                 _generationCTS[bestKey] = genCts;
                 var token = genCts.Token;
-                Task.Run(async () => {
-                    try {
-                        await GenerateForLandblockAsync(lbToGenerate, token);
+
+                try {
+                    GenerateForLandblockAsync(lbToGenerate, token).GetAwaiter().GetResult();
+                }
+                finally {
+                    if (_generationCTS.TryGetValue(bestKey, out var currentCts) && currentCts == genCts) {
+                        _generationCTS.TryRemove(bestKey, out _);
                     }
-                    finally {
-                        if (_generationCTS.TryGetValue(bestKey, out var currentCts) && currentCts == genCts) {
-                            _generationCTS.TryRemove(bestKey, out _);
-                        }
-                        genCts.Dispose();
-                        Interlocked.Decrement(ref _activeGenerations);
-                    }
-                });
+                    genCts.Dispose();
+                    Interlocked.Decrement(ref _activeGenerations);
+                }
             }
         }
 

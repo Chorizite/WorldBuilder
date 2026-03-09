@@ -357,15 +357,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 System.Threading.Interlocked.Increment(ref _activeGenerations);
                 chunkToGenerate.IsGenerating = true;
-                Task.Run(async () => {
-                    try {
-                        await GenerateChunk(chunkToGenerate, _cts.Token);
-                    }
-                    finally {
-                        chunkToGenerate.IsGenerating = false;
-                        System.Threading.Interlocked.Decrement(ref _activeGenerations);
-                    }
-                }, _cts.Token);
+                try {
+                    GenerateChunk(chunkToGenerate, _cts.Token).GetAwaiter().GetResult();
+                }
+                finally {
+                    chunkToGenerate.IsGenerating = false;
+                    System.Threading.Interlocked.Decrement(ref _activeGenerations);
+                }
             }
         }
 
@@ -466,17 +464,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         private void DispatchPartialUpdates() {
-            int maxPartialUpdates = Math.Max(2, System.Environment.ProcessorCount / 2);
-            while (_activePartialUpdates < maxPartialUpdates && _partialUpdateQueue.TryDequeue(out var chunk)) {
+            while (_partialUpdateQueue.TryDequeue(out var chunk)) {
                 System.Threading.Interlocked.Increment(ref _activePartialUpdates);
-                Task.Run(() => {
-                    try {
-                        ProcessChunkUpdate(chunk);
-                    }
-                    finally {
-                        System.Threading.Interlocked.Decrement(ref _activePartialUpdates);
-                    }
-                }, _cts.Token);
+                try {
+                    ProcessChunkUpdate(chunk);
+                }
+                finally {
+                    System.Threading.Interlocked.Decrement(ref _activePartialUpdates);
+                }
             }
         }
 

@@ -182,7 +182,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private readonly List<(ulong Id, bool IsSetup, TaskCompletionSource<ObjectMeshData?> Tcs, CancellationToken Ct)> _pendingRequests = new();
         private int _activeWorkers = 0;
-        private const int MaxParallelLoads = 4;
+        private const int MaxParallelLoads = 1;
 
         public ObjectMeshManager(OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats, ILogger<ObjectMeshManager> logger) {
             _graphicsDevice = graphicsDevice;
@@ -338,10 +338,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     Surfaces = surfaces
                 };
                 _pendingRequests.Add((geomId, false, tcs, ct));
-                if (_activeWorkers < MaxParallelLoads) {
-                    _activeWorkers++;
-                    Task.Run(ProcessQueueAsync);
-                }
+                ProcessQueueAsync().GetAwaiter().GetResult();
             }
 
             return task;
@@ -381,10 +378,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             lock (_pendingRequests) {
                 _pendingRequests.Add((id, isSetup, tcs, ct));
-                if (_activeWorkers < MaxParallelLoads) {
-                    _activeWorkers++;
-                    Task.Run(ProcessQueueAsync);
-                }
+                ProcessQueueAsync().GetAwaiter().GetResult();
             }
 
             return task;

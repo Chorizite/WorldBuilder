@@ -66,51 +66,49 @@ namespace WorldBuilder.Services {
                 }
             }
 
-            return await Task.Run(() => {
-                try {
-                    RenderSurface? renderSurface = null;
-                    var resolutions = _dats.ResolveId(textureId).ToList();
-                    var renderSurfaceId = textureId;
-                    IDatDatabase? sourceDb = null;
+            try {
+                RenderSurface? renderSurface = null;
+                var resolutions = _dats.ResolveId(textureId).ToList();
+                var renderSurfaceId = textureId;
+                IDatDatabase? sourceDb = null;
 
-                    // Try to find if it's a SurfaceTexture first
-                    var surfTexRes = resolutions.FirstOrDefault(r => r.Type == DBObjType.SurfaceTexture);
-                    if (surfTexRes != null) {
-                        if (surfTexRes.Database.TryGet<SurfaceTexture>(textureId, out var surfaceTexture)) {
-                            renderSurfaceId = surfaceTexture.Textures.FirstOrDefault() ?? 0;
-                            // Re-resolve for the actual RenderSurface
-                            resolutions = _dats.ResolveId(renderSurfaceId).ToList();
-                        }
+                // Try to find if it's a SurfaceTexture first
+                var surfTexRes = resolutions.FirstOrDefault(r => r.Type == DBObjType.SurfaceTexture);
+                if (surfTexRes != null) {
+                    if (surfTexRes.Database.TryGet<SurfaceTexture>(textureId, out var surfaceTexture)) {
+                        renderSurfaceId = surfaceTexture.Textures.FirstOrDefault() ?? 0;
+                        // Re-resolve for the actual RenderSurface
+                        resolutions = _dats.ResolveId(renderSurfaceId).ToList();
                     }
-
-                    // Look for RenderSurface in resolutions, prioritizing HighRes then Portal
-                    var renderSurfRes = resolutions.Where(r => r.Type == DBObjType.RenderSurface)
-                                                  .OrderByDescending(r => r.Database == _dats.HighRes)
-                                                  .ThenByDescending(r => r.Database == _dats.Portal)
-                                                  .FirstOrDefault();
-
-                    if (renderSurfRes != null) {
-                        sourceDb = renderSurfRes.Database;
-                        if (sourceDb.TryGet<RenderSurface>(renderSurfaceId, out var surf)) {
-                            renderSurface = surf;
-                        }
-                    }
-
-                    if (renderSurface == null) {
-                        _logger.LogWarning("Could not find any RenderSurface for texture 0x{TextureId:X8}", textureId);
-                        AddToCache(cacheKey, null);
-                        return null;
-                    }
-
-                    var bitmap = CreateBitmapFromSurface(renderSurface, paletteId, isClipMap);
-                    AddToCache(cacheKey, bitmap);
-                    return bitmap;
                 }
-                catch (Exception ex) {
-                    _logger.LogError(ex, "Error loading texture {TextureId}", textureId);
+
+                // Look for RenderSurface in resolutions, prioritizing HighRes then Portal
+                var renderSurfRes = resolutions.Where(r => r.Type == DBObjType.RenderSurface)
+                                              .OrderByDescending(r => r.Database == _dats.HighRes)
+                                              .ThenByDescending(r => r.Database == _dats.Portal)
+                                              .FirstOrDefault();
+
+                if (renderSurfRes != null) {
+                    sourceDb = renderSurfRes.Database;
+                    if (sourceDb.TryGet<RenderSurface>(renderSurfaceId, out var surf)) {
+                        renderSurface = surf;
+                    }
+                }
+
+                if (renderSurface == null) {
+                    _logger.LogWarning("Could not find any RenderSurface for texture 0x{TextureId:X8}", textureId);
+                    AddToCache(cacheKey, null);
                     return null;
                 }
-            });
+
+                var bitmap = CreateBitmapFromSurface(renderSurface, paletteId, isClipMap);
+                AddToCache(cacheKey, bitmap);
+                return bitmap;
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Error loading texture {TextureId}", textureId);
+                return null;
+            }
         }
 
         private void AddToCache(long key, Bitmap? bitmap) {

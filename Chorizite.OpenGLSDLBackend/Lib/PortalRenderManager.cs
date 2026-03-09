@@ -233,15 +233,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 Interlocked.Increment(ref _activeGenerations);
                 lbToGenerate.IsGenerating = true;
-                Task.Run(async () => {
-                    try {
-                        await GeneratePortalsForLandblock(lbToGenerate);
-                    }
-                    finally {
-                        lbToGenerate.IsGenerating = false;
-                        Interlocked.Decrement(ref _activeGenerations);
-                    }
-                });
+                try {
+                    GeneratePortalsForLandblock(lbToGenerate).GetAwaiter().GetResult();
+                }
+                finally {
+                    lbToGenerate.IsGenerating = false;
+                    Interlocked.Decrement(ref _activeGenerations);
+                }
             }
         }
 
