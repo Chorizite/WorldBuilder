@@ -438,6 +438,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             Gl.BindBufferBase(GLEnum.ShaderStorageBuffer, 0, _worldInstanceSSBO);
             Gl.BindBufferBase(GLEnum.ShaderStorageBuffer, 1, _modernBatchBuffers[passIdx]);
 
+            Gl.MemoryBarrier(MemoryBarrierMask.ShaderStorageBarrierBit | MemoryBarrierMask.CommandBarrierBit);
+
             int currentDrawOffset = 0;
             for (int i = 0; i < 4; i++) {
                 var group = _cullGroups[i];
@@ -654,6 +656,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             Gl.BindBufferBase(GLEnum.ShaderStorageBuffer, 0, _modernInstanceBuffers[passIdx]);
             Gl.BindBufferBase(GLEnum.ShaderStorageBuffer, 1, _scratchModernBatchBuffers[passIdx]);
+
+            Gl.MemoryBarrier(MemoryBarrierMask.ShaderStorageBarrierBit | MemoryBarrierMask.CommandBarrierBit);
 
             int currentDrawOffset = 0;
             foreach (var group in batchesByCullMode) {

@@ -879,6 +879,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         _gl.BufferSubData(GLEnum.DrawIndirectBuffer, 0, (nuint)(_visibleChunksBuffer.Count * sizeof(DrawElementsIndirectCommand)), pCmds);
                     }
 
+                    _gl.MemoryBarrier(MemoryBarrierMask.CommandBarrierBit);
+
                     _gl.MultiDrawElementsIndirect(PrimitiveType.Triangles, DrawElementsType.UnsignedInt, (void*)0, (uint)_visibleChunksBuffer.Count, (uint)sizeof(DrawElementsIndirectCommand));
 
                     _gl.BindBuffer(GLEnum.DrawIndirectBuffer, 0);
