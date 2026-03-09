@@ -1,18 +1,13 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using WorldBuilder.ViewModels;
-using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
 using DatReaderWriter.Lib.IO;
-using DatReaderWriter;
-using WorldBuilder.Shared.Services;
-using WorldBuilder.Services;
-using WorldBuilder.Lib;
-using WorldBuilder.Lib.Settings;
+using System.ComponentModel;
+using System.Globalization;
 using System.Numerics;
+using WorldBuilder.Lib.Settings;
+using WorldBuilder.Services;
+using WorldBuilder.Shared.Services;
+using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
     public abstract partial class BaseDatBrowserViewModel<T> : ViewModelBase, IDatBrowserViewModel, IDisposable where T : class, IDBObj {
@@ -24,10 +19,23 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private readonly PropertyChangedEventHandler _settingsChangedHandler;
 
         [ObservableProperty]
-        private IEnumerable<uint> _fileIds = Enumerable.Empty<uint>();
+        private IEnumerable<string> _fileIds = Enumerable.Empty<string>();
 
         [ObservableProperty]
         private uint _selectedFileId;
+
+        private string _selectedFileIdDisplay = string.Empty;
+
+        public string SelectedFileIdDisplay {
+            get => _selectedFileIdDisplay;
+            set {
+                if (SetProperty(ref _selectedFileIdDisplay, value)) {
+                    if (uint.TryParse(value, NumberStyles.HexNumber, null, out uint result)) {
+                        SelectedFileId = result;
+                    }
+                }
+            }
+        }
 
         [ObservableProperty]
         private IDBObj? _selectedObject;
@@ -56,7 +64,10 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             _database = database ?? dats.Portal;
             _settings = settings;
             _themeService = themeService;
-            _fileIds = fileIds ?? _database.GetAllIdsOfType<T>().OrderBy(x => x).ToList();
+            _fileIds = (fileIds ?? _database.GetAllIdsOfType<T>().OrderBy(x => x))
+                .Select(x => x.ToString("X8"))
+                .ToList();
+            SelectedFileIdDisplay = string.Empty;
             GridBrowser = new GridBrowserViewModel(type, dats, settings, themeService, (id) => SelectedFileId = id, _database);
             _wireframeColor = themeService.IsDarkMode ? new Vector4(1f, 1f, 1f, 0.5f) : new Vector4(0f, 0f, 0f, 0.5f);
 
@@ -77,6 +88,8 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         }
 
         partial void OnSelectedFileIdChanged(uint value) {
+            SelectedFileIdDisplay = value.ToString("X8");
+            
             if (value == 0) {
                 OnObjectLoaded(null);
                 SelectedObject = null;
