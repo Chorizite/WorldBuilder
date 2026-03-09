@@ -253,6 +253,10 @@ namespace Chorizite.OpenGLSDLBackend {
                     if (deltaTime > 0) NeedsRender = true;
                 }
             }
+            else {
+                // Freecam
+                if (deltaTime > 0) NeedsRender = true;
+            }
         }
 
         public void HandleKeyDown(string key) {
