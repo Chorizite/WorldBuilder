@@ -116,8 +116,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private LandSurfaceManager? _surfaceManager;
         private bool _ownsSurfaceManager;
 
-        public static uint CurrentVAO;
-
         public TerrainRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc, IDatReaderWriter dats,
             OpenGLGraphicsDevice graphicsDevice, IDocumentManager documentManager, Frustum frustum, LandSurfaceManager? surfaceManager = null) {
             _gl = gl;
@@ -794,7 +792,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public unsafe void Render(Matrix4x4 viewMatrix, Matrix4x4 projectionMatrix, Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, float fieldOfView) {
             if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0)) return;
 
-            CurrentVAO = 0;
+            BaseObjectRenderManager.CurrentVAO = 0;
 
             _shader.Bind();
 
@@ -897,6 +895,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             _gl.BindVertexArray(0);
             BaseObjectRenderManager.CurrentVAO = 0;
+            GLHelpers.CheckErrors(_gl);
         }
 
         public void GenerateMipmaps() {

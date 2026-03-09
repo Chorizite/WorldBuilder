@@ -33,11 +33,21 @@ namespace Chorizite.OpenGLSDLBackend {
                 string errorDetails = GetErrorDetails(error);
                 string location = $"{System.IO.Path.GetFileName(callerFile)}::{callerName}:{callerLine}";
 
-                var program = gl.GetInteger(GLEnum.CurrentProgram);
+                var program = (uint)gl.GetInteger(GLEnum.CurrentProgram);
                 var vao = gl.GetInteger(GLEnum.VertexArrayBinding);
                 var activeTex = gl.GetInteger(GLEnum.ActiveTexture);
+                var threadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
 
-                string message = $"OpenGL Error: {error} ({errorDetails}) at {location}. Program: {program}, VAO: {vao}, ActiveTex: {activeTex}";
+                string extraInfo = "";
+                if (program != 0) {
+                    bool isProgram = gl.IsProgram(program);
+                    gl.GetProgram(program, GLEnum.LinkStatus, out int linkStatus);
+                    gl.GetProgram(program, GLEnum.DeleteStatus, out int deleteStatus);
+                    gl.GetProgram(program, GLEnum.ValidateStatus, out int validateStatus);
+                    extraInfo = $", IsProg: {isProgram}, Link: {linkStatus}, Del: {deleteStatus}, Valid: {validateStatus}";
+                }
+
+                string message = $"OpenGL Error: {error} ({errorDetails}) at {location}. Thread: {threadId}, Program: {program}{extraInfo}, VAO: {vao}, ActiveTex: {activeTex}";
 
                 Logger?.LogError(message);
                 throw new Exception(message);

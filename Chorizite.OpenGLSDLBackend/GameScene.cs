@@ -732,6 +732,7 @@ public class GameScene : IDisposable {
         BaseObjectRenderManager.CurrentVAO = 0;
         BaseObjectRenderManager.CurrentIBO = 0;
         BaseObjectRenderManager.CurrentAtlas = 0;
+        BaseObjectRenderManager.CurrentInstanceBuffer = 0;
         BaseObjectRenderManager.CurrentCullMode = null;
 
         // Ensure we can clear the alpha channel to 1.0f (fully opaque)

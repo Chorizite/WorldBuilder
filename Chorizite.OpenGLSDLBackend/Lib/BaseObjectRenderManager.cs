@@ -437,6 +437,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             Gl.BindBufferBase(GLEnum.ShaderStorageBuffer, 0, _worldInstanceSSBO);
             Gl.BindBufferBase(GLEnum.ShaderStorageBuffer, 1, _modernBatchBuffers[passIdx]);
+            Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _mdiCommandBuffers[passIdx]);
 
             Gl.MemoryBarrier(MemoryBarrierMask.ShaderStorageBarrierBit | MemoryBarrierMask.CommandBarrierBit);
 
@@ -459,6 +460,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 currentDrawOffset += numDraws;
             }
             shader.SetUniform("uDrawIDOffset", 0);
+            Gl.BindBuffer(GLEnum.DrawIndirectBuffer, 0);
         }
 
         protected unsafe void RenderObjectBatches(IShader shader, ObjectRenderData renderData,
@@ -488,7 +490,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     vaoChanged = true;
                 }
 
-                Gl.BindBuffer(GLEnum.ArrayBuffer, instanceVbo);
+                if (CurrentInstanceBuffer != instanceVbo) {
+                    Gl.BindBuffer(GLEnum.ArrayBuffer, instanceVbo);
+                    CurrentInstanceBuffer = instanceVbo;
+                }
+
                 var stride = (uint)sizeof(InstanceData);
                 var offset = (byte*)0 + (instanceOffset * sizeof(InstanceData));
 
@@ -517,7 +523,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     var cullMode = showCulling ? batch.CullMode : CullMode.None;
                     if (CurrentCullMode != cullMode) {
                         SetCullMode(cullMode);
-                        CurrentCullMode = cullMode;
                     }
 
                     if (CurrentAtlas != (uint)batch.Atlas.TextureArray.NativePtr) {
@@ -543,6 +548,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (renderData.Batches.Count == 0 || instanceTransforms.Count == 0) return;
 
             GraphicsDevice.UpdateInstanceBuffer(instanceTransforms);
+            CurrentInstanceBuffer = GraphicsDevice.InstanceVBO;
 
             RenderObjectBatches(shader, renderData, instanceTransforms.Count, 0, GraphicsDevice.InstanceVBO, renderPass, showCulling);
         }
@@ -656,6 +662,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             Gl.BindBufferBase(GLEnum.ShaderStorageBuffer, 0, _modernInstanceBuffers[passIdx]);
             Gl.BindBufferBase(GLEnum.ShaderStorageBuffer, 1, _scratchModernBatchBuffers[passIdx]);
+            Gl.BindBuffer(GLEnum.DrawIndirectBuffer, _scratchMdiCommandBuffers[passIdx]);
 
             Gl.MemoryBarrier(MemoryBarrierMask.ShaderStorageBarrierBit | MemoryBarrierMask.CommandBarrierBit);
 
@@ -663,7 +670,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             foreach (var group in batchesByCullMode) {
                 if (CurrentCullMode != group.Key) {
                     SetCullMode(group.Key);
-                    CurrentCullMode = group.Key;
                 }
 
                 shader.SetUniform("uDrawIDOffset", currentDrawOffset);
@@ -674,9 +680,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 currentDrawOffset += numDraws;
             }
             shader.SetUniform("uDrawIDOffset", 0);
+            Gl.BindBuffer(GLEnum.DrawIndirectBuffer, 0);
+            shader.SetUniform("uDrawIDOffset", 0);
         }
 
         protected void SetCullMode(CullMode mode) {
+            CurrentCullMode = mode;
             switch (mode) {
                 case CullMode.None:
                     Gl.Disable(EnableCap.CullFace);

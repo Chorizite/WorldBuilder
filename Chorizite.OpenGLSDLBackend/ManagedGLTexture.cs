@@ -109,10 +109,14 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public void SetData(Rectangle rectangle, byte[] data) {
             if (_texture == 0) return;
-
-            BaseObjectRenderManager.CurrentAtlas = 0;
-            GL.BindTexture(GLEnum.Texture2D, _texture);
+            
             GLHelpers.CheckErrors(GL);
+
+            GL.GetInteger(GLEnum.ActiveTexture, out int oldActiveTexture);
+            BaseObjectRenderManager.CurrentAtlas = 0;
+            
+            GL.GetInteger(GLEnum.TextureBinding2D, out int oldBinding);
+            GL.BindTexture(GLEnum.Texture2D, _texture);
 
             bool wasResident = false;
             if (BindlessHandle != 0 && _device.BindlessExtension != null && _device.BindlessExtension.IsTextureHandleResident(BindlessHandle)) {
@@ -132,18 +136,17 @@ namespace Chorizite.OpenGLSDLBackend {
                     PixelType.UnsignedByte,
                     ptr
                 );
-                GLHelpers.CheckErrors(GL);
             }
 
             // Generate mipmaps if needed
             GL.GenerateMipmap(GLEnum.Texture2D);
-            GLHelpers.CheckErrors(GL);
 
             if (wasResident && BindlessHandle != 0 && _device.BindlessExtension != null) {
                 _device.BindlessExtension.MakeTextureHandleResident(BindlessHandle);
             }
 
-            GL.BindTexture(GLEnum.Texture2D, 0);
+            GL.BindTexture(GLEnum.Texture2D, (uint)oldBinding);
+            GL.ActiveTexture((GLEnum)oldActiveTexture);
             GLHelpers.CheckErrors(GL);
         }
 
@@ -151,10 +154,20 @@ namespace Chorizite.OpenGLSDLBackend {
             if (slot == 0) {
                 BaseObjectRenderManager.CurrentAtlas = 0;
             }
+            GL.GetInteger(GLEnum.ActiveTexture, out int oldActiveTexture);
+            GLEnum targetTextureUnit = GLEnum.Texture0 + slot;
+            bool changedUnit = (GLEnum)oldActiveTexture != targetTextureUnit;
+
+            if (changedUnit) {
+                GL.ActiveTexture(targetTextureUnit);
+            }
+            
             GL.BindSampler((uint)slot, 0);
-            GL.ActiveTexture(GLEnum.Texture0 + slot);
-            GLHelpers.CheckErrors(GL);
             GL.BindTexture(GLEnum.Texture2D, (uint)NativePtr);
+            
+            if (changedUnit) {
+                GL.ActiveTexture((GLEnum)oldActiveTexture);
+            }
             GLHelpers.CheckErrors(GL);
         }
 

@@ -393,6 +393,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 CurrentVAO = 0;
                 CurrentIBO = 0;
                 CurrentAtlas = 0;
+                CurrentInstanceBuffer = 0;
                 CurrentCullMode = null;
 
                 _shader.SetUniform("uRenderPass", (int)renderPass);

@@ -161,23 +161,47 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public override IShader CreateShader(string name, string vertexCode, string fragmentCode) {
             var key = $"{GL.GetHashCode()}_{name}_{vertexCode.GetHashCode()}_{fragmentCode.GetHashCode()}";
-            return _shaderCache.AddOrUpdate(key, 
-                (k) => new SharedShader(new GLSLShader(this, name, vertexCode, fragmentCode, _log), () => _shaderCache.TryRemove(key, out _)),
-                (k, existing) => {
-                    if (existing is SharedShader shared) shared.Increment();
-                    return existing;
-                });
+            
+            while (true) {
+                if (_shaderCache.TryGetValue(key, out var existing)) {
+                    if (existing is SharedShader shared && shared.TryIncrement()) {
+                        return existing;
+                    }
+                }
+
+                var inner = new GLSLShader(this, name, vertexCode, fragmentCode, _log);
+                var newShader = new SharedShader(inner, () => _shaderCache.TryRemove(key, out _));
+
+                if (_shaderCache.TryAdd(key, newShader)) {
+                    return newShader;
+                }
+                
+                // Someone else added it first, dispose ours and try again
+                newShader.DisposeInternal();
+            }
         }
 
         /// <inheritdoc />
         public override IShader CreateShader(string name, string shaderDirectory) {
             var key = $"{GL.GetHashCode()}_{name}";
-            return _shaderCache.AddOrUpdate(key, 
-                (k) => new SharedShader(new GLSLShader(this, name, shaderDirectory, _log), () => _shaderCache.TryRemove(key, out _)),
-                (k, existing) => {
-                    if (existing is SharedShader shared) shared.Increment();
-                    return existing;
-                });
+            
+            while (true) {
+                if (_shaderCache.TryGetValue(key, out var existing)) {
+                    if (existing is SharedShader shared && shared.TryIncrement()) {
+                        return existing;
+                    }
+                }
+
+                var inner = new GLSLShader(this, name, shaderDirectory, _log);
+                var newShader = new SharedShader(inner, () => _shaderCache.TryRemove(key, out _));
+
+                if (_shaderCache.TryAdd(key, newShader)) {
+                    return newShader;
+                }
+                
+                // Someone else added it first, dispose ours and try again
+                newShader.DisposeInternal();
+            }
         }
 
         private static readonly ConcurrentDictionary<string, IShader> _shaderCache = new();
@@ -195,7 +219,15 @@ namespace Chorizite.OpenGLSDLBackend {
                 _onDispose = onDispose;
             }
 
-            public void Increment() => _refCount++;
+            public bool TryIncrement() {
+                while (true) {
+                    int current = _refCount;
+                    if (current <= 0) return false;
+                    if (Interlocked.CompareExchange(ref _refCount, current + 1, current) == current) {
+                        return true;
+                    }
+                }
+            }
 
             public void Bind() => _shader.Bind();
             public void Unbind() => _shader.Unbind();
@@ -209,8 +241,13 @@ namespace Chorizite.OpenGLSDLBackend {
             public void SetUniform(string name, Matrix4x4 value) => _shader.SetUniform(name, value);
             public void SetUniform(string name, float[] values) => _shader.SetUniform(name, values);
 
+            public void DisposeInternal() {
+                _refCount = 0;
+                (_shader as IDisposable)?.Dispose();
+            }
+
             public void Dispose() {
-                if (--_refCount == 0) {
+                if (Interlocked.Decrement(ref _refCount) == 0) {
                     (_shader as IDisposable)?.Dispose();
                     _onDispose();
                 }

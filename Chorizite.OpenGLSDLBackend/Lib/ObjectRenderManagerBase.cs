@@ -563,6 +563,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 BaseObjectRenderManager.CurrentVAO = 0;
                 BaseObjectRenderManager.CurrentIBO = 0;
                 BaseObjectRenderManager.CurrentAtlas = 0;
+                BaseObjectRenderManager.CurrentInstanceBuffer = 0;
                 BaseObjectRenderManager.CurrentCullMode = null;
 
                 _shader.SetUniform("uRenderPass", (int)renderPass);
@@ -639,6 +640,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (renderPass != RenderPass.Opaque) {
                     _mdiDirty = false;
                 }
+                GLHelpers.CheckErrors(Gl);
             }
         }
 
