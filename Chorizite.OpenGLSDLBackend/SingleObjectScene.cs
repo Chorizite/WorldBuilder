@@ -246,9 +246,9 @@ namespace Chorizite.OpenGLSDLBackend {
         public void Update(float deltaTime) {
             _camera.Update(deltaTime);
 
-            if (IsAutoCamera && !IsManualRotate) {
+            if (IsAutoCamera) {
                 // Spin if hovered, or if not a tooltip (auto-spin for details view)
-                if (IsHovered || !IsTooltip) {
+                if (!IsManualRotate && (IsHovered || !IsTooltip)) {
                     _rotation += deltaTime * 1.0f;
                     if (deltaTime > 0) NeedsRender = true;
                 }
