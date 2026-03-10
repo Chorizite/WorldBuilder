@@ -39,5 +39,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public uint VAO;
         public uint IBO;
         public bool IsTransparent;
+        public bool HasWrappingUVs;
     }
 }

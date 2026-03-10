@@ -409,6 +409,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         CurrentAtlas = (uint)cmd.Atlas.NativePtr;
                     }
 
+                    // Bind the correct sampler for wrap vs. clamp based on mesh UV detection
+                    var samplerId = cmd.HasWrappingUVs ? GraphicsDevice.WrapSampler : GraphicsDevice.ClampSampler;
+                    Gl.BindSampler(0, samplerId);
+
                     if (CurrentIBO != cmd.IBO) {
                         Gl.BindBuffer(GLEnum.ElementArrayBuffer, cmd.IBO);
                         CurrentIBO = cmd.IBO;
@@ -616,6 +620,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         shader.SetUniform("uTextureArray", 0);
                         CurrentAtlas = (uint)batch.Atlas.TextureArray.NativePtr;
                     }
+
+                    // Bind the correct sampler for wrap vs. clamp based on mesh UV detection
+                    var batchSamplerId = batch.HasWrappingUVs ? GraphicsDevice.WrapSampler : GraphicsDevice.ClampSampler;
+                    Gl.BindSampler(0, batchSamplerId);
                     Gl.VertexAttrib1(7, (float)batch.TextureIndex);
 
                     if (CurrentIBO != batch.IBO) {

@@ -1,4 +1,4 @@
-﻿using Chorizite.Core.Render;
+using Chorizite.Core.Render;
 using Chorizite.Core.Render.Vertex;
 using FontStashSharp.Interfaces;
 using Silk.NET.Core.Native;
@@ -22,7 +22,7 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public object CreateTexture(int width, int height) {
-            var texture = _renderer.GraphicsDevice.CreateTexture(Core.Render.Enums.TextureFormat.RGBA8, width, height, new byte[width * height * 4]);
+            var texture = (_renderer.GraphicsDevice as OpenGLGraphicsDevice)!.CreateTextureInternal(Core.Render.Enums.TextureFormat.RGBA8, width, height, new byte[width * height * 4], TextureParameters.ClampToEdge);
 
             return texture;
         }

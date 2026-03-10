@@ -96,6 +96,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public List<ushort> Indices { get; set; } = new();
         public DatReaderWriter.Enums.CullMode CullMode { get; set; }
         public bool IsTransparent { get; set; }
+        public bool HasWrappingUVs { get; set; }
     }
 
     /// <summary>
@@ -139,6 +140,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public TextureAtlasManager.TextureKey Key { get; set; }
         public DatReaderWriter.Enums.CullMode CullMode { get; set; }
         public bool IsTransparent { get; set; }
+        public bool HasWrappingUVs { get; set; }
 
         // Modern rendering path fields
         public uint FirstIndex { get; set; }
@@ -963,7 +965,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         batches.Add(batch);
                     }
 
-                    BuildPolygonIndices(poly, gfxObj, scale, UVLookup, vertices, batch.Indices, isNeg);
+                    bool batchHasWrappingUVs = batch.HasWrappingUVs;
+                    BuildPolygonIndices(poly, gfxObj, scale, UVLookup, vertices, batch.Indices, isNeg, ref batchHasWrappingUVs);
+                    batch.HasWrappingUVs = batchHasWrappingUVs;
                 }
             }
 
@@ -1217,7 +1221,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     }
 
                     // Helper for CellStruct vertices
-                    BuildCellStructPolygonIndices(poly, cellStruct, UVLookup, vertices, batch.Indices, isNeg, transform);
+                    bool batchHasWrappingUVs = batch.HasWrappingUVs;
+                    BuildCellStructPolygonIndices(poly, cellStruct, UVLookup, vertices, batch.Indices, isNeg, transform, ref batchHasWrappingUVs);
+                    batch.HasWrappingUVs = batchHasWrappingUVs;
                 }
             }
 
@@ -1233,7 +1239,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private void BuildCellStructPolygonIndices(Polygon poly, CellStruct cellStruct,
             Dictionary<(ushort vertId, ushort uvIdx, bool isNeg), ushort> UVLookup,
-            List<VertexPositionNormalTexture> vertices, List<ushort> indices, bool useNegSurface, Matrix4x4 transform) {
+            List<VertexPositionNormalTexture> vertices, List<ushort> indices, bool useNegSurface, Matrix4x4 transform, ref bool hasWrappingUVs) {
 
             var polyIndices = new List<ushort>();
 
@@ -1253,6 +1259,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 var key = (vertId, uvIdx, useNegSurface);
+
+                if (!hasWrappingUVs) {
+                    var uvCheck = vertex.UVs.Count > 0
+                        ? new Vector2(vertex.UVs[uvIdx].U, vertex.UVs[uvIdx].V)
+                        : Vector2.Zero;
+                    if (uvCheck.X < 0f || uvCheck.X > 1f || uvCheck.Y < 0f || uvCheck.Y > 1f) {
+                        hasWrappingUVs = true;
+                    }
+                }
+
                 if (!UVLookup.TryGetValue(key, out var idx)) {
                     var uv = vertex.UVs.Count > 0
                         ? new Vector2(vertex.UVs[uvIdx].U, vertex.UVs[uvIdx].V)
@@ -1292,7 +1308,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private void BuildPolygonIndices(Polygon poly, GfxObj gfxObj, Vector3 scale,
             Dictionary<(ushort vertId, ushort uvIdx, bool isNeg), ushort> UVLookup,
-            List<VertexPositionNormalTexture> vertices, List<ushort> indices, bool useNegSurface) {
+            List<VertexPositionNormalTexture> vertices, List<ushort> indices, bool useNegSurface, ref bool hasWrappingUVs) {
 
             var polyIndices = new List<ushort>();
 
@@ -1312,6 +1328,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 var key = (vertId, uvIdx, useNegSurface);
+                
+                if (!hasWrappingUVs) {
+                    var uvCheck = vertex.UVs.Count > 0
+                        ? new Vector2(vertex.UVs[uvIdx].U, vertex.UVs[uvIdx].V)
+                        : Vector2.Zero;
+                    if (uvCheck.X < 0f || uvCheck.X > 1f || uvCheck.Y < 0f || uvCheck.Y > 1f) {
+                        hasWrappingUVs = true;
+                    }
+                }
+
                 if (!UVLookup.TryGetValue(key, out var idx)) {
                     var uv = vertex.UVs.Count > 0
                         ? new Vector2(vertex.UVs[uvIdx].U, vertex.UVs[uvIdx].V)
@@ -1442,6 +1468,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         GpuMemoryTracker.TrackAllocation(indexArray.Length * sizeof(ushort), GpuResourceType.Buffer);
                     }
 
+                    var wrapSamplerId = batch.HasWrappingUVs ? _graphicsDevice.WrapSampler : _graphicsDevice.ClampSampler;
+                    ulong bindlessHandle = atlasManager.TextureArray.BindlessHandle;
+                    if (_graphicsDevice.HasBindless && _graphicsDevice.BindlessExtension != null) {
+                        bindlessHandle = _graphicsDevice.BindlessExtension.GetTextureSamplerHandle(
+                            (uint)atlasManager.TextureArray.NativePtr, wrapSamplerId);
+                        _graphicsDevice.BindlessExtension.MakeTextureHandleResident(bindlessHandle);
+                    }
+
                     renderBatches.Add(new ObjectRenderBatch {
                         IBO = ibo,
                         IndexCount = batch.Indices.Count,
@@ -1450,11 +1484,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         TextureSize = (format.Width, format.Height),
                         TextureFormat = format.Format,
                         IsTransparent = batch.IsTransparent,
+                        HasWrappingUVs = batch.HasWrappingUVs,
                         Key = batch.Key,
                         CullMode = batch.CullMode,
                         FirstIndex = firstIndex,
                         BaseVertex = (uint)batchBaseVertex,
-                        BindlessTextureHandle = atlasManager.TextureArray.BindlessHandle,
+                        BindlessTextureHandle = bindlessHandle,
                     });
                 }
             }

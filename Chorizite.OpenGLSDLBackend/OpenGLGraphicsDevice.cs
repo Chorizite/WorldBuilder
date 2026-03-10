@@ -1,4 +1,4 @@
-﻿using Chorizite.Core.Render;
+using Chorizite.Core.Render;
 using Chorizite.Core.Render.Enums;
 using Chorizite.Core.Render.Vertex;
 using Microsoft.Extensions.Logging;
@@ -31,6 +31,12 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public uint InstanceVBO { get; private set; }
         public void* InstanceVBOPtr { get; private set; }
+
+        /// <summary>OpenGL sampler object with TextureWrapMode.Repeat (for meshes with wrapping UVs).</summary>
+        public uint WrapSampler { get; private set; }
+        /// <summary>OpenGL sampler object with TextureWrapMode.ClampToEdge (for meshes without wrapping UVs).</summary>
+        public uint ClampSampler { get; private set; }
+
         private int _instanceBufferCapacity = 0;
         private int _instanceBufferStride = 0;
 
@@ -70,6 +76,27 @@ namespace Chorizite.OpenGLSDLBackend {
 
             GL.GenBuffers(1, out uint instanceVbo);
             InstanceVBO = instanceVbo;
+
+            // Create sampler objects for wrap vs clamp
+            WrapSampler = GL.GenSampler();
+            GL.SamplerParameter(WrapSampler, SamplerParameterI.WrapS, (int)TextureWrapMode.Repeat);
+            GL.SamplerParameter(WrapSampler, SamplerParameterI.WrapT, (int)TextureWrapMode.Repeat);
+            GL.SamplerParameter(WrapSampler, SamplerParameterI.MinFilter, (int)TextureMinFilter.LinearMipmapLinear);
+            GL.SamplerParameter(WrapSampler, SamplerParameterI.MagFilter, (int)TextureMagFilter.Linear);
+            if (renderSettings.EnableAnisotropicFiltering) {
+                GL.GetFloat(GLEnum.MaxTextureMaxAnisotropy, out float maxAniso);
+                if (maxAniso > 0) GL.SamplerParameter(WrapSampler, GLEnum.TextureMaxAnisotropy, maxAniso);
+            }
+
+            ClampSampler = GL.GenSampler();
+            GL.SamplerParameter(ClampSampler, SamplerParameterI.WrapS, (int)TextureWrapMode.ClampToEdge);
+            GL.SamplerParameter(ClampSampler, SamplerParameterI.WrapT, (int)TextureWrapMode.ClampToEdge);
+            GL.SamplerParameter(ClampSampler, SamplerParameterI.MinFilter, (int)TextureMinFilter.LinearMipmapLinear);
+            GL.SamplerParameter(ClampSampler, SamplerParameterI.MagFilter, (int)TextureMagFilter.Linear);
+            if (renderSettings.EnableAnisotropicFiltering) {
+                GL.GetFloat(GLEnum.MaxTextureMaxAnisotropy, out float maxAniso);
+                if (maxAniso > 0) GL.SamplerParameter(ClampSampler, GLEnum.TextureMaxAnisotropy, maxAniso);
+            }
         }
 
         public void EnsureInstanceBufferCapacity(int count, int stride, bool forceOrphan = false) {
@@ -264,6 +291,16 @@ namespace Chorizite.OpenGLSDLBackend {
             return new ManagedGLTexture(this, data, width, height);
         }
 
+        /// <summary>
+        /// Creates a texture with custom texture parameters.
+        /// </summary>
+        public ITexture CreateTextureInternal(TextureFormat format, int width, int height, byte[]? data, TextureParameters texParams) {
+            if (format != TextureFormat.RGBA8) {
+                throw new NotImplementedException($"Texture format {format} is not supported.");
+            }
+            return new ManagedGLTexture(this, data, width, height, texParams);
+        }
+
         /// <inheritdoc />
         public override ITexture? CreateTextureInternal(TextureFormat format, string filename) {
             if (format != TextureFormat.RGBA8) {
@@ -277,6 +314,13 @@ namespace Chorizite.OpenGLSDLBackend {
         public override ITextureArray
             CreateTextureArrayInternal(TextureFormat format, int width, int height, int size) {
             return new ManagedGLTextureArray(this, format, width, height, size, _log);
+        }
+
+        /// <summary>
+        /// Creates a texture array with custom texture parameters.
+        /// </summary>
+        public ITextureArray CreateTextureArrayInternal(TextureFormat format, int width, int height, int size, TextureParameters texParams) {
+            return new ManagedGLTextureArray(this, format, width, height, size, _log, texParams);
         }
 
         /// <inheritdoc />
@@ -445,6 +489,14 @@ namespace Chorizite.OpenGLSDLBackend {
                 }
                 InstanceVBO = 0;
                 InstanceVBOPtr = null;
+            }
+            if (WrapSampler != 0) {
+                GL.DeleteSampler(WrapSampler);
+                WrapSampler = 0;
+            }
+            if (ClampSampler != 0) {
+                GL.DeleteSampler(ClampSampler);
+                ClampSampler = 0;
             }
         }
 

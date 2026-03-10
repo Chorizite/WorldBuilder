@@ -1015,7 +1015,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         BatchData = new ModernBatchData {
                             TextureHandle = batch.BindlessTextureHandle,
                             TextureIndex = (uint)batch.TextureIndex
-                        }
+                        },
+                        HasWrappingUVs = batch.HasWrappingUVs
                     });
                 }
             }
