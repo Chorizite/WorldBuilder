@@ -74,6 +74,13 @@ jobs:
   build-windows:
     needs: prepare-release
     runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            channel: windows-x64
+          - arch: arm64
+            channel: windows-arm64
     steps:
       - uses: actions/checkout@v4
         with:
@@ -100,10 +107,10 @@ jobs:
           useConfigFile: true
 
       - name: Publish
-        run: dotnet publish WorldBuilder.Windows/WorldBuilder.Windows.csproj -c Release -r win-x64 -o publish -p:SelfContained=true -p:DebugType=None -p:DebugSymbols=false -p:GenerateDocumentationFile=false -p:InformationalVersion=${{ steps.gitversion.outputs.informationalVersion }} -p:Version=${{ steps.gitversion.outputs.semVer }} -p:AssemblyVersion=${{ steps.gitversion.outputs.assemblySemVer }}
+        run: dotnet publish WorldBuilder.Windows/WorldBuilder.Windows.csproj -c Release -r win-${{ matrix.arch }} -o publish -p:SelfContained=true -p:DebugType=None -p:DebugSymbols=false -p:GenerateDocumentationFile=false -p:InformationalVersion=${{ steps.gitversion.outputs.informationalVersion }} -p:Version=${{ steps.gitversion.outputs.semVer }} -p:AssemblyVersion=${{ steps.gitversion.outputs.assemblySemVer }}
 
       - name: Pack
-        run: dotnet vpk pack -u WorldBuilder -v ${{ steps.gitversion.outputs.semVer }} -p publish -e WorldBuilder.Windows.exe --framework net10.0-x64-desktop --channel windows
+        run: dotnet vpk pack -u WorldBuilder -v ${{ steps.gitversion.outputs.semVer }} -p publish -e WorldBuilder.Windows.exe --framework net10.0-${{ matrix.arch }}-desktop --channel ${{ matrix.channel }}
 
       - name: List Releases
         run: ls -la Releases/
@@ -112,10 +119,10 @@ jobs:
       - name: Upload to Release
         run: |
           gh release upload "v$SEMVER" \
-            Releases/releases.windows.json \
-            Releases/WorldBuilder-${SEMVER}-windows-full.nupkg \
-            Releases/WorldBuilder-windows-Portable.zip \
-            Releases/WorldBuilder-windows-Setup.exe \
+            Releases/releases.${{ matrix.channel }}.json \
+            Releases/WorldBuilder-${SEMVER}-${{ matrix.channel }}-full.nupkg \
+            Releases/WorldBuilder-${{ matrix.channel }}-Portable.zip \
+            Releases/WorldBuilder-${{ matrix.channel }}-Setup.exe \
             --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -124,6 +131,13 @@ jobs:
   build-linux:
     needs: prepare-release
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            channel: linux-x64
+          - arch: arm64
+            channel: linux-arm64
     steps:
       - uses: actions/checkout@v4
         with:
@@ -147,10 +161,10 @@ jobs:
           useConfigFile: true
 
       - name: Publish
-        run: dotnet publish WorldBuilder.Linux/WorldBuilder.Linux.csproj -c Release -r linux-x64 -o publish -p:SelfContained=true -p:DebugType=None -p:DebugSymbols=false -p:GenerateDocumentationFile=false -p:InformationalVersion=${{ steps.gitversion.outputs.informationalVersion }} -p:Version=${{ steps.gitversion.outputs.semVer }} -p:AssemblyVersion=${{ steps.gitversion.outputs.assemblySemVer }}
+        run: dotnet publish WorldBuilder.Linux/WorldBuilder.Linux.csproj -c Release -r linux-${{ matrix.arch }} -o publish -p:SelfContained=true -p:DebugType=None -p:DebugSymbols=false -p:GenerateDocumentationFile=false -p:InformationalVersion=${{ steps.gitversion.outputs.informationalVersion }} -p:Version=${{ steps.gitversion.outputs.semVer }} -p:AssemblyVersion=${{ steps.gitversion.outputs.assemblySemVer }}
 
       - name: Pack
-        run: dotnet vpk pack -u WorldBuilder -v ${{ steps.gitversion.outputs.semVer }} -p publish -e WorldBuilder.Linux --channel linux
+        run: dotnet vpk pack -u WorldBuilder -v ${{ steps.gitversion.outputs.semVer }} -p publish -e WorldBuilder.Linux --channel ${{ matrix.channel }}
 
       - name: List Releases
         run: ls -la Releases/
@@ -159,9 +173,9 @@ jobs:
       - name: Upload to Release
         run: |
           gh release upload "v$SEMVER" \
-            Releases/releases.linux.json \
-            Releases/WorldBuilder-${SEMVER}-linux-full.nupkg \
-            Releases/WorldBuilder-linux.AppImage \
+            Releases/releases.${{ matrix.channel }}.json \
+            Releases/WorldBuilder-${SEMVER}-${{ matrix.channel }}-full.nupkg \
+            Releases/WorldBuilder-${{ matrix.channel }}.AppImage \
             --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

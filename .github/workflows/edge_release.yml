@@ -88,6 +88,13 @@ jobs:
   build-windows:
     needs: prepare-release
     runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            channel: windows-x64-edge
+          - arch: arm64
+            channel: windows-arm64-edge
     steps:
       - uses: actions/checkout@v4
         with:
@@ -111,10 +118,10 @@ jobs:
           useConfigFile: true
 
       - name: Publish
-        run: dotnet publish WorldBuilder.Windows/WorldBuilder.Windows.csproj -c Release -r win-x64 -o publish -p:SelfContained=true -p:DebugType=None -p:DebugSymbols=false -p:GenerateDocumentationFile=false -p:InformationalVersion=${{ steps.gitversion.outputs.informationalVersion }} -p:Version=${{ steps.gitversion.outputs.semVer }} -p:AssemblyVersion=${{ steps.gitversion.outputs.assemblySemVer }}
+        run: dotnet publish WorldBuilder.Windows/WorldBuilder.Windows.csproj -c Release -r win-${{ matrix.arch }} -o publish -p:SelfContained=true -p:DebugType=None -p:DebugSymbols=false -p:GenerateDocumentationFile=false -p:InformationalVersion=${{ steps.gitversion.outputs.informationalVersion }} -p:Version=${{ steps.gitversion.outputs.semVer }} -p:AssemblyVersion=${{ steps.gitversion.outputs.assemblySemVer }}
 
       - name: Pack
-        run: dotnet vpk pack -u WorldBuilder -v ${{ steps.gitversion.outputs.semVer }} -p publish -e WorldBuilder.Windows.exe --framework net10.0-x64-desktop --channel windows-edge
+        run: dotnet vpk pack -u WorldBuilder -v ${{ steps.gitversion.outputs.semVer }} -p publish -e WorldBuilder.Windows.exe --framework net10.0-${{ matrix.arch }}-desktop --channel ${{ matrix.channel }}
 
       - name: List Releases
         run: ls -la Releases/
@@ -123,10 +130,10 @@ jobs:
       - name: Upload to Release
         run: |
           gh release upload "latest" \
-            Releases/releases.windows-edge.json \
-            Releases/WorldBuilder-${SEMVER}-windows-edge-full.nupkg \
-            Releases/WorldBuilder-windows-edge-Portable.zip \
-            Releases/WorldBuilder-windows-edge-Setup.exe \
+            Releases/releases.${{ matrix.channel }}.json \
+            Releases/WorldBuilder-${SEMVER}-${{ matrix.channel }}-full.nupkg \
+            Releases/WorldBuilder-${{ matrix.channel }}-Portable.zip \
+            Releases/WorldBuilder-${{ matrix.channel }}-Setup.exe \
             --clobber
         shell: bash
         env:
@@ -136,6 +143,13 @@ jobs:
   build-linux:
     needs: prepare-release
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            channel: linux-x64-edge
+          - arch: arm64
+            channel: linux-arm64-edge
     steps:
       - uses: actions/checkout@v4
         with:
@@ -159,10 +173,10 @@ jobs:
           useConfigFile: true
 
       - name: Publish
-        run: dotnet publish WorldBuilder.Linux/WorldBuilder.Linux.csproj -c Release -r linux-x64 -o publish -p:SelfContained=true -p:DebugType=None -p:DebugSymbols=false -p:GenerateDocumentationFile=false -p:InformationalVersion=${{ steps.gitversion.outputs.informationalVersion }} -p:Version=${{ steps.gitversion.outputs.semVer }} -p:AssemblyVersion=${{ steps.gitversion.outputs.assemblySemVer }}
+        run: dotnet publish WorldBuilder.Linux/WorldBuilder.Linux.csproj -c Release -r linux-${{ matrix.arch }} -o publish -p:SelfContained=true -p:DebugType=None -p:DebugSymbols=false -p:GenerateDocumentationFile=false -p:InformationalVersion=${{ steps.gitversion.outputs.informationalVersion }} -p:Version=${{ steps.gitversion.outputs.semVer }} -p:AssemblyVersion=${{ steps.gitversion.outputs.assemblySemVer }}
 
       - name: Pack
-        run: dotnet vpk pack -u WorldBuilder -v ${{ steps.gitversion.outputs.semVer }} -p publish -e WorldBuilder.Linux --channel linux-edge
+        run: dotnet vpk pack -u WorldBuilder -v ${{ steps.gitversion.outputs.semVer }} -p publish -e WorldBuilder.Linux --channel ${{ matrix.channel }}
 
       - name: List Releases
         run: ls -la Releases/
@@ -171,9 +185,9 @@ jobs:
       - name: Upload to Release
         run: |
           gh release upload "latest" \
-            Releases/releases.linux-edge.json \
-            Releases/WorldBuilder-${SEMVER}-linux-edge-full.nupkg \
-            Releases/WorldBuilder-linux-edge.AppImage \
+            Releases/releases.${{ matrix.channel }}.json \
+            Releases/WorldBuilder-${SEMVER}-${{ matrix.channel }}-full.nupkg \
+            Releases/WorldBuilder-${{ matrix.channel }}.AppImage \
             --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
