@@ -29,22 +29,22 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Global instance buffers for all landblocks managed by this manager
         private uint _worldInstanceBuffer;
         private uint _worldInstanceSSBO;
-        private int _worldInstanceCapacity = 1024 * 16384; // 16M instances
+        private int _worldInstanceCapacity = 4096;
         private readonly List<(int Offset, int Size)> _freeSlices = new();
         private readonly object _allocationLock = new();
 
         // Modern rendering MDI buffers
         private readonly uint[] _mdiCommandBuffers = new uint[3];
-        private readonly int[] _mdiCommandCapacities = [1024 * 32, 1024 * 32, 1024 * 32];
+        private readonly int[] _mdiCommandCapacities = [1024, 1024, 1024];
         private readonly uint[] _modernBatchBuffers = new uint[3];
 
         // Scratch buffers for dynamic updates (highlights, selections, etc)
         private readonly uint[] _scratchMdiCommandBuffers = new uint[3];
-        private readonly int[] _scratchMdiCommandCapacities = [1024 * 2, 1024 * 2, 1024 * 2];
+        private readonly int[] _scratchMdiCommandCapacities = [256, 256, 256];
         private readonly uint[] _scratchModernBatchBuffers = new uint[3];
 
         private readonly uint[] _modernInstanceBuffers = new uint[3]; // Scratch buffer for non-consolidated modern draws
-        private readonly int[] _modernInstanceCapacities = [1024 * 16, 1024 * 16, 1024 * 16];
+        private readonly int[] _modernInstanceCapacities = [1024, 1024, 1024];
 
         // MDI dirty tracking — when false, RenderConsolidatedMDI skips buffer orphaning
         // and reuses the previously uploaded GPU buffers. This avoids driver-specific issues
@@ -58,7 +58,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private ModernBatchData[] _modernBatches = Array.Empty<ModernBatchData>();
         private readonly List<LandblockMdiCommand>[] _cullGroups = [new(), new(), new(), new()];
 
-        protected unsafe BaseObjectRenderManager(GL gl, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager, bool createWorldBuffer = true, int initialCapacity = 1024 * 16384) {
+        protected unsafe BaseObjectRenderManager(GL gl, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager, bool createWorldBuffer = true, int initialCapacity = 4096) {
             Gl = gl;
             GraphicsDevice = graphicsDevice;
             MeshManager = meshManager;
@@ -188,7 +188,93 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     }
                 }
             }
-            return -1;
+
+            // No free slice found — grow the buffer and retry
+            int neededCapacity = _worldInstanceCapacity + count;
+            int newCapacity = _worldInstanceCapacity;
+            while (newCapacity < neededCapacity) {
+                newCapacity = Math.Max(newCapacity * 2, neededCapacity);
+            }
+            GrowInstanceBuffer(newCapacity);
+
+            // Retry allocation after growing
+            lock (_allocationLock) {
+                for (int i = 0; i < _freeSlices.Count; i++) {
+                    var slice = _freeSlices[i];
+                    if (slice.Size >= count) {
+                        _freeSlices.RemoveAt(i);
+                        if (slice.Size > count) {
+                            _freeSlices.Insert(i, (slice.Offset + count, slice.Size - count));
+                        }
+                        UpdateGpuStats();
+                        return slice.Offset;
+                    }
+                }
+            }
+            return -1; // Should not happen after grow
+        }
+
+        /// <summary>
+        /// Grows the world instance VBO (and SSBO if modern rendering) to the new capacity.
+        /// Existing data is preserved via glCopyBufferSubData.
+        /// </summary>
+        private unsafe void GrowInstanceBuffer(int newCapacity) {
+            if (newCapacity <= _worldInstanceCapacity) return;
+
+            int oldCapacity = _worldInstanceCapacity;
+            int oldDataSize = oldCapacity * sizeof(InstanceData);
+            int newDataSize = newCapacity * sizeof(InstanceData);
+
+            // --- Grow VBO ---
+            if (_worldInstanceBuffer != 0) {
+                uint newBuffer;
+                Gl.GenBuffers(1, out newBuffer);
+                GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
+                Gl.BindBuffer(GLEnum.CopyWriteBuffer, newBuffer);
+                Gl.BufferData(GLEnum.CopyWriteBuffer, (nuint)newDataSize, null, GLEnum.DynamicDraw);
+                GpuMemoryTracker.TrackAllocation(newDataSize, GpuResourceType.Buffer);
+
+                // Copy existing data
+                Gl.BindBuffer(GLEnum.CopyReadBuffer, _worldInstanceBuffer);
+                Gl.CopyBufferSubData(GLEnum.CopyReadBuffer, GLEnum.CopyWriteBuffer, 0, 0, (nuint)oldDataSize);
+
+                // Delete old buffer
+                Gl.DeleteBuffer(_worldInstanceBuffer);
+                GpuMemoryTracker.TrackDeallocation(oldDataSize, GpuResourceType.Buffer);
+                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+
+                _worldInstanceBuffer = newBuffer;
+            }
+
+            // --- Grow SSBO ---
+            if (_useModernRendering && _worldInstanceSSBO != 0) {
+                uint newSSBO;
+                Gl.GenBuffers(1, out newSSBO);
+                GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Buffer);
+                Gl.BindBuffer(GLEnum.CopyWriteBuffer, newSSBO);
+                Gl.BufferData(GLEnum.CopyWriteBuffer, (nuint)newDataSize, null, GLEnum.DynamicDraw);
+                GpuMemoryTracker.TrackAllocation(newDataSize, GpuResourceType.Buffer);
+
+                // Copy existing data
+                Gl.BindBuffer(GLEnum.CopyReadBuffer, _worldInstanceSSBO);
+                Gl.CopyBufferSubData(GLEnum.CopyReadBuffer, GLEnum.CopyWriteBuffer, 0, 0, (nuint)oldDataSize);
+
+                // Delete old buffer
+                Gl.DeleteBuffer(_worldInstanceSSBO);
+                GpuMemoryTracker.TrackDeallocation(oldDataSize, GpuResourceType.Buffer);
+                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+
+                _worldInstanceSSBO = newSSBO;
+            }
+
+            // Add new free region at the end
+            lock (_allocationLock) {
+                _freeSlices.Add((oldCapacity, newCapacity - oldCapacity));
+            }
+
+            _worldInstanceCapacity = newCapacity;
+            _mdiDirty = true;
+            UpdateGpuStats();
         }
 
         protected void FreeInstanceSlice(int offset, int count) {
