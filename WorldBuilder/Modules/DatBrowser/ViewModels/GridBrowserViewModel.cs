@@ -6,7 +6,6 @@ using System.Linq;
 using WorldBuilder.ViewModels;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter;
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.Input;
 using WorldBuilder.Shared.Services;
 using CommunityToolkit.Mvvm.Messaging;
@@ -67,11 +66,12 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         public double CalculatedItemSize => Math.Max(40, (ContainerWidth - 40 - (ItemsPerRow - 1) * 10) / ItemsPerRow);
 
-        public ObservableCollection<uint> FileIds { get; } = new();
+        private IEnumerable<uint> _fileIds;
+        public IEnumerable<uint> FileIds => _fileIds ?? Enumerable.Empty<uint>();
 
         public IDatReaderWriter Dats => _dats;
 
-        public GridBrowserViewModel(DBObjType type, IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService, Action<uint> onSelected, IDatDatabase? database = null) {
+        public GridBrowserViewModel(DBObjType type, IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService, Action<uint> onSelected, IDatDatabase? database = null, IEnumerable<uint>? fileIds = null) {
             _type = type;
             _dats = dats;
             _database = database ?? dats.Portal;
@@ -80,6 +80,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             _onSelected = onSelected;
             _title = $"Browsing {type}";
             _wireframeColor = themeService.IsDarkMode ? new Vector4(1f, 1f, 1f, 0.5f) : new Vector4(0f, 0f, 0f, 0.5f);
+            _fileIds = fileIds ?? Enumerable.Empty<uint>();
 
             _themeChangedHandler = (s, e) => {
                 if (e.PropertyName == nameof(ThemeService.IsDarkMode)) {
@@ -99,35 +100,10 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 }
             };
             _settings.DatBrowser.PropertyChanged += _settingsChangedHandler;
-
-            LoadIds();
         }
 
-        private void LoadIds() {
-            IEnumerable<uint> ids = _type switch {
-                DBObjType.Setup => _database.GetAllIdsOfType<Setup>(),
-                DBObjType.GfxObj => _database.GetAllIdsOfType<GfxObj>(),
-                DBObjType.SurfaceTexture => _database.GetAllIdsOfType<SurfaceTexture>(),
-                DBObjType.RenderSurface => _database.GetAllIdsOfType<RenderSurface>(),
-                DBObjType.Surface => _database.GetAllIdsOfType<Surface>(),
-                DBObjType.EnvCell => LoadEnvCellIds(),
-                _ => Enumerable.Empty<uint>()
-            };
-
-            foreach (var id in ids.OrderBy(x => x)) {
-                FileIds.Add(id);
-            }
-        }
-
-        private IEnumerable<uint> LoadEnvCellIds() {
-            var ids = new List<uint>();
-            var databases = _database != _dats.Portal ? new[] { _database } : _dats.CellRegions.Values.ToArray();
-
-            foreach (var db in databases) {
-                var cellIds = db.Db.Tree.Select(f => f.Id).Where(id => db.Db.TypeFromId(id) == DBObjType.EnvCell);
-                ids.AddRange(cellIds);
-            }
-            return ids;
+        public void SetFileIds(IEnumerable<uint> fileIds) {
+            _fileIds = fileIds ?? Enumerable.Empty<uint>();
         }
 
         [RelayCommand]

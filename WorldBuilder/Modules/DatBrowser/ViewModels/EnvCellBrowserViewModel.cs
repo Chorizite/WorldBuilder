@@ -12,7 +12,11 @@ using WorldBuilder.Services;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
     public partial class EnvCellBrowserViewModel : BaseDatBrowserViewModel<DatReaderWriter.DBObjs.EnvCell> {
-        public EnvCellBrowserViewModel(IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService) : base(DBObjType.EnvCell, dats, settings, themeService, dats.CellRegions.Values.FirstOrDefault(), LoadAllEnvCellIds(dats)) {
+        public EnvCellBrowserViewModel(IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService) : base(DBObjType.EnvCell, dats, settings, themeService, dats.CellRegions.Values.FirstOrDefault(), null, true) {
+        }
+
+        public void LoadEnvCellData() {
+            base.Initialize(LoadAllEnvCellIds(_dats));
         }
 
         private static IEnumerable<uint> LoadAllEnvCellIds(IDatReaderWriter dats) {
