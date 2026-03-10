@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
+             xmlns:v="using:WorldBuilder.Modules.DatBrowser.Views"
+             xmlns:conv="using:WorldBuilder.Converters"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="WorldBuilder.Modules.DatBrowser.Views.ClothingTableBrowserView"
+             x:DataType="vm:ClothingTableBrowserViewModel">
+    <Grid ColumnDefinitions="300, 5, *">
+        <!-- Sidebar -->
+        <ListBox Grid.Column="0" ItemsSource="{Binding FileIds}" SelectedItem="{Binding SelectedFileIdDisplay}" IsTextSearchEnabled="True" Margin="5" />
+
+        <GridSplitter Grid.Column="1" Background="{DynamicResource SemiColorBorder}" ResizeDirection="Columns"/>
+
+        <!-- Grid Browser Area for ClothingTable (no preview, just file grid) -->
+        <Panel Grid.Column="2" Background="{DynamicResource SemiColorBackground0}">
+            <v:GridBrowserView DataContext="{Binding GridBrowser}" />
+        </Panel>
+    </Grid>
+</UserControl>

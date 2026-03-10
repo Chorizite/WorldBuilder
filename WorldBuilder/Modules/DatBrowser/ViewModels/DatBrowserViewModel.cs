@@ -32,12 +32,59 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         public IEnumerable<DBObjType> DatTypes => System.Enum.GetValues<DBObjType>().Where(t => {
             return t switch {
-                DBObjType.Setup => true,
+                DBObjType.Iteration => true,
                 DBObjType.GfxObj => true,
+                DBObjType.Setup => true,
+                DBObjType.Animation => true,
+                DBObjType.Palette => true,
                 DBObjType.SurfaceTexture => true,
                 DBObjType.RenderSurface => true,
                 DBObjType.Surface => true,
+                DBObjType.MotionTable => true,
+                DBObjType.Wave => true,
+                DBObjType.Environment => true,
+                DBObjType.ChatPoseTable => true,
+                DBObjType.ObjectHierarchy => true,
+                DBObjType.BadDataTable => true,
+                DBObjType.TabooTable => true,
+                DBObjType.NameFilterTable => true,
+                DBObjType.PalSet => true,
+                DBObjType.ClothingTable => true,
+                DBObjType.GfxObjDegradeInfo => true,
+                DBObjType.Scene => true,
+                DBObjType.Region => true,
+                DBObjType.MasterInputMap => true,
+                DBObjType.RenderTexture => true,
+                DBObjType.RenderMaterial => true,
+                DBObjType.MaterialModifier => true,
+                DBObjType.MaterialInstance => true,
+                DBObjType.SoundTable => true,
+                DBObjType.EnumMapper => true,
+                DBObjType.EnumIDMap => true,
+                DBObjType.ActionMap => true,
+                DBObjType.DualEnumIDMap => true,
+                DBObjType.LanguageString => true,
+                DBObjType.ParticleEmitter => true,
+                DBObjType.PhysicsScript => true,
+                DBObjType.PhysicsScriptTable => true,
+                DBObjType.MasterProperty => true,
+                DBObjType.Font => true,
+                DBObjType.DBProperties => true,
+                DBObjType.CharGen => true,
+                DBObjType.VitalTable => true,
+                DBObjType.SkillTable => true,
+                DBObjType.SpellTable => true,
+                DBObjType.SpellComponentTable => true,
+                DBObjType.ExperienceTable => true,
+                DBObjType.QualityFilter => true,
+                DBObjType.CombatTable => true,
+                DBObjType.ContractTable => true,
+                DBObjType.LandBlock => true,
+                DBObjType.LandBlockInfo => true,
                 DBObjType.EnvCell => true,
+                DBObjType.LayoutDesc => true,
+                DBObjType.StringTable => true,
+                DBObjType.LanguageInfo => true,
                 _ => false
             };
         });
@@ -74,12 +121,59 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private readonly IDatReaderWriter _dats;
 
         // Cached ViewModels for lazy loading
-        private SetupBrowserViewModel? _setupBrowser;
+        private IterationBrowserViewModel? _iterationBrowser;
         private GfxObjBrowserViewModel? _gfxObjBrowser;
+        private SetupBrowserViewModel? _setupBrowser;
+        private AnimationBrowserViewModel? _animationBrowser;
+        private PaletteBrowserViewModel? _paletteBrowser;
         private SurfaceTextureBrowserViewModel? _surfaceTextureBrowser;
         private RenderSurfaceBrowserViewModel? _renderSurfaceBrowser;
         private SurfaceBrowserViewModel? _surfaceBrowser;
+        private MotionTableBrowserViewModel? _motionTableBrowser;
+        private WaveBrowserViewModel? _waveBrowser;
+        private EnvironmentBrowserViewModel? _environmentBrowser;
+        private ChatPoseTableBrowserViewModel? _chatPoseTableBrowser;
+        private ObjectHierarchyBrowserViewModel? _objectHierarchyBrowser;
+        private BadDataTableBrowserViewModel? _badDataTableBrowser;
+        private TabooTableBrowserViewModel? _tabooTableBrowser;
+        private NameFilterTableBrowserViewModel? _nameFilterTableBrowser;
+        private PalSetBrowserViewModel? _palSetBrowser;
+        private ClothingTableBrowserViewModel? _clothingTableBrowser;
+        private GfxObjDegradeInfoBrowserViewModel? _gfxObjDegradeInfoBrowser;
+        private SceneBrowserViewModel? _sceneBrowser;
+        private RegionBrowserViewModel? _regionBrowser;
+        private MasterInputMapBrowserViewModel? _masterInputMapBrowser;
+        private RenderTextureBrowserViewModel? _renderTextureBrowser;
+        private RenderMaterialBrowserViewModel? _renderMaterialBrowser;
+        private MaterialModifierBrowserViewModel? _materialModifierBrowser;
+        private MaterialInstanceBrowserViewModel? _materialInstanceBrowser;
+        private SoundTableBrowserViewModel? _soundTableBrowser;
+        private EnumMapperBrowserViewModel? _enumMapperBrowser;
+        private StringTableBrowserViewModel? _stringTableBrowser;
+        private EnumIDMapBrowserViewModel? _enumIDMapBrowser;
+        private ActionMapBrowserViewModel? _actionMapBrowser;
+        private DualEnumIDMapBrowserViewModel? _dualEnumIDMapBrowser;
+        private LanguageStringBrowserViewModel? _languageStringBrowser;
+        private ParticleEmitterBrowserViewModel? _particleEmitterBrowser;
+        private PhysicsScriptBrowserViewModel? _physicsScriptBrowser;
+        private PhysicsScriptTableBrowserViewModel? _physicsScriptTableBrowser;
+        private MasterPropertyBrowserViewModel? _masterPropertyBrowser;
+        private FontBrowserViewModel? _fontBrowser;
+        private DBPropertiesBrowserViewModel? _dbPropertiesBrowser;
+        private CharGenBrowserViewModel? _charGenBrowser;
+        private VitalTableBrowserViewModel? _vitalTableBrowser;
+        private SkillTableBrowserViewModel? _skillTableBrowser;
+        private SpellTableBrowserViewModel? _spellTableBrowser;
+        private SpellComponentTableBrowserViewModel? _spellComponentTableBrowser;
+        private ExperienceTableBrowserViewModel? _experienceTableBrowser;
+        private QualityFilterBrowserViewModel? _qualityFilterBrowser;
+        private CombatTableBrowserViewModel? _combatTableBrowser;
+        private ContractTableBrowserViewModel? _contractTableBrowser;
+        private LandBlockBrowserViewModel? _landBlockBrowser;
+        private LandBlockInfoBrowserViewModel? _landBlockInfoBrowser;
         private EnvCellBrowserViewModel? _envCellBrowser;
+        private LayoutDescBrowserViewModel? _layoutDescBrowser;
+        private LanguageInfoBrowserViewModel? _languageInfoBrowser;
 
         public IDatReaderWriter Dats => _dats;
 
@@ -112,12 +206,59 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         partial void OnSelectedTypeChanged(DBObjType value) {
             CurrentBrowser = value switch {
-                DBObjType.Setup => _setupBrowser ??= _viewModelFactory.CreateSetupBrowser(),
+                DBObjType.Iteration => _iterationBrowser ??= _viewModelFactory.CreateIterationBrowser(),
                 DBObjType.GfxObj => _gfxObjBrowser ??= _viewModelFactory.CreateGfxObjBrowser(),
+                DBObjType.Setup => _setupBrowser ??= _viewModelFactory.CreateSetupBrowser(),
+                DBObjType.Animation => _animationBrowser ??= _viewModelFactory.CreateAnimationBrowser(),
+                DBObjType.Palette => _paletteBrowser ??= _viewModelFactory.CreatePaletteBrowser(),
                 DBObjType.SurfaceTexture => _surfaceTextureBrowser ??= _viewModelFactory.CreateSurfaceTextureBrowser(),
                 DBObjType.RenderSurface => _renderSurfaceBrowser ??= _viewModelFactory.CreateRenderSurfaceBrowser(),
                 DBObjType.Surface => _surfaceBrowser ??= _viewModelFactory.CreateSurfaceBrowser(),
+                DBObjType.MotionTable => _motionTableBrowser ??= _viewModelFactory.CreateMotionTableBrowser(),
+                DBObjType.Wave => _waveBrowser ??= _viewModelFactory.CreateWaveBrowser(),
+                DBObjType.Environment => _environmentBrowser ??= _viewModelFactory.CreateEnvironmentBrowser(),
+                DBObjType.ChatPoseTable => _chatPoseTableBrowser ??= _viewModelFactory.CreateChatPoseTableBrowser(),
+                DBObjType.ObjectHierarchy => _objectHierarchyBrowser ??= _viewModelFactory.CreateObjectHierarchyBrowser(),
+                DBObjType.BadDataTable => _badDataTableBrowser ??= _viewModelFactory.CreateBadDataTableBrowser(),
+                DBObjType.TabooTable => _tabooTableBrowser ??= _viewModelFactory.CreateTabooTableBrowser(),
+                DBObjType.NameFilterTable => _nameFilterTableBrowser ??= _viewModelFactory.CreateNameFilterTableBrowser(),
+                DBObjType.PalSet => _palSetBrowser ??= _viewModelFactory.CreatePalSetBrowser(),
+                DBObjType.ClothingTable => _clothingTableBrowser ??= _viewModelFactory.CreateClothingTableBrowser(),
+                DBObjType.GfxObjDegradeInfo => _gfxObjDegradeInfoBrowser ??= _viewModelFactory.CreateGfxObjDegradeInfoBrowser(),
+                DBObjType.Scene => _sceneBrowser ??= _viewModelFactory.CreateSceneBrowser(),
+                DBObjType.Region => _regionBrowser ??= _viewModelFactory.CreateRegionBrowser(),
+                DBObjType.MasterInputMap => _masterInputMapBrowser ??= _viewModelFactory.CreateMasterInputMapBrowser(),
+                DBObjType.RenderTexture => _renderTextureBrowser ??= _viewModelFactory.CreateRenderTextureBrowser(),
+                DBObjType.RenderMaterial => _renderMaterialBrowser ??= _viewModelFactory.CreateRenderMaterialBrowser(),
+                DBObjType.MaterialModifier => _materialModifierBrowser ??= _viewModelFactory.CreateMaterialModifierBrowser(),
+                DBObjType.MaterialInstance => _materialInstanceBrowser ??= _viewModelFactory.CreateMaterialInstanceBrowser(),
+                DBObjType.SoundTable => _soundTableBrowser ??= _viewModelFactory.CreateSoundTableBrowser(),
+                DBObjType.EnumMapper => _enumMapperBrowser ??= _viewModelFactory.CreateEnumMapperBrowser(),
+                DBObjType.StringTable => _stringTableBrowser ??= _viewModelFactory.CreateStringTableBrowser(),
+                DBObjType.EnumIDMap => _enumIDMapBrowser ??= _viewModelFactory.CreateEnumIDMapBrowser(),
+                DBObjType.ActionMap => _actionMapBrowser ??= _viewModelFactory.CreateActionMapBrowser(),
+                DBObjType.DualEnumIDMap => _dualEnumIDMapBrowser ??= _viewModelFactory.CreateDualEnumIDMapBrowser(),
+                DBObjType.LanguageString => _languageStringBrowser ??= _viewModelFactory.CreateLanguageStringBrowser(),
+                DBObjType.ParticleEmitter => _particleEmitterBrowser ??= _viewModelFactory.CreateParticleEmitterBrowser(),
+                DBObjType.PhysicsScript => _physicsScriptBrowser ??= _viewModelFactory.CreatePhysicsScriptBrowser(),
+                DBObjType.PhysicsScriptTable => _physicsScriptTableBrowser ??= _viewModelFactory.CreatePhysicsScriptTableBrowser(),
+                DBObjType.MasterProperty => _masterPropertyBrowser ??= _viewModelFactory.CreateMasterPropertyBrowser(),
+                DBObjType.Font => _fontBrowser ??= _viewModelFactory.CreateFontBrowser(),
+                DBObjType.DBProperties => _dbPropertiesBrowser ??= _viewModelFactory.CreateDBPropertiesBrowser(),
+                DBObjType.CharGen => _charGenBrowser ??= _viewModelFactory.CreateCharGenBrowser(),
+                DBObjType.VitalTable => _vitalTableBrowser ??= _viewModelFactory.CreateVitalTableBrowser(),
+                DBObjType.SkillTable => _skillTableBrowser ??= _viewModelFactory.CreateSkillTableBrowser(),
+                DBObjType.SpellTable => _spellTableBrowser ??= _viewModelFactory.CreateSpellTableBrowser(),
+                DBObjType.SpellComponentTable => _spellComponentTableBrowser ??= _viewModelFactory.CreateSpellComponentTableBrowser(),
+                DBObjType.ExperienceTable => _experienceTableBrowser ??= _viewModelFactory.CreateExperienceTableBrowser(),
+                DBObjType.QualityFilter => _qualityFilterBrowser ??= _viewModelFactory.CreateQualityFilterBrowser(),
+                DBObjType.CombatTable => _combatTableBrowser ??= _viewModelFactory.CreateCombatTableBrowser(),
+                DBObjType.ContractTable => _contractTableBrowser ??= _viewModelFactory.CreateContractTableBrowser(),
+                DBObjType.LandBlock => GetOrCreateLandBlockBrowser(),
+                DBObjType.LandBlockInfo => GetOrCreateLandBlockInfoBrowser(),
                 DBObjType.EnvCell => GetOrCreateEnvCellBrowser(),
+                DBObjType.LayoutDesc => _layoutDescBrowser ??= _viewModelFactory.CreateLayoutDescBrowser(),
+                DBObjType.LanguageInfo => _languageInfoBrowser ??= _viewModelFactory.CreateLanguageInfoBrowser(),
                 _ => null
             };
         }
@@ -133,6 +274,32 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             }
             
             return _envCellBrowser;
+        }
+
+        private LandBlockBrowserViewModel GetOrCreateLandBlockBrowser() {
+            if (_landBlockBrowser == null) {
+                _landBlockBrowser = _viewModelFactory.CreateLandBlockBrowser();
+            }
+            
+            // Initialize LandBlock data on first access
+            if (_landBlockBrowser.FileIds == null || !_landBlockBrowser.FileIds.Any()) {
+                _landBlockBrowser.LoadLandBlockData();
+            }
+            
+            return _landBlockBrowser;
+        }
+
+        private LandBlockInfoBrowserViewModel GetOrCreateLandBlockInfoBrowser() {
+            if (_landBlockInfoBrowser == null) {
+                _landBlockInfoBrowser = _viewModelFactory.CreateLandBlockInfoBrowser();
+            }
+            
+            // Initialize LandBlockInfo data on first access
+            if (_landBlockInfoBrowser.FileIds == null || !_landBlockInfoBrowser.FileIds.Any()) {
+                _landBlockInfoBrowser.LoadLandBlockInfoData();
+            }
+            
+            return _landBlockInfoBrowser;
         }
 
         partial void OnCurrentBrowserChanged(ViewModelBase? oldValue, ViewModelBase? newValue) {
