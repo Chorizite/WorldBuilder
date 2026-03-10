@@ -90,7 +90,7 @@
                 <ContentControl Content="{Binding ObjectOverview}" />
             </TabItem>
             <TabItem Header="Props">
-                <TreeView ItemsSource="{Binding ReflectionNodes}" Padding="0,5.5,0,0">
+                <TreeView ItemsSource="{Binding ReflectionNodes}" Padding="0,5.5,10,0">
                     <TreeView.ItemTemplate>
                         <TreeDataTemplate ItemsSource="{Binding Children}">
                             <StackPanel Orientation="Horizontal" Background="Transparent">
