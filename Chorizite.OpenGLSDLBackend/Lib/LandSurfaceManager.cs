@@ -73,10 +73,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             RoadMaps = texMerge.RoadMaps;
             TerrainDescriptors = texMerge.TerrainDesc;
 
-            TerrainAtlas = _graphicsDevice.CreateTextureArray(TextureFormat.RGBA8, 512, 512, 36)
-                           ?? throw new Exception("Unable to create terrain atlas.");
-            AlphaAtlas = _graphicsDevice.CreateTextureArray(TextureFormat.RGBA8, 512, 512, 16)
-                         ?? throw new Exception("Unable to create alpha atlas.");
+            TerrainAtlas = _graphicsDevice.CreateTextureArrayInternal(TextureFormat.RGBA8, 512, 512, 36, TextureParameters.Default);
+            AlphaAtlas = _graphicsDevice.CreateTextureArrayInternal(TextureFormat.RGBA8, 512, 512, 16, TextureParameters.ClampToEdge);
 
             if (TerrainAtlas is ManagedGLTextureArray managedTerrainAtlas) {
                 GpuMemoryTracker.TrackNamedBuffer("Terrain Atlas", managedTerrainAtlas.TotalSizeInBytes, managedTerrainAtlas.TotalSizeInBytes);

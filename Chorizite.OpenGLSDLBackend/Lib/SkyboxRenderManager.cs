@@ -303,6 +303,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 batch.Atlas.TextureArray.Bind(0);
                 _shader!.SetUniform("uTextureArray", 0);
 
+                // Bind the correct sampler for wrap vs. clamp
+                var skySamplerId = batch.HasWrappingUVs ? _graphicsDevice.WrapSampler : _graphicsDevice.ClampSampler;
+                _gl.BindSampler(0, skySamplerId);
+
                 _gl.BindBuffer(GLEnum.ElementArrayBuffer, batch.IBO);
                 _gl.DrawElementsInstancedBaseVertex(PrimitiveType.Triangles, (uint)batch.IndexCount,
                     DrawElementsType.UnsignedShort, (void*)(batch.FirstIndex * sizeof(ushort)), (uint)instanceTransforms.Length, (int)batch.BaseVertex);

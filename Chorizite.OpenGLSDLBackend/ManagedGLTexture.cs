@@ -1,4 +1,4 @@
-﻿using Chorizite.Core.Dats;
+using Chorizite.Core.Dats;
 using Chorizite.Core.Render;
 using Chorizite.Core.Render.Enums;
 using Chorizite.OpenGLSDLBackend.Lib;
@@ -25,7 +25,8 @@ namespace Chorizite.OpenGLSDLBackend {
         public ulong BindlessHandle { get; private set; }
 
         /// <inheritdoc/>
-        public ManagedGLTexture(OpenGLGraphicsDevice device, byte[]? source, int width, int height) {
+        public ManagedGLTexture(OpenGLGraphicsDevice device, byte[]? source, int width, int height, TextureParameters? texParams = null) {
+            var p = texParams ?? TextureParameters.Default;
             _device = device;
             _texture = GL.GenTexture();
             GpuMemoryTracker.TrackResourceAllocation(GpuResourceType.Texture);
@@ -46,21 +47,13 @@ namespace Chorizite.OpenGLSDLBackend {
                 GLHelpers.CheckErrors(GL);
             }
 
-            GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
-            GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
-            GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
-            GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+            GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureWrapS, (int)p.WrapS);
+            GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureWrapT, (int)p.WrapT);
+            GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureMinFilter, (int)p.MinFilter);
+            GL.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureMagFilter, (int)p.MagFilter);
             GLHelpers.CheckErrors(GL);
-            //  GL.TexParameterI(GLEnum.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapNearest);
-            // GL.TexParameterI(GLEnum.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
 
-            //  GLHelpers.CheckErrors(GL);
-
-            //  GL.TexParameterI(GLEnum.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
-            // GL.TexParameterI(GLEnum.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
-            //  GLHelpers.CheckErrors(GL);
-
-            if (_device.RenderSettings.EnableAnisotropicFiltering) 
+            if (p.EnableAnisotropicFiltering && _device.RenderSettings.EnableAnisotropicFiltering) 
             {
                 float maxAnisotropy = 0f;
                 GL.GetFloat(GLEnum.MaxTextureMaxAnisotropy, out maxAnisotropy);
@@ -71,7 +64,9 @@ namespace Chorizite.OpenGLSDLBackend {
                 }
             }
 
-            GL.GenerateMipmap(GLEnum.Texture2D);
+            if (p.EnableMipmaps) {
+                GL.GenerateMipmap(GLEnum.Texture2D);
+            }
             GLHelpers.CheckErrors(GL);
             GL.BindTexture(GLEnum.Texture2D, 0);
             GLHelpers.CheckErrors(GL);

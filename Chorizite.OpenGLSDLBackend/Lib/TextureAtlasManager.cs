@@ -32,7 +32,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _textureWidth = width;
             _textureHeight = height;
             _format = format;
-            TextureArray = (ManagedGLTextureArray)graphicsDevice.CreateTextureArrayInternal(format, width, height, InitialCapacity);
+            TextureArray = (ManagedGLTextureArray)graphicsDevice.CreateTextureArrayInternal(format, width, height, InitialCapacity, TextureParameters.ClampToEdge);
         }
 
         public int AddTexture(TextureKey key, byte[] data, PixelFormat? uploadPixelFormat = null, PixelType? uploadPixelType = null) {

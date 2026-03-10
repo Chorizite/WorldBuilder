@@ -39,7 +39,8 @@ namespace Chorizite.OpenGLSDLBackend {
         public long TotalSizeInBytes => CalculateTotalSize();
 
         public ManagedGLTextureArray(OpenGLGraphicsDevice graphicsDevice, TextureFormat format, int width, int height,
-            int size, ILogger logger) {
+            int size, ILogger logger, TextureParameters? texParams = null) {
+            var p = texParams ?? TextureParameters.Default;
             if (width <= 0 || height <= 0 || size <= 0) {
                 throw new ArgumentException($"Invalid texture array dimensions: {width}x{height}x{size}");
             }
@@ -75,15 +76,15 @@ namespace Chorizite.OpenGLSDLBackend {
                 $"Creating texture array storage (Format={format}, Size={width}x{height}x{size}, MipLevels={mipLevels})");
 
             GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureMinFilter,
-                (int)TextureMinFilter.LinearMipmapLinear);
+                (int)p.MinFilter);
             GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureMaxLevel, (int)mipLevels - 1);
 
-            GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+            GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureMagFilter, (int)p.MagFilter);
 
-            GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
-            GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
+            GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureWrapS, (int)p.WrapS);
+            GL.TexParameter(GLEnum.Texture2DArray, TextureParameterName.TextureWrapT, (int)p.WrapT);
 
-            if (graphicsDevice.RenderSettings.EnableAnisotropicFiltering) {
+            if (p.EnableAnisotropicFiltering && graphicsDevice.RenderSettings.EnableAnisotropicFiltering) {
                 float maxAnisotropy = 0f;
                 GL.GetFloat(GLEnum.MaxTextureMaxAnisotropy, out maxAnisotropy);
 
