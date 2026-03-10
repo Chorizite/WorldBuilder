@@ -13,7 +13,6 @@ using DatReaderWriter.Enums;
 using WorldBuilder.Services;
 using WorldBuilder.Lib.Settings;
 using System.Numerics;
-using System.Diagnostics;
 
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
