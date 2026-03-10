@@ -6,7 +6,6 @@ using System.Linq;
 using WorldBuilder.ViewModels;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter;
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.Input;
 using WorldBuilder.Shared.Services;
 using CommunityToolkit.Mvvm.Messaging;
@@ -68,7 +67,8 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         public double CalculatedItemSize => Math.Max(40, (ContainerWidth - 40 - (ItemsPerRow - 1) * 10) / ItemsPerRow);
 
-        public ObservableCollection<uint> FileIds { get; } = new();
+        private IEnumerable<uint> _fileIds;
+        public IEnumerable<uint> FileIds => _fileIds ?? Enumerable.Empty<uint>();
 
         public IDatReaderWriter Dats => _dats;
 
@@ -81,6 +81,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             _onSelected = onSelected;
             _title = $"Browsing {type}";
             _wireframeColor = themeService.IsDarkMode ? new Vector4(1f, 1f, 1f, 0.5f) : new Vector4(0f, 0f, 0f, 0.5f);
+            _fileIds = fileIds ?? Enumerable.Empty<uint>();
 
             _themeChangedHandler = (s, e) => {
                 if (e.PropertyName == nameof(ThemeService.IsDarkMode)) {
@@ -100,27 +101,10 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 }
             };
             _settings.DatBrowser.PropertyChanged += _settingsChangedHandler;
-
-            if (fileIds != null)
-                SetFileIds(fileIds);
         }
 
         public void SetFileIds(IEnumerable<uint> fileIds) {
-            FileIds.Clear();
-            foreach (var id in fileIds.OrderBy(x => x)) {
-                FileIds.Add(id);
-            }
-        }
-
-        private IEnumerable<uint> LoadEnvCellIds() {
-            var ids = new List<uint>();
-            var databases = _database != _dats.Portal ? new[] { _database } : _dats.CellRegions.Values.ToArray();
-
-            foreach (var db in databases) {
-                var cellIds = db.Db.Tree.Select(f => f.Id).Where(id => db.Db.TypeFromId(id) == DBObjType.EnvCell);
-                ids.AddRange(cellIds);
-            }
-            return ids;
+            _fileIds = fileIds ?? Enumerable.Empty<uint>();
         }
 
         [RelayCommand]

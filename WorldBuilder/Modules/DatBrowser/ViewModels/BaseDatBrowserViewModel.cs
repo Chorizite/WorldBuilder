@@ -67,9 +67,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             _fileIds = Enumerable.Empty<string>();
             SelectedFileIdDisplay = string.Empty;
             
-            // Create GridBrowser with FileIDs if not deferred, otherwise it will be updated later
-            var initialFileIds = deferInitialization ? null : fileIds;
-            GridBrowser = new GridBrowserViewModel(type, dats, settings, themeService, (id) => SelectedFileId = id, _database, initialFileIds);
+            GridBrowser = new GridBrowserViewModel(type, dats, settings, themeService, (id) => SelectedFileId = id, _database, fileIds);
             _wireframeColor = themeService.IsDarkMode ? new Vector4(1f, 1f, 1f, 0.5f) : new Vector4(0f, 0f, 0f, 0.5f);
 
             _themeChangedHandler = (s, e) => {
@@ -93,14 +91,9 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         }
 
         protected void Initialize(IEnumerable<uint>? fileIds = null) {
-            var ids = (fileIds ?? _database.GetAllIdsOfType<T>().OrderBy(x => x))
-                .Select(x => x.ToString("X8"))
-                .ToList();
-            FileIds = ids;
-            
-            // Update GridBrowser with the loaded FileIDs
-            var uintIds = (fileIds ?? _database.GetAllIdsOfType<T>().OrderBy(x => x)).ToList();
-            GridBrowser.SetFileIds(uintIds);
+            var ids = (fileIds ?? _database.GetAllIdsOfType<T>().OrderBy(x => x)).ToList();
+            FileIds = ids.Select(x => x.ToString("X8")).ToList();
+            GridBrowser.SetFileIds(ids);
         }
 
         partial void OnSelectedFileIdChanged(uint value) {
