@@ -59,10 +59,24 @@ sealed class Program {
                 RenderingMode = new List<Win32RenderingMode>()  {
                     Win32RenderingMode.Wgl,
                 },
-                WglProfiles = new List<GlVersion> { 
-                    new GlVersion(GlProfileType.OpenGL, 4, 3),
-                    new GlVersion(GlProfileType.OpenGL, 3, 3)
-                }
+                WglProfiles = GetGlVersions()
             })
             .LogToTrace();
+
+    private static List<GlVersion> GetGlVersions() {
+        var options = App.CommandLineOptions ?? new CommandLineOptions();
+        var settings = new WorldBuilder.Services.WorldBuilderSettings();
+        settings.Load();
+
+        if (options.ForceLegacyRendering || settings.App.ForceLegacyRendering) {
+            return new List<GlVersion> {
+                new GlVersion(GlProfileType.OpenGL, 3, 3)
+            };
+        }
+
+        return new List<GlVersion> {
+            new GlVersion(GlProfileType.OpenGL, 4, 3),
+            new GlVersion(GlProfileType.OpenGL, 3, 3)
+        };
+    }
 }

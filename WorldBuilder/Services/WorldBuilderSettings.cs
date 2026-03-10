@@ -72,7 +72,7 @@ namespace WorldBuilder.Services {
             }
 
             SetupListeners();
-            TryLoad();
+            Load();
         }
 
         private void SetupListeners() {
@@ -93,7 +93,7 @@ namespace WorldBuilder.Services {
             Save();
         }
 
-        private void TryLoad() {
+        public void Load() {
             if (File.Exists(SettingsFilePath)) {
                 try {
                     var json = File.ReadAllText(SettingsFilePath);

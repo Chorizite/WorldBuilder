@@ -93,6 +93,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     [ObservableProperty] private string _glVersion = "GL: Unknown";
 
     /// <summary>
+    /// Gets the current OpenGL version (short version e.g. 4.6).
+    /// </summary>
+    [ObservableProperty] private string _glVersionShort = "GL: Unknown";
+
+    /// <summary>
     /// Gets the current OpenGL details formatted for a tooltip.
     /// </summary>
     [ObservableProperty] private string _glDetailsTooltip = "";
@@ -111,6 +116,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     /// Gets whether the modern rendering pipeline is being used.
     /// </summary>
     [ObservableProperty] private bool _isModernPipelineSupported;
+
+    /// <summary>
+    /// Gets whether legacy rendering is being used.
+    /// </summary>
+    [ObservableProperty] private bool _isLegacyRendering;
 
     /// <summary>
     /// Gets or sets the greeting message displayed in the main view.
@@ -196,16 +206,28 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
                 var totalVram = _performanceService.GetTotalVram();
 
                 GlVersion = _performanceService.GetGlVersion();
+                GlVersionShort = $"{_performanceService.GetGlMajorVersion()}.{_performanceService.GetGlMinorVersion()}";
                 HasBindless = _performanceService.GetHasBindless();
                 HasOpenGL43 = _performanceService.GetHasOpenGL43();
                 IsModernPipelineSupported = _performanceService.IsModernPipelineSupported();
+                IsLegacyRendering = !IsModernPipelineSupported;
 
                 var glDetails = new List<string> {
-                    $"Version: {GlVersion}",
+                    $"Current: {GlVersionShort}",
+                    $"Available: {GlVersion}",
                     $"OpenGL 4.3+: {(HasOpenGL43 ? "Yes" : "No")}",
-                    $"Bindless Textures: {(HasBindless ? "Yes" : "No")}",
+                    $"Bindless Extension: {(_performanceService.IsBindlessSupportedByHardware() ? "Supported" : "Unsupported")}",
                     $"Modern Pipeline: {(IsModernPipelineSupported ? "Active" : "Inactive (Requires 4.3+ & Bindless)")}"
                 };
+
+                if (_performanceService.IsLegacyRenderingForcedByCLI()) {
+                    glDetails.Add("Forced Legacy Rendering: Yes (CLI)");
+                }
+
+                if (_performanceService.IsLegacyRenderingForcedBySettings()) {
+                    glDetails.Add("Forced Legacy Rendering: Yes (Settings)");
+                }
+
                 GlDetailsTooltip = string.Join("\n", glDetails);
 
                 RenderTime = $"{_performanceService.RenderTime:0.00} ms";

@@ -55,10 +55,24 @@ sealed class Program {
             .UsePlatformDetect()
             .WithInterFont()
             .With(new X11PlatformOptions {
-                GlProfiles = new List<GlVersion> { 
-                    new GlVersion(GlProfileType.OpenGL, 4, 3),
-                    new GlVersion(GlProfileType.OpenGL, 3, 3)
-                }
+                GlProfiles = GetGlVersions()
             })
             .LogToTrace();
+
+    private static List<GlVersion> GetGlVersions() {
+        var options = App.CommandLineOptions ?? new CommandLineOptions();
+        var settings = new WorldBuilder.Services.WorldBuilderSettings();
+        settings.Load();
+
+        if (options.ForceLegacyRendering || settings.App.ForceLegacyRendering) {
+            return new List<GlVersion> {
+                new GlVersion(GlProfileType.OpenGL, 3, 3)
+            };
+        }
+
+        return new List<GlVersion> {
+            new GlVersion(GlProfileType.OpenGL, 4, 3),
+            new GlVersion(GlProfileType.OpenGL, 3, 3)
+        };
+    }
 }

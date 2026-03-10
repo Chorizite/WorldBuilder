@@ -27,9 +27,10 @@
             
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="15">
                 <StackPanel Orientation="Horizontal" Spacing="4" ToolTip.Tip="{Binding GlDetailsTooltip}" Background="Transparent">
-                    <TextBlock Text="{Binding GlVersion}" VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
-                    <TextBlock Text="(B)" IsVisible="{Binding HasBindless}" VerticalAlignment="Center" FontSize="11" Opacity="0.5" Foreground="{DynamicResource SemiColorSuccess}" />
+                    <TextBlock Text="GL:" VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
+                    <TextBlock Text="{Binding GlVersionShort}" VerticalAlignment="Center" FontSize="11" Opacity="0.8" />
                     <TextBlock Text="(M)" IsVisible="{Binding IsModernPipelineSupported}" VerticalAlignment="Center" FontSize="11" Opacity="0.5" Foreground="{DynamicResource SemiColorSuccess}" />
+                    <TextBlock Text="(L)" IsVisible="{Binding IsLegacyRendering}" VerticalAlignment="Center" FontSize="11" Opacity="0.5" Foreground="{DynamicResource SemiColorInfo}" />
                 </StackPanel>
                 <TextBlock Text="v1.0.0-alpha" VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
             </StackPanel>

@@ -4,9 +4,9 @@ namespace WorldBuilder.Lib {
     /// </summary>
     public class CommandLineOptions {
         /// <summary>
-        /// Gets whether bindless texturing is forced to be disabled.
+        /// Gets whether the legacy rendering pipeline is forced to be used.
         /// </summary>
-        public bool DisableBindless { get; set; }
+        public bool ForceLegacyRendering { get; set; }
 
         /// <summary>
         /// Gets the path to a project file to open on startup.
@@ -25,8 +25,8 @@ namespace WorldBuilder.Lib {
             for (int i = 1; i < args.Length; i++) {
                 var arg = args[i];
 
-                if (arg.Equals("--disable-bindless", System.StringComparison.OrdinalIgnoreCase)) {
-                    options.DisableBindless = true;
+                if (arg.Equals("--force-legacy-rendering", System.StringComparison.OrdinalIgnoreCase)) {
+                    options.ForceLegacyRendering = true;
                 }
                 else if (arg.Equals("--project", System.StringComparison.OrdinalIgnoreCase) || arg.Equals("-p", System.StringComparison.OrdinalIgnoreCase)) {
                     if (i + 1 < args.Length) {
