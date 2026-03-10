@@ -12,7 +12,7 @@ namespace WorldBuilder.Shared.Repositories {
     /// <summary>
     /// Defines the contract for a project repository, handling document and event persistence.
     /// </summary>
-    public interface IProjectRepository : IDisposable {
+    public interface IProjectRepository : IDisposable, IAsyncDisposable {
         /// <summary>
         /// Gets the path to the project directory.
         /// </summary>
