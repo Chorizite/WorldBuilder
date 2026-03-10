@@ -59,16 +59,15 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         public GridBrowserViewModel GridBrowser { get; }
 
-        protected BaseDatBrowserViewModel(DBObjType type, IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService, IDatDatabase? database = null, IEnumerable<uint>? fileIds = null) {
+        protected BaseDatBrowserViewModel(DBObjType type, IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService, IDatDatabase? database = null, IEnumerable<uint>? fileIds = null, bool deferInitialization = false) {
             _dats = dats;
             _database = database ?? dats.Portal;
             _settings = settings;
             _themeService = themeService;
-            _fileIds = (fileIds ?? _database.GetAllIdsOfType<T>().OrderBy(x => x))
-                .Select(x => x.ToString("X8"))
-                .ToList();
+            _fileIds = Enumerable.Empty<string>();
             SelectedFileIdDisplay = string.Empty;
-            GridBrowser = new GridBrowserViewModel(type, dats, settings, themeService, (id) => SelectedFileId = id, _database);
+            
+            GridBrowser = new GridBrowserViewModel(type, dats, settings, themeService, (id) => SelectedFileId = id, _database, fileIds);
             _wireframeColor = themeService.IsDarkMode ? new Vector4(1f, 1f, 1f, 0.5f) : new Vector4(0f, 0f, 0f, 0.5f);
 
             _themeChangedHandler = (s, e) => {
@@ -85,6 +84,16 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 }
             };
             _settings.DatBrowser.PropertyChanged += _settingsChangedHandler;
+
+            if (!deferInitialization) {
+                Initialize(fileIds);
+            }
+        }
+
+        protected void Initialize(IEnumerable<uint>? fileIds = null) {
+            var ids = (fileIds ?? _database.GetAllIdsOfType<T>().OrderBy(x => x)).ToList();
+            FileIds = ids.Select(x => x.ToString("X8")).ToList();
+            GridBrowser.SetFileIds(ids);
         }
 
         partial void OnSelectedFileIdChanged(uint value) {
