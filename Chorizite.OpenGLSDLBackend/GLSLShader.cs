@@ -240,20 +240,10 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public override void Bind() {
             lock (_lock) {
-                GLHelpers.CheckErrors(GL);
                 SetActive();
                 if (Program != 0) {
-                    if (!GL.IsProgram(Program)) {
-                        _log.LogWarning($"Shader {Name} program {Program} is NOT a valid program in the current context!");
-                        NeedsLoad = true;
-                        SetActive();
-                    }
-
-                    if (Program != 0) {
-                        GL.UseProgram((uint)Program);
-                    }
+                    GL.UseProgram((uint)Program);
                 }
-                GLHelpers.CheckErrors(GL);
             }
         }
 

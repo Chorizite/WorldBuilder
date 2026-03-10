@@ -12,7 +12,6 @@ namespace Chorizite.OpenGLSDLBackend {
     public unsafe class ManagedGLUniformBuffer : IUniformBuffer {
         private uint bufferId;
         private readonly OpenGLGraphicsDevice _device;
-        private void* _mappedPtr;
         private GL GL => _device.GL;
 
         /// <inheritdoc />
@@ -43,18 +42,12 @@ namespace Chorizite.OpenGLSDLBackend {
             // Allocate the buffer with the specified size
             GL.BindBuffer(GLEnum.UniformBuffer, bufferId);
             GLHelpers.CheckErrors(GL);
-            
-            if (_device.HasBufferStorage) {
-                var flags = BufferStorageMask.MapWriteBit | BufferStorageMask.MapPersistentBit | BufferStorageMask.MapCoherentBit | BufferStorageMask.DynamicStorageBit;
-                GL.BufferStorage(GLEnum.UniformBuffer, (uint)Size, (void*)0, flags);
-                _mappedPtr = GL.MapBufferRange(GLEnum.UniformBuffer, 0, (nuint)Size, MapBufferAccessMask.WriteBit | MapBufferAccessMask.PersistentBit | MapBufferAccessMask.CoherentBit);
-            } else {
-                GL.BufferData(
-                    GLEnum.UniformBuffer,
-                    (uint)Size,
-                    (void*)0, // No initial data
-                    Usage.ToGL());
-            }
+
+            GL.BufferData(
+                GLEnum.UniformBuffer,
+                (uint)Size,
+                (void*)0, // No initial data
+                GLEnum.DynamicDraw);
             GLHelpers.CheckErrors(GL);
 
             GpuMemoryTracker.TrackAllocation(Size, GpuResourceType.Buffer);
@@ -74,35 +67,9 @@ namespace Chorizite.OpenGLSDLBackend {
                 throw new ArgumentException($"Data size ({dataSize} bytes) exceeds buffer size ({Size} bytes).");
             }
 
-            if (_mappedPtr != null) {
-                Span<T> mappedSpan = new Span<T>(_mappedPtr, data.Length);
-                data.CopyTo(mappedSpan);
-            } else {
-                GL.BindBuffer(GLEnum.UniformBuffer, bufferId);
-                GLHelpers.CheckErrors(GL);
-
-                // Map the buffer for writing
-                void* mappedPtr = GL.MapBufferRange(
-                    GLEnum.UniformBuffer,
-                    0, // offset
-                    dataSize,
-                    MapBufferAccessMask.WriteBit | MapBufferAccessMask.InvalidateBufferBit // Overwrite entire buffer
-                );
-
-                if (mappedPtr == null) {
-                    throw new Exception("Failed to map uniform buffer for writing.");
-                }
-
-                try {
-                    // Copy data directly to mapped memory
-                    Span<T> mappedSpan = new Span<T>(mappedPtr, data.Length);
-                    data.CopyTo(mappedSpan);
-                }
-                finally {
-                    // Unmap the buffer
-                    GL.UnmapBuffer(GLEnum.UniformBuffer);
-                    GLHelpers.CheckErrors(GL);
-                }
+            GL.BindBuffer(GLEnum.UniformBuffer, bufferId);
+            fixed (T* ptr = data) {
+                GL.BufferSubData(GLEnum.UniformBuffer, 0, (nuint)dataSize, ptr);
             }
         }
 
@@ -113,10 +80,6 @@ namespace Chorizite.OpenGLSDLBackend {
 
         /// <inheritdoc />
         public unsafe void SetSubData<T>(Span<T> data, int destinationOffsetBytes, int sourceOffsetElements = 0, int lengthElements = 0) where T : unmanaged {
-            if (Usage != BufferUsage.Dynamic) {
-                throw new InvalidOperationException("Cannot update a buffer that is not dynamic.");
-            }
-
             if (lengthElements <= 0) {
                 lengthElements = data.Length - sourceOffsetElements;
             }
@@ -128,35 +91,9 @@ namespace Chorizite.OpenGLSDLBackend {
                 throw new ArgumentException($"Update would exceed buffer size. Buffer size: {Size}, Update range: {destinationOffsetBytes} to {destinationOffsetBytes + dataSizeBytes}");
             }
 
-            if (_mappedPtr != null) {
-                Span<T> mappedSpan = new Span<T>((byte*)_mappedPtr + destinationOffsetBytes, lengthElements);
-                data.Slice(sourceOffsetElements, lengthElements).CopyTo(mappedSpan);
-            } else {
-                GL.BindBuffer(GLEnum.UniformBuffer, bufferId);
-                GLHelpers.CheckErrors(GL);
-
-                // Map the specific range of the buffer
-                void* mappedPtr = GL.MapBufferRange(
-                    GLEnum.UniformBuffer,
-                    destinationOffsetBytes,
-                    dataSizeBytes,
-                    MapBufferAccessMask.WriteBit // Write access for partial update
-                );
-
-                if (mappedPtr == null) {
-                    throw new Exception("Failed to map buffer for writing.");
-                }
-
-                try {
-                    // Copy the specified range of data to the mapped memory
-                    Span<T> mappedSpan = new Span<T>(mappedPtr, lengthElements);
-                    data.Slice(sourceOffsetElements, lengthElements).CopyTo(mappedSpan);
-                }
-                finally {
-                    // Unmap the buffer
-                    GL.UnmapBuffer(GLEnum.UniformBuffer);
-                    GLHelpers.CheckErrors(GL);
-                }
+            GL.BindBuffer(GLEnum.UniformBuffer, bufferId);
+            fixed (T* ptr = data.Slice(sourceOffsetElements, lengthElements)) {
+                GL.BufferSubData(GLEnum.UniformBuffer, (nint)destinationOffsetBytes, (nuint)dataSizeBytes, ptr);
             }
         }
 
@@ -197,7 +134,6 @@ namespace Chorizite.OpenGLSDLBackend {
                 GLHelpers.CheckErrors(GL);
                 GpuMemoryTracker.TrackDeallocation(Size, GpuResourceType.Buffer);
                 bufferId = 0;
-                _mappedPtr = null;
             }
         }
     }

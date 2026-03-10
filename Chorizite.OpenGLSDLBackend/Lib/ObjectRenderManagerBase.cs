@@ -113,7 +113,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected virtual bool RenderHighlightsWhenEmpty => false;
 
         protected ObjectRenderManagerBase(GL gl, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager,
-            ILogger log, LandscapeDocument landscapeDoc, Frustum frustum, bool useInstanceBuffer = true, int initialCapacity = 1024 * 16384)
+            ILogger log, LandscapeDocument landscapeDoc, Frustum frustum, bool useInstanceBuffer = true, int initialCapacity = 4096)
             : base(gl, graphicsDevice, meshManager, useInstanceBuffer, initialCapacity) {
             Log = log;
             LandscapeDoc = landscapeDoc;

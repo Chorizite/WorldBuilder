@@ -41,7 +41,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public SceneryRenderManager(GL gl, ILogger log, LandscapeDocument landscapeDoc,
             IDatReaderWriter dats, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager,
             StaticObjectRenderManager staticObjectManager, IDocumentManager documentManager, Frustum frustum)
-            : base(gl, graphicsDevice, meshManager, log, landscapeDoc, frustum, true, 7864320) {
+            : base(gl, graphicsDevice, meshManager, log, landscapeDoc, frustum, true, 8192) {
             _dats = dats;
             _staticObjectManager = staticObjectManager;
             _documentManager = documentManager;
