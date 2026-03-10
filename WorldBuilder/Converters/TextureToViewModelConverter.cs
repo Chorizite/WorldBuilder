@@ -57,18 +57,22 @@ namespace WorldBuilder.Converters {
                 activeDoc = lvm.ActiveDocument;
             }
 
-            if (_cache.TryGetValue(textureType, out var loader)) {
-                var region = activeDoc?.Region;
-                if (loader.Image == null && region != null) {
-                    loader.Reload(region);
-                }
-                return loader;
-            }
-
             var textureService = projectManager?.GetProjectService<TextureService>();
 
             if (textureService == null) {
                 return null;
+            }
+
+            if (_cache.TryGetValue(textureType, out var loader)) {
+                if (loader.Service == textureService) {
+                    var region = activeDoc?.Region;
+                    if (loader.Image == null && region != null) {
+                        loader.Reload(region);
+                    }
+                    return loader;
+                } else {
+                    _cache.Remove(textureType);
+                }
             }
 
             var loaderRegion = activeDoc?.Region;
@@ -83,11 +87,11 @@ namespace WorldBuilder.Converters {
         [ObservableProperty] private bool _isLoading;
         [ObservableProperty] private TerrainTextureType _type;
 
-        private readonly TextureService _service;
+        public TextureService Service { get; }
 
         public TextureLoader(TerrainTextureType type, ITerrainInfo? region, TextureService service) {
             Type = type;
-            _service = service;
+            Service = service;
             LoadImage(type, region);
         }
 
@@ -103,7 +107,7 @@ namespace WorldBuilder.Converters {
             }
             IsLoading = true;
             try {
-                Image = await _service.GetTextureAsync(type, region);
+                Image = await Service.GetTextureAsync(type, region);
             }
             catch (Exception) {
                 // TODO: Log error or show fallback?

@@ -300,7 +300,7 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
             _errors.Remove(propertyName);
 
         foreach (var error in errors) {
-            _log.LogError(error);
+            _log.LogWarning(error);
         }
 
         ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(propertyName));

@@ -1174,10 +1174,34 @@ namespace WorldBuilder.Shared.Repositories {
             }
         }
 
+        private bool _disposed;
+
+        /// <inheritdoc/>
+        public async ValueTask DisposeAsync() {
+            if (_disposed) return;
+            _disposed = true;
+            _logger?.LogInformation("Disposing SQLiteProjectRepository asynchronously");
+            try {
+                if (Connection != null) {
+                    await Connection.DisposeAsync();
+                }
+            }
+            catch (Exception ex) {
+                _logger?.LogError(ex, "Error disposing SQLite connection");
+            }
+        }
+
         /// <inheritdoc/>
         public void Dispose() {
+            if (_disposed) return;
+            _disposed = true;
             _logger?.LogInformation("Disposing SQLiteProjectRepository");
-            Connection?.Close();
+            try {
+                Connection?.Dispose();
+            }
+            catch (Exception ex) {
+                _logger?.LogError(ex, "Error disposing SQLite connection");
+            }
         }
     }
 }
