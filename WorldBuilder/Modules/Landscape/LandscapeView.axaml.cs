@@ -260,13 +260,13 @@ public partial class LandscapeView : UserControl {
 
                     // Apply constraints using star format to prevent bouncing
                     if (currentHeight < PROPERTIES_PANEL_MAX_BOTTOM_DIST) {
-                        var constrainedStarValue = PROPERTIES_PANEL_MAX_BOTTOM_DIST / availableHeightForStars;
+                        var constrainedStarValue = Math.Clamp(PROPERTIES_PANEL_MAX_BOTTOM_DIST / availableHeightForStars, 0, 1);
                         topRow.Height = new GridLength(1.0 - constrainedStarValue, GridUnitType.Star);
                         bottomRow.Height = new GridLength(constrainedStarValue, GridUnitType.Star);
                     }
                     else if (currentHeight > totalHeight - PROPERTIES_PANEL_MIN_TOP_DIST) {
                         var maxHeight = totalHeight - PROPERTIES_PANEL_MIN_TOP_DIST;
-                        var constrainedStarValue = maxHeight / availableHeightForStars;
+                        var constrainedStarValue = Math.Clamp(maxHeight / availableHeightForStars, 0, 1);
                         topRow.Height = new GridLength(1.0 - constrainedStarValue, GridUnitType.Star);
                         bottomRow.Height = new GridLength(constrainedStarValue, GridUnitType.Star);
                     }
