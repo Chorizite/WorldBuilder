@@ -1,9 +1,10 @@
-﻿using HanumanInstitute.MvvmDialogs;
+using HanumanInstitute.MvvmDialogs;
 using HanumanInstitute.MvvmDialogs.Avalonia;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
 using WorldBuilder.Lib.Factories;
+using WorldBuilder.Modules.DatBrowser.Factories;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Lib.Extensions;
@@ -109,6 +110,11 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddTransient<MainViewModel>();
             collection.AddTransient<ExportDatsWindowViewModel>();
             collection.AddTransient<WorldBuilder.Modules.DatBrowser.ViewModels.DatBrowserViewModel>();
+            
+            // Register factory for lazy loading
+            collection.AddTransient<IDatBrowserViewModelFactory, DatBrowserViewModelFactory>();
+            
+            // Register browser ViewModels for factory creation (not injected directly)
             collection.AddTransient<WorldBuilder.Modules.DatBrowser.ViewModels.SetupBrowserViewModel>();
             collection.AddTransient<WorldBuilder.Modules.DatBrowser.ViewModels.GfxObjBrowserViewModel>();
             collection.AddTransient<WorldBuilder.Modules.DatBrowser.ViewModels.SurfaceTextureBrowserViewModel>();

@@ -14,6 +14,7 @@ using DatReaderWriter.Enums;
 using WorldBuilder.Services;
 using WorldBuilder.Lib.Settings;
 using System.Numerics;
+using System.Diagnostics;
 
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
@@ -71,7 +72,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         public IDatReaderWriter Dats => _dats;
 
-        public GridBrowserViewModel(DBObjType type, IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService, Action<uint> onSelected, IDatDatabase? database = null) {
+        public GridBrowserViewModel(DBObjType type, IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService, Action<uint> onSelected, IDatDatabase? database = null, IEnumerable<uint>? fileIds = null) {
             _type = type;
             _dats = dats;
             _database = database ?? dats.Portal;
@@ -100,21 +101,13 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             };
             _settings.DatBrowser.PropertyChanged += _settingsChangedHandler;
 
-            LoadIds();
+            if (fileIds != null)
+                SetFileIds(fileIds);
         }
 
-        private void LoadIds() {
-            IEnumerable<uint> ids = _type switch {
-                DBObjType.Setup => _database.GetAllIdsOfType<Setup>(),
-                DBObjType.GfxObj => _database.GetAllIdsOfType<GfxObj>(),
-                DBObjType.SurfaceTexture => _database.GetAllIdsOfType<SurfaceTexture>(),
-                DBObjType.RenderSurface => _database.GetAllIdsOfType<RenderSurface>(),
-                DBObjType.Surface => _database.GetAllIdsOfType<Surface>(),
-                DBObjType.EnvCell => LoadEnvCellIds(),
-                _ => Enumerable.Empty<uint>()
-            };
-
-            foreach (var id in ids.OrderBy(x => x)) {
+        public void SetFileIds(IEnumerable<uint> fileIds) {
+            FileIds.Clear();
+            foreach (var id in fileIds.OrderBy(x => x)) {
                 FileIds.Add(id);
             }
         }

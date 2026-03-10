@@ -17,6 +17,7 @@ using WorldBuilder.Services;
 using HanumanInstitute.MvvmDialogs;
 using System.Threading.Tasks;
 using WorldBuilder.Lib;
+using WorldBuilder.Modules.DatBrowser.Factories;
 
 using CommunityToolkit.Mvvm.Input;
 
@@ -67,31 +68,32 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private bool _isSettingObject;
 
 
-        private readonly SetupBrowserViewModel _setupBrowser;
-        private readonly GfxObjBrowserViewModel _gfxObjBrowser;
-        private readonly SurfaceTextureBrowserViewModel _surfaceTextureBrowser;
-        private readonly RenderSurfaceBrowserViewModel _renderSurfaceBrowser;
-        private readonly SurfaceBrowserViewModel _surfaceBrowser;
-        private readonly EnvCellBrowserViewModel _envCellBrowser;
+        private readonly IDatBrowserViewModelFactory _viewModelFactory;
         private readonly IDialogService _dialogService;
         private readonly IServiceProvider _serviceProvider;
         private readonly IDatReaderWriter _dats;
 
+        // Cached ViewModels for lazy loading
+        private SetupBrowserViewModel? _setupBrowser;
+        private GfxObjBrowserViewModel? _gfxObjBrowser;
+        private SurfaceTextureBrowserViewModel? _surfaceTextureBrowser;
+        private RenderSurfaceBrowserViewModel? _renderSurfaceBrowser;
+        private SurfaceBrowserViewModel? _surfaceBrowser;
+        private EnvCellBrowserViewModel? _envCellBrowser;
+
         public IDatReaderWriter Dats => _dats;
 
-        public DatBrowserViewModel(SetupBrowserViewModel setupBrowser, GfxObjBrowserViewModel gfxObjBrowser, SurfaceTextureBrowserViewModel surfaceTextureBrowser, RenderSurfaceBrowserViewModel renderSurfaceBrowser, SurfaceBrowserViewModel surfaceBrowser, EnvCellBrowserViewModel envCellBrowser, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats) {
-            _setupBrowser = setupBrowser;
-            _gfxObjBrowser = gfxObjBrowser;
-            _surfaceTextureBrowser = surfaceTextureBrowser;
-            _renderSurfaceBrowser = renderSurfaceBrowser;
-            _surfaceBrowser = surfaceBrowser;
-            _envCellBrowser = envCellBrowser;
+        public DatBrowserViewModel(IDatBrowserViewModelFactory viewModelFactory, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats) {
+            _viewModelFactory = viewModelFactory;
             _dialogService = dialogService;
             _serviceProvider = serviceProvider;
             _dats = dats;
 
             SelectedType = DBObjType.Setup;
-            CurrentBrowser = _setupBrowser;
+            // Don't create browser here - let the lazy loading handle it
+            CurrentBrowser = null;
+            // Trigger the lazy loading for Setup type
+            OnSelectedTypeChanged(DBObjType.Setup);
         }
 
         [RelayCommand]
@@ -110,14 +112,27 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         partial void OnSelectedTypeChanged(DBObjType value) {
             CurrentBrowser = value switch {
-                DBObjType.Setup => _setupBrowser,
-                DBObjType.GfxObj => _gfxObjBrowser,
-                DBObjType.SurfaceTexture => _surfaceTextureBrowser,
-                DBObjType.RenderSurface => _renderSurfaceBrowser,
-                DBObjType.Surface => _surfaceBrowser,
-                DBObjType.EnvCell => _envCellBrowser,
+                DBObjType.Setup => _setupBrowser ??= _viewModelFactory.CreateSetupBrowser(),
+                DBObjType.GfxObj => _gfxObjBrowser ??= _viewModelFactory.CreateGfxObjBrowser(),
+                DBObjType.SurfaceTexture => _surfaceTextureBrowser ??= _viewModelFactory.CreateSurfaceTextureBrowser(),
+                DBObjType.RenderSurface => _renderSurfaceBrowser ??= _viewModelFactory.CreateRenderSurfaceBrowser(),
+                DBObjType.Surface => _surfaceBrowser ??= _viewModelFactory.CreateSurfaceBrowser(),
+                DBObjType.EnvCell => GetOrCreateEnvCellBrowser(),
                 _ => null
             };
+        }
+
+        private EnvCellBrowserViewModel GetOrCreateEnvCellBrowser() {
+            if (_envCellBrowser == null) {
+                _envCellBrowser = _viewModelFactory.CreateEnvCellBrowser();
+            }
+            
+            // Initialize EnvCell data on first access
+            if (_envCellBrowser.FileIds == null || !_envCellBrowser.FileIds.Any()) {
+                _envCellBrowser.LoadEnvCellData();
+            }
+            
+            return _envCellBrowser;
         }
 
         partial void OnCurrentBrowserChanged(ViewModelBase? oldValue, ViewModelBase? newValue) {
