@@ -62,11 +62,14 @@
             <StackPanel Grid.Row="0" Orientation="Horizontal">
                 <ComboBox ItemsSource="{Binding DatTypes}" 
                           SelectedItem="{Binding SelectedType}"
-                          HorizontalAlignment="Left" Margin="5"/>
+                          HorizontalAlignment="Stretch" 
+                          MinWidth="200"
+                          Margin="5"/>
                 <Button Content="Browse" 
                         Command="{Binding BrowseCommand}" 
                         IsVisible="{Binding CanBrowse}"
-                        VerticalAlignment="Center" Margin="5"/>
+                        VerticalAlignment="Center" 
+                        Margin="5"/>
             </StackPanel>
             
             <ContentControl Grid.Row="1" Content="{Binding CurrentBrowser}" />

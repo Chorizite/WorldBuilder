@@ -1,11 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using DatReaderWriter.DBObjs;
-using DatReaderWriter;
 using DatReaderWriter.Enums;
-using System.Collections.Generic;
-using System.Linq;
-using WorldBuilder.ViewModels;
 using WorldBuilder.Shared.Services;
+using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
     public partial class SurfaceTextureOverviewViewModel : ViewModelBase {
