@@ -110,12 +110,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         public RegionInfo(Region region) {
             _region = region;
 
-            var texMerge = _region.TerrainInfo.LandSurfaces.TexMerge;
-            foreach (var descriptor in texMerge.TerrainDesc) {
-                _tilingLookup[descriptor.TerrainType] = descriptor.TerrainTex.TexTiling;
-            }
-            if (texMerge.TerrainDesc.Count > 0) {
-                _defaultTiling = texMerge.TerrainDesc[0].TerrainTex.TexTiling;
+            var texMerge = _region.TerrainInfo?.LandSurfaces?.TexMerge;
+            if (texMerge != null) {
+                foreach (var descriptor in texMerge.TerrainDesc) {
+                    if (descriptor?.TerrainTex != null) {
+                        _tilingLookup[descriptor.TerrainType] = descriptor.TerrainTex.TexTiling;
+                    }
+                }
+                if (texMerge.TerrainDesc.Count > 0 && texMerge.TerrainDesc[0]?.TerrainTex != null) {
+                    _defaultTiling = texMerge.TerrainDesc[0].TerrainTex.TexTiling;
+                }
             }
         }
 
