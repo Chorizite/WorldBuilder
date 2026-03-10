@@ -37,5 +37,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         public ushort GetLandblockId(int x, int y) => 0;
 
         public uint? GetSceneryId(int terrainType, int sceneryIndex) => _baseRegion.GetSceneryId(terrainType, sceneryIndex);
+
+        public uint GetTexTiling(DatReaderWriter.Enums.TerrainTextureType terrainType) => _baseRegion.GetTexTiling(terrainType);
     }
 }

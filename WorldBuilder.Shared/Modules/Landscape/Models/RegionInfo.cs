@@ -26,6 +26,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         (int x, int y) GetVertexCoordinates(uint index);
         ushort GetLandblockId(int x, int y);
         uint? GetSceneryId(int terrainType, int sceneryIndex);
+        uint GetTexTiling(TerrainTextureType terrainType);
 
         Vector3 SunlightColor { get; }
         Vector3 AmbientColor { get; }
@@ -35,6 +36,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
 
     public class RegionInfo : ITerrainInfo {
         public readonly Region _region;
+        private readonly Dictionary<TerrainTextureType, uint> _tilingLookup = new();
+        private readonly uint _defaultTiling = 1;
+
         public float TimeOfDay { get; set; } = 0.5f;
 
         public Region Region => _region;
@@ -105,6 +109,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
 
         public RegionInfo(Region region) {
             _region = region;
+
+            var texMerge = _region.TerrainInfo.LandSurfaces.TexMerge;
+            foreach (var descriptor in texMerge.TerrainDesc) {
+                _tilingLookup[descriptor.TerrainType] = descriptor.TerrainTex.TexTiling;
+            }
+            if (texMerge.TerrainDesc.Count > 0) {
+                _defaultTiling = texMerge.TerrainDesc[0].TerrainTex.TexTiling;
+            }
         }
 
         /// <summary>
@@ -178,6 +190,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
                 }
             }
             return null;
+        }
+
+        /// <inheritdoc/>
+        public uint GetTexTiling(TerrainTextureType terrainType) {
+            if (_tilingLookup.TryGetValue(terrainType, out var tiling)) {
+                return tiling;
+            }
+            return _defaultTiling;
         }
 
         public Vector3 SunlightColor => GetInterpolatedLighting().sunlight;

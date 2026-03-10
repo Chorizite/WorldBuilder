@@ -29,6 +29,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly byte[] _textureBuffer;
         private uint _nextSurfaceNumber;
         private readonly OpenGLGraphicsDevice _graphicsDevice;
+        private readonly float[] _texTiling = new float[36];
 
         private static readonly Vector2[] LandUVs = new Vector2[] {
             new Vector2(0, 1), new Vector2(1, 1), new Vector2(1, 0), new Vector2(0, 0)
@@ -49,6 +50,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public List<TMTerrainDesc> TerrainDescriptors { get; private set; }
         public ConcurrentDictionary<uint, SurfaceInfo> SurfaceInfoByPalette { get; private set; }
         public ConcurrentDictionary<uint, TMI> SurfacesBySurfaceNumber { get; private set; }
+        public float[] TexTiling => _texTiling;
 
         private readonly ILogger _logger;
         private readonly object _surfaceCreationLock = new();
@@ -90,6 +92,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private void LoadTextures() {
             Span<byte> bytes = _textureBuffer.AsSpan(0, 512 * 512 * 4);
+            Array.Fill(_texTiling, 1f);
             foreach (var tmDesc in TerrainDescriptors) {
                 uint texId = (uint)tmDesc.TerrainTex.TextureId;
                 if (!_dats.Portal.TryGet<SurfaceTexture>(texId, out var t)) {
@@ -107,6 +110,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 GetTerrainTexture(texture, bytes);
                 var layerIndex = TerrainAtlas.AddLayer(bytes);
                 _textureAtlasIndexLookup.Add(texId, layerIndex);
+                if (layerIndex < _texTiling.Length) {
+                    _texTiling[layerIndex] = (float)tmDesc.TerrainTex.TexTiling;
+                }
             }
 
             foreach (var overlay in RoadMaps) {

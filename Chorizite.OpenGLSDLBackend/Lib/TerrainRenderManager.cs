@@ -833,6 +833,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 _surfaceManager.AlphaAtlas.Bind(1);
                 _shader.SetUniform("xAlphas", 1);
+                _shader.SetUniform("uTexTiling", _surfaceManager.TexTiling);
             }
 
             if (_globalVAO == 0) return;
