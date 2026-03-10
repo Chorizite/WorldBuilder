@@ -16,9 +16,15 @@ jobs:
           - os: ubuntu-latest
             project: WorldBuilder.Linux/WorldBuilder.Linux.csproj
             runtime: linux-x64
+          - os: ubuntu-latest
+            project: WorldBuilder.Linux/WorldBuilder.Linux.csproj
+            runtime: linux-arm64
           - os: windows-latest
             project: WorldBuilder.Windows/WorldBuilder.Windows.csproj
             runtime: win-x64
+          - os: windows-latest
+            project: WorldBuilder.Windows/WorldBuilder.Windows.csproj
+            runtime: win-arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

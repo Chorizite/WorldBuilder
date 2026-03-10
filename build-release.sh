@@ -27,7 +27,9 @@ echo "Building version: $SEMVER"
 # Clean previous builds
 rm -rf publish Releases
 mkdir -p publish/win-x64
+mkdir -p publish/win-arm64
 mkdir -p publish/linux-x64
+mkdir -p publish/linux-arm64
 mkdir -p Releases
 
 # Common publish flags
@@ -36,13 +38,25 @@ PUBLISH_FLAGS="-c Release -p:SelfContained=true -p:DebugType=None -p:DebugSymbol
 echo "Publishing for Windows (win-x64)..."
 dotnet publish WorldBuilder.Windows/WorldBuilder.Windows.csproj -r win-x64 -o publish/win-x64 $PUBLISH_FLAGS
 
+echo "Publishing for Windows (win-arm64)..."
+dotnet publish WorldBuilder.Windows/WorldBuilder.Windows.csproj -r win-arm64 -o publish/win-arm64 $PUBLISH_FLAGS
+
 echo "Publishing for Linux (linux-x64)..."
 dotnet publish WorldBuilder.Linux/WorldBuilder.Linux.csproj -r linux-x64 -o publish/linux-x64 $PUBLISH_FLAGS
 
-echo "Packing Windows release..."
-dotnet vpk [win] pack -u WorldBuilder -v "$SEMVER" -p publish/win-x64 -e WorldBuilder.Windows.exe --framework net10.0-x64-desktop --channel windows -o Releases
+echo "Publishing for Linux (linux-arm64)..."
+dotnet publish WorldBuilder.Linux/WorldBuilder.Linux.csproj -r linux-arm64 -o publish/linux-arm64 $PUBLISH_FLAGS
 
-echo "Packing Linux release..."
-dotnet vpk pack -u WorldBuilder -v "$SEMVER" -p publish/linux-x64 -e WorldBuilder.Linux --channel linux -o Releases
+echo "Packing Windows release (win-x64)..."
+dotnet vpk [win] pack -u WorldBuilder -v "$SEMVER" -p publish/win-x64 -e WorldBuilder.Windows.exe --framework net10.0-x64-desktop --channel windows-x64 -o Releases
+
+echo "Packing Windows release (win-arm64)..."
+dotnet vpk [win] pack -u WorldBuilder -v "$SEMVER" -p publish/win-arm64 -e WorldBuilder.Windows.exe --framework net10.0-arm64-desktop --channel windows-arm64 -o Releases
+
+echo "Packing Linux release (linux-x64)..."
+dotnet vpk pack -u WorldBuilder -v "$SEMVER" -p publish/linux-x64 -e WorldBuilder.Linux --channel linux-x64 -o Releases
+
+echo "Packing Linux release (linux-arm64)..."
+dotnet vpk pack -u WorldBuilder -v "$SEMVER" -p publish/linux-arm64 -e WorldBuilder.Linux --channel linux-arm64 -o Releases
 
 echo "Build and Pack complete. Artifacts are in Releases/"
