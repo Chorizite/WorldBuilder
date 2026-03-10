@@ -125,6 +125,7 @@ namespace Chorizite.OpenGLSDLBackend.Tests {
             public (int x, int y) GetVertexCoordinates(uint index) => ((int)(index % MapWidthInVertices), (int)(index / MapWidthInVertices));
             public ushort GetLandblockId(int x, int y) => (ushort)((x << 8) + y);
             public uint? GetSceneryId(int terrainType, int sceneryIndex) => null;
+            public uint GetTexTiling(DatReaderWriter.Enums.TerrainTextureType terrainType) => 1;
         }
     }
 }

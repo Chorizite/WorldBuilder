@@ -19,6 +19,7 @@ layout (std140) uniform SceneData {
 uniform sampler2DArray xOverlays;
 uniform sampler2DArray xAlphas;
 uniform float uAlpha;
+uniform float uTexTiling[36];
 
 // Grid uniforms
 uniform bool uShowLandblockGrid;  // Enable/disable landblock grid
@@ -42,7 +43,8 @@ uniform int uBrushShape;      // 0 = Circle, 1 = Square, 2 = Crosshair
 uniform bool uShowUnwalkableSlopes;
 uniform float uFloorZ;
 
-in vec3 vTexUV;
+in vec2 vBaseUV;
+in float vBaseTexIdx;
 in vec4 vOverlay0;
 in vec4 vOverlay1;
 in vec4 vOverlay2;
@@ -69,7 +71,7 @@ vec4 maskBlend3(vec4 t0, vec4 t1, vec4 t2, float h0, float h1, float h2) {
     return r;
 }
 
-vec4 combineOverlays(vec3 pTexUV, vec4 pOverlay0, vec4 pOverlay1, vec4 pOverlay2) {
+vec4 combineOverlays(vec2 baseUV, vec4 pOverlay0, vec4 pOverlay1, vec4 pOverlay2) {
     float h0 = pOverlay0.z < 0.0 ? 0.0 : 1.0;
     float h1 = pOverlay1.z < 0.0 ? 0.0 : 1.0;
     float h2 = pOverlay2.z < 0.0 ? 0.0 : 1.0;
@@ -79,10 +81,10 @@ vec4 combineOverlays(vec3 pTexUV, vec4 pOverlay0, vec4 pOverlay1, vec4 pOverlay2
     vec4 overlayAlpha0 = vec4(0.0);
     vec4 overlayAlpha1 = vec4(0.0);
     vec4 overlayAlpha2 = vec4(0.0);
-    vec2 uvb = pTexUV.xy;
     vec4 result = vec4(0.0);
     if (h0 > 0.0) {
-        overlay0 = texture(xOverlays, vec3(uvb, round(pOverlay0.z)));
+        float tiling = uTexTiling[int(round(pOverlay0.z))];
+        overlay0 = texture(xOverlays, vec3(baseUV * tiling, round(pOverlay0.z)));
         // Only sample alpha if alphaIdx is valid
         if (pOverlay0.w >= 0.0) {
             overlayAlpha0 = texture(xAlphas, vec3(pOverlay0.xy, round(pOverlay0.w)));
@@ -90,14 +92,16 @@ vec4 combineOverlays(vec3 pTexUV, vec4 pOverlay0, vec4 pOverlay1, vec4 pOverlay2
         }
     }
     if (h1 > 0.0) {
-        overlay1 = texture(xOverlays, vec3(uvb, round(pOverlay1.z)));
+        float tiling = uTexTiling[int(round(pOverlay1.z))];
+        overlay1 = texture(xOverlays, vec3(baseUV * tiling, round(pOverlay1.z)));
         if (pOverlay1.w >= 0.0) {
             overlayAlpha1 = texture(xAlphas, vec3(pOverlay1.xy, round(pOverlay1.w)));
             overlay1.a = overlayAlpha1.a;
         }
     }
     if (h2 > 0.0) {
-        overlay2 = texture(xOverlays, vec3(uvb, round(pOverlay2.z)));
+        float tiling = uTexTiling[int(round(pOverlay2.z))];
+        overlay2 = texture(xOverlays, vec3(baseUV * tiling, round(pOverlay2.z)));
         if (pOverlay2.w >= 0.0) {
             overlayAlpha2 = texture(xAlphas, vec3(pOverlay2.xy, round(pOverlay2.w)));
             overlay2.a = overlayAlpha2.a;
@@ -107,13 +111,13 @@ vec4 combineOverlays(vec3 pTexUV, vec4 pOverlay0, vec4 pOverlay1, vec4 pOverlay2
     return result;
 }
 
-vec4 combineRoad(vec3 pTexUV, vec4 pRoad0, vec4 pRoad1) {
+vec4 combineRoad(vec2 baseUV, vec4 pRoad0, vec4 pRoad1) {
     float h0 = pRoad0.z < 0.0 ? 0.0 : 1.0;
     float h1 = pRoad1.z < 0.0 ? 0.0 : 1.0;
-    vec2 uvb = pTexUV.xy;
     vec4 result = vec4(0.0);
     if (h0 > 0.0) {
-        result = texture(xOverlays, vec3(uvb, round(pRoad0.z)));
+        float tiling = uTexTiling[int(round(pRoad0.z))];
+        result = texture(xOverlays, vec3(baseUV * tiling, round(pRoad0.z)));
         if (pRoad0.w >= 0.0) {
             vec4 roadAlpha0 = texture(xAlphas, vec3(pRoad0.xy, round(pRoad0.w)));
             result.a = 1.0 - roadAlpha0.a;
@@ -253,14 +257,18 @@ vec4 calculateBrush(vec2 worldPos) {
 }
 
 void main() {
-    vec4 baseColor = texture(xOverlays, vTexUV);
+    float baseTiling = 1.0;
+    if (vBaseTexIdx >= 0.0) {
+        baseTiling = uTexTiling[int(round(vBaseTexIdx))];
+    }
+    vec4 baseColor = texture(xOverlays, vec3(vBaseUV * baseTiling, vBaseTexIdx));
     vec4 combinedOverlays = vec4(0.0);
     vec4 combinedRoad = vec4(0.0);
     
     if (vOverlay0.z >= 0.0)
-        combinedOverlays = combineOverlays(vTexUV, vOverlay0, vOverlay1, vOverlay2);
+        combinedOverlays = combineOverlays(vBaseUV, vOverlay0, vOverlay1, vOverlay2);
     if (vRoad0.z >= 0.0)
-        combinedRoad = combineRoad(vTexUV, vRoad0, vRoad1);
+        combinedRoad = combineRoad(vBaseUV, vRoad0, vRoad1);
     
     vec3 baseMasked = vec3(saturate(baseColor.rgb * ((1.0 - combinedOverlays.a) * (1.0 - combinedRoad.a))));
     vec3 overlaysMasked = vec3(saturate(combinedOverlays.rgb * (combinedOverlays.a * (1.0 - combinedRoad.a))));
