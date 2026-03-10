@@ -36,6 +36,8 @@ namespace Chorizite.OpenGLSDLBackend {
         public TextureFormat Format { get; private set; }
         public nint NativePtr { get; private set; }
         public ulong BindlessHandle { get; private set; }
+        public ulong BindlessWrapHandle { get; private set; }
+        public ulong BindlessClampHandle { get; private set; }
         public long TotalSizeInBytes => CalculateTotalSize();
 
         public ManagedGLTextureArray(OpenGLGraphicsDevice graphicsDevice, TextureFormat format, int width, int height,
@@ -107,7 +109,12 @@ namespace Chorizite.OpenGLSDLBackend {
 
             if (_device.HasBindless && _device.BindlessExtension != null) {
                 BindlessHandle = _device.BindlessExtension.GetTextureHandle((uint)NativePtr);
+                BindlessWrapHandle = _device.BindlessExtension.GetTextureSamplerHandle((uint)NativePtr, _device.WrapSampler);
+                BindlessClampHandle = _device.BindlessExtension.GetTextureSamplerHandle((uint)NativePtr, _device.ClampSampler);
+
                 _device.BindlessExtension.MakeTextureHandleResident(BindlessHandle);
+                _device.BindlessExtension.MakeTextureHandleResident(BindlessWrapHandle);
+                _device.BindlessExtension.MakeTextureHandleResident(BindlessClampHandle);
             }
 
             _pboId = GL.GenBuffer();

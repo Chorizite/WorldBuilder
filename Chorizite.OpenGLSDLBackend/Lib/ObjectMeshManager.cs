@@ -1468,13 +1468,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         GpuMemoryTracker.TrackAllocation(indexArray.Length * sizeof(ushort), GpuResourceType.Buffer);
                     }
 
-                    var wrapSamplerId = batch.HasWrappingUVs ? _graphicsDevice.WrapSampler : _graphicsDevice.ClampSampler;
-                    ulong bindlessHandle = atlasManager.TextureArray.BindlessHandle;
-                    if (_graphicsDevice.HasBindless && _graphicsDevice.BindlessExtension != null) {
-                        bindlessHandle = _graphicsDevice.BindlessExtension.GetTextureSamplerHandle(
-                            (uint)atlasManager.TextureArray.NativePtr, wrapSamplerId);
-                        _graphicsDevice.BindlessExtension.MakeTextureHandleResident(bindlessHandle);
-                    }
+                    ulong bindlessHandle = batch.HasWrappingUVs 
+                        ? atlasManager.TextureArray.BindlessWrapHandle 
+                        : atlasManager.TextureArray.BindlessClampHandle;
 
                     renderBatches.Add(new ObjectRenderBatch {
                         IBO = ibo,

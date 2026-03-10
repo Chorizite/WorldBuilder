@@ -23,6 +23,8 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public TextureFormat Format => TextureFormat.RGBA8;
         public ulong BindlessHandle { get; private set; }
+        public ulong BindlessWrapHandle { get; private set; }
+        public ulong BindlessClampHandle { get; private set; }
 
         /// <inheritdoc/>
         public ManagedGLTexture(OpenGLGraphicsDevice device, byte[]? source, int width, int height, TextureParameters? texParams = null) {
@@ -75,7 +77,12 @@ namespace Chorizite.OpenGLSDLBackend {
 
             if (_device.HasBindless && _device.BindlessExtension != null) {
                 BindlessHandle = _device.BindlessExtension.GetTextureHandle(_texture);
+                BindlessWrapHandle = _device.BindlessExtension.GetTextureSamplerHandle(_texture, _device.WrapSampler);
+                BindlessClampHandle = _device.BindlessExtension.GetTextureSamplerHandle(_texture, _device.ClampSampler);
+
                 _device.BindlessExtension.MakeTextureHandleResident(BindlessHandle);
+                _device.BindlessExtension.MakeTextureHandleResident(BindlessWrapHandle);
+                _device.BindlessExtension.MakeTextureHandleResident(BindlessClampHandle);
             }
         }
 
