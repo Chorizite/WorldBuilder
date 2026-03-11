@@ -7,22 +7,21 @@
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="30"
              x:Class="WorldBuilder.Modules.DatBrowser.Views.DataIdView"
              x:DataType="vm:ReflectionNodeViewModel">
-    <StackPanel Orientation="Horizontal" Spacing="5" Background="Transparent">
+    <StackPanel Orientation="Horizontal" Background="Transparent">
         <ToolTip.Tip>
             <Border Width="300" Height="300">
                 <views:DataIdPreview DataId="{Binding DataId}" Dats="{Binding Dats}" IsTooltip="True" />
             </Border>
         </ToolTip.Tip>
         <TextBlock Text="{Binding Value}" VerticalAlignment="Center" FontFamily="Cascadia Code,Consolas,Monospace" />
-        <Border Background="{DynamicResource SemiColorFill1}" CornerRadius="4" Padding="4,1" VerticalAlignment="Center" IsVisible="{Binding DbType, Converter={x:Static ObjectConverters.IsNotNull}}">
+        <Border Background="{DynamicResource SemiColorFill1}" VerticalAlignment="Center" IsVisible="{Binding DbType, Converter={x:Static ObjectConverters.IsNotNull}}">
             <TextBlock Text="{Binding DbType}" FontSize="10" Foreground="{DynamicResource SemiColorText0}" VerticalAlignment="Center"/>
         </Border>
         <Button Command="{Binding OpenInNewWindowCommand}" 
                 ToolTip.Tip="Open in new window" 
-                Padding="4,2" 
                 Background="Transparent" 
                 BorderThickness="0"
-                VerticalAlignment="Center">
+                VerticalAlignment="Center" MinHeight="0" Padding="5,0,5,0">
             <TextBlock Text="↗" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource SemiColorPrimary}"/>
         </Button>
     </StackPanel>

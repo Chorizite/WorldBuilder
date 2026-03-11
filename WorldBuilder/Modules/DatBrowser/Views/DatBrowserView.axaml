@@ -55,18 +55,27 @@
             <Setter Property="BorderThickness" Value="3"/>
             <Setter Property="Background" Value="{DynamicResource SemiColorFill1}"/>
         </Style>
+        <Style Selector="TreeViewItem">
+            <Setter Property="Padding" Value="0,1"/>
+        </Style>
+        <Style Selector="TreeView TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
     </UserControl.Styles>
     
-    <Grid ColumnDefinitions="*, Auto, Auto">
+    <Grid ColumnDefinitions="*, Auto, 400">
         <Grid Grid.Column="0" RowDefinitions="Auto, *">
             <StackPanel Grid.Row="0" Orientation="Horizontal">
                 <ComboBox ItemsSource="{Binding DatTypes}" 
                           SelectedItem="{Binding SelectedType}"
-                          HorizontalAlignment="Left" Margin="5"/>
+                          HorizontalAlignment="Stretch" 
+                          MinWidth="200"
+                          Margin="5"/>
                 <Button Content="Browse" 
                         Command="{Binding BrowseCommand}" 
                         IsVisible="{Binding CanBrowse}"
-                        VerticalAlignment="Center" Margin="5"/>
+                        VerticalAlignment="Center" 
+                        Margin="5"/>
             </StackPanel>
             
             <ContentControl Grid.Row="1" Content="{Binding CurrentBrowser}" />
@@ -75,13 +84,13 @@
         <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" 
                       IsVisible="{Binding SelectedObject, Converter={x:Static conv:NumericConverters.IsNotZero}}" />
 
-        <TabControl Grid.Column="2" Width="400" SelectedIndex="{Binding SelectedPropertiesTabIndex}"
-                    IsVisible="{Binding SelectedObject, Converter={x:Static conv:NumericConverters.IsNotZero}}">
+        <TabControl Grid.Column="2" SelectedIndex="{Binding SelectedPropertiesTabIndex}"
+                    IsVisible="{Binding SelectedObject, Converter={x:Static conv:NumericConverters.IsNotZero}}" HorizontalAlignment="Left">
             <TabItem Header="Overview" IsVisible="{Binding ObjectOverview, Converter={x:Static ObjectConverters.IsNotNull}}">
                 <ContentControl Content="{Binding ObjectOverview}" />
             </TabItem>
             <TabItem Header="Props">
-                <TreeView ItemsSource="{Binding ReflectionNodes}">
+                <TreeView ItemsSource="{Binding ReflectionNodes}" Padding="0,5.5,10,0">
                     <TreeView.ItemTemplate>
                         <TreeDataTemplate ItemsSource="{Binding Children}">
                             <StackPanel Orientation="Horizontal" Background="Transparent">
@@ -98,9 +107,7 @@
 
                                 <StackPanel Orientation="Horizontal" IsVisible="{Binding !IsQualifiedDataId}">
                                     <TextBlock Text="{Binding Value}" Foreground="{DynamicResource SemiColorText2}" IsVisible="{Binding Value, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                                    <TextBlock Text=" (" Foreground="{DynamicResource SemiColorText3}" FontSize="10" VerticalAlignment="Center"/>
-                                    <TextBlock Text="{Binding TypeName}" Foreground="{DynamicResource SemiColorText3}" FontSize="10" VerticalAlignment="Center"/>
-                                    <TextBlock Text=")" Foreground="{DynamicResource SemiColorText3}" FontSize="10" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding TypeName, StringFormat=' ({0})'}" Foreground="{DynamicResource SemiColorText3}" FontSize="10"/>
                                 </StackPanel>
                             </StackPanel>
                         </TreeDataTemplate>
