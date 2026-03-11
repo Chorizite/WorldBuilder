@@ -291,7 +291,11 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public void Render() {
-            if (!_initialized || _shader == null || (_shader is GLSLShader glsl && glsl.Program == 0)) return;
+            if (IsDisposed || MeshManager.IsDisposed || !_initialized || _shader == null || (_shader is GLSLShader glsl && glsl.Program == 0)) return;
+
+            GraphicsDevice.ProcessGLQueue();
+
+            if (IsDisposed || MeshManager.IsDisposed) return;
 
             // Check if we need to swap objects
             if (_loadingFileId != 0 && _loadingFileId != _currentFileId) {

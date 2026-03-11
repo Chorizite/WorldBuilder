@@ -19,6 +19,7 @@ using BoundingBox = Chorizite.Core.Lib.BoundingBox;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
     public class TerrainRenderManager : IDisposable, IRenderManager {
+        public bool IsDisposed { get; private set; }
         private readonly GL _gl;
         private readonly ILogger _log;
         private readonly LandscapeDocument _landscapeDoc;
@@ -942,6 +943,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void Dispose() {
+            if (IsDisposed) return;
+            IsDisposed = true;
             _cts.Cancel();
             _cts.Dispose();
             _landscapeDoc.LandblockChanged -= OnLandblockChanged;
@@ -949,10 +952,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 chunk.Dispose();
             }
 
-            if (_globalVAO != 0) _gl.DeleteVertexArray(_globalVAO);
-            if (_globalVBO != 0) _gl.DeleteBuffer(_globalVBO);
-            if (_globalEBO != 0) _gl.DeleteBuffer(_globalEBO);
-            if (_drawIndirectBuffer != 0) _gl.DeleteBuffer(_drawIndirectBuffer);
+            var gVAO = _globalVAO;
+            var gVBO = _globalVBO;
+            var gEBO = _globalEBO;
+            var dIB = _drawIndirectBuffer;
+
+            _graphicsDevice.QueueGLAction(gl => {
+                if (gVAO != 0) gl.DeleteVertexArray(gVAO);
+                if (gVBO != 0) gl.DeleteBuffer(gVBO);
+                if (gEBO != 0) gl.DeleteBuffer(gEBO);
+                if (dIB != 0) gl.DeleteBuffer(dIB);
+            });
 
             GpuMemoryTracker.UntrackNamedBuffer("Terrain Buffers");
 

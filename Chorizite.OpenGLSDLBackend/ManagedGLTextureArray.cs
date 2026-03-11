@@ -398,25 +398,37 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public void Dispose() {
-            if (BindlessHandle != 0 && _device.BindlessExtension != null) {
-                _device.BindlessExtension.MakeTextureHandleNonResident(BindlessHandle);
-                BindlessHandle = 0;
-            }
-            if (NativePtr != 0) {
-                GL.DeleteTexture((uint)NativePtr);
-                GLHelpers.CheckErrors(GL);
-                GpuMemoryTracker.TrackDeallocation(CalculateTotalSize(), GpuResourceType.Texture);
-                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Texture);
-                NativePtr = 0;
-            }
-            if (_pboId != 0) {
-                GL.DeleteBuffer(_pboId);
-                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
-                if (_pboSize > 0) {
-                    GpuMemoryTracker.TrackDeallocation(_pboSize, GpuResourceType.Buffer);
+            _device.QueueGLAction(GL => {
+                if (_device.BindlessExtension != null) {
+                    if (BindlessHandle != 0) {
+                        _device.BindlessExtension.MakeTextureHandleNonResident(BindlessHandle);
+                        BindlessHandle = 0;
+                    }
+                    if (BindlessWrapHandle != 0) {
+                        _device.BindlessExtension.MakeTextureHandleNonResident(BindlessWrapHandle);
+                        BindlessWrapHandle = 0;
+                    }
+                    if (BindlessClampHandle != 0) {
+                        _device.BindlessExtension.MakeTextureHandleNonResident(BindlessClampHandle);
+                        BindlessClampHandle = 0;
+                    }
                 }
-                _pboId = 0;
-            }
+                if (NativePtr != 0) {
+                    GL.DeleteTexture((uint)NativePtr);
+                    GLHelpers.CheckErrors(GL);
+                    GpuMemoryTracker.TrackDeallocation(CalculateTotalSize(), GpuResourceType.Texture);
+                    GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Texture);
+                    NativePtr = 0;
+                }
+                if (_pboId != 0) {
+                    GL.DeleteBuffer(_pboId);
+                    GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+                    if (_pboSize > 0) {
+                        GpuMemoryTracker.TrackDeallocation(_pboSize, GpuResourceType.Buffer);
+                    }
+                    _pboId = 0;
+                }
+            });
         }
     }
 }

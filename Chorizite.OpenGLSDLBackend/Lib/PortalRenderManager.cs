@@ -567,12 +567,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             // Clean up old building GPU resources
             foreach (var building in lb.BuildingPortals) {
-                if (building.VAO != 0) _gl.DeleteVertexArray(building.VAO);
-                if (building.VBO != 0) {
-                    GpuMemoryTracker.TrackDeallocation(building.VertexCount * sizeof(Vector3), GpuResourceType.Buffer);
-                    _gl.DeleteBuffer(building.VBO);
-                }
-                if (building.QueryId != 0) _gl.DeleteQuery(building.QueryId);
+                var vao = building.VAO;
+                var vbo = building.VBO;
+                var vCount = building.VertexCount;
+                var queryId = building.QueryId;
+                _graphicsDevice.QueueGLAction(gl => {
+                    if (vao != 0) gl.DeleteVertexArray(vao);
+                    if (vbo != 0) {
+                        GpuMemoryTracker.TrackDeallocation(vCount * sizeof(Vector3), GpuResourceType.Buffer);
+                        gl.DeleteBuffer(vbo);
+                    }
+                    if (queryId != 0) gl.DeleteQuery(queryId);
+                });
             }
             lb.BuildingPortals.Clear();
 
@@ -627,16 +633,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             lb.Portals.Clear();
 
             foreach (var building in lb.BuildingPortals) {
-                if (building.VAO != 0) {
-                    _gl.DeleteVertexArray(building.VAO);
-                }
-                if (building.VBO != 0) {
-                    GpuMemoryTracker.TrackDeallocation(building.VertexCount * sizeof(Vector3), GpuResourceType.Buffer);
-                    _gl.DeleteBuffer(building.VBO);
-                }
-                if (building.QueryId != 0) {
-                    _gl.DeleteQuery(building.QueryId);
-                }
+                var vao = building.VAO;
+                var vbo = building.VBO;
+                var vCount = building.VertexCount;
+                var queryId = building.QueryId;
+                _graphicsDevice.QueueGLAction(gl => {
+                    if (vao != 0) gl.DeleteVertexArray(vao);
+                    if (vbo != 0) {
+                        GpuMemoryTracker.TrackDeallocation(vCount * sizeof(Vector3), GpuResourceType.Buffer);
+                        gl.DeleteBuffer(vbo);
+                    }
+                    if (queryId != 0) gl.DeleteQuery(queryId);
+                });
             }
             lb.BuildingPortals.Clear();
 

@@ -11,7 +11,8 @@ namespace Chorizite.OpenGLSDLBackend {
     /// Implementation of a framebuffer for OpenGL ES 3.0 using Silk.NET.
     /// </summary>
     public class ManagedGLFramebuffer : IFramebuffer {
-        private readonly GL _gl;
+        private readonly OpenGLGraphicsDevice _device;
+        private GL _gl => _device.GL;
         private readonly uint _fboId;
         private readonly uint _depthStencilRenderbuffer; // 0 if not used
         private readonly ITexture _texture;
@@ -21,8 +22,8 @@ namespace Chorizite.OpenGLSDLBackend {
         public ITexture Texture => _texture;
         public IntPtr NativeHandle => new IntPtr(_fboId);
 
-        public ManagedGLFramebuffer(GL gl, ITexture texture, int width, int height, bool hasDepthStencil) {
-            _gl = gl;
+        public ManagedGLFramebuffer(OpenGLGraphicsDevice device, ITexture texture, int width, int height, bool hasDepthStencil) {
+            _device = device;
             _texture = texture;
             _width = width;
             _height = height;
@@ -82,15 +83,22 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public void Dispose() {
-            if (_fboId != 0) {
-                _gl.DeleteFramebuffer(_fboId);
-                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.FBO);
-            }
-            if (_depthStencilRenderbuffer != 0) {
-                _gl.DeleteRenderbuffer(_depthStencilRenderbuffer);
-                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.RBO);
-                GpuMemoryTracker.TrackDeallocation(_width * _height * 4, GpuResourceType.RBO);
-            }
+            var fboId = _fboId;
+            var depthStencilRenderbuffer = _depthStencilRenderbuffer;
+            var width = _width;
+            var height = _height;
+
+            _device.QueueGLAction(gl => {
+                if (fboId != 0) {
+                    gl.DeleteFramebuffer(fboId);
+                    GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.FBO);
+                }
+                if (depthStencilRenderbuffer != 0) {
+                    gl.DeleteRenderbuffer(depthStencilRenderbuffer);
+                    GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.RBO);
+                    GpuMemoryTracker.TrackDeallocation(width * height * 4, GpuResourceType.RBO);
+                }
+            });
         }
     }
 }

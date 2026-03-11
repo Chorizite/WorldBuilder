@@ -14,6 +14,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     /// Encapsulates GPU buffer management and common instanced drawing logic.
     /// </summary>
     public abstract class BaseObjectRenderManager : IDisposable {
+        public bool IsDisposed { get; private set; }
         protected readonly GL Gl;
         protected readonly OpenGLGraphicsDevice GraphicsDevice;
         protected readonly ObjectMeshManager MeshManager;
@@ -520,6 +521,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             var globalVao = MeshManager.GlobalBuffer!.VAO;
+            if (globalVao == 0) return;
             if (CurrentVAO != globalVao) {
                 Gl.BindVertexArray(globalVao);
                 CurrentVAO = globalVao;
@@ -749,6 +751,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             // 4. Draw
             var globalVao = MeshManager.GlobalBuffer!.VAO;
+            if (globalVao == 0) return;
             if (CurrentVAO != globalVao) {
                 Gl.BindVertexArray(globalVao);
                 CurrentVAO = globalVao;
@@ -817,6 +820,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public virtual unsafe void Dispose() {
+            if (IsDisposed) return;
+            IsDisposed = true;
             var name = GetType().Name;
             GpuMemoryTracker.UntrackNamedBuffer($"{name} World Instance VBO");
             GpuMemoryTracker.UntrackNamedBuffer($"{name} World Instance SSBO");
@@ -826,45 +831,60 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             GpuMemoryTracker.UntrackNamedBuffer($"{name} Scratch Modern Batch Buffer");
             GpuMemoryTracker.UntrackNamedBuffer($"{name} Modern Instance Buffer");
 
-            for (int i = 0; i < 3; i++) {
-                if (_mdiCommandBuffers[i] != 0) {
-                    GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
-                    GpuMemoryTracker.TrackDeallocation(_mdiCommandCapacities[i] * sizeof(DrawElementsIndirectCommand), GpuResourceType.Buffer);
-                    Gl.DeleteBuffer(_mdiCommandBuffers[i]);
+            // Copy IDs to locals for the lambda
+            var mdiCommandBuffers = _mdiCommandBuffers.ToArray();
+            var mdiCommandCapacities = _mdiCommandCapacities.ToArray();
+            var modernBatchBuffers = _modernBatchBuffers.ToArray();
+            var scratchMdiCommandBuffers = _scratchMdiCommandBuffers.ToArray();
+            var scratchMdiCommandCapacities = _scratchMdiCommandCapacities.ToArray();
+            var scratchModernBatchBuffers = _scratchModernBatchBuffers.ToArray();
+            var modernInstanceBuffers = _modernInstanceBuffers.ToArray();
+            var modernInstanceCapacities = _modernInstanceCapacities.ToArray();
+            var worldInstanceBuffer = _worldInstanceBuffer;
+            var worldInstanceCapacity = _worldInstanceCapacity;
+            var worldInstanceSSBO = _worldInstanceSSBO;
+
+            GraphicsDevice.QueueGLAction(gl => {
+                for (int i = 0; i < 3; i++) {
+                    if (mdiCommandBuffers[i] != 0) {
+                        GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+                        GpuMemoryTracker.TrackDeallocation(mdiCommandCapacities[i] * sizeof(DrawElementsIndirectCommand), GpuResourceType.Buffer);
+                        gl.DeleteBuffer(mdiCommandBuffers[i]);
+                    }
+                    if (modernBatchBuffers[i] != 0) {
+                        GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+                        GpuMemoryTracker.TrackDeallocation(mdiCommandCapacities[i] * sizeof(ModernBatchData), GpuResourceType.Buffer);
+                        gl.DeleteBuffer(modernBatchBuffers[i]);
+                    }
                 }
-                if (_modernBatchBuffers[i] != 0) {
-                    GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
-                    GpuMemoryTracker.TrackDeallocation(_mdiCommandCapacities[i] * sizeof(ModernBatchData), GpuResourceType.Buffer);
-                    Gl.DeleteBuffer(_modernBatchBuffers[i]);
+                for (int i = 0; i < 3; i++) {
+                    if (scratchMdiCommandBuffers[i] != 0) {
+                        GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+                        GpuMemoryTracker.TrackDeallocation(scratchMdiCommandCapacities[i] * sizeof(DrawElementsIndirectCommand), GpuResourceType.Buffer);
+                        gl.DeleteBuffer(scratchMdiCommandBuffers[i]);
+                    }
+                    if (scratchModernBatchBuffers[i] != 0) {
+                        GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+                        GpuMemoryTracker.TrackDeallocation(scratchMdiCommandCapacities[i] * sizeof(ModernBatchData), GpuResourceType.Buffer);
+                        gl.DeleteBuffer(scratchModernBatchBuffers[i]);
+                    }
+                    if (modernInstanceBuffers[i] != 0) {
+                        GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+                        GpuMemoryTracker.TrackDeallocation(modernInstanceCapacities[i] * sizeof(InstanceData), GpuResourceType.Buffer);
+                        gl.DeleteBuffer(modernInstanceBuffers[i]);
+                    }
                 }
-            }
-            for (int i = 0; i < 3; i++) {
-                if (_scratchMdiCommandBuffers[i] != 0) {
+                if (worldInstanceBuffer != 0) {
                     GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
-                    GpuMemoryTracker.TrackDeallocation(_scratchMdiCommandCapacities[i] * sizeof(DrawElementsIndirectCommand), GpuResourceType.Buffer);
-                    Gl.DeleteBuffer(_scratchMdiCommandBuffers[i]);
+                    GpuMemoryTracker.TrackDeallocation(worldInstanceCapacity * sizeof(InstanceData), GpuResourceType.Buffer);
+                    gl.DeleteBuffer(worldInstanceBuffer);
                 }
-                if (_scratchModernBatchBuffers[i] != 0) {
+                if (worldInstanceSSBO != 0) {
                     GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
-                    GpuMemoryTracker.TrackDeallocation(_scratchMdiCommandCapacities[i] * sizeof(ModernBatchData), GpuResourceType.Buffer);
-                    Gl.DeleteBuffer(_scratchModernBatchBuffers[i]);
+                    GpuMemoryTracker.TrackDeallocation(worldInstanceCapacity * sizeof(InstanceData), GpuResourceType.Buffer);
+                    gl.DeleteBuffer(worldInstanceSSBO);
                 }
-                if (_modernInstanceBuffers[i] != 0) {
-                    GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
-                    GpuMemoryTracker.TrackDeallocation(_modernInstanceCapacities[i] * sizeof(InstanceData), GpuResourceType.Buffer);
-                    Gl.DeleteBuffer(_modernInstanceBuffers[i]);
-                }
-            }
-            if (_worldInstanceBuffer != 0) {
-                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
-                GpuMemoryTracker.TrackDeallocation(_worldInstanceCapacity * sizeof(InstanceData), GpuResourceType.Buffer);
-                Gl.DeleteBuffer(_worldInstanceBuffer);
-            }
-            if (_worldInstanceSSBO != 0) {
-                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
-                GpuMemoryTracker.TrackDeallocation(_worldInstanceCapacity * sizeof(InstanceData), GpuResourceType.Buffer);
-                Gl.DeleteBuffer(_worldInstanceSSBO);
-            }
+            });
         }
     }
 }

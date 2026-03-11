@@ -25,6 +25,7 @@ namespace Chorizite.OpenGLSDLBackend;
 /// Manages the 3D scene including camera, objects, and rendering.
 /// </summary>
 public class GameScene : IDisposable {
+    public bool IsDisposed { get; private set; }
     private const uint MAX_GPU_UPDATE_TIME_PER_FRAME = 20; // max gpu time spent doing uploads per frame, in ms
     private readonly GL _gl;
     private readonly OpenGLGraphicsDevice _graphicsDevice;
@@ -321,6 +322,24 @@ public class GameScene : IDisposable {
                 manager.Initialize(_sceneryShader);
             }
         }
+    }
+
+    public void ClearLandscape() {
+        foreach (var manager in _renderManagers) {
+            manager.Dispose();
+        }
+        _renderManagers.Clear();
+
+        if (_ownsMeshManager) {
+            _meshManager?.Dispose();
+        }
+        _meshManager = null;
+        _terrainManager = null;
+        _sceneryManager = null;
+        _staticObjectManager = null;
+        _envCellManager = null;
+        _portalManager = null;
+        _landscapeDoc = null;
     }
 
     public void SetLandscape(LandscapeDocument landscapeDoc, WorldBuilder.Shared.Services.IDatReaderWriter dats, IDocumentManager documentManager, ObjectMeshManager? meshManager = null, LandSurfaceManager? surfaceManager = null, bool centerCamera = true) {
@@ -725,9 +744,15 @@ public class GameScene : IDisposable {
     /// Renders the scene.
     /// </summary>
     public void Render() {
-        if (_width == 0 || _height == 0) return;
+        if (IsDisposed || _width == 0 || _height == 0) return;
+        if (_meshManager?.IsDisposed == true || _terrainManager?.IsDisposed == true) return;
 
         using var glScope = new GLStateScope(_gl);
+
+        _graphicsDevice.ProcessGLQueue();
+
+        // Check again after processing the GL queue, in case disposal happened during processing
+        if (IsDisposed || _meshManager?.IsDisposed == true || _terrainManager?.IsDisposed == true) return;
 
         BaseObjectRenderManager.CurrentVAO = 0;
         BaseObjectRenderManager.CurrentIBO = 0;
@@ -1079,6 +1104,9 @@ public class GameScene : IDisposable {
     #endregion
 
     public void Dispose() {
+        if (IsDisposed) return;
+        IsDisposed = true;
+
         if (_state != null) {
             _state.PropertyChanged -= OnStatePropertyChanged;
         }

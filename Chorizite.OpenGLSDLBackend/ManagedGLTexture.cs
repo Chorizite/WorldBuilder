@@ -179,17 +179,29 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         protected void ReleaseTexture() {
-            if (BindlessHandle != 0 && _device.BindlessExtension != null) {
-                _device.BindlessExtension.MakeTextureHandleNonResident(BindlessHandle);
-                BindlessHandle = 0;
-            }
-            if (_texture != 0) {
-                GL.DeleteTexture(_texture);
-                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Texture);
-                GpuMemoryTracker.TrackDeallocation(CalculateSize(), GpuResourceType.Texture);
-            }
-            GLHelpers.CheckErrors(GL);
-            _texture = 0;
+            _device.QueueGLAction(GL => {
+                if (_device.BindlessExtension != null) {
+                    if (BindlessHandle != 0) {
+                        _device.BindlessExtension.MakeTextureHandleNonResident(BindlessHandle);
+                        BindlessHandle = 0;
+                    }
+                    if (BindlessWrapHandle != 0) {
+                        _device.BindlessExtension.MakeTextureHandleNonResident(BindlessWrapHandle);
+                        BindlessWrapHandle = 0;
+                    }
+                    if (BindlessClampHandle != 0) {
+                        _device.BindlessExtension.MakeTextureHandleNonResident(BindlessClampHandle);
+                        BindlessClampHandle = 0;
+                    }
+                }
+                if (_texture != 0) {
+                    GL.DeleteTexture(_texture);
+                    GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Texture);
+                    GpuMemoryTracker.TrackDeallocation(CalculateSize(), GpuResourceType.Texture);
+                }
+                GLHelpers.CheckErrors(GL);
+                _texture = 0;
+            });
         }
 
         public void Dispose() {

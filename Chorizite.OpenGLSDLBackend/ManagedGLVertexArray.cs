@@ -66,12 +66,14 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public void Dispose() {
-            if (_vaoId != 0) {
-                GL.DeleteVertexArray(_vaoId);
-                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.VAO);
-                _vaoId = 0;
-            }
-            GLHelpers.CheckErrors(GL);
+            _device.QueueGLAction(GL => {
+                if (_vaoId != 0) {
+                    GL.DeleteVertexArray(_vaoId);
+                    GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.VAO);
+                    _vaoId = 0;
+                }
+                GLHelpers.CheckErrors(GL);
+            });
         }
     }
 }

@@ -156,7 +156,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     public class ObjectMeshManager : IDisposable {
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private readonly IDatReaderWriter _dats;
-        private readonly ILogger<ObjectMeshManager> _logger;
+        private readonly ILogger _logger;
+
+        public bool IsDisposed { get; private set; }
         private readonly ConcurrentDictionary<ulong, ObjectRenderData> _renderData = new();
         private readonly ConcurrentDictionary<ulong, int> _usageCount = new();
         private readonly ConcurrentDictionary<ulong, (Vector3 Min, Vector3 Max)?> _boundsCache = new();
@@ -1648,34 +1650,37 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #endregion
 
         public void Dispose() {
-            var gl = _graphicsDevice.GL;
-            foreach (var data in _renderData.Values) {
-                if (!_useModernRendering) {
-                    if (data.VAO != 0) gl.DeleteVertexArray(data.VAO);
-                    if (data.VBO != 0) {
-                        gl.DeleteBuffer(data.VBO);
-                        GpuMemoryTracker.TrackDeallocation(data.VertexCount * VertexPositionNormalTexture.Size, GpuResourceType.Buffer);
-                    }
-                    foreach (var batch in data.Batches) {
-                        if (batch.IBO != 0) {
-                            gl.DeleteBuffer(batch.IBO);
-                            GpuMemoryTracker.TrackDeallocation(batch.IndexCount * sizeof(ushort), GpuResourceType.Buffer);
+            if (IsDisposed) return;
+            IsDisposed = true;
+            _graphicsDevice.QueueGLAction(gl => {
+                foreach (var data in _renderData.Values) {
+                    if (!_useModernRendering) {
+                        if (data.VAO != 0) gl.DeleteVertexArray(data.VAO);
+                        if (data.VBO != 0) {
+                            gl.DeleteBuffer(data.VBO);
+                            GpuMemoryTracker.TrackDeallocation(data.VertexCount * VertexPositionNormalTexture.Size, GpuResourceType.Buffer);
+                        }
+                        foreach (var batch in data.Batches) {
+                            if (batch.IBO != 0) {
+                                gl.DeleteBuffer(batch.IBO);
+                                GpuMemoryTracker.TrackDeallocation(batch.IndexCount * sizeof(ushort), GpuResourceType.Buffer);
+                            }
                         }
                     }
                 }
-            }
-            _renderData.Clear();
+                _renderData.Clear();
 
-            foreach (var atlasList in _globalAtlases.Values) {
-                foreach (var atlas in atlasList) {
-                    atlas.Dispose();
+                foreach (var atlasList in _globalAtlases.Values) {
+                    foreach (var atlas in atlasList) {
+                        atlas.Dispose();
+                    }
                 }
-            }
-            _globalAtlases.Clear();
+                _globalAtlases.Clear();
 
-            if (_useModernRendering) {
-                GlobalBuffer?.Dispose();
-            }
+                if (_useModernRendering) {
+                    GlobalBuffer?.Dispose();
+                }
+            });
         }
     }
 }
