@@ -23,6 +23,22 @@ namespace Chorizite.OpenGLSDLBackend {
         public GL GL { get; }
         public DebugRenderSettings RenderSettings => _renderSettings;
 
+        private readonly ConcurrentQueue<Action<GL>> _glThreadQueue = new();
+
+        public void QueueGLAction(Action<GL> action) {
+            _glThreadQueue.Enqueue(action);
+        }
+
+        public void ProcessGLQueue() {
+            while (_glThreadQueue.TryDequeue(out var action)) {
+                try {
+                    action(GL);
+                } catch (Exception ex) {
+                    _log.LogError(ex, "Error processing GL queue action");
+                }
+            }
+        }
+
         public bool HasBindless { get; private set; }
         public bool HasOpenGL43 { get; private set; }
         public bool HasBufferStorage { get; private set; }
@@ -471,7 +487,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 throw new ArgumentException("Width and height must be positive.");
             }
 
-            return new ManagedGLFramebuffer(GL, texture, width, height, hasDepthStencil);
+            return new ManagedGLFramebuffer(this, texture, width, height, hasDepthStencil);
         }
 
         /// <inheritdoc />
@@ -482,22 +498,31 @@ namespace Chorizite.OpenGLSDLBackend {
 
         /// <inheritdoc />
         public override void Dispose() {
-            if (InstanceVBO != 0) {
-                GL.DeleteBuffer(InstanceVBO);
-                if (_instanceBufferCapacity > 0) {
-                    GpuMemoryTracker.TrackDeallocation(_instanceBufferCapacity * _instanceBufferStride);
+            var instanceVBO = InstanceVBO;
+            var instanceBufferCapacity = _instanceBufferCapacity;
+            var instanceBufferStride = _instanceBufferStride;
+            var wrapSampler = WrapSampler;
+            var clampSampler = ClampSampler;
+
+            QueueGLAction(gl => {
+                if (instanceVBO != 0) {
+                    gl.DeleteBuffer(instanceVBO);
+                    if (instanceBufferCapacity > 0) {
+                        GpuMemoryTracker.TrackDeallocation(instanceBufferCapacity * instanceBufferStride);
+                    }
                 }
-                InstanceVBO = 0;
-                InstanceVBOPtr = null;
-            }
-            if (WrapSampler != 0) {
-                GL.DeleteSampler(WrapSampler);
-                WrapSampler = 0;
-            }
-            if (ClampSampler != 0) {
-                GL.DeleteSampler(ClampSampler);
-                ClampSampler = 0;
-            }
+                if (wrapSampler != 0) {
+                    gl.DeleteSampler(wrapSampler);
+                }
+                if (clampSampler != 0) {
+                    gl.DeleteSampler(clampSampler);
+                }
+            });
+
+            InstanceVBO = 0;
+            InstanceVBOPtr = null;
+            WrapSampler = 0;
+            ClampSampler = 0;
         }
 
         public override IUniformBuffer CreateUniformBuffer(BufferUsage usage, int size) {

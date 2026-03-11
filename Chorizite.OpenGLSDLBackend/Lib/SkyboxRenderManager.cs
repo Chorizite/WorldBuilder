@@ -364,9 +364,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void Dispose() {
-            if (_instanceVBO != 0) {
-                _gl.DeleteBuffer(_instanceVBO);
-                GpuMemoryTracker.TrackDeallocation(_instanceBufferCapacity * Marshal.SizeOf<Matrix4x4>(), GpuResourceType.Buffer);
+            var vbo = _instanceVBO;
+            var capacity = _instanceBufferCapacity;
+            if (vbo != 0) {
+                _graphicsDevice.QueueGLAction(gl => {
+                    gl.DeleteBuffer(vbo);
+                    GpuMemoryTracker.TrackDeallocation(capacity * Marshal.SizeOf<Matrix4x4>(), GpuResourceType.Buffer);
+                });
                 _instanceVBO = 0;
                 _instanceVBOPtr = null;
             }

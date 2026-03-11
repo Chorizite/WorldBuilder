@@ -551,7 +551,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public virtual unsafe void Render(RenderPass renderPass) {
-            if (!_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || _cameraPosition.Z > 4000) return;
+            if (IsDisposed || MeshManager.IsDisposed || !_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || _cameraPosition.Z > 4000) return;
 
             lock (_renderLock) {
                 var snapshot = _activeSnapshot;
@@ -1113,21 +1113,23 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         #endregion
 
         public override void Dispose() {
-            LandscapeDoc.LandblockChanged -= OnLandblockChanged;
-            foreach (var lb in _landblocks.Values) {
-                UnloadLandblockResources(lb);
+            lock (_renderLock) {
+                LandscapeDoc.LandblockChanged -= OnLandblockChanged;
+                foreach (var lb in _landblocks.Values) {
+                    UnloadLandblockResources(lb);
+                }
+                _landblocks.Clear();
+                _preparedMeshes.Clear();
+                _pendingGeneration.Clear();
+                _outOfRangeTimers.Clear();
+                foreach (var cts in _generationCTS.Values) {
+                    cts.Cancel();
+                    cts.Dispose();
+                }
+                _generationCTS.Clear();
+                _listPool.Clear();
+                base.Dispose();
             }
-            _landblocks.Clear();
-            _preparedMeshes.Clear();
-            _pendingGeneration.Clear();
-            _outOfRangeTimers.Clear();
-            foreach (var cts in _generationCTS.Values) {
-                cts.Cancel();
-                cts.Dispose();
-            }
-            _generationCTS.Clear();
-            _listPool.Clear();
-            base.Dispose();
         }
     }
 }

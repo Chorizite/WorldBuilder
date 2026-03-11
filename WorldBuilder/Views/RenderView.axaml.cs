@@ -43,6 +43,7 @@ public partial class RenderView : Base3DViewport {
     public override DebugRenderSettings RenderSettings => new DebugRenderSettings();
 
     // Pending landscape update to be processed on the render thread
+    private bool _pendingClearScene;
     private LandscapeDocument? _pendingLandscapeDocument;
     private WorldBuilder.Shared.Services.IDatReaderWriter? _pendingDatReader;
     private EditorState? _pendingEditorState;
@@ -301,6 +302,11 @@ public partial class RenderView : Base3DViewport {
         if (GL is null) return;
 
         // Process pending landscape updates
+        if (_pendingClearScene && _gameScene != null) {
+            _gameScene.ClearLandscape();
+            _pendingClearScene = false;
+        }
+
         if (_pendingLandscapeDocument != null && _pendingDatReader != null && _gameScene != null) {
             var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
             var documentManager = projectManager?.GetProjectService<IDocumentManager>();
@@ -433,6 +439,12 @@ public partial class RenderView : Base3DViewport {
                 // Queue update for render thread
                 _pendingLandscapeDocument = _cachedLandscapeDocument;
                 _pendingDatReader = dats;
+            }
+            else {
+                // Clear scene
+                _pendingLandscapeDocument = null;
+                _pendingDatReader = null;
+                _pendingClearScene = true;
             }
         }
         else if (change.Property == BrushPositionProperty ||

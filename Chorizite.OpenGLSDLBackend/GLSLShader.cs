@@ -260,9 +260,10 @@ namespace Chorizite.OpenGLSDLBackend {
                     var prog = Program;
                     Program = 0;
                     ProgramId = 0;
-                    GL.DeleteProgram(prog);
-                    GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Shader);
-                    GLHelpers.CheckErrors(GL);
+                    _device.QueueGLAction(gl => {
+                        gl.DeleteProgram(prog);
+                        GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Shader);
+                    });
                 }
             }
         }

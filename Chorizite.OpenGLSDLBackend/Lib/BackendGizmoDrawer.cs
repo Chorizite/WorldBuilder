@@ -476,9 +476,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void Dispose() {
-            if (_vbo != 0) _gl.DeleteBuffer(_vbo);
-            if (_ebo != 0) _gl.DeleteBuffer(_ebo);
-            if (_vao != 0) _gl.DeleteVertexArray(_vao);
+            var vbo = _vbo;
+            var ebo = _ebo;
+            var vao = _vao;
+            _graphicsDevice.QueueGLAction(gl => {
+                if (vbo != 0) gl.DeleteBuffer(vbo);
+                if (ebo != 0) gl.DeleteBuffer(ebo);
+                if (vao != 0) gl.DeleteVertexArray(vao);
+            });
         }
     }
 }

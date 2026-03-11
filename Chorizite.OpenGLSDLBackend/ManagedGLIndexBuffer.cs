@@ -171,14 +171,16 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public unsafe void Dispose() {
-            if (bufferId != 0) {
-                GL.DeleteBuffer(bufferId);
-                GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
-                GLHelpers.CheckErrors(GL);
-                GpuMemoryTracker.TrackDeallocation(Size, GpuResourceType.Buffer);
-                bufferId = 0;
-                _mappedPtr = null;
-            }
+            _device.QueueGLAction(GL => {
+                if (bufferId != 0) {
+                    GL.DeleteBuffer(bufferId);
+                    GpuMemoryTracker.TrackResourceDeallocation(GpuResourceType.Buffer);
+                    GLHelpers.CheckErrors(GL);
+                    GpuMemoryTracker.TrackDeallocation(Size, GpuResourceType.Buffer);
+                    bufferId = 0;
+                    _mappedPtr = null;
+                }
+            });
         }
     }
 }

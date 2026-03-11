@@ -31,6 +31,7 @@ public partial class SceneryPreview : Base3DViewport {
     private byte _cachedSceneryIndex;
     private IDatReaderWriter? _cachedDats;
     private bool _needsUpdate;
+    private bool _needsClear;
     private double _totalTime;
 
     public override DebugRenderSettings RenderSettings => new DebugRenderSettings();
@@ -100,6 +101,10 @@ public partial class SceneryPreview : Base3DViewport {
             _cachedSceneryIndex = SceneryIndex;
             _cachedDats = Dats;
             _needsUpdate = true;
+
+            if (_cachedDats == null) {
+                _needsClear = true;
+            }
         }
     }
 
@@ -170,6 +175,13 @@ public partial class SceneryPreview : Base3DViewport {
 
     protected override void OnGlRender(double frameTime) {
         if (_gl == null || _gameScene == null) return;
+
+        if (_needsClear) {
+            _gameScene.ClearLandscape();
+            _previewDoc?.Dispose();
+            _previewDoc = null;
+            _needsClear = false;
+        }
 
         if (_needsUpdate) {
             UpdatePreview();
