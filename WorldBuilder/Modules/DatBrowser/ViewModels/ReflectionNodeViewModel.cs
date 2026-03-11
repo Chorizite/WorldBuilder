@@ -294,7 +294,13 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             if (typeChain?.Count > 0) {
                 var rootType = typeChain[0];
 
-                if (rootType == typeof(MasterInputMap)) {
+                if (rootType == typeof(GfxObj)) {
+                    if (name == "DIDDegrade") {
+                        if (uint.TryParse(value, out var intValue))
+                            return $"0x{intValue:X8}";
+                    }
+                }
+                else if (rootType == typeof(MasterInputMap)) {
                     if (name == "Key" || name == "Modifier" || name == "Unknown") {
                         if (uint.TryParse(value, out var intValue))
                             return $"0x{intValue:X8}";

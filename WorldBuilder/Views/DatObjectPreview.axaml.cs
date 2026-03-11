@@ -80,6 +80,22 @@ namespace WorldBuilder.Views {
             private set => SetValue(IsSetupProperty, value);
         }
 
+        public static readonly StyledProperty<bool> IsPaletteProperty =
+            AvaloniaProperty.Register<DatObjectPreview, bool>(nameof(IsPalette));
+
+        public bool IsPalette {
+            get => GetValue(IsPaletteProperty);
+            private set => SetValue(IsPaletteProperty, value);
+        }
+
+        public static readonly StyledProperty<bool> IsPalSetProperty =
+            AvaloniaProperty.Register<DatObjectPreview, bool>(nameof(IsPalSet));
+
+        public bool IsPalSet {
+            get => GetValue(IsPalSetProperty);
+            private set => SetValue(IsPalSetProperty, value);
+        }
+
         public static readonly StyledProperty<bool> IsPreviewableProperty =
             AvaloniaProperty.Register<DatObjectPreview, bool>(nameof(IsPreviewable));
 
@@ -218,6 +234,19 @@ namespace WorldBuilder.Views {
                     e.Handled = true;
                 }
             }, Avalonia.Interactivity.RoutingStrategies.Bubble);
+
+            // Handle palette property changes to set interpolation mode
+            PropertyChanged += (s, e) => {
+                if (e.Property == IsPaletteProperty || e.Property == IsPalSetProperty) {
+                    var image = this.FindControl<Image>("PreviewImage");
+                    if (image != null && (e.NewValue != null || e.Property == IsPalSetProperty)) {
+                        var isPaletteOrPalSet = (bool)(e.NewValue ?? IsPalSet);
+                        RenderOptions.SetBitmapInterpolationMode(image,
+                            isPaletteOrPalSet ? BitmapInterpolationMode.None
+                                             : BitmapInterpolationMode.HighQuality);
+                    }
+                }
+            };
         }
 
         public void SetStretch(Stretch stretch) {
@@ -309,7 +338,9 @@ namespace WorldBuilder.Views {
 
             IsSetup = type == DBObjType.Setup || type == DBObjType.EnvCell;
             Is3D = IsSetup || type == DBObjType.GfxObj;
-            Is2D = type == DBObjType.SurfaceTexture || type == DBObjType.RenderSurface || type == DBObjType.Surface;
+            Is2D = type == DBObjType.SurfaceTexture || type == DBObjType.RenderSurface || type == DBObjType.Surface || type == DBObjType.Palette || type == DBObjType.PalSet;
+            IsPalette = type == DBObjType.Palette;
+            IsPalSet = type == DBObjType.PalSet;
 
             IsPreviewable = Is3D || Is2D;
 
@@ -326,6 +357,16 @@ namespace WorldBuilder.Views {
                             else if (surface.Type.HasFlag(SurfaceType.Base1Solid)) {
                                 bitmap = textureService.CreateSolidColorBitmap(surface.ColorValue);
                             }
+                        }
+                    }
+                    else if (DataObjectType == DBObjType.Palette) {
+                        if (db.TryGet<Palette>(dataId, out var palette)) {
+                            bitmap = textureService.CreatePaletteBitmap(palette);
+                        }
+                    }
+                    else if (DataObjectType == DBObjType.PalSet) {
+                        if (db.TryGet<PalSet>(dataId, out var palSet)) {
+                            bitmap = textureService.CreatePalSetBitmap(palSet);
                         }
                     }
                     else {
@@ -351,6 +392,28 @@ namespace WorldBuilder.Views {
                     else if (DataObjectType == DBObjType.Surface) {
                         if (db.TryGet<Surface>(dataId, out var surface)) {
                             PreviewDetails = $"{surface.Type}";
+                        }
+                    }
+                    else if (DataObjectType == DBObjType.Palette) {
+                        if (db.TryGet<Palette>(dataId, out var palette)) {
+                            PreviewDetails = $"{palette.Colors.Count} colors";
+                        }
+                    }
+                    else if (DataObjectType == DBObjType.PalSet) {
+                        if (db.TryGet<PalSet>(dataId, out var palSet)) {
+                            var totalColors = 0;
+                            foreach (var paletteRef in palSet.Palettes) {
+                                // Try to resolve palette ID using dats resolver
+                                var paletteResolutions = dats.ResolveId(paletteRef.DataId).ToList();
+                                foreach (var res in paletteResolutions) {
+                                    if (res.Database.TryGet<Palette>(paletteRef.DataId, out var palette)) {
+                                        totalColors += palette.Colors.Count;
+                                        break; // Found the palette, move to next
+                                    }
+                                }
+                            }
+                            var paletteText = palSet.Palettes.Count == 1 ? "palette" : "palettes";
+                            PreviewDetails = $"{palSet.Palettes.Count} {paletteText}, {totalColors} colors total";
                         }
                     }
                 }
