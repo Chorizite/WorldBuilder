@@ -782,6 +782,9 @@ public class GameScene : IDisposable {
         _gl.FrontFace(GLEnum.CW);
         _gl.Enable(EnableCap.Blend);
         _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+        _gl.BlendEquation(BlendEquationModeEXT.FuncAdd);
+
+        GLHelpers.SetupDefaultRenderState(_gl);
 
         // Disable alpha channel writes so we don't punch holes in the window's alpha
         // where transparent 3D objects are drawn.
@@ -1050,7 +1053,7 @@ public class GameScene : IDisposable {
         _gl.ColorMask(true, true, true, false); // Keep alpha intact
         _gl.StencilFunc((StencilFunction)GLEnum.Notequal, 1, 0xFF);
         _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
-        
+
         foreach (var manager in managers) {
             manager.RenderHighlight(RenderPass.SinglePass, _outlineShader, null, 5.0f);
         }

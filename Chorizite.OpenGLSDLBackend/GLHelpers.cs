@@ -209,5 +209,46 @@ namespace Chorizite.OpenGLSDLBackend {
             state.AppendLine("======================");
             Logger?.LogInformation(state.ToString());
         }
+
+        /// <summary>
+        /// Explicit defaults to prevent Avalonia state leakage into our custom rendering pipeline.
+        /// Call this at the start of complex render cycles immediately inside a GLStateScope.
+        /// </summary>
+        public static void SetupDefaultRenderState(GL gl) {
+            gl.BindSampler(0, 0);
+            gl.BindSampler(1, 0);
+            gl.BindSampler(2, 0);
+
+            gl.ActiveTexture(TextureUnit.Texture1);
+            gl.BindTexture(TextureTarget.Texture2D, 0);
+            gl.ActiveTexture(TextureUnit.Texture2);
+            gl.BindTexture(TextureTarget.Texture2D, 0);
+            gl.ActiveTexture(TextureUnit.Texture0); // End on Texture0
+            gl.BindTexture(TextureTarget.Texture2D, 0);
+
+            gl.BindVertexArray(0);
+            gl.BindBuffer(BufferTargetARB.ArrayBuffer, 0);
+            gl.BindBuffer(BufferTargetARB.ElementArrayBuffer, 0);
+            gl.UseProgram(0);
+            
+            gl.PixelStore(PixelStoreParameter.UnpackAlignment, 1);
+            gl.PixelStore(PixelStoreParameter.UnpackRowLength, 0);
+            gl.PixelStore(PixelStoreParameter.UnpackSkipRows, 0);
+            gl.PixelStore(PixelStoreParameter.UnpackSkipPixels, 0);
+
+            gl.Disable(EnableCap.StencilTest);
+            gl.BlendColor(0, 0, 0, 0);
+            gl.PolygonMode(GLEnum.FrontAndBack, PolygonMode.Fill);
+
+            // Disable Avalonia/Skia specific states
+            gl.Disable(EnableCap.SampleAlphaToCoverage);
+            gl.Disable(EnableCap.SampleAlphaToOne);
+            gl.Disable(EnableCap.Multisample);
+            gl.Disable((EnableCap)GLEnum.PrimitiveRestart);
+            gl.LineWidth(1.0f);
+            gl.PolygonOffset(0f, 0f);
+            gl.Disable(EnableCap.PolygonOffsetFill);
+            gl.Disable((EnableCap)GLEnum.ProgramPointSize);
+        }
     }
 }
