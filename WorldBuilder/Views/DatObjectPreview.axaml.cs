@@ -403,7 +403,7 @@ namespace WorldBuilder.Views {
                         if (db.TryGet<PalSet>(dataId, out var palSet)) {
                             var totalColors = 0;
                             foreach (var paletteRef in palSet.Palettes) {
-                                // Try to resolve the palette ID using the dats resolver
+                                // Try to resolve palette ID using dats resolver
                                 var paletteResolutions = dats.ResolveId(paletteRef.DataId).ToList();
                                 foreach (var res in paletteResolutions) {
                                     if (res.Database.TryGet<Palette>(paletteRef.DataId, out var palette)) {
@@ -412,7 +412,8 @@ namespace WorldBuilder.Views {
                                     }
                                 }
                             }
-                            PreviewDetails = $"{palSet.Palettes.Count} palettes, {totalColors} colors total";
+                            var paletteText = palSet.Palettes.Count == 1 ? "palette" : "palettes";
+                            PreviewDetails = $"{palSet.Palettes.Count} {paletteText}, {totalColors} colors total";
                         }
                     }
                 }
