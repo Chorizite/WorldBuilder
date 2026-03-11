@@ -78,7 +78,7 @@
 
         <!-- Play button for Wave files -->
         <Button IsVisible="{Binding IsWave, ElementName=Root}"
-                Command="{Binding PlayWaveCommand, ElementName=Root}"
+                Command="{Binding PlaySoundCommand, ElementName=Root}"
                 HorizontalAlignment="Center" 
                 VerticalAlignment="Center"
                 Background="{DynamicResource SemiColorFill1}" 
