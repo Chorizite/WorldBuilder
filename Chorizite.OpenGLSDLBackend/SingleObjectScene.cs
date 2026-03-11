@@ -338,6 +338,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 CurrentCullMode = null;
 
                 Gl.Disable(EnableCap.ScissorTest);
+                GLHelpers.SetupDefaultRenderState(Gl);
                 Gl.Disable(EnableCap.Blend);
                 Gl.Enable(EnableCap.DepthTest);
                 Gl.DepthFunc(DepthFunction.Less);
