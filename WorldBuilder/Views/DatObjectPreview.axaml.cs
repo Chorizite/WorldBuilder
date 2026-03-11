@@ -80,6 +80,14 @@ namespace WorldBuilder.Views {
             private set => SetValue(IsSetupProperty, value);
         }
 
+        public static readonly StyledProperty<bool> IsPaletteProperty =
+            AvaloniaProperty.Register<DatObjectPreview, bool>(nameof(IsPalette));
+
+        public bool IsPalette {
+            get => GetValue(IsPaletteProperty);
+            private set => SetValue(IsPaletteProperty, value);
+        }
+
         public static readonly StyledProperty<bool> IsPreviewableProperty =
             AvaloniaProperty.Register<DatObjectPreview, bool>(nameof(IsPreviewable));
 
@@ -218,6 +226,19 @@ namespace WorldBuilder.Views {
                     e.Handled = true;
                 }
             }, Avalonia.Interactivity.RoutingStrategies.Bubble);
+
+            // Handle palette property changes to set interpolation mode
+            PropertyChanged += (s, e) => {
+                if (e.Property == IsPaletteProperty) {
+                    var image = this.FindControl<Image>("PreviewImage");
+                    if (image != null && e.NewValue != null) {
+                        var isPalette = (bool)e.NewValue;
+                        RenderOptions.SetBitmapInterpolationMode(image,
+                            isPalette ? BitmapInterpolationMode.None
+                                       : BitmapInterpolationMode.HighQuality);
+                    }
+                }
+            };
         }
 
         public void SetStretch(Stretch stretch) {
@@ -310,6 +331,7 @@ namespace WorldBuilder.Views {
             IsSetup = type == DBObjType.Setup || type == DBObjType.EnvCell;
             Is3D = IsSetup || type == DBObjType.GfxObj;
             Is2D = type == DBObjType.SurfaceTexture || type == DBObjType.RenderSurface || type == DBObjType.Surface || type == DBObjType.Palette;
+            IsPalette = type == DBObjType.Palette;
 
             IsPreviewable = Is3D || Is2D;
 

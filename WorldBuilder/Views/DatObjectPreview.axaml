@@ -30,6 +30,7 @@
                           HorizontalScrollBarVisibility="{Binding IsManualZoom, ElementName=Root, Converter={StaticResource BoolToScrollConverter}}"
                           VerticalScrollBarVisibility="{Binding IsManualZoom, ElementName=Root, Converter={StaticResource BoolToScrollConverter}}">
                 <Image 
+                    x:Name="PreviewImage"
                     Source="{Binding TextureBitmap, ElementName=Root}"
                     Stretch="{Binding ImageStretch, ElementName=Root}"
                     Width="{Binding ZoomedWidth, ElementName=Root}"
