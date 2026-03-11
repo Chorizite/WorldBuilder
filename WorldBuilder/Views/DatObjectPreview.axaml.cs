@@ -2,18 +2,23 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Chorizite.OpenGLSDLBackend;
+using CommunityToolkit.Mvvm.Input;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
 using Microsoft.Extensions.DependencyInjection;
-using System;
+using Microsoft.Extensions.Logging;
+using NAudio.Wave;
 using System.Numerics;
-using System.Threading.Tasks;
+using WorldBuilder.Extensions;
 using WorldBuilder.Services;
-using WorldBuilder.Shared.Services;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Views {
     public partial class DatObjectPreview : UserControl {
+
         public static readonly StyledProperty<uint> DataIdProperty =
             AvaloniaProperty.Register<DatObjectPreview, uint>(nameof(DataId));
 
@@ -94,6 +99,14 @@ namespace WorldBuilder.Views {
         public bool IsPalSet {
             get => GetValue(IsPalSetProperty);
             private set => SetValue(IsPalSetProperty, value);
+        }
+
+        public static readonly StyledProperty<bool> IsWaveProperty =
+            AvaloniaProperty.Register<DatObjectPreview, bool>(nameof(IsWave));
+
+        public bool IsWave {
+            get => GetValue(IsWaveProperty);
+            private set => SetValue(IsWaveProperty, value);
         }
 
         public static readonly StyledProperty<bool> IsPreviewableProperty =
@@ -205,8 +218,16 @@ namespace WorldBuilder.Views {
             set => SetValue(ShowCullingProperty, value);
         }
 
+        private readonly ILogger _logger;
+
         public DatObjectPreview() {
             InitializeComponent();
+            var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>() ?? LoggerFactory.Create(builder => {
+                builder.AddProvider(new ColorConsoleLoggerProvider());
+                builder.SetMinimumLevel(LogLevel.Debug);
+            });
+            _logger = loggerFactory.CreateLogger<DatObjectPreview>();
+            
             AddHandler(PointerWheelChangedEvent, (s, e) => {
                 if (Is2D && !IsTooltip && TextureBitmap != null) {
                     if (!IsManualZoom) {
@@ -273,6 +294,7 @@ namespace WorldBuilder.Views {
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnDetachedFromVisualTree(e);
             TextureBitmap = null;
+            _audioPlaybackEngine?.Dispose();
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
@@ -341,8 +363,9 @@ namespace WorldBuilder.Views {
             Is2D = type == DBObjType.SurfaceTexture || type == DBObjType.RenderSurface || type == DBObjType.Surface || type == DBObjType.Palette || type == DBObjType.PalSet;
             IsPalette = type == DBObjType.Palette;
             IsPalSet = type == DBObjType.PalSet;
+            IsWave = type == DBObjType.Wave;
 
-            IsPreviewable = Is3D || Is2D;
+            IsPreviewable = Is3D || Is2D || IsWave;
 
             if (Is2D) {
                 var textureService = WorldBuilder.App.ProjectManager?.GetProjectService<TextureService>();
@@ -422,6 +445,59 @@ namespace WorldBuilder.Views {
                 if (updateId == _lastUpdateId) {
                     TextureBitmap = null;
                 }
+            }
+        }
+
+        private static AudioPlaybackEngine? _audioPlaybackEngine;
+
+        [RelayCommand]
+        private void PlaySound() {
+            if (!IsWave || Dats == null) return;
+
+            try {
+                var dataId = DataId;
+                var resolutions = Dats.ResolveId(dataId).ToList();
+                foreach (var resolution in resolutions) {
+                    var db = resolution.Database;
+                    if (db.TryGet<Wave>(dataId, out var wave)) {
+                        // Dispose previous audio engine if still playing
+                        _audioPlaybackEngine?.Dispose();
+
+                        Stream stream;
+                        float duration;
+
+                        if (wave.IsMp3()) {
+                            stream = new MemoryStream(wave.Data);
+                            using (var mp3Reader = new Mp3FileReader(stream)) {
+                                duration = (float)mp3Reader.TotalTime.TotalSeconds;
+                                _audioPlaybackEngine = new AudioPlaybackEngine(mp3Reader.WaveFormat.SampleRate, mp3Reader.WaveFormat.Channels);
+                                _audioPlaybackEngine.PlaySound(stream, true);
+                            }
+                        }
+                        else {
+                            var wavHeader = wave.ParseHeader();
+                            duration = (float)wavHeader.GetDuration(wave.Data.Length);
+                            stream = wave.ToWavStream();
+                            _audioPlaybackEngine = new AudioPlaybackEngine(wavHeader.SampleRate, wavHeader.Channels);
+                            _audioPlaybackEngine.PlaySound(stream, false);
+                        }
+                        
+                        // Capture the current audio engine reference
+                        var currentAudioEngine = _audioPlaybackEngine;
+                        Task.Delay(TimeSpan.FromSeconds(duration + 1)).ContinueWith(_ => {
+                            // Only dispose if this is still the current audio engine
+                            if (currentAudioEngine == _audioPlaybackEngine) {
+                                currentAudioEngine?.Dispose();
+                                _audioPlaybackEngine = null;
+                            }
+                            stream?.Dispose();
+                        });
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Error playing wave {DataId:X8}", DataId);
             }
         }
     }

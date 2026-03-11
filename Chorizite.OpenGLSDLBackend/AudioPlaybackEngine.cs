@@ -19,8 +19,13 @@ namespace Chorizite.OpenGLSDLBackend {
             outputDevice.Play();
         }
 
-        public void PlaySound(Stream fileName) {
-            var input = new WaveFileReader(fileName);
+        public void PlaySound(Stream audioStream, bool isMp3 = false) {
+            IWaveProvider input;
+            if (isMp3)
+                input = new Mp3FileReader(audioStream);
+            else
+                input = new WaveFileReader(audioStream);
+
             AddMixerInput(new AutoDisposeWaveReader(input));
         }
 
@@ -72,9 +77,9 @@ namespace Chorizite.OpenGLSDLBackend {
         public WaveFormat WaveFormat { get { return cachedSound.WaveFormat; } }
     }
     public class AutoDisposeWaveReader : IWaveProvider {
-        private readonly WaveFileReader reader;
+        private readonly IWaveProvider reader;
         private bool isDisposed;
-        public AutoDisposeWaveReader(WaveFileReader reader) {
+        public AutoDisposeWaveReader(IWaveProvider reader) {
             this.reader = reader;
             this.WaveFormat = reader.WaveFormat;
         }
@@ -84,7 +89,9 @@ namespace Chorizite.OpenGLSDLBackend {
                 return 0;
             int read = reader.Read(buffer, offset, count);
             if (read == 0) {
-                reader.Dispose();
+                if (reader is IDisposable disposableReader) {
+                    disposableReader.Dispose();
+                }
                 isDisposed = true;
             }
             return read;
