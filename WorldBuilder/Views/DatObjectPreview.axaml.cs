@@ -309,7 +309,7 @@ namespace WorldBuilder.Views {
 
             IsSetup = type == DBObjType.Setup || type == DBObjType.EnvCell;
             Is3D = IsSetup || type == DBObjType.GfxObj;
-            Is2D = type == DBObjType.SurfaceTexture || type == DBObjType.RenderSurface || type == DBObjType.Surface;
+            Is2D = type == DBObjType.SurfaceTexture || type == DBObjType.RenderSurface || type == DBObjType.Surface || type == DBObjType.Palette;
 
             IsPreviewable = Is3D || Is2D;
 
@@ -326,6 +326,11 @@ namespace WorldBuilder.Views {
                             else if (surface.Type.HasFlag(SurfaceType.Base1Solid)) {
                                 bitmap = textureService.CreateSolidColorBitmap(surface.ColorValue);
                             }
+                        }
+                    }
+                    else if (DataObjectType == DBObjType.Palette) {
+                        if (db.TryGet<Palette>(dataId, out var palette)) {
+                            bitmap = textureService.CreatePaletteBitmap(palette);
                         }
                     }
                     else {
@@ -351,6 +356,11 @@ namespace WorldBuilder.Views {
                     else if (DataObjectType == DBObjType.Surface) {
                         if (db.TryGet<Surface>(dataId, out var surface)) {
                             PreviewDetails = $"{surface.Type}";
+                        }
+                    }
+                    else if (DataObjectType == DBObjType.Palette) {
+                        if (db.TryGet<Palette>(dataId, out var palette)) {
+                            PreviewDetails = $"{palette.Colors.Count} colors";
                         }
                     }
                 }

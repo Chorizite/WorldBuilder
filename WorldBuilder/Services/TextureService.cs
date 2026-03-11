@@ -129,6 +129,43 @@ namespace WorldBuilder.Services {
             }
         }
 
+        private const int PaletteWidth = 64;
+
+        public Bitmap? CreatePaletteBitmap(Palette? palette) {
+            if (palette?.Colors == null || palette.Colors.Count == 0)
+                return null;
+
+            var numColors = palette.Colors.Count;
+
+            var width = Math.Min(numColors, PaletteWidth);
+            var height = (int)Math.Ceiling((float)numColors / PaletteWidth);
+
+            var cacheKey = (long)palette.Id << 32;
+            
+            lock (_textureCache) {
+                if (_textureCache.TryGetValue(cacheKey, out var cachedPalette) && cachedPalette != null) {
+                    _lruList.Remove(cacheKey);
+                    _lruList.AddLast(cacheKey);
+                    return cachedPalette;
+                }
+            }
+
+            var wb = new WriteableBitmap(new Avalonia.PixelSize(width, height), new Avalonia.Vector(96, 96), Avalonia.Platform.PixelFormat.Rgba8888, AlphaFormat.Unpremul);
+
+            using (var locked = wb.Lock()) {
+                unsafe {
+                    uint* ptr = (uint*)locked.Address;
+                    for (int i = 0; i < numColors; i++) {
+                        var color = palette.Colors[i];
+                        uint val = (uint)(color.Red | (color.Green << 8) | (color.Blue << 16) | (color.Alpha << 24));
+                        ptr[i] = val;
+                    }
+                }
+            }
+            AddToCache(cacheKey, wb);
+            return wb;
+        }
+
         public Bitmap CreateSolidColorBitmap(ColorARGB color, int width = 32, int height = 32) {
             uint colorVal = (uint)(color.Red | (color.Green << 8) | (color.Blue << 16) | (color.Alpha << 24));
             var cacheKey = ((long)colorVal << 32) | ((long)width << 16) | (uint)height;
