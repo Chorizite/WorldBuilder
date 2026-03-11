@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
              xmlns:v="using:WorldBuilder.Modules.DatBrowser.Views"
+             xmlns:views="using:WorldBuilder.Views"
              xmlns:conv="using:WorldBuilder.Converters"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="WorldBuilder.Modules.DatBrowser.Views.PalSetBrowserView"
@@ -14,9 +15,18 @@
 
         <GridSplitter Grid.Column="1" Background="{DynamicResource SemiColorBorder}" ResizeDirection="Columns"/>
 
-        <!-- Grid Browser Area for PalSet (no preview, just file grid) -->
+        <!-- Preview Area -->
         <Panel Grid.Column="2" Background="{DynamicResource SemiColorBackground0}">
-            <v:GridBrowserView DataContext="{Binding GridBrowser}" />
+            <views:DatObjectPreview 
+                IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsNotZero}}"
+                DataId="{Binding SelectedFileId}"
+                Dats="{Binding Dats}"
+                ShowWireframe="{Binding ShowWireframe, Mode=TwoWay}"
+                WireframeColor="{Binding WireframeColor}"
+                IsTooltip="False" />
+            <Panel IsVisible="{Binding SelectedFileId, Converter={x:Static conv:NumericConverters.IsZero}}">
+                <v:GridBrowserView DataContext="{Binding GridBrowser}" />
+            </Panel>
         </Panel>
     </Grid>
 </UserControl>

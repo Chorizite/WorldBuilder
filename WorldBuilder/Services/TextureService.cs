@@ -135,11 +135,6 @@ namespace WorldBuilder.Services {
             if (palette?.Colors == null || palette.Colors.Count == 0)
                 return null;
 
-            var numColors = palette.Colors.Count;
-
-            var width = Math.Min(numColors, PaletteWidth);
-            var height = (int)Math.Ceiling((float)numColors / PaletteWidth);
-
             var cacheKey = (long)palette.Id << 32;
             
             lock (_textureCache) {
@@ -150,6 +145,11 @@ namespace WorldBuilder.Services {
                 }
             }
 
+            var numColors = palette.Colors.Count;
+
+            var width = Math.Min(numColors, PaletteWidth);
+            var height = (int)Math.Ceiling((float)numColors / PaletteWidth);
+
             var wb = new WriteableBitmap(new Avalonia.PixelSize(width, height), new Avalonia.Vector(96, 96), Avalonia.Platform.PixelFormat.Rgba8888, AlphaFormat.Unpremul);
 
             using (var locked = wb.Lock()) {
@@ -157,6 +157,56 @@ namespace WorldBuilder.Services {
                     uint* ptr = (uint*)locked.Address;
                     for (int i = 0; i < numColors; i++) {
                         var color = palette.Colors[i];
+                        uint val = (uint)(color.Red | (color.Green << 8) | (color.Blue << 16) | (color.Alpha << 24));
+                        ptr[i] = val;
+                    }
+                }
+            }
+            AddToCache(cacheKey, wb);
+            return wb;
+        }
+
+        public Bitmap? CreatePalSetBitmap(PalSet? palSet) {
+            if (palSet?.Palettes == null || palSet.Palettes.Count == 0)
+                return null;
+
+            var cacheKey = (long)palSet.Id << 32;
+
+            lock (_textureCache) {
+                if (_textureCache.TryGetValue(cacheKey, out var cachedPalSet) && cachedPalSet != null) {
+                    _lruList.Remove(cacheKey);
+                    _lruList.AddLast(cacheKey);
+                    return cachedPalSet;
+                }
+            }
+
+            // Calculate all colors from all palettes
+            var allColors = new List<ColorARGB>();
+            
+            foreach (var paletteRef in palSet.Palettes) {
+                // Try to resolve palette ID using dats resolver
+                var paletteResolutions = _dats.ResolveId(paletteRef.DataId).ToList();
+                foreach (var res in paletteResolutions) {
+                    if (res.Database.TryGet<Palette>(paletteRef.DataId, out var palette)) {
+                        allColors.AddRange(palette.Colors);
+                        break; // Found the palette, move to next
+                    }
+                }
+            }
+
+            if (allColors.Count == 0)
+                return null;
+
+            var width = Math.Min(allColors.Count, PaletteWidth);
+            var height = (int)Math.Ceiling((float)allColors.Count / PaletteWidth);
+
+            var wb = new WriteableBitmap(new Avalonia.PixelSize(width, height), new Avalonia.Vector(96, 96), Avalonia.Platform.PixelFormat.Rgba8888, AlphaFormat.Unpremul);
+
+            using (var locked = wb.Lock()) {
+                unsafe {
+                    uint* ptr = (uint*)locked.Address;
+                    for (int i = 0; i < allColors.Count; i++) {
+                        var color = allColors[i];
                         uint val = (uint)(color.Red | (color.Green << 8) | (color.Blue << 16) | (color.Alpha << 24));
                         ptr[i] = val;
                     }
