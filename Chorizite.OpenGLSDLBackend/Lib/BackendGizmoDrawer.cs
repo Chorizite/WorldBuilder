@@ -92,8 +92,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             BuildCone(16, out var coneV, out var coneI);
             AddMesh(coneV, coneI, out _coneIndexOffset, out _coneIndexCount);
 
-            // 3) Torus (majorR=1, minorR=0.03, lay on XY plane)
-            BuildTorus(32, 12, 1.0f, 0.03f, out var torusV, out var torusI);
+            // 3) Torus (majorR=1, minorR=0.01, lay on XY plane)
+            BuildTorus(32, 12, 1.0f, 0.01f, out var torusV, out var torusI);
             AddMesh(torusV, torusI, out _torusIndexOffset, out _torusIndexCount);
 
             // 4) Box (size=1)
@@ -405,7 +405,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
                 else if (cmd is DrawTorusCmd torusCmd) {
                     var model = CreateAlignZMatrix(torusCmd.Center, Vector3.Normalize(torusCmd.Axis));
-                    var scale = Matrix4x4.CreateScale(torusCmd.Radius, torusCmd.Radius, torusCmd.Radius);
+                    float zScale = torusCmd.TubeRadius / (0.01f * torusCmd.Radius);
+                    var scale = Matrix4x4.CreateScale(torusCmd.Radius, torusCmd.Radius, torusCmd.Radius * zScale);
                     _shader.SetUniform("uModel", scale * model);
                     _shader.SetUniform("uBaseColor", torusCmd.Color);
                     _shader.SetUniform("uIsPie", 0);

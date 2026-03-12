@@ -23,6 +23,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         [ObservableProperty] private bool _selectBuildings = false;
         [ObservableProperty] private bool _selectStaticObjects = true;
         [ObservableProperty] private bool _selectEnvCellStaticObjects = true;
+        [ObservableProperty] private GizmoMode _mode = GizmoMode.Translate;
 
         partial void OnIsLocalSpaceChanged(bool value) {
             GizmoState.IsLocalSpace = value;
@@ -34,6 +35,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         partial void OnShowBoundingBoxesChanged(bool value) {
+            SaveSettings();
+        }
+
+        partial void OnModeChanged(GizmoMode value) {
+            GizmoState.Mode = value;
             SaveSettings();
         }
 
@@ -61,6 +67,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 IsLocalSpace = settings.IsLocalSpace;
                 AlignToSurface = settings.AlignToSurface;
                 ShowBoundingBoxes = settings.ShowBoundingBoxes;
+                Mode = settings.Mode;
             }
         }
 
@@ -78,9 +85,27 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             ClearHover();
         }
 
+        public override bool OnKeyDown(ViewportInputEvent e) {
+            if (string.Equals(e.Key, "T", StringComparison.OrdinalIgnoreCase)) {
+                Mode = GizmoMode.Translate;
+                return true;
+            }
+            if (string.Equals(e.Key, "R", StringComparison.OrdinalIgnoreCase)) {
+                Mode = GizmoMode.Rotate;
+                return true;
+            }
+            if (string.Equals(e.Key, "F", StringComparison.OrdinalIgnoreCase)) {
+                Mode = GizmoMode.Both;
+                return true;
+            }
+            return base.OnKeyDown(e);
+        }
+
         public override void Render(IDebugRenderer debugRenderer) {
             if (HasSelection && Context != null) {
                 GizmoState.CameraPosition = Context.Camera.Position;
+                GizmoState.CameraProjection = Context.Camera.ProjectionMatrix;
+                GizmoState.ViewportSize = Context.ViewportSize;
                 GizmoRenderer.Draw(debugRenderer, GizmoState);
             }
         }
@@ -146,6 +171,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 GizmoState.Position = transform.Value.position;
                 GizmoState.Rotation = transform.Value.rotation;
                 GizmoState.LocalPosition = transform.Value.localPosition;
+                GizmoState.ObjectLocalBounds = Context.GetStaticObjectLocalBounds?.Invoke(GizmoState.LandblockId, GizmoState.InstanceId);
             }
             else {
                 // Object might have been deleted
@@ -312,6 +338,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             GizmoState.ObjectId = hit.ObjectId;
             GizmoState.SelectionType = hit.Type;
             GizmoState.IsLocalSpace = IsLocalSpace;
+            GizmoState.Mode = Mode;
 
             if (Context?.GetStaticObjectTransform != null) {
                 var transform = Context.GetStaticObjectTransform(hit.LandblockId, hit.InstanceId);
@@ -319,6 +346,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                     GizmoState.Position = transform.Value.position;
                     GizmoState.Rotation = transform.Value.rotation;
                     GizmoState.LocalPosition = transform.Value.localPosition;
+                    GizmoState.ObjectLocalBounds = Context.GetStaticObjectLocalBounds?.Invoke(hit.LandblockId, hit.InstanceId);
                 }
                 else {
                     GizmoState.Position = hit.Position;
@@ -458,7 +486,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 Context.ToolSettingsProvider.UpdateObjectManipulationToolSettings(new ObjectManipulationToolSettingsData {
                     IsLocalSpace = IsLocalSpace,
                     AlignToSurface = AlignToSurface,
-                    ShowBoundingBoxes = ShowBoundingBoxes
+                    ShowBoundingBoxes = ShowBoundingBoxes,
+                    Mode = Mode
                 });
             }
         }

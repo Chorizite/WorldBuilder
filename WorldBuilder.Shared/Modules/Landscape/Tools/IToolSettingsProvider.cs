@@ -1,3 +1,5 @@
+using WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo;
+
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     /// <summary>
     /// Interface for providing tool settings access to landscape tools
@@ -32,6 +34,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public bool AlignToSurface { get; set; } = false;
         public bool ShowBoundingBoxes { get; set; } = false;
         public bool IsLocalSpace { get; set; } = false;
+        public GizmoMode Mode { get; set; } = GizmoMode.Translate;
     }
 
     public class InspectorToolSettingsData {

@@ -33,7 +33,8 @@ namespace WorldBuilder.Modules.Landscape {
             ? new ObjectManipulationToolSettingsData {
                 AlignToSurface = _projectSettings.LandscapeTools.ObjectManipulationTool.AlignToSurface,
                 ShowBoundingBoxes = _projectSettings.LandscapeTools.ObjectManipulationTool.ShowBoundingBoxes,
-                IsLocalSpace = _projectSettings.LandscapeTools.ObjectManipulationTool.IsLocalSpace
+                IsLocalSpace = _projectSettings.LandscapeTools.ObjectManipulationTool.IsLocalSpace,
+                Mode = _projectSettings.LandscapeTools.ObjectManipulationTool.Mode
             }
             : null;
 
@@ -73,6 +74,7 @@ namespace WorldBuilder.Modules.Landscape {
                 _projectSettings.LandscapeTools.ObjectManipulationTool.AlignToSurface = data.AlignToSurface;
                 _projectSettings.LandscapeTools.ObjectManipulationTool.ShowBoundingBoxes = data.ShowBoundingBoxes;
                 _projectSettings.LandscapeTools.ObjectManipulationTool.IsLocalSpace = data.IsLocalSpace;
+                _projectSettings.LandscapeTools.ObjectManipulationTool.Mode = data.Mode;
             }
         }
 

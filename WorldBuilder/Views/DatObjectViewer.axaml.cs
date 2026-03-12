@@ -248,7 +248,7 @@ namespace WorldBuilder.Views {
         }
 
         private void UpdateObject() {
-            if (_scene == null && _gl != null && _renderDats != null) {
+            if (_scene == null && _gl != null && Renderer != null && _renderDats != null) {
                 InitializeScene();
                 _scene?.Resize((int)Bounds.Width, (int)Bounds.Height);
             }
@@ -259,6 +259,8 @@ namespace WorldBuilder.Views {
         }
 
         private void InitializeScene() {
+            if (_gl == null || Renderer == null) return;
+
             var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>() ?? LoggerFactory.Create(builder => {
                 builder.AddProvider(new ColorConsoleLoggerProvider());
                 builder.SetMinimumLevel(LogLevel.Debug);
@@ -266,9 +268,9 @@ namespace WorldBuilder.Views {
 
             var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
             var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
-            var meshManager = meshManagerService?.GetMeshManager(Renderer!.GraphicsDevice, _renderDats!);
+            var meshManager = meshManagerService?.GetMeshManager(Renderer.GraphicsDevice, _renderDats!);
 
-            _scene = new SingleObjectScene(_gl!, Renderer!.GraphicsDevice, loggerFactory, _renderDats!, meshManager);
+            _scene = new SingleObjectScene(_gl, Renderer.GraphicsDevice, loggerFactory, _renderDats!, meshManager);
             _scene.OnRequestRender += () => RequestRender();
             _scene.BackgroundColor = _renderBackgroundColor;
             _scene.IsTooltip = _renderIsTooltip;
@@ -312,6 +314,7 @@ namespace WorldBuilder.Views {
         protected override void OnGlDestroy() {
             _scene?.Dispose();
             _scene = null;
+            _gl = null;
         }
 
         protected override void OnGlKeyDown(KeyEventArgs e) {
