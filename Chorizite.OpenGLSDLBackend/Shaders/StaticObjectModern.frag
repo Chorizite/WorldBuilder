@@ -3,9 +3,6 @@
 #extension GL_NV_gpu_shader5 : enable
 #extension GL_ARB_gpu_shader_int64 : enable
 
-precision highp float;
-precision highp int;
-
 in vec3 Normal;
 in vec2 TexCoord;
 in flat uvec2 TextureHandle;

@@ -4,9 +4,6 @@
 #extension GL_ARB_gpu_shader_int64 : enable
 #extension GL_ARB_shader_draw_parameters : require
 
-precision highp float;
-precision highp int;
-
 layout(location = 0) in vec3 aPosition;
 layout(location = 1) in vec3 aNormal;
 layout(location = 2) in vec2 aTexCoord;
