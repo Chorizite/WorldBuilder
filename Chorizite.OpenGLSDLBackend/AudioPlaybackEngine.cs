@@ -11,6 +11,7 @@ namespace Chorizite.OpenGLSDLBackend {
         private readonly int _channelCount;
         private readonly int _bitsPerSample;
         private static readonly ILogger<AudioPlaybackEngine>? _logger;
+        private bool _deviceInitialized = false;
 
         // Track active playback streams for cleanup
         private readonly Queue<(byte[] data, Stream stream)> _playbackQueue = new();
@@ -39,6 +40,36 @@ namespace Chorizite.OpenGLSDLBackend {
             _channelCount = channelCount;
             _bitsPerSample = bitsPerSample;
             _cleanupCts = new CancellationTokenSource();
+            
+            // Initialize device immediately with fixed format
+            InitializeDevice();
+        }
+
+        private void InitializeDevice() {
+            if (_deviceInitialized) return;
+            
+            unsafe {
+                // Use a fixed, high-quality format for all playback
+                AudioSpec desiredSpec = new AudioSpec();
+                desiredSpec.Freq = _sampleRate;
+                desiredSpec.Format = 0x8010; // SDL_AUDIO_S16LSB (16-bit signed)
+                desiredSpec.Channels = (byte)_channelCount;
+                desiredSpec.Silence = 0;
+                desiredSpec.Samples = 4096;
+                desiredSpec.Size = 0;
+                desiredSpec.Padding = 0;
+
+                _currentDeviceId = _sdl.OpenAudioDevice((string?)null, 0, &desiredSpec, null, 0);
+                if (_currentDeviceId == 0) {
+                    var error = _sdl.GetErrorS();
+                    _logger?.LogError("Failed to open audio device: {Error}", error);
+                    throw new InvalidOperationException($"Failed to open audio device: {error}");
+                }
+                
+                _deviceInitialized = true;
+                _logger?.LogDebug("Audio device initialized with format: {SampleRate}Hz, {Channels} channels, {BitsPerSample}bit", 
+                    _sampleRate, _channelCount, _bitsPerSample);
+            }
         }
 
         public void PlaySound(Stream audioStream, bool isMp3 = false) {
@@ -66,6 +97,9 @@ namespace Chorizite.OpenGLSDLBackend {
                     (pcmData, channels, sampleRate, bitsPerSample) = ReadWavStream(audioStream);
                 }
 
+                // Convert audio data to device format if needed
+                pcmData = ConvertAudioToDeviceFormat(pcmData, channels, sampleRate, bitsPerSample, out channels, out sampleRate, out bitsPerSample);
+
                 PlayAudioData(pcmData, channels, sampleRate, bitsPerSample, audioStream);
             }
             catch (Exception ex) {
@@ -81,39 +115,6 @@ namespace Chorizite.OpenGLSDLBackend {
             }
 
             unsafe {
-                // Only close device if format parameters changed significantly
-                if (_currentDeviceId != 0) {
-                    // Check if we need to reopen device with different format
-                    var currentSpec = _sdl.GetAudioDeviceStatus(_currentDeviceId);
-                    if (channels != _channelCount || sampleRate != _sampleRate || bitsPerSample != _bitsPerSample) {
-                        _sdl.CloseAudioDevice(_currentDeviceId);
-                        _currentDeviceId = 0;
-                    }
-                }
-
-                // Determine SDL audio format based on bit depth
-                ushort format = (ushort)((bitsPerSample == 8) ? 0x0008 : 0x8010); // SDL_AUDIO_U8 or SDL_AUDIO_S16LSB
-
-                // Create audio spec with correct format
-                AudioSpec desiredSpec = new AudioSpec();
-                desiredSpec.Freq = sampleRate;
-                desiredSpec.Format = format;
-                desiredSpec.Channels = (byte)channels;
-                desiredSpec.Silence = 0;
-                desiredSpec.Samples = 4096;
-                desiredSpec.Size = 0;
-                desiredSpec.Padding = 0;
-
-                // Open audio device only if needed
-                if (_currentDeviceId == 0) {
-                    _currentDeviceId = _sdl.OpenAudioDevice((string?)null, 0, &desiredSpec, null, 0);
-                    if (_currentDeviceId == 0) {
-                        var error = _sdl.GetErrorS();
-                        _logger?.LogError("Failed to open audio device: {Error}", error);
-                        return;
-                    }
-                }
-
                 // Clear any queued audio to prevent buildup
                 _sdl.ClearQueuedAudio(_currentDeviceId);
 
@@ -121,8 +122,6 @@ namespace Chorizite.OpenGLSDLBackend {
                 fixed (byte* dataPtr = pcmData) {
                     if (_sdl.QueueAudio(_currentDeviceId, dataPtr, (uint)pcmData.Length) < 0) {
                         var error = _sdl.GetErrorS();
-                        _sdl.CloseAudioDevice(_currentDeviceId);
-                        _currentDeviceId = 0;
                         _logger?.LogError("Failed to queue audio: {Error}", error);
                         return;
                     }
@@ -254,6 +253,136 @@ namespace Chorizite.OpenGLSDLBackend {
 
                 return (data, channels, sampleRate, bitsPerSample);
             }
+        }
+
+        private byte[] ConvertAudioToDeviceFormat(byte[] inputData, int inputChannels, int inputSampleRate, int inputBitsPerSample, 
+            out int outputChannels, out int outputSampleRate, out int outputBitsPerSample) {
+            
+            // If already in correct format, return as-is
+            if (inputChannels == _channelCount && inputSampleRate == _sampleRate && inputBitsPerSample == _bitsPerSample) {
+                outputChannels = inputChannels;
+                outputSampleRate = inputSampleRate;
+                outputBitsPerSample = inputBitsPerSample;
+                return inputData;
+            }
+
+            // Convert to device format
+            outputChannels = _channelCount;
+            outputSampleRate = _sampleRate;
+            outputBitsPerSample = _bitsPerSample;
+
+            // First handle bit depth conversion if needed
+            if (inputBitsPerSample != _bitsPerSample) {
+                inputData = ConvertBitDepth(inputData, inputBitsPerSample, _bitsPerSample);
+                inputBitsPerSample = _bitsPerSample;
+            }
+
+            // Then handle sample rate conversion
+            if (inputSampleRate != _sampleRate) {
+                inputData = ResampleAudio(inputData, inputChannels, inputSampleRate, _sampleRate, inputBitsPerSample);
+            }
+
+            // Finally handle channel conversion
+            if (inputChannels != _channelCount) {
+                inputData = ConvertChannels(inputData, inputChannels, _channelCount, inputBitsPerSample);
+            }
+
+            return inputData;
+        }
+
+        private byte[] ConvertBitDepth(byte[] inputData, int inputBits, int outputBits) {
+            if (inputBits == 8 && outputBits == 16) {
+                // Convert 8-bit to 16-bit
+                byte[] outputData = new byte[inputData.Length * 2];
+                for (int i = 0; i < inputData.Length; i++) {
+                    // Convert unsigned 8-bit [0,255] to signed 16-bit [-32768,32767]
+                    short sample = (short)((inputData[i] - 128) * 256);
+                    byte[] bytes = BitConverter.GetBytes(sample);
+                    outputData[i * 2] = bytes[0];
+                    outputData[i * 2 + 1] = bytes[1];
+                }
+                return outputData;
+            }
+            else if (inputBits == 16 && outputBits == 8) {
+                // Convert 16-bit to 8-bit
+                byte[] outputData = new byte[inputData.Length / 2];
+                for (int i = 0; i < outputData.Length; i++) {
+                    short sample = BitConverter.ToInt16(inputData, i * 2);
+                    // Convert signed 16-bit [-32768,32767] to unsigned 8-bit [0,255]
+                    outputData[i] = (byte)((sample / 256) + 128);
+                }
+                return outputData;
+            }
+            
+            // No conversion needed or not supported
+            return inputData;
+        }
+
+        private byte[] ResampleAudio(byte[] inputData, int channels, int inputSampleRate, int outputSampleRate, int bitsPerSample) {
+            if (inputSampleRate == outputSampleRate) return inputData;
+
+            double ratio = (double)outputSampleRate / inputSampleRate;
+            int inputSamplesPerChannel = inputData.Length / (channels * (bitsPerSample / 8));
+            int outputSamplesPerChannel = (int)(inputSamplesPerChannel * ratio);
+            byte[] outputData = new byte[outputSamplesPerChannel * channels * (bitsPerSample / 8)];
+
+            if (bitsPerSample == 16) {
+                for (int ch = 0; ch < channels; ch++) {
+                    for (int i = 0; i < outputSamplesPerChannel; i++) {
+                        double inputIndex = i / ratio;
+                        int index0 = (int)Math.Floor(inputIndex);
+                        int index1 = Math.Min(index0 + 1, inputSamplesPerChannel - 1);
+                        double fraction = inputIndex - index0;
+
+                        // Linear interpolation
+                        short sample0 = BitConverter.ToInt16(inputData, (index0 * channels + ch) * 2);
+                        short sample1 = BitConverter.ToInt16(inputData, (index1 * channels + ch) * 2);
+                        short interpolated = (short)(sample0 + (sample1 - sample0) * fraction);
+
+                        byte[] bytes = BitConverter.GetBytes(interpolated);
+                        outputData[(i * channels + ch) * 2] = bytes[0];
+                        outputData[(i * channels + ch) * 2 + 1] = bytes[1];
+                    }
+                }
+            }
+
+            return outputData;
+        }
+
+        private byte[] ConvertChannels(byte[] inputData, int inputChannels, int outputChannels, int bitsPerSample) {
+            if (inputChannels == outputChannels) return inputData;
+
+            int samplesPerChannel = inputData.Length / (inputChannels * (bitsPerSample / 8));
+            byte[] outputData = new byte[samplesPerChannel * outputChannels * (bitsPerSample / 8)];
+
+            if (bitsPerSample == 16) {
+                if (inputChannels == 1 && outputChannels == 2) {
+                    // Mono to stereo - duplicate samples
+                    for (int i = 0; i < samplesPerChannel; i++) {
+                        short sample = BitConverter.ToInt16(inputData, i * 2);
+                        byte[] bytes = BitConverter.GetBytes(sample);
+                        // Left channel
+                        outputData[i * 4] = bytes[0];
+                        outputData[i * 4 + 1] = bytes[1];
+                        // Right channel
+                        outputData[i * 4 + 2] = bytes[0];
+                        outputData[i * 4 + 3] = bytes[1];
+                    }
+                }
+                else if (inputChannels == 2 && outputChannels == 1) {
+                    // Stereo to mono - average channels
+                    for (int i = 0; i < samplesPerChannel; i++) {
+                        short left = BitConverter.ToInt16(inputData, i * 4);
+                        short right = BitConverter.ToInt16(inputData, i * 4 + 2);
+                        short mono = (short)((left + right) / 2);
+                        byte[] bytes = BitConverter.GetBytes(mono);
+                        outputData[i * 2] = bytes[0];
+                        outputData[i * 2 + 1] = bytes[1];
+                    }
+                }
+            }
+
+            return outputData;
         }
 
         public void Dispose() {
