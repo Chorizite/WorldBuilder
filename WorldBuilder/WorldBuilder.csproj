@@ -27,7 +27,6 @@
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
 		<PackageReference Include="HanumanInstitute.MvvmDialogs.Avalonia" />
-		<PackageReference Include="NAudio" />
 		<PackageReference Include="Serilog.Extensions.Logging" />
 		<PackageReference Include="Serilog.Sinks.File" />
 		<PackageReference Include="Velopack" />

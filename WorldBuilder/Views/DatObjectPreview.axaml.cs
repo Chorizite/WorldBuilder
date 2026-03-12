@@ -8,7 +8,6 @@ using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using NAudio.Wave;
 using System.Numerics;
 using WorldBuilder.Extensions;
 using WorldBuilder.Services;
@@ -453,45 +452,23 @@ namespace WorldBuilder.Views {
         [RelayCommand]
         private void PlaySound() {
             if (!IsWave || Dats == null) return;
-
             try {
                 var dataId = DataId;
                 var resolutions = Dats.ResolveId(dataId).ToList();
                 foreach (var resolution in resolutions) {
                     var db = resolution.Database;
                     if (db.TryGet<Wave>(dataId, out var wave)) {
-                        // Dispose previous audio engine if still playing
-                        _audioPlaybackEngine?.Dispose();
-
-                        Stream stream;
-                        float duration;
+                        // Initialize engine once (lazy initialization)
+                        _audioPlaybackEngine ??= new AudioPlaybackEngine();
 
                         if (wave.IsMp3()) {
-                            stream = new MemoryStream(wave.Data);
-                            using (var mp3Reader = new Mp3FileReader(stream)) {
-                                duration = (float)mp3Reader.TotalTime.TotalSeconds;
-                                _audioPlaybackEngine = new AudioPlaybackEngine(mp3Reader.WaveFormat.SampleRate, mp3Reader.WaveFormat.Channels);
-                                _audioPlaybackEngine.PlaySound(stream, true);
-                            }
+                            var stream = new MemoryStream(wave.Data);
+                            _audioPlaybackEngine.PlaySound(stream, true);
                         }
                         else {
-                            var wavHeader = wave.ParseHeader();
-                            duration = (float)wavHeader.GetDuration(wave.Data.Length);
-                            stream = wave.ToWavStream();
-                            _audioPlaybackEngine = new AudioPlaybackEngine(wavHeader.SampleRate, wavHeader.Channels);
+                            var stream = wave.ToWavStream();
                             _audioPlaybackEngine.PlaySound(stream, false);
                         }
-                        
-                        // Capture the current audio engine reference
-                        var currentAudioEngine = _audioPlaybackEngine;
-                        Task.Delay(TimeSpan.FromSeconds(duration + 1)).ContinueWith(_ => {
-                            // Only dispose if this is still the current audio engine
-                            if (currentAudioEngine == _audioPlaybackEngine) {
-                                currentAudioEngine?.Dispose();
-                                _audioPlaybackEngine = null;
-                            }
-                            stream?.Dispose();
-                        });
                         break;
                     }
                 }
