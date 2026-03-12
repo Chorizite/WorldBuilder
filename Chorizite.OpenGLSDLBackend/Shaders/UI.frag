@@ -1,9 +1,5 @@
 #version 330 core
 
-precision highp float;
-precision highp int;
-precision highp sampler2D;
-
 uniform sampler2D _tex;
 uniform bool useTexture; // Set this from your application code
 
