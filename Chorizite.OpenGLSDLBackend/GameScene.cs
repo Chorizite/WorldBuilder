@@ -807,7 +807,8 @@ public class GameScene : IDisposable {
             LightDirection = sceneRegion?.LightDirection ?? Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f)),
             SunlightColor = sceneRegion?.SunlightColor ?? Vector3.One,
             AmbientColor = (sceneRegion?.AmbientColor ?? new Vector3(0.4f, 0.4f, 0.4f)) * _state.LightIntensity,
-            SpecularPower = 32.0f
+            SpecularPower = 32.0f,
+            ViewportSize = new Vector2(_width, _height)
         };
         _sceneDataBuffer?.SetData(ref sceneData);
         _sceneDataBuffer?.Bind(0);
@@ -1032,33 +1033,64 @@ public class GameScene : IDisposable {
         using var glScope = new GLStateScope(_gl);
         _sceneDataBuffer?.Bind(0);
 
-        // 2. Prepare stencil trick
         _gl.Enable(EnableCap.StencilTest);
         _gl.StencilMask(0xFF);
-        _gl.ClearStencil(0);
-        _gl.Clear(ClearBufferMask.StencilBufferBit);
-        _gl.StencilFunc(StencilFunction.Always, 1, 0xFF);
-        _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Replace);
-        _gl.ColorMask(false, false, false, false);
-        _gl.DepthMask(false); // Don't write to depth
-        _gl.Disable(EnableCap.DepthTest); // Mark stencil for the object even through walls
 
-        foreach (var manager in managers) {
-            // Render silhouettes to stencil using the outline shader with 0 width.
-            // This is safer than using the scenery shader which might have complex state requirements.
-            manager.RenderHighlight(RenderPass.SinglePass, _outlineShader, Vector4.Zero, 0.0f);
+        // Pass A: Selected Outlines
+        if (managers.Any(m => m.SelectedInstance.HasValue)) {
+            _gl.ClearStencil(0);
+            _gl.Clear(ClearBufferMask.StencilBufferBit);
+            
+            // Mark stencil
+            _gl.StencilFunc(StencilFunction.Always, 1, 0xFF);
+            _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Replace);
+            _gl.ColorMask(false, false, false, false);
+            _gl.DepthMask(false);
+            _gl.Disable(EnableCap.DepthTest);
+            foreach (var manager in managers) {
+                manager.RenderHighlight(RenderPass.SinglePass, _outlineShader, Vector4.Zero, 0.0f, selected: true, hovered: false);
+            }
+
+            // Draw outline
+            _gl.Enable(EnableCap.Blend);
+            _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+            _gl.ColorMask(true, true, true, false);
+            _gl.StencilFunc((StencilFunction)GLEnum.Notequal, 1, 0xFF);
+            _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
+            foreach (var manager in managers) {
+                manager.RenderHighlight(RenderPass.SinglePass, _outlineShader, null, LandscapeColorsSettings.Instance.OutlineWidth, selected: true, hovered: false);
+            }
+            _gl.Disable(EnableCap.Blend);
         }
 
-        // 3. Render outlines
-        _gl.ColorMask(true, true, true, false); // Keep alpha intact
-        _gl.StencilFunc((StencilFunction)GLEnum.Notequal, 1, 0xFF);
-        _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
+        // Pass B: Hovered Outlines
+        if (managers.Any(m => m.HoveredInstance.HasValue && m.HoveredInstance != m.SelectedInstance)) {
+            _gl.ClearStencil(0);
+            _gl.Clear(ClearBufferMask.StencilBufferBit);
 
-        foreach (var manager in managers) {
-            manager.RenderHighlight(RenderPass.SinglePass, _outlineShader, null, 5.0f);
+            // Mark stencil
+            _gl.StencilFunc(StencilFunction.Always, 1, 0xFF);
+            _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Replace);
+            _gl.ColorMask(false, false, false, false);
+            _gl.DepthMask(false);
+            _gl.Disable(EnableCap.DepthTest);
+            foreach (var manager in managers) {
+                manager.RenderHighlight(RenderPass.SinglePass, _outlineShader, Vector4.Zero, 0.0f, selected: false, hovered: true);
+            }
+
+            // Draw outline
+            _gl.Enable(EnableCap.Blend);
+            _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+            _gl.ColorMask(true, true, true, false);
+            _gl.StencilFunc((StencilFunction)GLEnum.Notequal, 1, 0xFF);
+            _gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
+            foreach (var manager in managers) {
+                manager.RenderHighlight(RenderPass.SinglePass, _outlineShader, null, LandscapeColorsSettings.Instance.OutlineWidth, selected: false, hovered: true);
+            }
+            _gl.Disable(EnableCap.Blend);
         }
 
-        // 4. Reset stencil state manually
+        // Reset state
         _gl.StencilFunc(StencilFunction.Always, 0, 0xFF);
         _gl.StencilMask(0xFF);
         _gl.Disable(EnableCap.StencilTest);

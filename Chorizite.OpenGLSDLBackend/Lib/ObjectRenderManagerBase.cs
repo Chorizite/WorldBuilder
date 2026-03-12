@@ -1088,7 +1088,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public virtual void RenderHighlight(RenderPass renderPass, IShader? shader = null, Vector4? color = null, float outlineWidth = 1.0f) {
+        public virtual void RenderHighlight(RenderPass renderPass, IShader? shader = null, Vector4? color = null, float outlineWidth = 1.0f, bool selected = true, bool hovered = true) {
             lock (_renderLock) {
                 var currentShader = shader ?? _shader!;
                 if (currentShader == null || currentShader.ProgramId == 0) return;
@@ -1097,10 +1097,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 currentShader.SetUniform("uRenderPass", (int)renderPass);
                 currentShader.SetUniform("uOutlineWidth", outlineWidth);
 
-                if (SelectedInstance.HasValue) {
+                if (selected && SelectedInstance.HasValue) {
                     RenderSelectedInstance(SelectedInstance.Value, color ?? LandscapeColorsSettings.Instance.Selection, renderPass, currentShader);
                 }
-                if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
+                if (hovered && HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
                     RenderSelectedInstance(HoveredInstance.Value, color ?? LandscapeColorsSettings.Instance.Hover, renderPass, currentShader);
                 }
 

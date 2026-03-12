@@ -37,6 +37,9 @@ namespace Chorizite.OpenGLSDLBackend {
         private bool _loadingIsSetup;
 
         private bool _needsRender = true;
+        private int _width;
+        private int _height;
+
         public bool NeedsRender {
             get => _needsRender;
             set {
@@ -240,7 +243,10 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         public void Resize(int width, int height) {
+            _width = width;
+            _height = height;
             _camera.Resize(width, height);
+            NeedsRender = true;
         }
 
         public void Update(float deltaTime) {
@@ -372,7 +378,8 @@ namespace Chorizite.OpenGLSDLBackend {
                     LightDirection = Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f)),
                     SunlightColor = Vector3.One,
                     AmbientColor = new Vector3(0.4f, 0.4f, 0.4f),
-                    SpecularPower = 16.0f
+                    SpecularPower = 16.0f,
+                    ViewportSize = new Vector2(_width, _height)
                 };
                 _sceneDataBuffer?.SetData(ref sceneData);
                 _sceneDataBuffer?.Bind(0);

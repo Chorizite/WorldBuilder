@@ -17,6 +17,8 @@ layout (std140) uniform SceneData {
     vec3 uSunlightColor;
     vec3 uAmbientColor;
     float uSpecularPower;
+    vec2 uViewportSize;
+    vec2 uPadding4;
 };
 
 uniform vec4 uBaseColor;

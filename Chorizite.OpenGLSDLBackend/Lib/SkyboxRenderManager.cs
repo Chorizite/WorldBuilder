@@ -35,6 +35,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private Vector3 _cameraPosition;
         private float _cameraFov;
         private float _aspectRatio;
+        private int _width;
+        private int _height;
         private ManagedGLUniformBuffer? _sceneDataBuffer;
 
         public bool NeedsPrepare => false;
@@ -103,6 +105,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public void InvalidateLandblock(int lbX, int lbY) { }
 
         public void Resize(int width, int height) {
+            _width = width;
+            _height = height;
             if (height > 0) {
                 _aspectRatio = width / (float)height;
             }
@@ -146,8 +150,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 LightDirection = regionInfo.LightDirection,
                 SunlightColor = Vector3.Zero, // Skybox is fully unlit/ambient
                 AmbientColor = Vector3.One,
-                SpecularPower = 32.0f
-            };
+                SpecularPower = 32.0f,
+                ViewportSize = new Vector2(_width, _height)
+                };
             sceneDataBuffer.SetData(ref sceneData);
             sceneDataBuffer.Bind(0);
 
