@@ -1,0 +1,26 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="WorldBuilder.Views.Components.Vector3Editor"
+             x:Name="root">
+    <Panel>
+        <StackPanel IsVisible="{Binding IsEditable, ElementName=root}" Orientation="Horizontal" Spacing="4">
+            <NumericUpDown Value="{Binding X, ElementName=root}" Width="70" ShowButtonSpinner="False" FormatString="0.00" />
+            <NumericUpDown Value="{Binding Y, ElementName=root}" Width="70" ShowButtonSpinner="False" FormatString="0.00" />
+            <NumericUpDown Value="{Binding Z, ElementName=root}" Width="70" ShowButtonSpinner="False" FormatString="0.00" />
+        </StackPanel>
+        <StackPanel IsVisible="{Binding !IsEditable, ElementName=root}" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+                <TextBlock Text="{Binding X, ElementName=root, StringFormat='\{0:F2\}'}" />
+                <TextBlock Text="{Binding Suffix, ElementName=root}" IsVisible="{Binding Suffix, ElementName=root, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="2">
+                <TextBlock Text="{Binding Y, ElementName=root, StringFormat='\{0:F2\}'}" />
+                <TextBlock Text="{Binding Suffix, ElementName=root}" IsVisible="{Binding Suffix, ElementName=root, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="2">
+                <TextBlock Text="{Binding Z, ElementName=root, StringFormat='\{0:F2\}'}" />
+                <TextBlock Text="{Binding Suffix, ElementName=root}" IsVisible="{Binding Suffix, ElementName=root, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </StackPanel>
+        </StackPanel>
+    </Panel>
+</UserControl>
