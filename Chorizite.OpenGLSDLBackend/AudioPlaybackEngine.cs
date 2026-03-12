@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Silk.NET.SDL;
-using NLayer;
+using MP3Sharp;
 
 namespace Chorizite.OpenGLSDLBackend {
     public class AudioPlaybackEngine : IDisposable {
@@ -178,36 +178,30 @@ namespace Chorizite.OpenGLSDLBackend {
 
         private (byte[] pcmData, int channels, int sampleRate) DecodeMp3(byte[] mp3Data) {
             using (var stream = new MemoryStream(mp3Data)) {
-                var decoder = new MpegFile(stream);
+                var decoder = new MP3Stream(stream);
+                int channels = decoder.ChannelCount;
+                int sampleRate = decoder.Frequency;
 
-                int channels = decoder.Channels;
-                int sampleRate = decoder.SampleRate;
+                List<byte> pcmData = new List<byte>();
+                byte[] buffer = new byte[4096];
+                int bytesRead;
 
-                // Pre-allocate with estimated size to reduce reallocations
-                var pcmSamples = new List<short>((int)(mp3Data.Length / 4)); // Rough estimate
-                float[] buffer = new float[8192]; // Larger buffer for better performance
-
-                int samplesRead;
-                while ((samplesRead = decoder.ReadSamples(buffer, 0, buffer.Length)) > 0) {
-                    // Convert float samples to 16-bit PCM with proper clipping
-                    for (int i = 0; i < samplesRead; i++) {
-                        float sample = buffer[i];
-
-                        // Clamp to [-1.0f, 1.0f] to prevent distortion
-                        if (sample > 1.0f) sample = 1.0f;
-                        if (sample < -1.0f) sample = -1.0f;
-
-                        // Convert to 16-bit
-                        short pcmSample = (short)(sample * 32767f);
-                        pcmSamples.Add(pcmSample);
-                    }
+                while ((bytesRead = decoder.Read(buffer, 0, buffer.Length)) > 0) {
+                    pcmData.AddRange(buffer.AsSpan(0, bytesRead));
                 }
 
-                // Convert to byte array in one operation
-                byte[] pcmBuffer = new byte[pcmSamples.Count * 2];
-                Buffer.BlockCopy(pcmSamples.ToArray(), 0, pcmBuffer, 0, pcmBuffer.Length);
+                byte[] data = pcmData.ToArray();
 
-                return (pcmBuffer, channels, sampleRate);
+                if (channels == 1) {
+                    // fix bugged cross-platform mp3 decoders for A000393
+                    for (int i = 0; i < data.Length; i += 4) {
+                        data[i + 2] = data[i];
+                        data[i + 3] = data[i + 1];
+                    }
+                    channels = 2;
+                }
+
+                return (data, channels, sampleRate);
             }
         }
 

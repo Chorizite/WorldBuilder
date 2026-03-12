@@ -9,7 +9,7 @@
     <PackageVersion Include="Avalonia.Controls.TreeDataGrid" Version="11.1.0" />
     <PackageVersion Include="Avalonia.Headless.XUnit" Version="11.3.12" />
     <PackageVersion Include="Avalonia.Skia" Version="11.3.12" />
-    <PackageVersion Include="NLayer" Version="1.16.0" />
+    <PackageVersion Include="MP3Sharp" Version="1.0.5" />
     <PackageVersion Include="Semi.Avalonia" Version="11.3.7.3" />
     <PackageVersion Include="Semi.Avalonia.ColorPicker" Version="11.3.7.3" />
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="11.3.12" />
