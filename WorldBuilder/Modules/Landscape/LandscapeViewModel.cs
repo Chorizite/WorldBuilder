@@ -177,6 +177,10 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
         oldValue?.Deactivate();
 
+        // Clear selection and hover when switching tools
+        _toolContext?.NotifyInspectorSelected(SceneRaycastHit.NoHit);
+        _toolContext?.NotifyInspectorHovered(SceneRaycastHit.NoHit);
+
         if (newValue is InspectorTool newInspector) {
             newInspector.PropertyChanged += OnInspectorToolPropertyChanged;
             IsDebugShapesEnabled = newInspector.ShowBoundingBoxes;

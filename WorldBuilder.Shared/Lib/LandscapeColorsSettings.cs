@@ -11,7 +11,7 @@ namespace WorldBuilder.Shared.Lib
         public static LandscapeColorsSettings Instance => _instance ??= new LandscapeColorsSettings();
 
         // UI / Interaction Colors
-        private Vector4 _selection = new Vector4(1.0f, 0.7411765f, 0.09803922f, 0.59607846f);
+        private Vector4 _selection = new Vector4(1.0f, 0.7411765f, 0.09803922f, 1.0f);
         [SettingDescription("Color for selected items")]
         [SettingOrder(0)]
         public Vector4 Selection { get => _selection; set => SetProperty(ref _selection, value); }
@@ -20,6 +20,21 @@ namespace WorldBuilder.Shared.Lib
         [SettingDescription("Color for hovered items")]
         [SettingOrder(1)]
         public Vector4 Hover { get => _hover; set => SetProperty(ref _hover, value); }
+
+        private Vector4 _envCellSelection = new Vector4(1.0f, 0.7411765f, 0.09803922f, 0.4f);
+        [SettingDescription("Color for selected environment cells")]
+        [SettingOrder(2)]
+        public Vector4 EnvCellSelection { get => _envCellSelection; set => SetProperty(ref _envCellSelection, value); }
+
+        private Vector4 _envCellHover = new Vector4(1.0f, 1.0f, 0.0f, 0.15f);
+        [SettingDescription("Color for hovered environment cells")]
+        [SettingOrder(3)]
+        public Vector4 EnvCellHover { get => _envCellHover; set => SetProperty(ref _envCellHover, value); }
+
+        private float _outlineWidth = 2.0f;
+        [SettingDescription("The thickness of the selection outline in pixels")]
+        [SettingOrder(4)]
+        public float OutlineWidth { get => _outlineWidth; set => SetProperty(ref _outlineWidth, value); }
 
         private Vector4 _brush = new Vector4(0.0f, 1.0f, 0.0f, 0.4f);
         [SettingDescription("Color for the landscape brush")]

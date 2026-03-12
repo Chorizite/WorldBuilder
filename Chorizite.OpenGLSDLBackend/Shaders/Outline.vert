@@ -16,6 +16,8 @@ layout (std140) uniform SceneData {
     vec3 uSunlightColor;
     vec3 uAmbientColor;
     float uSpecularPower;
+    vec2 uViewportSize;
+    vec2 uPadding4;
 };
 
 uniform float uOutlineWidth;
@@ -31,7 +33,11 @@ void main() {
     vec4 clipNormal = uViewProjection * vec4(worldNormal, 0.0);
     
     if (uOutlineWidth > 0.0 && length(clipNormal.xy) > 0.0001) {
-        gl_Position.xy += normalize(clipNormal.xy) * (uOutlineWidth * 0.002) * gl_Position.w;
+        vec2 viewportSize = max(uViewportSize, vec2(1.0));
+        // Normalize the normal in screen space to ensure consistent thickness regardless of aspect ratio
+        vec2 screenNormal = normalize(clipNormal.xy * viewportSize);
+        vec2 offset = screenNormal * (uOutlineWidth * 2.0) / viewportSize;
+        gl_Position.xy += offset * gl_Position.w;
     }
     
     TexCoord = aTexCoord;

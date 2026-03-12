@@ -18,5 +18,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private float _padding3;         // 4 bytes
         public Vector3 AmbientColor;     // 12 bytes
         public float SpecularPower;      // 4 bytes
+        public Vector2 ViewportSize;     // 8 bytes
+        private Vector2 _padding4;       // 8 bytes
     }
 }

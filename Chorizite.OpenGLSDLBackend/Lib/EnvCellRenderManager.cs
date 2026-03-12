@@ -473,13 +473,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (SelectedInstance.HasValue) {
                         var type = InstanceIdConstants.GetType(SelectedInstance.Value.InstanceId);
                         if (type == InspectorSelectionType.EnvCell) {
-                            RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.Selection, renderPass);
+                            RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.EnvCellSelection, renderPass);
                         }
                     }
                     if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
                         var type = InstanceIdConstants.GetType(HoveredInstance.Value.InstanceId);
                         if (type == InspectorSelectionType.EnvCell) {
-                            RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.Hover, renderPass);
+                            RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.EnvCellHover, renderPass);
                         }
                     }
                     Gl.DepthFunc(GLEnum.Less);
@@ -493,7 +493,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public override void RenderHighlight(RenderPass renderPass, IShader? shader = null, Vector4? color = null, float outlineWidth = 1.0f) {
+        public override void RenderHighlight(RenderPass renderPass, IShader? shader = null, Vector4? color = null, float outlineWidth = 1.0f, bool selected = true, bool hovered = true) {
             lock (_renderLock) {
                 var currentShader = shader ?? _shader!;
                 if (currentShader == null || currentShader.ProgramId == 0) return;
@@ -502,13 +502,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 currentShader.SetUniform("uRenderPass", (int)renderPass);
                 currentShader.SetUniform("uOutlineWidth", outlineWidth);
 
-                if (SelectedInstance.HasValue) {
+                if (selected && SelectedInstance.HasValue) {
                     var type = InstanceIdConstants.GetType(SelectedInstance.Value.InstanceId);
                     if (type == InspectorSelectionType.EnvCellStaticObject) {
                         RenderSelectedInstance(SelectedInstance.Value, color ?? LandscapeColorsSettings.Instance.Selection, renderPass, currentShader);
                     }
                 }
-                if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
+                if (hovered && HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
                     var type = InstanceIdConstants.GetType(HoveredInstance.Value.InstanceId);
                     if (type == InspectorSelectionType.EnvCellStaticObject) {
                         RenderSelectedInstance(HoveredInstance.Value, color ?? LandscapeColorsSettings.Instance.Hover, renderPass, currentShader);
