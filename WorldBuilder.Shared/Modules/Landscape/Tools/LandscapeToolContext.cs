@@ -15,12 +15,29 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
     }
 
+    public class ObjectPreviewEventArgs : EventArgs {
+        public uint LandblockId { get; }
+        public ulong InstanceId { get; }
+        public Vector3 Position { get; }
+        public Quaternion Rotation { get; }
+        public uint CellId { get; }
+
+        public ObjectPreviewEventArgs(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint cellId) {
+            LandblockId = landblockId;
+            InstanceId = instanceId;
+            Position = position;
+            Rotation = rotation;
+            CellId = cellId;
+        }
+    }
+
     /// <summary>
     /// Provides context and services to landscape tools.
     /// </summary>
     public class LandscapeToolContext {
         public event EventHandler<InspectorSelectionEventArgs>? InspectorHovered;
         public event EventHandler<InspectorSelectionEventArgs>? InspectorSelected;
+        public event EventHandler<ObjectPreviewEventArgs>? ObjectPreview;
 
         /// <summary>The currently selected object in the scene.</summary>
         public ISelectedObjectInfo SelectedObject { get; private set; } = SceneRaycastHit.NoHit;
@@ -105,11 +122,20 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <summary>Delegate for retrieving the layer ID that owns a static object.</summary>
         public Func<uint, ulong, string?>? GetStaticObjectLayerId { get; set; }
 
-        /// <summary>Action to update a static object in the document (layerId, oldLandblockId, oldInstanceId, newLandblockId, newObject).</summary>
-        public Action<string, uint, ulong, uint, Models.StaticObject>? UpdateStaticObject { get; set; }
+        /// <summary>Action to update a static object in the document (layerId, oldLandblockId, oldObject, newLandblockId, newObject).</summary>
+        public Action<string, uint, Models.StaticObject, uint, Models.StaticObject>? UpdateStaticObject { get; set; }
 
+        private Action<uint, ulong, Vector3, Quaternion, uint>? _notifyObjectPositionPreview;
         /// <summary>Action to notify the rendering layer of a live position/rotation preview during drag (landblockId, instanceId, position, rotation, currentCellId).</summary>
-        public Action<uint, ulong, Vector3, System.Numerics.Quaternion, uint>? NotifyObjectPositionPreview { get; set; }
+        public Action<uint, ulong, Vector3, Quaternion, uint>? NotifyObjectPositionPreview {
+            get => _notifyObjectPositionPreview;
+            set {
+                _notifyObjectPositionPreview = (lbId, instId, pos, rot, cellId) => {
+                    value?.Invoke(lbId, instId, pos, rot, cellId);
+                    ObjectPreview?.Invoke(this, new ObjectPreviewEventArgs(lbId, instId, pos, rot, cellId));
+                };
+            }
+        }
 
         /// <summary>Delegate to compute a landblock ID from a world-space position.</summary>
         public Func<Vector3, uint>? ComputeLandblockId { get; set; }

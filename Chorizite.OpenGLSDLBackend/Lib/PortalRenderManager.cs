@@ -113,7 +113,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             if (e.AffectedLandblocks == null) {
                 foreach (var lb in _landblocks.Values) {
-                    lb.Ready = false;
                     var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
                     if (!lb.IsGenerating && !_pendingGeneration.ContainsKey(key)) {
                         _pendingGeneration[key] = lb;
@@ -124,7 +123,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 foreach (var (lbX, lbY) in e.AffectedLandblocks) {
                     var key = GeometryUtils.PackKey(lbX, lbY);
                     if (_landblocks.TryGetValue(key, out var lb)) {
-                        lb.Ready = false;
                         if (!lb.IsGenerating && !_pendingGeneration.ContainsKey(key)) {
                             _pendingGeneration[key] = lb;
                         }

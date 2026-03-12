@@ -53,13 +53,15 @@ public partial class UpdateStaticObjectCommand : BaseCommand<bool> {
             using var terrainRental = rentResult.Value;
             await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
 
+            string effectiveLayerId = string.IsNullOrEmpty(LayerId) ? (terrainRental.Document.BaseLayerId ?? "") : LayerId;
+
             // If the instance ID changed (e.g. moving between landblocks), we must tombstone the old instance ID
             // so that it no longer appears from base DAT files in the old landblock.
             if (OldObject.InstanceId != 0 && OldObject.InstanceId != NewObject.InstanceId) {
                 var tombstone = new StaticObject {
                     InstanceId = OldObject.InstanceId,
                     SetupId = OldObject.SetupId,
-                    LayerId = LayerId,
+                    LayerId = string.IsNullOrEmpty(OldObject.LayerId) ? effectiveLayerId : OldObject.LayerId,
                     Position = OldObject.Position,
                     Rotation = OldObject.Rotation,
                     CellId = OldObject.CellId,
@@ -67,11 +69,28 @@ public partial class UpdateStaticObjectCommand : BaseCommand<bool> {
                 };
                 var deleteResult = await terrainRental.Document.UpsertStaticObjectAsync(tombstone, OldLandblockId, OldObject.CellId, null, null, tx, ct);
                 if (deleteResult.IsFailure) return Result<bool>.Failure(deleteResult.Error);
-                var upsertResult = await terrainRental.Document.UpsertStaticObjectAsync(NewObject, NewLandblockId, NewObject.CellId, null, null, tx, ct);
+                
+                var newObjectToSave = new StaticObject {
+                    InstanceId = NewObject.InstanceId,
+                    SetupId = NewObject.SetupId,
+                    LayerId = effectiveLayerId,
+                    Position = NewObject.Position,
+                    Rotation = NewObject.Rotation,
+                    CellId = NewObject.CellId
+                };
+                var upsertResult = await terrainRental.Document.UpsertStaticObjectAsync(newObjectToSave, NewLandblockId, newObjectToSave.CellId, null, null, tx, ct);
                 return upsertResult.IsSuccess ? Result<bool>.Success(true) : Result<bool>.Failure(upsertResult.Error);
             }
 
-            var result = await terrainRental.Document.UpsertStaticObjectAsync(NewObject, NewLandblockId, NewObject.CellId, OldLandblockId, OldObject.CellId, tx, ct);
+            var objectToSave = new StaticObject {
+                InstanceId = NewObject.InstanceId,
+                SetupId = NewObject.SetupId,
+                LayerId = effectiveLayerId,
+                Position = NewObject.Position,
+                Rotation = NewObject.Rotation,
+                CellId = NewObject.CellId
+            };
+            var result = await terrainRental.Document.UpsertStaticObjectAsync(objectToSave, NewLandblockId, objectToSave.CellId, OldLandblockId, OldObject.CellId, tx, ct);
             return result.IsSuccess ? Result<bool>.Success(true) : Result<bool>.Failure(result.Error);
         }
         catch (Exception ex) {

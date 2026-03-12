@@ -49,6 +49,7 @@ namespace WorldBuilder.Shared.Models {
         private bool _didLoadRegionData;
         private IDocumentManager? _documentManager;
         private WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeDataProvider? _landscapeDataProvider;
+        private IDatDatabase? _portalDatabase;
         private readonly HashSet<string> _layerIds = [];
         private uint[]? _baseTerrainCache;
 
@@ -86,6 +87,11 @@ namespace WorldBuilder.Shared.Models {
         /// </summary>
         public IDatDatabase? CellDatabase { get; set; }
 
+        /// <summary>
+        /// The portal database for this region
+        /// </summary>
+        public IDatDatabase? PortalDatabase => _portalDatabase;
+
         /// <summary>Initializes a new instance of the <see cref="LandscapeDocument"/> class.</summary>
         public LandscapeDocument() : base() {
         }
@@ -116,6 +122,7 @@ namespace WorldBuilder.Shared.Models {
             try {
                 _documentManager = documentManager;
                 _landscapeDataProvider = documentManager.LandscapeDataProvider;
+                _portalDatabase = dats.Portal;
                 await LoadRegionDataAsync(dats);
                 await LoadBaseCacheAsync();
                 // LoadCacheFromDatsAsync is deferred until needed (e.g., during export or editing)
@@ -133,6 +140,7 @@ namespace WorldBuilder.Shared.Models {
             try {
                 _documentManager = documentManager;
                 _landscapeDataProvider = documentManager.LandscapeDataProvider;
+                _portalDatabase = dats.Portal;
                 await LoadRegionDataAsync(dats);
                 await LoadBaseCacheAsync();
                 await LoadLayersAsync(documentManager, ct);
@@ -660,7 +668,7 @@ namespace WorldBuilder.Shared.Models {
 
             var filterLayerIds = layerIds ?? GetAllLayers().Where(IsItemVisible).Select(l => l.Id);
             return await _documentManager.LandscapeCacheService.GetOrAddLandblockAsync(Id, landblockId, () =>
-                _landscapeDataProvider.GetMergedLandblockAsync(landblockId, CellDatabase, filterLayerIds, BaseLayerId, CancellationToken.None));
+                _landscapeDataProvider.GetMergedLandblockAsync(landblockId, CellDatabase, PortalDatabase, filterLayerIds, BaseLayerId, CancellationToken.None));
         }
 
         public async Task<IReadOnlyDictionary<uint, MergedLandblock>> GetMergedLandblocksAsync(IEnumerable<uint> landblockIds, IEnumerable<string>? layerIds = null) {
@@ -683,7 +691,7 @@ namespace WorldBuilder.Shared.Models {
 
             if (missingIds.Count > 0) {
                 var filterLayerIds = layerIds ?? GetAllLayers().Where(IsItemVisible).Select(l => l.Id).ToList();
-                var mergedData = await _landscapeDataProvider.GetMergedLandblocksAsync(missingIds, CellDatabase, filterLayerIds, BaseLayerId, CancellationToken.None);
+                var mergedData = await _landscapeDataProvider.GetMergedLandblocksAsync(missingIds, CellDatabase, PortalDatabase, filterLayerIds, BaseLayerId, CancellationToken.None);
                 
                 if (mergedData != null) {
                     foreach (var kvp in mergedData) {
@@ -710,7 +718,59 @@ namespace WorldBuilder.Shared.Models {
 
             var filterLayerIds = layerIds ?? GetAllLayers().Where(IsItemVisible).Select(l => l.Id);
             return await _documentManager.LandscapeCacheService.GetOrAddEnvCellAsync(Id, cellId, () =>
-                _landscapeDataProvider.GetMergedEnvCellAsync(cellId, CellDatabase, filterLayerIds, BaseLayerId, CancellationToken.None));
+                _landscapeDataProvider.GetMergedEnvCellAsync(cellId, CellDatabase, PortalDatabase, filterLayerIds, BaseLayerId, CancellationToken.None));
+        }
+
+        /// <summary>
+        /// Gets the environment cell ID at the given world position.
+        /// This is a logical spatial query that uses the document's cell database and does not depend on the renderer.
+        /// </summary>
+        /// <param name="worldPos">The world position to check.</param>
+        /// <returns>The cell ID at the position, or 0 if none.</returns>
+        public async Task<uint> GetEnvCellAtAsync(Vector3 worldPos) {
+            if (Region == null || CellDatabase == null) return 0;
+
+            // Get current landblock and its neighbors (3x3)
+            var offset = Region.MapOffset;
+            var lbSize = Region.LandblockSizeInUnits;
+            int lbX = (int)Math.Floor((worldPos.X - offset.X) / lbSize);
+            int lbY = (int)Math.Floor((worldPos.Y - offset.Y) / lbSize);
+
+            var lbiList = new List<uint>();
+            for (int x = lbX - 1; x <= lbX + 1; x++) {
+                if (x < 0 || x >= Region.MapWidthInLandblocks) continue;
+                for (int y = lbY - 1; y <= lbY + 1; y++) {
+                    if (y < 0 || y >= Region.MapHeightInLandblocks) continue;
+                    lbiList.Add(Region.GetLandblockId(x, y));
+                }
+            }
+
+            var mergedLandblocks = await GetMergedLandblocksAsync(lbiList);
+            foreach (var lbId in lbiList) {
+                if (mergedLandblocks.TryGetValue(lbId, out var lb)) {
+                    // Calculate LB origin to transform bounds to world space
+                    uint curLbX = (lbId >> 24) & 0xFF;
+                    uint curLbY = (lbId >> 16) & 0xFF;
+                    var lbOrigin = new Vector3(curLbX * lbSize + offset.X, curLbY * lbSize + offset.Y, 0);
+
+                    foreach (var cellId in lb.EnvCellIds) {
+                        var cell = await GetMergedEnvCellAsync(cellId);
+                        if (cell != null) {
+                            var min = cell.MinBounds + lbOrigin;
+                            var max = cell.MaxBounds + lbOrigin;
+                            
+                            // Add a small epsilon to the Z check for floor/ceiling robustness
+                            if (worldPos.X >= min.X && worldPos.X <= max.X &&
+                                worldPos.Y >= min.Y && worldPos.Y <= max.Y &&
+                                worldPos.Z >= (min.Z - 0.01f) && worldPos.Z <= (max.Z + 0.01f)) {
+                                return cellId;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return 0;
         }
 
         public async Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint landblockId, uint? cellId, uint? oldLandblockId = null, uint? oldCellId = null, ITransaction? tx = null, CancellationToken ct = default) {

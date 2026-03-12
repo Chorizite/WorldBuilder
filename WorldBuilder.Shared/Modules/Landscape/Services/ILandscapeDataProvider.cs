@@ -18,33 +18,36 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services
         /// </summary>
         /// <param name="landblockId">The landblock ID.</param>
         /// <param name="cellDatabase">The cell database to read from.</param>
+        /// <param name="portalDatabase">The portal database to read from.</param>
         /// <param name="visibleLayerIds">The set of visible layer IDs.</param>
         /// <param name="baseLayerId">The ID of the base layer.</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>The merged landblock data.</returns>
-        Task<MergedLandblock> GetMergedLandblockAsync(uint landblockId, IDatDatabase? cellDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct);
+        Task<MergedLandblock> GetMergedLandblockAsync(uint landblockId, IDatDatabase? cellDatabase, IDatDatabase? portalDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct);
 
         /// <summary>
         /// Gets merged landblock data for multiple landblocks in a single operation.
         /// </summary>
         /// <param name="landblockIds">The landblock IDs.</param>
         /// <param name="cellDatabase">The cell database to read from.</param>
+        /// <param name="portalDatabase">The portal database to read from.</param>
         /// <param name="visibleLayerIds">The set of visible layer IDs.</param>
         /// <param name="baseLayerId">The ID of the base layer.</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A dictionary mapping landblock ID to its merged data.</returns>
-        Task<IReadOnlyDictionary<uint, MergedLandblock>> GetMergedLandblocksAsync(IEnumerable<uint> landblockIds, IDatDatabase? cellDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct);
+        Task<IReadOnlyDictionary<uint, MergedLandblock>> GetMergedLandblocksAsync(IEnumerable<uint> landblockIds, IDatDatabase? cellDatabase, IDatDatabase? portalDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct);
 
         /// <summary>
         /// Gets the merged environment cell data, including properties and static objects.
         /// </summary>
         /// <param name="cellId">The cell ID.</param>
         /// <param name="cellDatabase">The cell database to read from.</param>
+        /// <param name="portalDatabase">The portal database to read from.</param>
         /// <param name="visibleLayerIds">The set of visible layer IDs.</param>
         /// <param name="baseLayerId">The ID of the base layer.</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>The merged environment cell data.</returns>
-        Task<Cell> GetMergedEnvCellAsync(uint cellId, IDatDatabase? cellDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct);
+        Task<Cell> GetMergedEnvCellAsync(uint cellId, IDatDatabase? cellDatabase, IDatDatabase? portalDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct);
 
         /// <summary>
         /// Gets merged terrain data for a region, applying changes from visible layers.

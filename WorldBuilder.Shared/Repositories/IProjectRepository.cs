@@ -67,6 +67,13 @@ namespace WorldBuilder.Shared.Repositories {
         /// <returns>A list of unique landblock IDs.</returns>
         Task<IReadOnlyList<uint>> GetAffectedLandblocksByLayerAsync(uint regionId, string layerId, ITransaction? tx, CancellationToken ct);
 
+        /// <summary>Retrieves all environment cell IDs for a set of landblocks across all layers.</summary>
+        /// <param name="landblockIds">The landblock IDs.</param>
+        /// <param name="tx">The transaction (optional).</param>
+        /// <param name="ct">The cancellation token.</param>
+        /// <returns>A dictionary mapping landblock ID to its list of environment cell IDs.</returns>
+        Task<IReadOnlyDictionary<uint, IReadOnlyList<uint>>> GetEnvCellIdsForLandblocksAsync(IEnumerable<uint> landblockIds, ITransaction? tx, CancellationToken ct);
+
         /// <summary>Retrieves all buildings for a landblock.</summary>
         /// <param name="landblockId">The landblock ID.</param>
         /// <param name="tx">The transaction (optional).</param>

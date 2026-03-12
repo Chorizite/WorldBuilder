@@ -56,7 +56,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
             // Env Cells
             if (context.RaycastEnvCells != null &&
-                context.RaycastEnvCells(origin, direction, context.EditorState.ShowEnvCells, context.EditorState.ShowEnvCells, out var envHit, 0)) {
+                context.RaycastEnvCells(origin, direction, selectEnvCells, selectEnvCellObjects, out var envHit, 0)) {
                 if (envHit.Distance < bestHit.Distance) {
                     bestHit = envHit;
                 }

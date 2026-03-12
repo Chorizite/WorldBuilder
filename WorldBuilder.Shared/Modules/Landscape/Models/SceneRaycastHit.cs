@@ -1,4 +1,5 @@
 using System.Numerics;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Models {
@@ -23,9 +24,38 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         
         /// <summary>The rotation of the hit object (if applicable).</summary>
         public Quaternion Rotation { get; set; }
+
+        public float X {
+            get => LocalPosition.X;
+            set => LocalPosition = new Vector3(value, LocalPosition.Y, LocalPosition.Z);
+        }
+        public float Y {
+            get => LocalPosition.Y;
+            set => LocalPosition = new Vector3(LocalPosition.X, value, LocalPosition.Z);
+        }
+        public float Z {
+            get => LocalPosition.Z;
+            set => LocalPosition = new Vector3(LocalPosition.X, LocalPosition.Y, value);
+        }
+
+        public float RotationX {
+            get => GeometryUtils.QuaternionToEuler(Rotation).X;
+            set => Rotation = GeometryUtils.EulerToQuaternion(new Vector3(value, RotationY, RotationZ));
+        }
+        public float RotationY {
+            get => GeometryUtils.QuaternionToEuler(Rotation).Y;
+            set => Rotation = GeometryUtils.EulerToQuaternion(new Vector3(RotationX, value, RotationZ));
+        }
+        public float RotationZ {
+            get => GeometryUtils.QuaternionToEuler(Rotation).Z;
+            set => Rotation = GeometryUtils.EulerToQuaternion(new Vector3(RotationX, RotationY, value));
+        }
         
         /// <summary>The landblock ID containing the hit.</summary>
         public uint LandblockId { get; set; }
+
+        /// <summary>The environment cell ID containing the hit (if applicable).</summary>
+        public uint? CellId { get; set; }
         
         /// <summary>The instance ID of the hit object.</summary>
         public ulong InstanceId { get; set; }

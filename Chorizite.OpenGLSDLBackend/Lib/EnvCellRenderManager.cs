@@ -72,7 +72,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             for (int x = lbX - 1; x <= lbX + 1; x++) {
                 for (int y = lbY - 1; y <= lbY + 1; y++) {
                     var key = GeometryUtils.PackKey(x, y);
-                    if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady || !lb.MeshDataReady) continue;
+                    if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) continue;
 
                     // Broad-phase: check total EnvCell bounds for this landblock
                     if (pos.X < lb.TotalEnvCellBounds.Min.X - 1f || pos.X > lb.TotalEnvCellBounds.Max.X + 1f ||
@@ -168,7 +168,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.Hit = true;
                                 hit.Distance = d;
                                 hit.Type = type;
-                                hit.ObjectId = (uint)instance.ObjectId;
+                                if (type == InspectorSelectionType.EnvCell) {
+                                    hit.ObjectId = InstanceIdConstants.GetRawId(instance.InstanceId);
+                                }
+                                else {
+                                    hit.ObjectId = (uint)instance.ObjectId;
+                                }
                                 hit.InstanceId = instance.InstanceId;
                                 hit.SecondaryId = InstanceIdConstants.GetSecondaryId(instance.InstanceId);
                                 hit.Position = rayOrigin + rayDirection * d;
@@ -558,9 +563,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected override void OnInvalidateLandblock(ushort key) {
             lock (_tcsLock) {
                 _instanceReadyTcs.TryRemove(key, out _);
-                if (_landblocks.TryGetValue(key, out var lb)) {
-                    lb.InstancesReady = false;
-                }
             }
         }
 

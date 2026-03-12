@@ -1,41 +1,38 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using System.Numerics;
 using WorldBuilder.Lib;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Services;
-using WorldBuilder.ViewModels;
-
-using System.Numerics;
 
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 
-public partial class LandscapeVertexViewModel : ViewModelBase, ISelectedObjectInfo {
-    public InspectorSelectionType Type => InspectorSelectionType.Vertex;
-    public uint LandblockId { get; }
-    public ulong InstanceId => 0;
-    public ushort SecondaryId => 0;
-    public uint ObjectId => 0;
-    public Vector3 Position { get; }
-    public Vector3 LocalPosition { get; }
-    public Quaternion Rotation => Quaternion.Identity;
+public partial class LandscapeVertexViewModel : SelectedObjectViewModelBase {
+    public override InspectorSelectionType Type => InspectorSelectionType.Vertex;
 
-    [ObservableProperty] private int _vertexX;
-    [ObservableProperty] private int _vertexY;
+    public override int VertexX => _vertexX;
+    private int _vertexX;
+
+    public override int VertexY => _vertexY;
+    private int _vertexY;
+
     [ObservableProperty] private float _height;
     [ObservableProperty] private byte? _textureType;
     [ObservableProperty] private byte? _sceneryType;
     [ObservableProperty] private byte? _roadType;
     [ObservableProperty] private byte? _rawHeight;
-    
+
     public string TextureName => TextureType.HasValue ? ((DatReaderWriter.Enums.TerrainTextureType)TextureType.Value).ToString() : "None";
     public string SceneryName { get; }
     public string VertexXHex => $"0x{VertexX:X4}";
     public string VertexYHex => $"0x{VertexY:X4}";
 
-    public LandscapeVertexViewModel(int vx, int vy, LandscapeDocument doc, IDatReaderWriter dats, CommandHistory history) {
-        VertexX = vx;
-        VertexY = vy;
+    public LandscapeVertexViewModel(int vx, int vy, LandscapeDocument doc, IDatReaderWriter dats, CommandHistory history) 
+        : base(0, 0, Vector3.Zero, Vector3.Zero, Quaternion.Identity) {
+        _vertexX = vx;
+        _vertexY = vy;
         
         var region = doc.Region!;
         uint globalIndex = (uint)(vy * region.MapWidthInVertices + vx);
@@ -66,8 +63,9 @@ public partial class LandscapeVertexViewModel : ViewModelBase, ISelectedObjectIn
 
         float x = lbX * (cellSize * lbCellLen) + localVx * cellSize + mapOffset.X;
         float y = lbY * (cellSize * lbCellLen) + localVy * cellSize + mapOffset.Y;
+        
+        LandblockId = region.GetLandblockId(lbX, lbY);
         Position = new Vector3(x, y, Height);
         LocalPosition = new Vector3(localVx * cellSize, localVy * cellSize, Height);
-        LandblockId = region.GetLandblockId(lbX, lbY);
     }
 }

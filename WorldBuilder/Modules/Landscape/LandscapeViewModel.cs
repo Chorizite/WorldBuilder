@@ -122,11 +122,13 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         _settings.Landscape.Grid.PropertyChanged += OnGridSettingsPropertyChanged;
 
         EditorState.PropertyChanged += OnEditorStatePropertyChanged;
+        CommandHistory.OnChange += OnCommandHistoryChanged;
 
         HistoryPanel = new HistoryPanelViewModel(CommandHistory);
         PropertiesPanel = new PropertiesPanelViewModel {
             Dats = dats
         };
+        PropertiesPanel.OnSelectedItemPropertyChanged += OnSelectedObjectPropertyChanged;
         LayersPanel = new LayersPanelViewModel(log, CommandHistory, _documentManager, _settings, _project, async (item, changeType) => {
             if (ActiveDocument != null) {
                 if (changeType == LayerChangeType.VisibilityChange && item != null) {
@@ -162,9 +164,11 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             Tools.Add(new InspectorTool());
         }
         ActiveTool = Tools.FirstOrDefault();
+        PropertiesPanel.IsEditable = ActiveTool is ObjectManipulationTool;
     }
 
     partial void OnActiveToolChanged(ILandscapeTool? oldValue, ILandscapeTool? newValue) {
+        PropertiesPanel.IsEditable = newValue is ObjectManipulationTool;
         if (oldValue is InspectorTool oldInspector) {
             oldInspector.PropertyChanged -= OnInspectorToolPropertyChanged;
         }
@@ -246,6 +250,8 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     }
 
     private Action<int, int>? _invalidateCallback;
+    private Task _updateTask = Task.CompletedTask;
+    private readonly object _updateTaskLock = new object();
 
     partial void OnActiveDocumentChanged(LandscapeDocument? oldValue, LandscapeDocument? newValue) {
         _log.LogTrace("LandscapeViewModel.OnActiveDocumentChanged: Syncing layers for doc {DocId}", newValue?.Id);
@@ -326,42 +332,53 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _toolContext.GetStaticObjectLocalBounds = (landblockId, instanceId) => _gameScene?.GetStaticObjectLocalBounds(landblockId, instanceId);
             _toolContext.GetStaticObjectTransform = (landblockId, instanceId) => _gameScene?.GetStaticObjectTransform(landblockId, instanceId);
             _toolContext.GetStaticObjectLayerId = (landblockId, instanceId) => _gameScene?.GetStaticObjectLayerId(landblockId, instanceId);
-            _toolContext.UpdateStaticObject = (layerId, oldLbId, oldInstanceId, newLbId, newObj) => {
+            _toolContext.UpdateStaticObject = (layerId, oldLbId, oldObject, newLbId, newObj) => {
                 if (ActiveDocument == null) return;
 
-                _ = Task.Run(async () => {
-                    StaticObject oldObject;
-                    var type = InstanceIdConstants.GetType(oldInstanceId);
-                    if (type == InspectorSelectionType.EnvCellStaticObject) {
-                        var cellId = InstanceIdConstants.GetRawId(oldInstanceId);
-                        oldObject = (await ActiveDocument.GetMergedEnvCellAsync(cellId)).StaticObjects.GetValueOrDefault(oldInstanceId) ?? new StaticObject();
-                    }
-                    else {
-                        oldObject = (await ActiveDocument.GetMergedLandblockAsync(oldLbId)).StaticObjects.GetValueOrDefault(oldInstanceId) ?? new StaticObject();
-                    }
+                lock (_updateTaskLock) {
+                    _updateTask = _updateTask.ContinueWith(async t => {
+                        var command = new UpdateStaticObjectCommand {
+                            TerrainDocumentId = ActiveDocument.Id,
+                            LayerId = layerId,
+                            OldLandblockId = oldLbId,
+                            NewLandblockId = newLbId,
+                            OldObject = oldObject,
+                            NewObject = newObj,
+                            UserId = ""
+                        };
 
-                    var command = new UpdateStaticObjectCommand {
-                        TerrainDocumentId = ActiveDocument.Id,
-                        LayerId = layerId,
-                        OldLandblockId = oldLbId,
-                        NewLandblockId = newLbId,
-                        OldObject = oldObject,
-                        NewObject = newObj,
-                        UserId = ""
-                    };
-
-                    var result = await _documentManager.ApplyLocalEventAsync(command, null!, default);
-                    if (result.IsSuccess) {
-                        RequestSave(ActiveDocument.Id);
-                    }
-                    else {
-                        _log.LogError("Failed to update static object: {Error}", result.Error);
-                    }
-                });
+                        var result = await _documentManager.ApplyLocalEventAsync(command, null!, default);
+                        if (result.IsSuccess) {
+                            RequestSave(ActiveDocument.Id);
+                        }
+                        else {
+                            _log.LogError("Failed to update static object: {Error}", result.Error);
+                        }
+                    }, TaskScheduler.Default).Unwrap();
+                }
             };
 
             _toolContext.NotifyObjectPositionPreview = (landblockId, instanceId, position, rotation, currentCellId) => {
                 _gameScene?.UpdateObjectPreview(landblockId, instanceId, position, rotation, currentCellId);
+
+                // Update PropertiesPanel in real-time
+                if (PropertiesPanel.SelectedItem is ISelectedObjectInfo info && info.InstanceId == instanceId) {
+                    _isUpdatingFromSelection = true;
+                    try {
+                        // Recalculate local position relative to the NEW landblock origin
+                        var lbOrigin = ComputeWorldPosition(landblockId, Vector3.Zero);
+                        var localPos = position - lbOrigin;
+
+                        info.LandblockId = landblockId;
+                        info.CellId = currentCellId != 0 ? currentCellId : null;
+                        info.Position = position;
+                        info.LocalPosition = localPos;
+                        info.Rotation = rotation;
+                    }
+                    finally {
+                        _isUpdatingFromSelection = false;
+                    }
+                }
             };
 
             _toolContext.ComputeLandblockId = (worldPos) => {
@@ -416,7 +433,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             if (e.Selection.Type == InspectorSelectionType.StaticObject) {
                 PropertiesPanel.SelectedItem = new StaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
             }
-            else {
+            else if (e.Selection.Type == InspectorSelectionType.Building) {
                 PropertiesPanel.SelectedItem = new BuildingViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
             }
         }
@@ -424,13 +441,15 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             PropertiesPanel.SelectedItem = new SceneryViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
         }
         else if (e.Selection.Type == InspectorSelectionType.Portal) {
-            PropertiesPanel.SelectedItem = new PortalViewModel(e.Selection.LandblockId, e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation, _dats, _portalService);
+            uint cellId = e.Selection.ObjectId; // For portals, ObjectId is the parent CellId
+            PropertiesPanel.SelectedItem = new PortalViewModel(e.Selection.LandblockId, cellId, e.Selection.InstanceId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation, ActiveDocument?.CellDatabase);
         }
         else if (e.Selection.Type == InspectorSelectionType.EnvCell) {
-            PropertiesPanel.SelectedItem = new EnvCellViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
+            PropertiesPanel.SelectedItem = new EnvCellViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation, ActiveDocument?.CellDatabase);
         }
         else if (e.Selection.Type == InspectorSelectionType.EnvCellStaticObject) {
-            PropertiesPanel.SelectedItem = new EnvCellStaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
+            uint cellId = InstanceIdConstants.GetContextId(e.Selection.InstanceId);
+            PropertiesPanel.SelectedItem = new EnvCellStaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, cellId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
         }
         else if (e.Selection.Type == InspectorSelectionType.Vertex) {
             PropertiesPanel.SelectedItem = new LandscapeVertexViewModel(e.Selection.VertexX, e.Selection.VertexY, ActiveDocument!, _dats, CommandHistory);
@@ -438,6 +457,139 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         else {
             PropertiesPanel.SelectedItem = null;
         }
+    }
+
+    private bool _isUpdatingFromSelection;
+    private void OnSelectedObjectPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+        if (_isUpdatingFromSelection || sender is not ISelectedObjectInfo info || _toolContext == null) return;
+
+        if (e.PropertyName == nameof(ISelectedObjectInfo.LocalPosition) || e.PropertyName == nameof(ISelectedObjectInfo.Rotation) ||
+            e.PropertyName == "X" || e.PropertyName == "Y" || e.PropertyName == "Z" ||
+            e.PropertyName == "RotationX" || e.PropertyName == "RotationY" || e.PropertyName == "RotationZ") {
+
+            // Calculate world position
+            var worldPos = ComputeWorldPosition(info.LandblockId, info.LocalPosition);
+            info.Position = worldPos;
+
+            // Preview in real-time
+            uint currentCellId = _toolContext.GetEnvCellAt?.Invoke(worldPos) ?? 0;
+            _toolContext.NotifyObjectPositionPreview?.Invoke(info.LandblockId, info.InstanceId, worldPos, info.Rotation, currentCellId);
+
+            // Debounce the actual commit
+            RequestCommitObjectChange(info);
+        }
+    }
+
+    private readonly ConcurrentDictionary<ulong, CancellationTokenSource> _commitDebounceTokens = new();
+
+    private void RequestCommitObjectChange(ISelectedObjectInfo info) {
+        if (_project.IsReadOnly) return;
+
+        if (_commitDebounceTokens.TryGetValue(info.InstanceId, out var existingCts)) {
+            existingCts.Cancel();
+            existingCts.Dispose();
+        }
+
+        var cts = new CancellationTokenSource();
+        _commitDebounceTokens[info.InstanceId] = cts;
+
+        var token = cts.Token;
+        _ = Task.Run(async () => {
+            try {
+                await Task.Delay(500, token);
+                if (token.IsCancellationRequested) return;
+                await Dispatcher.UIThread.InvokeAsync(() => {
+                    if (token.IsCancellationRequested) return;
+                    CommitObjectChange(info);
+                });
+            }
+            catch (OperationCanceledException) { }
+        });
+    }
+
+    private void CommitObjectChange(ISelectedObjectInfo info) {
+        var activeDoc = ActiveDocument;
+        if (_toolContext == null || activeDoc == null) return;
+
+        // Resolve layerId
+        var layerId = _gameScene?.GetStaticObjectLayerId(info.LandblockId, info.InstanceId);
+        if (string.IsNullOrEmpty(layerId)) {
+            layerId = ActiveLayer?.Id ?? activeDoc.BaseLayerId ?? "";
+        }
+
+        // Get old object for undo
+        _ = Task.Run(async () => {
+            // Determine the final cell assignment logically (async)
+            var finalCellId = await activeDoc.GetEnvCellAtAsync(info.Position);
+            uint? newCellId = null;
+            InspectorSelectionType newType = info.Type;
+            
+            if (finalCellId != 0) {
+                newCellId = finalCellId;
+                if (newType == InspectorSelectionType.StaticObject) {
+                    newType = InspectorSelectionType.EnvCellStaticObject;
+                }
+            }
+            else {
+                if (newType == InspectorSelectionType.EnvCellStaticObject) {
+                    newType = InspectorSelectionType.StaticObject;
+                }
+            }
+
+            // Determine if the object crossed landblock boundaries or moved into/out of a cell
+            uint newLandblockId = _toolContext.ComputeLandblockId!(info.Position);
+
+            // Recalculate local position relative to the NEW landblock/cell origin
+            var lbOrigin = ComputeWorldPosition(newLandblockId, Vector3.Zero);
+            var newLocalPosition = info.Position - lbOrigin;
+
+            StaticObject oldObject;
+            var type = InstanceIdConstants.GetType(info.InstanceId);
+            if (type == InspectorSelectionType.EnvCellStaticObject) {
+                var cellId = InstanceIdConstants.GetRawId(info.InstanceId);
+                oldObject = (await activeDoc.GetMergedEnvCellAsync(cellId)).StaticObjects.GetValueOrDefault(info.InstanceId) ?? new StaticObject();
+            }
+            else {
+                oldObject = (await activeDoc.GetMergedLandblockAsync(info.LandblockId)).StaticObjects.GetValueOrDefault(info.InstanceId) ?? new StaticObject();
+            }
+
+            var newObject = new StaticObject {
+                SetupId = info.ObjectId,
+                InstanceId = info.InstanceId,
+                LayerId = layerId,
+                Position = newLocalPosition,
+                Rotation = info.Rotation,
+                CellId = newCellId
+            };
+
+            var command = new MoveStaticObjectCommand(
+                _toolContext,
+                layerId,
+                info.LandblockId,
+                newLandblockId,
+                oldObject,
+                newObject);
+
+            await Dispatcher.UIThread.InvokeAsync(() => {
+                _isUpdatingFromSelection = true;
+                try {
+                    CommandHistory.Execute(command);
+                }
+                finally {
+                    _isUpdatingFromSelection = false;
+                }
+            });
+        });
+    }
+
+    private Vector3 ComputeWorldPosition(uint landblockId, Vector3 localPosition) {
+        if (ActiveDocument?.Region == null) return localPosition;
+        var region = ActiveDocument.Region;
+        uint lbX = (landblockId >> 24);
+        uint lbY = ((landblockId >> 16) & 0xFF);
+        var origin = new Vector3(lbX * region.LandblockSizeInUnits + region.MapOffset.X,
+                                 lbY * region.LandblockSizeInUnits + region.MapOffset.Y, 0);
+        return origin + localPosition;
     }
 
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<ushort, byte>> _dirtyChunks = new();
@@ -765,6 +917,22 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         SyncSettingsToState();
     }
 
+    private void CancelPendingCommits() {
+        foreach (var cts in _commitDebounceTokens.Values) {
+            try {
+                cts.Cancel();
+                cts.Dispose();
+            } catch { }
+        }
+        _commitDebounceTokens.Clear();
+    }
+
+    private void OnCommandHistoryChanged(object? sender, CommandHistoryChangedEventArgs e) {
+        if (e.ChangeType == CommandChangeType.Undo || e.ChangeType == CommandChangeType.Redo || e.ChangeType == CommandChangeType.Clear) {
+            CancelPendingCommits();
+        }
+    }
+
     public bool HandleHotkey(KeyEventArgs e) {
         if (e.Key == Key.Escape) {
             if (ActiveTool is ITexturePaintingTool paintingTool && paintingTool.IsEyeDropperActive) {
@@ -777,10 +945,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             return true;
         }
         if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.Z) {
+            CancelPendingCommits();
             CommandHistory.Undo();
             return true;
         }
         if (e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift) && e.Key == Key.Z) {
+            CancelPendingCommits();
             CommandHistory.Redo();
             return true;
         }
@@ -824,6 +994,8 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _settings.Landscape.Rendering.PropertyChanged -= OnRenderingSettingsPropertyChanged;
             _settings.Landscape.Grid.PropertyChanged -= OnGridSettingsPropertyChanged;
         }
+        EditorState.PropertyChanged -= OnEditorStatePropertyChanged;
+        CommandHistory.OnChange -= OnCommandHistoryChanged;
         _landscapeRental?.Dispose();
     }
 }

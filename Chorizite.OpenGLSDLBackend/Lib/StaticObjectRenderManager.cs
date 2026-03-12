@@ -283,12 +283,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         protected override void OnInvalidateLandblock(ushort key) {
             lock (_tcsLock) {
-                if (_instanceReadyTcs.TryRemove(key, out var tcs)) {
-                    tcs.TrySetCanceled();
-                }
-                if (_landblocks.TryGetValue(key, out var lb)) {
-                    lb.InstancesReady = false;
-                }
+                _instanceReadyTcs.TryRemove(key, out _);
             }
         }
 

@@ -129,7 +129,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
                 targetSize = GizmoConfig.DefaultPixelSize * unitsPerPixel;
             }
 
-            return Math.Clamp(targetSize, minWorldSize, maxWorldSize);
+            float finalMin = Math.Min(minWorldSize, maxWorldSize);
+            return Math.Clamp(targetSize, finalMin, maxWorldSize);
         }
 
         /// <summary>The gizmo component currently under the mouse cursor.</summary>

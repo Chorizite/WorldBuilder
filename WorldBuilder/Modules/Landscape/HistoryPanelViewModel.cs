@@ -34,24 +34,34 @@ public partial class HistoryPanelViewModel : ViewModelBase {
         var historicalCommands = _history.History.ToList();
         int expectedCount = historicalCommands.Count + 1;
 
-        if (Items.Count != expectedCount) {
-            Items.Clear();
+        if (Items.Count == 0) {
             string baseName = _history.IsTruncated ? "Oldest Undo State (Truncated)" : "Original Document (Opened)";
-            var baseItem = new HistoryItemViewModel(-1, baseName, _history.CurrentIndex == -1);
-            Items.Add(baseItem);
-            
-            for (int i = 0; i < historicalCommands.Count; i++) {
-                var item = new HistoryItemViewModel(i, historicalCommands[i].Name, _history.CurrentIndex == i, i > _history.CurrentIndex);
-                Items.Add(item);
-            }
+            Items.Add(new HistoryItemViewModel(-1, baseName, _history.CurrentIndex == -1));
         } else {
-            // Update existing items
+            Items[0].Name = _history.IsTruncated ? "Oldest Undo State (Truncated)" : "Original Document (Opened)";
             Items[0].IsActive = _history.CurrentIndex == -1;
-            for (int i = 0; i < historicalCommands.Count; i++) {
+            Items[0].IsFuture = false;
+        }
+
+        // Add or update items
+        for (int i = 0; i < historicalCommands.Count; i++) {
+            var cmd = historicalCommands[i];
+            bool isActive = _history.CurrentIndex == i;
+            bool isFuture = i > _history.CurrentIndex;
+
+            if (i + 1 < Items.Count) {
                 var item = Items[i + 1];
-                item.IsActive = _history.CurrentIndex == i;
-                item.IsFuture = i > _history.CurrentIndex;
+                item.Name = cmd.Name;
+                item.IsActive = isActive;
+                item.IsFuture = isFuture;
+            } else {
+                Items.Add(new HistoryItemViewModel(i, cmd.Name, isActive, isFuture));
             }
+        }
+
+        // Remove excess items
+        while (Items.Count > expectedCount) {
+            Items.RemoveAt(Items.Count - 1);
         }
 
         SelectedItem = Items.FirstOrDefault(i => i.IsActive);
@@ -80,7 +90,9 @@ public partial class HistoryPanelViewModel : ViewModelBase {
 
 public partial class HistoryItemViewModel : ObservableObject {
     public int Index { get; }
-    public string Name { get; }
+
+    [ObservableProperty]
+    private string _name;
 
     [ObservableProperty]
     private bool _isActive;

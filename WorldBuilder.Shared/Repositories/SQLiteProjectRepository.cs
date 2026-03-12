@@ -593,7 +593,9 @@ namespace WorldBuilder.Shared.Repositories {
                 var dbTx = dbTxResult.IsSuccess ? dbTxResult.Value : null;
 
                 var sql = "SELECT InstanceId, ModelId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, LayerId, IsDeleted FROM StaticObjects WHERE 1=1";
-                if (landblockId != null) sql += " AND LandblockId = @lbId";
+                if (landblockId != null && cellId == null) sql += " AND LandblockId = @lbId AND CellId IS NULL";
+                else if (landblockId != null) sql += " AND LandblockId = @lbId";
+                
                 if (cellId != null) sql += " AND CellId = @cellId";
                 
                 await using var cmd = Connection.CreateCommand();
@@ -630,7 +632,7 @@ namespace WorldBuilder.Shared.Repositories {
                 var dbTxResult = GetDbTransaction(tx);
                 var dbTx = dbTxResult.IsSuccess ? dbTxResult.Value : null;
 
-                var sql = $"SELECT InstanceId, ModelId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, LayerId, IsDeleted, LandblockId FROM StaticObjects WHERE LandblockId IN ({string.Join(",", ids.Select(i => (long)i))})";
+                var sql = $"SELECT InstanceId, ModelId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, LayerId, IsDeleted, LandblockId FROM StaticObjects WHERE CellId IS NULL AND LandblockId IN ({string.Join(",", ids.Select(i => (long)i))})";
                 
                 await using var cmd = Connection.CreateCommand();
                 cmd.Transaction = dbTx;
@@ -788,6 +790,41 @@ namespace WorldBuilder.Shared.Repositories {
                 _logger?.LogError(ex, "Error getting buildings for landblock {LandblockId}", landblockId);
             }
             return results;
+        }
+
+        /// <inheritdoc/>
+        public async Task<IReadOnlyDictionary<uint, IReadOnlyList<uint>>> GetEnvCellIdsForLandblocksAsync(IEnumerable<uint> landblockIds, ITransaction? tx, CancellationToken ct) {
+            var lbIds = landblockIds.ToList();
+            if (lbIds.Count == 0) return new Dictionary<uint, IReadOnlyList<uint>>();
+
+            var results = new Dictionary<uint, List<uint>>();
+            try {
+                var dbTxResult = GetDbTransaction(tx);
+                var dbTx = dbTxResult.IsSuccess ? dbTxResult.Value : null;
+
+                var idString = string.Join(",", lbIds.Select(i => (long)i));
+                var sql = $"SELECT DISTINCT CellId, (CellId & 0xFFFF0000) as LandblockId FROM EnvCells WHERE (CellId & 0xFFFF0000) IN ({idString})";
+
+                await using var cmd = Connection.CreateCommand();
+                cmd.Transaction = dbTx;
+                cmd.CommandText = sql;
+
+                await using var reader = await cmd.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct)) {
+                    var cellId = (uint)reader.GetInt64(0);
+                    var lbId = (uint)reader.GetInt64(1);
+
+                    if (!results.TryGetValue(lbId, out var list)) {
+                        list = new List<uint>();
+                        results[lbId] = list;
+                    }
+                    list.Add(cellId);
+                }
+            }
+            catch (Exception ex) {
+                _logger?.LogError(ex, "Error getting env cell IDs for landblocks");
+            }
+            return results.ToDictionary(k => k.Key, k => (IReadOnlyList<uint>)k.Value);
         }
 
         /// <inheritdoc/>
@@ -971,7 +1008,7 @@ namespace WorldBuilder.Shared.Repositories {
                 if (dbTxResult.IsFailure) return Result<Cell>.Failure(dbTxResult.Error);
                 var dbTx = dbTxResult.Value;
 
-                const string sql = "SELECT EnvironmentId, Flags, CellStructure, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, RestrictionObj, LayerId FROM EnvCells WHERE CellId = @id";
+                const string sql = "SELECT EnvironmentId, Flags, CellStructure, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, RestrictionObj, LayerId, MinX, MinY, MinZ, MaxX, MaxY, MaxZ FROM EnvCells WHERE CellId = @id";
                 await using var cmd = Connection.CreateCommand();
                 cmd.Transaction = dbTx;
                 cmd.CommandText = sql;
@@ -986,6 +1023,8 @@ namespace WorldBuilder.Shared.Repositories {
                         Rotation = new System.Numerics.Quaternion(reader.GetFloat(7), reader.GetFloat(8), reader.GetFloat(9), reader.GetFloat(6)),
                         RestrictionObj = (uint)reader.GetInt64(10),
                         LayerId = reader.IsDBNull(11) ? string.Empty : reader.GetString(11),
+                        MinBounds = new System.Numerics.Vector3(reader.GetFloat(12), reader.GetFloat(13), reader.GetFloat(14)),
+                        MaxBounds = new System.Numerics.Vector3(reader.GetFloat(15), reader.GetFloat(16), reader.GetFloat(17)),
                         Surfaces = new List<ushort>(),
                         Portals = new List<WbCellPortal>(),
                         VisibleCells = new List<ushort>()
@@ -1048,8 +1087,8 @@ namespace WorldBuilder.Shared.Repositories {
                 var dbTx = dbTxResult.Value;
 
                 const string sql = @"
-                    INSERT INTO EnvCells (CellId, RegionId, LayerId, EnvironmentId, Flags, CellStructure, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, RestrictionObj, Version)
-                    VALUES (@id, @regionId, @layerId, @envId, @flags, @struct, @px, @py, @pz, @rw, @rx, @ry, @rz, @restr, @version)
+                    INSERT INTO EnvCells (CellId, RegionId, LayerId, EnvironmentId, Flags, CellStructure, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, RestrictionObj, MinX, MinY, MinZ, MaxX, MaxY, MaxZ, Version)
+                    VALUES (@id, @regionId, @layerId, @envId, @flags, @struct, @px, @py, @pz, @rw, @rx, @ry, @rz, @restr, @minx, @miny, @minz, @maxx, @maxy, @maxz, @version)
                     ON CONFLICT(CellId) DO UPDATE SET
                         EnvironmentId = @envId,
                         Flags = @flags,
@@ -1057,6 +1096,8 @@ namespace WorldBuilder.Shared.Repositories {
                         PosX = @px, PosY = @py, PosZ = @pz,
                         RotW = @rw, RotX = @rx, RotY = @ry, RotZ = @rz,
                         RestrictionObj = @restr,
+                        MinX = @minx, MinY = @miny, MinZ = @minz,
+                        MaxX = @maxx, MaxY = @maxy, MaxZ = @maxz,
                         Version = Version + 1";
 
                 await using var cmd = Connection.CreateCommand();
@@ -1076,6 +1117,12 @@ namespace WorldBuilder.Shared.Repositories {
                 cmd.Parameters.AddWithValue("@ry", cell.Rotation.Y);
                 cmd.Parameters.AddWithValue("@rz", cell.Rotation.Z);
                 cmd.Parameters.AddWithValue("@restr", (long)cell.RestrictionObj);
+                cmd.Parameters.AddWithValue("@minx", cell.MinBounds.X);
+                cmd.Parameters.AddWithValue("@miny", cell.MinBounds.Y);
+                cmd.Parameters.AddWithValue("@minz", cell.MinBounds.Z);
+                cmd.Parameters.AddWithValue("@maxx", cell.MaxBounds.X);
+                cmd.Parameters.AddWithValue("@maxy", cell.MaxBounds.Y);
+                cmd.Parameters.AddWithValue("@maxz", cell.MaxBounds.Z);
                 cmd.Parameters.AddWithValue("@version", 1);
                 await cmd.ExecuteNonQueryAsync(ct);
 
