@@ -74,6 +74,7 @@ public partial class RenderView : Base3DViewport {
         }
         _gameScene?.Dispose();
         _gameScene = null;
+        GL = null;
     }
 
     protected override void OnGlInit(GL gl, PixelSize canvasSize) {

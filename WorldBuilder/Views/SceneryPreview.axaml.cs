@@ -66,6 +66,7 @@ public partial class SceneryPreview : Base3DViewport {
     }
 
     protected override void OnGlInit(GL gl, PixelSize canvasSize) {
+        if (Renderer == null) return;
         _gl = gl;
         var loggerFactory = WorldBuilder.App.Services?.GetService<ILoggerFactory>() ?? LoggerFactory.Create(builder => {
             builder.AddProvider(new ColorConsoleLoggerProvider());
@@ -76,7 +77,7 @@ public partial class SceneryPreview : Base3DViewport {
                             WorldBuilder.App.Services?.GetService<IPortalService>() ??
                             new PortalService(Dats ?? WorldBuilder.App.Services?.GetService<ProjectManager>()?.GetProjectService<IDatReaderWriter>()!);
         var perfService = WorldBuilder.App.Services?.GetService<PerformanceService>();
-        _gameScene = new GameScene(gl, Renderer!.GraphicsDevice, loggerFactory, portalService, perfService);
+        _gameScene = new GameScene(gl, Renderer.GraphicsDevice, loggerFactory, portalService, perfService);
         _gameScene.Initialize();
         _gameScene.Resize(canvasSize.Width, canvasSize.Height);
         _gameScene.SetCameraMode(true);
@@ -215,20 +216,19 @@ public partial class SceneryPreview : Base3DViewport {
     protected override void OnGlResize(PixelSize canvasSize) {
         _gameScene?.Resize(canvasSize.Width, canvasSize.Height);
     }
-
     protected override void OnGlDestroy() {
         if (_gameScene != null && _previewDoc != null && _cachedDats != null) {
             var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
             var surfaceManagerService = projectManager?.GetProjectService<SurfaceManagerService>();
             if (surfaceManagerService != null && _cachedSurfaceManager != null) {
                 surfaceManagerService.ReleaseSurfaceManager(_cachedDats, _previewDoc.RegionId);
-                _cachedSurfaceManager = null;
             }
         }
         _gameScene?.Dispose();
         _gameScene = null;
         _previewDoc?.Dispose();
         _previewDoc = null;
+        _gl = null;
     }
 
     protected override void OnGlKeyDown(Avalonia.Input.KeyEventArgs e) { }

@@ -14,8 +14,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
         public static readonly Vector4 ColorCenter = new(1f, 1f, 1f, 1f);  // White
         public static readonly Vector4 ColorHighlight = new(1f, 1f, 0.2f, 1f); // Yellow
 
-        private const float NormalThickness = 2.5f;
-        private const float HighlightThickness = 4.0f;
+        private const float NormalThickness = 1.5f;
+        private const float HighlightThickness = 2.5f;
         private const float CenterRadius = 0.08f; // Relative to size
         private const int CenterSegments = 12;
         private const int RingSegments = 48;
@@ -24,8 +24,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
         /// Renders the gizmo for the given state.
         /// </summary>
         public static void Draw(IDebugRenderer drawer, GizmoState state) {
-            DrawTranslationGizmo(drawer, state);
-            DrawRotationGizmo(drawer, state);
+            if (state.Mode == GizmoMode.Translate || state.Mode == GizmoMode.Both) {
+                DrawTranslationGizmo(drawer, state);
+            }
+            if (state.Mode == GizmoMode.Rotate || state.Mode == GizmoMode.Both) {
+                DrawRotationGizmo(drawer, state);
+            }
         }
 
         private static void DrawTranslationGizmo(IDebugRenderer drawer, GizmoState state) {
@@ -35,9 +39,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
             // Calculate distance to camera to keep gizmo size constant on screen
             float size = state.GetScreenSize();
 
-            float cylinderRadius = size * 0.03f;
-            float coneRadius = size * 0.1f;
-            float coneLength = size * 0.25f;
+            float cylinderRadius = size * GizmoConfig.TranslationCylinderRadius;
+            float coneRadius = size * GizmoConfig.TranslationConeRadius;
+            float coneLength = size * GizmoConfig.TranslationConeLength;
             float axisLength = size - coneLength;
 
             // Axes
@@ -67,8 +71,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
             drawer.DrawCone(zEnd, dirZ, coneLength, coneRadius, zColor);
 
             // Planes
-            float planeOffset = size * 0.2f;
-            float planeSize = size * 0.25f;
+            float planeOffset = size * GizmoConfig.PlaneOffset;
+            float planeSize = size * GizmoConfig.PlaneSize;
 
             var planeXYColor = highlight == GizmoComponent.PlaneXY ? ColorHighlight : ColorZ;
             planeXYColor.W = highlight == GizmoComponent.PlaneXY ? 0.7f : 0.4f;
@@ -84,7 +88,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
 
             // Center box
             var centerColor = highlight == GizmoComponent.Center ? ColorHighlight : ColorCenter;
-            drawer.DrawCenterBox(origin, size * 0.15f, centerColor);
+            drawer.DrawCenterBox(origin, size * GizmoConfig.CenterBoxSize, centerColor);
         }
 
         private static void DrawRotationGizmo(IDebugRenderer drawer, GizmoState state) {
@@ -94,7 +98,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
             // Calculate distance to camera to keep gizmo size constant on screen
             float size = state.GetScreenSize();
 
-            float tubeRadius = size * 0.03f;
+            float tubeRadius = size * GizmoConfig.RotationTubeRadius;
 
             var yawDir = GizmoDragHandler.GetRotationAxis(GizmoComponent.RingYaw, state.Rotation, state.IsLocalSpace);
             var pitchDir = GizmoDragHandler.GetRotationAxis(GizmoComponent.RingPitch, state.Rotation, state.IsLocalSpace);

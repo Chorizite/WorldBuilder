@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 
 using WorldBuilder.Shared.Lib.Settings;
 
+using WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo;
+
 namespace WorldBuilder.Lib.Settings {
     [SettingCategory("Project", Order = -1)]
     public partial class ProjectSettings : ObservableObject {
@@ -281,6 +283,9 @@ namespace WorldBuilder.Lib.Settings {
 
         private bool _isLocalSpace = false;
         public bool IsLocalSpace { get => _isLocalSpace; set => SetProperty(ref _isLocalSpace, value); }
+
+        private GizmoMode _mode = GizmoMode.Translate;
+        public GizmoMode Mode { get => _mode; set => SetProperty(ref _mode, value); }
     }
 
     public partial class InspectorToolSettings : ObservableObject {

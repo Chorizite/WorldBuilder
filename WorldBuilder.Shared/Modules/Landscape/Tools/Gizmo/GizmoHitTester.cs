@@ -26,8 +26,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
         /// Tests a ray against the gizmo and returns the closest hit component.
         /// </summary>
         public static GizmoHitResult Test(Vector3 rayOrigin, Vector3 rayDirection, GizmoState state) {
-            var transHit = TestTranslation(rayOrigin, rayDirection, state);
-            var rotHit = TestRotation(rayOrigin, rayDirection, state);
+            var transHit = (state.Mode == GizmoMode.Translate || state.Mode == GizmoMode.Both) 
+                ? TestTranslation(rayOrigin, rayDirection, state) 
+                : GizmoHitResult.NoHit;
+            
+            var rotHit = (state.Mode == GizmoMode.Rotate || state.Mode == GizmoMode.Both) 
+                ? TestRotation(rayOrigin, rayDirection, state) 
+                : GizmoHitResult.NoHit;
 
             if (transHit.Component != GizmoComponent.None && rotHit.Component != GizmoComponent.None) {
                 // Prefer translation center over rings, but otherwise prioritize closest
@@ -46,13 +51,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
 
             float size = state.GetScreenSize();
 
-            float cylinderRadius = size * 0.03f;
-            float coneRadius = size * 0.1f;
-            float coneLength = size * 0.25f;
-            float hitRadius = MathF.Max(cylinderRadius, coneRadius) * 1.5f;
+            float cylinderRadius = size * GizmoConfig.TranslationCylinderRadius;
+            float coneRadius = size * GizmoConfig.TranslationConeRadius;
+            float coneLength = size * GizmoConfig.TranslationConeLength;
+            float hitRadius = MathF.Max(cylinderRadius, coneRadius) * GizmoConfig.TranslationHitPadding;
 
             // Test center sphere first (has priority when overlapping) - match resized visual
-            float centerRadius = size * 0.15f;
+            float centerRadius = (size * GizmoConfig.CenterBoxSize * 0.5f) * GizmoConfig.CenterHitPadding;
             if (RaySphereIntersect(rayOrigin, rayDirection, state.Position, centerRadius, out float centerDist)) {
                 best = new GizmoHitResult {
                     Component = GizmoComponent.Center,
@@ -75,8 +80,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
             TestAxisArrow(rayOrigin, rayDirection, state.Position, dirZ, size, hitRadius, GizmoComponent.AxisZ, ref best);
 
             // Test Planes
-            float planeOffset = size * 0.2f;
-            float planeSize = size * 0.25f;
+            float planeOffset = size * GizmoConfig.PlaneOffset;
+            float planeSize = size * GizmoConfig.PlaneSize;
             TestPlane(rayOrigin, rayDirection, state.Position, dirX, dirY, planeOffset, planeSize, GizmoComponent.PlaneXY, ref best);
             TestPlane(rayOrigin, rayDirection, state.Position, dirX, dirZ, planeOffset, planeSize, GizmoComponent.PlaneXZ, ref best);
             TestPlane(rayOrigin, rayDirection, state.Position, dirY, dirZ, planeOffset, planeSize, GizmoComponent.PlaneYZ, ref best);
@@ -100,7 +105,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
             float v = Vector3.Dot(localPoint, axis2);
 
             // Add slight tolerance
-            float tolerance = size * 0.1f;
+            float effectiveSize = size * GizmoConfig.PlaneHitPadding;
+            float tolerance = (effectiveSize - size) * 0.5f;
+
             if (u >= offset - tolerance && u <= offset + size + tolerance &&
                 v >= offset - tolerance && v <= offset + size + tolerance) {
                 // Bias distance slightly so planes don't block axis lines easily if they overlap in view
@@ -137,7 +144,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
 
             float size = state.GetScreenSize();
 
-            float ringThickness = size * 0.06f;
+            float ringThickness = size * GizmoConfig.RotationTubeRadius * GizmoConfig.RotationHitPadding;
 
             // Yaw ring (Z axis, XY plane)
             TestRing(rayOrigin, rayDirection, state.Position, GizmoDragHandler.GetRotationAxis(GizmoComponent.RingYaw, state.Rotation, state.IsLocalSpace), size, ringThickness, GizmoComponent.RingYaw, ref best);
@@ -163,8 +170,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
             var hitPoint = rayOrigin + rayDir * t;
             float distFromCenter = Vector3.Distance(hitPoint, center);
 
+            // Adjust thickness based on the angle of the ray.
+            // When the ray is nearly parallel to the plane, the projected thickness increases.
+            float adjustedThickness = thickness / MathF.Max(0.25f, MathF.Abs(denom));
+
             // Check if hit point is on the ring (within thickness tolerance)
-            if (MathF.Abs(distFromCenter - radius) <= thickness && t < best.Distance) {
+            if (MathF.Abs(distFromCenter - radius) <= adjustedThickness && t < best.Distance) {
                 best = new GizmoHitResult {
                     Component = component,
                     Distance = t,
