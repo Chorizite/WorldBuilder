@@ -224,19 +224,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 }
             }
             else if (command is CompoundCommand compound) {
-                // Compounds should handle their subcommands, but we need to find the "relevant" one for selection.
-                // Usually the last one in a sequence (like a drag-and-drop meta-command) is what we want to select.
-                // For simplicity and since most of our compounds are small, we'll recurse.
-                // We use Reflection or a known interface property if we had one, but for now we'll just check a few.
-                // (In a real app, I'd probably add 'ISelectionRestorable' interface to commands)
-                
-                // Helper to get commands list from CompoundCommand via reflection if needed, 
-                // but since we are in the same project, maybe we can just use the public count?
-                // Actually, CompoundCommand is in the same namespace but internal list.
-                // Let's assume for now we might only have one relevant manipulation in a compound or we just want the last one.
-                // Since I can't easily access the internal list without changing CompoundCommand, 
-                // I'll skip trying to recurse into CompoundCommand for now unless I find a reason to.
-                // Actually, let's keep it simple: if it's not a known manipulation command, just refresh.
                 RefreshGizmoPosition();
             }
             else {
