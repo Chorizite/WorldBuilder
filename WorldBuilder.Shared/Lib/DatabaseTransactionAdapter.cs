@@ -9,13 +9,16 @@ namespace WorldBuilder.Shared.Lib {
     /// </summary>
     public class DatabaseTransactionAdapter : ITransaction {
         private readonly DbTransaction _transaction;
+        private readonly DbConnection? _connection;
 
         /// <summary>
         /// Initializes a new instance of the DatabaseTransactionAdapter class.
         /// </summary>
         /// <param name="transaction">The database transaction to wrap.</param>
-        public DatabaseTransactionAdapter(DbTransaction transaction) {
+        /// <param name="connection">Optional connection to dispose when the transaction is disposed.</param>
+        public DatabaseTransactionAdapter(DbTransaction transaction, DbConnection? connection = null) {
             _transaction = transaction ?? throw new ArgumentNullException(nameof(transaction));
+            _connection = connection;
         }
 
         /// <summary>
@@ -46,6 +49,7 @@ namespace WorldBuilder.Shared.Lib {
         /// </summary>
         public void Dispose() {
             _transaction?.Dispose();
+            _connection?.Dispose();
         }
 
         /// <summary>
@@ -54,6 +58,9 @@ namespace WorldBuilder.Shared.Lib {
         public async ValueTask DisposeAsync() {
             if (_transaction != null) {
                 await _transaction.DisposeAsync();
+            }
+            if (_connection != null) {
+                await _connection.DisposeAsync();
             }
         }
     }
