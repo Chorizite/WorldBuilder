@@ -81,7 +81,27 @@ namespace WorldBuilder.Shared.Migrations {
                     var oldIdValue = values[0];
                     if (oldIdValue is long oldIdLong) {
                         var oldId = (ulong)oldIdLong;
-                        var newIdStr = ConvertLegacyId(oldId);
+
+                        // Check for CellId/LandblockId to help reconstruct the correct type and context
+                        uint? cellId = null;
+                        uint? landblockId = null;
+                        if (tableName == "StaticObjects") {
+                            var cellIdIdx = reader.GetOrdinal("CellId");
+                            if (!reader.IsDBNull(cellIdIdx)) {
+                                cellId = (uint)reader.GetInt64(cellIdIdx);
+                            }
+                            var lbIdIdx = reader.GetOrdinal("LandblockId");
+                            if (!reader.IsDBNull(lbIdIdx)) {
+                                landblockId = (uint)reader.GetInt64(lbIdIdx);
+                            }
+                        } else if (tableName == "Buildings") {
+                            var lbIdIdx = reader.GetOrdinal("LandblockId");
+                            if (!reader.IsDBNull(lbIdIdx)) {
+                                landblockId = (uint)reader.GetInt64(lbIdIdx);
+                            }
+                        }
+
+                        var newIdStr = ConvertLegacyId(oldId, cellId, landblockId);
                         values[0] = newIdStr;
                     }
 
@@ -111,7 +131,7 @@ namespace WorldBuilder.Shared.Migrations {
             }
         }
 
-        private string ConvertLegacyId(ulong oldId) {
+        private string ConvertLegacyId(ulong oldId, uint? cellId = null, uint? landblockId = null) {
             byte typeVal = (byte)((oldId >> 56) & 0xFF);
             byte stateVal = (byte)((oldId >> 48) & 0xFF);
             uint context = (uint)((oldId >> 16) & 0xFFFFFFFF);
@@ -119,19 +139,35 @@ namespace WorldBuilder.Shared.Migrations {
 
             var type = MapLegacyType(typeVal);
             
+            // Reconstruct correct type and context based on database table structure
+            if (cellId.HasValue) {
+                type = ObjectType.EnvCellStaticObject;
+                context = cellId.Value;
+            } else if (landblockId.HasValue) {
+                if (type != ObjectType.Building) {
+                    type = ObjectType.StaticObject;
+                }
+                // Landblock context is (landblockId << 16) | 0xFFFE
+                context = (landblockId.Value << 16) | 0xFFFE;
+            }
+
             if (stateVal == 1) { // Added (Legacy DB)
-                var newId = ObjectId.FromLegacyDbId(type, oldId);
+                // New system uses state 0 for DB objects (see ObjectId.NewDb)
+                // FromLegacyDbId takes the oldId and extracts state, let's just pass it with state cleared to 0
+                var cleanOldId = (oldId & ~(0xFFUL << 48)); 
+                var newId = ObjectId.FromLegacyDbId(type, cleanOldId);
                 return newId.ToString();
             } else { // Original or Modified (Legacy DAT-based)
-                return $"dat:{type}:{context:X8}:{index}:{stateVal}";
+                // New system expects state 0 to match DAT objects (see LandscapeDataProvider)
+                return $"dat:{type}:{context:X8}:{index:X4}:0";
             }
         }
 
         private ObjectType MapLegacyType(byte typeVal) {
             return typeVal switch {
                 2 => ObjectType.Building,
-                1 => ObjectType.StaticObject,
-                3 => ObjectType.EnvCellStaticObject,
+                3 => ObjectType.StaticObject,
+                7 => ObjectType.EnvCellStaticObject,
                 _ => ObjectType.None
             };
         }
