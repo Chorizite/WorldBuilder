@@ -48,14 +48,14 @@ namespace WorldBuilder.Shared.Repositories {
         /// <param name="ct">The cancellation token.</param>
         Task<Result<Unit>> DeleteLayerAsync(string id, ITransaction? tx, CancellationToken ct);
 
-        Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
+        Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(ushort? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Retrieves all static objects for a set of landblocks.</summary>
         /// <param name="landblockIds">The landblock IDs.</param>
         /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A dictionary mapping landblock ID to its list of static objects.</returns>
-        Task<IReadOnlyDictionary<uint, IReadOnlyList<StaticObject>>> GetStaticObjectsForLandblocksAsync(IEnumerable<uint> landblockIds, ITransaction? tx, CancellationToken ct);
+        Task<IReadOnlyDictionary<ushort, IReadOnlyList<StaticObject>>> GetStaticObjectsForLandblocksAsync(IEnumerable<ushort> landblockIds, ITransaction? tx, CancellationToken ct);
 
         /// <summary>
         /// Gets all landblock IDs that have modifications (static objects, buildings, or env cells) for a specific layer.
@@ -65,30 +65,30 @@ namespace WorldBuilder.Shared.Repositories {
         /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A list of unique landblock IDs.</returns>
-        Task<IReadOnlyList<uint>> GetAffectedLandblocksByLayerAsync(uint regionId, string layerId, ITransaction? tx, CancellationToken ct);
+        Task<IReadOnlyList<ushort>> GetAffectedLandblocksByLayerAsync(uint regionId, string layerId, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Retrieves all environment cell IDs for a set of landblocks across all layers.</summary>
         /// <param name="landblockIds">The landblock IDs.</param>
         /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A dictionary mapping landblock ID to its list of environment cell IDs.</returns>
-        Task<IReadOnlyDictionary<uint, IReadOnlyList<uint>>> GetEnvCellIdsForLandblocksAsync(IEnumerable<uint> landblockIds, ITransaction? tx, CancellationToken ct);
+        Task<IReadOnlyDictionary<ushort, IReadOnlyList<uint>>> GetEnvCellIdsForLandblocksAsync(IEnumerable<ushort> landblockIds, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Retrieves all buildings for a landblock.</summary>
         /// <param name="landblockId">The landblock ID.</param>
         /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing a list of building objects.</returns>
-        Task<IReadOnlyList<BuildingObject>> GetBuildingsAsync(uint? landblockId, ITransaction? tx, CancellationToken ct);
+        Task<IReadOnlyList<BuildingObject>> GetBuildingsAsync(ushort? landblockId, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Retrieves all buildings for a set of landblocks.</summary>
         /// <param name="landblockIds">The landblock IDs.</param>
         /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A dictionary mapping landblock ID to its list of building objects.</returns>
-        Task<IReadOnlyDictionary<uint, IReadOnlyList<BuildingObject>>> GetBuildingsForLandblocksAsync(IEnumerable<uint> landblockIds, ITransaction? tx, CancellationToken ct);
+        Task<IReadOnlyDictionary<ushort, IReadOnlyList<BuildingObject>>> GetBuildingsForLandblocksAsync(IEnumerable<ushort> landblockIds, ITransaction? tx, CancellationToken ct);
 
-        Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
+        Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, ushort? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Upserts a building object.</summary>
         /// <param name="obj">The building object to upsert.</param>
@@ -96,7 +96,7 @@ namespace WorldBuilder.Shared.Repositories {
         /// <param name="landblockId">The landblock ID it belongs to.</param>
         /// <param name="tx">The transaction (optional).</param>
         /// <param name="ct">The cancellation token.</param>
-        Task<Result<Unit>> UpsertBuildingAsync(BuildingObject obj, uint regionId, uint? landblockId, ITransaction? tx, CancellationToken ct);
+        Task<Result<Unit>> UpsertBuildingAsync(BuildingObject obj, uint regionId, ushort? landblockId, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Deletes a building by instance ID.</summary>
         /// <param name="instanceId">The instance ID.</param>
@@ -162,21 +162,6 @@ namespace WorldBuilder.Shared.Repositories {
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task representing the result of the operation.</returns>
         Task<Result<Unit>> UpsertTerrainPatchAsync(string id, uint regionId, byte[] data, ulong version, ITransaction? tx, CancellationToken ct);
-
-        /// <summary>Retrieves a user-specific value by key.</summary>
-        /// <param name="key">The key.</param>
-        /// <param name="tx">The transaction (optional).</param>
-        /// <param name="ct">The cancellation token.</param>
-        /// <returns>A task containing the result with the value string.</returns>
-        Task<Result<string>> GetUserValueAsync(string key, ITransaction? tx, CancellationToken ct);
-
-        /// <summary>Updates or inserts a user-specific value.</summary>
-        /// <param name="key">The key.</param>
-        /// <param name="value">The value string.</param>
-        /// <param name="tx">The transaction (optional).</param>
-        /// <param name="ct">The cancellation token.</param>
-        /// <returns>A task representing the result of the operation.</returns>
-        Task<Result<Unit>> UpsertUserValueAsync(string key, string value, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Retrieves all events that haven't been synced with the server.</summary>
         /// <param name="tx">The transaction (optional).</param>

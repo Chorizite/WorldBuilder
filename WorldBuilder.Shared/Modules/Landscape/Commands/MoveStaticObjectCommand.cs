@@ -12,8 +12,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
     public class MoveStaticObjectCommand : ICommand {
         private readonly LandscapeToolContext _context;
         private readonly string _layerId;
-        private readonly uint _oldLandblockId;
-        private readonly uint _newLandblockId;
+        private readonly ushort _oldLandblockId;
+        private readonly ushort _newLandblockId;
         private readonly StaticObject _oldObject;
         private readonly StaticObject _newObject;
         private readonly InspectorSelectionType _oldType;
@@ -21,8 +21,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
 
         public string Name => "Move Object";
 
-        public uint OldLandblockId => _oldLandblockId;
-        public uint NewLandblockId => _newLandblockId;
+        public ushort OldLandblockId => _oldLandblockId;
+        public ushort NewLandblockId => _newLandblockId;
         public StaticObject OldObject => _oldObject;
         public StaticObject NewObject => _newObject;
         public InspectorSelectionType OldType => _oldType;
@@ -31,8 +31,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
         public MoveStaticObjectCommand(
             LandscapeToolContext context,
             string layerId,
-            uint oldLandblockId,
-            uint newLandblockId,
+            ushort oldLandblockId,
+            ushort newLandblockId,
             StaticObject oldObject,
             StaticObject newObject) {
             _context = context;
@@ -40,22 +40,22 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
             _oldLandblockId = oldLandblockId;
             _newLandblockId = newLandblockId;
             _oldObject = oldObject;
-            
-            // The type is determined by the ORIGINAL state to prevent container hopping
             _oldType = InstanceIdConstants.GetType(oldObject.InstanceId);
             
-            // Force the new type to match the old type's container category
-            if (_oldType == InspectorSelectionType.EnvCellStaticObject) {
+            // Preserve the original type (Building, StaticObject, etc.)
+            _newType = _oldType;
+
+            if (_oldType == InspectorSelectionType.StaticObject && newObject.CellId.HasValue && newObject.CellId.Value != 0) {
                 _newType = InspectorSelectionType.EnvCellStaticObject;
             }
-            else {
+            else if (_oldType == InspectorSelectionType.EnvCellStaticObject && (!newObject.CellId.HasValue || newObject.CellId.Value == 0)) {
                 _newType = InspectorSelectionType.StaticObject;
             }
 
             ulong newInstanceId = oldObject.InstanceId;
             
-            // If we moved between landblocks OR changed cells, we must generate a new InstanceId
-            bool containerChanged = newLandblockId != oldLandblockId || newObject.CellId != oldObject.CellId;
+            // If we moved between landblocks OR changed cells OR changed type, we must generate a new InstanceId
+            bool containerChanged = newLandblockId != oldLandblockId || newObject.CellId != oldObject.CellId || _newType != _oldType;
             
             if (containerChanged) {
                 newInstanceId = GenerateUniqueInstanceId(layerId, newLandblockId, newObject.CellId, _newType);
@@ -71,24 +71,24 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
             };
         }
 
-        private ulong GenerateUniqueInstanceId(string layerId, uint landblockId, uint? cellId, InspectorSelectionType type) {
+        private ulong GenerateUniqueInstanceId(string layerId, ushort landblockId, uint? cellId, InspectorSelectionType type) {
             ushort index = 0xFFFF;
             ulong id;
             
             if (type == InspectorSelectionType.EnvCellStaticObject && cellId.HasValue) {
                 id = InstanceIdConstants.EncodeEnvCellStaticObject(cellId.Value, index, true);
                 var cell = _context.Document.GetMergedEnvCell(cellId.Value);
-                while (index > 0 && cell.StaticObjects.ContainsKey(id)) {
+                while (index > 0 && cell.StaticObjects.ContainsKey(id) && id != _oldObject.InstanceId) {
                     index--;
                     id = InstanceIdConstants.EncodeEnvCellStaticObject(cellId.Value, index, true);
                 }
             }
             else {
-                id = InstanceIdConstants.Encode(InspectorSelectionType.StaticObject, ObjectState.Added, landblockId, index);
+                id = InstanceIdConstants.Encode(type, ObjectState.Added, landblockId, index);
                 var lb = _context.Document.GetMergedLandblock(landblockId);
-                while (index > 0 && lb.StaticObjects.ContainsKey(id)) {
+                while (index > 0 && (lb.StaticObjects.ContainsKey(id) || lb.Buildings.ContainsKey(id)) && id != _oldObject.InstanceId) {
                     index--;
-                    id = InstanceIdConstants.Encode(InspectorSelectionType.StaticObject, ObjectState.Added, landblockId, index);
+                    id = InstanceIdConstants.Encode(type, ObjectState.Added, landblockId, index);
                 }
             }
             return id;

@@ -23,7 +23,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services
         /// <param name="baseLayerId">The ID of the base layer.</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>The merged landblock data.</returns>
-        Task<MergedLandblock> GetMergedLandblockAsync(uint landblockId, IDatDatabase? cellDatabase, IDatDatabase? portalDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct);
+        Task<MergedLandblock> GetMergedLandblockAsync(ushort landblockId, IDatDatabase? cellDatabase, IDatDatabase? portalDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct);
 
         /// <summary>
         /// Gets merged landblock data for multiple landblocks in a single operation.
@@ -35,7 +35,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services
         /// <param name="baseLayerId">The ID of the base layer.</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A dictionary mapping landblock ID to its merged data.</returns>
-        Task<IReadOnlyDictionary<uint, MergedLandblock>> GetMergedLandblocksAsync(IEnumerable<uint> landblockIds, IDatDatabase? cellDatabase, IDatDatabase? portalDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct);
+        Task<IReadOnlyDictionary<ushort, MergedLandblock>> GetMergedLandblocksAsync(IEnumerable<ushort> landblockIds, IDatDatabase? cellDatabase, IDatDatabase? portalDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct);
 
         /// <summary>
         /// Gets the merged environment cell data, including properties and static objects.

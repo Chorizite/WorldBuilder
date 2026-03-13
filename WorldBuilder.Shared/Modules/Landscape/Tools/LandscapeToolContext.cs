@@ -16,13 +16,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     }
 
     public class ObjectPreviewEventArgs : EventArgs {
-        public uint LandblockId { get; }
+        public ushort LandblockId { get; }
         public ulong InstanceId { get; }
         public Vector3 Position { get; }
         public Quaternion Rotation { get; }
         public uint CellId { get; }
 
-        public ObjectPreviewEventArgs(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint cellId) {
+        public ObjectPreviewEventArgs(ushort landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint cellId) {
             LandblockId = landblockId;
             InstanceId = instanceId;
             Position = position;
@@ -35,6 +35,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     /// Provides context and services to landscape tools.
     /// </summary>
     public class LandscapeToolContext {
+        public Services.ILandscapeObjectService LandscapeObjectService { get; }
         public event EventHandler<InspectorSelectionEventArgs>? InspectorHovered;
         public event EventHandler<InspectorSelectionEventArgs>? InspectorSelected;
         public event EventHandler<ObjectPreviewEventArgs>? ObjectPreview;
@@ -111,23 +112,23 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public Action<int, int>? InvalidateLandblock { get; set; }
 
         /// <summary>Delegate for retrieving a static object's world bounding box.</summary>
-        public Func<uint, ulong, BoundingBox?>? GetStaticObjectBounds { get; set; }
+        public Func<ushort, ulong, BoundingBox?>? GetStaticObjectBounds { get; set; }
 
         /// <summary>Delegate for retrieving a static object's local bounding box.</summary>
-        public Func<uint, ulong, BoundingBox?>? GetStaticObjectLocalBounds { get; set; }
+        public Func<ushort, ulong, BoundingBox?>? GetStaticObjectLocalBounds { get; set; }
 
         /// <summary>Delegate for retrieving a static object's current transform.</summary>
-        public Func<uint, ulong, (Vector3 position, Quaternion rotation, Vector3 localPosition)?>? GetStaticObjectTransform { get; set; }
+        public Func<ushort, ulong, (Vector3 position, Quaternion rotation, Vector3 localPosition)?>? GetStaticObjectTransform { get; set; }
 
         /// <summary>Delegate for retrieving the layer ID that owns a static object.</summary>
-        public Func<uint, ulong, string?>? GetStaticObjectLayerId { get; set; }
+        public Func<ushort, ulong, string?>? GetStaticObjectLayerId { get; set; }
 
         /// <summary>Action to update a static object in the document (layerId, oldLandblockId, oldObject, newLandblockId, newObject).</summary>
-        public Action<string, uint, Models.StaticObject, uint, Models.StaticObject>? UpdateStaticObject { get; set; }
+        public Action<string, ushort, Models.StaticObject, ushort, Models.StaticObject>? UpdateStaticObject { get; set; }
 
-        private Action<uint, ulong, Vector3, Quaternion, uint>? _notifyObjectPositionPreview;
+        private Action<ushort, ulong, Vector3, Quaternion, uint>? _notifyObjectPositionPreview;
         /// <summary>Action to notify the rendering layer of a live position/rotation preview during drag (landblockId, instanceId, position, rotation, currentCellId).</summary>
-        public Action<uint, ulong, Vector3, Quaternion, uint>? NotifyObjectPositionPreview {
+        public Action<ushort, ulong, Vector3, Quaternion, uint>? NotifyObjectPositionPreview {
             get => _notifyObjectPositionPreview;
             set {
                 _notifyObjectPositionPreview = (lbId, instId, pos, rot, cellId) => {
@@ -138,7 +139,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         /// <summary>Delegate to compute a landblock ID from a world-space position.</summary>
-        public Func<Vector3, uint>? ComputeLandblockId { get; set; }
+        public Func<Vector3, ushort>? ComputeLandblockId { get; set; }
 
         /// <summary>Delegate to find the environment cell at a world-space position.</summary>
         public Func<Vector3, uint>? GetEnvCellAt { get; set; }
@@ -150,14 +151,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <param name="commandHistory">The command history.</param>
         /// <param name="camera">The camera.</param>
         /// <param name="logger">The logger.</param>
+        /// <param name="landscapeObjectService">The landscape object service.</param>
         /// <param name="activeLayer">The active layer (optional).</param>
-        public LandscapeToolContext(LandscapeDocument document, EditorState editorState, WorldBuilder.Shared.Services.IDatReaderWriter dats, CommandHistory commandHistory, ICamera camera, ILogger logger, LandscapeLayer? activeLayer = null) {
+        public LandscapeToolContext(LandscapeDocument document, EditorState editorState, WorldBuilder.Shared.Services.IDatReaderWriter dats, CommandHistory commandHistory, ICamera camera, ILogger logger, Services.ILandscapeObjectService landscapeObjectService, LandscapeLayer? activeLayer = null) {
             Document = document;
             EditorState = editorState;
             Dats = dats;
             CommandHistory = commandHistory;
             Camera = camera;
             Logger = logger;
+            LandscapeObjectService = landscapeObjectService;
             ActiveLayer = activeLayer;
         }
 

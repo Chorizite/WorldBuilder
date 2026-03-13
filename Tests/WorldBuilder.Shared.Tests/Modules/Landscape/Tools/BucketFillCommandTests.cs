@@ -9,6 +9,7 @@ using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Shared.Modules.Landscape.Services;
 using WorldBuilder.Shared.Services;
 using Xunit;
 
@@ -153,7 +154,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var layerId = Guid.NewGuid().ToString();
             doc.AddLayer([], "Active Layer", true, layerId);
             var activeLayer = (LandscapeLayer)doc.FindItem(layerId)!;
-            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer);
+            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, new Mock<ILandscapeObjectService>().Object, activeLayer);
             }
             }
             }

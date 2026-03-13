@@ -19,7 +19,7 @@ public partial class PortalViewModel : SelectedObjectViewModelBase {
 
     public string OtherCellIdHex => $"0x{OtherCellId:X4}";
 
-    public PortalViewModel(uint landblockId, uint? cellId, ulong instanceId, Vector3 position, Vector3 localPosition, Quaternion rotation, IDatDatabase? cellDatabase) 
+    public PortalViewModel(ushort landblockId, uint? cellId, ulong instanceId, Vector3 position, Vector3 localPosition, Quaternion rotation, IDatDatabase? cellDatabase) 
         : base(instanceId, landblockId, position, localPosition, rotation) {
         CellId = cellId;
 

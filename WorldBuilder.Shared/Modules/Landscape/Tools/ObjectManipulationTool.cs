@@ -35,7 +35,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         // Transactional drag state
         private StaticObject? _dragStartObject;
-        private uint _dragStartLandblockId;
+        private ushort _dragStartLandblockId;
         private Vector3 _dragStartNormal = Vector3.UnitZ;
         private bool _isHistoryUpdate;
 
@@ -118,10 +118,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 bool isOurObject = HasSelection && (GizmoState.InstanceId == moveCommand.OldObject.InstanceId || GizmoState.InstanceId == moveCommand.NewObject.InstanceId);
 
                 if (isOurObject) {
-                    var worldPos = ComputeWorldPosition(targetLbId, targetObj.Position);
+                    var worldPos = Context!.LandscapeObjectService.ComputeWorldPosition(Context.Document.Region!, targetLbId, targetObj.Position);
                     
-                    // Clear selection first to force UI notification when it is set back
-                    Context?.NotifyInspectorSelected(SceneRaycastHit.NoHit);
+                    bool idChanged = targetObj.InstanceId != GizmoState.InstanceId || targetType != GizmoState.SelectionType;
+
+                    if (idChanged) {
+                        // Clear selection first to force UI notification when it is set back
+                        Context?.NotifyInspectorSelected(SceneRaycastHit.NoHit);
+                    }
 
                     // Atomic update of GizmoState to prevent flickering or partial state reads
                     GizmoState.LandblockId = targetLbId;
@@ -131,24 +135,27 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                     GizmoState.Rotation = targetObj.Rotation;
                     GizmoState.Position = worldPos;
 
-                    // Notify the rest of the system with the new state
-                    Context?.NotifyInspectorSelected(new SceneRaycastHit {
-                        Hit = true,
-                        Type = targetType,
-                        LandblockId = targetLbId,
-                        InstanceId = targetObj.InstanceId,
-                        ObjectId = GizmoState.ObjectId,
-                        Position = worldPos,
-                        LocalPosition = targetObj.Position,
-                        Rotation = targetObj.Rotation
-                    });
+                    if (idChanged || e.ChangeType != CommandChangeType.Execute) {
+                        // Notify the rest of the system with the new state
+                        Context?.NotifyInspectorSelected(new SceneRaycastHit {
+                            Hit = true,
+                            Type = targetType,
+                            LandblockId = targetLbId,
+                            CellId = targetType == InspectorSelectionType.EnvCellStaticObject ? InstanceIdConstants.GetContextId(targetObj.InstanceId) : null,
+                            InstanceId = targetObj.InstanceId,
+                            ObjectId = GizmoState.ObjectId,
+                            Position = worldPos,
+                            LocalPosition = targetObj.Position,
+                            Rotation = targetObj.Rotation
+                        });
+                    }
                 }
                 else {
                     RefreshGizmoPosition();
                 }
 
                 // Trigger a preview update to ensure renderers sync immediately
-                var previewWorldPos = ComputeWorldPosition(targetLbId, targetObj.Position);
+                var previewWorldPos = Context!.LandscapeObjectService.ComputeWorldPosition(Context.Document.Region!, targetLbId, targetObj.Position);
                 Context?.NotifyObjectPositionPreview?.Invoke(targetLbId, targetObj.InstanceId, previewWorldPos, targetObj.Rotation, targetObj.CellId ?? 0);
             }
             finally {
@@ -279,7 +286,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
             // If you started inside, you must stay inside. 
             // If you started outside, you must stay outside.
-            // TODO: allow for this?
             if (startedInside != currentlyInside) return fallbackPos;
             
             return targetPos;
@@ -289,31 +295,26 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             if (Context == null || _dragStartObject == null || _isHistoryUpdate) return;
 
             var worldPos = GizmoState.Position;
-            var finalCellId = await Context.Document.GetEnvCellAtAsync(worldPos);
-            uint? newCellId = null;
+            var finalCellId = await Context.LandscapeObjectService.ResolveCellIdAsync(Context.Document, worldPos, _dragStartObject.CellId);
 
-            if (finalCellId != 0) {
-                newCellId = finalCellId;
-            }
-            
             // Ensure the final calculated cell ID matches the starting container category.
             bool startingInside = _dragStartObject.CellId != null;
-            bool endingInside = newCellId != null;
+            bool endingInside = finalCellId != null;
             
             if (startingInside && !endingInside) {
                 // We fell out of a cell at the final moment, fallback to previous valid cell
-                newCellId = _dragStartObject.CellId;
+                finalCellId = _dragStartObject.CellId;
             }
             else if (!startingInside && endingInside) {
                 // We fell INTO a cell, clear it to stay on landblock
-                newCellId = null;
+                finalCellId = null;
             }
 
-            uint newLandblockId = Context.ComputeLandblockId!(worldPos);
-            var lbOrigin = ComputeWorldPosition(newLandblockId, Vector3.Zero);
+            ushort newLandblockId = Context.LandscapeObjectService.ComputeLandblockId(Context.Document.Region!, worldPos);
+            var lbOrigin = Context.LandscapeObjectService.ComputeWorldPosition(Context.Document.Region!, newLandblockId, Vector3.Zero);
             var newLocalPosition = worldPos - lbOrigin;
 
-            var newObject = CreateStaticObject(newLocalPosition, GizmoState.Rotation, newCellId);
+            var newObject = CreateStaticObject(newLocalPosition, GizmoState.Rotation, finalCellId);
 
             if (HasChanged(_dragStartLandblockId, _dragStartObject, newLandblockId, newObject)) {
                 var command = new MoveStaticObjectCommand(Context, GizmoState.LayerId, _dragStartLandblockId, newLandblockId, _dragStartObject, newObject);
@@ -341,14 +342,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 UpdateGizmoFromWorld(hit.LandblockId, hit.InstanceId, hit.Position, hit.Rotation);
             }
 
-            if (Context.GetStaticObjectLayerId != null) {
-                var layerId = Context.GetStaticObjectLayerId(hit.LandblockId, hit.InstanceId);
+            if (Context.LandscapeObjectService != null) {
+                var layerId = Context.LandscapeObjectService.GetStaticObjectLayerId(Context.Document, hit.LandblockId, hit.InstanceId);
                 GizmoState.LayerId = string.IsNullOrEmpty(layerId) ? (Context.ActiveLayer?.Id ?? Context.Document.BaseLayerId ?? "") : layerId;
             }
         }
 
-        private void UpdateGizmoFromWorld(uint lbId, ulong instId, Vector3 worldPos, Quaternion rotation) {
-            var lbOrigin = ComputeWorldPosition(lbId, Vector3.Zero);
+        private void UpdateGizmoFromWorld(ushort lbId, ulong instId, Vector3 worldPos, Quaternion rotation) {
+            var lbOrigin = Context!.LandscapeObjectService.ComputeWorldPosition(Context.Document.Region!, lbId, Vector3.Zero);
             GizmoState.Position = worldPos;
             GizmoState.Rotation = rotation;
             GizmoState.LocalPosition = worldPos - lbOrigin;
@@ -392,7 +393,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private bool IsDifferentHit(SceneRaycastHit a, SceneRaycastHit b) =>
             a.Type != b.Type || a.LandblockId != b.LandblockId || a.InstanceId != b.InstanceId || a.ObjectId != b.ObjectId;
 
-        private bool HasChanged(uint oldLbId, StaticObject oldObj, uint newLbId, StaticObject newObj) =>
+        private bool HasChanged(ushort oldLbId, StaticObject oldObj, ushort newLbId, StaticObject newObj) =>
             oldLbId != newLbId || oldObj.CellId != newObj.CellId || 
             Vector3.DistanceSquared(oldObj.Position, newObj.Position) > 1e-6f || 
             Math.Abs(Quaternion.Dot(oldObj.Rotation, newObj.Rotation)) < 0.999999f;
@@ -401,13 +402,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             SetupId = GizmoState.ObjectId, InstanceId = GizmoState.InstanceId, LayerId = GizmoState.LayerId,
             Position = localPos, Rotation = rot, CellId = cellId
         };
-
-        private Vector3 ComputeWorldPosition(uint lbId, Vector3 localPos) {
-            if (Context?.Document.Region == null) return localPos;
-            var reg = Context.Document.Region;
-            var origin = new Vector3((lbId >> 24) * reg.LandblockSizeInUnits + reg.MapOffset.X, ((lbId >> 16) & 0xFF) * reg.LandblockSizeInUnits + reg.MapOffset.Y, 0);
-            return origin + localPos;
-        }
 
         private (Vector3, Vector3) GetRay(ViewportInputEvent e) {
             var ray = RaycastingUtils.GetRayFromScreen(Context!.Camera, e.Position.X, e.Position.Y, e.ViewportSize.X, e.ViewportSize.Y);

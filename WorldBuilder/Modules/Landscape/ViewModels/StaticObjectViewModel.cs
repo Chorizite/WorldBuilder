@@ -15,7 +15,7 @@ public partial class StaticObjectViewModel : SelectedObjectViewModelBase {
 
     public string ObjectIdHex => $"0x{ObjectId:X8}";
 
-    public StaticObjectViewModel(uint objectId, ulong instanceId, uint landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation) 
+    public StaticObjectViewModel(uint objectId, ulong instanceId, ushort landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation) 
         : base(instanceId, landblockId, position, localPosition, rotation) {
         ObjectIdVal = objectId;
     }

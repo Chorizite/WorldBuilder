@@ -48,7 +48,7 @@ public partial class RenameLandscapeLayerCommand : BaseCommand<bool> {
             if (rentResult.IsFailure) return Result<bool>.Failure(rentResult.Error);
 
             using var terrainRental = rentResult.Value;
-            await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
+            await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, tx, ct);
 
             var item = terrainRental.Document.FindItem(LayerId);
             if (item == null) return Result<bool>.Failure(Error.NotFound($"Layer not found: {LayerId}"));

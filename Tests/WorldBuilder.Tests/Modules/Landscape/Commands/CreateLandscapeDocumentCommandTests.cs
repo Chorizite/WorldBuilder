@@ -31,7 +31,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands {
 
             var terrainDocMock = new Mock<LandscapeDocument>(terrainId);
             terrainDocMock.CallBase = true;
-            terrainDocMock.Setup(m => m.InitializeForUpdatingAsync(It.IsAny<IDatReaderWriter>(), It.IsAny<IDocumentManager>(), It.IsAny<CancellationToken>()))
+            terrainDocMock.Setup(m => m.InitializeForUpdatingAsync(It.IsAny<IDatReaderWriter>(), It.IsAny<IDocumentManager>(), It.IsAny<ITransaction>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
             var terrainDoc = terrainDocMock.Object;
             var terrainRental = new DocumentRental<LandscapeDocument>(terrainDoc, () => { });

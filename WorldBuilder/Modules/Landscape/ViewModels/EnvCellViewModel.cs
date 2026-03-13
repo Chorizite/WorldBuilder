@@ -13,7 +13,7 @@ public partial class EnvCellViewModel : SelectedObjectViewModelBase {
 
     public override uint ObjectId => CellId ?? 0;
 
-    public EnvCellViewModel(uint cellId, ulong instanceId, uint landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation, IDatDatabase? cellDatabase) 
+    public EnvCellViewModel(uint cellId, ulong instanceId, ushort landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation, IDatDatabase? cellDatabase) 
         : base(instanceId, landblockId, position, localPosition, rotation) {
         CellId = cellId;
 

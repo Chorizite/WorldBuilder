@@ -188,6 +188,7 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton<ISyncClient>(project.Services.GetRequiredService<ISyncClient>());
             collection.AddSingleton<SyncService>(project.Services.GetRequiredService<SyncService>());
             collection.AddSingleton<IDatExportService>(project.Services.GetRequiredService<IDatExportService>());
+            collection.AddSingleton<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeObjectService>(project.Services.GetRequiredService<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeObjectService>());
         }
     }
 }

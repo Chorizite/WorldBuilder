@@ -68,12 +68,12 @@
 
                                 <TextBlock Grid.Row="3" Grid.Column="0" Text="Position: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:Vector3Editor Grid.Row="3" Grid.Column="1" 
-                                                   X="{Binding X}" Y="{Binding Y}" Z="{Binding Z}"
+                                                   X="{Binding X, Mode=TwoWay}" Y="{Binding Y, Mode=TwoWay}" Z="{Binding Z, Mode=TwoWay}"
                                                    IsEditable="{Binding #Root.((vm:PropertiesPanelViewModel)DataContext).IsEditable}" />
 
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="Rotation: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:Vector3Editor Grid.Row="4" Grid.Column="1" 
-                                                   X="{Binding RotationX}" Y="{Binding RotationY}" Z="{Binding RotationZ}"
+                                                   X="{Binding RotationX, Mode=TwoWay}" Y="{Binding RotationY, Mode=TwoWay}" Z="{Binding RotationZ, Mode=TwoWay}"
                                                    Suffix="°"
                                                    IsEditable="{Binding #Root.((vm:PropertiesPanelViewModel)DataContext).IsEditable}" />
                             </Grid>
@@ -97,12 +97,12 @@
 
                                 <TextBlock Grid.Row="3" Grid.Column="0" Text="Position: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:Vector3Editor Grid.Row="3" Grid.Column="1" 
-                                                   X="{Binding X}" Y="{Binding Y}" Z="{Binding Z}"
+                                                   X="{Binding X, Mode=TwoWay}" Y="{Binding Y, Mode=TwoWay}" Z="{Binding Z, Mode=TwoWay}"
                                                    IsEditable="{Binding #Root.((vm:PropertiesPanelViewModel)DataContext).IsEditable}" />
 
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="Rotation: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:Vector3Editor Grid.Row="4" Grid.Column="1" 
-                                                   X="{Binding RotationX}" Y="{Binding RotationY}" Z="{Binding RotationZ}"
+                                                   X="{Binding RotationX, Mode=TwoWay}" Y="{Binding RotationY, Mode=TwoWay}" Z="{Binding RotationZ, Mode=TwoWay}"
                                                    Suffix="°"
                                                    IsEditable="{Binding #Root.((vm:PropertiesPanelViewModel)DataContext).IsEditable}" />
                             </Grid>
@@ -126,12 +126,12 @@
 
                                 <TextBlock Grid.Row="3" Grid.Column="0" Text="Position: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:Vector3Editor Grid.Row="3" Grid.Column="1" 
-                                                   X="{Binding X}" Y="{Binding Y}" Z="{Binding Z}"
+                                                   X="{Binding X, Mode=TwoWay}" Y="{Binding Y, Mode=TwoWay}" Z="{Binding Z, Mode=TwoWay}"
                                                    IsEditable="{Binding #Root.((vm:PropertiesPanelViewModel)DataContext).IsEditable}" />
 
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="Rotation: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:Vector3Editor Grid.Row="4" Grid.Column="1" 
-                                                   X="{Binding RotationX}" Y="{Binding RotationY}" Z="{Binding RotationZ}"
+                                                   X="{Binding RotationX, Mode=TwoWay}" Y="{Binding RotationY, Mode=TwoWay}" Z="{Binding RotationZ, Mode=TwoWay}"
                                                    Suffix="°"
                                                    IsEditable="{Binding #Root.((vm:PropertiesPanelViewModel)DataContext).IsEditable}" />
                             </Grid>
@@ -153,12 +153,12 @@
 
                                 <TextBlock Grid.Row="3" Grid.Column="0" Text="Position: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:Vector3Editor Grid.Row="3" Grid.Column="1" 
-                                                   X="{Binding X}" Y="{Binding Y}" Z="{Binding Z}"
+                                                   X="{Binding X, Mode=TwoWay}" Y="{Binding Y, Mode=TwoWay}" Z="{Binding Z, Mode=TwoWay}"
                                                    IsEditable="{Binding #Root.((vm:PropertiesPanelViewModel)DataContext).IsEditable}" />
 
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="Rotation: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:Vector3Editor Grid.Row="4" Grid.Column="1" 
-                                                   X="{Binding RotationX}" Y="{Binding RotationY}" Z="{Binding RotationZ}"
+                                                   X="{Binding RotationX, Mode=TwoWay}" Y="{Binding RotationY, Mode=TwoWay}" Z="{Binding RotationZ, Mode=TwoWay}"
                                                    Suffix="°"
                                                    IsEditable="{Binding #Root.((vm:PropertiesPanelViewModel)DataContext).IsEditable}" />
                             </Grid>
@@ -182,12 +182,12 @@
 
                                 <TextBlock Grid.Row="3" Grid.Column="0" Text="Position: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:Vector3Editor Grid.Row="3" Grid.Column="1" 
-                                                   X="{Binding X}" Y="{Binding Y}" Z="{Binding Z}"
+                                                   X="{Binding X, Mode=TwoWay}" Y="{Binding Y, Mode=TwoWay}" Z="{Binding Z, Mode=TwoWay}"
                                                    IsEditable="{Binding #Root.((vm:PropertiesPanelViewModel)DataContext).IsEditable}" />
 
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="Rotation: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:Vector3Editor Grid.Row="4" Grid.Column="1" 
-                                                   X="{Binding RotationX}" Y="{Binding RotationY}" Z="{Binding RotationZ}"
+                                                   X="{Binding RotationX, Mode=TwoWay}" Y="{Binding RotationY, Mode=TwoWay}" Z="{Binding RotationZ, Mode=TwoWay}"
                                                    Suffix="°"
                                                    IsEditable="{Binding #Root.((vm:PropertiesPanelViewModel)DataContext).IsEditable}" />
                             </Grid>
@@ -211,12 +211,12 @@
                                 
                                 <TextBlock Grid.Row="3" Grid.Column="0" Text="Position: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:Vector3Editor Grid.Row="3" Grid.Column="1" 
-                                                   X="{Binding X}" Y="{Binding Y}" Z="{Binding Z}"
+                                                   X="{Binding X, Mode=TwoWay}" Y="{Binding Y, Mode=TwoWay}" Z="{Binding Z, Mode=TwoWay}"
                                                    IsEditable="{Binding #Root.((vm:PropertiesPanelViewModel)DataContext).IsEditable}" />
 
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="Rotation: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:Vector3Editor Grid.Row="4" Grid.Column="1" 
-                                                   X="{Binding RotationX}" Y="{Binding RotationY}" Z="{Binding RotationZ}"
+                                                   X="{Binding RotationX, Mode=TwoWay}" Y="{Binding RotationY, Mode=TwoWay}" Z="{Binding RotationZ, Mode=TwoWay}"
                                                    Suffix="°"
                                                    IsEditable="{Binding #Root.((vm:PropertiesPanelViewModel)DataContext).IsEditable}" />
                             </Grid>

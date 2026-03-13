@@ -157,7 +157,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.Position = rayOrigin + rayDirection * d;
                                 hit.LocalPosition = instance.LocalPosition;
                                 hit.Rotation = instance.Rotation;
-                                hit.LandblockId = (uint)((key << 16) | 0xFFFE);
+                                hit.LandblockId = key;
                                 hit.Normal = normal;
                             }
                         }
@@ -299,7 +299,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var priority = base.GetPriority(lb, camDir2D, cameraLbX, cameraLbY);
 
             // Prioritize landblocks with buildings
-            var lbId = ((uint)lb.GridX << 8 | (uint)lb.GridY) << 16 | 0xFFFE;
+            var lbId = (ushort)((uint)lb.GridX << 8 | (uint)lb.GridY);
             var mergedLb = LandscapeDoc.GetMergedLandblock(lbId);
             if (mergedLb.Buildings.Count > 0) {
                 priority -= 10f; // Bonus for having buildings
@@ -318,9 +318,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 var lbGlobalX = (uint)lb.GridX;
                 var lbGlobalY = (uint)lb.GridY;
-
-                // LandBlockInfo ID: high byte = X, next byte = Y, low word = 0xFFFE
-                var lbId = (lbGlobalX << 8 | lbGlobalY) << 16 | 0xFFFE;
+                var lbId = (ushort)(lbGlobalX << 8 | lbGlobalY);
+                var lbFileId = ((uint)lbId << 16) | 0xFFFE;
 
                 var staticObjects = new List<SceneryInstance>();
                 var lbSizeUnits = regionInfo.LandblockSizeInUnits; // 192

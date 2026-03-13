@@ -70,7 +70,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
                 if (rentResult.IsFailure) return Result<string>.Failure(rentResult.Error);
 
                 using var terrainRental = rentResult.Value;
-                await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
+                await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, tx, ct);
 
                 terrainRental.Document.AddLayer(GroupPath, Name, IsBase, LayerId, Index);
 

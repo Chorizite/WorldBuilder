@@ -17,7 +17,7 @@ namespace WorldBuilder.Shared.Tests.Repositories {
 
         public SQLiteProjectRepositoryTests() {
             _db = new TestDatabase();
-            _repo = new SQLiteProjectRepository(_db.ConnectionString, new NullLogger<SQLiteProjectRepository>());
+            _repo = new SQLiteProjectRepository(_db.ConnectionString, NullLoggerFactory.Instance);
         }
 
         public async Task InitializeAsync() {
@@ -55,7 +55,7 @@ namespace WorldBuilder.Shared.Tests.Repositories {
             var initial = DateTime.UtcNow.AddSeconds(-10);
 
             // Insert initial
-            await using (var cmd = _repo.Connection.CreateCommand()) {
+            await using (var cmd = _repo.Connection!.CreateCommand()) {
                 cmd.CommandText = @"
             INSERT INTO TerrainPatches (Id, RegionId, Data, Version, LastModified)
             VALUES (@id, @regionId, @data, @ver, @ts)";
@@ -75,7 +75,7 @@ namespace WorldBuilder.Shared.Tests.Repositories {
             await tx.CommitAsync(default);
 
             // Verify LastModified updated
-            await using var readCmd = _repo.Connection.CreateCommand();
+            await using var readCmd = _repo.Connection!.CreateCommand();
             readCmd.CommandText = "SELECT LastModified FROM TerrainPatches WHERE Id = @id";
             readCmd.Parameters.AddWithValue("@id", patchId);
             var lastModObj = await readCmd.ExecuteScalarAsync();
@@ -97,7 +97,7 @@ namespace WorldBuilder.Shared.Tests.Repositories {
         }
 
         private async Task<List<string>> GetTableNamesAsync() {
-            var cmd = _repo.Connection.CreateCommand();
+            var cmd = _repo.Connection!.CreateCommand();
             cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';";
             await using var reader = await cmd.ExecuteReaderAsync();
             var tables = new List<string>();
@@ -107,7 +107,7 @@ namespace WorldBuilder.Shared.Tests.Repositories {
         }
 
         private async Task<List<string>> GetIndexNamesAsync() {
-            var cmd = _repo.Connection.CreateCommand();
+            var cmd = _repo.Connection!.CreateCommand();
             cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%';";
             await using var reader = await cmd.ExecuteReaderAsync();
             var indexes = new List<string>();

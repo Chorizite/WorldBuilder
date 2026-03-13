@@ -325,7 +325,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             float closestDistance = float.MaxValue;
             PortalData? closestPortal = null;
-            uint closestLandblockId = 0;
+            ushort closestLandblockId = 0;
 
             foreach (var lb in _landblocks.Values) {
                 if (!lb.Ready) continue;
@@ -337,7 +337,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                     var lbGlobalX = (uint)lb.GridX;
                     var lbGlobalY = (uint)lb.GridY;
-                    var lbId = (uint)((lbGlobalX << 24) | (lbGlobalY << 16));
+                    var lbId = (ushort)((lbGlobalX << 8) | lbGlobalY);
 
                     foreach (var portal in lb.Portals) {
                         if (!RaycastingUtils.RayIntersectsBox(rayOrigin, rayDirection, portal.BoundingBox.Min, portal.BoundingBox.Max, out float pDist) || pDist > maxDistance) {
@@ -490,7 +490,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
                 var lbGlobalX = (uint)lb.GridX;
                 var lbGlobalY = (uint)lb.GridY;
-                var lbId = (uint)((lbGlobalX << 24) | (lbGlobalY << 16));
+                var lbId = (ushort)((lbGlobalX << 8) | lbGlobalY);
 
                 var lbOrigin = new Vector3(
                     lbGlobalX * 192f + _landscapeDoc.Region!.MapOffset.X,

@@ -1,4 +1,5 @@
 using MemoryPack;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Services;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
@@ -46,16 +47,18 @@ public abstract partial class BaseDocument : IDisposable {
     /// <summary>Initializes the document for updating asynchronously.</summary>
     /// <param name="dats">The DAT reader/writer.</param>
     /// <param name="documentManager">The document manager.</param>
+    /// <param name="tx">The transaction (optional).</param>
     /// <param name="ct">The cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    public abstract Task InitializeForUpdatingAsync(IDatReaderWriter dats, IDocumentManager documentManager, CancellationToken ct);
+    public abstract Task InitializeForUpdatingAsync(IDatReaderWriter dats, IDocumentManager documentManager, ITransaction? tx, CancellationToken ct);
 
     /// <summary>Initializes the document for editing asynchronously.</summary>
     /// <param name="dats">The DAT reader/writer.</param>
     /// <param name="documentManager">The document manager.</param>
+    /// <param name="tx">The transaction (optional).</param>
     /// <param name="ct">The cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    public abstract Task InitializeForEditingAsync(IDatReaderWriter dats, IDocumentManager documentManager, CancellationToken ct);
+    public abstract Task InitializeForEditingAsync(IDatReaderWriter dats, IDocumentManager documentManager, ITransaction? tx, CancellationToken ct);
 
     /// <summary>
     /// Saves the document to the specified DAT writer asynchronously.

@@ -28,6 +28,7 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Modules.Landscape.Lib;
+using WorldBuilder.Shared.Modules.Landscape.Services;
 using WorldBuilder.Shared.Services;
 using WorldBuilder.ViewModels;
 using ICamera = WorldBuilder.Shared.Models.ICamera;
@@ -35,13 +36,13 @@ using ICamera = WorldBuilder.Shared.Models.ICamera;
 namespace WorldBuilder.Modules.Landscape;
 
 public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModule, IHotkeyHandler {
-    private static readonly IWorldCoordinateService _coords = new WorldCoordinateService();
     private readonly IProject _project;
     private readonly IDatReaderWriter _dats;
     private readonly IPortalService _portalService;
     private readonly ILogger<LandscapeViewModel> _log;
     private readonly IDialogService _dialogService;
     private readonly BookmarksManager _bookmarksManager;
+    private readonly ILandscapeObjectService _landscapeObjectService;
     private DocumentRental<LandscapeDocument>? _landscapeRental;
 
     public string Name => "Landscape";
@@ -102,7 +103,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
     public GameScene GameScene => _gameScene!;
 
-    public LandscapeViewModel(IProject project, IDatReaderWriter dats, IPortalService portalService, IDocumentManager documentManager, BookmarksManager bookmarksManager, ILogger<LandscapeViewModel> log, IDialogService dialogService, WorldBuilderSettings settings) {
+    public LandscapeViewModel(IProject project, IDatReaderWriter dats, IPortalService portalService, IDocumentManager documentManager, BookmarksManager bookmarksManager, ILogger<LandscapeViewModel> log, IDialogService dialogService, WorldBuilderSettings settings, ILandscapeObjectService landscapeObjectService) {
         _project = project ?? throw new ArgumentNullException(nameof(project));
         _dats = dats ?? throw new ArgumentNullException(nameof(dats));
         _portalService = portalService ?? throw new ArgumentNullException(nameof(portalService));
@@ -111,6 +112,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _bookmarksManager = bookmarksManager ?? throw new ArgumentNullException(nameof(bookmarksManager));
+        _landscapeObjectService = landscapeObjectService ?? throw new ArgumentNullException(nameof(landscapeObjectService));
 
         CommandHistory.MaxHistoryDepth = _settings.App.HistoryLimit;
         SyncSettingsToState();
@@ -290,7 +292,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 _toolContext.InspectorSelected -= OnInspectorSelected;
             }
 
-            _toolContext = new LandscapeToolContext(ActiveDocument, EditorState, _dats, CommandHistory, Camera, _log, ActiveLayer);
+            _toolContext = new LandscapeToolContext(ActiveDocument, EditorState, _dats, CommandHistory, Camera, _log, _landscapeObjectService, ActiveLayer);
             _toolContext.RequestSave = RequestSave;
             if (_settings?.Project != null) {
                 _toolContext.ToolSettingsProvider = new ToolSettingsProvider(_settings.Project);
@@ -328,11 +330,11 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _toolContext.InspectorSelected += OnInspectorSelected;
 
             // Wire up object manipulation delegates
-            _toolContext.GetStaticObjectBounds = (landblockId, instanceId) => _gameScene?.GetStaticObjectBounds(landblockId, instanceId);
-            _toolContext.GetStaticObjectLocalBounds = (landblockId, instanceId) => _gameScene?.GetStaticObjectLocalBounds(landblockId, instanceId);
-            _toolContext.GetStaticObjectTransform = (landblockId, instanceId) => _gameScene?.GetStaticObjectTransform(landblockId, instanceId);
-            _toolContext.GetStaticObjectLayerId = (landblockId, instanceId) => _gameScene?.GetStaticObjectLayerId(landblockId, instanceId);
-            _toolContext.UpdateStaticObject = (layerId, oldLbId, oldObject, newLbId, newObj) => {
+            _toolContext.GetStaticObjectBounds = (ushort landblockId, ulong instanceId) => _gameScene?.GetStaticObjectBounds(landblockId, instanceId);
+            _toolContext.GetStaticObjectLocalBounds = (ushort landblockId, ulong instanceId) => _gameScene?.GetStaticObjectLocalBounds(landblockId, instanceId);
+            _toolContext.GetStaticObjectTransform = (ushort landblockId, ulong instanceId) => _gameScene?.GetStaticObjectTransform(landblockId, instanceId);
+            _toolContext.GetStaticObjectLayerId = (ushort landblockId, ulong instanceId) => _gameScene?.GetStaticObjectLayerId(landblockId, instanceId);
+            _toolContext.UpdateStaticObject = (string layerId, ushort oldLbId, StaticObject oldObject, ushort newLbId, StaticObject newObj) => {
                 if (ActiveDocument == null) return;
 
                 lock (_updateTaskLock) {
@@ -358,15 +360,15 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 }
             };
 
-            _toolContext.NotifyObjectPositionPreview = (landblockId, instanceId, position, rotation, currentCellId) => {
+            _toolContext.NotifyObjectPositionPreview = (ushort landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId) => {
                 _gameScene?.UpdateObjectPreview(landblockId, instanceId, position, rotation, currentCellId);
 
                 // Update PropertiesPanel in real-time
-                if (PropertiesPanel.SelectedItem is ISelectedObjectInfo info && info.InstanceId == instanceId) {
+                if (PropertiesPanel.SelectedItem is ISelectedObjectInfo info && info.InstanceId == instanceId && ActiveDocument?.Region != null) {
                     _isUpdatingFromSelection = true;
                     try {
                         // Recalculate local position relative to the NEW landblock origin
-                        var lbOrigin = ComputeWorldPosition(landblockId, Vector3.Zero);
+                        var lbOrigin = _landscapeObjectService.ComputeWorldPosition(ActiveDocument.Region, landblockId, Vector3.Zero);
                         var localPos = position - lbOrigin;
 
                         info.LandblockId = landblockId;
@@ -383,12 +385,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
             _toolContext.ComputeLandblockId = (worldPos) => {
                 if (ActiveDocument?.Region == null) return 0;
-                var region = ActiveDocument.Region;
-                var offset = region.MapOffset;
-                var lbSize = region.LandblockSizeInUnits;
-                int lbX = (int)Math.Floor((worldPos.X - offset.X) / lbSize);
-                int lbY = (int)Math.Floor((worldPos.Y - offset.Y) / lbSize);
-                return _coords.GetLandblockId(lbX, lbY);
+                return _landscapeObjectService.ComputeLandblockId(ActiveDocument.Region, worldPos);
             };
 
             _toolContext.GetEnvCellAt = (worldPos) => {
@@ -411,7 +408,38 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     }
 
     private void OnInspectorSelected(object? sender, InspectorSelectionEventArgs e) {
-        _gameScene?.SetSelectedObject(e.Selection.Type, e.Selection.LandblockId, e.Selection.InstanceId, e.Selection.ObjectId, e.Selection.VertexX, e.Selection.VertexY);
+        var lbId = e.Selection.LandblockId;
+        _gameScene?.SetSelectedObject(e.Selection.Type, lbId, e.Selection.InstanceId, e.Selection.ObjectId, e.Selection.VertexX, e.Selection.VertexY);
+
+        // Check if the selection is logically the same to avoid re-templating and focus loss
+        if (PropertiesPanel.SelectedItem is ISelectedObjectInfo current) {
+            bool isSameObject = e.Selection.InstanceId != 0 && current.InstanceId == e.Selection.InstanceId;
+            bool isSameVertex = e.Selection.Type == InspectorSelectionType.Vertex && current is LandscapeVertexViewModel v && v.VertexX == e.Selection.VertexX && v.VertexY == e.Selection.VertexY;
+            
+            // If the ID changed but it was our object, it might have been a move between landblocks
+            if (!isSameObject && e.Selection.InstanceId != 0 && current.InstanceId != 0 && e.Selection.ObjectId == current.ObjectId) {
+                // If it's the same SetupId and it's currently being "debounced" or just moved, 
+                // we treat it as the same object to preserve focus.
+                isSameObject = true; 
+            }
+
+            if (isSameObject || isSameVertex) {
+                // Already selected, update ID and position/rotation
+                _isUpdatingFromSelection = true;
+                try {
+                    current.InstanceId = e.Selection.InstanceId;
+                    current.Position = e.Selection.Position;
+                    current.Rotation = e.Selection.Rotation;
+                    current.LandblockId = lbId;
+                    current.LocalPosition = e.Selection.LocalPosition;
+                    current.CellId = e.Selection.CellId;
+                }
+                finally {
+                    _isUpdatingFromSelection = false;
+                }
+                return;
+            }
+        }
 
         // Auto-select layer if an object is selected
         if (e.Selection.Type == InspectorSelectionType.StaticObject ||
@@ -420,7 +448,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             e.Selection.Type == InspectorSelectionType.EnvCellStaticObject ||
             e.Selection.Type == InspectorSelectionType.EnvCell ||
             e.Selection.Type == InspectorSelectionType.Portal) {
-            var layerId = _gameScene?.GetStaticObjectLayerId(e.Selection.LandblockId, e.Selection.InstanceId);
+            var layerId = _landscapeObjectService.GetStaticObjectLayerId(ActiveDocument!, lbId, e.Selection.InstanceId);
             if (!string.IsNullOrEmpty(layerId)) {
                 var layerVM = LayersPanel.FindVM(layerId);
                 if (layerVM != null) {
@@ -431,25 +459,25 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
         if (e.Selection.Type == InspectorSelectionType.StaticObject || e.Selection.Type == InspectorSelectionType.Building) {
             if (e.Selection.Type == InspectorSelectionType.StaticObject) {
-                PropertiesPanel.SelectedItem = new StaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
+                PropertiesPanel.SelectedItem = new StaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, lbId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
             }
             else if (e.Selection.Type == InspectorSelectionType.Building) {
-                PropertiesPanel.SelectedItem = new BuildingViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
+                PropertiesPanel.SelectedItem = new BuildingViewModel(e.Selection.ObjectId, e.Selection.InstanceId, lbId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
             }
         }
         else if (e.Selection.Type == InspectorSelectionType.Scenery) {
-            PropertiesPanel.SelectedItem = new SceneryViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
+            PropertiesPanel.SelectedItem = new SceneryViewModel(e.Selection.ObjectId, e.Selection.InstanceId, lbId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
         }
         else if (e.Selection.Type == InspectorSelectionType.Portal) {
             uint cellId = e.Selection.ObjectId; // For portals, ObjectId is the parent CellId
-            PropertiesPanel.SelectedItem = new PortalViewModel(e.Selection.LandblockId, cellId, e.Selection.InstanceId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation, ActiveDocument?.CellDatabase);
+            PropertiesPanel.SelectedItem = new PortalViewModel(lbId, cellId, e.Selection.InstanceId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation, ActiveDocument?.CellDatabase);
         }
         else if (e.Selection.Type == InspectorSelectionType.EnvCell) {
-            PropertiesPanel.SelectedItem = new EnvCellViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation, ActiveDocument?.CellDatabase);
+            PropertiesPanel.SelectedItem = new EnvCellViewModel(e.Selection.ObjectId, e.Selection.InstanceId, lbId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation, ActiveDocument?.CellDatabase);
         }
         else if (e.Selection.Type == InspectorSelectionType.EnvCellStaticObject) {
             uint cellId = InstanceIdConstants.GetContextId(e.Selection.InstanceId);
-            PropertiesPanel.SelectedItem = new EnvCellStaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, e.Selection.LandblockId, cellId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
+            PropertiesPanel.SelectedItem = new EnvCellStaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, lbId, cellId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
         }
         else if (e.Selection.Type == InspectorSelectionType.Vertex) {
             PropertiesPanel.SelectedItem = new LandscapeVertexViewModel(e.Selection.VertexX, e.Selection.VertexY, ActiveDocument!, _dats, CommandHistory);
@@ -460,20 +488,29 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
     }
 
     private bool _isUpdatingFromSelection;
-    private void OnSelectedObjectPropertyChanged(object? sender, PropertyChangedEventArgs e) {
-        if (_isUpdatingFromSelection || sender is not ISelectedObjectInfo info || _toolContext == null) return;
+    private async void OnSelectedObjectPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+        if (_isUpdatingFromSelection || sender is not ISelectedObjectInfo info || _toolContext == null || ActiveDocument?.Region == null) return;
 
         if (e.PropertyName == nameof(ISelectedObjectInfo.LocalPosition) || e.PropertyName == nameof(ISelectedObjectInfo.Rotation) ||
             e.PropertyName == "X" || e.PropertyName == "Y" || e.PropertyName == "Z" ||
             e.PropertyName == "RotationX" || e.PropertyName == "RotationY" || e.PropertyName == "RotationZ") {
 
             // Calculate world position
-            var worldPos = ComputeWorldPosition(info.LandblockId, info.LocalPosition);
+            var worldPos = _landscapeObjectService.ComputeWorldPosition(ActiveDocument.Region, info.LandblockId, info.LocalPosition);
             info.Position = worldPos;
 
             // Preview in real-time
-            uint currentCellId = _toolContext.GetEnvCellAt?.Invoke(worldPos) ?? 0;
-            _toolContext.NotifyObjectPositionPreview?.Invoke(info.LandblockId, info.InstanceId, worldPos, info.Rotation, currentCellId);
+            var currentCellId = await _landscapeObjectService.ResolveCellIdAsync(ActiveDocument, worldPos, info.Type == InspectorSelectionType.EnvCellStaticObject ? InstanceIdConstants.GetContextId(info.InstanceId) : null);
+            
+            _isUpdatingFromSelection = true;
+            try {
+                info.CellId = currentCellId;
+            }
+            finally {
+                _isUpdatingFromSelection = false;
+            }
+
+            _toolContext.NotifyObjectPositionPreview?.Invoke(info.LandblockId, info.InstanceId, worldPos, info.Rotation, currentCellId ?? 0);
 
             // Debounce the actual commit
             RequestCommitObjectChange(info);
@@ -512,46 +549,51 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
         if (_toolContext == null || activeDoc == null) return;
 
         // Resolve layerId
-        var layerId = _gameScene?.GetStaticObjectLayerId(info.LandblockId, info.InstanceId);
+        var layerId = _landscapeObjectService.GetStaticObjectLayerId(activeDoc, info.LandblockId, info.InstanceId);
         if (string.IsNullOrEmpty(layerId)) {
             layerId = ActiveLayer?.Id ?? activeDoc.BaseLayerId ?? "";
         }
 
         // Get old object for undo
         _ = Task.Run(async () => {
-            // Determine the final cell assignment logically (async)
-            var finalCellId = await activeDoc.GetEnvCellAtAsync(info.Position);
-            uint? newCellId = null;
-            InspectorSelectionType newType = info.Type;
-            
-            if (finalCellId != 0) {
-                newCellId = finalCellId;
-                if (newType == InspectorSelectionType.StaticObject) {
-                    newType = InspectorSelectionType.EnvCellStaticObject;
-                }
-            }
-            else {
-                if (newType == InspectorSelectionType.EnvCellStaticObject) {
-                    newType = InspectorSelectionType.StaticObject;
-                }
-            }
+            if (activeDoc.Region == null) return;
 
+            // Determine the final cell assignment logically (async)
+            var finalCellId = await _landscapeObjectService.ResolveCellIdAsync(activeDoc, info.Position, info.Type == InspectorSelectionType.EnvCellStaticObject ? InstanceIdConstants.GetContextId(info.InstanceId) : null);
+            
             // Determine if the object crossed landblock boundaries or moved into/out of a cell
-            uint newLandblockId = _toolContext.ComputeLandblockId!(info.Position);
+            ushort newLandblockId = _landscapeObjectService.ComputeLandblockId(activeDoc.Region, info.Position);
 
             // Recalculate local position relative to the NEW landblock/cell origin
-            var lbOrigin = ComputeWorldPosition(newLandblockId, Vector3.Zero);
+            var lbOrigin = _landscapeObjectService.ComputeWorldPosition(activeDoc.Region, newLandblockId, Vector3.Zero);
             var newLocalPosition = info.Position - lbOrigin;
 
-            StaticObject oldObject;
+            StaticObject? oldObject = null;
             var type = InstanceIdConstants.GetType(info.InstanceId);
             if (type == InspectorSelectionType.EnvCellStaticObject) {
-                var cellId = InstanceIdConstants.GetRawId(info.InstanceId);
-                oldObject = (await activeDoc.GetMergedEnvCellAsync(cellId)).StaticObjects.GetValueOrDefault(info.InstanceId) ?? new StaticObject();
+                var cellId = InstanceIdConstants.GetContextId(info.InstanceId);
+                oldObject = (await activeDoc.GetMergedEnvCellAsync(cellId)).StaticObjects.GetValueOrDefault(info.InstanceId);
             }
             else {
-                oldObject = (await activeDoc.GetMergedLandblockAsync(info.LandblockId)).StaticObjects.GetValueOrDefault(info.InstanceId) ?? new StaticObject();
+                var lb = await activeDoc.GetMergedLandblockAsync(info.LandblockId);
+                if (type == InspectorSelectionType.Building) {
+                    var building = lb.Buildings.GetValueOrDefault(info.InstanceId);
+                    if (building != null) {
+                        oldObject = new StaticObject {
+                            InstanceId = building.InstanceId,
+                            SetupId = building.ModelId,
+                            LayerId = building.LayerId,
+                            Position = building.Position,
+                            Rotation = building.Rotation
+                        };
+                    }
+                }
+                else {
+                    oldObject = lb.StaticObjects.GetValueOrDefault(info.InstanceId);
+                }
             }
+
+            if (oldObject == null) return;
 
             var newObject = new StaticObject {
                 SetupId = info.ObjectId,
@@ -559,7 +601,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 LayerId = layerId,
                 Position = newLocalPosition,
                 Rotation = info.Rotation,
-                CellId = newCellId
+                CellId = finalCellId
             };
 
             var command = new MoveStaticObjectCommand(
@@ -580,16 +622,6 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 }
             });
         });
-    }
-
-    private Vector3 ComputeWorldPosition(uint landblockId, Vector3 localPosition) {
-        if (ActiveDocument?.Region == null) return localPosition;
-        var region = ActiveDocument.Region;
-        uint lbX = (landblockId >> 24);
-        uint lbY = ((landblockId >> 16) & 0xFF);
-        var origin = new Vector3(lbX * region.LandblockSizeInUnits + region.MapOffset.X,
-                                 lbY * region.LandblockSizeInUnits + region.MapOffset.Y, 0);
-        return origin + localPosition;
     }
 
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<ushort, byte>> _dirtyChunks = new();

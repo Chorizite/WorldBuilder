@@ -16,21 +16,21 @@ namespace WorldBuilder.Shared.Services {
             _dats = dats;
         }
 
-        public IEnumerable<PortalData> GetPortalsForLandblock(uint regionId, uint landblockId) {
-            var lbId = (landblockId & 0xFFFF0000u) | 0xFFFE;
+        public IEnumerable<PortalData> GetPortalsForLandblock(uint regionId, ushort landblockId) {
+            var lbFileId = ((uint)landblockId << 16) | 0xFFFE;
 
             if (!_dats.CellRegions.TryGetValue(regionId, out var cellDb)) yield break;
-            if (!cellDb.TryGet<LandBlockInfo>(lbId, out var lbi)) yield break;
+            if (!cellDb.TryGet<LandBlockInfo>(lbFileId, out var lbi)) yield break;
 
             for (uint i = 0; i < lbi.NumCells; i++) {
-                var cellId = (landblockId & 0xFFFF0000u) | (0x0100 + i);
+                var cellId = ((uint)landblockId << 16) | (0x0100 + i);
                 foreach (var portal in GetPortalsForCell(cellDb, cellId)) {
                     yield return portal;
                 }
             }
         }
 
-        public PortalData? GetPortal(uint regionId, uint landblockId, uint cellId, uint portalIndex) {
+        public PortalData? GetPortal(uint regionId, ushort landblockId, uint cellId, uint portalIndex) {
             if (!_dats.CellRegions.TryGetValue(regionId, out var cellDb)) return null;
 
             var portals = GetPortalsForCell(cellDb, cellId).ToList();
@@ -41,11 +41,11 @@ namespace WorldBuilder.Shared.Services {
         }
 
         /// <inheritdoc />
-        public IEnumerable<BuildingPortalGroup> GetPortalsByBuilding(uint regionId, uint landblockId) {
-            var lbId = (landblockId & 0xFFFF0000u) | 0xFFFE;
+        public IEnumerable<BuildingPortalGroup> GetPortalsByBuilding(uint regionId, ushort landblockId) {
+            var lbFileId = ((uint)landblockId << 16) | 0xFFFE;
 
             if (!_dats.CellRegions.TryGetValue(regionId, out var cellDb)) yield break;
-            if (!cellDb.TryGet<LandBlockInfo>(lbId, out var lbi)) yield break;
+            if (!cellDb.TryGet<LandBlockInfo>(lbFileId, out var lbi)) yield break;
 
             for (int buildingIdx = 0; buildingIdx < lbi.Buildings.Count; buildingIdx++) {
                 var bInfo = lbi.Buildings[buildingIdx];
@@ -56,7 +56,7 @@ namespace WorldBuilder.Shared.Services {
 
                 foreach (var portal in bInfo.Portals) {
                     if (portal.OtherCellId != 0xFFFF) {
-                        var cellId = (lbId & 0xFFFF0000) | portal.OtherCellId;
+                        var cellId = ((uint)landblockId << 16) | portal.OtherCellId;
                         if (discoveredCellIds.Add(cellId)) {
                             cellsToProcess.Enqueue(cellId);
                         }
@@ -69,7 +69,7 @@ namespace WorldBuilder.Shared.Services {
                     if (cellDb.TryGet<EnvCell>(cellId, out var envCell)) {
                         foreach (var cellPortal in envCell.CellPortals) {
                             if (cellPortal.OtherCellId != 0xFFFF) {
-                                var neighborId = (lbId & 0xFFFF0000) | cellPortal.OtherCellId;
+                                var neighborId = ((uint)landblockId << 16) | cellPortal.OtherCellId;
                                 if (discoveredCellIds.Add(neighborId)) {
                                     cellsToProcess.Enqueue(neighborId);
                                 }

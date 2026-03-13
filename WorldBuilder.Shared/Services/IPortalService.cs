@@ -4,15 +4,15 @@ using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Shared.Services {
     public interface IPortalService {
-        IEnumerable<PortalData> GetPortalsForLandblock(uint regionId, uint landblockId);
-        PortalData? GetPortal(uint regionId, uint landblockId, uint cellId, uint portalIndex);
+        IEnumerable<PortalData> GetPortalsForLandblock(uint regionId, ushort landblockId);
+        PortalData? GetPortal(uint regionId, ushort landblockId, uint cellId, uint portalIndex);
 
         /// <summary>
         /// Returns outside-facing portals grouped by building index, along with the
         /// set of EnvCell IDs reachable from each building's entry portals.
         /// Used for per-building stencil rendering.
         /// </summary>
-        IEnumerable<BuildingPortalGroup> GetPortalsByBuilding(uint regionId, uint landblockId);
+        IEnumerable<BuildingPortalGroup> GetPortalsByBuilding(uint regionId, ushort landblockId);
     }
 
     public class PortalData {

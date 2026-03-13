@@ -4,9 +4,9 @@
              x:Name="root">
     <Panel>
         <StackPanel IsVisible="{Binding IsEditable, ElementName=root}" Orientation="Horizontal" Spacing="4">
-            <NumericUpDown Value="{Binding X, ElementName=root}" Width="70" ShowButtonSpinner="False" FormatString="0.00" />
-            <NumericUpDown Value="{Binding Y, ElementName=root}" Width="70" ShowButtonSpinner="False" FormatString="0.00" />
-            <NumericUpDown Value="{Binding Z, ElementName=root}" Width="70" ShowButtonSpinner="False" FormatString="0.00" />
+            <NumericUpDown Value="{Binding X, ElementName=root, Mode=TwoWay}" Width="70" ShowButtonSpinner="False" FormatString="0.00" />
+            <NumericUpDown Value="{Binding Y, ElementName=root, Mode=TwoWay}" Width="70" ShowButtonSpinner="False" FormatString="0.00" />
+            <NumericUpDown Value="{Binding Z, ElementName=root, Mode=TwoWay}" Width="70" ShowButtonSpinner="False" FormatString="0.00" />
         </StackPanel>
         <StackPanel IsVisible="{Binding !IsEditable, ElementName=root}" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
             <StackPanel Orientation="Horizontal" Spacing="2">

@@ -27,7 +27,7 @@ public interface IWorldCoordinateService {
     /// <summary>
     /// Gets the chunk ID for a given landblock ID.
     /// </summary>
-    ushort GetChunkIdForLandblock(uint landblockId);
+    ushort GetChunkIdForLandblock(ushort landblockId);
     
     /// <summary>
     /// Gets the chunk coordinates (x, y) for a given chunk ID.
@@ -42,7 +42,7 @@ public interface IWorldCoordinateService {
     /// <summary>
     /// Gets the landblock ID for a given landblock coordinate (x, y).
     /// </summary>
-    uint GetLandblockId(int lbX, int lbY);
+    ushort GetLandblockId(int lbX, int lbY);
 
     /// <summary>
     /// Gets the landblock coordinates (x, y) affected by a set of vertex indices.

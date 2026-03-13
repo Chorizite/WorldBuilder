@@ -17,7 +17,7 @@ public abstract partial class SelectedObjectViewModelBase : ViewModelBase, ISele
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(LandblockIdHex))]
-    private uint _landblockId;
+    private ushort _landblockId;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CellIdHex))]
@@ -78,10 +78,10 @@ public abstract partial class SelectedObjectViewModelBase : ViewModelBase, ISele
     public virtual int VertexY => 0;
 
     public string InstanceIdHex => $"0x{InstanceId:X16}";
-    public string LandblockIdHex => $"0x{LandblockId:X8}";
+    public string LandblockIdHex => $"0x{LandblockId:X4}";
     public virtual string CellIdHex => CellId.HasValue ? $"0x{CellId.Value:X8}" : "None";
 
-    protected SelectedObjectViewModelBase(ulong instanceId, uint landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation) {
+    protected SelectedObjectViewModelBase(ulong instanceId, ushort landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation) {
         InstanceId = instanceId;
         LandblockId = landblockId;
         Position = position;

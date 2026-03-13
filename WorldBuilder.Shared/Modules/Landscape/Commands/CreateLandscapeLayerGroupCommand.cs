@@ -52,7 +52,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
                 }
 
                 using var terrainRental = rentResult.Value;
-                await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
+                await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, tx, ct);
 
                 terrainRental.Document.AddGroup(GroupPath, Name, GroupId, Index);
 

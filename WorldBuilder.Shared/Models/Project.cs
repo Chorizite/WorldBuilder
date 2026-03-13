@@ -194,7 +194,7 @@ public class Project : IProject, IAsyncDisposable {
             var regionId = regions[i];
             progress?.Report(($"Generating terrain cache for region {regionId}...", (float)i / regionCount));
             var landscapeDoc = new LandscapeDocument(regionId);
-            await landscapeDoc.InitializeForEditingAsync(project.Services.GetRequiredService<IDatReaderWriter>(), project.Services.GetRequiredService<IDocumentManager>(), ct);
+            await landscapeDoc.InitializeForEditingAsync(project.Services.GetRequiredService<IDatReaderWriter>(), project.Services.GetRequiredService<IDocumentManager>(), null, ct);
             var cache = await landscapeDoc.GenerateBaseCacheAsync(project.Services.GetRequiredService<IDatReaderWriter>(), progress, ct);
             var cachePath = WorldBuilder.Shared.Modules.Landscape.Lib.TerrainCacheManager.GetCachePath(project.ProjectDirectory, regionId);
             await WorldBuilder.Shared.Modules.Landscape.Lib.TerrainCacheManager.SaveAsync(cachePath, cache, regionId, landscapeDoc.Region!.MapWidthInVertices, landscapeDoc.Region.MapHeightInVertices);

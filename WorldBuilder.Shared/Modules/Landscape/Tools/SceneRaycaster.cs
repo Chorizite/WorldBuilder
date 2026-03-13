@@ -151,7 +151,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 if (terrainHit.Hit) {
                     bestDistance = terrainHit.Distance;
                     bestPoint = terrainHit.HitPosition;
-                    bestNormal = Vector3.UnitZ; // Terrain normal approximation
+                    bestNormal = context.Document.GetSurfaceNormal(terrainHit.HitPosition); // Terrain normal calculated from document
                     hitAny = true;
                 }
             }

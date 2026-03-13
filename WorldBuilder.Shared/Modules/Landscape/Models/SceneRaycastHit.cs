@@ -52,7 +52,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         }
         
         /// <summary>The landblock ID containing the hit.</summary>
-        public uint LandblockId { get; set; }
+        public ushort LandblockId { get; set; }
 
         /// <summary>The environment cell ID containing the hit (if applicable).</summary>
         public uint? CellId { get; set; }

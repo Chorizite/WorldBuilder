@@ -11,12 +11,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
         private readonly ConcurrentDictionary<string, DocumentCache> _documentCaches = new();
 
         private class DocumentCache {
-            public ConcurrentDictionary<uint, MergedLandblock> Landblocks { get; } = new();
+            public ConcurrentDictionary<ushort, MergedLandblock> Landblocks { get; } = new();
             public ConcurrentDictionary<uint, ConcurrentDictionary<uint, Cell>> EnvCells { get; } = new();
         }
 
         /// <inheritdoc/>
-        public async Task<MergedLandblock> GetOrAddLandblockAsync(string documentId, uint landblockId, Func<Task<MergedLandblock>> factory) {
+        public async Task<MergedLandblock> GetOrAddLandblockAsync(string documentId, ushort landblockId, Func<Task<MergedLandblock>> factory) {
             var cache = _documentCaches.GetOrAdd(documentId, _ => new DocumentCache());
             if (cache.Landblocks.TryGetValue(landblockId, out var existing)) {
                 return existing;
@@ -30,7 +30,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
         /// <inheritdoc/>
         public async Task<Cell> GetOrAddEnvCellAsync(string documentId, uint cellId, Func<Task<Cell>> factory) {
             var cache = _documentCaches.GetOrAdd(documentId, _ => new DocumentCache());
-            var lbPrefix = cellId & 0xFFFF0000;
+            var lbPrefix = (ushort)(cellId >> 16);
             var lbCache = cache.EnvCells.GetOrAdd(lbPrefix, _ => new ConcurrentDictionary<uint, Cell>());
 
             if (lbCache.TryGetValue(cellId, out var existing)) {
@@ -43,7 +43,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
         }
 
         /// <inheritdoc/>
-        public bool TryGetLandblock(string documentId, uint landblockId, out MergedLandblock? landblock) {
+        public bool TryGetLandblock(string documentId, ushort landblockId, out MergedLandblock? landblock) {
             landblock = null;
             if (_documentCaches.TryGetValue(documentId, out var cache)) {
                 return cache.Landblocks.TryGetValue(landblockId, out landblock);
@@ -55,7 +55,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
         public bool TryGetEnvCell(string documentId, uint cellId, out Cell? cell) {
             cell = null;
             if (_documentCaches.TryGetValue(documentId, out var cache)) {
-                var lbPrefix = cellId & 0xFFFF0000;
+                var lbPrefix = (ushort)(cellId >> 16);
                 if (cache.EnvCells.TryGetValue(lbPrefix, out var lbCache)) {
                     return lbCache.TryGetValue(cellId, out cell);
                 }
@@ -66,7 +66,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
         /// <inheritdoc/>
         public void InvalidateEnvCell(string documentId, uint cellId) {
             if (_documentCaches.TryGetValue(documentId, out var cache)) {
-                var lbPrefix = cellId & 0xFFFF0000;
+                var lbPrefix = (ushort)(cellId >> 16);
                 if (cache.EnvCells.TryGetValue(lbPrefix, out var lbCache)) {
                     lbCache.TryRemove(cellId, out _);
                 }
@@ -74,11 +74,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
         }
 
         /// <inheritdoc/>
-        public void InvalidateLandblock(string documentId, uint landblockId) {
+        public void InvalidateLandblock(string documentId, ushort landblockId) {
             if (_documentCaches.TryGetValue(documentId, out var cache)) {
-                var lbPrefix = landblockId & 0xFFFF0000;
                 cache.Landblocks.TryRemove(landblockId, out _);
-                cache.EnvCells.TryRemove(lbPrefix, out _);
+                cache.EnvCells.TryRemove(landblockId, out _);
             }
         }
 

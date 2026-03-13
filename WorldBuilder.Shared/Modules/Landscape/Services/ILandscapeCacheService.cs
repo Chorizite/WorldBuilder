@@ -10,7 +10,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
         /// <summary>
         /// Gets a merged landblock from the cache, or adds it using the provided factory.
         /// </summary>
-        Task<MergedLandblock> GetOrAddLandblockAsync(string documentId, uint landblockId, Func<Task<MergedLandblock>> factory);
+        Task<MergedLandblock> GetOrAddLandblockAsync(string documentId, ushort landblockId, Func<Task<MergedLandblock>> factory);
 
         /// <summary>
         /// Gets a merged environment cell from the cache, or adds it using the provided factory.
@@ -20,7 +20,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
         /// <summary>
         /// Synchronously attempts to get a merged landblock from the cache.
         /// </summary>
-        bool TryGetLandblock(string documentId, uint landblockId, out MergedLandblock? landblock);
+        bool TryGetLandblock(string documentId, ushort landblockId, out MergedLandblock? landblock);
 
         /// <summary>
         /// Synchronously attempts to get a merged environment cell from the cache.
@@ -35,7 +35,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
         /// <summary>
         /// Invalidates a specific landblock and its associated environment cells for a document.
         /// </summary>
-        void InvalidateLandblock(string documentId, uint landblockId);
+        void InvalidateLandblock(string documentId, ushort landblockId);
 
         /// <summary>
         /// Invalidates all cached data for a specific document.

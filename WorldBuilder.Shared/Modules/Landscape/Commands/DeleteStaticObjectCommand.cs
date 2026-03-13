@@ -17,8 +17,8 @@ public partial class DeleteStaticObjectCommand : BaseCommand<bool> {
     /// <summary>The ID of the landscape layer to update.</summary>
     [MemoryPackOrder(11)] public string LayerId { get; set; } = string.Empty;
 
-    /// <summary>The landblock ID where the object is located.</summary>
-    [MemoryPackOrder(12)] public uint LandblockId { get; set; }
+    /// <summary>The landblock ID where the object was located.</summary>
+    [MemoryPackOrder(12)] public ushort LandblockId { get; set; }
 
     /// <summary>The instance ID of the object to delete.</summary>
     [MemoryPackOrder(13)] public ulong InstanceId { get; set; }
@@ -54,7 +54,7 @@ public partial class DeleteStaticObjectCommand : BaseCommand<bool> {
             if (rentResult.IsFailure) return Result<bool>.Failure(rentResult.Error);
 
             using var terrainRental = rentResult.Value;
-            await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
+            await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, tx, ct);
 
             Result<Unit> result;
             if (PreviousState != null) {
@@ -67,7 +67,7 @@ public partial class DeleteStaticObjectCommand : BaseCommand<bool> {
                     CellId = PreviousState.CellId,
                     IsDeleted = true
                 };
-                result = await terrainRental.Document.UpsertStaticObjectAsync(tombstone, LandblockId, PreviousState.CellId, null, PreviousState.CellId, tx, ct);
+                result = await terrainRental.Document.UpsertStaticObjectAsync(tombstone, terrainRental.Document.RegionId, LandblockId, PreviousState.CellId, null, PreviousState.CellId, tx, ct);
             }
             else {
                 result = await terrainRental.Document.DeleteStaticObjectAsync(InstanceId, LandblockId, tx, ct);

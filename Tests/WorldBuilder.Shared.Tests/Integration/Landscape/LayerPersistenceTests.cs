@@ -68,7 +68,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
                 using var rental = rentResult.Value;
 
                 // Should init fine
-                await rental.Document.InitializeForUpdatingAsync(_dats, newDocManager, default);
+                await rental.Document.InitializeForUpdatingAsync(_dats, newDocManager, null, default);
 
                 Assert.Contains(rental.Document.GetAllLayers(), l => l.Id == layerId);
             }

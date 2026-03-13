@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
@@ -43,14 +43,6 @@ namespace WorldBuilder.Shared.Services {
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task containing the transaction.</returns>
         Task<ITransaction> CreateTransactionAsync(CancellationToken ct);
-
-        /// <summary>Retrieves a user-specific value, or a default value if not found.</summary>
-        /// <param name="key">The key.</param>
-        /// <param name="defaultValue">The default value.</param>
-        /// <param name="tx">The transaction (optional).</param>
-        /// <param name="ct">The cancellation token.</param>
-        /// <returns>A task containing the result with the value string.</returns>
-        Task<Result<string>> GetUserValueAsync(string key, string defaultValue, ITransaction? tx = null, CancellationToken ct = default);
 
         /// <summary>Retrieves all document IDs that start with a specific prefix.</summary>
         /// <param name="prefix">The ID prefix.</param>
@@ -108,15 +100,15 @@ namespace WorldBuilder.Shared.Services {
         Task<Result<Unit>> DeleteLayerAsync(string id, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Retrieves all static objects for a landblock or cell.</summary>
-        Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
+        Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(ushort? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
 
         /// <summary>
         /// Gets all landblock IDs that have modifications (static objects, buildings, or env cells) for a specific layer.
         /// </summary>
-        Task<IReadOnlyList<uint>> GetAffectedLandblocksByLayerAsync(uint regionId, string layerId, ITransaction? tx, CancellationToken ct);
+        Task<IReadOnlyList<ushort>> GetAffectedLandblocksByLayerAsync(uint regionId, string layerId, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Upserts a static object.</summary>
-        Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
+        Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, ushort? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Deletes a static object by instance ID.</summary>
         Task<Result<Unit>> DeleteStaticObjectAsync(ulong instanceId, ITransaction? tx, CancellationToken ct);

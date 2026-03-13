@@ -83,7 +83,7 @@ namespace WorldBuilder.Shared.Services {
                                 if (rentResult.IsSuccess) {
                                     var rental = rentResult.Value;
                                     var doc = rental.Document;
-                                    await doc.InitializeForUpdatingAsync(_dats, _documentManager, CancellationToken.None);
+                                    await doc.InitializeForUpdatingAsync(_dats, _documentManager, null, CancellationToken.None);
                                     await doc.LoadAllModifiedChunksAsync(_dats, _documentManager, CancellationToken.None);
 
                                     var allLayers = doc.GetAllLayers().ToList();

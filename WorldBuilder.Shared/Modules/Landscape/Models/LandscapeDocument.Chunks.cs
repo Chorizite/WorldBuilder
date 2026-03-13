@@ -37,13 +37,13 @@ namespace WorldBuilder.Shared.Models {
                 // Pre-warm the merged landblock cache for all 64 landblocks in this chunk
                 // to prevent expensive cache-miss + DAT re-parse in StaticObjectRenderManager
                 if (Region != null) {
-                    var landblockIds = new List<uint>();
+                    var landblockIds = new List<ushort>();
                     for (uint ly = 0; ly < LandscapeChunk.LandblocksPerChunk; ly++) {
                         for (uint lx = 0; lx < LandscapeChunk.LandblocksPerChunk; lx++) {
                             int lbX = (int)(chunk.ChunkX * LandscapeChunk.LandblocksPerChunk + lx);
                             int lbY = (int)(chunk.ChunkY * LandscapeChunk.LandblocksPerChunk + ly);
                             if (lbX >= Region.MapWidthInLandblocks || lbY >= Region.MapHeightInLandblocks) continue;
-                            var lbId = ((uint)lbX << 8 | (uint)lbY) << 16 | 0xFFFE;
+                            var lbId = (ushort)((lbX << 8) | lbY);
                             landblockIds.Add(lbId);
                         }
                     }

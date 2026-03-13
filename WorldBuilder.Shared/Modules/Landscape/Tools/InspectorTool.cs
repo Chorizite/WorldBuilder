@@ -116,7 +116,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
             if (SelectVertices) {
                 var region = Context.Document.Region;
-                var lbSize = region.CellSizeInUnits * region.LandblockCellLength;
+                var lbSize = region.LandblockSizeInUnits;
                 var pos = new Vector2(Context.Camera.Position.X, Context.Camera.Position.Y) - region.MapOffset;
                 int camLbX = (int)Math.Floor(pos.X / lbSize);
                 int camLbY = (int)Math.Floor(pos.Y / lbSize);
@@ -126,7 +126,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                     for (int lbY = camLbY - range; lbY <= camLbY + range; lbY++) {
                         if (lbX < 0 || lbX >= region.MapWidthInLandblocks || lbY < 0 || lbY >= region.MapHeightInLandblocks) continue;
 
-                        // TODO: Frustum culling?
+                        ushort landblockId = (ushort)((lbX << 8) | lbY);
                         
                         for (int vx = 0; vx < 8; vx++) {
                             for (int vy = 0; vy < 8; vy++) {
@@ -156,21 +156,18 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             var region = Context.Document.Region;
             if (vx < 0 || vx >= region.MapWidthInVertices || vy < 0 || vy >= region.MapHeightInVertices) return;
 
-            float cellSize = region.CellSizeInUnits;
             int lbCellLen = region.LandblockCellLength;
-            Vector2 mapOffset = region.MapOffset;
-
             int lbX = vx / lbCellLen;
             int lbY = vy / lbCellLen;
             int localVx = vx % lbCellLen;
             int localVy = vy % lbCellLen;
 
-            float x = lbX * (cellSize * lbCellLen) + localVx * cellSize + mapOffset.X;
-            float y = lbY * (cellSize * lbCellLen) + localVy * cellSize + mapOffset.Y;
-            float z = Context.Document.GetHeight(vx, vy);
+            ushort landblockId = (ushort)((lbX << 8) | lbY);
+            float cellSize = region.CellSizeInUnits;
+            var localPos = new Vector3(localVx * cellSize, localVy * cellSize, Context.Document.GetHeight(vx, vy));
 
-            var pos = new Vector3(x, y, z);
-            debugRenderer.DrawSphere(pos, 1.5f, color);
+            var worldPos = Context.LandscapeObjectService.ComputeWorldPosition(region, landblockId, localPos);
+            debugRenderer.DrawSphere(worldPos, 1.5f, color);
         }
 
         private void OnColorsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {

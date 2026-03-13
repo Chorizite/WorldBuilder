@@ -17,8 +17,8 @@ public partial class AddStaticObjectCommand : BaseCommand<bool> {
     /// <summary>The ID of the landscape layer to update.</summary>
     [MemoryPackOrder(11)] public string LayerId { get; set; } = string.Empty;
 
-    /// <summary>The landblock ID where the object is located.</summary>
-    [MemoryPackOrder(12)] public uint LandblockId { get; set; }
+    /// <summary>The landblock ID where the object is added.</summary>
+    [MemoryPackOrder(12)] public ushort LandblockId { get; set; }
 
     /// <summary>The static object to add.</summary>
     [MemoryPackOrder(13)] public StaticObject Object { get; set; } = new();
@@ -43,9 +43,9 @@ public partial class AddStaticObjectCommand : BaseCommand<bool> {
             if (rentResult.IsFailure) return Result<bool>.Failure(rentResult.Error);
 
             using var terrainRental = rentResult.Value;
-            await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
+            await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, tx, ct);
 
-            var result = await terrainRental.Document.UpsertStaticObjectAsync(Object, LandblockId, Object.CellId, null, null, tx, ct);
+            var result = await terrainRental.Document.UpsertStaticObjectAsync(Object, terrainRental.Document.RegionId, LandblockId, Object.CellId, null, null, tx, ct);
             return result.IsSuccess ? Result<bool>.Success(true) : Result<bool>.Failure(result.Error);
         }
         catch (Exception ex) {

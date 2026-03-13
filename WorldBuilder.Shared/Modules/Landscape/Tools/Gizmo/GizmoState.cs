@@ -151,7 +151,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
         public InspectorSelectionType SelectionType { get; set; }
 
         /// <summary>The selected object's landblock ID.</summary>
-        public uint LandblockId { get; set; }
+        public ushort LandblockId { get; set; }
 
         /// <summary>The selected object's instance ID.</summary>
         public ulong InstanceId { get; set; }

@@ -28,17 +28,8 @@ namespace WorldBuilder.Shared.Models {
                 }
                 else {
                     foreach (var (x, y) in affectedLandblocks) {
-                        var lbPrefix = (uint)((x << 24) | (y << 16));
-                        var lbId = lbPrefix | 0xFFFE;
-                        if (changeType == LandblockChangeType.Objects && x >= 0 && x < 256 && y >= 0 && y < 256) {
-                            // If it's a specific cellId being passed via the x/y hack (where x is cellId low word)
-                            // then we should invalidate just that cell.
-                            // NOTE: Currently LandscapeDocument.UpsertStaticObjectAsync passes landblock coords.
-                            _documentManager.LandscapeCacheService.InvalidateLandblock(Id, lbId);
-                        }
-                        else {
-                            _documentManager.LandscapeCacheService.InvalidateLandblock(Id, lbId);
-                        }
+                        var lbId = (ushort)((x << 8) | y);
+                        _documentManager.LandscapeCacheService.InvalidateLandblock(Id, lbId);
                     }
                 }
             }
@@ -117,7 +108,7 @@ namespace WorldBuilder.Shared.Models {
 
         /// <inheritdoc/>
         public override async Task InitializeForUpdatingAsync(IDatReaderWriter dats, IDocumentManager documentManager,
-            CancellationToken ct) {
+            ITransaction? tx, CancellationToken ct) {
             await _initLock.WaitAsync(ct);
             try {
                 _documentManager = documentManager;
@@ -126,7 +117,7 @@ namespace WorldBuilder.Shared.Models {
                 await LoadRegionDataAsync(dats);
                 await LoadBaseCacheAsync();
                 // LoadCacheFromDatsAsync is deferred until needed (e.g., during export or editing)
-                await LoadLayersAsync(documentManager, ct);
+                await LoadLayersAsync(documentManager, tx, ct);
             }
             finally {
                 _initLock.Release();
@@ -135,7 +126,7 @@ namespace WorldBuilder.Shared.Models {
 
         /// <inheritdoc/>
         public override async Task InitializeForEditingAsync(IDatReaderWriter dats, IDocumentManager documentManager,
-            CancellationToken ct) {
+            ITransaction? tx, CancellationToken ct) {
             await _initLock.WaitAsync(ct);
             try {
                 _documentManager = documentManager;
@@ -143,7 +134,7 @@ namespace WorldBuilder.Shared.Models {
                 _portalDatabase = dats.Portal;
                 await LoadRegionDataAsync(dats);
                 await LoadBaseCacheAsync();
-                await LoadLayersAsync(documentManager, ct);
+                await LoadLayersAsync(documentManager, tx, ct);
             }
             finally {
                 _initLock.Release();
@@ -325,6 +316,38 @@ namespace WorldBuilder.Shared.Models {
             }
 
             return WorldBuilder.Shared.Modules.Landscape.Lib.TerrainUtils.GetHeight(Region.Region, entries, lbX, lbY, localPos);
+        }
+
+        /// <summary>
+        /// Returns the surface normal at the given world coordinates.
+        /// </summary>
+        public Vector3 GetSurfaceNormal(Vector3 worldPos) {
+            if (Region == null) return Vector3.UnitZ;
+
+            var offset = Region.MapOffset;
+            var lbSize = Region.LandblockSizeInUnits;
+
+            float x = worldPos.X - offset.X;
+            float y = worldPos.Y - offset.Y;
+
+            uint lbX = (uint)Math.Floor(x / lbSize);
+            uint lbY = (uint)Math.Floor(y / lbSize);
+
+            if (lbX >= Region.MapWidthInLandblocks || lbY >= Region.MapHeightInLandblocks) return Vector3.UnitZ;
+
+            Vector3 localPos = new Vector3(x - lbX * lbSize, y - lbY * lbSize, 0);
+
+            var entries = new TerrainEntry[81];
+            for (int ly = 0; ly <= 8; ly++) {
+                for (int lx = 0; lx <= 8; lx++) {
+                    int vx = (int)(lbX * 8 + lx);
+                    int vy = (int)(lbY * 8 + ly);
+                    uint vertexIndex = (uint)Region.GetVertexIndex(vx, vy);
+                    entries[lx * 9 + ly] = GetCachedEntry(vertexIndex);
+                }
+            }
+
+            return WorldBuilder.Shared.Modules.Landscape.Lib.TerrainUtils.GetNormal(Region.Region, entries, lbX, lbY, localPos);
         }
 
         private void RemoveVertexInternal(string layerId, ushort chunkId, ushort localIndex) {
@@ -654,14 +677,14 @@ namespace WorldBuilder.Shared.Models {
             }
         }
 
-        public MergedLandblock GetMergedLandblock(uint landblockId) {
+        public MergedLandblock GetMergedLandblock(ushort landblockId) {
             if (_documentManager != null && _documentManager.LandscapeCacheService.TryGetLandblock(Id, landblockId, out var lb)) {
                 return lb!;
             }
             return new MergedLandblock();
         }
 
-        public async Task<MergedLandblock> GetMergedLandblockAsync(uint landblockId, IEnumerable<string>? layerIds = null) {
+        public async Task<MergedLandblock> GetMergedLandblockAsync(ushort landblockId, IEnumerable<string>? layerIds = null) {
             if (_documentManager?.LandscapeCacheService == null || _landscapeDataProvider == null) {
                 return new MergedLandblock();
             }
@@ -671,14 +694,14 @@ namespace WorldBuilder.Shared.Models {
                 _landscapeDataProvider.GetMergedLandblockAsync(landblockId, CellDatabase, PortalDatabase, filterLayerIds, BaseLayerId, CancellationToken.None));
         }
 
-        public async Task<IReadOnlyDictionary<uint, MergedLandblock>> GetMergedLandblocksAsync(IEnumerable<uint> landblockIds, IEnumerable<string>? layerIds = null) {
+        public async Task<IReadOnlyDictionary<ushort, MergedLandblock>> GetMergedLandblocksAsync(IEnumerable<ushort> landblockIds, IEnumerable<string>? layerIds = null) {
             if (_documentManager?.LandscapeCacheService == null || _landscapeDataProvider == null) {
-                return new Dictionary<uint, MergedLandblock>();
+                return new Dictionary<ushort, MergedLandblock>();
             }
 
             var ids = landblockIds.ToList();
-            var results = new Dictionary<uint, MergedLandblock>();
-            var missingIds = new List<uint>();
+            var results = new Dictionary<ushort, MergedLandblock>();
+            var missingIds = new List<ushort>();
 
             foreach (var id in ids) {
                 if (_documentManager.LandscapeCacheService.TryGetLandblock(Id, id, out var lb)) {
@@ -736,12 +759,12 @@ namespace WorldBuilder.Shared.Models {
             int lbX = (int)Math.Floor((worldPos.X - offset.X) / lbSize);
             int lbY = (int)Math.Floor((worldPos.Y - offset.Y) / lbSize);
 
-            var lbiList = new List<uint>();
+            var lbiList = new List<ushort>();
             for (int x = lbX - 1; x <= lbX + 1; x++) {
                 if (x < 0 || x >= Region.MapWidthInLandblocks) continue;
                 for (int y = lbY - 1; y <= lbY + 1; y++) {
                     if (y < 0 || y >= Region.MapHeightInLandblocks) continue;
-                    lbiList.Add(Region.GetLandblockId(x, y));
+                    lbiList.Add((ushort)((x << 8) | y));
                 }
             }
 
@@ -749,8 +772,8 @@ namespace WorldBuilder.Shared.Models {
             foreach (var lbId in lbiList) {
                 if (mergedLandblocks.TryGetValue(lbId, out var lb)) {
                     // Calculate LB origin to transform bounds to world space
-                    uint curLbX = (lbId >> 24) & 0xFF;
-                    uint curLbY = (lbId >> 16) & 0xFF;
+                    uint curLbX = (uint)(lbId >> 8) & 0xFF;
+                    uint curLbY = (uint)(lbId & 0xFF);
                     var lbOrigin = new Vector3(curLbX * lbSize + offset.X, curLbY * lbSize + offset.Y, 0);
 
                     foreach (var cellId in lb.EnvCellIds) {
@@ -773,33 +796,31 @@ namespace WorldBuilder.Shared.Models {
             return 0;
         }
 
-        public async Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint landblockId, uint? cellId, uint? oldLandblockId = null, uint? oldCellId = null, ITransaction? tx = null, CancellationToken ct = default) {
+        public async Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, ushort landblockId, uint? cellId, ushort? oldLandblockId = null, uint? oldCellId = null, ITransaction? tx = null, CancellationToken ct = default) {
             if (_documentManager == null) return Result<Unit>.Failure(Error.Failure("DocumentManager not initialized"));
             
-            var result = await _documentManager.UpsertStaticObjectAsync(obj, RegionId, landblockId, cellId, tx, ct);
+            var result = await _documentManager.UpsertStaticObjectAsync(obj, regionId, landblockId, cellId, tx, ct);
             if (result.IsSuccess) {
                 var affectedLandblocks = new List<(int, int)>();
                 
-                if (landblockId != 0) {
-                    affectedLandblocks.Add(((int)(landblockId >> 24), (int)((landblockId >> 16) & 0xFF)));
-                }
+                affectedLandblocks.Add((landblockId >> 8, landblockId & 0xFF));
                 
                 if (cellId.HasValue) {
                     _documentManager.LandscapeCacheService.InvalidateEnvCell(Id, cellId.Value);
                     // Also invalidate the landblock containing the cell just in case the renderer
                     // is using landblock-level caches (scenery renderer does this).
-                    var cellLb = cellId.Value & 0xFFFF0000;
-                    affectedLandblocks.Add(((int)(cellLb >> 24), (int)((cellLb >> 16) & 0xFF)));
+                    var cellLb = (ushort)(cellId.Value >> 16);
+                    affectedLandblocks.Add((cellLb >> 8, cellLb & 0xFF));
                 }
 
-                if (oldLandblockId.HasValue && oldLandblockId.Value != 0 && oldLandblockId.Value != landblockId) {
-                    affectedLandblocks.Add(((int)(oldLandblockId.Value >> 24), (int)((oldLandblockId.Value >> 16) & 0xFF)));
+                if (oldLandblockId.HasValue && oldLandblockId.Value != landblockId) {
+                    affectedLandblocks.Add((oldLandblockId.Value >> 8, oldLandblockId.Value & 0xFF));
                 }
 
                 if (oldCellId.HasValue && oldCellId.Value != cellId) {
                     _documentManager.LandscapeCacheService.InvalidateEnvCell(Id, oldCellId.Value);
-                    var oldCellLb = oldCellId.Value & 0xFFFF0000;
-                    affectedLandblocks.Add(((int)(oldCellLb >> 24), (int)((oldCellLb >> 16) & 0xFF)));
+                    var oldCellLb = (ushort)(oldCellId.Value >> 16);
+                    affectedLandblocks.Add((oldCellLb >> 8, oldCellLb & 0xFF));
                 }
 
                 if (affectedLandblocks.Count > 0) {
@@ -809,13 +830,14 @@ namespace WorldBuilder.Shared.Models {
             return result;
         }
 
-        public async Task<Result<Unit>> DeleteStaticObjectAsync(ulong instanceId, uint landblockId, ITransaction? tx = null, CancellationToken ct = default) {
+        public async Task<Result<Unit>> DeleteStaticObjectAsync(ulong instanceId, ushort landblockId, ITransaction? tx = null, CancellationToken ct = default) {
             if (_documentManager == null) return Result<Unit>.Failure(Error.Failure("DocumentManager not initialized"));
 
             var result = await _documentManager.DeleteStaticObjectAsync(instanceId, tx, ct);
             if (result.IsSuccess) {
+                _documentManager.LandscapeCacheService.InvalidateLandblock(Id, landblockId);
                 var affected = new List<(int, int)>();
-                affected.Add(((int)(landblockId >> 24), (int)((landblockId >> 16) & 0xFF)));
+                affected.Add((landblockId >> 8, landblockId & 0xFF));
                 NotifyLandblockChanged(affected, LandblockChangeType.Objects);
             }
             return result;

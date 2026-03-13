@@ -50,8 +50,7 @@ namespace WorldBuilder.Shared.Models {
             int processed = 0;
             // Export only affected landblocks
             foreach (var (lbX, lbY) in affectedLandblocks) {
-                var lbId = Region.GetLandblockId(lbX, lbY);
-                System.Console.WriteLine($"[DAT EXPORT] Processing landblock {lbX}, {lbY} (ID: 0x{lbId:X8})");
+                var lbId = (ushort)((lbX << 8) | lbY);
                 var lbFileId = ((uint)lbId << 16) | 0xFFFFu;
 
                 byte[] buffer = new byte[localSize * 10];
@@ -110,7 +109,7 @@ namespace WorldBuilder.Shared.Models {
 
                 System.Console.WriteLine($"[DAT EXPORT] Processing LandBlockInfo 0x{lbInfoId:X8} for landblock {lbX}, {lbY}...");
 
-                var mergedLb = await GetMergedLandblockAsync(lbInfoId, exportLayerIds);
+                var mergedLb = await GetMergedLandblockAsync(lbId, exportLayerIds);
                 var lbi = new LandBlockInfo();
 
                 bool lbiExists = datwriter.TryGetFileBytes(RegionId, lbInfoId, ref objBuffer, out objBytesRead);

@@ -42,7 +42,7 @@ namespace WorldBuilder.Shared.Modules.Landscape {
             var rentResult = await _documentManager.RentDocumentAsync<LandscapeDocument>(id, null, ct);
             DocumentRental<LandscapeDocument> terrainRental = rentResult.Value;
 
-            await terrainRental.Document.InitializeForEditingAsync(_dats, _documentManager, ct);
+            await terrainRental.Document.InitializeForEditingAsync(_dats, _documentManager, null, ct);
 
             // If there are no layers, it means the document has not been initialized with a base layer yet
             if (!terrainRental.Document.GetAllLayers().Any()) {

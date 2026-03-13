@@ -28,18 +28,18 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
         }
 
         /// <inheritdoc/>
-        public async Task<MergedLandblock> GetMergedLandblockAsync(uint landblockId, IDatDatabase? cellDatabase, IDatDatabase? portalDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct) {
+        public async Task<MergedLandblock> GetMergedLandblockAsync(ushort landblockId, IDatDatabase? cellDatabase, IDatDatabase? portalDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct) {
             var merged = new MergedLandblock();
             var visibleLayers = new HashSet<string>(visibleLayerIds);
             var effectiveBaseLayerId = baseLayerId ?? string.Empty;
 
             // 1. Parse base from DAT
-            var lbFileId = (landblockId & 0xFFFF0000) | 0xFFFE;
+            var lbFileId = ((uint)landblockId << 16) | 0xFFFE;
 
             if (cellDatabase != null) {
                 if (cellDatabase.TryGet<LandBlockInfo>(lbFileId, out var lbi) && lbi != null) {
                     for (uint i = 0; i < lbi.NumCells; i++) {
-                        merged.EnvCellIds.Add((lbFileId & 0xFFFF0000) | (0x0100 + i));
+                        merged.EnvCellIds.Add(((uint)landblockId << 16) | (0x0100 + i));
                     }
 
                     for (int i = 0; i < (lbi.Objects?.Count ?? 0); i++) {
@@ -77,6 +77,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
             if (repoObjects != null) {
                 foreach (var obj in repoObjects) {
                     if (!visibleLayers.Contains(obj.LayerId)) continue;
+                    if (obj.CellId.HasValue) continue;
+
                     if (obj.IsDeleted) {
                         merged.StaticObjects.Remove(obj.InstanceId);
                     } else {
@@ -110,8 +112,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
         }
 
         /// <inheritdoc/>
-        public async Task<IReadOnlyDictionary<uint, MergedLandblock>> GetMergedLandblocksAsync(IEnumerable<uint> landblockIds, IDatDatabase? cellDatabase, IDatDatabase? portalDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct) {
-            var results = new Dictionary<uint, MergedLandblock>();
+        public async Task<IReadOnlyDictionary<ushort, MergedLandblock>> GetMergedLandblocksAsync(IEnumerable<ushort> landblockIds, IDatDatabase? cellDatabase, IDatDatabase? portalDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct) {
+            var results = new Dictionary<ushort, MergedLandblock>();
             var ids = landblockIds.ToList();
             if (ids.Count == 0) return results;
 
@@ -123,12 +125,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                 var merged = new MergedLandblock();
                 results[landblockId] = merged;
 
-                var lbFileId = (landblockId & 0xFFFF0000) | 0xFFFE;
+                var lbFileId = ((uint)landblockId << 16) | 0xFFFE;
 
                 if (cellDatabase != null) {
                     if (cellDatabase.TryGet<LandBlockInfo>(lbFileId, out var lbi) && lbi != null) {
                         for (uint i = 0; i < lbi.NumCells; i++) {
-                            merged.EnvCellIds.Add((lbFileId & 0xFFFF0000) | (0x0100 + i));
+                            merged.EnvCellIds.Add(((uint)landblockId << 16) | (0x0100 + i));
                         }
 
                         for (int i = 0; i < (lbi.Objects?.Count ?? 0); i++) {
@@ -169,6 +171,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                     if (results.TryGetValue(kvp.Key, out var merged)) {
                         foreach (var obj in kvp.Value) {
                             if (!visibleLayers.Contains(obj.LayerId)) continue;
+                            if (obj.CellId.HasValue) continue;
+
                             if (obj.IsDeleted) {
                                 merged.StaticObjects.Remove(obj.InstanceId);
                             } else {

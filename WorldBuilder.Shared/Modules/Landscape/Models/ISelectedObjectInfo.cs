@@ -4,7 +4,7 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     public interface ISelectedObjectInfo {
         InspectorSelectionType Type { get; }
-        uint LandblockId { get; set; }
+        ushort LandblockId { get; set; }
         uint? CellId { get; set; }
         ulong InstanceId { get; set; }
         uint ObjectId { get; }

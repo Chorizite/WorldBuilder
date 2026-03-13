@@ -73,7 +73,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var localRegion = region;
             var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = System.Environment.ProcessorCount };
             Parallel.ForEach(validBlocks, parallelOptions, block => {
-                var landblockID = localRegion!.GetLandblockId((int)block.lx, (int)block.ly);
+                ushort landblockID = (ushort)((block.lx << 8) | block.ly);
                 var (lbMinZ, lbMaxZ) = GenerateLandblockGeometry(
                     block.lx, block.ly, landblockID,
                     localRegion!, surfaceManager, terrainCache.Span,
@@ -105,7 +105,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public static (float minZ, float maxZ) GenerateLandblockGeometry(
             uint landblockX,
             uint landblockY,
-            uint landblockID,
+            ushort landblockID,
             ITerrainInfo region,
             LandSurfaceManager surfaceManager,
             ReadOnlySpan<TerrainEntry> terrainCache,
@@ -144,7 +144,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private static (float minZ, float maxZ) GenerateCell(
             float baseLandblockX, float baseLandblockY, uint cellX, uint cellY,
             uint landblockX, uint landblockY,
-            uint landblockID,
+            ushort landblockID,
             ITerrainInfo region,
             LandSurfaceManager surfaceManager,
             ReadOnlySpan<TerrainEntry> terrainCache,

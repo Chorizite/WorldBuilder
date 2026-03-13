@@ -15,7 +15,7 @@ public partial class SceneryViewModel : SelectedObjectViewModelBase {
 
     public string ObjectIdHex => $"0x{ObjectId:X8}";
 
-    public SceneryViewModel(uint objectId, ulong instanceId, uint landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation) 
+    public SceneryViewModel(uint objectId, ulong instanceId, ushort landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation) 
         : base(instanceId, landblockId, position, localPosition, rotation) {
         ObjectIdVal = objectId;
     }

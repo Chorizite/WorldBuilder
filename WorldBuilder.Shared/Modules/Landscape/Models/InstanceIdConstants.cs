@@ -42,11 +42,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         }
 
         public static ulong EncodeStaticObject(uint landblockId, ushort index) {
-            return Encode(InspectorSelectionType.StaticObject, ObjectState.Original, landblockId, index);
+            // landblockId can be 0xXXYY, 0xXXYY0000, or 0xXXYYFFFF
+            uint lb = (landblockId & 0xFFFF0000) != 0 ? (landblockId >> 16) : landblockId;
+            return Encode(InspectorSelectionType.StaticObject, ObjectState.Original, lb, index);
         }
 
         public static ulong EncodeBuilding(uint landblockId, ushort index) {
-            return Encode(InspectorSelectionType.Building, ObjectState.Original, landblockId, index);
+            uint lb = (landblockId & 0xFFFF0000) != 0 ? (landblockId >> 16) : landblockId;
+            return Encode(InspectorSelectionType.Building, ObjectState.Original, lb, index);
         }
     }
 }

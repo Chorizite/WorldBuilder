@@ -15,7 +15,7 @@ public partial class BuildingViewModel : SelectedObjectViewModelBase {
 
     public string ModelIdHex => $"0x{ModelId:X8}";
 
-    public BuildingViewModel(uint modelId, ulong instanceId, uint landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation) 
+    public BuildingViewModel(uint modelId, ulong instanceId, ushort landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation) 
         : base(instanceId, landblockId, position, localPosition, rotation) {
         ModelId = modelId;
     }
