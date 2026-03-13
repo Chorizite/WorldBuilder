@@ -16,7 +16,7 @@
                 <Button Grid.Column="1" 
                         Content="Delete" 
                         Command="{Binding DeleteCommand}" 
-                        IsVisible="{Binding IsEditable}"
+                        IsVisible="{Binding ShowDeleteButton}"
                         Classes="danger"
                         Padding="8,4"
                         FontSize="12" />
