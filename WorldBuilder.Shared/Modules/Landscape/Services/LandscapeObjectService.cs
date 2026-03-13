@@ -87,7 +87,7 @@ public class LandscapeObjectService : ILandscapeObjectService {
     }
 
     public async Task MoveStaticObjectAsync(LandscapeDocument doc, CommandHistory commandHistory, string layerId, ushort oldLandblockId, ushort newLandblockId, StaticObject oldObject, StaticObject newObject) {
-        var command = new MoveStaticObjectCommand(null!, layerId, oldLandblockId, newLandblockId, oldObject, newObject);
+        var command = new MoveStaticObjectCommand(doc, null, layerId, oldLandblockId, newLandblockId, oldObject, newObject);
         commandHistory.Execute(command);
     }
 

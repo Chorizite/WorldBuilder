@@ -33,14 +33,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
         public BoundingBox? Bounds => _bounds;
 
         public MoveStaticObjectCommand(
-            LandscapeToolContext context,
+            LandscapeDocument doc,
+            LandscapeToolContext? context,
             string layerId,
             ushort oldLandblockId,
             ushort newLandblockId,
             StaticObject oldObject,
             StaticObject newObject,
             BoundingBox? bounds = null) {
-            _context = context;
+            _context = context!;
             _layerId = layerId;
             _oldLandblockId = oldLandblockId;
             _newLandblockId = newLandblockId;
@@ -64,7 +65,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
             bool containerChanged = newLandblockId != oldLandblockId || newObject.CellId != oldObject.CellId || _newType != _oldType;
             
             if (containerChanged) {
-                newInstanceId = InstanceIdGenerator.GenerateUniqueInstanceId(_context, newLandblockId, newObject.CellId, _newType, _oldObject.InstanceId);
+                newInstanceId = InstanceIdGenerator.GenerateUniqueInstanceId(doc, newLandblockId, newObject.CellId, _newType, _oldObject.InstanceId);
             }
 
             _newObject = new StaticObject {

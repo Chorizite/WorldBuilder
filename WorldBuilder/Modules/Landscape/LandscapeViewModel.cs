@@ -449,6 +449,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             _gameScene?.SetToolContext(_toolContext);
             _gameScene?.SetActiveTool(ActiveTool);
 
+            ActiveTool?.Deactivate();
             ActiveTool?.Activate(_toolContext);
         }
         else {
@@ -659,6 +660,7 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
             };
 
             var command = new MoveStaticObjectCommand(
+                activeDoc,
                 _toolContext,
                 layerId,
                 info.LandblockId,

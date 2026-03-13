@@ -3,6 +3,7 @@ using WorldBuilder.Shared.Modules.Landscape.Tools;
 namespace WorldBuilder.Shared.Modules.Landscape.Commands {
     public class CompoundCommand : ICommand {
         private readonly List<ICommand> _commands = new List<ICommand>();
+        public IEnumerable<ICommand> Commands => _commands;
         private readonly Action? _onBegin;
         private readonly Action? _onEnd;
 
