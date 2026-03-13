@@ -45,7 +45,6 @@ public class GameScene : IDisposable {
     private IShader? _sceneryShader;
     private IShader? _stencilShader;
     private IShader? _outlineShader;
-    private ManagedGLUniformBuffer? _sceneDataBuffer;
     private bool _initialized;
     private int _width;
     private int _height;
@@ -307,8 +306,6 @@ public class GameScene : IDisposable {
         var oFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Outline.frag");
         _outlineShader = _graphicsDevice.CreateShader("Outline", oVertSource, oFragSource);
 
-        _sceneDataBuffer = new ManagedGLUniformBuffer(_graphicsDevice, Chorizite.Core.Render.Enums.BufferUsage.Dynamic, System.Runtime.InteropServices.Marshal.SizeOf<SceneData>());
-
         _initialized = true;
 
         foreach (var manager in _renderManagers) {
@@ -410,7 +407,7 @@ public class GameScene : IDisposable {
         _skyboxManager.TimeOfDay = _state.TimeOfDay;
         _skyboxManager.LightIntensity = _state.LightIntensity;
         if (_initialized && _sceneryShader != null) {
-            _skyboxManager.Initialize(_sceneryShader, _sceneDataBuffer!);
+            _skyboxManager.Initialize(_sceneryShader, _graphicsDevice.SceneDataBuffer);
         }
 
         _renderManagers.Add(_terrainManager);
@@ -810,8 +807,8 @@ public class GameScene : IDisposable {
             SpecularPower = 32.0f,
             ViewportSize = new Vector2(_width, _height)
         };
-        _sceneDataBuffer?.SetData(ref sceneData);
-        _sceneDataBuffer?.Bind(0);
+        _graphicsDevice.SceneDataBuffer.SetData(ref sceneData);
+        _graphicsDevice.SceneDataBuffer.Bind(0);
 
         var sw = Stopwatch.StartNew();
 
@@ -1031,7 +1028,7 @@ public class GameScene : IDisposable {
         if (managers.All(m => !m.SelectedInstance.HasValue && !m.HoveredInstance.HasValue)) return;
 
         using var glScope = new GLStateScope(_gl);
-        _sceneDataBuffer?.Bind(0);
+        _graphicsDevice.SceneDataBuffer.Bind(0);
 
         _gl.Enable(EnableCap.StencilTest);
         _gl.StencilMask(0xFF);
@@ -1159,6 +1156,5 @@ public class GameScene : IDisposable {
         (_terrainShader as IDisposable)?.Dispose();
         (_sceneryShader as IDisposable)?.Dispose();
         (_stencilShader as IDisposable)?.Dispose();
-        _sceneDataBuffer?.Dispose();
-    }
-}
+        }
+        }

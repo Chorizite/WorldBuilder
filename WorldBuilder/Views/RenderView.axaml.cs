@@ -68,7 +68,7 @@ public partial class RenderView : Base3DViewport {
             var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
             var surfaceManagerService = projectManager?.GetProjectService<SurfaceManagerService>();
             if (surfaceManagerService != null && _cachedSurfaceManager != null) {
-                surfaceManagerService.ReleaseSurfaceManager(_cachedDats, _cachedLandscapeDocument.RegionId);
+                surfaceManagerService.ReleaseSurfaceManager(this, _cachedDats, _cachedLandscapeDocument.RegionId);
                 _cachedSurfaceManager = null;
             }
         }
@@ -317,9 +317,9 @@ public partial class RenderView : Base3DViewport {
 
             if (surfaceManagerService != null && _pendingLandscapeDocument.Region != null) {
                 if (_cachedSurfaceManager != null && _cachedLandscapeDocument != null) {
-                    surfaceManagerService.ReleaseSurfaceManager(_pendingDatReader, _cachedLandscapeDocument.RegionId);
+                    surfaceManagerService.ReleaseSurfaceManager(this, _pendingDatReader, _cachedLandscapeDocument.RegionId);
                 }
-                _cachedSurfaceManager = surfaceManagerService.GetSurfaceManager(Renderer!.GraphicsDevice, _pendingDatReader, _pendingLandscapeDocument.Region.Region, _pendingLandscapeDocument.RegionId);
+                _cachedSurfaceManager = surfaceManagerService.GetSurfaceManager(this, Renderer!.GraphicsDevice, _pendingDatReader, _pendingLandscapeDocument.Region.Region, _pendingLandscapeDocument.RegionId);
             }
 
             _gameScene.SetLandscape(_pendingLandscapeDocument, _pendingDatReader, documentManager!, meshManager, _cachedSurfaceManager, centerCamera: false);

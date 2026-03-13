@@ -54,7 +54,6 @@ namespace Chorizite.OpenGLSDLBackend {
 
         private DebugRenderer? _debugRenderer;
         private IShader? _lineShader;
-        private ManagedGLUniformBuffer? _sceneDataBuffer;
 
         public ICamera Camera => _camera;
 
@@ -171,15 +170,14 @@ namespace Chorizite.OpenGLSDLBackend {
             }
 
             _debugRenderer = new DebugRenderer(Gl, GraphicsDevice);
-            var vertSourceLine = EmbeddedResourceReader.GetEmbeddedResource("Shaders.InstancedLine.vert");
-            var fragSourceLine = EmbeddedResourceReader.GetEmbeddedResource("Shaders.InstancedLine.frag");
-            _lineShader = GraphicsDevice.CreateShader("InstancedLine", vertSourceLine, fragSourceLine);
-            _debugRenderer.SetShader(_lineShader);
-
-            _sceneDataBuffer = new ManagedGLUniformBuffer(GraphicsDevice, Chorizite.Core.Render.Enums.BufferUsage.Dynamic, System.Runtime.InteropServices.Marshal.SizeOf<SceneData>());
+            var lVertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.InstancedLine.vert");
+            var lFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.InstancedLine.frag");
+            _lineShader = GraphicsDevice.CreateShader("InstancedLine", lVertSource, lFragSource);
+            _debugRenderer?.SetShader(_lineShader);
 
             _initialized = true;
         }
+
 
         public async Task LoadObjectAsync(uint fileId, bool isSetup) {
             _loadingFileId = fileId;
@@ -380,10 +378,9 @@ namespace Chorizite.OpenGLSDLBackend {
                     AmbientColor = new Vector3(0.4f, 0.4f, 0.4f),
                     SpecularPower = 16.0f,
                     ViewportSize = new Vector2(_width, _height)
-                };
-                _sceneDataBuffer?.SetData(ref sceneData);
-                _sceneDataBuffer?.Bind(0);
-
+                    };
+                    GraphicsDevice.SceneDataBuffer.SetData(ref sceneData);
+                    GraphicsDevice.SceneDataBuffer.Bind(0);
                 // Disable alpha channel writes so we don't punch holes in the window's alpha
                 // where transparent 3D objects are drawn.
                 Gl.ColorMask(true, true, true, false);
@@ -515,7 +512,6 @@ namespace Chorizite.OpenGLSDLBackend {
             _debugRenderer?.Dispose();
             (_shader as IDisposable)?.Dispose();
             (_lineShader as IDisposable)?.Dispose();
-            _sceneDataBuffer?.Dispose();
             ReleaseCurrentObject();
             if (_ownsMeshManager) {
                 MeshManager.Dispose();
