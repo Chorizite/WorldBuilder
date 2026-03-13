@@ -11,6 +11,8 @@ using DatReaderWriter.DBObjs;
 using DatReaderWriter.Types;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Repositories;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace WorldBuilder.Shared.Tests.Modules.Landscape {
     public class LandscapeDocumentMergingTests {
@@ -62,11 +64,12 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             chunk.EditsDetached = new TerrainPatchDocument(TerrainPatchDocument.GetId(_regionId, chunk.ChunkX, chunk.ChunkY));
             _doc.LoadedChunks[chunkId] = chunk;
 
+            var instanceId = ObjectId.FromDat(ObjectType.StaticObject, 0, landblockId, 100);
             var obj = new StaticObject {
-                SetupId = 0x01000001,
+                ModelId = 0x01000001,
                 Position = new Vector3(1.0f, 2.0f, 3.0f),
                 Rotation = Quaternion.Identity,
-                InstanceId = 100,
+                InstanceId = instanceId,
                 LayerId = layerId
             };
 
@@ -78,7 +81,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             var merged = await _doc.GetMergedLandblockAsync(landblockId);
 
             // Assert
-            Assert.Contains(merged.StaticObjects.Values, o => o.InstanceId == 100 && o.SetupId == 0x01000001);
+            Assert.Contains(merged.StaticObjects.Values, o => o.InstanceId == instanceId && o.ModelId == 0x01000001);
         }
 
         [Fact]
@@ -95,7 +98,8 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             chunk.EditsDetached = new TerrainPatchDocument(TerrainPatchDocument.GetId(_regionId, chunk.ChunkX, chunk.ChunkY));
             _doc.LoadedChunks[chunkId] = chunk;
 
-            var obj = new StaticObject { InstanceId = 100, LayerId = layerId };
+            var instanceId = ObjectId.FromDat(ObjectType.StaticObject, 0, landblockId, 100);
+            var obj = new StaticObject { InstanceId = instanceId, LayerId = layerId };
             _mockRepo.Setup(r => r.GetStaticObjectsAsync(landblockId, null, It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<StaticObject> { obj });
 
@@ -103,7 +107,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             var merged = await _doc.GetMergedLandblockAsync(landblockId);
 
             // Assert
-            Assert.DoesNotContain(merged.StaticObjects.Values, o => o.InstanceId == 100);
+            Assert.DoesNotContain(merged.StaticObjects.Values, o => o.InstanceId == instanceId);
         }
 
         [Fact]
@@ -113,12 +117,15 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             uint lbFileId = ((uint)landblockId << 16) | 0xFFFE;
 
             // Mock base object in DAT
-            var lbi = new LandBlockInfo();
+            LandBlockInfo lbi = new LandBlockInfo();
             lbi.Objects.Add(new Stab { Id = 0x1234, Frame = new Frame() });
 
-            byte[]? dummyBytes = new byte[1];
+#pragma warning disable CS8600
+            byte[] dummyBytes = new byte[1];
             _mockCellDatabase.Setup(db => db.TryGetFileBytes(lbFileId, out dummyBytes)).Returns(true);
-            _mockCellDatabase.Setup(db => db.TryGet<LandBlockInfo>(lbFileId, out lbi)).Returns(true);
+            LandBlockInfo outLbi = lbi;
+            _mockCellDatabase.Setup(db => db.TryGet<LandBlockInfo>(lbFileId, out outLbi)).Returns(true);
+#pragma warning restore CS8600
 
             string layerId = "Layer1";
             _doc.AddLayer([], "Layer 1", false, layerId);
@@ -157,11 +164,12 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             chunk.EditsDetached = new TerrainPatchDocument(TerrainPatchDocument.GetId(_regionId, chunk.ChunkX, chunk.ChunkY));
             _doc.LoadedChunks[chunkId] = chunk;
 
+            var instanceId = ObjectId.FromDat(ObjectType.Building, 0, landblockId, 200);
             var bldg = new BuildingObject {
                 ModelId = 0x01000002,
                 Position = new Vector3(4.0f, 5.0f, 6.0f),
                 Rotation = Quaternion.Identity,
-                InstanceId = 200,
+                InstanceId = instanceId,
                 LayerId = layerId
             };
 
@@ -172,7 +180,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             var merged = await _doc.GetMergedLandblockAsync(landblockId);
 
             // Assert
-            Assert.Contains(merged.Buildings.Values, b => b.InstanceId == 200 && b.ModelId == 0x01000002);
+            Assert.Contains(merged.Buildings.Values, b => b.InstanceId == instanceId && b.ModelId == 0x01000002);
         }
 
         [Fact]
@@ -198,11 +206,12 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             _doc.LoadedChunks[chunkId] = chunk;
 
             // Add an object to this cell in the repository
-            var obj = new StaticObject { InstanceId = 500, SetupId = 0x01000005, LayerId = layerId };
+            var instanceId = ObjectId.FromDat(ObjectType.EnvCellStaticObject, 0, cellId, 500);
+            var obj = new StaticObject { InstanceId = instanceId, ModelId = 0x01000005, LayerId = layerId };
             var repoCell = new Cell {
                 EnvironmentId = 10,
                 Flags = 0,
-                StaticObjects = new Dictionary<ulong, StaticObject> { { obj.InstanceId, obj } }
+                StaticObjects = new Dictionary<ObjectId, StaticObject> { { obj.InstanceId, obj } }
             };
 
             _mockRepo.Setup(r => r.GetEnvCellAsync(cellId, It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
@@ -216,8 +225,8 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
             var merged = await _doc.GetMergedEnvCellAsync(cellId);
 
             // Assert
-            Xunit.Assert.Equal((uint)10, merged.EnvironmentId);
-            Assert.Contains(merged.StaticObjects.Values, o => o.InstanceId == 500);
+            Xunit.Assert.Equal((ushort)10, merged.EnvironmentId);
+            Assert.Contains(merged.StaticObjects.Values, o => o.InstanceId == instanceId);
         }
 
         [Fact]

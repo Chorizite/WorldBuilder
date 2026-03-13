@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using System;
 using System.Numerics;
 using WorldBuilder.Shared.Lib;
+using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.ViewModels;
@@ -9,11 +10,11 @@ using WorldBuilder.ViewModels;
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 
 public abstract partial class SelectedObjectViewModelBase : ViewModelBase, ISelectedObjectInfo {
-    public abstract InspectorSelectionType Type { get; }
+    public abstract ObjectType Type { get; }
     
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(InstanceIdHex))]
-    private ulong _instanceId;
+    private ObjectId _instanceId;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(LandblockIdHex))]
@@ -77,11 +78,11 @@ public abstract partial class SelectedObjectViewModelBase : ViewModelBase, ISele
     public virtual int VertexX => 0;
     public virtual int VertexY => 0;
 
-    public string InstanceIdHex => $"0x{InstanceId:X16}";
+    public string InstanceIdHex => InstanceId.ToString();
     public string LandblockIdHex => $"0x{LandblockId:X4}";
     public virtual string CellIdHex => CellId.HasValue ? $"0x{CellId.Value:X8}" : "None";
 
-    protected SelectedObjectViewModelBase(ulong instanceId, ushort landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation) {
+    protected SelectedObjectViewModelBase(ObjectId instanceId, ushort landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation) {
         InstanceId = instanceId;
         LandblockId = landblockId;
         Position = position;

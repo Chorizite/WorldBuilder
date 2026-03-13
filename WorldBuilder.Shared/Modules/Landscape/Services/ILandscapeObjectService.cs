@@ -35,7 +35,7 @@ public interface ILandscapeObjectService {
     /// <summary>
     /// Gets the layer ID for a specific static object instance.
     /// </summary>
-    string? GetStaticObjectLayerId(LandscapeDocument doc, ushort landblockId, ulong instanceId);
+    string? GetStaticObjectLayerId(LandscapeDocument doc, ushort landblockId, ObjectId instanceId);
 
     /// <summary>
     /// Moves a static object to a new position and rotation, with optional cell assignment.

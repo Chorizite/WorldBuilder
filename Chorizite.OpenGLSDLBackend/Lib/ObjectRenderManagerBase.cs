@@ -405,7 +405,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Updates the transform of a specific instance in its owner landblock.
         /// This is used for realtime previews during manipulation.
         /// </summary>
-        public virtual void UpdateInstanceTransform(ushort landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
+        public virtual void UpdateInstanceTransform(ushort landblockId, ObjectId instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
             ushort key = landblockId;
             if (_landblocks.TryGetValue(key, out var lb)) {
                 lock (lb) {
@@ -501,7 +501,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>
         /// Gets the world bounding box for a specific static object instance.
         /// </summary>
-        public WorldBuilder.Shared.Lib.BoundingBox? GetInstanceBounds(ushort landblockId, ulong instanceId) {
+        public WorldBuilder.Shared.Lib.BoundingBox? GetInstanceBounds(ushort landblockId, ObjectId instanceId) {
             ushort key = landblockId;
             if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) return null;
 
@@ -520,7 +520,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>
         /// Gets the local bounding box for a specific static object instance.
         /// </summary>
-        public WorldBuilder.Shared.Lib.BoundingBox? GetInstanceLocalBounds(ushort landblockId, ulong instanceId) {
+        public WorldBuilder.Shared.Lib.BoundingBox? GetInstanceLocalBounds(ushort landblockId, ObjectId instanceId) {
             ushort key = landblockId;
             if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) return null;
 
@@ -536,7 +536,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return null;
         }
 
-        public (Vector3 position, Quaternion rotation, Vector3 localPosition)? GetInstanceTransform(ushort landblockId, ulong instanceId) {
+        public (Vector3 position, Quaternion rotation, Vector3 localPosition)? GetInstanceTransform(ushort landblockId, ObjectId instanceId) {
             ushort key = landblockId;
             if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) return null;
 
@@ -686,12 +686,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             lb.StaticPartGroups.Clear();
             lb.BuildingPartGroups.Clear();
             foreach (var instance in instances) {
-                var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
+                var cellId = instance.InstanceId.Index;
                 PopulateRecursive(lb.StaticPartGroups, instance.ObjectId, instance.IsSetup, instance.Transform, cellId);
             }
         }
 
-        private void PopulateRecursive(Dictionary<ulong, List<InstanceData>> groups, ulong objectId, bool isSetup, Matrix4x4 transform, uint cellId) {
+        protected void PopulateRecursive(Dictionary<ulong, List<InstanceData>> groups, ulong objectId, bool isSetup, Matrix4x4 transform, uint cellId) {
             if (isSetup) {
                 var renderData = MeshManager.TryGetRenderData(objectId);
                 if (renderData is { IsSetup: true }) {
@@ -1064,13 +1064,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 var partRenderData = MeshManager.TryGetRenderData(partId);
                                 if (partRenderData != null) {
                                     drawCalls.Add((partRenderData, 1, allInstances.Count));
-                                    allInstances.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = InstanceIdConstants.GetRawId(instance.InstanceId) });
+                                    allInstances.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = instance.InstanceId.Index });
                                 }
                             }
                         }
                         else {
                             drawCalls.Add((renderData, 1, 0));
-                            allInstances.Add(new InstanceData { Transform = instance.Transform, CellId = InstanceIdConstants.GetRawId(instance.InstanceId) });
+                            allInstances.Add(new InstanceData { Transform = instance.Transform, CellId = instance.InstanceId.Index });
                         }
 
                         if (_useModernRendering && (shader == null || shader == _shader)) {

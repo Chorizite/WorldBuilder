@@ -1,6 +1,7 @@
 using MemoryPack;
 using System.Collections.Generic;
 using System.Numerics;
+using WorldBuilder.Shared.Models;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Models {
     /// <summary>
@@ -56,7 +57,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         /// <summary>
         /// Objects in this Cell
         /// </summary>
-        [MemoryPackOrder(9)] public Dictionary<ulong, StaticObject> StaticObjects { get; init; } = [];
+        [MemoryPackOrder(9)] public Dictionary<ObjectId, StaticObject> StaticObjects { get; init; } = [];
 
         /// <summary>
         /// The Landscape Layer responsible for owning this Cell

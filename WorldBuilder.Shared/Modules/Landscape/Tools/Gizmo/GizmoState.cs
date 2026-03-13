@@ -1,6 +1,7 @@
 using System;
 using System.Numerics;
 using WorldBuilder.Shared.Lib;
+using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
@@ -148,13 +149,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo {
         public float RotationAngle { get; set; }
 
         /// <summary>The selected object's selection type.</summary>
-        public InspectorSelectionType SelectionType { get; set; }
+        public ObjectType SelectionType { get; set; }
 
         /// <summary>The selected object's landblock ID.</summary>
         public ushort LandblockId { get; set; }
 
         /// <summary>The selected object's instance ID.</summary>
-        public ulong InstanceId { get; set; }
+        public ObjectId InstanceId { get; set; }
 
         /// <summary>The selected object's setup/model ID.</summary>
         public uint ObjectId { get; set; }

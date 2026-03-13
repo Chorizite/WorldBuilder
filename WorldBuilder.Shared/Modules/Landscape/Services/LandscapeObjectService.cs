@@ -54,11 +54,11 @@ public class LandscapeObjectService : ILandscapeObjectService {
         return (ushort)((landblockId >> 16) & 0xFFFF);
     }
 
-    public string? GetStaticObjectLayerId(LandscapeDocument doc, ushort landblockId, ulong instanceId) {
-        var type = InstanceIdConstants.GetType(instanceId);
+    public string? GetStaticObjectLayerId(LandscapeDocument doc, ushort landblockId, ObjectId instanceId) {
+        var type = instanceId.Type;
 
-        if (type == InspectorSelectionType.EnvCellStaticObject) {
-            var cellId = InstanceIdConstants.GetRawId(instanceId);
+        if (type == ObjectType.EnvCellStaticObject) {
+            var cellId = instanceId.Context;
             var mergedCell = doc.GetMergedEnvCell(cellId);
             if (mergedCell.StaticObjects != null && mergedCell.StaticObjects.TryGetValue(instanceId, out var obj)) {
                 return obj.LayerId;
@@ -66,26 +66,22 @@ public class LandscapeObjectService : ILandscapeObjectService {
             return null;
         }
 
-        if (type == InspectorSelectionType.EnvCell) {
-            var cellId = InstanceIdConstants.GetRawId(instanceId);
+        if (type == ObjectType.EnvCell) {
+            var cellId = instanceId.Context;
             var mergedCell = doc.GetMergedEnvCell(cellId);
             return mergedCell.LayerId;
         }
 
-        if (type == InspectorSelectionType.Portal || type == InspectorSelectionType.Scenery) {
+        if (type == ObjectType.Portal || type == ObjectType.Scenery) {
             return doc.BaseLayerId ?? string.Empty;
         }
 
         var merged = doc.GetMergedLandblock(landblockId);
-        foreach (var obj in merged.StaticObjects.Values) {
-            if (obj.InstanceId == instanceId) {
-                return obj.LayerId;
-            }
+        if (merged.StaticObjects.TryGetValue(instanceId, out var staticObj)) {
+            return staticObj.LayerId;
         }
-        foreach (var obj in merged.Buildings.Values) {
-            if (obj.InstanceId == instanceId) {
-                return obj.LayerId;
-            }
+        if (merged.Buildings.TryGetValue(instanceId, out var buildingObj)) {
+            return buildingObj.LayerId;
         }
         return null;
     }

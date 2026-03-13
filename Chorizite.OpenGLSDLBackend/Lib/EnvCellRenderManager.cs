@@ -108,8 +108,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // and floating point precision.
             var testPos = pos + new Vector3(0, 0, 0.1f);
             foreach (var instance in instances) {
-                var type = InstanceIdConstants.GetType(instance.InstanceId);
-                if (type != InspectorSelectionType.EnvCell) continue;
+                var type = instance.InstanceId.Type;
+                if (type != ObjectType.EnvCell) continue;
                 if (onlyEntryCells && !instance.IsEntryCell) continue;
 
                 // Expand the bounding box slightly (0.1 units) for the containment test
@@ -118,14 +118,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (testPos.X >= bbox.Min.X - 0.1f && testPos.X <= bbox.Max.X + 0.1f &&
                     testPos.Y >= bbox.Min.Y - 0.1f && testPos.Y <= bbox.Max.Y + 0.1f &&
                     testPos.Z >= bbox.Min.Z - 0.1f && testPos.Z <= bbox.Max.Z + 0.1f) {
-                    cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
+                    cellId = instance.InstanceId.Index;
                     return true;
                 }
             }
             return false;
         }
 
-        public virtual bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false, float maxDistance = float.MaxValue, ulong ignoreInstanceId = 0) {
+        public virtual bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false, float maxDistance = float.MaxValue, ObjectId ignoreInstanceId = default) {
             hit = SceneRaycastHit.NoHit;
 
             if (!isCollision && !_showEnvCells) return false;
@@ -143,11 +143,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 lock (lb) {
                     foreach (var instance in lb.Instances) {
-                        if (ignoreInstanceId != 0 && instance.InstanceId == ignoreInstanceId) continue;
+                        if (ignoreInstanceId != ObjectId.Empty && instance.InstanceId == ignoreInstanceId) continue;
 
-                        var type = InstanceIdConstants.GetType(instance.InstanceId);
-                        if (type == InspectorSelectionType.EnvCell && !includeCells) continue;
-                        if (type == InspectorSelectionType.EnvCellStaticObject && !includeStaticObjects) continue;
+                        var type = instance.InstanceId.Type;
+                        if (type == ObjectType.EnvCell && !includeCells) continue;
+                        if (type == ObjectType.EnvCellStaticObject && !includeStaticObjects) continue;
 
                         var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
                         if (renderData == null) continue;
@@ -168,14 +168,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.Hit = true;
                                 hit.Distance = d;
                                 hit.Type = type;
-                                if (type == InspectorSelectionType.EnvCell) {
-                                    hit.ObjectId = InstanceIdConstants.GetRawId(instance.InstanceId);
+                                if (type == ObjectType.EnvCell) {
+                                    hit.ObjectId = instance.InstanceId.Index;
                                 }
                                 else {
                                     hit.ObjectId = (uint)instance.ObjectId;
                                 }
                                 hit.InstanceId = instance.InstanceId;
-                                hit.SecondaryId = InstanceIdConstants.GetSecondaryId(instance.InstanceId);
+                                hit.SecondaryId = 0; // SecondaryId not used anymore in new system?
                                 hit.Position = rayOrigin + rayDirection * d;
                                 hit.LocalPosition = instance.LocalPosition;
                                 hit.Rotation = instance.Rotation;
@@ -224,9 +224,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Protected: Overrides
 
-        public override void UpdateInstanceTransform(ushort landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
-            var type = InstanceIdConstants.GetType(instanceId);
-            if (type == InspectorSelectionType.EnvCellStaticObject || type == InspectorSelectionType.EnvCell) {
+        public override void UpdateInstanceTransform(ushort landblockId, ObjectId instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
+            var type = instanceId.Type;
+            if (type == ObjectType.EnvCellStaticObject || type == ObjectType.EnvCell) {
                 ushort key = landblockId;
                 if (key == 0 || !_landblocks.ContainsKey(key)) {
                     foreach (var (lbKey, lb) in _landblocks) {
@@ -476,14 +476,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     Gl.PolygonOffset(-1.0f, -1.0f);
                     Gl.DepthFunc(GLEnum.Lequal);
                     if (SelectedInstance.HasValue) {
-                        var type = InstanceIdConstants.GetType(SelectedInstance.Value.InstanceId);
-                        if (type == InspectorSelectionType.EnvCell) {
+                        var type = SelectedInstance.Value.InstanceId.Type;
+                        if (type == ObjectType.EnvCell) {
                             RenderSelectedInstance(SelectedInstance.Value, LandscapeColorsSettings.Instance.EnvCellSelection, renderPass);
                         }
                     }
                     if (HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
-                        var type = InstanceIdConstants.GetType(HoveredInstance.Value.InstanceId);
-                        if (type == InspectorSelectionType.EnvCell) {
+                        var type = HoveredInstance.Value.InstanceId.Type;
+                        if (type == ObjectType.EnvCell) {
                             RenderSelectedInstance(HoveredInstance.Value, LandscapeColorsSettings.Instance.EnvCellHover, renderPass);
                         }
                     }
@@ -508,14 +508,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 currentShader.SetUniform("uOutlineWidth", outlineWidth);
 
                 if (selected && SelectedInstance.HasValue) {
-                    var type = InstanceIdConstants.GetType(SelectedInstance.Value.InstanceId);
-                    if (type == InspectorSelectionType.EnvCellStaticObject) {
+                    var type = SelectedInstance.Value.InstanceId.Type;
+                    if (type == ObjectType.EnvCellStaticObject) {
                         RenderSelectedInstance(SelectedInstance.Value, color ?? LandscapeColorsSettings.Instance.Selection, renderPass, currentShader);
                     }
                 }
                 if (hovered && HoveredInstance.HasValue && HoveredInstance != SelectedInstance) {
-                    var type = InstanceIdConstants.GetType(HoveredInstance.Value.InstanceId);
-                    if (type == InspectorSelectionType.EnvCellStaticObject) {
+                    var type = HoveredInstance.Value.InstanceId.Type;
+                    if (type == ObjectType.EnvCellStaticObject) {
                         RenderSelectedInstance(HoveredInstance.Value, color ?? LandscapeColorsSettings.Instance.Hover, renderPass, currentShader);
                     }
                 }
@@ -527,29 +527,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         protected override void PopulatePartGroups(ObjectLandblock lb, List<SceneryInstance> instances) {
-            lb.BuildingPartGroups.Clear(); // Using BuildingPartGroups for EnvCell parts
+            lb.StaticPartGroups.Clear();
+            lb.BuildingPartGroups.Clear();
             foreach (var instance in instances) {
-                var targetGroup = lb.BuildingPartGroups;
-                var cellId = instance.CurrentPreviewCellId != 0 ? instance.CurrentPreviewCellId : InstanceIdConstants.GetRawId(instance.InstanceId);
-                if (instance.IsSetup) {
-                    var renderData = MeshManager.TryGetRenderData(instance.ObjectId);
-                    if (renderData is { IsSetup: true }) {
-                        foreach (var (partId, partTransform) in renderData.SetupParts) {
-                            if (!targetGroup.TryGetValue(partId, out var list)) {
-                                list = new List<InstanceData>();
-                                targetGroup[partId] = list;
-                            }
-                            list.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = cellId });
-                        }
-                    }
-                }
-                else {
-                    if (!targetGroup.TryGetValue(instance.ObjectId, out var list)) {
-                        list = new List<InstanceData>();
-                        targetGroup[instance.ObjectId] = list;
-                    }
-                    list.Add(new InstanceData { Transform = instance.Transform, CellId = cellId });
-                }
+                var targetGroup = instance.IsBuilding ? lb.BuildingPartGroups : lb.StaticPartGroups;
+                var cellId = instance.InstanceId.Index;
+                PopulateRecursive(targetGroup, instance.ObjectId, instance.IsSetup, instance.Transform, cellId);
             }
         }
 
@@ -624,7 +607,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (cellDb != null && mergedLb.Buildings.Count > 0) {
                     if (cellDb.TryGet<LandBlockInfo>(lbFileId, out var lbi)) {
                         foreach (var building in mergedLb.Buildings.Values) {
-                            int index = InstanceIdConstants.GetObjectIndex(building.InstanceId);
+                            int index = building.InstanceId.Index;
                             if (index < lbi.Buildings.Count) {
                                 var bInfo = lbi.Buildings[index];
                                 // Start discovery from building portals
@@ -692,7 +675,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                                 instances.Add(new SceneryInstance {
                                     ObjectId = cellGeomId,
-                                    InstanceId = InstanceIdConstants.Encode(cellId, InspectorSelectionType.EnvCell),
+                                    InstanceId = ObjectId.FromDat(ObjectType.EnvCell, 0, cellId >> 16, (ushort)(cellId & 0xFFFF)),
                                     IsSetup = false,
                                     IsBuilding = true,
                                     IsEntryCell = entryCellIds.Contains(cellId),
@@ -721,13 +704,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 var stabWorldRot = stab.Rotation;
                                 var stabWorldTransform = Matrix4x4.CreateFromQuaternion(stabWorldRot) * Matrix4x4.CreateTranslation(stabWorldPos);
 
-                                var isSetup = (stab.SetupId >> 24) == 0x02;
-                                var bounds = MeshManager.GetBounds(stab.SetupId, isSetup);
+                                var isSetup = (stab.ModelId >> 24) == 0x02;
+                                var bounds = MeshManager.GetBounds(stab.ModelId, isSetup);
                                 var localBbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max) : default;
                                 var bbox = localBbox.Transform(stabWorldTransform);
 
                                 instances.Add(new SceneryInstance {
-                                    ObjectId = stab.SetupId,
+                                    ObjectId = stab.ModelId,
                                     InstanceId = stab.InstanceId,
                                     IsSetup = isSetup,
                                     IsBuilding = false,

@@ -132,8 +132,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                             for (int vy = 0; vy < 8; vy++) {
                                 int gvx = lbX * 8 + vx;
                                 int gvy = lbY * 8 + vy;
-                                if (Context.HoveredObject.Type == InspectorSelectionType.Vertex && Context.HoveredObject.VertexX == gvx && Context.HoveredObject.VertexY == gvy) continue;
-                                if (Context.SelectedObject.Type == InspectorSelectionType.Vertex && Context.SelectedObject.VertexX == gvx && Context.SelectedObject.VertexY == gvy) continue;
+                                if (Context.HoveredObject.Type == ObjectType.Vertex && Context.HoveredObject.VertexX == gvx && Context.HoveredObject.VertexY == gvy) continue;
+                                if (Context.SelectedObject.Type == ObjectType.Vertex && Context.SelectedObject.VertexX == gvx && Context.SelectedObject.VertexY == gvy) continue;
 
                                 DrawVertexDebug(debugRenderer, gvx, gvy, VertexColor);
                             }
@@ -142,10 +142,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 }
             }
 
-            if (Context.HoveredObject.Type == InspectorSelectionType.Vertex) {
+            if (Context.HoveredObject.Type == ObjectType.Vertex) {
                 DrawVertexDebug(debugRenderer, Context.HoveredObject.VertexX, Context.HoveredObject.VertexY, LandscapeColorsSettings.Instance.Hover);
             }
-            if (Context.SelectedObject.Type == InspectorSelectionType.Vertex) {
+            if (Context.SelectedObject.Type == ObjectType.Vertex) {
                 DrawVertexDebug(debugRenderer, Context.SelectedObject.VertexX, Context.SelectedObject.VertexY, LandscapeColorsSettings.Instance.Selection);
             }
         }
@@ -185,7 +185,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         private void ClearHover() {
-            if (_lastHoveredHit.Type != InspectorSelectionType.None) {
+            if (_lastHoveredHit.Type != ObjectType.None) {
                 _lastHoveredHit = SceneRaycastHit.NoHit;
                 Context?.NotifyInspectorHovered(SceneRaycastHit.NoHit);
             }
@@ -199,7 +199,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 Context.NotifyInspectorSelected(hit);
                 return true;
             }
-            else if (Context.SelectedObject.Type != InspectorSelectionType.None) {
+            else if (Context.SelectedObject.Type != ObjectType.None) {
                 Context.NotifyInspectorSelected(SceneRaycastHit.NoHit);
             }
             return false;

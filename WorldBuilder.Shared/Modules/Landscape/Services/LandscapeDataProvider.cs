@@ -46,9 +46,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                         var stab = lbi.Objects![i];
                         if (stab == null) continue;
 
-                        ulong instanceId = InstanceIdConstants.EncodeStaticObject(lbFileId, (ushort)i);
+                        ObjectId instanceId = ObjectId.FromDat(ObjectType.StaticObject, 0, lbFileId, (ushort)i);
                         merged.StaticObjects[instanceId] = new StaticObject {
-                            SetupId = stab.Id,
+                            ModelId = stab.Id,
                             Position = stab.Frame?.Origin ?? Vector3.Zero,
                             Rotation = stab.Frame?.Orientation ?? Quaternion.Identity,
                             InstanceId = instanceId,
@@ -60,7 +60,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                         var bldg = lbi.Buildings![i];
                         if (bldg == null) continue;
 
-                        ulong instanceId = InstanceIdConstants.EncodeBuilding(lbFileId, (ushort)i);
+                        ObjectId instanceId = ObjectId.FromDat(ObjectType.Building, 0, lbFileId, (ushort)i);
                         merged.Buildings[instanceId] = new BuildingObject {
                             ModelId = bldg.ModelId,
                             Position = bldg.Frame?.Origin ?? Vector3.Zero,
@@ -137,9 +137,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                             var stab = lbi.Objects![i];
                             if (stab == null) continue;
 
-                            ulong instanceId = InstanceIdConstants.EncodeStaticObject(lbFileId, (ushort)i);
+                            ObjectId instanceId = ObjectId.FromDat(ObjectType.StaticObject, 0, lbFileId, (ushort)i);
                             merged.StaticObjects[instanceId] = new StaticObject {
-                                SetupId = stab.Id,
+                                ModelId = stab.Id,
                                 Position = stab.Frame?.Origin ?? Vector3.Zero,
                                 Rotation = stab.Frame?.Orientation ?? Quaternion.Identity,
                                 InstanceId = instanceId,
@@ -151,7 +151,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                             var bldg = lbi.Buildings![i];
                             if (bldg == null) continue;
 
-                            ulong instanceId = InstanceIdConstants.EncodeBuilding(lbFileId, (ushort)i);
+                            ObjectId instanceId = ObjectId.FromDat(ObjectType.Building, 0, lbFileId, (ushort)i);
                             merged.Buildings[instanceId] = new BuildingObject {
                                 ModelId = bldg.ModelId,
                                 Position = bldg.Frame?.Origin ?? Vector3.Zero,
@@ -260,9 +260,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                         var stab = cell.StaticObjects[i];
                         if (stab == null) continue;
 
-                        ulong instanceId = InstanceIdConstants.EncodeEnvCellStaticObject(cellId, (ushort)i, false);
+                        ObjectId instanceId = ObjectId.FromDat(ObjectType.EnvCellStaticObject, 0, cellId, (ushort)i);
                         properties.StaticObjects[instanceId] = new StaticObject {
-                            SetupId = stab.Id,
+                            ModelId = stab.Id,
                             Position = stab.Frame?.Origin ?? Vector3.Zero,
                             Rotation = stab.Frame?.Orientation ?? Quaternion.Identity,
                             InstanceId = instanceId,

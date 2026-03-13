@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using WorldBuilder.Shared.Models;
+
 namespace WorldBuilder.Shared.Modules.Landscape.Models {
     /// <summary>
     /// Fully flattened map of a Landblock objects.
@@ -7,12 +10,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         /// <summary>
         /// The computed visible final buildings inside this Landblock.
         /// </summary>
-        public Dictionary<ulong, BuildingObject> Buildings { get; init; } = [];
+        public Dictionary<ObjectId, BuildingObject> Buildings { get; init; } = [];
 
         /// <summary>
         /// The computed visible final static objects inside this Landblock.
         /// </summary>
-        public Dictionary<ulong, StaticObject> StaticObjects { get; init; } = [];
+        public Dictionary<ObjectId, StaticObject> StaticObjects { get; init; } = [];
 
         /// <summary>
         /// The IDs of all environment cells within this landblock.

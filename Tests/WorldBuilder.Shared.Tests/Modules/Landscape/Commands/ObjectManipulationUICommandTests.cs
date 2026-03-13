@@ -14,14 +14,15 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         public void AddStaticObjectUICommand_Execute_ShouldCallAddStaticObject() {
             // Arrange
             var context = CreateContext();
-            var obj = new StaticObject { InstanceId = 1234, Position = Vector3.One };
+            var instanceId = ObjectId.FromDat(ObjectType.StaticObject, 0, 5, 1234);
+            var obj = new StaticObject { InstanceId = instanceId, Position = Vector3.One };
             var command = new AddStaticObjectUICommand(context, "layer1", 5, obj);
             
             bool addCalled = false;
             context.AddStaticObject = (layerId, landblockId, staticObj) => {
                 Assert.Equal("layer1", layerId);
-                Assert.Equal(5, landblockId);
-                Assert.Equal(1234ul, staticObj.InstanceId);
+                Assert.Equal((ushort)5, landblockId);
+                Assert.Equal(instanceId, staticObj.InstanceId);
                 addCalled = true;
             };
 
@@ -36,14 +37,15 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         public void AddStaticObjectUICommand_Undo_ShouldCallDeleteStaticObject() {
             // Arrange
             var context = CreateContext();
-            var obj = new StaticObject { InstanceId = 1234, Position = Vector3.One };
+            var instanceId = ObjectId.FromDat(ObjectType.StaticObject, 0, 5, 1234);
+            var obj = new StaticObject { InstanceId = instanceId, Position = Vector3.One };
             var command = new AddStaticObjectUICommand(context, "layer1", 5, obj);
             
             bool deleteCalled = false;
             context.DeleteStaticObject = (layerId, landblockId, staticObj) => {
                 Assert.Equal("layer1", layerId);
-                Assert.Equal(5, landblockId);
-                Assert.Equal(1234ul, staticObj.InstanceId);
+                Assert.Equal((ushort)5, landblockId);
+                Assert.Equal(instanceId, staticObj.InstanceId);
                 deleteCalled = true;
             };
 
@@ -58,14 +60,15 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         public void DeleteStaticObjectUICommand_Execute_ShouldCallDeleteStaticObject() {
             // Arrange
             var context = CreateContext();
-            var obj = new StaticObject { InstanceId = 1234, Position = Vector3.One };
+            var instanceId = ObjectId.FromDat(ObjectType.StaticObject, 0, 5, 1234);
+            var obj = new StaticObject { InstanceId = instanceId, Position = Vector3.One };
             var command = new DeleteStaticObjectUICommand(context, "layer1", 5, obj);
             
             bool deleteCalled = false;
             context.DeleteStaticObject = (layerId, landblockId, staticObj) => {
                 Assert.Equal("layer1", layerId);
-                Assert.Equal(5, landblockId);
-                Assert.Equal(1234ul, staticObj.InstanceId);
+                Assert.Equal((ushort)5, landblockId);
+                Assert.Equal(instanceId, staticObj.InstanceId);
                 deleteCalled = true;
             };
 
@@ -80,14 +83,15 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         public void DeleteStaticObjectUICommand_Undo_ShouldCallAddStaticObject() {
             // Arrange
             var context = CreateContext();
-            var obj = new StaticObject { InstanceId = 1234, Position = Vector3.One };
+            var instanceId = ObjectId.FromDat(ObjectType.StaticObject, 0, 5, 1234);
+            var obj = new StaticObject { InstanceId = instanceId, Position = Vector3.One };
             var command = new DeleteStaticObjectUICommand(context, "layer1", 5, obj);
             
             bool addCalled = false;
             context.AddStaticObject = (layerId, landblockId, staticObj) => {
                 Assert.Equal("layer1", layerId);
-                Assert.Equal(5, landblockId);
-                Assert.Equal(1234ul, staticObj.InstanceId);
+                Assert.Equal((ushort)5, landblockId);
+                Assert.Equal(instanceId, staticObj.InstanceId);
                 addCalled = true;
             };
 

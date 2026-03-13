@@ -16,8 +16,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
         private readonly ushort _newLandblockId;
         private readonly StaticObject _oldObject;
         private readonly StaticObject _newObject;
-        private readonly InspectorSelectionType _oldType;
-        private readonly InspectorSelectionType _newType;
+        private readonly ObjectType _oldType;
+        private readonly ObjectType _newType;
 
         public string Name => "Move Object";
 
@@ -25,8 +25,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
         public ushort NewLandblockId => _newLandblockId;
         public StaticObject OldObject => _oldObject;
         public StaticObject NewObject => _newObject;
-        public InspectorSelectionType OldType => _oldType;
-        public InspectorSelectionType NewType => _newType;
+        public ObjectType OldType => _oldType;
+        public ObjectType NewType => _newType;
 
         public MoveStaticObjectCommand(
             LandscapeToolContext context,
@@ -40,19 +40,19 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
             _oldLandblockId = oldLandblockId;
             _newLandblockId = newLandblockId;
             _oldObject = oldObject;
-            _oldType = InstanceIdConstants.GetType(oldObject.InstanceId);
+            _oldType = oldObject.InstanceId.Type;
             
             // Preserve the original type (Building, StaticObject, etc.)
             _newType = _oldType;
 
-            if (_oldType == InspectorSelectionType.StaticObject && newObject.CellId.HasValue && newObject.CellId.Value != 0) {
-                _newType = InspectorSelectionType.EnvCellStaticObject;
+            if (_oldType == ObjectType.StaticObject && newObject.CellId.HasValue && newObject.CellId.Value != 0) {
+                _newType = ObjectType.EnvCellStaticObject;
             }
-            else if (_oldType == InspectorSelectionType.EnvCellStaticObject && (!newObject.CellId.HasValue || newObject.CellId.Value == 0)) {
-                _newType = InspectorSelectionType.StaticObject;
+            else if (_oldType == ObjectType.EnvCellStaticObject && (!newObject.CellId.HasValue || newObject.CellId.Value == 0)) {
+                _newType = ObjectType.StaticObject;
             }
 
-            ulong newInstanceId = oldObject.InstanceId;
+            ObjectId newInstanceId = oldObject.InstanceId;
             
             // If we moved between landblocks OR changed cells OR changed type, we must generate a new InstanceId
             bool containerChanged = newLandblockId != oldLandblockId || newObject.CellId != oldObject.CellId || _newType != _oldType;
@@ -62,7 +62,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
             }
 
             _newObject = new StaticObject {
-                SetupId = newObject.SetupId,
+                ModelId = newObject.ModelId,
                 InstanceId = newInstanceId,
                 LayerId = newObject.LayerId,
                 Position = newObject.Position,

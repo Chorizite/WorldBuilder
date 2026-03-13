@@ -830,7 +830,7 @@ namespace WorldBuilder.Shared.Models {
             return result;
         }
 
-        public async Task<Result<Unit>> DeleteStaticObjectAsync(ulong instanceId, ushort landblockId, ITransaction? tx = null, CancellationToken ct = default) {
+        public async Task<Result<Unit>> DeleteStaticObjectAsync(ObjectId instanceId, ushort landblockId, ITransaction? tx = null, CancellationToken ct = default) {
             if (_documentManager == null) return Result<Unit>.Failure(Error.Failure("DocumentManager not initialized"));
 
             var result = await _documentManager.DeleteStaticObjectAsync(instanceId, tx, ct);

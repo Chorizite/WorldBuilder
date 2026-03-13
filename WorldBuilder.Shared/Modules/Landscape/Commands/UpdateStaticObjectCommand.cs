@@ -57,11 +57,11 @@ public partial class UpdateStaticObjectCommand : BaseCommand<bool> {
 
             // If the instance ID changed (e.g. moving between landblocks), we must explicitly delete the old one
             // and add the new one.
-            if (OldObject.InstanceId != 0 && OldObject.InstanceId != NewObject.InstanceId) {
+            if (OldObject.InstanceId != ObjectId.Empty && OldObject.InstanceId != NewObject.InstanceId) {
                 // Delete old by upserting a tombstone
                 var tombstone = new StaticObject {
                     InstanceId = OldObject.InstanceId,
-                    SetupId = OldObject.SetupId,
+                    ModelId = OldObject.ModelId,
                     LayerId = effectiveLayerId,
                     Position = OldObject.Position,
                     Rotation = OldObject.Rotation,
@@ -74,7 +74,7 @@ public partial class UpdateStaticObjectCommand : BaseCommand<bool> {
                 // Add new
                 var newObjectToSave = new StaticObject {
                     InstanceId = NewObject.InstanceId,
-                    SetupId = NewObject.SetupId,
+                    ModelId = NewObject.ModelId,
                     LayerId = effectiveLayerId,
                     Position = NewObject.Position,
                     Rotation = NewObject.Rotation,
@@ -86,7 +86,7 @@ public partial class UpdateStaticObjectCommand : BaseCommand<bool> {
 
             var objectToSave = new StaticObject {
                 InstanceId = NewObject.InstanceId,
-                SetupId = NewObject.SetupId,
+                ModelId = NewObject.ModelId,
                 LayerId = effectiveLayerId,
                 Position = NewObject.Position,
                 Rotation = NewObject.Rotation,

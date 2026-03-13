@@ -21,7 +21,7 @@ public partial class DeleteStaticObjectCommand : BaseCommand<bool> {
     [MemoryPackOrder(12)] public ushort LandblockId { get; set; }
 
     /// <summary>The instance ID of the object to delete.</summary>
-    [MemoryPackOrder(13)] public ulong InstanceId { get; set; }
+    [MemoryPackOrder(13)] public ObjectId InstanceId { get; set; }
 
     /// <summary>The previous state of the object, for undo purposes.</summary>
     [MemoryPackOrder(14)] public StaticObject? PreviousState { get; set; }
@@ -60,7 +60,7 @@ public partial class DeleteStaticObjectCommand : BaseCommand<bool> {
             if (PreviousState != null) {
                 var tombstone = new StaticObject {
                     InstanceId = InstanceId,
-                    SetupId = PreviousState.SetupId,
+                    ModelId = PreviousState.ModelId,
                     LayerId = LayerId,
                     Position = PreviousState.Position,
                     Rotation = PreviousState.Rotation,

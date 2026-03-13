@@ -159,7 +159,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                             Hit = true,
                             Type = targetType,
                             LandblockId = targetLbId,
-                            CellId = targetType == InspectorSelectionType.EnvCellStaticObject ? InstanceIdConstants.GetContextId(targetObj.InstanceId) : null,
+                            CellId = targetType == ObjectType.EnvCellStaticObject ? targetObj.InstanceId.Context : null,
                             InstanceId = targetObj.InstanceId,
                             ObjectId = GizmoState.ObjectId,
                             Position = worldPos,
@@ -372,7 +372,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
         }
 
-        private void UpdateGizmoFromWorld(ushort lbId, ulong instId, Vector3 worldPos, Quaternion rotation) {
+        private void UpdateGizmoFromWorld(ushort lbId, ObjectId instId, Vector3 worldPos, Quaternion rotation) {
             var lbOrigin = Context!.LandscapeObjectService.ComputeWorldPosition(Context.Document.Region!, lbId, Vector3.Zero);
             GizmoState.Position = worldPos;
             GizmoState.Rotation = rotation;
@@ -405,14 +405,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         private void CaptureObjectStateForUndo() {
             _dragStartLandblockId = GizmoState.LandblockId;
-            uint? cellId = (GizmoState.SelectionType == InspectorSelectionType.EnvCellStaticObject) ? InstanceIdConstants.GetRawId(GizmoState.InstanceId) : null;
+            uint? cellId = (GizmoState.SelectionType == ObjectType.EnvCellStaticObject) ? GizmoState.InstanceId.Context : null;
             _dragStartObject = CreateStaticObject(GizmoState.LocalPosition, GizmoState.Rotation, cellId);
         }
 
-        private bool HasManipulatable(InspectorSelectionType type) => 
-            type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.EnvCellStaticObject || type == InspectorSelectionType.Building;
+        private bool HasManipulatable(ObjectType type) => 
+            type == ObjectType.StaticObject || type == ObjectType.EnvCellStaticObject || type == ObjectType.Building;
 
-        private bool IsManipulatable(InspectorSelectionType type) => HasManipulatable(type);
+        private bool IsManipulatable(ObjectType type) => HasManipulatable(type);
 
         private bool IsDifferentHit(SceneRaycastHit a, SceneRaycastHit b) =>
             a.Type != b.Type || a.LandblockId != b.LandblockId || a.InstanceId != b.InstanceId || a.ObjectId != b.ObjectId;
@@ -423,7 +423,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             Math.Abs(Quaternion.Dot(oldObj.Rotation, newObj.Rotation)) < 0.999999f;
 
         private StaticObject CreateStaticObject(Vector3 localPos, Quaternion rot, uint? cellId) => new() {
-            SetupId = GizmoState.ObjectId, InstanceId = GizmoState.InstanceId, LayerId = GizmoState.LayerId,
+            ModelId = GizmoState.ObjectId, InstanceId = GizmoState.InstanceId, LayerId = GizmoState.LayerId,
             Position = localPos, Rotation = rot, CellId = cellId
         };
 
@@ -446,13 +446,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         private static StaticObject? _clipboardObject;
         private static BoundingBox? _clipboardBounds;
-        private static InspectorSelectionType _clipboardType;
+        private static ObjectType _clipboardType;
 
         public void DeleteSelection() {
             if (!HasSelection || Context == null || !IsManipulatable(GizmoState.SelectionType)) return;
 
             var obj = CreateStaticObject(GizmoState.LocalPosition, GizmoState.Rotation, 
-                GizmoState.SelectionType == InspectorSelectionType.EnvCellStaticObject ? InstanceIdConstants.GetRawId(GizmoState.InstanceId) : null);
+                GizmoState.SelectionType == ObjectType.EnvCellStaticObject ? GizmoState.InstanceId.Context : null);
             var command = new DeleteStaticObjectUICommand(Context, GizmoState.LayerId, GizmoState.LandblockId, obj);
             Context.CommandHistory.Execute(command);
 
@@ -463,7 +463,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             if (!HasSelection || Context == null || !IsManipulatable(GizmoState.SelectionType)) return;
             
             _clipboardObject = CreateStaticObject(GizmoState.LocalPosition, GizmoState.Rotation, 
-                GizmoState.SelectionType == InspectorSelectionType.EnvCellStaticObject ? InstanceIdConstants.GetRawId(GizmoState.InstanceId) : null);
+                GizmoState.SelectionType == ObjectType.EnvCellStaticObject ? GizmoState.InstanceId.Context : null);
             _clipboardBounds = GizmoState.ObjectLocalBounds;
             _clipboardType = GizmoState.SelectionType;
         }
@@ -472,7 +472,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             if (_clipboardObject == null || Context == null) return;
 
             var (origin, direction) = GetRay(e);
-            var groundHit = SceneRaycaster.GetGroundHitPoint(Context, e, origin, direction, 0, origin + direction * 10f);
+            var groundHit = SceneRaycaster.GetGroundHitPoint(Context, e, origin, direction, ObjectId.Empty, origin + direction * 10f);
             
             var worldPos = groundHit.Position;
             var cellId = await Context.LandscapeObjectService.ResolveCellIdAsync(Context.Document, worldPos, _clipboardObject.CellId);
@@ -482,14 +482,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             var newLocalPosition = worldPos - lbOrigin;
 
             var newType = _clipboardType;
-            if (_clipboardType == InspectorSelectionType.StaticObject && cellId.HasValue && cellId.Value != 0) {
-                newType = InspectorSelectionType.EnvCellStaticObject;
+            if (_clipboardType == ObjectType.StaticObject && cellId.HasValue && cellId.Value != 0) {
+                newType = ObjectType.EnvCellStaticObject;
             }
-            else if (_clipboardType == InspectorSelectionType.EnvCellStaticObject && (!cellId.HasValue || cellId.Value == 0)) {
-                newType = InspectorSelectionType.StaticObject;
+            else if (_clipboardType == ObjectType.EnvCellStaticObject && (!cellId.HasValue || cellId.Value == 0)) {
+                newType = ObjectType.StaticObject;
             }
 
-            ulong newInstanceId = InstanceIdGenerator.GenerateUniqueInstanceId(Context, newLandblockId, cellId, newType, 0);
+            ObjectId newInstanceId = InstanceIdGenerator.GenerateUniqueInstanceId(Context, newLandblockId, cellId, newType, ObjectId.Empty);
             
             var newRot = _clipboardObject.Rotation;
             if (AlignToSurface && groundHit.Hit) {
@@ -497,7 +497,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             var newObject = new StaticObject {
-                SetupId = _clipboardObject.SetupId,
+                ModelId = _clipboardObject.ModelId,
                 InstanceId = newInstanceId,
                 LayerId = Context.ActiveLayer?.Id ?? Context.Document.BaseLayerId ?? "",
                 Position = newLocalPosition,
@@ -513,7 +513,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 Type = newType,
                 LandblockId = newLandblockId,
                 InstanceId = newInstanceId,
-                ObjectId = newObject.SetupId,
+                ObjectId = newObject.ModelId,
                 Position = worldPos,
                 LocalPosition = newLocalPosition,
                 Rotation = newRot,
@@ -529,7 +529,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             
             var newInstanceId = InstanceIdGenerator.GenerateUniqueInstanceId(Context, _dragStartLandblockId, _dragStartObject.CellId, GizmoState.SelectionType, _dragStartObject.InstanceId);
             var newObject = new StaticObject {
-                SetupId = _dragStartObject.SetupId,
+                ModelId = _dragStartObject.ModelId,
                 InstanceId = newInstanceId,
                 LayerId = _dragStartObject.LayerId,
                 Position = _dragStartObject.Position,
@@ -550,7 +550,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 Type = GizmoState.SelectionType,
                 LandblockId = _dragStartLandblockId,
                 InstanceId = newInstanceId,
-                ObjectId = newObject.SetupId,
+                ObjectId = newObject.ModelId,
                 Position = GizmoState.Position,
                 LocalPosition = newObject.Position,
                 Rotation = newObject.Rotation,

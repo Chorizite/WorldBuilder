@@ -24,13 +24,13 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             context.InspectorHovered += (s, e) => capturedArgs = e;
 
             var lbId = (ushort)0x1234;
-            var instId = 0xABCDu;
+            var instId = ObjectId.FromDat(ObjectType.StaticObject, 0, lbId, 0xABCD);
             var objId = 0x1111u;
 
             var mockRaycast = new Mock<LandscapeToolContext.RaycastStaticObjectDelegate>();
             SceneRaycastHit hit = new SceneRaycastHit {
                 Hit = true,
-                Type = InspectorSelectionType.StaticObject,
+                Type = ObjectType.StaticObject,
                 Distance = 10f,
                 LandblockId = lbId,
                 InstanceId = instId,
@@ -38,7 +38,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
                 Position = Vector3.Zero,
                 Rotation = Quaternion.Identity
             };
-            mockRaycast.Setup(r => r(It.IsAny<Vector3>(), It.IsAny<Vector3>(), It.IsAny<bool>(), It.IsAny<bool>(), out hit))
+            mockRaycast.Setup(r => r(It.IsAny<Vector3>(), It.IsAny<Vector3>(), It.IsAny<bool>(), It.IsAny<bool>(), out hit, It.IsAny<ObjectId>()))
                 .Returns(true);
             context.RaycastStaticObject = mockRaycast.Object;
 
@@ -53,7 +53,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             // Assert
             Assert.NotNull(capturedArgs);
-            Assert.Equal(InspectorSelectionType.StaticObject, capturedArgs.Selection.Type);
+            Assert.Equal(ObjectType.StaticObject, capturedArgs.Selection.Type);
             Assert.Equal(lbId, capturedArgs.Selection.LandblockId);
             Assert.Equal(instId, capturedArgs.Selection.InstanceId);
         }
@@ -66,17 +66,17 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             tool.Activate(context);
 
             var lbId = (ushort)0x1234;
-            var instId = 0xABCDu;
+            var instId = ObjectId.FromDat(ObjectType.StaticObject, 0, lbId, 0xABCD);
 
             // First hit an object
             SceneRaycastHit hit = new SceneRaycastHit {
                 Hit = true,
-                Type = InspectorSelectionType.StaticObject,
+                Type = ObjectType.StaticObject,
                 Distance = 10f,
                 LandblockId = lbId,
                 InstanceId = instId
             };
-            context.RaycastStaticObject = (Vector3 o, Vector3 d, bool b, bool s, out SceneRaycastHit h, ulong ignoreInstanceId) => {
+            context.RaycastStaticObject = (Vector3 o, Vector3 d, bool b, bool s, out SceneRaycastHit h, ObjectId ignoreInstanceId) => {
                 h = hit;
                 return true;
             };
@@ -87,7 +87,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             InspectorSelectionEventArgs? capturedArgs = null;
             context.InspectorHovered += (s, e) => capturedArgs = e;
 
-            context.RaycastStaticObject = (Vector3 o, Vector3 d, bool b, bool s, out SceneRaycastHit h, ulong ignoreInstanceId) => {
+            context.RaycastStaticObject = (Vector3 o, Vector3 d, bool b, bool s, out SceneRaycastHit h, ObjectId ignoreInstanceId) => {
                 h = SceneRaycastHit.NoHit;
                 return false;
             };
@@ -97,7 +97,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             // Assert
             Assert.NotNull(capturedArgs);
-            Assert.Equal(InspectorSelectionType.None, capturedArgs.Selection.Type);
+            Assert.Equal(ObjectType.None, capturedArgs.Selection.Type);
         }
 
         private LandscapeToolContext CreateContext() {

@@ -10,6 +10,7 @@ using WorldBuilder.Shared.Modules.Landscape.Services;
 using WorldBuilder.Shared.Services;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using Xunit;
+using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Shared.Tests.Modules.Landscape.Services {
     public class LandscapeObjectServiceTests {
@@ -55,7 +56,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Services {
         public void GetStaticObjectLayerId_ReturnsCorrectLayerForStaticObject() {
             var doc = new LandscapeDocument(1);
             ushort landblockId = 0x1234;
-            ulong instanceId = 1001; 
+            var instanceId = ObjectId.FromDat(ObjectType.StaticObject, 0, landblockId, 1001); 
             
             var lb = new MergedLandblock {
                 StaticObjects = { [instanceId] = new StaticObject { InstanceId = instanceId, LayerId = "TestLayer" } }

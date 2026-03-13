@@ -112,7 +112,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             All = StaticObjects | Buildings
         }
 
-        public virtual bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, RaycastTarget targets, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false, float maxDistance = float.MaxValue, ulong ignoreInstanceId = 0) {
+        public virtual bool Raycast(Vector3 rayOrigin, Vector3 rayDirection, RaycastTarget targets, out SceneRaycastHit hit, uint currentCellId = 0, bool isCollision = false, float maxDistance = float.MaxValue, ObjectId ignoreInstanceId = default) {
             hit = SceneRaycastHit.NoHit;
 
             // Early exit: Don't collide with exteriors if we are inside
@@ -123,7 +123,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 lock (lb) {
                     foreach (var instance in lb.Instances) {
-                        if (ignoreInstanceId != 0 && instance.InstanceId == ignoreInstanceId) continue;
+                        if (ignoreInstanceId != ObjectId.Empty && instance.InstanceId == ignoreInstanceId) continue;
 
                         if (!isCollision) {
                             if (instance.IsBuilding && !_showBuildings) continue;
@@ -151,7 +151,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             if (d < hit.Distance && d <= maxDistance) {
                                 hit.Hit = true;
                                 hit.Distance = d;
-                                hit.Type = instance.IsBuilding ? InspectorSelectionType.Building : InspectorSelectionType.StaticObject;
+                                hit.Type = instance.IsBuilding ? ObjectType.Building : ObjectType.StaticObject;
                                 hit.ObjectId = (uint)instance.ObjectId;
                                 hit.InstanceId = instance.InstanceId;
                                 hit.Position = rayOrigin + rayDirection * d;
@@ -249,26 +249,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             lb.BuildingPartGroups.Clear();
             foreach (var instance in instances) {
                 var targetGroup = instance.IsBuilding ? lb.BuildingPartGroups : lb.StaticPartGroups;
-                var cellId = InstanceIdConstants.GetRawId(instance.InstanceId);
+                var cellId = instance.InstanceId.Index;
                 PopulateRecursive(targetGroup, instance.ObjectId, instance.IsSetup, instance.Transform, cellId);
-            }
-        }
-
-        private void PopulateRecursive(Dictionary<ulong, List<InstanceData>> groups, ulong objectId, bool isSetup, Matrix4x4 transform, uint cellId) {
-            if (isSetup) {
-                var renderData = MeshManager.TryGetRenderData(objectId);
-                if (renderData is { IsSetup: true }) {
-                    foreach (var (partId, partTransform) in renderData.SetupParts) {
-                        PopulateRecursive(groups, partId, (partId >> 24) == 0x02, partTransform * transform, cellId);
-                    }
-                }
-            }
-            else {
-                if (!groups.TryGetValue(objectId, out var list)) {
-                    list = new List<InstanceData>();
-                    groups[objectId] = list;
-                }
-                list.Add(new InstanceData { Transform = transform, CellId = cellId });
             }
         }
 
@@ -328,9 +310,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 // Placed objects
                 foreach (var obj in mergedLb.StaticObjects.Values) {
-                    if (obj.SetupId == 0) continue;
+                    if (obj.ModelId == 0) continue;
 
-                    var isSetup = (obj.SetupId >> 24) == 0x02;
+                    var isSetup = (obj.ModelId >> 24) == 0x02;
                     var localPos = obj.Position;
                     var worldPos = new Vector3(
                         new Vector2(lbGlobalX * lbSizeUnits + obj.Position.X, lbGlobalY * lbSizeUnits + obj.Position.Y) + regionInfo.MapOffset,
@@ -341,12 +323,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                     var transform = Matrix4x4.CreateFromQuaternion(rotation)
                         * Matrix4x4.CreateTranslation(worldPos);
-                    var bounds = MeshManager.GetBounds(obj.SetupId, isSetup);
+                    var bounds = MeshManager.GetBounds(obj.ModelId, isSetup);
                     var localBbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max) : default;
                     var bbox = localBbox.Transform(transform);
 
                     staticObjects.Add(new SceneryInstance {
-                        ObjectId = obj.SetupId,
+                        ObjectId = obj.ModelId,
                         InstanceId = obj.InstanceId,
                         IsSetup = isSetup,
                         IsBuilding = false,

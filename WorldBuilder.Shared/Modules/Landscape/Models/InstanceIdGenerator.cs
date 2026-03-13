@@ -4,24 +4,20 @@ using WorldBuilder.Shared.Modules.Landscape.Tools;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Models {
     public static class InstanceIdGenerator {
-        public static ulong GenerateUniqueInstanceId(LandscapeToolContext context, ushort landblockId, uint? cellId, InspectorSelectionType type, ulong ignoreInstanceId = 0) {
-            ushort index = 0xFFFF;
-            ulong id;
+        public static ObjectId GenerateUniqueInstanceId(LandscapeToolContext context, ushort landblockId, uint? cellId, ObjectType type, ObjectId ignoreInstanceId = default) {
+            uint contextId = cellId ?? (uint)landblockId;
+            ObjectId id = ObjectId.NewDb(type, contextId);
             
-            if (type == InspectorSelectionType.EnvCellStaticObject && cellId.HasValue) {
-                id = InstanceIdConstants.EncodeEnvCellStaticObject(cellId.Value, index, true);
+            if (type == ObjectType.EnvCellStaticObject && cellId.HasValue) {
                 var cell = context.Document.GetMergedEnvCell(cellId.Value);
-                while (index > 0 && (cell.StaticObjects.ContainsKey(id) || id == ignoreInstanceId)) {
-                    index--;
-                    id = InstanceIdConstants.EncodeEnvCellStaticObject(cellId.Value, index, true);
+                while (cell.StaticObjects.ContainsKey(id) || id == ignoreInstanceId) {
+                    id = ObjectId.NewDb(type, contextId);
                 }
             }
             else {
-                id = InstanceIdConstants.Encode(type, ObjectState.Added, landblockId, index);
                 var lb = context.Document.GetMergedLandblock(landblockId);
-                while (index > 0 && (lb.StaticObjects.ContainsKey(id) || lb.Buildings.ContainsKey(id) || id == ignoreInstanceId)) {
-                    index--;
-                    id = InstanceIdConstants.Encode(type, ObjectState.Added, landblockId, index);
+                while (lb.StaticObjects.ContainsKey(id) || lb.Buildings.ContainsKey(id) || id == ignoreInstanceId) {
+                    id = ObjectId.NewDb(type, contextId);
                 }
             }
             return id;

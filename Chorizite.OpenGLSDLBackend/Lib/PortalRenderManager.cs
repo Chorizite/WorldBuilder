@@ -52,8 +52,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public int QueuedUploads => _uploadQueue.Count;
         public int QueuedGenerations => _pendingGeneration.Count;
 
-        public (uint CellId, ulong PortalIndex)? HoveredPortal { get; set; }
-        public (uint CellId, ulong PortalIndex)? SelectedPortal { get; set; }
+        public (uint CellId, ObjectId PortalId)? HoveredPortal { get; set; }
+        public (uint CellId, ObjectId PortalId)? SelectedPortal { get; set; }
 
         private Vector3 _cameraPosition;
         private Vector3 _cameraForward;
@@ -304,10 +304,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 lock (lb) {
                     foreach (var portal in lb.Portals) {
                         var color = portalColor;
-                        if (HoveredPortal.HasValue && HoveredPortal.Value.CellId == portal.CellId && InstanceIdConstants.GetRawId(HoveredPortal.Value.PortalIndex) == portal.PortalIndex) {
+                        if (HoveredPortal.HasValue && HoveredPortal.Value.CellId == portal.CellId && HoveredPortal.Value.PortalId.Index == portal.PortalIndex) {
                             color = hoverColor;
                         }
-                        if (SelectedPortal.HasValue && SelectedPortal.Value.CellId == portal.CellId && InstanceIdConstants.GetRawId(SelectedPortal.Value.PortalIndex) == portal.PortalIndex) {
+                        if (SelectedPortal.HasValue && SelectedPortal.Value.CellId == portal.CellId && SelectedPortal.Value.PortalId.Index == portal.PortalIndex) {
                             color = selectionColor;
                         }
 
@@ -359,14 +359,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var pos = rayOrigin + rayDirection * closestDistance;
                 hit = new SceneRaycastHit {
                     Hit = true,
-                    Type = InspectorSelectionType.Portal,
+                    Type = ObjectType.Portal,
                     Distance = closestDistance,
                     Position = pos,
                     LocalPosition = pos,
                     Rotation = Quaternion.Identity,
                     LandblockId = closestLandblockId,
                     ObjectId = closestPortal.CellId,
-                    InstanceId = InstanceIdConstants.Encode((uint)closestPortal.PortalIndex, InspectorSelectionType.Portal)
+                    InstanceId = ObjectId.FromDat(ObjectType.Portal, 0, closestPortal.CellId, (ushort)closestPortal.PortalIndex)
                 };
                 return true;
             }

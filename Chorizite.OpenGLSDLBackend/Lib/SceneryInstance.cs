@@ -2,6 +2,7 @@ using Chorizite.Core.Lib;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using WorldBuilder.Shared.Models;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
     /// <summary>
@@ -12,7 +13,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public ulong ObjectId;
 
         /// <summary>Unique instance ID within the landblock.</summary>
-        public ulong InstanceId;
+        public ObjectId InstanceId;
 
         /// <summary>True for multi-part Setup objects, false for simple GfxObj.</summary>
         public bool IsSetup;
