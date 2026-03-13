@@ -624,7 +624,7 @@ public class GameScene : IDisposable {
 
         var type = instanceId.Type;
         if (type == ObjectType.EnvCellStaticObject) {
-            var cellId = instanceId.Index;
+            var cellId = instanceId.DataId;
             var mergedCell = _landscapeDoc.GetMergedEnvCell(cellId);
             if (mergedCell.StaticObjects != null && mergedCell.StaticObjects.TryGetValue(instanceId, out var obj)) {
                 return obj.LayerId;
@@ -633,7 +633,7 @@ public class GameScene : IDisposable {
         }
 
         if (type == ObjectType.EnvCell) {
-            var cellId = instanceId.Index;
+            var cellId = instanceId.DataId;
             var mergedCell = _landscapeDoc.GetMergedEnvCell(cellId);
             return mergedCell.LayerId;
         }

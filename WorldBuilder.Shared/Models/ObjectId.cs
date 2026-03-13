@@ -31,6 +31,16 @@ namespace WorldBuilder.Shared.Models {
         public uint Context => (uint)(_low >> 32);
         public ushort Index => (ushort)_low;
 
+        /// <summary>
+        /// Reconstructs a 32-bit identifier from Context and Index.
+        /// For DAT objects, this correctly reconstructs the 32-bit cell ID or object index.
+        /// </summary>
+        public uint DataId => Type switch {
+            ObjectType.EnvCell => (Context << 16) | Index,
+            ObjectType.EnvCellStaticObject => Context,
+            _ => 0
+        };
+
         private ObjectId(ulong low, ulong high) {
             _low = low;
             _high = high;

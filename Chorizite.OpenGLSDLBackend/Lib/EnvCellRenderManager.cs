@@ -118,7 +118,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (testPos.X >= bbox.Min.X - 0.1f && testPos.X <= bbox.Max.X + 0.1f &&
                     testPos.Y >= bbox.Min.Y - 0.1f && testPos.Y <= bbox.Max.Y + 0.1f &&
                     testPos.Z >= bbox.Min.Z - 0.1f && testPos.Z <= bbox.Max.Z + 0.1f) {
-                    cellId = instance.InstanceId.Index;
+                    cellId = instance.InstanceId.DataId;
                     return true;
                 }
             }
@@ -169,7 +169,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.Distance = d;
                                 hit.Type = type;
                                 if (type == ObjectType.EnvCell) {
-                                    hit.ObjectId = instance.InstanceId.Index;
+                                    hit.ObjectId = instance.InstanceId.DataId;
                                 }
                                 else {
                                     hit.ObjectId = (uint)instance.ObjectId;
@@ -284,6 +284,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 AddToGroups(lbBatchedByCell, lbGlobalGroups, instanceData.CellId, gfxObjId, instanceData);
                             }
                         }
+                        foreach (var (gfxObjId, instances) in lb.StaticPartGroups) {
+                            foreach (var instanceData in instances) {
+                                if (filter != null && !filter.Contains(instanceData.CellId)) continue;
+
+                                AddToGroups(lbBatchedByCell, lbGlobalGroups, instanceData.CellId, gfxObjId, instanceData);
+                            }
+                        }
                         return;
                     }
 
@@ -300,6 +307,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                     if (visibleCells.Count > 0) {
                         foreach (var (gfxObjId, instances) in lb.BuildingPartGroups) {
+                            foreach (var instanceData in instances) {
+                                if (visibleCells.Contains(instanceData.CellId)) {
+                                    AddToGroups(lbBatchedByCell, lbGlobalGroups, instanceData.CellId, gfxObjId, instanceData);
+                                }
+                            }
+                        }
+                        foreach (var (gfxObjId, instances) in lb.StaticPartGroups) {
                             foreach (var instanceData in instances) {
                                 if (visibleCells.Contains(instanceData.CellId)) {
                                     AddToGroups(lbBatchedByCell, lbGlobalGroups, instanceData.CellId, gfxObjId, instanceData);
@@ -531,7 +545,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             lb.BuildingPartGroups.Clear();
             foreach (var instance in instances) {
                 var targetGroup = instance.IsBuilding ? lb.BuildingPartGroups : lb.StaticPartGroups;
-                var cellId = instance.InstanceId.Index;
+                var cellId = instance.InstanceId.DataId;
                 PopulateRecursive(targetGroup, instance.ObjectId, instance.IsSetup, instance.Transform, cellId);
             }
         }
