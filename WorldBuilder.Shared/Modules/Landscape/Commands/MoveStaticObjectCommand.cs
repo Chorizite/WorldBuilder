@@ -79,11 +79,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
         }
 
         public void Execute() {
-            _context.UpdateStaticObject?.Invoke(_layerId, _oldLandblockId, _oldObject, _newLandblockId, _newObject);
+            _context.EditorService.UpdateStaticObject(_layerId, _oldLandblockId, _oldObject, _newLandblockId, _newObject);
         }
 
         public void Undo() {
-            _context.UpdateStaticObject?.Invoke(_layerId, _newLandblockId, _newObject, _oldLandblockId, _oldObject);
+            _context.EditorService.UpdateStaticObject(_layerId, _newLandblockId, _newObject, _oldLandblockId, _oldObject);
         }
     }
 }

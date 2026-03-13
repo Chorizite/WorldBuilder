@@ -423,14 +423,6 @@ public class GameScene : IDisposable {
         _forcePrepareBatches = true;
     }
 
-    public void SetToolContext(LandscapeToolContext? context) {
-        if (context != null) {
-            context.RaycastStaticObject = (Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, ObjectId ignoreInstanceId) => RaycastStaticObjects(origin, direction, includeBuildings, includeStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId);
-            context.RaycastScenery = (Vector3 origin, Vector3 direction, out SceneRaycastHit hit) => RaycastScenery(origin, direction, out hit);
-            context.RaycastPortals = (Vector3 origin, Vector3 direction, out SceneRaycastHit hit) => RaycastPortals(origin, direction, out hit);
-            context.RaycastEnvCells = (Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, ObjectId ignoreInstanceId) => RaycastEnvCells(origin, direction, includeCells, includeStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId);
-        }
-    }
 
     private void CenterCameraOnLandscape(ITerrainInfo region) {
         _cameraController.Camera3D.Position = new Vector3(25.493f, 55.090f, 60.164f);

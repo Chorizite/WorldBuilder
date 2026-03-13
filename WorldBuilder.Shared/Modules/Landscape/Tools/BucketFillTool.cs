@@ -2,16 +2,28 @@ using DatReaderWriter.Enums;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Services;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     /// <summary>
     /// A tool for filling connected areas of the same texture with a new texture.
     /// </summary>
     public class BucketFillTool : TexturePaintingToolBase {
+        private readonly ILandscapeRaycastService _raycastService;
+        private readonly ILandscapeEditorService _editorService;
+        private readonly ILandscapeObjectService _landscapeObjectService;
+        private readonly IToolSettingsProvider _settingsProvider;
         /// <inheritdoc/>
         public override string Name => "Paint Bucket";
         /// <inheritdoc/>
         public override string IconGlyph => "FormatColorFill";
+
+        public BucketFillTool(ILandscapeRaycastService raycastService, ILandscapeEditorService editorService, ILandscapeObjectService landscapeObjectService, IToolSettingsProvider settingsProvider) {
+            _raycastService = raycastService;
+            _editorService = editorService;
+            _landscapeObjectService = landscapeObjectService;
+            _settingsProvider = settingsProvider;
+        }
 
         private bool _isContiguous = true;
         /// <summary>Gets or sets whether to fill only connected areas (flood fill) or globally replace.</summary>
@@ -49,14 +61,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             base.Activate(context);
             
             // Load settings from project
-            if (context.ToolSettingsProvider?.BucketFillToolSettings != null) {
-                var settings = context.ToolSettingsProvider.BucketFillToolSettings;
-                if (settings != null) {
-                    _isContiguous = settings.IsContiguous;
-                    _onlyFillSameScenery = settings.OnlyFillSameScenery;
-                    Texture = (TerrainTextureType)settings.Texture;
-                    SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == settings.SelectedScenery);
-                }
+            var settings = _settingsProvider.BucketFillToolSettings;
+            if (settings != null) {
+                _isContiguous = settings.IsContiguous;
+                _onlyFillSameScenery = settings.OnlyFillSameScenery;
+                Texture = (TerrainTextureType)settings.Texture;
+                SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == settings.SelectedScenery);
             } else {
                 SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == 255);
             }
@@ -107,14 +117,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
         /// <inheritdoc/>
         protected void SaveSettings() {
-            if (Context?.ToolSettingsProvider != null) {
-                Context.ToolSettingsProvider.UpdateBucketFillToolSettings(new BucketFillToolSettingsData {
-                    IsContiguous = _isContiguous,
-                    OnlyFillSameScenery = _onlyFillSameScenery,
-                    Texture = (int)Texture,
-                    SelectedScenery = SelectedScenery?.Index ?? 255
-                });
-            }
+            _settingsProvider.UpdateBucketFillToolSettings(new BucketFillToolSettingsData {
+                IsContiguous = _isContiguous,
+                OnlyFillSameScenery = _onlyFillSameScenery,
+                Texture = (int)Texture,
+                SelectedScenery = SelectedScenery?.Index ?? 255
+            });
         }
     }
 }

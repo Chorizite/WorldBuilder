@@ -15,8 +15,10 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
     public class BrushToolTests {
         [Fact]
         public void Activate_ShouldSetIsActive() {
-            var tool = new BrushTool();
+            var settingsProviderMock = new Mock<IToolSettingsProvider>();
+            var tool = new BrushTool(new Mock<ILandscapeRaycastService>().Object, new Mock<ILandscapeEditorService>().Object, new Mock<ILandscapeObjectService>().Object, settingsProviderMock.Object);
             var context = CreateContext();
+            tool.Activate(context);
 
             tool.Activate(context);
 
@@ -25,7 +27,9 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
         [Fact]
         public void BrushSize_ShouldUpdateBrushRadius() {
-            var tool = new BrushTool();
+            var settingsProviderMock = new Mock<IToolSettingsProvider>();
+            var tool = new BrushTool(new Mock<ILandscapeRaycastService>().Object, new Mock<ILandscapeEditorService>().Object, new Mock<ILandscapeObjectService>().Object, settingsProviderMock.Object);
+            tool.Activate(CreateContext());
             tool.BrushSize = 1;
             // Radius ~13.2
             Assert.True(tool.Brush!.Radius < 24f);
@@ -39,10 +43,12 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         [Fact]
         public void PaintCommand_Execute_ShouldModifyTerrainCache() {
             // Arrange
-            var tool = new BrushTool();
+            var settingsProviderMock = new Mock<IToolSettingsProvider>();
+            var tool = new BrushTool(new Mock<ILandscapeRaycastService>().Object, new Mock<ILandscapeEditorService>().Object, new Mock<ILandscapeObjectService>().Object, settingsProviderMock.Object);
             tool.BrushSize = 1;
 
             var context = CreateContext();
+            tool.Activate(context);
             var activeLayer = context.ActiveLayer!;
             for (int i = 0; i < 81; i++) {
                 context.Document.SetVertex(activeLayer.Id, (uint)i, new TerrainEntry());
@@ -61,10 +67,12 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         [Fact]
         public void PaintCommand_Undo_ShouldRevertChanges() {
             // Arrange
-            var tool = new BrushTool();
+            var settingsProviderMock = new Mock<IToolSettingsProvider>();
+            var tool = new BrushTool(new Mock<ILandscapeRaycastService>().Object, new Mock<ILandscapeEditorService>().Object, new Mock<ILandscapeObjectService>().Object, settingsProviderMock.Object);
             tool.BrushSize = 1;
 
             var context = CreateContext();
+            tool.Activate(context);
             var activeLayer = context.ActiveLayer!;
             for (int i = 0; i < 81; i++) {
                 context.Document.SetVertex(activeLayer.Id, (uint)i, new TerrainEntry() { Type = 1 });
@@ -87,10 +95,12 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         [Fact]
         public void PaintCommand_Execute_ShouldModifyLayerDocument() {
             // Arrange
-            var tool = new BrushTool();
+            var settingsProviderMock = new Mock<IToolSettingsProvider>();
+            var tool = new BrushTool(new Mock<ILandscapeRaycastService>().Object, new Mock<ILandscapeEditorService>().Object, new Mock<ILandscapeObjectService>().Object, settingsProviderMock.Object);
             tool.BrushSize = 1;
 
             var context = CreateContext();
+            tool.Activate(context);
             var layer = context.ActiveLayer;
             var center = new Vector3(24, 24, 0);
             var cmd = new PaintCommand(context, center, tool.Brush!.Radius, 5);
@@ -106,12 +116,17 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         [Fact]
         public void PaintCommand_Execute_ShouldRequestSave() {
             // Arrange
-            var tool = new BrushTool();
+            var settingsProviderMock = new Mock<IToolSettingsProvider>();
+            var tool = new BrushTool(new Mock<ILandscapeRaycastService>().Object, new Mock<ILandscapeEditorService>().Object, new Mock<ILandscapeObjectService>().Object, settingsProviderMock.Object);
             tool.BrushSize = 1;
 
+            var editorServiceMock = new Mock<ILandscapeEditorService>();
             bool saveRequested = false;
-            var context = CreateContext();
-            context.RequestSave = (id, chunks) => saveRequested = true;
+            editorServiceMock.Setup(m => m.RequestSave(It.IsAny<string>(), It.IsAny<IEnumerable<ushort>>()))
+                .Callback(() => saveRequested = true);
+
+            var context = CreateContext(editorService: editorServiceMock.Object);
+            tool.Activate(context);
             var center = new Vector3(24, 24, 0);
             var cmd = new PaintCommand(context, center, tool.Brush!.Radius, 5);
 
@@ -125,10 +140,12 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         [Fact]
         public void PaintCommand_Undo_ShouldRevertLayerDocument() {
             // Arrange
-            var tool = new BrushTool();
+            var settingsProviderMock = new Mock<IToolSettingsProvider>();
+            var tool = new BrushTool(new Mock<ILandscapeRaycastService>().Object, new Mock<ILandscapeEditorService>().Object, new Mock<ILandscapeObjectService>().Object, settingsProviderMock.Object);
             tool.BrushSize = 1;
 
             var context = CreateContext();
+            tool.Activate(context);
             var layer = context.ActiveLayer;
             var center = new Vector3(24, 24, 0);
             var cmd = new PaintCommand(context, center, tool.Brush!.Radius, 5);
@@ -144,11 +161,13 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         [Fact]
         public void PaintCommand_Execute_ShouldAccountForMapOffset() {
             // Arrange
-            var tool = new BrushTool();
+            var settingsProviderMock = new Mock<IToolSettingsProvider>();
+            var tool = new BrushTool(new Mock<ILandscapeRaycastService>().Object, new Mock<ILandscapeEditorService>().Object, new Mock<ILandscapeObjectService>().Object, settingsProviderMock.Object);
             tool.BrushSize = 1;
 
             float offset = -1000f;
             var context = CreateContext();
+            tool.Activate(context);
             var doc = context.Document;
             var regionMock = Mock.Get(doc.Region!);
             regionMock.Setup(r => r.MapOffset).Returns(new Vector2(offset, offset));
@@ -168,7 +187,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             Assert.Equal((byte?)5, context.Document.GetCachedEntry(10).Type);
         }
 
-        private LandscapeToolContext CreateContext() {
+        private LandscapeToolContext CreateContext(ILandscapeRaycastService? raycastService = null, ILandscapeEditorService? editorService = null) {
             var doc = new LandscapeDocument((uint)0xABCD);
 
             // Bypass dats loading
@@ -198,7 +217,12 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var layerId = Guid.NewGuid().ToString();
             doc.AddLayer([], "Active Layer", true, layerId);
             var activeLayer = (LandscapeLayer)doc.FindItem(layerId)!;
-            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, new Mock<ILandscapeObjectService>().Object, activeLayer);
-            }
-            }
-            }
+            
+            raycastService ??= new Mock<ILandscapeRaycastService>().Object;
+            editorService ??= new Mock<ILandscapeEditorService>().Object;
+            var settingsProvider = new Mock<IToolSettingsProvider>().Object;
+
+            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, new Mock<ILandscapeObjectService>().Object, raycastService, editorService, settingsProvider, activeLayer);
+        }
+    }
+}

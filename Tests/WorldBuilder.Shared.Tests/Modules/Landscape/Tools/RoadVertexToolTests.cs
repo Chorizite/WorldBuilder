@@ -15,8 +15,13 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         [Fact]
         public void OnPointerPressed_ShouldSetRoadBitAtSnappedVertex() {
             // Arrange
-            var tool = new RoadVertexTool { RoadBits = 4 };
-            var context = CreateContext();
+            var raycastServiceMock = new Mock<ILandscapeRaycastService>();
+            var editorServiceMock = new Mock<ILandscapeEditorService>();
+            var landscapeObjectServiceMock = new Mock<ILandscapeObjectService>();
+            var settingsProviderMock = new Mock<IToolSettingsProvider>();
+
+            var tool = new RoadVertexTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object) { RoadBits = 4 };
+            var context = CreateContext(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
             tool.Activate(context);
 
             // Point near (24, 24) -> Vertex (1,1) -> Index 10
@@ -33,7 +38,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             Assert.Single(context.CommandHistory.History);
         }
 
-        private LandscapeToolContext CreateContext() {
+        private LandscapeToolContext CreateContext(ILandscapeRaycastService? raycastService = null, ILandscapeEditorService? editorService = null, ILandscapeObjectService? landscapeObjectService = null, IToolSettingsProvider? settingsProvider = null) {
             var doc = new LandscapeDocument((uint)0xABCD);
 
             // Bypass dats loading
@@ -75,7 +80,12 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             cameraMock.Setup(c => c.ProjectionMatrix).Returns(projection);
             cameraMock.Setup(c => c.ViewMatrix).Returns(view);
 
-            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object, new Mock<ILandscapeObjectService>().Object, activeLayer) {
+            raycastService ??= new Mock<ILandscapeRaycastService>().Object;
+            editorService ??= new Mock<ILandscapeEditorService>().Object;
+            landscapeObjectService ??= new Mock<ILandscapeObjectService>().Object;
+            settingsProvider ??= new Mock<IToolSettingsProvider>().Object;
+
+            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object, landscapeObjectService, raycastService, editorService, settingsProvider, activeLayer) {
                 ViewportSize = new Vector2(500, 500)
             };
         }

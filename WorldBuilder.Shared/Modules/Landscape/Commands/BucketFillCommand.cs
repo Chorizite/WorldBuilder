@@ -40,7 +40,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
                 return;
             }
 
-            _context.Logger.LogInformation("BucketFillCommand: Executing FillTexture={FillTexture}, FillScenery={FillScenery}", _fillTextureId, _fillSceneryId);
+            _context.Log.LogInformation("BucketFillCommand: Executing FillTexture={FillTexture}, FillScenery={FillScenery}", _fillTextureId, _fillSceneryId);
             _previousState.Clear();
             ApplyChanges(record: true);
             _executed = true;
@@ -90,7 +90,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
 
             // If we are filling with the same texture, we only proceed if we are also updating the scenery.
             if (targetTextureId == _fillTextureId && !_fillSceneryId.HasValue) {
-                _context.Logger.LogInformation("BucketFillCommand: Skipping fill as texture is same and no scenery update requested.");
+                _context.Log.LogInformation("BucketFillCommand: Skipping fill as texture is same and no scenery update requested.");
                 return;
             }
 

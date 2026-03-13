@@ -90,7 +90,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         protected TerrainRaycastHit Raycast(double x, double y) {
             if (Context == null || Context.Document.Region == null) return new TerrainRaycastHit();
 
-            return TerrainRaycast.Raycast((float)x, (float)y, (int)Context.ViewportSize.X, (int)Context.ViewportSize.Y, Context.Camera, Context.Document.Region, Context.Document, Context.Logger);
+            return TerrainRaycast.Raycast((float)x, (float)y, (int)Context.ViewportSize.X, (int)Context.ViewportSize.Y, Context.Camera, Context.Document.Region, Context.Document, Context.Log);
         }
     }
 }

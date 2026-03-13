@@ -15,8 +15,13 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
     public class InspectorToolTests {
         [Fact]
         public void Activate_ShouldSetIsActive() {
-            var tool = new InspectorTool();
-            var context = CreateContext();
+            var raycastServiceMock = new Mock<ILandscapeRaycastService>();
+            var editorServiceMock = new Mock<ILandscapeEditorService>();
+            var landscapeObjectServiceMock = new Mock<ILandscapeObjectService>();
+            var settingsProviderMock = new Mock<IToolSettingsProvider>();
+            
+            var tool = new InspectorTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
+            var context = CreateContext(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
 
             tool.Activate(context);
 
@@ -26,8 +31,13 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         [Fact]
         public void OnPointerPressed_ShouldNotifyInspectorSelected_WhenObjectHit() {
             // Arrange
-            var tool = new InspectorTool();
-            var context = CreateContext();
+            var raycastServiceMock = new Mock<ILandscapeRaycastService>();
+            var editorServiceMock = new Mock<ILandscapeEditorService>();
+            var landscapeObjectServiceMock = new Mock<ILandscapeObjectService>();
+            var settingsProviderMock = new Mock<IToolSettingsProvider>();
+            
+            var tool = new InspectorTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
+            var context = CreateContext(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
             tool.Activate(context);
 
             InspectorSelectionEventArgs? capturedArgs = null;
@@ -38,7 +48,6 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var objId = 0x1111u;
             var dist = 10f;
 
-            var mockRaycast = new Mock<LandscapeToolContext.RaycastStaticObjectDelegate>();
             SceneRaycastHit hit = new SceneRaycastHit {
                 Hit = true,
                 Type = ObjectType.StaticObject,
@@ -49,14 +58,16 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
                 Position = Vector3.Zero,
                 Rotation = Quaternion.Identity
             };
-            mockRaycast.Setup(r => r(It.IsAny<Vector3>(), It.IsAny<Vector3>(), It.IsAny<bool>(), It.IsAny<bool>(), out hit, It.IsAny<ObjectId>()))
+            
+            raycastServiceMock.Setup(r => r.RaycastStaticObject(It.IsAny<Vector3>(), It.IsAny<Vector3>(), It.IsAny<bool>(), It.IsAny<bool>(), out hit, It.IsAny<ObjectId>()))
                 .Returns(true);
-            context.RaycastStaticObject = mockRaycast.Object;
 
             var inputEvent = new ViewportInputEvent {
                 Position = new Vector2(50, 50),
                 ViewportSize = new Vector2(100, 100),
-                IsLeftDown = true
+                IsLeftDown = true,
+                RayOrigin = Vector3.Zero,
+                RayDirection = Vector3.UnitZ
             };
 
             // Act
@@ -72,10 +83,15 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         [Fact]
         public void OnPointerPressed_ShouldPrioritizeClosestHit() {
             // Arrange
-            var tool = new InspectorTool {
+            var raycastServiceMock = new Mock<ILandscapeRaycastService>();
+            var editorServiceMock = new Mock<ILandscapeEditorService>();
+            var landscapeObjectServiceMock = new Mock<ILandscapeObjectService>();
+            var settingsProviderMock = new Mock<IToolSettingsProvider>();
+            
+            var tool = new InspectorTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object) {
                 SelectVertices = true
             };
-            var context = CreateContext();
+            var context = CreateContext(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
             tool.Activate(context);
 
             InspectorSelectionEventArgs? capturedArgs = null;
@@ -86,7 +102,6 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var instId = ObjectId.FromDat(ObjectType.StaticObject, 0, lbId, 0xABCD);
             var objId = 0x1111u;
             var objDist = 20f;
-            var mockRaycast = new Mock<LandscapeToolContext.RaycastStaticObjectDelegate>();
             SceneRaycastHit objHit = new SceneRaycastHit {
                 Hit = true,
                 Type = ObjectType.StaticObject,
@@ -95,9 +110,9 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
                 InstanceId = instId,
                 ObjectId = objId
             };
-            mockRaycast.Setup(r => r(It.IsAny<Vector3>(), It.IsAny<Vector3>(), It.IsAny<bool>(), It.IsAny<bool>(), out objHit, It.IsAny<ObjectId>()))
+            
+            raycastServiceMock.Setup(r => r.RaycastStaticObject(It.IsAny<Vector3>(), It.IsAny<Vector3>(), It.IsAny<bool>(), It.IsAny<bool>(), out objHit, It.IsAny<ObjectId>()))
                 .Returns(true);
-            context.RaycastStaticObject = mockRaycast.Object;
 
             // Mock Terrain Hit at dist 10
             var terrainHit = new TerrainRaycastHit {
@@ -108,12 +123,16 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
                 LandblockCellLength = 8,
                 MapOffset = Vector2.Zero
             };
-            context.RaycastTerrain = (x, y) => terrainHit;
+            
+            raycastServiceMock.Setup(r => r.RaycastTerrain(It.IsAny<float>(), It.IsAny<float>(), It.IsAny<Vector2>(), It.IsAny<ICamera>()))
+                .Returns(terrainHit);
 
             var inputEvent = new ViewportInputEvent {
                 Position = new Vector2(50, 50),
                 ViewportSize = new Vector2(100, 100),
-                IsLeftDown = true
+                IsLeftDown = true,
+                RayOrigin = Vector3.Zero,
+                RayDirection = Vector3.UnitZ
             };
 
             // Act
@@ -129,12 +148,17 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         [Fact]
         public void OnPointerPressed_ShouldRespectFilters() {
             // Arrange
-            var tool = new InspectorTool {
+            var raycastServiceMock = new Mock<ILandscapeRaycastService>();
+            var editorServiceMock = new Mock<ILandscapeEditorService>();
+            var landscapeObjectServiceMock = new Mock<ILandscapeObjectService>();
+            var settingsProviderMock = new Mock<IToolSettingsProvider>();
+            
+            var tool = new InspectorTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object) {
                 SelectStaticObjects = false,
                 SelectBuildings = false,
                 SelectVertices = true
             };
-            var context = CreateContext();
+            var context = CreateContext(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
             tool.Activate(context);
 
             InspectorSelectionEventArgs? capturedArgs = null;
@@ -142,11 +166,10 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             // Object raycast SHOULD be called even if filters are off (to check for blockers)
             bool objectRaycastCalled = false;
-            context.RaycastStaticObject = (Vector3 o, Vector3 d, bool b, bool s, out SceneRaycastHit h, ObjectId ignoreInstanceId) => {
-                objectRaycastCalled = true;
-                h = new SceneRaycastHit { Hit = true, Type = ObjectType.StaticObject, Distance = 5f };
-                return true;
-            };
+            SceneRaycastHit blockerHit = new SceneRaycastHit { Hit = true, Type = ObjectType.StaticObject, Distance = 5f };
+            raycastServiceMock.Setup(r => r.RaycastStaticObject(It.IsAny<Vector3>(), It.IsAny<Vector3>(), It.IsAny<bool>(), It.IsAny<bool>(), out blockerHit, It.IsAny<ObjectId>()))
+                .Callback(() => objectRaycastCalled = true)
+                .Returns(true);
 
             // Terrain Hit at dist 10
             var terrainHit = new TerrainRaycastHit {
@@ -157,12 +180,16 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
                 LandblockCellLength = 8,
                 MapOffset = Vector2.Zero
             };
-            context.RaycastTerrain = (x, y) => terrainHit;
+            
+            raycastServiceMock.Setup(r => r.RaycastTerrain(It.IsAny<float>(), It.IsAny<float>(), It.IsAny<Vector2>(), It.IsAny<ICamera>()))
+                .Returns(terrainHit);
 
             var inputEvent = new ViewportInputEvent {
                 Position = new Vector2(50, 50),
                 ViewportSize = new Vector2(100, 100),
-                IsLeftDown = true
+                IsLeftDown = true,
+                RayOrigin = Vector3.Zero,
+                RayDirection = Vector3.UnitZ
             };
 
             // Act
@@ -173,7 +200,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             Assert.Null(capturedArgs); // Object at dist 5 blocks terrain at dist 10
         }
 
-        private LandscapeToolContext CreateContext() {
+        private LandscapeToolContext CreateContext(ILandscapeRaycastService? raycastService = null, ILandscapeEditorService? editorService = null, ILandscapeObjectService? landscapeObjectService = null, IToolSettingsProvider? settingsProvider = null) {
             var doc = new LandscapeDocument((uint)0xABCD);
 
             // Bypass dats loading
@@ -198,8 +225,13 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var cameraMock = new Mock<ICamera>();
             cameraMock.Setup(c => c.ProjectionMatrix).Returns(Matrix4x4.Identity);
             cameraMock.Setup(c => c.ViewMatrix).Returns(Matrix4x4.Identity);
+            
+            raycastService ??= new Mock<ILandscapeRaycastService>().Object;
+            editorService ??= new Mock<ILandscapeEditorService>().Object;
+            landscapeObjectService ??= new Mock<ILandscapeObjectService>().Object;
+            settingsProvider ??= new Mock<IToolSettingsProvider>().Object;
 
-            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object, new Mock<ILandscapeObjectService>().Object);
+            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object, landscapeObjectService, raycastService, editorService, settingsProvider);
         }
     }
 }

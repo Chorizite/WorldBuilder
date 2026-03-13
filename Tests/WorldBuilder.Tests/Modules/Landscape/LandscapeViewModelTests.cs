@@ -29,7 +29,7 @@ namespace WorldBuilder.Tests.Modules.Landscape {
             
             projectMock.Setup(p => p.IsReadOnly).Returns(false);
             
-            var settings = new WorldBuilderSettings();
+            var settings = new WorldBuilderSettings { Project = new ProjectSettings() };
             var vm = new LandscapeViewModel(projectMock.Object, datsMock.Object, portalServiceMock.Object, docManagerMock.Object, bookmarksManagerMock.Object, loggerMock.Object, dialogServiceMock.Object, settings, landscapeObjectServiceMock.Object);
             
             Assert.IsType<BrushTool>(vm.ActiveTool);
@@ -48,7 +48,7 @@ namespace WorldBuilder.Tests.Modules.Landscape {
             
             projectMock.Setup(p => p.IsReadOnly).Returns(false);
             
-            var settings = new WorldBuilderSettings();
+            var settings = new WorldBuilderSettings { Project = new ProjectSettings() };
             var vm = new LandscapeViewModel(projectMock.Object, datsMock.Object, portalServiceMock.Object, docManagerMock.Object, bookmarksManagerMock.Object, loggerMock.Object, dialogServiceMock.Object, settings, landscapeObjectServiceMock.Object);
             
             Assert.IsType<BrushTool>(vm.ActiveTool);
@@ -68,7 +68,7 @@ namespace WorldBuilder.Tests.Modules.Landscape {
             
             projectMock.Setup(p => p.IsReadOnly).Returns(false);
             
-            var settings = new WorldBuilderSettings();
+            var settings = new WorldBuilderSettings { Project = new ProjectSettings() };
             var vm = new LandscapeViewModel(projectMock.Object, datsMock.Object, portalServiceMock.Object, docManagerMock.Object, bookmarksManagerMock.Object, loggerMock.Object, dialogServiceMock.Object, settings, landscapeObjectServiceMock.Object);
             
             var inspectorTool = vm.Tools.OfType<InspectorTool>().First();
@@ -90,7 +90,7 @@ namespace WorldBuilder.Tests.Modules.Landscape {
             
             projectMock.Setup(p => p.IsReadOnly).Returns(false);
             
-            var settings = new WorldBuilderSettings();
+            var settings = new WorldBuilderSettings { Project = new ProjectSettings() };
             var vm = new LandscapeViewModel(projectMock.Object, datsMock.Object, portalServiceMock.Object, docManagerMock.Object, bookmarksManagerMock.Object, loggerMock.Object, dialogServiceMock.Object, settings, landscapeObjectServiceMock.Object);
             
             var brushTool = vm.Tools.OfType<BrushTool>().First();
