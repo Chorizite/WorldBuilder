@@ -75,8 +75,14 @@ public class GameScene : IDisposable {
 
         if (_terrainManager != null) {
             _terrainManager.ShowUnwalkableSlopes = _state.ShowUnwalkableSlopes;
+
+            float effectiveDrawDistance = _cameraController.Is3DMode 
+                ? _state.MaxDrawDistance 
+                : 500000f;
+
             // A landscape chunk is 8x8 landblocks. 8 * 192 = 1536 units.
-            _terrainManager.RenderDistance = (int)Math.Ceiling(_state.MaxDrawDistance / 1536f);
+            _terrainManager.RenderDistance = (int)Math.Ceiling(effectiveDrawDistance / 1536f);
+            
             _terrainManager.ShowLandblockGrid = _state.ShowLandblockGrid && _state.ShowGrid;
             _terrainManager.ShowCellGrid = _state.ShowCellGrid && _state.ShowGrid;
             _terrainManager.LandblockGridColor = _state.LandblockGridColor;
@@ -114,7 +120,13 @@ public class GameScene : IDisposable {
         }
 
         _cameraController.Camera3D.LookSensitivity = _state.MouseSensitivity;
-        _cameraController.Camera3D.FarPlane = _state.MaxDrawDistance;
+
+        if (_cameraController.Is3DMode) {
+            _cameraController.Camera3D.FarPlane = _state.MaxDrawDistance;
+        } else {
+            _cameraController.Camera3D.FarPlane = 500000f;
+        }
+
         _stateIsDirty = false;
         _forcePrepareBatches = true;
     }
