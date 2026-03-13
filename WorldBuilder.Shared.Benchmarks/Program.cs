@@ -24,7 +24,7 @@ namespace WorldBuilder.Shared.Benchmarks {
         public void Load() {
 
             var _terrain = new LandscapeDocument(1u);
-            _terrain.InitializeForEditingAsync(_dats, _manager, default).GetAwaiter().GetResult();
+            _terrain.InitializeForEditingAsync(_dats, _manager, null, default).GetAwaiter().GetResult();
         }
     }
 

@@ -7,6 +7,7 @@ using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Shared.Modules.Landscape.Services;
 using WorldBuilder.Shared.Services;
 using Xunit;
 
@@ -32,7 +33,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             InspectorSelectionEventArgs? capturedArgs = null;
             context.InspectorSelected += (s, e) => capturedArgs = e;
 
-            var lbId = 0x12345678u;
+            var lbId = (ushort)0x1234;
             var instId = 0xABCDu;
             var objId = 0x1111u;
             var dist = 10f;
@@ -81,7 +82,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             context.InspectorSelected += (s, e) => capturedArgs = e;
 
             // Mock Object Hit at dist 20
-            var lbId = 0x12345678u;
+            var lbId = (ushort)0x1234;
             var instId = 0xABCDu;
             var objId = 0x1111u;
             var objDist = 20f;
@@ -198,7 +199,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             cameraMock.Setup(c => c.ProjectionMatrix).Returns(Matrix4x4.Identity);
             cameraMock.Setup(c => c.ViewMatrix).Returns(Matrix4x4.Identity);
 
-            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object);
+            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object, new Mock<ILandscapeObjectService>().Object);
         }
     }
 }

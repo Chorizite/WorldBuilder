@@ -49,7 +49,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
                 }
 
                 var terrainRental = createResult.Value;
-                await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
+                await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, tx, ct);
 
                 // Create base layer doc
                 var createLayerCommand = new CreateLandscapeLayerCommand(terrainDoc.Id, [], "Base Layer", true);

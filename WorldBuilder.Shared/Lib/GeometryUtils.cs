@@ -196,5 +196,31 @@ namespace WorldBuilder.Shared.Lib {
 
             return new Vector3(roll, pitch, yaw) * (180.0f / (float)Math.PI);
         }
+
+        /// <summary>
+        /// Converts Euler angles (in degrees) to a quaternion using the ZYX convention.
+        /// </summary>
+        /// <param name="euler">The Euler angles (X, Y, Z) in degrees.</param>
+        /// <returns>A quaternion representing the rotation.</returns>
+        public static Quaternion EulerToQuaternion(Vector3 euler) {
+            Vector3 rads = euler * (MathF.PI / 180.0f);
+            float roll = rads.X;
+            float pitch = rads.Y;
+            float yaw = rads.Z;
+
+            float cr = MathF.Cos(roll * 0.5f);
+            float sr = MathF.Sin(roll * 0.5f);
+            float cp = MathF.Cos(pitch * 0.5f);
+            float sp = MathF.Sin(pitch * 0.5f);
+            float cy = MathF.Cos(yaw * 0.5f);
+            float sy = MathF.Sin(yaw * 0.5f);
+
+            return new Quaternion(
+                sr * cp * cy - cr * sp * sy,
+                cr * sp * cy + sr * cp * sy,
+                cr * cp * sy - sr * sp * cy,
+                cr * cp * cy + sr * sp * sy
+            );
+        }
     }
 }

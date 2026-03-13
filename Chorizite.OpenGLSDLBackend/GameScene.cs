@@ -45,7 +45,6 @@ public class GameScene : IDisposable {
     private IShader? _sceneryShader;
     private IShader? _stencilShader;
     private IShader? _outlineShader;
-    private ManagedGLUniformBuffer? _sceneDataBuffer;
     private bool _initialized;
     private int _width;
     private int _height;
@@ -307,8 +306,6 @@ public class GameScene : IDisposable {
         var oFragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Outline.frag");
         _outlineShader = _graphicsDevice.CreateShader("Outline", oVertSource, oFragSource);
 
-        _sceneDataBuffer = new ManagedGLUniformBuffer(_graphicsDevice, Chorizite.Core.Render.Enums.BufferUsage.Dynamic, System.Runtime.InteropServices.Marshal.SizeOf<SceneData>());
-
         _initialized = true;
 
         foreach (var manager in _renderManagers) {
@@ -410,7 +407,7 @@ public class GameScene : IDisposable {
         _skyboxManager.TimeOfDay = _state.TimeOfDay;
         _skyboxManager.LightIntensity = _state.LightIntensity;
         if (_initialized && _sceneryShader != null) {
-            _skyboxManager.Initialize(_sceneryShader, _sceneDataBuffer!);
+            _skyboxManager.Initialize(_sceneryShader, _graphicsDevice.SceneDataBuffer);
         }
 
         _renderManagers.Add(_terrainManager);
@@ -579,7 +576,7 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Updates the transform of an object for realtime preview during manipulation.
     /// </summary>
-    public void UpdateObjectPreview(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
+    public void UpdateObjectPreview(ushort landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
         _staticObjectManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId);
         _envCellManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId);
         _sceneryManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId);
@@ -589,7 +586,7 @@ public class GameScene : IDisposable {
         return _envCellManager?.GetEnvCellAt(pos) ?? 0;
     }
 
-    public (Vector3 position, Quaternion rotation, Vector3 localPosition)? GetStaticObjectTransform(uint landblockId, ulong instanceId) {
+    public (Vector3 position, Quaternion rotation, Vector3 localPosition)? GetStaticObjectTransform(ushort landblockId, ulong instanceId) {
         var type = InstanceIdConstants.GetType(instanceId);
         if (type == InspectorSelectionType.EnvCellStaticObject) {
             return _envCellManager?.GetInstanceTransform(landblockId, instanceId);
@@ -600,7 +597,7 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Gets the world-space bounding box for a static object.
     /// </summary>
-    public BoundingBox? GetStaticObjectBounds(uint landblockId, ulong instanceId) {
+    public BoundingBox? GetStaticObjectBounds(ushort landblockId, ulong instanceId) {
         var type = InstanceIdConstants.GetType(instanceId);
         if (type == InspectorSelectionType.EnvCellStaticObject) {
             return _envCellManager?.GetInstanceBounds(landblockId, instanceId);
@@ -611,7 +608,7 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Gets the local-space bounding box for a static object.
     /// </summary>
-    public BoundingBox? GetStaticObjectLocalBounds(uint landblockId, ulong instanceId) {
+    public BoundingBox? GetStaticObjectLocalBounds(ushort landblockId, ulong instanceId) {
         var type = InstanceIdConstants.GetType(instanceId);
         if (type == InspectorSelectionType.EnvCellStaticObject) {
             return _envCellManager?.GetInstanceLocalBounds(landblockId, instanceId);
@@ -622,7 +619,7 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Gets the layer ID that owns a static object.
     /// </summary>
-    public string? GetStaticObjectLayerId(uint landblockId, ulong instanceId) {
+    public string? GetStaticObjectLayerId(ushort landblockId, ulong instanceId) {
         if (_landscapeDoc == null) return null;
 
         var type = InstanceIdConstants.GetType(instanceId);
@@ -661,7 +658,7 @@ public class GameScene : IDisposable {
     }
 
 
-    public void SetHoveredObject(InspectorSelectionType type, uint landblockId, ulong instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
+    public void SetHoveredObject(InspectorSelectionType type, ushort landblockId, ulong instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
         SetObjectHighlight(ref _hoveredVertex, type, landblockId, instanceId, objectId, vx, vy, (m, val) => {
             if (m is SceneryRenderManager srm) srm.HoveredInstance = (SelectedStaticObject?)val;
             if (m is StaticObjectRenderManager sorm) sorm.HoveredInstance = (SelectedStaticObject?)val;
@@ -670,7 +667,7 @@ public class GameScene : IDisposable {
         });
     }
 
-    public void SetSelectedObject(InspectorSelectionType type, uint landblockId, ulong instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
+    public void SetSelectedObject(InspectorSelectionType type, ushort landblockId, ulong instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
         SetObjectHighlight(ref _selectedVertex, type, landblockId, instanceId, objectId, vx, vy, (m, val) => {
             if (m is SceneryRenderManager srm) srm.SelectedInstance = (SelectedStaticObject?)val;
             if (m is StaticObjectRenderManager sorm) sorm.SelectedInstance = (SelectedStaticObject?)val;
@@ -679,19 +676,19 @@ public class GameScene : IDisposable {
         });
     }
 
-    private void SetObjectHighlight(ref (int x, int y)? vertexStorage, InspectorSelectionType type, uint landblockId, ulong instanceId, uint objectId, int vx, int vy, Action<object, object?> setter) {
+    private void SetObjectHighlight(ref (int x, int y)? vertexStorage, InspectorSelectionType type, ushort landblockId, ulong instanceId, uint objectId, int vx, int vy, Action<object, object?> setter) {
         vertexStorage = (type == InspectorSelectionType.Vertex && (vx != 0 || vy != 0)) ? (vx, vy) : null;
 
         if (_sceneryManager != null) {
-            var val = (type == InspectorSelectionType.Scenery && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId } : (object?)null;
+            var val = (type == InspectorSelectionType.Scenery && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = landblockId, InstanceId = instanceId } : (object?)null;
             setter(_sceneryManager, val);
         }
         if (_staticObjectManager != null) {
-            var val = ((type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId } : (object?)null;
+            var val = ((type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = landblockId, InstanceId = instanceId } : (object?)null;
             setter(_staticObjectManager, val);
         }
         if (_envCellManager != null) {
-            var val = ((type == InspectorSelectionType.EnvCell || type == InspectorSelectionType.EnvCellStaticObject) && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = (ushort)(landblockId >> 16), InstanceId = instanceId } : (object?)null;
+            var val = ((type == InspectorSelectionType.EnvCell || type == InspectorSelectionType.EnvCellStaticObject) && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = landblockId, InstanceId = instanceId } : (object?)null;
             setter(_envCellManager, val);
         }
         if (_portalManager != null) {
@@ -810,8 +807,8 @@ public class GameScene : IDisposable {
             SpecularPower = 32.0f,
             ViewportSize = new Vector2(_width, _height)
         };
-        _sceneDataBuffer?.SetData(ref sceneData);
-        _sceneDataBuffer?.Bind(0);
+        _graphicsDevice.SceneDataBuffer.SetData(ref sceneData);
+        _graphicsDevice.SceneDataBuffer.Bind(0);
 
         var sw = Stopwatch.StartNew();
 
@@ -1031,7 +1028,7 @@ public class GameScene : IDisposable {
         if (managers.All(m => !m.SelectedInstance.HasValue && !m.HoveredInstance.HasValue)) return;
 
         using var glScope = new GLStateScope(_gl);
-        _sceneDataBuffer?.Bind(0);
+        _graphicsDevice.SceneDataBuffer.Bind(0);
 
         _gl.Enable(EnableCap.StencilTest);
         _gl.StencilMask(0xFF);
@@ -1159,6 +1156,5 @@ public class GameScene : IDisposable {
         (_terrainShader as IDisposable)?.Dispose();
         (_sceneryShader as IDisposable)?.Dispose();
         (_stencilShader as IDisposable)?.Dispose();
-        _sceneDataBuffer?.Dispose();
-    }
-}
+        }
+        }

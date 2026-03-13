@@ -24,7 +24,7 @@ public class StaticObjectCommandTests {
         _mockRepo = new Mock<IProjectRepository>();
 
         _mockDocManager.Setup(m => m.ProjectRepository).Returns(_mockRepo.Object);
-        _mockDocManager.Setup(m => m.UpsertStaticObjectAsync(It.IsAny<StaticObject>(), It.IsAny<uint>(), It.IsAny<uint?>(), It.IsAny<uint?>(), It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
+        _mockDocManager.Setup(m => m.UpsertStaticObjectAsync(It.IsAny<StaticObject>(), It.IsAny<uint>(), It.IsAny<ushort?>(), It.IsAny<uint?>(), It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<Unit>.Success(Unit.Value));
         _mockDocManager.Setup(m => m.DeleteStaticObjectAsync(It.IsAny<ulong>(), It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<Unit>.Success(Unit.Value));
@@ -58,9 +58,9 @@ public class StaticObjectCommandTests {
         return (terrainDoc, rental);
     }
 
-    private async Task SetupChunk(LandscapeDocument terrainDoc, uint landblockId) {
-        var x = (int)(landblockId >> 24);
-        var y = (int)((landblockId >> 16) & 0xFF);
+    private async Task SetupChunk(LandscapeDocument terrainDoc, ushort landblockId) {
+        var x = (int)(landblockId >> 8);
+        var y = (int)(landblockId & 0xFF);
         ushort chunkId = (ushort)(((uint)(x / 8) << 8) | (uint)(y / 8));
 
         if (!terrainDoc.LoadedChunks.ContainsKey(chunkId)) {
@@ -77,7 +77,7 @@ public class StaticObjectCommandTests {
         var (terrainDoc, terrainRental) = CreateMockTerrainRental();
         terrainDoc.AddLayer([], "Test Layer", false, layerId);
 
-        uint lbId = (10u << 24) | (10u << 16) | 0xFFFE;
+        ushort lbId = 0x0A0A;
         await SetupChunk(terrainDoc, lbId);
 
         var obj = new StaticObject { InstanceId = 123, SetupId = 0x01000001, LayerId = layerId };
@@ -104,7 +104,7 @@ public class StaticObjectCommandTests {
         Assert.True(result.IsSuccess);
 
         // Setup repo to return the object for merging test
-        _mockRepo.Setup(r => r.GetStaticObjectsAsync(It.IsAny<uint?>(), It.IsAny<uint?>(), It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
+        _mockRepo.Setup(r => r.GetStaticObjectsAsync(It.IsAny<ushort?>(), It.IsAny<uint?>(), It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<StaticObject> { obj });
 
         var merged = await terrainDoc.GetMergedLandblockAsync(lbId);
@@ -118,7 +118,7 @@ public class StaticObjectCommandTests {
         var (terrainDoc, terrainRental) = CreateMockTerrainRental();
         terrainDoc.AddLayer([], "Test Layer", false, layerId);
 
-        uint lbId = (10u << 24) | (10u << 16) | 0xFFFE;
+        ushort lbId = 0x0A0A;
         await SetupChunk(terrainDoc, lbId);
 
         var obj = new StaticObject { InstanceId = 123, SetupId = 0x01000001, LayerId = layerId };
@@ -147,7 +147,7 @@ public class StaticObjectCommandTests {
         Assert.True(result.IsSuccess);
 
         // Mock repo returns empty list after delete
-        _mockRepo.Setup(r => r.GetStaticObjectsAsync(It.IsAny<uint?>(), It.IsAny<uint?>(), It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
+        _mockRepo.Setup(r => r.GetStaticObjectsAsync(It.IsAny<ushort?>(), It.IsAny<uint?>(), It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<StaticObject>());
 
         var merged = await terrainDoc.GetMergedLandblockAsync(lbId);
@@ -161,8 +161,8 @@ public class StaticObjectCommandTests {
         var (terrainDoc, terrainRental) = CreateMockTerrainRental();
         terrainDoc.AddLayer([], "Test Layer", false, layerId);
 
-        uint oldLbId = (10u << 24) | (10u << 16) | 0xFFFE;
-        uint newLbId = (11u << 24) | (11u << 16) | 0xFFFE;
+        ushort oldLbId = 0x0A0A;
+        ushort newLbId = 0x0B0B;
         await SetupChunk(terrainDoc, oldLbId);
         await SetupChunk(terrainDoc, newLbId);
 
@@ -212,7 +212,7 @@ public class StaticObjectCommandTests {
         var layerId = Guid.NewGuid().ToString();
         var (terrainDoc, terrainRental) = CreateMockTerrainRental();
         terrainDoc.AddLayer([], "Test Layer", false, layerId);
-        uint lbId = (10u << 24) | (10u << 16) | 0xFFFE;
+        ushort lbId = 0x0A0A;
         await SetupChunk(terrainDoc, lbId);
 
         var obj = new StaticObject { InstanceId = 123, SetupId = 0x01000001, LayerId = layerId };

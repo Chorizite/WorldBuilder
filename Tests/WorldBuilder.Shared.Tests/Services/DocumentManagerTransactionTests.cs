@@ -24,7 +24,7 @@ namespace WorldBuilder.Shared.Tests.Services {
         }
 
         public async Task InitializeAsync() {
-            _repo = new SQLiteProjectRepository(_db.ConnectionString, new NullLogger<SQLiteProjectRepository>());
+            _repo = new SQLiteProjectRepository(_db.ConnectionString, NullLoggerFactory.Instance);
             await _repo.InitializeDatabaseAsync(default);
             _documentManager = new DocumentManager(_repo, _datsMock.Object, new NullLogger<DocumentManager>());
             // Don't call InitializeAsync here to avoid the user value lookup that creates transactions before tests

@@ -1,4 +1,5 @@
 using DatReaderWriter;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Services;
 
@@ -234,10 +235,10 @@ namespace WorldBuilder.Shared.Models {
             return current;
         }
 
-        private async Task LoadLayersAsync(IDocumentManager documentManager, CancellationToken ct) {
+        private async Task LoadLayersAsync(IDocumentManager documentManager, ITransaction? tx, CancellationToken ct) {
             if (_didLoadLayers) return;
 
-            var items = await documentManager.GetLayersAsync(RegionId, null, ct);
+            var items = await documentManager.GetLayersAsync(RegionId, tx, ct);
             if (items == null) {
                 _didLoadLayers = true;
                 return;

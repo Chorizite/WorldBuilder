@@ -124,7 +124,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.Position = inst.WorldPosition;
                                 hit.LocalPosition = inst.LocalPosition;
                                 hit.Rotation = inst.Rotation;
-                                hit.LandblockId = (uint)((kvp.Key << 16) | 0xFFFE);
+                                hit.LandblockId = kvp.Key;
                                 hit.Normal = normal;
                             }
                         }

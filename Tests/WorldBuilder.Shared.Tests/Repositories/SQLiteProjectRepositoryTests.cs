@@ -17,7 +17,7 @@ namespace WorldBuilder.Shared.Tests.Repositories {
 
         public SQLiteProjectRepositoryTests() {
             _db = new TestDatabase();
-            _repo = new SQLiteProjectRepository(_db.ConnectionString, new NullLogger<SQLiteProjectRepository>());
+            _repo = new SQLiteProjectRepository(_db.ConnectionString, NullLoggerFactory.Instance);
         }
 
         public async Task InitializeAsync() {
@@ -55,34 +55,37 @@ namespace WorldBuilder.Shared.Tests.Repositories {
             var initial = DateTime.UtcNow.AddSeconds(-10);
 
             // Insert initial
-            await using (var cmd = _repo.Connection.CreateCommand()) {
-                cmd.CommandText = @"
+            using (var connection = new SqliteConnection(_db.ConnectionString)) {
+                await connection.OpenAsync();
+                await using (var cmd = connection.CreateCommand()) {
+                    cmd.CommandText = @"
             INSERT INTO TerrainPatches (Id, RegionId, Data, Version, LastModified)
             VALUES (@id, @regionId, @data, @ver, @ts)";
-                cmd.Parameters.AddWithValue("@id", patchId);
-                cmd.Parameters.AddWithValue("@regionId", 1L);
-                cmd.Parameters.AddWithValue("@data", new byte[] { 1 });
-                cmd.Parameters.AddWithValue("@ver", 1L);
-                cmd.Parameters.AddWithValue("@ts", initial);
-                await cmd.ExecuteNonQueryAsync();
+                    cmd.Parameters.AddWithValue("@id", patchId);
+                    cmd.Parameters.AddWithValue("@regionId", 1L);
+                    cmd.Parameters.AddWithValue("@data", new byte[] { 1 });
+                    cmd.Parameters.AddWithValue("@ver", 1L);
+                    cmd.Parameters.AddWithValue("@ts", initial);
+                    await cmd.ExecuteNonQueryAsync();
+                }
+
+                await Task.Delay(100);
+
+                // Upsert update
+                var tx = await _repo.CreateTransactionAsync(default);
+                await _repo.UpsertTerrainPatchAsync(patchId, 1, new byte[] { 2 }, 2, tx, default);
+                await tx.CommitAsync(default);
+
+                // Verify LastModified updated
+                await using var readCmd = connection.CreateCommand();
+                readCmd.CommandText = "SELECT LastModified FROM TerrainPatches WHERE Id = @id";
+                readCmd.Parameters.AddWithValue("@id", patchId);
+                var lastModObj = await readCmd.ExecuteScalarAsync();
+                var lastModString = lastModObj?.ToString() ?? throw new InvalidOperationException("LastModified not found");
+                var lastMod = DateTime.Parse(lastModString);
+
+                Assert.True(lastMod > initial);
             }
-
-            await Task.Delay(100);
-
-            // Upsert update
-            var tx = await _repo.CreateTransactionAsync(default);
-            await _repo.UpsertTerrainPatchAsync(patchId, 1, new byte[] { 2 }, 2, tx, default);
-            await tx.CommitAsync(default);
-
-            // Verify LastModified updated
-            await using var readCmd = _repo.Connection.CreateCommand();
-            readCmd.CommandText = "SELECT LastModified FROM TerrainPatches WHERE Id = @id";
-            readCmd.Parameters.AddWithValue("@id", patchId);
-            var lastModObj = await readCmd.ExecuteScalarAsync();
-            var lastModString = lastModObj?.ToString() ?? throw new InvalidOperationException("LastModified not found");
-            var lastMod = DateTime.Parse(lastModString);
-
-            Assert.True(lastMod > initial);
         }
 
         [Fact]
@@ -97,7 +100,9 @@ namespace WorldBuilder.Shared.Tests.Repositories {
         }
 
         private async Task<List<string>> GetTableNamesAsync() {
-            var cmd = _repo.Connection.CreateCommand();
+            using var connection = new SqliteConnection(_db.ConnectionString);
+            await connection.OpenAsync();
+            var cmd = connection.CreateCommand();
             cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';";
             await using var reader = await cmd.ExecuteReaderAsync();
             var tables = new List<string>();
@@ -107,7 +112,9 @@ namespace WorldBuilder.Shared.Tests.Repositories {
         }
 
         private async Task<List<string>> GetIndexNamesAsync() {
-            var cmd = _repo.Connection.CreateCommand();
+            using var connection = new SqliteConnection(_db.ConnectionString);
+            await connection.OpenAsync();
+            var cmd = connection.CreateCommand();
             cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%';";
             await using var reader = await cmd.ExecuteReaderAsync();
             var indexes = new List<string>();

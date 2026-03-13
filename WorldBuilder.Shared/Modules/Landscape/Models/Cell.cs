@@ -66,5 +66,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         /// The cell ID of this cell.
         /// </summary>
         [MemoryPackOrder(11)] public uint CellId { get; set; }
+
+        /// <summary>
+        /// The minimum bounds of this cell in world space.
+        /// </summary>
+        [MemoryPackOrder(12)] public Vector3 MinBounds { get; set; }
+
+        /// <summary>
+        /// The maximum bounds of this cell in world space.
+        /// </summary>
+        [MemoryPackOrder(13)] public Vector3 MaxBounds { get; set; }
     }
 }

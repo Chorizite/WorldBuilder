@@ -1,45 +1,22 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Numerics;
-using WorldBuilder.Shared.Lib;
-using WorldBuilder.ViewModels;
-
-using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 
-public partial class StaticObjectViewModel : ViewModelBase, ISelectedObjectInfo {
-    public InspectorSelectionType Type => InspectorSelectionType.StaticObject;
-    public ushort SecondaryId => InstanceIdConstants.GetSecondaryId(InstanceId);
-    public int VertexX => 0;
-    public int VertexY => 0;
+public partial class StaticObjectViewModel : SelectedObjectViewModelBase {
+    public override InspectorSelectionType Type => InspectorSelectionType.StaticObject;
 
-    [ObservableProperty] private uint _objectId;
-    [ObservableProperty] private ulong _instanceId;
-    [ObservableProperty] private uint _landblockId;
-    [ObservableProperty] private Vector3 _position;
-    [ObservableProperty] private Vector3 _localPosition;
-    [ObservableProperty] private Quaternion _rotation;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ObjectIdHex))]
+    private uint _objectIdVal;
 
-    public float X => LocalPosition.X;
-    public float Y => LocalPosition.Y;
-    public float Z => LocalPosition.Z;
-
-    public Vector3 RotationEuler => GeometryUtils.QuaternionToEuler(Rotation);
-    public float RotationX => RotationEuler.X;
-    public float RotationY => RotationEuler.Y;
-    public float RotationZ => RotationEuler.Z;
+    public override uint ObjectId => ObjectIdVal;
 
     public string ObjectIdHex => $"0x{ObjectId:X8}";
-    public string InstanceIdHex => $"0x{InstanceId:X16}";
-    public string LandblockIdHex => $"0x{LandblockId:X8}";
 
-    public StaticObjectViewModel(uint objectId, ulong instanceId, uint landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation) {
-        ObjectId = objectId;
-        InstanceId = instanceId;
-        LandblockId = landblockId;
-        Position = position;
-        LocalPosition = localPosition;
-        Rotation = rotation;
+    public StaticObjectViewModel(uint objectId, ulong instanceId, ushort landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation) 
+        : base(instanceId, landblockId, position, localPosition, rotation) {
+        ObjectIdVal = objectId;
     }
 }

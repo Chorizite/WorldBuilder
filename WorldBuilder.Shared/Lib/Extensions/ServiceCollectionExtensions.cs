@@ -19,10 +19,10 @@ namespace WorldBuilder.Shared.Lib.Extensions {
         /// <returns>The service collection for chaining</returns>
         public static IServiceCollection AddWorldBuilderSharedServices(
             this IServiceCollection services,
-            string connectionString,
+            string projectDirectory,
             string datDirectory) {
-            if (string.IsNullOrEmpty(connectionString))
-                throw new ArgumentException("Connection string cannot be null or empty", nameof(connectionString));
+            if (string.IsNullOrEmpty(projectDirectory))
+                throw new ArgumentException("Project directory cannot be null or empty", nameof(projectDirectory));
 
             if (string.IsNullOrEmpty(datDirectory))
                 throw new ArgumentException("DAT directory cannot be null or empty", nameof(datDirectory));
@@ -31,7 +31,7 @@ namespace WorldBuilder.Shared.Lib.Extensions {
 
             // Repository services
             services.AddSingleton<IProjectRepository>(provider =>
-                new SQLiteProjectRepository(connectionString, provider.GetService<ILogger<SQLiteProjectRepository>>()));
+                new SQLiteProjectRepository(projectDirectory, provider.GetService<ILoggerFactory>()));
 
             // DAT reader/writer services
             services.AddSingleton<IDatReaderWriter>(provider =>
@@ -39,10 +39,12 @@ namespace WorldBuilder.Shared.Lib.Extensions {
             services.AddSingleton<IDatExportService, DatExportService>();
 
             // Core services
+            services.AddSingleton<IWorldCoordinateService, WorldCoordinateService>();
             services.AddSingleton<IDocumentManager, DocumentManager>();
             services.AddSingleton<IUndoStack, UndoStack>();
             services.AddSingleton<IPortalService, PortalService>();
             services.AddSingleton<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeCacheService, WorldBuilder.Shared.Modules.Landscape.Services.LandscapeCacheService>();
+            services.AddSingleton<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeObjectService, WorldBuilder.Shared.Modules.Landscape.Services.LandscapeObjectService>();
             services.AddSingleton<ILandscapeModule, WorldBuilder.Shared.Modules.Landscape.LandscapeModule>();
 
             // Sync services

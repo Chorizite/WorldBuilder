@@ -53,6 +53,10 @@ namespace Chorizite.OpenGLSDLBackend {
         /// <summary>OpenGL sampler object with TextureWrapMode.ClampToEdge (for meshes without wrapping UVs).</summary>
         public uint ClampSampler { get; private set; }
 
+        private ManagedGLUniformBuffer? _sceneDataBuffer;
+        /// <summary>Shared SceneData UBO.</summary>
+        public ManagedGLUniformBuffer SceneDataBuffer => _sceneDataBuffer!;
+
         private int _instanceBufferCapacity = 0;
         private int _instanceBufferStride = 0;
 
@@ -113,6 +117,8 @@ namespace Chorizite.OpenGLSDLBackend {
                 GL.GetFloat(GLEnum.MaxTextureMaxAnisotropy, out float maxAniso);
                 if (maxAniso > 0) GL.SamplerParameter(ClampSampler, GLEnum.TextureMaxAnisotropy, maxAniso);
             }
+
+            _sceneDataBuffer = new ManagedGLUniformBuffer(this, BufferUsage.Dynamic, Marshal.SizeOf<Chorizite.OpenGLSDLBackend.Lib.SceneData>());
         }
 
         public void EnsureInstanceBufferCapacity(int count, int stride, bool forceOrphan = false) {
@@ -523,6 +529,8 @@ namespace Chorizite.OpenGLSDLBackend {
             InstanceVBOPtr = null;
             WrapSampler = 0;
             ClampSampler = 0;
+            _sceneDataBuffer?.Dispose();
+            _sceneDataBuffer = null;
         }
 
         public override IUniformBuffer CreateUniformBuffer(BufferUsage usage, int size) {

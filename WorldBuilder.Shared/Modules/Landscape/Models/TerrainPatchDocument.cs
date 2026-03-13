@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Shared.Models
@@ -42,13 +43,13 @@ namespace WorldBuilder.Shared.Models
             $"TerrainPatch_{regionId}_{chunkX}_{chunkY}";
 
         /// <inheritdoc/>
-        public override Task InitializeForUpdatingAsync(IDatReaderWriter dats, IDocumentManager documentManager, CancellationToken ct)
+        public override Task InitializeForUpdatingAsync(IDatReaderWriter dats, IDocumentManager documentManager, ITransaction? tx, CancellationToken ct)
         {
             return Task.CompletedTask;
         }
 
         /// <inheritdoc/>
-        public override Task InitializeForEditingAsync(IDatReaderWriter dats, IDocumentManager documentManager, CancellationToken ct)
+        public override Task InitializeForEditingAsync(IDatReaderWriter dats, IDocumentManager documentManager, ITransaction? tx, CancellationToken ct)
         {
             return Task.CompletedTask;
         }

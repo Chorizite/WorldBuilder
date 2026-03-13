@@ -261,7 +261,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        public bool SelectTerrain(uint landblockID, ReadOnlySpan<TerrainEntry> terrain, int x, int y,
+        public bool SelectTerrain(ushort landblockID, ReadOnlySpan<TerrainEntry> terrain, int x, int y,
             out uint surfaceNumber, out TMI.Rotation rotation) {
             surfaceNumber = 0;
             rotation = TMI.Rotation.Rot0;

@@ -66,10 +66,9 @@ public class WorldCoordinateService : IWorldCoordinateService {
     }
 
     /// <inheritdoc/>
-    public ushort GetChunkIdForLandblock(uint landblockId) {
-        var lbId = (ushort)(landblockId >> 16);
-        uint lbX = (uint)(lbId >> 8);
-        uint lbY = (uint)(lbId & 0xFF);
+    public ushort GetChunkIdForLandblock(ushort landblockId) {
+        uint lbX = (uint)(landblockId >> 8);
+        uint lbY = (uint)(landblockId & 0xFF);
         return GetChunkId(lbX / (uint)LandblocksPerChunk, lbY / (uint)LandblocksPerChunk);
     }
 
@@ -84,8 +83,8 @@ public class WorldCoordinateService : IWorldCoordinateService {
     }
 
     /// <inheritdoc/>
-    public uint GetLandblockId(int lbX, int lbY) {
-        return (uint)(((uint)lbX << 24) | ((uint)lbY << 16) | 0xFFFEu);
+    public ushort GetLandblockId(int lbX, int lbY) {
+        return (ushort)(((uint)lbX << 8) | (uint)lbY);
     }
 
     /// <inheritdoc/>

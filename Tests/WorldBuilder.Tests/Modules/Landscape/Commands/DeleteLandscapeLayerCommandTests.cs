@@ -49,7 +49,7 @@ namespace WorldBuilder.Tests.Modules.Landscape.Commands {
             terrainDocMock.Setup(m => m.GetAffectedVertices(It.IsAny<LandscapeLayerBase>()))
                 .Returns([]);
             
-            terrainDocMock.Setup(m => m.InitializeForUpdatingAsync(It.IsAny<IDatReaderWriter>(), It.IsAny<IDocumentManager>(), It.IsAny<CancellationToken>()))
+            terrainDocMock.Setup(m => m.InitializeForUpdatingAsync(It.IsAny<IDatReaderWriter>(), It.IsAny<IDocumentManager>(), It.IsAny<ITransaction>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
             terrainDocMock.Setup(m => m.SyncLayerTreeAsync(It.IsAny<ITransaction?>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);

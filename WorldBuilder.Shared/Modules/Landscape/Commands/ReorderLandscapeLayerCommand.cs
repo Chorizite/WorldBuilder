@@ -68,7 +68,7 @@ public partial class ReorderLandscapeLayerCommand : BaseCommand<bool> {
                 return Result<bool>.Failure(Error.NotFound($"Terrain not found: {TerrainDocumentId}"));
             }
 
-            await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
+            await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, tx, ct);
 
             var item = terrainRental.Document.FindItem(LayerId);
             var affectedVertices = item != null ? terrainRental.Document.GetAffectedVertices(item).ToList() : [];

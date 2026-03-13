@@ -160,9 +160,9 @@ public partial class SceneryPreview : Base3DViewport {
             if (_previewDoc != null && _previewRegion != null && surfaceManagerService != null) {
                 if (_cachedSurfaceManager != null) {
                     // Release the old one if it's different
-                    surfaceManagerService.ReleaseSurfaceManager(_cachedDats, _previewDoc.RegionId);
+                    surfaceManagerService.ReleaseSurfaceManager(this, _cachedDats, _previewDoc.RegionId);
                 }
-                _cachedSurfaceManager = surfaceManagerService.GetSurfaceManager(Renderer!.GraphicsDevice, _cachedDats, _previewRegion.Region, _previewDoc.RegionId);
+                _cachedSurfaceManager = surfaceManagerService.GetSurfaceManager(this, Renderer!.GraphicsDevice, _cachedDats, _previewRegion.Region, _previewDoc.RegionId);
             }
 
             var documentManager = projectManager?.GetProjectService<IDocumentManager>();
@@ -221,7 +221,7 @@ public partial class SceneryPreview : Base3DViewport {
             var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
             var surfaceManagerService = projectManager?.GetProjectService<SurfaceManagerService>();
             if (surfaceManagerService != null && _cachedSurfaceManager != null) {
-                surfaceManagerService.ReleaseSurfaceManager(_cachedDats, _previewDoc.RegionId);
+                surfaceManagerService.ReleaseSurfaceManager(this, _cachedDats, _previewDoc.RegionId);
             }
         }
         _gameScene?.Dispose();

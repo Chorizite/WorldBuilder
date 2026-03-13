@@ -52,39 +52,11 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
     public async Task InitializeAsync(CancellationToken ct) {
         _logger.LogInformation("Initializing DocumentManager");
         await _repo.InitializeDatabaseAsync(ct);
-        var userIdResult = await GetUserValueAsync("UserId", UserId, null, ct);
-        if (userIdResult.IsSuccess) {
-            UserId = userIdResult.Value;
-        }
-
-        _logger.LogInformation("DocumentManager initialized with UserId: {UserId}", UserId);
+        _logger.LogInformation("DocumentManager initialized");
     }
 
     public async Task<ITransaction> CreateTransactionAsync(CancellationToken ct) {
         return await _repo.CreateTransactionAsync(ct);
-    }
-
-    public async Task<Result<string>> GetUserValueAsync(string key, string defaultValue, ITransaction? tx, CancellationToken ct) {
-        var valueResult = await _repo.GetUserValueAsync(key, tx, ct);
-        if (valueResult.IsFailure) {
-            return Result<string>.Failure(valueResult.Error);
-        }
-
-        var value = valueResult.Value;
-        if (value is null) {
-            await using var localTx = tx == null ? await _repo.CreateTransactionAsync(ct) : null;
-            var useTx = tx ?? localTx!;
-
-            var upsertResult = await _repo.UpsertUserValueAsync(key, defaultValue, useTx, ct);
-            if (upsertResult.IsFailure) {
-                return Result<string>.Failure(upsertResult.Error);
-            }
-
-            if (localTx != null) await localTx.CommitAsync(ct);
-            return Result<string>.Success(defaultValue);
-        }
-
-        return Result<string>.Success(value);
     }
 
     public async Task<IReadOnlyList<string>> GetDocumentIdsAsync(string prefix, ITransaction? tx, CancellationToken ct) {
@@ -353,22 +325,36 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
     }
 
     /// <inheritdoc/>
-    public Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct) {
+    public Task<IReadOnlyList<StaticObject>> GetStaticObjectsAsync(ushort? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct) {
         return _repo.GetStaticObjectsAsync(landblockId, cellId, tx, ct);
     }
 
     /// <inheritdoc/>
-    public Task<IReadOnlyList<uint>> GetAffectedLandblocksByLayerAsync(uint regionId, string layerId, ITransaction? tx, CancellationToken ct) {
+    public Task<IReadOnlyList<ushort>> GetAffectedLandblocksByLayerAsync(uint regionId, string layerId, ITransaction? tx, CancellationToken ct) {
         return _repo.GetAffectedLandblocksByLayerAsync(regionId, layerId, tx, ct);
     }
 
     /// <inheritdoc/>
-    public Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, uint? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct) {
+    public Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, ushort? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct) {
+        if (InstanceIdConstants.GetType(obj.InstanceId) == InspectorSelectionType.Building) {
+            var bldg = new BuildingObject {
+                InstanceId = obj.InstanceId,
+                ModelId = obj.SetupId,
+                LayerId = obj.LayerId,
+                Position = obj.Position,
+                Rotation = obj.Rotation,
+                IsDeleted = obj.IsDeleted
+            };
+            return _repo.UpsertBuildingAsync(bldg, regionId, landblockId, tx, ct);
+        }
         return _repo.UpsertStaticObjectAsync(obj, regionId, landblockId, cellId, tx, ct);
     }
 
     /// <inheritdoc/>
     public Task<Result<Unit>> DeleteStaticObjectAsync(ulong instanceId, ITransaction? tx, CancellationToken ct) {
+        if (InstanceIdConstants.GetType(instanceId) == InspectorSelectionType.Building) {
+            return _repo.DeleteBuildingAsync(instanceId, tx, ct);
+        }
         return _repo.DeleteStaticObjectAsync(instanceId, tx, ct);
     }
 

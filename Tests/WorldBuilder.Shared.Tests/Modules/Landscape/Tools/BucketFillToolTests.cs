@@ -1,14 +1,14 @@
-using WorldBuilder.Shared.Lib;
-using WorldBuilder.Shared.Services;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
-using Xunit;
+using WorldBuilder.Shared.Modules.Landscape.Services;
+using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
     public class BucketFillToolTests {
@@ -68,7 +68,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             var layerId = Guid.NewGuid().ToString();
             var activeLayer = (LandscapeLayer)doc.FindItem(layerId)!;
-            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, activeLayer);
+            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, new Mock<ILandscapeObjectService>().Object, activeLayer);
         }
     }
 }

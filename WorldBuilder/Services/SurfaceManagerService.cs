@@ -17,7 +17,7 @@ namespace WorldBuilder.Services {
         
         private class SurfaceManagerEntry {
             public LandSurfaceManager? Manager;
-            public int RefCount;
+            public HashSet<object> Owners = new();
         }
 
         private readonly Dictionary<(IDatReaderWriter, uint), SurfaceManagerEntry> _managers = new();
@@ -27,28 +27,27 @@ namespace WorldBuilder.Services {
             _logger = loggerFactory.CreateLogger<SurfaceManagerService>();
         }
 
-        public LandSurfaceManager? GetSurfaceManager(OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats, Region region, uint regionId) {
+        public LandSurfaceManager? GetSurfaceManager(object owner, OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats, Region region, uint regionId) {
             lock (_managers) {
                 var key = (dats, regionId);
                 if (!_managers.TryGetValue(key, out var entry)) {
                     _logger.LogInformation("Creating new shared LandSurfaceManager for region {RegionId}", regionId);
                     entry = new SurfaceManagerEntry {
-                        Manager = new LandSurfaceManager(graphicsDevice, dats, region, _loggerFactory.CreateLogger<LandSurfaceManager>()),
-                        RefCount = 0
+                        Manager = new LandSurfaceManager(graphicsDevice, dats, region, _loggerFactory.CreateLogger<LandSurfaceManager>())
                     };
                     _managers[key] = entry;
                 }
-                entry.RefCount++;
+                entry.Owners.Add(owner);
                 return entry.Manager;
             }
         }
 
-        public void ReleaseSurfaceManager(IDatReaderWriter dats, uint regionId) {
+        public void ReleaseSurfaceManager(object owner, IDatReaderWriter dats, uint regionId) {
             lock (_managers) {
                 var key = (dats, regionId);
                 if (_managers.TryGetValue(key, out var entry)) {
-                    entry.RefCount--;
-                    if (entry.RefCount <= 0) {
+                    entry.Owners.Remove(owner);
+                    if (entry.Owners.Count <= 0) {
                         _logger.LogInformation("Disposing shared LandSurfaceManager for region {RegionId}", regionId);
                         entry.Manager?.Dispose();
                         _managers.Remove(key);

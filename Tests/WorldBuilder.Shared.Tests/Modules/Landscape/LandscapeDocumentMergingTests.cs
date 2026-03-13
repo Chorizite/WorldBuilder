@@ -50,7 +50,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
         [Fact]
         public async Task GetMergedLandblock_WithStaticObjectInLayer_ReturnsMergedObject() {
             // Arrange
-            uint landblockId = 0x12340000;
+            ushort landblockId = 0x1234;
             string layerId = "Layer1";
             _doc.AddLayer([], "Layer 1", false, layerId);
 
@@ -84,7 +84,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
         [Fact]
         public async Task GetMergedLandblock_WithHiddenLayer_DoesNotReturnObject() {
             // Arrange
-            uint landblockId = 0x00000000;
+            ushort landblockId = 0x0000;
             string layerId = "Layer1";
             _doc.AddLayer([], "Layer 1", false, layerId);
             var layer = (LandscapeLayer)_doc.FindItem(layerId)!;
@@ -109,8 +109,8 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
         [Fact]
         public async Task GetMergedLandblock_TombstonesBaseObject() {
             // Arrange
-            uint landblockId = 0x12340000;
-            uint lbFileId = (landblockId & 0xFFFF0000) | 0xFFFE;
+            ushort landblockId = 0x1234;
+            uint lbFileId = ((uint)landblockId << 16) | 0xFFFE;
 
             // Mock base object in DAT
             var lbi = new LandBlockInfo();
@@ -148,7 +148,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
         [Fact]
         public async Task GetMergedLandblock_WithBuildingInLayer_ReturnsMergedBuilding() {
             // Arrange
-            uint landblockId = 0x12340000;
+            ushort landblockId = 0x1234;
             string layerId = "Layer1";
             _doc.AddLayer([], "Layer 1", false, layerId);
 
@@ -223,10 +223,10 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
         [Fact]
         public async Task GetMergedLandblock_DeleteInOneLandblock_DoesNotAffectOtherInSameChunk() {
             // Arrange: two landblocks in the same chunk, each with a base object at index 0
-            uint lbA = 0x10100000;
-            uint lbB = 0x11100000;
-            uint lbFileIdA = (lbA & 0xFFFF0000) | 0xFFFE;
-            uint lbFileIdB = (lbB & 0xFFFF0000) | 0xFFFE;
+            ushort lbA = 0x1010;
+            ushort lbB = 0x1110;
+            uint lbFileIdA = ((uint)lbA << 16) | 0xFFFE;
+            uint lbFileIdB = ((uint)lbB << 16) | 0xFFFE;
 
             ushort chunkId = 0x0202;
 

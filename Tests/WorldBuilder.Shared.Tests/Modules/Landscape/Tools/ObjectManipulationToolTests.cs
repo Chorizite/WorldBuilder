@@ -7,6 +7,7 @@ using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
+using WorldBuilder.Shared.Modules.Landscape.Services;
 using WorldBuilder.Shared.Services;
 using Xunit;
 
@@ -22,7 +23,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             InspectorSelectionEventArgs? capturedArgs = null;
             context.InspectorHovered += (s, e) => capturedArgs = e;
 
-            var lbId = 0x12345678u;
+            var lbId = (ushort)0x1234;
             var instId = 0xABCDu;
             var objId = 0x1111u;
 
@@ -64,7 +65,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var context = CreateContext();
             tool.Activate(context);
 
-            var lbId = 0x12345678u;
+            var lbId = (ushort)0x1234;
             var instId = 0xABCDu;
 
             // First hit an object
@@ -120,7 +121,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var cameraMock = new Mock<ICamera>();
             cameraMock.Setup(c => c.ProjectionMatrix).Returns(Matrix4x4.Identity);
 
-            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object);
+            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object, new Mock<ILandscapeObjectService>().Object);
         }
     }
 }

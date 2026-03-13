@@ -71,7 +71,7 @@ public partial class DeleteLandscapeLayerCommand : BaseCommand<bool> {
                 return Result<bool>.Failure(Error.NotFound($"Terrain not found: {TerrainDocumentId}"));
             }
 
-            await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
+            await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, tx, ct);
 
             // If properties are not set (first run), find and snapshot the item
             if (DeletedItem == null) {

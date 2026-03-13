@@ -13,5 +13,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         /// The computed visible final static objects inside this Landblock.
         /// </summary>
         public Dictionary<ulong, StaticObject> StaticObjects { get; init; } = [];
+
+        /// <summary>
+        /// The IDs of all environment cells within this landblock.
+        /// </summary>
+        public List<uint> EnvCellIds { get; init; } = [];
     }
 }

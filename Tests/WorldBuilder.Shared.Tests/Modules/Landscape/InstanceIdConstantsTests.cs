@@ -55,20 +55,20 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape {
 
             Assert.Equal(InspectorSelectionType.StaticObject, InstanceIdConstants.GetType(result));
             Assert.Equal(ObjectState.Original, InstanceIdConstants.GetState(result));
-            Assert.Equal(landblockId, InstanceIdConstants.GetContextId(result));
+            Assert.Equal(0x0A0Au, InstanceIdConstants.GetContextId(result));
             Assert.Equal(index, InstanceIdConstants.GetObjectIndex(result));
         }
 
         [Fact]
         public void EncodeBuilding_CorrectlyEncodes() {
-            uint landblockId = 0x12340000;
+            uint landblockId = 0x1234FFFF; // Test with full ID
             ushort index = 10;
 
             var result = InstanceIdConstants.EncodeBuilding(landblockId, index);
 
             Assert.Equal(InspectorSelectionType.Building, InstanceIdConstants.GetType(result));
             Assert.Equal(ObjectState.Original, InstanceIdConstants.GetState(result));
-            Assert.Equal(landblockId, InstanceIdConstants.GetContextId(result));
+            Assert.Equal(0x1234u, InstanceIdConstants.GetContextId(result));
             Assert.Equal(index, InstanceIdConstants.GetObjectIndex(result));
         }
 

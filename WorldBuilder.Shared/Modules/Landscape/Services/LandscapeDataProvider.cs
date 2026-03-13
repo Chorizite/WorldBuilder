@@ -28,16 +28,20 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
         }
 
         /// <inheritdoc/>
-        public async Task<MergedLandblock> GetMergedLandblockAsync(uint landblockId, IDatDatabase? cellDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct) {
+        public async Task<MergedLandblock> GetMergedLandblockAsync(ushort landblockId, IDatDatabase? cellDatabase, IDatDatabase? portalDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct) {
             var merged = new MergedLandblock();
             var visibleLayers = new HashSet<string>(visibleLayerIds);
             var effectiveBaseLayerId = baseLayerId ?? string.Empty;
 
             // 1. Parse base from DAT
-            var lbFileId = (landblockId & 0xFFFF0000) | 0xFFFE;
+            var lbFileId = ((uint)landblockId << 16) | 0xFFFE;
 
             if (cellDatabase != null) {
                 if (cellDatabase.TryGet<LandBlockInfo>(lbFileId, out var lbi) && lbi != null) {
+                    for (uint i = 0; i < lbi.NumCells; i++) {
+                        merged.EnvCellIds.Add(((uint)landblockId << 16) | (0x0100 + i));
+                    }
+
                     for (int i = 0; i < (lbi.Objects?.Count ?? 0); i++) {
                         var stab = lbi.Objects![i];
                         if (stab == null) continue;
@@ -73,6 +77,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
             if (repoObjects != null) {
                 foreach (var obj in repoObjects) {
                     if (!visibleLayers.Contains(obj.LayerId)) continue;
+                    if (obj.CellId.HasValue) continue;
+
                     if (obj.IsDeleted) {
                         merged.StaticObjects.Remove(obj.InstanceId);
                     } else {
@@ -93,12 +99,21 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                 }
             }
 
+            var repoCells = await _repo.GetEnvCellIdsForLandblocksAsync(new[] { landblockId }, null, ct);
+            if (repoCells != null && repoCells.TryGetValue(landblockId, out var cells)) {
+                foreach (var cellId in cells) {
+                    if (!merged.EnvCellIds.Contains(cellId)) {
+                        merged.EnvCellIds.Add(cellId);
+                    }
+                }
+            }
+
             return merged;
         }
 
         /// <inheritdoc/>
-        public async Task<IReadOnlyDictionary<uint, MergedLandblock>> GetMergedLandblocksAsync(IEnumerable<uint> landblockIds, IDatDatabase? cellDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct) {
-            var results = new Dictionary<uint, MergedLandblock>();
+        public async Task<IReadOnlyDictionary<ushort, MergedLandblock>> GetMergedLandblocksAsync(IEnumerable<ushort> landblockIds, IDatDatabase? cellDatabase, IDatDatabase? portalDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct) {
+            var results = new Dictionary<ushort, MergedLandblock>();
             var ids = landblockIds.ToList();
             if (ids.Count == 0) return results;
 
@@ -110,10 +125,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                 var merged = new MergedLandblock();
                 results[landblockId] = merged;
 
-                var lbFileId = (landblockId & 0xFFFF0000) | 0xFFFE;
+                var lbFileId = ((uint)landblockId << 16) | 0xFFFE;
 
                 if (cellDatabase != null) {
                     if (cellDatabase.TryGet<LandBlockInfo>(lbFileId, out var lbi) && lbi != null) {
+                        for (uint i = 0; i < lbi.NumCells; i++) {
+                            merged.EnvCellIds.Add(((uint)landblockId << 16) | (0x0100 + i));
+                        }
+
                         for (int i = 0; i < (lbi.Objects?.Count ?? 0); i++) {
                             var stab = lbi.Objects![i];
                             if (stab == null) continue;
@@ -152,6 +171,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                     if (results.TryGetValue(kvp.Key, out var merged)) {
                         foreach (var obj in kvp.Value) {
                             if (!visibleLayers.Contains(obj.LayerId)) continue;
+                            if (obj.CellId.HasValue) continue;
+
                             if (obj.IsDeleted) {
                                 merged.StaticObjects.Remove(obj.InstanceId);
                             } else {
@@ -178,27 +199,61 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                 }
             }
 
+            var repoCells = await _repo.GetEnvCellIdsForLandblocksAsync(ids, null, ct);
+            if (repoCells != null) {
+                foreach (var kvp in repoCells) {
+                    if (results.TryGetValue(kvp.Key, out var merged)) {
+                        foreach (var cellId in kvp.Value) {
+                            if (!merged.EnvCellIds.Contains(cellId)) {
+                                merged.EnvCellIds.Add(cellId);
+                            }
+                        }
+                    }
+                }
+            }
+
             return results;
         }
 
         /// <inheritdoc/>
-        public async Task<Cell> GetMergedEnvCellAsync(uint cellId, IDatDatabase? cellDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct) {
+        public async Task<Cell> GetMergedEnvCellAsync(uint cellId, IDatDatabase? cellDatabase, IDatDatabase? portalDatabase, IEnumerable<string> visibleLayerIds, string? baseLayerId, CancellationToken ct) {
             var properties = new Cell();
             var visibleLayers = new HashSet<string>(visibleLayerIds);
             var effectiveBaseLayerId = baseLayerId ?? string.Empty;
 
             if (cellDatabase != null && cellDatabase.TryGet<EnvCell>(cellId, out var cell)) {
+                var pos = cell.Position.Origin;
+                var rot = cell.Position.Orientation;
+
                 properties = new Cell {
                     EnvironmentId = cell.EnvironmentId,
                     Flags = (uint)cell.Flags,
                     CellStructure = cell.CellStructure,
-                    Position = cell.Position.Origin,
-                    Rotation = cell.Position.Orientation,
+                    Position = pos,
+                    Rotation = rot,
                     Surfaces = new List<ushort>(cell.Surfaces),
                     Portals = cell.CellPortals.Select(p => new WbCellPortal(p)).ToList(),
                     LayerId = effectiveBaseLayerId,
                     CellId = cellId
                 };
+
+                // Logical bounding box calculation from DAT geometry
+                if (portalDatabase != null) {
+                    uint envRecordId = 0x0D000000u | cell.EnvironmentId;
+                    if (portalDatabase.TryGet<DatReaderWriter.DBObjs.Environment>(envRecordId, out var environment)) {
+                        if (environment.Cells.TryGetValue(cell.CellStructure, out var cellStruct)) {
+                            Vector3 min = new Vector3(float.MaxValue);
+                            Vector3 max = new Vector3(float.MinValue);
+                            foreach (var vert in cellStruct.VertexArray.Vertices.Values) {
+                                var worldV = Vector3.Transform(vert.Origin, Matrix4x4.CreateFromQuaternion(rot)) + pos;
+                                min = Vector3.Min(min, worldV);
+                                max = Vector3.Max(max, worldV);
+                            }
+                            properties.MinBounds = min;
+                            properties.MaxBounds = max;
+                        }
+                    }
+                }
 
                 if (cell.StaticObjects != null) {
                     for (int i = 0; i < cell.StaticObjects.Count; i++) {
@@ -228,12 +283,34 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                     Flags = repoCell.Flags,
                     CellStructure = repoCell.CellStructure,
                     Position = repoCell.Position,
+                    Rotation = repoCell.Rotation,
                     Surfaces = repoCell.Surfaces,
                     Portals = repoCell.Portals,
                     LayerId = repoCell.LayerId,
                     StaticObjects = properties.StaticObjects,
-                    CellId = repoCell.CellId
+                    CellId = repoCell.CellId,
+                    MinBounds = repoCell.MinBounds,
+                    MaxBounds = repoCell.MaxBounds
                 };
+
+                // If the repository didn't have bounds (or they are empty), and we have a portal database,
+                // try to calculate them from the environment record.
+                if ((properties.MinBounds == Vector3.Zero && properties.MaxBounds == Vector3.Zero) && portalDatabase != null) {
+                    uint envRecordId = 0x0D000000u | properties.EnvironmentId;
+                    if (portalDatabase.TryGet<DatReaderWriter.DBObjs.Environment>(envRecordId, out var environment)) {
+                        if (environment.Cells.TryGetValue(properties.CellStructure, out var cellStruct)) {
+                            Vector3 min = new Vector3(float.MaxValue);
+                            Vector3 max = new Vector3(float.MinValue);
+                            foreach (var vert in cellStruct.VertexArray.Vertices.Values) {
+                                var worldV = Vector3.Transform(vert.Origin, Matrix4x4.CreateFromQuaternion(properties.Rotation)) + properties.Position;
+                                min = Vector3.Min(min, worldV);
+                                max = Vector3.Max(max, worldV);
+                            }
+                            properties.MinBounds = min;
+                            properties.MaxBounds = max;
+                        }
+                    }
+                }
             }
 
             // Sync objects from relational table
@@ -258,11 +335,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
             // Fetch all terrain patches for the region
             var patches = await _repo.GetTerrainPatchesAsync(regionId, null, ct);
             if (patches == null || patches.Count == 0) {
-                System.Console.WriteLine($"[DAT EXPORT] GetMergedTerrainAsync: No patches found for region {regionId}");
                 return mergedChanges;
             }
-
-            System.Console.WriteLine($"[DAT EXPORT] GetMergedTerrainAsync: Found {patches.Count} patches for region {regionId}. Layers to merge: {string.Join(", ", visibleLayerIds)}");
 
             int mapWidth = regionInfo.MapWidthInVertices;
             int vertexStride = regionInfo.LandblockVerticeLength;
@@ -273,37 +347,24 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
 
                 try {
                     var doc = BaseDocument.Deserialize<TerrainPatchDocument>(patch.Data);
-                    if (doc == null) {
-                        System.Console.WriteLine($"[DAT EXPORT] GetMergedTerrainAsync: Failed to deserialize patch {patch.Id}");
-                        continue;
-                    }
+                    if (doc == null || doc.LayerEdits == null) continue;
 
-                    if (doc.LayerEdits == null) {
-                        System.Console.WriteLine($"[DAT EXPORT] GetMergedTerrainAsync: Patch {patch.Id} has null LayerEdits.");
-                        continue;
-                    }
-
-                    // Extract chunk coords from ID: TerrainPatch_{regionId}_{chunkX}_{chunkY}
                     var parts = patch.Id.Split('_');
                     if (parts.Length < 4) continue;
                     if (!uint.TryParse(parts[2], out var chunkX) || !uint.TryParse(parts[3], out var chunkY)) continue;
 
-                    // Calculate base offsets for this chunk
                     int chunkBaseVx = (int)(chunkX * LandscapeChunk.LandblocksPerChunk * strideMinusOne);
                     int chunkBaseVy = (int)(chunkY * LandscapeChunk.LandblocksPerChunk * strideMinusOne);
 
                     foreach (var layerId in visibleLayers) {
                         if (doc.LayerEdits.TryGetValue(layerId, out var layerVertices) && layerVertices != null) {
-                            int layerModifiedCount = 0;
                             for (int i = 0; i < layerVertices.Length; i++) {
                                 var entry = layerVertices[i];
                                 if (entry.Flags == TerrainEntryFlags.None) continue;
 
-                                layerModifiedCount++;
                                 int localY = i / LandscapeChunk.ChunkVertexStride;
                                 int localX = i % LandscapeChunk.ChunkVertexStride;
 
-                                // Calculate global vertex index
                                 uint globalVertexIndex = (uint)((chunkBaseVy + localY) * mapWidth + (chunkBaseVx + localX));
 
                                 if (mergedChanges.TryGetValue(globalVertexIndex, out var existing)) {
@@ -314,15 +375,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Services {
                                     mergedChanges[globalVertexIndex] = entry;
                                 }
                             }
-                            if (layerModifiedCount > 0) {
-                                System.Console.WriteLine($"[DAT EXPORT] GetMergedTerrainAsync: Patch {patch.Id}, Layer {layerId} has {layerModifiedCount} modified vertices.");
-                            }
                         }
                     }
                 }
-                catch (Exception ex) {
-                    System.Console.WriteLine($"[DAT EXPORT] GetMergedTerrainAsync: Error processing patch {patch.Id}: {ex.Message}");
-                }
+                catch (Exception) { }
             }
 
             return mergedChanges;

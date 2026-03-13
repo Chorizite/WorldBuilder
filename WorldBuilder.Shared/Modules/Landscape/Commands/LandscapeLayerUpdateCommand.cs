@@ -46,7 +46,7 @@ public partial class LandscapeLayerUpdateCommand : BaseCommand<bool> {
             }
 
             using var terrainRental = rentResult.Value;
-            await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
+            await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, tx, ct);
 
             var result = await terrainRental.Document.ApplyVertexUpdatesAsync(LayerId, Changes, dats, documentManager, tx, ct);
             return result;

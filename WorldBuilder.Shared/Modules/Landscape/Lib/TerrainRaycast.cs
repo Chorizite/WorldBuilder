@@ -71,7 +71,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Lib {
             for (int step = 0; step < maxSteps; step++) {
                 if (currentLbX >= 0 && currentLbX < region.MapWidthInLandblocks &&
                     currentLbY >= 0 && currentLbY < region.MapHeightInLandblocks) {
-                    uint landblockID = region.GetLandblockId(currentLbX, currentLbY);
+                    ushort landblockID = (ushort)((currentLbX << 8) | currentLbY);
 
                     var landblockHit = TestLandblockIntersection(
                         rayOrigin, rayDirection,
@@ -103,7 +103,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Lib {
 
         private static TerrainRaycastHit TestLandblockIntersection(
             Vector3d rayOrigin, Vector3d rayDirection,
-            uint landblockX, uint landblockY, uint landblockID,
+            uint landblockX, uint landblockY, ushort landblockID,
             ITerrainInfo region, LandscapeDocument doc,
             ILogger? logger = null) {
             TerrainRaycastHit hit = new TerrainRaycastHit { Hit = false };
@@ -179,7 +179,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Lib {
             if (hit.Hit) {
                 hit.HitPosition = hitPosition.ToVector3();
                 hit.Distance = (float)closestDistance;
-                hit.LandcellId = (uint)((landblockID << 16) + hitCellX * 8 + hitCellY + 1);
+                hit.LandcellId = (uint)(((uint)landblockID << 16) | (hitCellX << 3) | hitCellY + 1);
                 hit.MapOffset = region.MapOffset;
                 hit.CellSize = region.CellSizeInUnits;
                 hit.LandblockCellLength = region.LandblockCellLength;

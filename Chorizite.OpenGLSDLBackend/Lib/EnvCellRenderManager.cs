@@ -72,7 +72,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             for (int x = lbX - 1; x <= lbX + 1; x++) {
                 for (int y = lbY - 1; y <= lbY + 1; y++) {
                     var key = GeometryUtils.PackKey(x, y);
-                    if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady || !lb.MeshDataReady) continue;
+                    if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) continue;
 
                     // Broad-phase: check total EnvCell bounds for this landblock
                     if (pos.X < lb.TotalEnvCellBounds.Min.X - 1f || pos.X > lb.TotalEnvCellBounds.Max.X + 1f ||
@@ -168,13 +168,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.Hit = true;
                                 hit.Distance = d;
                                 hit.Type = type;
-                                hit.ObjectId = (uint)instance.ObjectId;
+                                if (type == InspectorSelectionType.EnvCell) {
+                                    hit.ObjectId = InstanceIdConstants.GetRawId(instance.InstanceId);
+                                }
+                                else {
+                                    hit.ObjectId = (uint)instance.ObjectId;
+                                }
                                 hit.InstanceId = instance.InstanceId;
                                 hit.SecondaryId = InstanceIdConstants.GetSecondaryId(instance.InstanceId);
                                 hit.Position = rayOrigin + rayDirection * d;
                                 hit.LocalPosition = instance.LocalPosition;
                                 hit.Rotation = instance.Rotation;
-                                hit.LandblockId = (uint)key << 16 | 0xFFFE;
+                                hit.LandblockId = key;
                                 hit.Normal = normal;
                             }
                         }
@@ -219,16 +224,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Protected: Overrides
 
-        public override void UpdateInstanceTransform(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
+        public override void UpdateInstanceTransform(ushort landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
             var type = InstanceIdConstants.GetType(instanceId);
             if (type == InspectorSelectionType.EnvCellStaticObject || type == InspectorSelectionType.EnvCell) {
-                ushort key = (ushort)(landblockId >> 16);
+                ushort key = landblockId;
                 if (key == 0 || !_landblocks.ContainsKey(key)) {
                     foreach (var (lbKey, lb) in _landblocks) {
                         lock (lb) {
                             for (int i = 0; i < lb.Instances.Count; i++) {
                                 if (lb.Instances[i].InstanceId == instanceId) {
-                                    base.UpdateInstanceTransform((uint)lbKey << 16 | 0xFFFE, instanceId, position, rotation, currentCellId);
+                                    base.UpdateInstanceTransform(lbKey, instanceId, position, rotation, currentCellId);
                                     return;
                                 }
                             }
@@ -558,9 +563,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         protected override void OnInvalidateLandblock(ushort key) {
             lock (_tcsLock) {
                 _instanceReadyTcs.TryRemove(key, out _);
-                if (_landblocks.TryGetValue(key, out var lb)) {
-                    lb.InstancesReady = false;
-                }
             }
         }
 
@@ -576,8 +578,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var priority = base.GetPriority(lb, camDir2D, cameraLbX, cameraLbY);
 
             // Prioritize landblocks with buildings (since they contain EnvCells)
-            var lbId = ((uint)lb.GridX << 8 | (uint)lb.GridY) << 16 | 0xFFFE;
-            if (!_hasBuildingsCache.TryGetValue(lbId, out var hasBuildings)) {
+            var lbId = (ushort)((uint)lb.GridX << 8 | (uint)lb.GridY);
+            if (!_hasBuildingsCache.TryGetValue((uint)lbId, out var hasBuildings)) {
                 var mergedLb = LandscapeDoc.GetMergedLandblock(lbId);
                 hasBuildings = mergedLb.Buildings.Count > 0;
                 if (hasBuildings) {
@@ -602,9 +604,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 var lbGlobalX = (uint)lb.GridX;
                 var lbGlobalY = (uint)lb.GridY;
-
-                // LandBlockInfo ID: high byte = X, next byte = Y, low word = 0xFFFE
-                var lbId = (lbGlobalX << 8 | lbGlobalY) << 16 | 0xFFFE;
+                var lbId = (ushort)(lbGlobalX << 8 | lbGlobalY);
+                var lbFileId = ((uint)lbId << 16) | 0xFFFE;
 
                 var instances = new List<SceneryInstance>();
                 var lbSizeUnits = regionInfo.LandblockSizeInUnits; // 192
@@ -621,7 +622,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 var cellDb = LandscapeDoc.CellDatabase;
                 if (cellDb != null && mergedLb.Buildings.Count > 0) {
-                    if (cellDb.TryGet<LandBlockInfo>(lbId, out var lbi)) {
+                    if (cellDb.TryGet<LandBlockInfo>(lbFileId, out var lbi)) {
                         foreach (var building in mergedLb.Buildings.Values) {
                             int index = InstanceIdConstants.GetObjectIndex(building.InstanceId);
                             if (index < lbi.Buildings.Count) {
@@ -629,7 +630,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 // Start discovery from building portals
                                 foreach (var portal in bInfo.Portals) {
                                     if (portal.OtherCellId != 0xFFFF) {
-                                        var cellId = (lbId & 0xFFFF0000) | portal.OtherCellId;
+                                        var cellId = ((uint)lbId << 16) | portal.OtherCellId;
                                         if (discoveredCellIds.Add(cellId)) {
                                             entryCellIds.Add(cellId);
                                             cellsToProcess.Enqueue(cellId);
@@ -640,7 +641,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         }
                     }
                     else {
-                        Log.LogWarning("Failed to get LandBlockInfo for {LbId:X8}", lbId);
+                        Log.LogWarning("Failed to get LandBlockInfo for {LbId:X8}", lbFileId);
                     }
                 }
 
@@ -751,7 +752,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         // Recursively walk portals to other interior cells
                         foreach (var portal in envCell.Portals) {
                             if (portal.OtherCellId != 0xFFFF) {
-                                var neighborId = (lbId & 0xFFFF0000) | portal.OtherCellId;
+                                var neighborId = ((uint)lbId << 16) | portal.OtherCellId;
                                 if (discoveredCellIds.Add(neighborId)) {
                                     cellsToProcess.Enqueue(neighborId);
                                 }

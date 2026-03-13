@@ -20,7 +20,6 @@ using WorldBuilder.Shared.Tests.Mocks;
 namespace WorldBuilder.Shared.Tests.Services {
     public class DocumentManagerTests : IAsyncLifetime {
         private readonly TestDatabase _db;
-        private SqliteConnection Connection => _repo.Connection;
         private readonly SQLiteProjectRepository _repo;
         private readonly DocumentManager _mgr;
 
@@ -35,8 +34,8 @@ namespace WorldBuilder.Shared.Tests.Services {
 
         public async Task DisposeAsync() {
             _mgr.Dispose();
-            await Connection.CloseAsync();
-            await Connection.DisposeAsync();
+            _repo.Dispose();
+            _db.Dispose();
         }
 
         [Fact]

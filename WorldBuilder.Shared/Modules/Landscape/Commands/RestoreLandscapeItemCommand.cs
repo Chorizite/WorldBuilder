@@ -52,7 +52,7 @@ public partial class RestoreLandscapeItemCommand : BaseCommand<bool> {
                 return Result<bool>.Failure(Error.NotFound($"Terrain not found: {TerrainDocumentId}"));
             }
 
-            await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, ct);
+            await terrainRental.Document.InitializeForUpdatingAsync(dats, documentManager, tx, ct);
 
             var affectedVertices = terrainRental.Document.GetAffectedVertices(Item).ToList();
 

@@ -405,8 +405,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Updates the transform of a specific instance in its owner landblock.
         /// This is used for realtime previews during manipulation.
         /// </summary>
-        public virtual void UpdateInstanceTransform(uint landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
-            ushort key = (ushort)(landblockId >> 16);
+        public virtual void UpdateInstanceTransform(ushort landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
+            ushort key = landblockId;
             if (_landblocks.TryGetValue(key, out var lb)) {
                 lock (lb) {
                     for (int i = 0; i < lb.Instances.Count; i++) {
@@ -501,8 +501,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>
         /// Gets the world bounding box for a specific static object instance.
         /// </summary>
-        public WorldBuilder.Shared.Lib.BoundingBox? GetInstanceBounds(uint landblockId, ulong instanceId) {
-            ushort key = (ushort)(landblockId >> 16);
+        public WorldBuilder.Shared.Lib.BoundingBox? GetInstanceBounds(ushort landblockId, ulong instanceId) {
+            ushort key = landblockId;
             if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) return null;
 
             lock (lb) {
@@ -520,8 +520,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>
         /// Gets the local bounding box for a specific static object instance.
         /// </summary>
-        public WorldBuilder.Shared.Lib.BoundingBox? GetInstanceLocalBounds(uint landblockId, ulong instanceId) {
-            ushort key = (ushort)(landblockId >> 16);
+        public WorldBuilder.Shared.Lib.BoundingBox? GetInstanceLocalBounds(ushort landblockId, ulong instanceId) {
+            ushort key = landblockId;
             if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) return null;
 
             lock (lb) {
@@ -536,8 +536,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return null;
         }
 
-        public (Vector3 position, Quaternion rotation, Vector3 localPosition)? GetInstanceTransform(uint landblockId, ulong instanceId) {
-            ushort key = (ushort)(landblockId >> 16);
+        public (Vector3 position, Quaternion rotation, Vector3 localPosition)? GetInstanceTransform(ushort landblockId, ulong instanceId) {
+            ushort key = landblockId;
             if (!_landblocks.TryGetValue(key, out var lb) || !lb.InstancesReady) return null;
 
             lock (lb) {
