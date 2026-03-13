@@ -32,7 +32,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             // 1. Raycast against everything that is CURRENTLY VISIBLE
             // Static Objects / Buildings
             if (context.RaycastStaticObject != null &&
-                context.RaycastStaticObject(origin, direction, context.EditorState.ShowBuildings, context.EditorState.ShowStaticObjects, out var staticHit, 0)) {
+                context.RaycastStaticObject(origin, direction, context.EditorState.ShowBuildings, context.EditorState.ShowStaticObjects, out var staticHit, ObjectId.Empty)) {
                 if (staticHit.Distance < bestHit.Distance) {
                     bestHit = staticHit;
                 }
@@ -56,7 +56,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
             // Env Cells
             if (context.RaycastEnvCells != null &&
-                context.RaycastEnvCells(origin, direction, selectEnvCells, selectEnvCellObjects, out var envHit, 0)) {
+                context.RaycastEnvCells(origin, direction, selectEnvCells, selectEnvCellObjects, out var envHit, ObjectId.Empty)) {
                 if (envHit.Distance < bestHit.Distance) {
                     bestHit = envHit;
                 }
@@ -81,16 +81,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                         Vector3 vertexPos = new Vector3(vX, vY, vHeight);
                         if (Vector3.Distance(terrainHit.HitPosition, vertexPos) <= 1.5f) {
                             if (terrainHit.Distance < bestHit.Distance) {
-                                uint vertexIndex = (uint)(context.Document.Region?.GetVertexIndex(vx, vy) ?? 0);
-                                bestHit = new SceneRaycastHit {
-                                    Hit = true,
-                                    Type = InspectorSelectionType.Vertex,
-                                    Distance = terrainHit.Distance,
-                                    Position = terrainHit.HitPosition,
-                                    VertexX = vx,
-                                    VertexY = vy,
-                                    InstanceId = InstanceIdConstants.Encode(vertexIndex, InspectorSelectionType.Vertex)
-                                };
+                                 uint vertexIndex = (uint)(context.Document.Region?.GetVertexIndex(vx, vy) ?? 0);
+                                 bestHit = new SceneRaycastHit {
+                                     Hit = true,
+                                     Type = ObjectType.Vertex,
+                                     Distance = terrainHit.Distance,
+                                     Position = terrainHit.HitPosition,
+                                     VertexX = vx,
+                                     VertexY = vy,
+                                     InstanceId = ObjectId.FromDat(ObjectType.Vertex, 0, vertexIndex, 0)
+                                 };
                             }
                         }
                     }
@@ -108,13 +108,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             if (bestHit.Hit) {
                 bool allowed = false;
                 switch (bestHit.Type) {
-                    case InspectorSelectionType.Building: allowed = selectBuildings; break;
-                    case InspectorSelectionType.StaticObject: allowed = selectStaticObjects; break;
-                    case InspectorSelectionType.Scenery: allowed = selectScenery; break;
-                    case InspectorSelectionType.Portal: allowed = selectPortals; break;
-                    case InspectorSelectionType.EnvCell: allowed = selectEnvCells; break;
-                    case InspectorSelectionType.EnvCellStaticObject: allowed = selectEnvCellObjects; break;
-                    case InspectorSelectionType.Vertex: allowed = selectVertices; break;
+                    case ObjectType.Building: allowed = selectBuildings; break;
+                    case ObjectType.StaticObject: allowed = selectStaticObjects; break;
+                    case ObjectType.Scenery: allowed = selectScenery; break;
+                    case ObjectType.Portal: allowed = selectPortals; break;
+                    case ObjectType.EnvCell: allowed = selectEnvCells; break;
+                    case ObjectType.EnvCellStaticObject: allowed = selectEnvCellObjects; break;
+                    case ObjectType.Vertex: allowed = selectVertices; break;
                 }
 
                 if (!allowed) {
@@ -133,7 +133,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             ViewportInputEvent e,
             Vector3 rayOrigin,
             Vector3 rayDirection,
-            ulong ignoreInstanceId,
+            ObjectId ignoreInstanceId,
             Vector3 fallbackPosition) {
 
             if (context == null) return (fallbackPosition, Vector3.UnitZ, false);

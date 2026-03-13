@@ -200,8 +200,8 @@ namespace WorldBuilder.Shared.Repositories {
                 using var reader = await cmd.ExecuteReaderAsync(ct);
                 while (await reader.ReadAsync(ct)) {
                     results.Add(new StaticObject {
-                        InstanceId = (ulong)reader.GetInt64(0),
-                        SetupId = (uint)reader.GetInt32(1),
+                        InstanceId = ObjectId.Parse(reader.GetString(0)),
+                        ModelId = (uint)reader.GetInt32(1),
                         LayerId = reader.GetString(2),
                         Position = new Vector3(reader.GetFloat(3), reader.GetFloat(4), reader.GetFloat(5)),
                         Rotation = new Quaternion(reader.GetFloat(7), reader.GetFloat(8), reader.GetFloat(9), reader.GetFloat(6)),
@@ -232,8 +232,8 @@ namespace WorldBuilder.Shared.Repositories {
                         temp[lbId] = list;
                     }
                     list.Add(new StaticObject {
-                        InstanceId = (ulong)reader.GetInt64(1),
-                        SetupId = (uint)reader.GetInt32(2),
+                        InstanceId = ObjectId.Parse(reader.GetString(1)),
+                        ModelId = (uint)reader.GetInt32(2),
                         LayerId = reader.GetString(3),
                         Position = new Vector3(reader.GetFloat(4), reader.GetFloat(5), reader.GetFloat(6)),
                         Rotation = new Quaternion(reader.GetFloat(8), reader.GetFloat(9), reader.GetFloat(10), reader.GetFloat(7)),
@@ -299,7 +299,7 @@ namespace WorldBuilder.Shared.Repositories {
                 using var reader = await cmd.ExecuteReaderAsync(ct);
                 while (await reader.ReadAsync(ct)) {
                     results.Add(new BuildingObject {
-                        InstanceId = (ulong)reader.GetInt64(0),
+                        InstanceId = ObjectId.Parse(reader.GetString(0)),
                         ModelId = (uint)reader.GetInt32(1),
                         LayerId = reader.GetString(2),
                         Position = new Vector3(reader.GetFloat(3), reader.GetFloat(4), reader.GetFloat(5)),
@@ -330,7 +330,7 @@ namespace WorldBuilder.Shared.Repositories {
                         temp[lbId] = list;
                     }
                     list.Add(new BuildingObject {
-                        InstanceId = (ulong)reader.GetInt64(1),
+                        InstanceId = ObjectId.Parse(reader.GetString(1)),
                         ModelId = (uint)reader.GetInt32(2),
                         LayerId = reader.GetString(3),
                         Position = new Vector3(reader.GetFloat(4), reader.GetFloat(5), reader.GetFloat(6)),
@@ -350,11 +350,11 @@ namespace WorldBuilder.Shared.Repositories {
                             ON CONFLICT(InstanceId) DO UPDATE SET LandblockId = @lbId, CellId = @cellId, ModelId = @modelId, LayerId = @layerId, 
                             PosX = @posX, PosY = @posY, PosZ = @posZ, RotW = @rotW, RotX = @rotX, RotY = @rotY, RotZ = @rotZ, IsDeleted = @isDeleted";
                 using var cmd = new SqliteCommand(sql, connection, sqliteTx);
-                cmd.Parameters.AddWithValue("@id", (long)obj.InstanceId);
+                cmd.Parameters.AddWithValue("@id", obj.InstanceId.ToString());
                 cmd.Parameters.AddWithValue("@regionId", regionId);
                 cmd.Parameters.AddWithValue("@lbId", (object?)landblockId ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("@cellId", (object?)cellId ?? DBNull.Value);
-                cmd.Parameters.AddWithValue("@modelId", (int)obj.SetupId);
+                cmd.Parameters.AddWithValue("@modelId", (int)obj.ModelId);
                 cmd.Parameters.AddWithValue("@layerId", obj.LayerId);
                 cmd.Parameters.AddWithValue("@posX", obj.Position.X);
                 cmd.Parameters.AddWithValue("@posY", obj.Position.Y);
@@ -376,7 +376,7 @@ namespace WorldBuilder.Shared.Repositories {
                             ON CONFLICT(InstanceId) DO UPDATE SET LandblockId = @lbId, ModelId = @modelId, LayerId = @layerId, 
                             PosX = @posX, PosY = @posY, PosZ = @posZ, RotW = @rotW, RotX = @rotX, RotY = @rotY, RotZ = @rotZ, IsDeleted = @isDeleted";
                 using var cmd = new SqliteCommand(sql, connection, sqliteTx);
-                cmd.Parameters.AddWithValue("@id", (long)obj.InstanceId);
+                cmd.Parameters.AddWithValue("@id", obj.InstanceId.ToString());
                 cmd.Parameters.AddWithValue("@regionId", regionId);
                 cmd.Parameters.AddWithValue("@lbId", (object?)landblockId ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("@modelId", (int)obj.ModelId);
@@ -394,19 +394,19 @@ namespace WorldBuilder.Shared.Repositories {
             }, ct);
         }
 
-        public async Task<Result<Unit>> DeleteBuildingAsync(ulong instanceId, ITransaction? tx, CancellationToken ct) {
+        public async Task<Result<Unit>> DeleteBuildingAsync(ObjectId instanceId, ITransaction? tx, CancellationToken ct) {
             return await ExecuteAsync(tx, async (connection, sqliteTx) => {
                 using var cmd = new SqliteCommand("UPDATE Buildings SET IsDeleted = 1 WHERE InstanceId = @id", connection, sqliteTx);
-                cmd.Parameters.AddWithValue("@id", (long)instanceId);
+                cmd.Parameters.AddWithValue("@id", instanceId.ToString());
                 await cmd.ExecuteNonQueryAsync(ct);
                 return Result<Unit>.Success(Unit.Value);
             }, ct);
         }
 
-        public async Task<Result<Unit>> DeleteStaticObjectAsync(ulong instanceId, ITransaction? tx, CancellationToken ct) {
+        public async Task<Result<Unit>> DeleteStaticObjectAsync(ObjectId instanceId, ITransaction? tx, CancellationToken ct) {
             return await ExecuteAsync(tx, async (connection, sqliteTx) => {
                 using var cmd = new SqliteCommand("UPDATE StaticObjects SET IsDeleted = 1 WHERE InstanceId = @id", connection, sqliteTx);
-                cmd.Parameters.AddWithValue("@id", (long)instanceId);
+                cmd.Parameters.AddWithValue("@id", instanceId.ToString());
                 await cmd.ExecuteNonQueryAsync(ct);
                 return Result<Unit>.Success(Unit.Value);
             }, ct);

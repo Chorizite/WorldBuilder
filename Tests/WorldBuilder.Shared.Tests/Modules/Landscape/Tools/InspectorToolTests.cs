@@ -34,14 +34,14 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             context.InspectorSelected += (s, e) => capturedArgs = e;
 
             var lbId = (ushort)0x1234;
-            var instId = 0xABCDu;
+            var instId = ObjectId.FromDat(ObjectType.StaticObject, 0, lbId, 0xABCD);
             var objId = 0x1111u;
             var dist = 10f;
 
             var mockRaycast = new Mock<LandscapeToolContext.RaycastStaticObjectDelegate>();
             SceneRaycastHit hit = new SceneRaycastHit {
                 Hit = true,
-                Type = InspectorSelectionType.StaticObject,
+                Type = ObjectType.StaticObject,
                 Distance = dist,
                 LandblockId = lbId,
                 InstanceId = instId,
@@ -49,7 +49,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
                 Position = Vector3.Zero,
                 Rotation = Quaternion.Identity
             };
-            mockRaycast.Setup(r => r(It.IsAny<Vector3>(), It.IsAny<Vector3>(), It.IsAny<bool>(), It.IsAny<bool>(), out hit))
+            mockRaycast.Setup(r => r(It.IsAny<Vector3>(), It.IsAny<Vector3>(), It.IsAny<bool>(), It.IsAny<bool>(), out hit, It.IsAny<ObjectId>()))
                 .Returns(true);
             context.RaycastStaticObject = mockRaycast.Object;
 
@@ -64,7 +64,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             // Assert
             Assert.NotNull(capturedArgs);
-            Assert.Equal(InspectorSelectionType.StaticObject, capturedArgs.Selection.Type);
+            Assert.Equal(ObjectType.StaticObject, capturedArgs.Selection.Type);
             Assert.Equal(lbId, capturedArgs.Selection.LandblockId);
             Assert.Equal(instId, capturedArgs.Selection.InstanceId);
         }
@@ -83,19 +83,19 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             // Mock Object Hit at dist 20
             var lbId = (ushort)0x1234;
-            var instId = 0xABCDu;
+            var instId = ObjectId.FromDat(ObjectType.StaticObject, 0, lbId, 0xABCD);
             var objId = 0x1111u;
             var objDist = 20f;
             var mockRaycast = new Mock<LandscapeToolContext.RaycastStaticObjectDelegate>();
             SceneRaycastHit objHit = new SceneRaycastHit {
                 Hit = true,
-                Type = InspectorSelectionType.StaticObject,
+                Type = ObjectType.StaticObject,
                 Distance = objDist,
                 LandblockId = lbId,
                 InstanceId = instId,
                 ObjectId = objId
             };
-            mockRaycast.Setup(r => r(It.IsAny<Vector3>(), It.IsAny<Vector3>(), It.IsAny<bool>(), It.IsAny<bool>(), out objHit))
+            mockRaycast.Setup(r => r(It.IsAny<Vector3>(), It.IsAny<Vector3>(), It.IsAny<bool>(), It.IsAny<bool>(), out objHit, It.IsAny<ObjectId>()))
                 .Returns(true);
             context.RaycastStaticObject = mockRaycast.Object;
 
@@ -121,7 +121,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             // Assert
             Assert.NotNull(capturedArgs);
-            Assert.Equal(InspectorSelectionType.Vertex, capturedArgs.Selection.Type);
+            Assert.Equal(ObjectType.Vertex, capturedArgs.Selection.Type);
             Assert.Equal(1, capturedArgs.Selection.VertexX); // (24 - 0) / 24 = 1
             Assert.Equal(1, capturedArgs.Selection.VertexY);
         }
@@ -142,9 +142,9 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             // Object raycast SHOULD be called even if filters are off (to check for blockers)
             bool objectRaycastCalled = false;
-            context.RaycastStaticObject = (Vector3 o, Vector3 d, bool b, bool s, out SceneRaycastHit h, ulong ignoreInstanceId) => {
+            context.RaycastStaticObject = (Vector3 o, Vector3 d, bool b, bool s, out SceneRaycastHit h, ObjectId ignoreInstanceId) => {
                 objectRaycastCalled = true;
-                h = new SceneRaycastHit { Hit = true, Type = InspectorSelectionType.StaticObject, Distance = 5f };
+                h = new SceneRaycastHit { Hit = true, Type = ObjectType.StaticObject, Distance = 5f };
                 return true;
             };
 
@@ -189,7 +189,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             regionMock.Setup(r => r.MapOffset).Returns(Vector2.Zero);
             regionMock.Setup(r => r.LandHeights).Returns(new float[256]);
             regionMock.Setup(r => r.GetVertexIndex(It.IsAny<int>(), It.IsAny<int>()))
-                .Returns<int, int>((x, y) => y * 9 + x);
+                .Returns<int, int>((x, y) => (int)(y * 9 + x));
             regionMock.Setup(r => r.GetVertexCoordinates(It.IsAny<uint>()))
                 .Returns<uint>(idx => ((int)(idx % 9), (int)(idx / 9)));
 

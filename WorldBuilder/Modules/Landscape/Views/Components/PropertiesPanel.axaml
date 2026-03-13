@@ -11,7 +11,16 @@
             BorderThickness="1"
             CornerRadius="4" Padding="12">
         <StackPanel Spacing="8">
-            <TextBlock Text="Properties" FontWeight="SemiBold" />
+            <Grid ColumnDefinitions="*, Auto">
+                <TextBlock Grid.Column="0" Text="Properties" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <Button Grid.Column="1" 
+                        Content="Delete" 
+                        Command="{Binding DeleteCommand}" 
+                        IsVisible="{Binding ShowDeleteButton}"
+                        Classes="danger"
+                        Padding="8,4"
+                        FontSize="12" />
+            </Grid>
             <Separator />
             <ContentControl Content="{Binding SelectedItem}">
                 <ContentControl.DataTemplates>

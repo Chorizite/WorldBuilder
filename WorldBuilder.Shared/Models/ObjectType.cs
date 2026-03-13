@@ -1,5 +1,5 @@
-namespace WorldBuilder.Shared.Modules.Landscape.Models {
-    public enum InspectorSelectionType {
+namespace WorldBuilder.Shared.Models {
+    public enum ObjectType : ushort {
         None,
         Vertex,
         Building,

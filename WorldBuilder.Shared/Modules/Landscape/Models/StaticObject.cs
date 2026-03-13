@@ -1,5 +1,6 @@
 using MemoryPack;
 using System.Numerics;
+using WorldBuilder.Shared.Models;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Models {
     /// <summary>
@@ -10,7 +11,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         /// <summary>
         /// The ID of the model (GfxObj/Setup).
         /// </summary>
-        [MemoryPackOrder(0)] public uint SetupId { get; init; }
+        [MemoryPackOrder(0)] public uint ModelId { get; init; }
 
         /// <summary>
         /// Position relative to landblock or cell origin.
@@ -23,11 +24,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         [MemoryPackOrder(2)] public Quaternion Rotation { get; set; } = Quaternion.Identity;
 
         /// <summary>
-        /// Pseudo-ID tracking this specific instance.
-        /// Base dat objects get an ID corresponding to their array index.
-        /// Custom spawned objects get generated IDs.
+        /// Generalized ID tracking this specific instance.
+        /// Base dat objects get a DAT-encoded ObjectId.
+        /// Custom spawned objects get DB-encoded ObjectIds.
         /// </summary>
-        [MemoryPackOrder(3)] public ulong InstanceId { get; init; }
+        [MemoryPackOrder(3)] public ObjectId InstanceId { get; init; }
 
         /// <summary>
         /// Landscape Layer ID owning this static instance.

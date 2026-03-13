@@ -118,7 +118,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             if (d < hit.Distance && d <= maxDistance) {
                                 hit.Hit = true;
                                 hit.Distance = d;
-                                hit.Type = InspectorSelectionType.Scenery;
+                                hit.Type = ObjectType.Scenery;
                                 hit.ObjectId = (uint)inst.ObjectId;
                                 hit.InstanceId = inst.InstanceId;
                                 hit.Position = inst.WorldPosition;
@@ -316,7 +316,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                         var instance = new SceneryInstance {
                             ObjectId = obj.ObjectId,
-                            InstanceId = InstanceIdConstants.Encode((uint)scenery.Count, InspectorSelectionType.Scenery),
+                            InstanceId = ObjectId.FromDat(ObjectType.Scenery, 0, key, (ushort)scenery.Count),
                             IsSetup = isSetup,
                             WorldPosition = worldOrigin,
                             LocalPosition = new Vector3(lx, ly, z),

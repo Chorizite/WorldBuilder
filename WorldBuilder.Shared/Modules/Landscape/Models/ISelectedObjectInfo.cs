@@ -1,12 +1,13 @@
 using System.Numerics;
+using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     public interface ISelectedObjectInfo {
-        InspectorSelectionType Type { get; }
+        ObjectType Type { get; }
         ushort LandblockId { get; set; }
         uint? CellId { get; set; }
-        ulong InstanceId { get; set; }
+        ObjectId InstanceId { get; set; }
         uint ObjectId { get; }
         Vector3 Position { get; set; }
         Vector3 LocalPosition { get; set; }

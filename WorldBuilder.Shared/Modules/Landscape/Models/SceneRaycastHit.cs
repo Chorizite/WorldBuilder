@@ -1,4 +1,6 @@
+using MemoryPack;
 using System.Numerics;
+using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 
@@ -11,7 +13,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         public bool Hit;
         
         /// <summary>The type of object hit.</summary>
-        public InspectorSelectionType Type { get; set; }
+        public ObjectType Type { get; set; }
         
         /// <summary>The distance from the ray origin to the hit point.</summary>
         public float Distance { get; set; }
@@ -58,7 +60,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         public uint? CellId { get; set; }
         
         /// <summary>The instance ID of the hit object.</summary>
-        public ulong InstanceId { get; set; }
+        public ObjectId InstanceId { get; set; }
 
         /// <summary>The secondary ID of the hit object (if applicable).</summary>
         public ushort SecondaryId { get; set; }
@@ -76,6 +78,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         public int VertexY { get; set; }
 
         /// <summary>A predefined 'no hit' result.</summary>
-        public static SceneRaycastHit NoHit => new() { Hit = false, Distance = float.MaxValue, Type = InspectorSelectionType.None };
+        public static SceneRaycastHit NoHit => new() { Hit = false, Distance = float.MaxValue, Type = ObjectType.None };
     }
 }

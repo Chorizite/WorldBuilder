@@ -336,10 +336,10 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
 
     /// <inheritdoc/>
     public Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, ushort? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct) {
-        if (InstanceIdConstants.GetType(obj.InstanceId) == InspectorSelectionType.Building) {
+        if (obj.InstanceId.Type == ObjectType.Building) {
             var bldg = new BuildingObject {
                 InstanceId = obj.InstanceId,
-                ModelId = obj.SetupId,
+                ModelId = obj.ModelId,
                 LayerId = obj.LayerId,
                 Position = obj.Position,
                 Rotation = obj.Rotation,
@@ -351,15 +351,15 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
     }
 
     /// <inheritdoc/>
-    public Task<Result<Unit>> DeleteStaticObjectAsync(ulong instanceId, ITransaction? tx, CancellationToken ct) {
-        if (InstanceIdConstants.GetType(instanceId) == InspectorSelectionType.Building) {
+    public Task<Result<Unit>> DeleteStaticObjectAsync(ObjectId instanceId, ITransaction? tx, CancellationToken ct) {
+        if (instanceId.Type == ObjectType.Building) {
             return _repo.DeleteBuildingAsync(instanceId, tx, ct);
         }
         return _repo.DeleteStaticObjectAsync(instanceId, tx, ct);
     }
 
     /// <inheritdoc/>
-    public Task<Result<Unit>> DeleteBuildingAsync(ulong instanceId, ITransaction? tx, CancellationToken ct) {
+    public Task<Result<Unit>> DeleteBuildingAsync(ObjectId instanceId, ITransaction? tx, CancellationToken ct) {
         return _repo.DeleteBuildingAsync(instanceId, tx, ct);
     }
 

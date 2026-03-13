@@ -17,12 +17,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
     public class ObjectPreviewEventArgs : EventArgs {
         public ushort LandblockId { get; }
-        public ulong InstanceId { get; }
+        public ObjectId InstanceId { get; }
         public Vector3 Position { get; }
         public Quaternion Rotation { get; }
         public uint CellId { get; }
 
-        public ObjectPreviewEventArgs(ushort landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint cellId) {
+        public ObjectPreviewEventArgs(ushort landblockId, ObjectId instanceId, Vector3 position, Quaternion rotation, uint cellId) {
             LandblockId = landblockId;
             InstanceId = instanceId;
             Position = position;
@@ -57,7 +57,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         /// <summary>Delegate for raycasting against static objects.</summary>
-        public delegate bool RaycastStaticObjectDelegate(Vector3 rayOrigin, Vector3 rayDirection, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, ulong ignoreInstanceId = 0);
+        public delegate bool RaycastStaticObjectDelegate(Vector3 rayOrigin, Vector3 rayDirection, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, ObjectId ignoreInstanceId = default);
 
         /// <summary>Performs a raycast against static objects in the scene.</summary>
         public RaycastStaticObjectDelegate? RaycastStaticObject { get; set; }
@@ -75,7 +75,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public RaycastPortalsDelegate? RaycastPortals { get; set; }
 
         /// <summary>Delegate for raycasting against env cells.</summary>
-        public delegate bool RaycastEnvCellsDelegate(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, ulong ignoreInstanceId = 0);
+        public delegate bool RaycastEnvCellsDelegate(Vector3 rayOrigin, Vector3 rayDirection, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, ObjectId ignoreInstanceId = default);
 
         /// <summary>Performs a raycast against env cells in the scene.</summary>
         public RaycastEnvCellsDelegate? RaycastEnvCells { get; set; }
@@ -112,23 +112,29 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public Action<int, int>? InvalidateLandblock { get; set; }
 
         /// <summary>Delegate for retrieving a static object's world bounding box.</summary>
-        public Func<ushort, ulong, BoundingBox?>? GetStaticObjectBounds { get; set; }
+        public Func<ushort, ObjectId, BoundingBox?>? GetStaticObjectBounds { get; set; }
 
         /// <summary>Delegate for retrieving a static object's local bounding box.</summary>
-        public Func<ushort, ulong, BoundingBox?>? GetStaticObjectLocalBounds { get; set; }
+        public Func<ushort, ObjectId, BoundingBox?>? GetStaticObjectLocalBounds { get; set; }
 
         /// <summary>Delegate for retrieving a static object's current transform.</summary>
-        public Func<ushort, ulong, (Vector3 position, Quaternion rotation, Vector3 localPosition)?>? GetStaticObjectTransform { get; set; }
+        public Func<ushort, ObjectId, (Vector3 position, Quaternion rotation, Vector3 localPosition)?>? GetStaticObjectTransform { get; set; }
 
         /// <summary>Delegate for retrieving the layer ID that owns a static object.</summary>
-        public Func<ushort, ulong, string?>? GetStaticObjectLayerId { get; set; }
+        public Func<ushort, ObjectId, string?>? GetStaticObjectLayerId { get; set; }
 
         /// <summary>Action to update a static object in the document (layerId, oldLandblockId, oldObject, newLandblockId, newObject).</summary>
         public Action<string, ushort, Models.StaticObject, ushort, Models.StaticObject>? UpdateStaticObject { get; set; }
 
-        private Action<ushort, ulong, Vector3, Quaternion, uint>? _notifyObjectPositionPreview;
+        /// <summary>Action to add a static object to the document (layerId, landblockId, object).</summary>
+        public Action<string, ushort, Models.StaticObject>? AddStaticObject { get; set; }
+
+        /// <summary>Action to delete a static object from the document (layerId, landblockId, object).</summary>
+        public Action<string, ushort, Models.StaticObject>? DeleteStaticObject { get; set; }
+
+        private Action<ushort, ObjectId, Vector3, Quaternion, uint>? _notifyObjectPositionPreview;
         /// <summary>Action to notify the rendering layer of a live position/rotation preview during drag (landblockId, instanceId, position, rotation, currentCellId).</summary>
-        public Action<ushort, ulong, Vector3, Quaternion, uint>? NotifyObjectPositionPreview {
+        public Action<ushort, ObjectId, Vector3, Quaternion, uint>? NotifyObjectPositionPreview {
             get => _notifyObjectPositionPreview;
             set {
                 _notifyObjectPositionPreview = (lbId, instId, pos, rot, cellId) => {

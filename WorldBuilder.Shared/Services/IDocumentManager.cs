@@ -111,9 +111,9 @@ namespace WorldBuilder.Shared.Services {
         Task<Result<Unit>> UpsertStaticObjectAsync(StaticObject obj, uint regionId, ushort? landblockId, uint? cellId, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Deletes a static object by instance ID.</summary>
-        Task<Result<Unit>> DeleteStaticObjectAsync(ulong instanceId, ITransaction? tx, CancellationToken ct);
+        Task<Result<Unit>> DeleteStaticObjectAsync(ObjectId instanceId, ITransaction? tx, CancellationToken ct);
 
         /// <summary>Deletes a building by instance ID.</summary>
-        Task<Result<Unit>> DeleteBuildingAsync(ulong instanceId, ITransaction? tx, CancellationToken ct);
+        Task<Result<Unit>> DeleteBuildingAsync(ObjectId instanceId, ITransaction? tx, CancellationToken ct);
     }
 }

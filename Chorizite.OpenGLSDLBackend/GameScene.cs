@@ -425,10 +425,10 @@ public class GameScene : IDisposable {
 
     public void SetToolContext(LandscapeToolContext? context) {
         if (context != null) {
-            context.RaycastStaticObject = (Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, ulong ignoreInstanceId) => RaycastStaticObjects(origin, direction, includeBuildings, includeStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId);
+            context.RaycastStaticObject = (Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, ObjectId ignoreInstanceId) => RaycastStaticObjects(origin, direction, includeBuildings, includeStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId);
             context.RaycastScenery = (Vector3 origin, Vector3 direction, out SceneRaycastHit hit) => RaycastScenery(origin, direction, out hit);
             context.RaycastPortals = (Vector3 origin, Vector3 direction, out SceneRaycastHit hit) => RaycastPortals(origin, direction, out hit);
-            context.RaycastEnvCells = (Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, ulong ignoreInstanceId) => RaycastEnvCells(origin, direction, includeCells, includeStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId);
+            context.RaycastEnvCells = (Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, ObjectId ignoreInstanceId) => RaycastEnvCells(origin, direction, includeCells, includeStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId);
         }
     }
 
@@ -576,7 +576,7 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Updates the transform of an object for realtime preview during manipulation.
     /// </summary>
-    public void UpdateObjectPreview(ushort landblockId, ulong instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
+    public void UpdateObjectPreview(ushort landblockId, ObjectId instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
         _staticObjectManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId);
         _envCellManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId);
         _sceneryManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId);
@@ -586,9 +586,9 @@ public class GameScene : IDisposable {
         return _envCellManager?.GetEnvCellAt(pos) ?? 0;
     }
 
-    public (Vector3 position, Quaternion rotation, Vector3 localPosition)? GetStaticObjectTransform(ushort landblockId, ulong instanceId) {
-        var type = InstanceIdConstants.GetType(instanceId);
-        if (type == InspectorSelectionType.EnvCellStaticObject) {
+    public (Vector3 position, Quaternion rotation, Vector3 localPosition)? GetStaticObjectTransform(ushort landblockId, ObjectId instanceId) {
+        var type = instanceId.Type;
+        if (type == ObjectType.EnvCellStaticObject) {
             return _envCellManager?.GetInstanceTransform(landblockId, instanceId);
         }
         return _staticObjectManager?.GetInstanceTransform(landblockId, instanceId);
@@ -597,9 +597,9 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Gets the world-space bounding box for a static object.
     /// </summary>
-    public BoundingBox? GetStaticObjectBounds(ushort landblockId, ulong instanceId) {
-        var type = InstanceIdConstants.GetType(instanceId);
-        if (type == InspectorSelectionType.EnvCellStaticObject) {
+    public BoundingBox? GetStaticObjectBounds(ushort landblockId, ObjectId instanceId) {
+        var type = instanceId.Type;
+        if (type == ObjectType.EnvCellStaticObject) {
             return _envCellManager?.GetInstanceBounds(landblockId, instanceId);
         }
         return _staticObjectManager?.GetInstanceBounds(landblockId, instanceId);
@@ -608,9 +608,9 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Gets the local-space bounding box for a static object.
     /// </summary>
-    public BoundingBox? GetStaticObjectLocalBounds(ushort landblockId, ulong instanceId) {
-        var type = InstanceIdConstants.GetType(instanceId);
-        if (type == InspectorSelectionType.EnvCellStaticObject) {
+    public BoundingBox? GetStaticObjectLocalBounds(ushort landblockId, ObjectId instanceId) {
+        var type = instanceId.Type;
+        if (type == ObjectType.EnvCellStaticObject) {
             return _envCellManager?.GetInstanceLocalBounds(landblockId, instanceId);
         }
         return _staticObjectManager?.GetInstanceLocalBounds(landblockId, instanceId);
@@ -619,12 +619,12 @@ public class GameScene : IDisposable {
     /// <summary>
     /// Gets the layer ID that owns a static object.
     /// </summary>
-    public string? GetStaticObjectLayerId(ushort landblockId, ulong instanceId) {
+    public string? GetStaticObjectLayerId(ushort landblockId, ObjectId instanceId) {
         if (_landscapeDoc == null) return null;
 
-        var type = InstanceIdConstants.GetType(instanceId);
-        if (type == InspectorSelectionType.EnvCellStaticObject) {
-            var cellId = InstanceIdConstants.GetRawId(instanceId);
+        var type = instanceId.Type;
+        if (type == ObjectType.EnvCellStaticObject) {
+            var cellId = instanceId.DataId;
             var mergedCell = _landscapeDoc.GetMergedEnvCell(cellId);
             if (mergedCell.StaticObjects != null && mergedCell.StaticObjects.TryGetValue(instanceId, out var obj)) {
                 return obj.LayerId;
@@ -632,13 +632,13 @@ public class GameScene : IDisposable {
             return null;
         }
 
-        if (type == InspectorSelectionType.EnvCell) {
-            var cellId = InstanceIdConstants.GetRawId(instanceId);
+        if (type == ObjectType.EnvCell) {
+            var cellId = instanceId.DataId;
             var mergedCell = _landscapeDoc.GetMergedEnvCell(cellId);
             return mergedCell.LayerId;
         }
 
-        if (type == InspectorSelectionType.Portal || type == InspectorSelectionType.Scenery) {
+        if (type == ObjectType.Portal || type == ObjectType.Scenery) {
             // Portals and Scenery currently always belong to the Base layer
             return _landscapeDoc.BaseLayerId ?? string.Empty;
         }
@@ -658,46 +658,46 @@ public class GameScene : IDisposable {
     }
 
 
-    public void SetHoveredObject(InspectorSelectionType type, ushort landblockId, ulong instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
+    public void SetHoveredObject(ObjectType type, ushort landblockId, ObjectId instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
         SetObjectHighlight(ref _hoveredVertex, type, landblockId, instanceId, objectId, vx, vy, (m, val) => {
             if (m is SceneryRenderManager srm) srm.HoveredInstance = (SelectedStaticObject?)val;
             if (m is StaticObjectRenderManager sorm) sorm.HoveredInstance = (SelectedStaticObject?)val;
             if (m is EnvCellRenderManager ecrm) ecrm.HoveredInstance = (SelectedStaticObject?)val;
-            if (m is PortalRenderManager prm) prm.HoveredPortal = ((uint, ulong)?)val;
+            if (m is PortalRenderManager prm) prm.HoveredPortal = ((uint CellId, ObjectId PortalId)?)val;
         });
     }
 
-    public void SetSelectedObject(InspectorSelectionType type, ushort landblockId, ulong instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
+    public void SetSelectedObject(ObjectType type, ushort landblockId, ObjectId instanceId, uint objectId = 0, int vx = 0, int vy = 0) {
         SetObjectHighlight(ref _selectedVertex, type, landblockId, instanceId, objectId, vx, vy, (m, val) => {
             if (m is SceneryRenderManager srm) srm.SelectedInstance = (SelectedStaticObject?)val;
             if (m is StaticObjectRenderManager sorm) sorm.SelectedInstance = (SelectedStaticObject?)val;
             if (m is EnvCellRenderManager ecrm) ecrm.SelectedInstance = (SelectedStaticObject?)val;
-            if (m is PortalRenderManager prm) prm.SelectedPortal = ((uint, ulong)?)val;
+            if (m is PortalRenderManager prm) prm.SelectedPortal = ((uint CellId, ObjectId PortalId)?)val;
         });
     }
 
-    private void SetObjectHighlight(ref (int x, int y)? vertexStorage, InspectorSelectionType type, ushort landblockId, ulong instanceId, uint objectId, int vx, int vy, Action<object, object?> setter) {
-        vertexStorage = (type == InspectorSelectionType.Vertex && (vx != 0 || vy != 0)) ? (vx, vy) : null;
+    private void SetObjectHighlight(ref (int x, int y)? vertexStorage, ObjectType type, ushort landblockId, ObjectId instanceId, uint objectId, int vx, int vy, Action<object, object?> setter) {
+        vertexStorage = (type == ObjectType.Vertex && (vx != 0 || vy != 0)) ? (vx, vy) : null;
 
         if (_sceneryManager != null) {
-            var val = (type == InspectorSelectionType.Scenery && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = landblockId, InstanceId = instanceId } : (object?)null;
+            var val = (type == ObjectType.Scenery && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = landblockId, InstanceId = instanceId } : (object?)null;
             setter(_sceneryManager, val);
         }
         if (_staticObjectManager != null) {
-            var val = ((type == InspectorSelectionType.StaticObject || type == InspectorSelectionType.Building) && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = landblockId, InstanceId = instanceId } : (object?)null;
+            var val = ((type == ObjectType.StaticObject || type == ObjectType.Building) && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = landblockId, InstanceId = instanceId } : (object?)null;
             setter(_staticObjectManager, val);
         }
         if (_envCellManager != null) {
-            var val = ((type == InspectorSelectionType.EnvCell || type == InspectorSelectionType.EnvCellStaticObject) && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = landblockId, InstanceId = instanceId } : (object?)null;
+            var val = ((type == ObjectType.EnvCell || type == ObjectType.EnvCellStaticObject) && landblockId != 0) ? (object)new SelectedStaticObject { LandblockKey = landblockId, InstanceId = instanceId } : (object?)null;
             setter(_envCellManager, val);
         }
         if (_portalManager != null) {
-            var val = (type == InspectorSelectionType.Portal && landblockId != 0) ? (object)(objectId, instanceId) : (object?)null;
+            var val = (type == ObjectType.Portal && landblockId != 0) ? (object)(objectId, instanceId) : (object?)null;
             setter(_portalManager, val);
         }
     }
 
-    public bool RaycastStaticObjects(Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, bool isCollision = false, float maxDistance = float.MaxValue, ulong ignoreInstanceId = 0) {
+    public bool RaycastStaticObjects(Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, bool isCollision = false, float maxDistance = float.MaxValue, ObjectId ignoreInstanceId = default) {
         hit = SceneRaycastHit.NoHit;
 
         var targets = StaticObjectRenderManager.RaycastTarget.None;
@@ -728,7 +728,7 @@ public class GameScene : IDisposable {
         return false;
     }
 
-    public bool RaycastEnvCells(Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, bool isCollision = false, float maxDistance = float.MaxValue, ulong ignoreInstanceId = 0) {
+    public bool RaycastEnvCells(Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, bool isCollision = false, float maxDistance = float.MaxValue, ObjectId ignoreInstanceId = default) {
         hit = SceneRaycastHit.NoHit;
 
         if (_envCellManager != null && _envCellManager.Raycast(origin, direction, includeCells, includeStaticObjects, out hit, _currentEnvCellId, isCollision, maxDistance, ignoreInstanceId)) {

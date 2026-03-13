@@ -1,9 +1,10 @@
 using System;
+using WorldBuilder.Shared.Models;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
     public struct SelectedStaticObject {
         public ushort LandblockKey;
-        public ulong InstanceId;
+        public ObjectId InstanceId;
 
         public override bool Equals(object? obj) => obj is SelectedStaticObject other && LandblockKey == other.LandblockKey && InstanceId == other.InstanceId;
         public override int GetHashCode() => HashCode.Combine(LandblockKey, InstanceId);

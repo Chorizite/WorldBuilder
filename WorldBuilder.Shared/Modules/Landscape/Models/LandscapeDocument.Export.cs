@@ -123,7 +123,7 @@ namespace WorldBuilder.Shared.Models {
                     lbi.Objects.Clear();
                     foreach (var obj in mergedLb.StaticObjects.Values) {
                         lbi.Objects.Add(new DatReaderWriter.Types.Stab {
-                            Id = obj.SetupId,
+                            Id = obj.ModelId,
                             Frame = new DatReaderWriter.Types.Frame {
                                 Origin = obj.Position,
                                 Orientation = obj.Rotation
@@ -159,7 +159,7 @@ namespace WorldBuilder.Shared.Models {
                                 cell.Flags |= DatReaderWriter.Enums.EnvCellFlags.HasStaticObjs;
                                 foreach (var obj in mergedCell.StaticObjects.Values) {
                                     cell.StaticObjects.Add(new DatReaderWriter.Types.Stab {
-                                        Id = obj.SetupId,
+                                        Id = obj.ModelId,
                                         Frame = new DatReaderWriter.Types.Frame {
                                             Origin = obj.Position,
                                             Orientation = obj.Rotation
