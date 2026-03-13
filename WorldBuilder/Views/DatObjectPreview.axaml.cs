@@ -358,7 +358,7 @@ namespace WorldBuilder.Views {
             PreviewDetails = null;
 
             IsSetup = type == DBObjType.Setup || type == DBObjType.EnvCell;
-            Is3D = IsSetup || type == DBObjType.GfxObj;
+            Is3D = IsSetup || type == DBObjType.GfxObj || type == DBObjType.Environment;
             Is2D = type == DBObjType.SurfaceTexture || type == DBObjType.RenderSurface || type == DBObjType.Surface || type == DBObjType.Palette || type == DBObjType.PalSet;
             IsPalette = type == DBObjType.Palette;
             IsPalSet = type == DBObjType.PalSet;
@@ -438,6 +438,12 @@ namespace WorldBuilder.Views {
                             PreviewDetails = $"{palSet.Palettes.Count} {paletteText}, {totalColors} colors total";
                         }
                     }
+                }
+            }
+            else if (DataObjectType == DBObjType.Environment) {
+                if (db.TryGet<DatReaderWriter.DBObjs.Environment>(dataId, out var env)) {
+                    if (env.Cells.Count > 1)
+                        PreviewDetails = $"{env.Cells.Count} CellStructs";
                 }
             }
             else {
