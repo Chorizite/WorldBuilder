@@ -13,7 +13,7 @@ namespace WorldBuilder.Shared.Migrations {
             
             ConvertTable("StaticObjects", 
                 @"CREATE TABLE StaticObjects_New (
-                    InstanceId TEXT PRIMARY KEY,
+                    InstanceId TEXT,
                     RegionId INTEGER,
                     LayerId TEXT REFERENCES LandscapeLayers(Id),
                     LandblockId INTEGER,
@@ -26,7 +26,8 @@ namespace WorldBuilder.Shared.Migrations {
                     RotX REAL NOT NULL,
                     RotY REAL NOT NULL,
                     RotZ REAL NOT NULL,
-                    IsDeleted BOOLEAN DEFAULT 0
+                    IsDeleted BOOLEAN DEFAULT 0,
+                    PRIMARY KEY (InstanceId, LayerId)
                 )",
                 new[] {
                     "CREATE INDEX idx_staticobjects_regionid ON StaticObjects(RegionId)",
@@ -37,7 +38,7 @@ namespace WorldBuilder.Shared.Migrations {
 
             ConvertTable("Buildings", 
                 @"CREATE TABLE Buildings_New (
-                    InstanceId TEXT PRIMARY KEY,
+                    InstanceId TEXT,
                     RegionId INTEGER,
                     LayerId TEXT REFERENCES LandscapeLayers(Id),
                     LandblockId INTEGER,
@@ -50,7 +51,8 @@ namespace WorldBuilder.Shared.Migrations {
                     RotY REAL NOT NULL,
                     RotZ REAL NOT NULL,
                     NumLeaves INTEGER NOT NULL DEFAULT 0,
-                    IsDeleted BOOLEAN DEFAULT 0
+                    IsDeleted BOOLEAN DEFAULT 0,
+                    PRIMARY KEY (InstanceId, LayerId)
                 )",
                 new[] {
                     "CREATE INDEX idx_buildings_regionid ON Buildings(RegionId)",
@@ -105,7 +107,7 @@ namespace WorldBuilder.Shared.Migrations {
                         values[0] = newIdStr;
                     }
 
-                    var insertSql = $"INSERT INTO {tableName}_New ({string.Join(", ", columns)}) VALUES ({string.Join(", ", columns.Select(c => "@" + c))})";
+                    var insertSql = $"INSERT OR REPLACE INTO {tableName}_New ({string.Join(", ", columns)}) VALUES ({string.Join(", ", columns.Select(c => "@" + c))})";
                     using var insertCmd = conn.CreateCommand();
                     insertCmd.Transaction = tx;
                     insertCmd.CommandText = insertSql;
