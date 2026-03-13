@@ -56,6 +56,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 }
             }
         }
+        public bool ShowWireframeType => _type == DBObjType.Environment ? true : ShowWireframe;
 
         [ObservableProperty]
         private Vector4 _wireframeColor = new Vector4(0.0f, 1.0f, 0.0f, 0.5f);
@@ -63,6 +64,8 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         public bool IsDarkMode => _themeService.IsDarkMode;
 
         public bool Is3DView => _type == DBObjType.Setup || _type == DBObjType.GfxObj || _type == DBObjType.EnvCell;
+
+        public bool Is3DViewAndNotEnvironment => (_type == DBObjType.Setup || _type == DBObjType.GfxObj || _type == DBObjType.EnvCell) && _type != DBObjType.Environment;
 
         public double CalculatedItemSize => Math.Max(40, (ContainerWidth - 40 - (ItemsPerRow - 1) * 10) / ItemsPerRow);
 

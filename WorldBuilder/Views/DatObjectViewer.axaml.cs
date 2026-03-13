@@ -85,7 +85,7 @@ namespace WorldBuilder.Views {
             AvaloniaProperty.Register<DatObjectViewer, bool>(nameof(ShowWireframe), false);
 
         public bool ShowWireframe {
-            get => GetValue(ShowWireframeProperty);
+            get => IsEnvironment ? true : GetValue(ShowWireframeProperty);
             set => SetValue(ShowWireframeProperty, value);
         }
 
@@ -104,6 +104,8 @@ namespace WorldBuilder.Views {
             get => GetValue(ShowCullingProperty);
             set => SetValue(ShowCullingProperty, value);
         }
+
+        public bool IsEnvironment => (FileId >> 24) == 0x0D;
 
         public DatObjectViewer() {
             InitializeComponent();
