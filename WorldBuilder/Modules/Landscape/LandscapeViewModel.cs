@@ -128,7 +128,12 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
         HistoryPanel = new HistoryPanelViewModel(CommandHistory);
         PropertiesPanel = new PropertiesPanelViewModel {
-            Dats = dats
+            Dats = dats,
+            DeleteCommand = new RelayCommand(() => {
+                if (ActiveTool is ObjectManipulationTool objTool) {
+                    objTool.DeleteSelection();
+                }
+            })
         };
         PropertiesPanel.OnSelectedItemPropertyChanged += OnSelectedObjectPropertyChanged;
         LayersPanel = new LayersPanelViewModel(log, CommandHistory, _documentManager, _settings, _project, async (item, changeType) => {
@@ -355,6 +360,55 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                         }
                         else {
                             _log.LogError("Failed to update static object: {Error}", result.Error);
+                        }
+                    }, TaskScheduler.Default).Unwrap();
+                }
+            };
+
+            _toolContext.AddStaticObject = (string layerId, ushort landblockId, StaticObject obj) => {
+                if (ActiveDocument == null) return;
+
+                lock (_updateTaskLock) {
+                    _updateTask = _updateTask.ContinueWith(async t => {
+                        var command = new AddStaticObjectCommand {
+                            TerrainDocumentId = ActiveDocument.Id,
+                            LayerId = layerId,
+                            LandblockId = landblockId,
+                            Object = obj,
+                            UserId = ""
+                        };
+
+                        var result = await _documentManager.ApplyLocalEventAsync(command, null!, default);
+                        if (result.IsSuccess) {
+                            RequestSave(ActiveDocument.Id);
+                        }
+                        else {
+                            _log.LogError("Failed to add static object: {Error}", result.Error);
+                        }
+                    }, TaskScheduler.Default).Unwrap();
+                }
+            };
+
+            _toolContext.DeleteStaticObject = (string layerId, ushort landblockId, StaticObject obj) => {
+                if (ActiveDocument == null) return;
+
+                lock (_updateTaskLock) {
+                    _updateTask = _updateTask.ContinueWith(async t => {
+                        var command = new DeleteStaticObjectCommand {
+                            TerrainDocumentId = ActiveDocument.Id,
+                            LayerId = layerId,
+                            LandblockId = landblockId,
+                            InstanceId = obj.InstanceId,
+                            PreviousState = obj,
+                            UserId = ""
+                        };
+
+                        var result = await _documentManager.ApplyLocalEventAsync(command, null!, default);
+                        if (result.IsSuccess) {
+                            RequestSave(ActiveDocument.Id);
+                        }
+                        else {
+                            _log.LogError("Failed to delete static object: {Error}", result.Error);
                         }
                     }, TaskScheduler.Default).Unwrap();
                 }

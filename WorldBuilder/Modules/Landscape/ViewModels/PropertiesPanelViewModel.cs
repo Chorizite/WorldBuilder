@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.ComponentModel;
+using System.Windows.Input;
 using WorldBuilder.Shared.Services;
 using WorldBuilder.ViewModels;
 
@@ -9,6 +10,7 @@ public partial class PropertiesPanelViewModel : ViewModelBase {
     [ObservableProperty] private object? _selectedItem;
     [ObservableProperty] private IDatReaderWriter? _dats;
     [ObservableProperty] private bool _isEditable;
+    [ObservableProperty] private ICommand? _deleteCommand;
 
     public PropertiesPanelViewModel() {
     }

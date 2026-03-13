@@ -58,7 +58,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
             bool containerChanged = newLandblockId != oldLandblockId || newObject.CellId != oldObject.CellId || _newType != _oldType;
             
             if (containerChanged) {
-                newInstanceId = GenerateUniqueInstanceId(layerId, newLandblockId, newObject.CellId, _newType);
+                newInstanceId = InstanceIdGenerator.GenerateUniqueInstanceId(_context, newLandblockId, newObject.CellId, _newType, _oldObject.InstanceId);
             }
 
             _newObject = new StaticObject {
@@ -69,29 +69,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
                 Rotation = newObject.Rotation,
                 CellId = newObject.CellId
             };
-        }
-
-        private ulong GenerateUniqueInstanceId(string layerId, ushort landblockId, uint? cellId, InspectorSelectionType type) {
-            ushort index = 0xFFFF;
-            ulong id;
-            
-            if (type == InspectorSelectionType.EnvCellStaticObject && cellId.HasValue) {
-                id = InstanceIdConstants.EncodeEnvCellStaticObject(cellId.Value, index, true);
-                var cell = _context.Document.GetMergedEnvCell(cellId.Value);
-                while (index > 0 && cell.StaticObjects.ContainsKey(id) && id != _oldObject.InstanceId) {
-                    index--;
-                    id = InstanceIdConstants.EncodeEnvCellStaticObject(cellId.Value, index, true);
-                }
-            }
-            else {
-                id = InstanceIdConstants.Encode(type, ObjectState.Added, landblockId, index);
-                var lb = _context.Document.GetMergedLandblock(landblockId);
-                while (index > 0 && (lb.StaticObjects.ContainsKey(id) || lb.Buildings.ContainsKey(id)) && id != _oldObject.InstanceId) {
-                    index--;
-                    id = InstanceIdConstants.Encode(type, ObjectState.Added, landblockId, index);
-                }
-            }
-            return id;
         }
 
         public void Execute() {

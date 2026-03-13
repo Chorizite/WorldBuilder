@@ -126,6 +126,12 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <summary>Action to update a static object in the document (layerId, oldLandblockId, oldObject, newLandblockId, newObject).</summary>
         public Action<string, ushort, Models.StaticObject, ushort, Models.StaticObject>? UpdateStaticObject { get; set; }
 
+        /// <summary>Action to add a static object to the document (layerId, landblockId, object).</summary>
+        public Action<string, ushort, Models.StaticObject>? AddStaticObject { get; set; }
+
+        /// <summary>Action to delete a static object from the document (layerId, landblockId, object).</summary>
+        public Action<string, ushort, Models.StaticObject>? DeleteStaticObject { get; set; }
+
         private Action<ushort, ulong, Vector3, Quaternion, uint>? _notifyObjectPositionPreview;
         /// <summary>Action to notify the rendering layer of a live position/rotation preview during drag (landblockId, instanceId, position, rotation, currentCellId).</summary>
         public Action<ushort, ulong, Vector3, Quaternion, uint>? NotifyObjectPositionPreview {

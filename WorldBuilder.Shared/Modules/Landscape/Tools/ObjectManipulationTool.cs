@@ -80,6 +80,23 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 Mode = GizmoMode.Both;
                 return true;
             }
+            
+            if (string.Equals(e.Key, "Delete", StringComparison.OrdinalIgnoreCase) || 
+                string.Equals(e.Key, "Backspace", StringComparison.OrdinalIgnoreCase)) {
+                DeleteSelection();
+                return true;
+            }
+
+            if (string.Equals(e.Key, "C", StringComparison.OrdinalIgnoreCase) && e.CtrlDown) {
+                CopySelection();
+                return true;
+            }
+
+            if (string.Equals(e.Key, "V", StringComparison.OrdinalIgnoreCase) && e.CtrlDown) {
+                PasteObject(e);
+                return true;
+            }
+
             return base.OnKeyDown(e);
         }
 
@@ -244,6 +261,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             if (component == GizmoComponent.Center) _dragStartNormal = _currentSurfaceNormal;
 
             CaptureObjectStateForUndo();
+
+            if (e.CtrlDown) {
+                DuplicateObjectForDrag();
+            }
         }
 
         private void UpdateDragging(Vector3 origin, Vector3 direction, ViewportInputEvent e) {
@@ -340,6 +361,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
             else {
                 UpdateGizmoFromWorld(hit.LandblockId, hit.InstanceId, hit.Position, hit.Rotation);
+                GizmoState.ObjectLocalBounds = null;
             }
 
             if (Context.LandscapeObjectService != null) {
@@ -418,6 +440,119 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 return Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), MathF.Acos(Math.Clamp(Vector3.Dot(_dragStartNormal, Vector3.Normalize(hitNormal)), -1f, 1f))) * startObj.Rotation;
             }
             return (Vector3.Dot(_dragStartNormal, hitNormal) < -0.999f) ? Quaternion.CreateFromAxisAngle(Vector3.Transform(Vector3.UnitX, startObj.Rotation), MathF.PI) * startObj.Rotation : startObj.Rotation;
+        }
+
+        private static StaticObject? _clipboardObject;
+        private static InspectorSelectionType _clipboardType;
+
+        public void DeleteSelection() {
+            if (!HasSelection || Context == null || !IsManipulatable(GizmoState.SelectionType)) return;
+
+            var obj = CreateStaticObject(GizmoState.LocalPosition, GizmoState.Rotation, 
+                GizmoState.SelectionType == InspectorSelectionType.EnvCellStaticObject ? InstanceIdConstants.GetRawId(GizmoState.InstanceId) : null);
+            var command = new DeleteStaticObjectUICommand(Context, GizmoState.LayerId, GizmoState.LandblockId, obj);
+            Context.CommandHistory.Execute(command);
+
+            ClearSelection();
+        }
+
+        public void CopySelection() {
+            if (!HasSelection || Context == null || !IsManipulatable(GizmoState.SelectionType)) return;
+            
+            _clipboardObject = CreateStaticObject(GizmoState.LocalPosition, GizmoState.Rotation, 
+                GizmoState.SelectionType == InspectorSelectionType.EnvCellStaticObject ? InstanceIdConstants.GetRawId(GizmoState.InstanceId) : null);
+            _clipboardType = GizmoState.SelectionType;
+        }
+
+        public async void PasteObject(ViewportInputEvent e) {
+            if (_clipboardObject == null || Context == null) return;
+
+            var (origin, direction) = GetRay(e);
+            var groundHit = SceneRaycaster.GetGroundHitPoint(Context, e, origin, direction, 0, origin + direction * 10f);
+            
+            var worldPos = groundHit.Position;
+            var cellId = await Context.LandscapeObjectService.ResolveCellIdAsync(Context.Document, worldPos, _clipboardObject.CellId);
+
+            ushort newLandblockId = Context.LandscapeObjectService.ComputeLandblockId(Context.Document.Region!, worldPos);
+            var lbOrigin = Context.LandscapeObjectService.ComputeWorldPosition(Context.Document.Region!, newLandblockId, Vector3.Zero);
+            var newLocalPosition = worldPos - lbOrigin;
+
+            var newType = _clipboardType;
+            if (_clipboardType == InspectorSelectionType.StaticObject && cellId.HasValue && cellId.Value != 0) {
+                newType = InspectorSelectionType.EnvCellStaticObject;
+            }
+            else if (_clipboardType == InspectorSelectionType.EnvCellStaticObject && (!cellId.HasValue || cellId.Value == 0)) {
+                newType = InspectorSelectionType.StaticObject;
+            }
+
+            ulong newInstanceId = InstanceIdGenerator.GenerateUniqueInstanceId(Context, newLandblockId, cellId, newType, 0);
+            
+            var newRot = _clipboardObject.Rotation;
+            if (AlignToSurface && groundHit.Hit) {
+                newRot = ApplySurfaceSnappingRotation(_clipboardObject, groundHit.Normal);
+            }
+
+            var newObject = new StaticObject {
+                SetupId = _clipboardObject.SetupId,
+                InstanceId = newInstanceId,
+                LayerId = Context.ActiveLayer?.Id ?? Context.Document.BaseLayerId ?? "",
+                Position = newLocalPosition,
+                Rotation = newRot,
+                CellId = cellId
+            };
+
+            var command = new AddStaticObjectUICommand(Context, newObject.LayerId, newLandblockId, newObject);
+            Context.CommandHistory.Execute(command);
+            
+            var hit = new SceneRaycastHit {
+                Hit = true,
+                Type = newType,
+                LandblockId = newLandblockId,
+                InstanceId = newInstanceId,
+                ObjectId = newObject.SetupId,
+                Position = worldPos,
+                LocalPosition = newLocalPosition,
+                Rotation = newRot,
+                CellId = cellId
+            };
+            
+            SelectObject(hit);
+            Context.NotifyInspectorSelected(hit);
+        }
+
+        private void DuplicateObjectForDrag() {
+            if (_dragStartObject == null || Context == null) return;
+            
+            var newInstanceId = InstanceIdGenerator.GenerateUniqueInstanceId(Context, _dragStartLandblockId, _dragStartObject.CellId, GizmoState.SelectionType, _dragStartObject.InstanceId);
+            var newObject = new StaticObject {
+                SetupId = _dragStartObject.SetupId,
+                InstanceId = newInstanceId,
+                LayerId = _dragStartObject.LayerId,
+                Position = _dragStartObject.Position,
+                Rotation = _dragStartObject.Rotation,
+                CellId = _dragStartObject.CellId
+            };
+
+            var command = new AddStaticObjectUICommand(Context, newObject.LayerId, _dragStartLandblockId, newObject);
+            Context.CommandHistory.Execute(command);
+            
+            // Re-assign the drag start to the *newly created* object so the current move commits to it
+            // while the old object stays exactly where it was.
+            GizmoState.InstanceId = newInstanceId;
+            _dragStartObject = newObject;
+
+            var hit = new SceneRaycastHit {
+                Hit = true,
+                Type = GizmoState.SelectionType,
+                LandblockId = _dragStartLandblockId,
+                InstanceId = newInstanceId,
+                ObjectId = newObject.SetupId,
+                Position = GizmoState.Position,
+                LocalPosition = newObject.Position,
+                Rotation = newObject.Rotation,
+                CellId = newObject.CellId
+            };
+            Context.NotifyInspectorSelected(hit);
         }
 
         #endregion
