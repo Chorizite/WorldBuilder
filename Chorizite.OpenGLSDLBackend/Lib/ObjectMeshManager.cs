@@ -69,6 +69,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         /// <summary>Sphere used for mouse selection.</summary>
         public Sphere? SelectionSphere { get; set; }
+
+        /// <summary>Edge line vertices for Environment wireframe rendering.</summary>
+        public Vector3[] EdgeLines { get; set; } = Array.Empty<Vector3>();
     }
 
     /// <summary>
@@ -115,6 +118,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         /// <summary>CPU-side indices for raycasting.</summary>
         public ushort[] CPUIndices { get; set; } = Array.Empty<ushort>();
+
+        /// <summary>CPU-side edge line vertices for Environment wireframe rendering.</summary>
+        public Vector3[] CPUEdgeLines { get; set; } = Array.Empty<Vector3>();
 
         /// <summary>Local bounding box.</summary>
         public BoundingBox BoundingBox { get; set; }
@@ -500,6 +506,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     }
 
                     return PrepareEnvCellMeshData(id, envCell, ct);
+                }
+                else if (type == DBObjType.Environment) {
+                    if (!db.TryGet<DatReaderWriter.DBObjs.Environment>(datId, out var environment)) return null;
+                    
+                    // For Environment objects, create wireframe-only edge geometry
+                    if (environment.Cells.Count > 0) {
+                        var result = PrepareCellStructEdgeLineData(id, environment.Cells, Matrix4x4.Identity, ct);
+                        return result;
+                    }
+                    return null;
                 }
                 return null;
             }
@@ -1499,6 +1515,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 Batches = renderBatches,
                 CPUPositions = meshData.Vertices.Select(v => v.Position).ToArray(),
                 CPUIndices = meshData.TextureBatches.Values.SelectMany(l => l).SelectMany(b => b.Indices).ToArray(),
+                CPUEdgeLines = meshData.EdgeLines,
                 MemorySize = (meshData.Vertices.Length * VertexPositionNormalTexture.Size) +
                              renderBatches.Sum(b => (long)b.IndexCount * sizeof(ushort))
             };
@@ -1681,6 +1698,103 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     GlobalBuffer?.Dispose();
                 }
             });
+        }
+
+        private ObjectMeshData? PrepareCellStructEdgeLineData(ulong id, Dictionary<uint, CellStruct> cellStructs, Matrix4x4 transform, CancellationToken ct) {
+            var cellStructList = cellStructs.ToList();
+            if (cellStructList.Count == 0) {
+                return null;
+            }
+
+            // Calculate bounding box from ALL vertices in all cell structures
+            var min = new Vector3(float.MaxValue);
+            var max = new Vector3(float.MinValue);
+            var allEdgeLines = new List<Vector3>();
+
+            // Process each CellStruct and collect all edge lines
+            foreach (var cellStructKvp in cellStructList) {
+                var cellStruct = cellStructKvp.Value;
+                
+                // Build edge lines for this CellStruct
+                var edgeLines = EdgeLineBuilder.BuildEdgeLines(cellStruct);
+                
+                // Transform edge lines to world space and add to collection
+                foreach (var edgeLine in edgeLines) {
+                    allEdgeLines.Add(Vector3.Transform(edgeLine, transform));
+                }
+
+                // Update bounding box with vertices from this CellStruct
+                foreach (var vert in cellStruct.VertexArray.Vertices.Values) {
+                    var localizedPos = Vector3.Transform(vert.Origin, transform);
+                    min = Vector3.Min(min, localizedPos);
+                    max = Vector3.Max(max, localizedPos);
+                }
+            }
+            
+            if (allEdgeLines.Count == 0) {
+                return null;
+            }
+
+            var boundingBox = new BoundingBox(min, max);
+
+            // Create minimal mesh data for edge line rendering
+            // We still need some vertices for rendering system to work, but they'll be transparent
+            var vertices = new List<VertexPositionNormalTexture> {
+                new VertexPositionNormalTexture { Position = Vector3.Zero, Normal = Vector3.UnitZ, UV = Vector2.Zero }
+            };
+            var indices = new List<ushort> { 0, 0, 0 }; // Dummy triangle
+
+            // Create a transparent texture for base triangles (so only edge lines are visible)
+            var transparentTexture = TextureHelpers.CreateSolidColorTexture(new ColorARGB { Alpha = 0, Red = 255, Green = 255, Blue = 255 }, 1, 1);
+
+            var result = new ObjectMeshData {
+                ObjectId = id,
+                IsSetup = false,
+                Vertices = vertices.ToArray(),
+                Batches = new List<MeshBatchData> {
+                    new MeshBatchData {
+                        Indices = indices.ToArray(),
+                        TextureFormat = (1, 1, TextureFormat.RGBA8),
+                        TextureKey = new TextureAtlasManager.TextureKey {
+                            SurfaceId = 0xFFFFFFFF, // Dummy surface ID
+                            PaletteId = 0,
+                            Stippling = StipplingType.NoPos,
+                            IsSolid = true
+                        },
+                        TextureIndex = 0,
+                        TextureData = transparentTexture,
+                        UploadPixelFormat = PixelFormat.Rgba,
+                        UploadPixelType = PixelType.UnsignedByte,
+                        CullMode = CullMode.None
+                    }
+                },
+                // Also populate TextureBatches for GPU upload
+                TextureBatches = new Dictionary<(int Width, int Height, TextureFormat Format), List<TextureBatchData>> {
+                    [(1, 1, TextureFormat.RGBA8)] = new List<TextureBatchData> {
+                        new TextureBatchData {
+                            Indices = indices.ToList(),
+                            Key = new TextureAtlasManager.TextureKey {
+                                SurfaceId = 0xFFFFFFFF, // Dummy surface ID
+                                PaletteId = 0,
+                                Stippling = StipplingType.NoPos,
+                                IsSolid = true
+                            },
+                            TextureData = transparentTexture,
+                            UploadPixelFormat = PixelFormat.Rgba,
+                            UploadPixelType = PixelType.UnsignedByte,
+                            CullMode = CullMode.None,
+                            IsTransparent = false  // Render in opaque pass but transparent
+                        }
+                    }
+                },
+                BoundingBox = boundingBox,
+                SelectionSphere = new Sphere { Origin = boundingBox.Center, Radius = Vector3.Distance(boundingBox.Max, boundingBox.Min) / 2.0f }
+            };
+
+            // Store all edge lines in mesh data for later use in UploadMeshData
+            result.EdgeLines = allEdgeLines.ToArray();
+
+            return result;
         }
     }
 }

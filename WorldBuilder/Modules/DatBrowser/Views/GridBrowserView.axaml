@@ -14,7 +14,7 @@
             <TextBlock Text="Items Per Row:" VerticalAlignment="Center"/>
             <Slider Minimum="1" Maximum="36" Value="{Binding ItemsPerRow}" Width="200" VerticalAlignment="Center"/>
             <TextBlock Text="{Binding ItemsPerRow}" VerticalAlignment="Center" Width="30"/>
-            <CheckBox Content="Show Wireframe" IsChecked="{Binding ShowWireframe}" IsVisible="{Binding Is3DView}" VerticalAlignment="Center"/>
+            <CheckBox Content="Show Wireframe" IsChecked="{Binding ShowWireframe}" IsVisible="{Binding Is3DViewAndNotEnvironment}" VerticalAlignment="Center"/>
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -38,7 +38,7 @@
                                         Dats="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).Dats}"
                                         IsTooltip="True"
                                         ClearColor="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).IsDarkMode, Converter={StaticResource ThemeToViewportBrushConverter}}"
-                                        ShowWireframe="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).ShowWireframe}"
+                                        ShowWireframe="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).ShowWireframeType}"
                                         WireframeColor="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).WireframeColor}"
                                         Width="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).CalculatedItemSize}"
                                         Height="{Binding $parent[UserControl].((vm:GridBrowserViewModel)DataContext).CalculatedItemSize}" />

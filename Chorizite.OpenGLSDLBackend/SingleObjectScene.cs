@@ -485,20 +485,34 @@ namespace Chorizite.OpenGLSDLBackend {
         }
 
         private void SubmitObjectWireframe(ObjectRenderData data, Matrix4x4 transform) {
-            if (_debugRenderer == null || data.CPUIndices.Length == 0 || data.CPUPositions.Length == 0) return;
-
+            if (_debugRenderer == null) {
+                return;
+            }
             var wireColor = WireframeColor;
-            var indices = data.CPUIndices;
-            var positions = data.CPUPositions;
 
-            for (int i = 0; i < indices.Length; i += 3) {
-                var p1 = Vector3.Transform(positions[indices[i]], transform);
-                var p2 = Vector3.Transform(positions[indices[i + 1]], transform);
-                var p3 = Vector3.Transform(positions[indices[i + 2]], transform);
+            if (data.CPUIndices.Length > 0 && data.CPUPositions.Length > 0) {
+                var indices = data.CPUIndices;
+                var positions = data.CPUPositions;
 
-                _debugRenderer.DrawLine(p1, p2, wireColor, 1.0f);
-                _debugRenderer.DrawLine(p2, p3, wireColor, 1.0f);
-                _debugRenderer.DrawLine(p3, p1, wireColor, 1.0f);
+                for (int i = 0; i < indices.Length; i += 3) {
+                    var p1 = Vector3.Transform(positions[indices[i]], transform);
+                    var p2 = Vector3.Transform(positions[indices[i + 1]], transform);
+                    var p3 = Vector3.Transform(positions[indices[i + 2]], transform);
+
+                    _debugRenderer.DrawLine(p1, p2, wireColor, 1.0f);
+                    _debugRenderer.DrawLine(p2, p3, wireColor, 1.0f);
+                    _debugRenderer.DrawLine(p3, p1, wireColor, 1.0f);
+                }
+            }
+
+            if (data.CPUEdgeLines.Length > 0) {
+                for (int i = 0; i < data.CPUEdgeLines.Length; i += 2) {
+                    if (i + 1 < data.CPUEdgeLines.Length) {
+                        var p1 = Vector3.Transform(data.CPUEdgeLines[i], transform);
+                        var p2 = Vector3.Transform(data.CPUEdgeLines[i + 1], transform);
+                        _debugRenderer.DrawLine(p1, p2, wireColor, 1.0f);
+                    }
+                }
             }
         }
 

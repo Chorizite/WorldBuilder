@@ -43,11 +43,13 @@
                 <TextBlock Text="📷" />
             </ToggleButton>
             <ToggleButton IsChecked="{Binding ShowWireframe, RelativeSource={RelativeSource AncestorType=views:DatObjectViewer}}" 
-                          ToolTip.Tip="Show Wireframe">
+                          ToolTip.Tip="Show Wireframe"
+                          IsVisible="{Binding !IsEnvironment, RelativeSource={RelativeSource AncestorType=views:DatObjectViewer}}">
                 <TextBlock Text="#" />
             </ToggleButton>
             <ToggleButton IsChecked="{Binding ShowCulling, RelativeSource={RelativeSource AncestorType=views:DatObjectViewer}}" 
-                          ToolTip.Tip="Enable Culling">
+                          ToolTip.Tip="Enable Culling"
+                          IsVisible="{Binding !IsEnvironment, RelativeSource={RelativeSource AncestorType=views:DatObjectViewer}}">
                 <TextBlock Text="◐" />
             </ToggleButton>
         </StackPanel>
