@@ -5,10 +5,26 @@ using System.Linq;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Services;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     public partial class InspectorTool : LandscapeToolBase {
+        private readonly ILandscapeRaycastService _raycastService;
+        private readonly ILandscapeEditorService _editorService;
+        private readonly IToolSettingsProvider _settingsProvider;
+        private readonly ILandscapeObjectService _landscapeObjectService;
         private SceneRaycastHit _lastHoveredHit;
+
+        public InspectorTool(ILandscapeRaycastService raycastService, ILandscapeEditorService editorService, ILandscapeObjectService landscapeObjectService, IToolSettingsProvider settingsProvider) {
+            _raycastService = raycastService;
+            _editorService = editorService;
+            _landscapeObjectService = landscapeObjectService;
+            _settingsProvider = settingsProvider;
+        }
+
+        private void OnObjectPreview(object? sender, ObjectPreviewEventArgs e) {
+            // Implementation if needed
+        }
 
         public override string Name => "Inspector";
         public override string IconGlyph => "Magnify"; // Material Design Icon
@@ -83,20 +99,19 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public override void Activate(LandscapeToolContext context) {
             base.Activate(context);
             LandscapeColorsSettings.Instance.PropertyChanged += OnColorsChanged;
+            if (Context != null) Context.ObjectPreview += OnObjectPreview;
             
             // Load settings from project
-            if (context.ToolSettingsProvider?.InspectorToolSettings != null) {
-                var settings = context.ToolSettingsProvider.InspectorToolSettings;
-                if (settings != null) {
-                    SelectVertices = settings.SelectVertices;
-                    SelectBuildings = settings.SelectBuildings;
-                    SelectStaticObjects = settings.SelectStaticObjects;
-                    SelectScenery = settings.SelectScenery;
-                    SelectPortals = settings.SelectPortals;
-                    SelectEnvCells = settings.SelectEnvCells;
-                    SelectEnvCellStaticObjects = settings.SelectEnvCellStaticObjects;
-                    ShowBoundingBoxes = settings.ShowBoundingBoxes;
-                }
+            var settings = _settingsProvider.InspectorToolSettings;
+            if (settings != null) {
+                SelectVertices = settings.SelectVertices;
+                SelectBuildings = settings.SelectBuildings;
+                SelectStaticObjects = settings.SelectStaticObjects;
+                SelectScenery = settings.SelectScenery;
+                SelectPortals = settings.SelectPortals;
+                SelectEnvCells = settings.SelectEnvCells;
+                SelectEnvCellStaticObjects = settings.SelectEnvCellStaticObjects;
+                ShowBoundingBoxes = settings.ShowBoundingBoxes;
             }
         }
 
@@ -166,7 +181,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             float cellSize = region.CellSizeInUnits;
             var localPos = new Vector3(localVx * cellSize, localVy * cellSize, Context.Document.GetHeight(vx, vy));
 
-            var worldPos = Context.LandscapeObjectService.ComputeWorldPosition(region, landblockId, localPos);
+            var worldPos = _landscapeObjectService.ComputeWorldPosition(region, landblockId, localPos);
             debugRenderer.DrawSphere(worldPos, 1.5f, color);
         }
 
@@ -219,7 +234,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private SceneRaycastHit PerformRaycast(ViewportInputEvent e) {
             if (Context == null) return SceneRaycastHit.NoHit;
 
-            return SceneRaycaster.PerformRaycast(Context, e, 
+            return SceneRaycaster.PerformRaycast(Context, _raycastService, e, 
                 SelectBuildings, SelectStaticObjects, SelectEnvCellStaticObjects, 
                 SelectScenery, SelectPortals, SelectVertices, SelectEnvCells);
         }
@@ -271,19 +286,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             SaveSettings();
         }
 
-        private void SaveSettings() {
-            if (Context?.ToolSettingsProvider != null) {
-                Context.ToolSettingsProvider.UpdateInspectorToolSettings(new InspectorToolSettingsData {
-                    SelectVertices = SelectVertices,
-                    SelectBuildings = SelectBuildings,
-                    SelectStaticObjects = SelectStaticObjects,
-                    SelectScenery = SelectScenery,
-                    SelectPortals = SelectPortals,
-                    SelectEnvCells = SelectEnvCells,
-                    SelectEnvCellStaticObjects = SelectEnvCellStaticObjects,
-                    ShowBoundingBoxes = ShowBoundingBoxes
-                });
-            }
-        }
+        private void SaveSettings() => _settingsProvider.UpdateInspectorToolSettings(new() {
+            SelectVertices = SelectVertices,
+            SelectBuildings = SelectBuildings,
+            SelectStaticObjects = SelectStaticObjects,
+            SelectScenery = SelectScenery,
+            SelectPortals = SelectPortals,
+            SelectEnvCells = SelectEnvCells,
+            SelectEnvCellStaticObjects = SelectEnvCellStaticObjects,
+            ShowBoundingBoxes = ShowBoundingBoxes
+        });
     }
 }

@@ -35,7 +35,7 @@ using ICamera = WorldBuilder.Shared.Models.ICamera;
 
 namespace WorldBuilder.Modules.Landscape;
 
-public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModule, IHotkeyHandler {
+public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastService, ILandscapeEditorService, IDisposable, IToolModule, IHotkeyHandler {
     private readonly IProject _project;
     private readonly IDatReaderWriter _dats;
     private readonly IPortalService _portalService;
@@ -163,12 +163,16 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
         // Register Tools
         if (!_project.IsReadOnly) {
-            Tools.Add(new BrushTool());
-            Tools.Add(new BucketFillTool());
-            Tools.Add(new RoadVertexTool());
-            Tools.Add(new RoadLineTool());
-            Tools.Add(new ObjectManipulationTool());
-            Tools.Add(new InspectorTool());
+            var activeProject = _settings?.Project;
+            if (activeProject != null) {
+                var settingsProvider = new ToolSettingsProvider(activeProject);
+                Tools.Add(new BrushTool(this, this, _landscapeObjectService, settingsProvider));
+                Tools.Add(new BucketFillTool(this, this, _landscapeObjectService, settingsProvider));
+                Tools.Add(new RoadVertexTool(this, this, _landscapeObjectService, settingsProvider));
+                Tools.Add(new RoadLineTool(this, this, _landscapeObjectService, settingsProvider));
+                Tools.Add(new ObjectManipulationTool(this, this, _landscapeObjectService, settingsProvider));
+                Tools.Add(new InspectorTool(this, this, _landscapeObjectService, settingsProvider));
+            }
         }
         ActiveTool = Tools.FirstOrDefault();
         PropertiesPanel.IsEditable = ActiveTool is ObjectManipulationTool;
@@ -297,156 +301,19 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 _toolContext.InspectorSelected -= OnInspectorSelected;
             }
 
-            _toolContext = new LandscapeToolContext(ActiveDocument, EditorState, _dats, CommandHistory, Camera, _log, _landscapeObjectService, ActiveLayer);
-            _toolContext.RequestSave = RequestSave;
-            if (_settings?.Project != null) {
-                _toolContext.ToolSettingsProvider = new ToolSettingsProvider(_settings.Project);
+            var activeProject = _settings?.Project;
+            if (activeProject != null) {
+                var settingsProvider = new ToolSettingsProvider(activeProject);
+                _toolContext = new LandscapeToolContext(ActiveDocument, EditorState, _dats, CommandHistory, Camera, _log, _landscapeObjectService, this, this, settingsProvider, ActiveLayer);
             }
-            if (_invalidateCallback != null) {
-                _toolContext.InvalidateLandblock = _invalidateCallback;
+            else {
+                // Fallback or log if project is null?
+                _log.LogWarning("Cannot update tool context: Project is null");
+                return;
             }
-
-            _toolContext.RaycastStaticObject = (Vector3 origin, Vector3 dir, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, ObjectId ignoreInstanceId) => {
-                hit = SceneRaycastHit.NoHit;
-                return _gameScene?.RaycastStaticObjects(origin, dir, includeBuildings, includeStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId) ?? false;
-            };
-
-            _toolContext.RaycastScenery = (Vector3 origin, Vector3 dir, out SceneRaycastHit hit) => {
-                hit = SceneRaycastHit.NoHit;
-                return _gameScene?.RaycastScenery(origin, dir, out hit) ?? false;
-            };
-
-            _toolContext.RaycastPortals = (Vector3 origin, Vector3 dir, out SceneRaycastHit hit) => {
-                hit = SceneRaycastHit.NoHit;
-                return _gameScene?.RaycastPortals(origin, dir, out hit) ?? false;
-            };
-
-            _toolContext.RaycastEnvCells = (Vector3 origin, Vector3 dir, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, ObjectId ignoreInstanceId) => {
-                hit = SceneRaycastHit.NoHit;
-                return _gameScene?.RaycastEnvCells(origin, dir, includeCells, includeStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId) ?? false;
-            };
-
-            _toolContext.RaycastTerrain = (float x, float y) => {
-                if (_gameScene == null || ActiveDocument?.Region == null) return new TerrainRaycastHit();
-                return TerrainRaycast.Raycast(x, y, (int)_toolContext.ViewportSize.X, (int)_toolContext.ViewportSize.Y, _toolContext.Camera, ActiveDocument.Region, ActiveDocument);
-            };
-
             _toolContext.InspectorHovered += OnInspectorHovered;
             _toolContext.InspectorSelected += OnInspectorSelected;
 
-            // Wire up object manipulation delegates
-            _toolContext.GetStaticObjectBounds = (ushort landblockId, ObjectId instanceId) => _gameScene?.GetStaticObjectBounds(landblockId, instanceId);
-            _toolContext.GetStaticObjectLocalBounds = (ushort landblockId, ObjectId instanceId) => _gameScene?.GetStaticObjectLocalBounds(landblockId, instanceId);
-            _toolContext.GetStaticObjectTransform = (ushort landblockId, ObjectId instanceId) => _gameScene?.GetStaticObjectTransform(landblockId, instanceId);
-            _toolContext.GetStaticObjectLayerId = (ushort landblockId, ObjectId instanceId) => _gameScene?.GetStaticObjectLayerId(landblockId, instanceId);
-            _toolContext.UpdateStaticObject = (string layerId, ushort oldLbId, StaticObject oldObject, ushort newLbId, StaticObject newObj) => {
-                if (ActiveDocument == null) return;
-
-                lock (_updateTaskLock) {
-                    _updateTask = _updateTask.ContinueWith(async t => {
-                        var command = new UpdateStaticObjectCommand {
-                            TerrainDocumentId = ActiveDocument.Id,
-                            LayerId = layerId,
-                            OldLandblockId = oldLbId,
-                            NewLandblockId = newLbId,
-                            OldObject = oldObject,
-                            NewObject = newObj,
-                            UserId = ""
-                        };
-
-                        var result = await _documentManager.ApplyLocalEventAsync(command, null!, default);
-                        if (result.IsSuccess) {
-                            RequestSave(ActiveDocument.Id);
-                        }
-                        else {
-                            _log.LogError("Failed to update static object: {Error}", result.Error);
-                        }
-                    }, TaskScheduler.Default).Unwrap();
-                }
-            };
-
-            _toolContext.AddStaticObject = (string layerId, ushort landblockId, StaticObject obj) => {
-                if (ActiveDocument == null) return;
-
-                lock (_updateTaskLock) {
-                    _updateTask = _updateTask.ContinueWith(async t => {
-                        var command = new AddStaticObjectCommand {
-                            TerrainDocumentId = ActiveDocument.Id,
-                            LayerId = layerId,
-                            LandblockId = landblockId,
-                            Object = obj,
-                            UserId = ""
-                        };
-
-                        var result = await _documentManager.ApplyLocalEventAsync(command, null!, default);
-                        if (result.IsSuccess) {
-                            RequestSave(ActiveDocument.Id);
-                        }
-                        else {
-                            _log.LogError("Failed to add static object: {Error}", result.Error);
-                        }
-                    }, TaskScheduler.Default).Unwrap();
-                }
-            };
-
-            _toolContext.DeleteStaticObject = (string layerId, ushort landblockId, StaticObject obj) => {
-                if (ActiveDocument == null) return;
-
-                lock (_updateTaskLock) {
-                    _updateTask = _updateTask.ContinueWith(async t => {
-                        var command = new DeleteStaticObjectCommand {
-                            TerrainDocumentId = ActiveDocument.Id,
-                            LayerId = layerId,
-                            LandblockId = landblockId,
-                            InstanceId = obj.InstanceId,
-                            PreviousState = obj,
-                            UserId = ""
-                        };
-
-                        var result = await _documentManager.ApplyLocalEventAsync(command, null!, default);
-                        if (result.IsSuccess) {
-                            RequestSave(ActiveDocument.Id);
-                        }
-                        else {
-                            _log.LogError("Failed to delete static object: {Error}", result.Error);
-                        }
-                    }, TaskScheduler.Default).Unwrap();
-                }
-            };
-
-            _toolContext.NotifyObjectPositionPreview = (ushort landblockId, ObjectId instanceId, Vector3 position, Quaternion rotation, uint currentCellId) => {
-                _gameScene?.UpdateObjectPreview(landblockId, instanceId, position, rotation, currentCellId);
-
-                // Update PropertiesPanel in real-time
-                if (PropertiesPanel.SelectedItem is ISelectedObjectInfo info && info.InstanceId == instanceId && ActiveDocument?.Region != null) {
-                    _isUpdatingFromSelection = true;
-                    try {
-                        // Recalculate local position relative to the NEW landblock origin
-                        var lbOrigin = _landscapeObjectService.ComputeWorldPosition(ActiveDocument.Region, landblockId, Vector3.Zero);
-                        var localPos = position - lbOrigin;
-
-                        info.LandblockId = landblockId;
-                        info.CellId = currentCellId != 0 ? currentCellId : null;
-                        info.Position = position;
-                        info.LocalPosition = localPos;
-                        info.Rotation = rotation;
-                    }
-                    finally {
-                        _isUpdatingFromSelection = false;
-                    }
-                }
-            };
-
-            _toolContext.ComputeLandblockId = (worldPos) => {
-                if (ActiveDocument?.Region == null) return 0;
-                return _landscapeObjectService.ComputeLandblockId(ActiveDocument.Region, worldPos);
-            };
-
-            _toolContext.GetEnvCellAt = (worldPos) => {
-                return _gameScene?.GetEnvCellAt(worldPos) ?? 0;
-            };
-
-            _gameScene?.SetToolContext(_toolContext);
             _gameScene?.SetActiveTool(ActiveTool);
 
             ActiveTool?.Deactivate();
@@ -565,12 +432,144 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
                 _isUpdatingFromSelection = false;
             }
 
-            _toolContext.NotifyObjectPositionPreview?.Invoke(info.LandblockId, info.InstanceId, worldPos, info.Rotation, currentCellId ?? 0);
+            NotifyObjectPositionPreview(info.LandblockId, info.InstanceId, worldPos, info.Rotation, currentCellId ?? 0);
 
             // Debounce the actual commit
             RequestCommitObjectChange(info);
         }
     }
+
+    #region ILandscapeRaycastService Implementation
+    public bool RaycastStaticObject(Vector3 origin, Vector3 direction, bool includeBuildings, bool includeStaticObjects, out SceneRaycastHit hit, ObjectId ignoreInstanceId = default) {
+        hit = SceneRaycastHit.NoHit;
+        return _gameScene?.RaycastStaticObjects(origin, direction, includeBuildings, includeStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId) ?? false;
+    }
+
+    public bool RaycastScenery(Vector3 origin, Vector3 direction, out SceneRaycastHit hit) {
+        hit = SceneRaycastHit.NoHit;
+        return _gameScene?.RaycastScenery(origin, direction, out hit) ?? false;
+    }
+
+    public bool RaycastPortals(Vector3 origin, Vector3 direction, out SceneRaycastHit hit) {
+        hit = SceneRaycastHit.NoHit;
+        return _gameScene?.RaycastPortals(origin, direction, out hit) ?? false;
+    }
+
+    public bool RaycastEnvCells(Vector3 origin, Vector3 direction, bool includeCells, bool includeStaticObjects, out SceneRaycastHit hit, ObjectId ignoreInstanceId = default) {
+        hit = SceneRaycastHit.NoHit;
+        return _gameScene?.RaycastEnvCells(origin, direction, includeCells, includeStaticObjects, out hit, false, float.MaxValue, ignoreInstanceId) ?? false;
+    }
+
+    public TerrainRaycastHit RaycastTerrain(float screenX, float screenY, Vector2 viewportSize, ICamera camera) {
+        if (_gameScene == null || ActiveDocument?.Region == null) return new TerrainRaycastHit();
+        return TerrainRaycast.Raycast(screenX, screenY, (int)viewportSize.X, (int)viewportSize.Y, camera, ActiveDocument.Region, ActiveDocument);
+    }
+    #endregion
+
+    public void InvalidateLandblock(int x, int y) => _invalidateCallback?.Invoke(x, y);
+
+    public void UpdateStaticObject(string layerId, ushort oldLbId, StaticObject oldObject, ushort newLbId, StaticObject newObj) {
+        if (ActiveDocument == null) return;
+
+        lock (_updateTaskLock) {
+            _updateTask = _updateTask.ContinueWith(async t => {
+                var command = new UpdateStaticObjectCommand {
+                    TerrainDocumentId = ActiveDocument.Id,
+                    LayerId = layerId,
+                    OldLandblockId = oldLbId,
+                    NewLandblockId = newLbId,
+                    OldObject = oldObject,
+                    NewObject = newObj,
+                    UserId = ""
+                };
+
+                var result = await _documentManager.ApplyLocalEventAsync(command, null!, default);
+                if (result.IsSuccess) {
+                    RequestSave(ActiveDocument.Id);
+                }
+                else {
+                    _log.LogError("Failed to update static object: {Error}", result.Error);
+                }
+            }, TaskScheduler.Default).Unwrap();
+        }
+    }
+
+    public void AddStaticObject(string layerId, ushort landblockId, StaticObject obj) {
+        if (ActiveDocument == null) return;
+
+        lock (_updateTaskLock) {
+            _updateTask = _updateTask.ContinueWith(async t => {
+                var command = new AddStaticObjectCommand {
+                    TerrainDocumentId = ActiveDocument.Id,
+                    LayerId = layerId,
+                    LandblockId = landblockId,
+                    Object = obj,
+                    UserId = ""
+                };
+
+                var result = await _documentManager.ApplyLocalEventAsync(command, null!, default);
+                if (result.IsSuccess) {
+                    RequestSave(ActiveDocument.Id);
+                }
+                else {
+                    _log.LogError("Failed to add static object: {Error}", result.Error);
+                }
+            }, TaskScheduler.Default).Unwrap();
+        }
+    }
+
+    public void DeleteStaticObject(string layerId, ushort landblockId, StaticObject obj) {
+        if (ActiveDocument == null) return;
+
+        lock (_updateTaskLock) {
+            _updateTask = _updateTask.ContinueWith(async t => {
+                var command = new DeleteStaticObjectCommand {
+                    TerrainDocumentId = ActiveDocument.Id,
+                    LayerId = layerId,
+                    LandblockId = landblockId,
+                    InstanceId = obj.InstanceId,
+                    PreviousState = obj,
+                    UserId = ""
+                };
+
+                var result = await _documentManager.ApplyLocalEventAsync(command, null!, default);
+                if (result.IsSuccess) {
+                    RequestSave(ActiveDocument.Id);
+                }
+                else {
+                    _log.LogError("Failed to delete static object: {Error}", result.Error);
+                }
+            }, TaskScheduler.Default).Unwrap();
+        }
+    }
+
+    public void NotifyObjectPositionPreview(ushort landblockId, ObjectId instanceId, Vector3 position, Quaternion rotation, uint currentCellId) {
+        _gameScene?.UpdateObjectPreview(landblockId, instanceId, position, rotation, currentCellId);
+
+        // Update PropertiesPanel in real-time
+        if (PropertiesPanel.SelectedItem is ISelectedObjectInfo info && info.InstanceId == instanceId && ActiveDocument?.Region != null) {
+            _isUpdatingFromSelection = true;
+            try {
+                // Recalculate local position relative to the NEW landblock origin
+                var lbOrigin = _landscapeObjectService.ComputeWorldPosition(ActiveDocument.Region, landblockId, Vector3.Zero);
+                var localPos = position - lbOrigin;
+
+                info.LandblockId = landblockId;
+                info.CellId = currentCellId != 0 ? currentCellId : null;
+                info.Position = position;
+                info.LocalPosition = localPos;
+                info.Rotation = rotation;
+            }
+            finally {
+                _isUpdatingFromSelection = false;
+            }
+        }
+    }
+
+    public BoundingBox? GetStaticObjectBounds(ushort landblockId, ObjectId instanceId) => _gameScene?.GetStaticObjectBounds(landblockId, instanceId);
+    public BoundingBox? GetStaticObjectLocalBounds(ushort landblockId, ObjectId instanceId) => _gameScene?.GetStaticObjectLocalBounds(landblockId, instanceId);
+    public (Vector3 position, Quaternion rotation, Vector3 localPosition)? GetStaticObjectTransform(ushort landblockId, ObjectId instanceId) => _gameScene?.GetStaticObjectTransform(landblockId, instanceId);
+    public uint GetEnvCellAt(Vector3 worldPos) => _gameScene?.GetEnvCellAt(worldPos) ?? 0;
 
     private readonly ConcurrentDictionary<ObjectId, CancellationTokenSource> _commitDebounceTokens = new();
 
@@ -798,7 +797,6 @@ public partial class LandscapeViewModel : ViewModelBase, IDisposable, IToolModul
 
             _gameScene.SetInspectorTool(ActiveTool as InspectorTool);
             _gameScene.SetManipulationTool(ActiveTool as ObjectManipulationTool);
-            _gameScene.SetToolContext(_toolContext);
 
             RestoreCameraState();
         }

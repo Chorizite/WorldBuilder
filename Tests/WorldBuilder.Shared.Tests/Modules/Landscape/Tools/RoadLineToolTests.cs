@@ -16,8 +16,13 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
     public class RoadLineToolTests {
         [Fact]
         public void Activate_ShouldSetIsActive() {
-            var tool = new RoadLineTool();
-            var context = CreateContext();
+            var raycastServiceMock = new Mock<ILandscapeRaycastService>();
+            var editorServiceMock = new Mock<ILandscapeEditorService>();
+            var landscapeObjectServiceMock = new Mock<ILandscapeObjectService>();
+            var settingsProviderMock = new Mock<IToolSettingsProvider>();
+
+            var tool = new RoadLineTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
+            var context = CreateContext(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
 
             tool.Activate(context);
 
@@ -27,7 +32,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         [Fact]
         public void OnPointerPressed_FirstClick_ShouldSetStartPoint() {
             // Arrange
-            var tool = new RoadLineTool();
+            var tool = new RoadLineTool(new Mock<ILandscapeRaycastService>().Object, new Mock<ILandscapeEditorService>().Object, new Mock<ILandscapeObjectService>().Object, new Mock<IToolSettingsProvider>().Object);
             var context = CreateContext();
             tool.Activate(context);
 
@@ -43,7 +48,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         [Fact]
         public void OnPointerMoved_AfterFirstClick_ShouldUpdatePreview() {
             // Arrange
-            var tool = new RoadLineTool();
+            var tool = new RoadLineTool(new Mock<ILandscapeRaycastService>().Object, new Mock<ILandscapeEditorService>().Object, new Mock<ILandscapeObjectService>().Object, new Mock<IToolSettingsProvider>().Object);
             var context = CreateContext();
             tool.Activate(context);
 
@@ -64,7 +69,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
         [Fact]
         public void OnPointerPressed_SecondClick_ShouldCommitLine() {
             // Arrange
-            var tool = new RoadLineTool();
+            var tool = new RoadLineTool(new Mock<ILandscapeRaycastService>().Object, new Mock<ILandscapeEditorService>().Object, new Mock<ILandscapeObjectService>().Object, new Mock<IToolSettingsProvider>().Object);
             var context = CreateContext();
             tool.Activate(context);
 
@@ -82,7 +87,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             Assert.Equal((byte)1, context.Document.GetCachedEntry(11).Road);
         }
 
-        private LandscapeToolContext CreateContext() {
+        private LandscapeToolContext CreateContext(ILandscapeRaycastService? raycastService = null, ILandscapeEditorService? editorService = null, ILandscapeObjectService? landscapeObjectService = null, IToolSettingsProvider? settingsProvider = null) {
             var doc = new LandscapeDocument((uint)0xABCD);
 
             // Bypass dats loading
@@ -122,8 +127,13 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
 
             cameraMock.Setup(c => c.ProjectionMatrix).Returns(projection);
             cameraMock.Setup(c => c.ViewMatrix).Returns(view);
+            
+            raycastService ??= new Mock<ILandscapeRaycastService>().Object;
+            editorService ??= new Mock<ILandscapeEditorService>().Object;
+            landscapeObjectService ??= new Mock<ILandscapeObjectService>().Object;
+            settingsProvider ??= new Mock<IToolSettingsProvider>().Object;
 
-            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object, new Mock<ILandscapeObjectService>().Object, activeLayer) {
+            return new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), cameraMock.Object, new Mock<ILogger>().Object, landscapeObjectService, raycastService, editorService, settingsProvider, activeLayer) {
                 ViewportSize = new Vector2(500, 500)
             };
         }

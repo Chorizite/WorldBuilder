@@ -90,9 +90,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         protected void UpdateEyeDropper(ViewportInputEvent e) {
-            if (Context?.RaycastTerrain == null || Context.Document.Region == null || Brush == null) return;
+            if (Context?.RaycastService == null || Context.Document.Region == null || Brush == null) return;
 
-            var terrainHit = Context.RaycastTerrain((float)e.Position.X, (float)e.Position.Y);
+            var terrainHit = Context.RaycastService.RaycastTerrain((float)e.Position.X, (float)e.Position.Y, Context.ViewportSize, Context.Camera);
             if (terrainHit.Hit) {
                 Brush.Position = terrainHit.NearestVertice;
                 Brush.IsVisible = true;

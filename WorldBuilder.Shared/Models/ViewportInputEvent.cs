@@ -27,5 +27,9 @@ namespace WorldBuilder.Shared.Models {
         public string? Key { get; set; }
         /// <summary>The mouse wheel delta, if any.</summary>
         public float? WheelDelta { get; set; }
+        /// <summary>The ray origin in world space.</summary>
+        public Vector3 RayOrigin { get; set; }
+        /// <summary>The ray direction in world space.</summary>
+        public Vector3 RayDirection { get; set; }
     }
 }

@@ -2,12 +2,24 @@ using System.Numerics;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Services;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     /// <summary>
     /// A tool for setting road bits on individual vertices.
     /// </summary>
     public class RoadVertexTool : LandscapeToolBase {
+        private readonly ILandscapeRaycastService _raycastService;
+        private readonly ILandscapeEditorService _editorService;
+        private readonly ILandscapeObjectService _landscapeObjectService;
+        private readonly IToolSettingsProvider _settingsProvider;
+
+        public RoadVertexTool(ILandscapeRaycastService raycastService, ILandscapeEditorService editorService, ILandscapeObjectService landscapeObjectService, IToolSettingsProvider settingsProvider) {
+            _raycastService = raycastService;
+            _editorService = editorService;
+            _landscapeObjectService = landscapeObjectService;
+            _settingsProvider = settingsProvider;
+        }
         private bool _isPainting;
         private CompoundCommand? _currentStroke;
         private Vector3? _lastSnappedPos;

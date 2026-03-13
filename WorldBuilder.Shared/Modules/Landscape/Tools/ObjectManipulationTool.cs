@@ -6,6 +6,7 @@ using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Services;
 using WorldBuilder.Shared.Modules.Landscape.Tools.Gizmo;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {
@@ -29,6 +30,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         /// <summary>The gizmo state, used for rendering.</summary>
         public GizmoState GizmoState { get; } = new();
 
+        private readonly ILandscapeRaycastService _raycastService;
+        private readonly ILandscapeEditorService _editorService;
+        private readonly ILandscapeObjectService _landscapeObjectService;
+        private readonly IToolSettingsProvider _settingsProvider;
         private readonly GizmoDragHandler _dragHandler = new();
         private SceneRaycastHit _lastHoveredHit;
         private Vector3 _currentSurfaceNormal = Vector3.UnitZ;
@@ -40,6 +45,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private bool _isHistoryUpdate;
         private bool _isDuplicating;
         private BoundingBox? _dragStartBounds;
+
+        public ObjectManipulationTool(ILandscapeRaycastService raycastService, ILandscapeEditorService editorService, ILandscapeObjectService landscapeObjectService, IToolSettingsProvider settingsProvider) {
+            _raycastService = raycastService;
+            _editorService = editorService;
+            _landscapeObjectService = landscapeObjectService;
+            _settingsProvider = settingsProvider;
+        }
 
         public override void Activate(LandscapeToolContext context) {
             // Cleanup current context if any
@@ -54,8 +66,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 Context.CommandHistory.OnChange += OnCommandHistoryChanged;
                 Context.ObjectPreview += OnObjectPreview;
                 
-                if (Context.ToolSettingsProvider?.ObjectManipulationToolSettings != null) {
-                    var settings = Context.ToolSettingsProvider.ObjectManipulationToolSettings;
+                var settings = _settingsProvider.ObjectManipulationToolSettings;
+                if (settings != null) {
                     IsLocalSpace = settings.IsLocalSpace;
                     AlignToSurface = settings.AlignToSurface;
                     ShowBoundingBoxes = settings.ShowBoundingBoxes;
@@ -222,7 +234,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         private void UpdateSelectionToMatchObject(ushort landblockId, StaticObject obj, ObjectType type, BoundingBox? bounds) {
-            var worldPos = Context!.LandscapeObjectService.ComputeWorldPosition(Context.Document.Region!, landblockId, obj.Position);
+            var worldPos = _landscapeObjectService.ComputeWorldPosition(Context!.Document.Region!, landblockId, obj.Position);
             
             // Atomic update of GizmoState
             GizmoState.LandblockId = landblockId;
@@ -251,7 +263,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             Context?.NotifyInspectorSelected(hit);
 
             // Trigger a preview update to ensure renderers sync immediately
-            Context?.NotifyObjectPositionPreview?.Invoke(landblockId, obj.InstanceId, worldPos, obj.Rotation, obj.CellId ?? 0);
+            _editorService.NotifyObjectPositionPreview(landblockId, obj.InstanceId, worldPos, obj.Rotation, obj.CellId ?? 0);
         }
 
         private ICommand? FindRelevantSelectionCommand(ICommand command, CommandChangeType changeType) {
@@ -325,7 +337,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             // Raycast for new selection
-            var hit = SceneRaycaster.PerformRaycast(Context, e, SelectBuildings, SelectStaticObjects, SelectEnvCellStaticObjects, selectEnvCells: false);
+            var hit = SceneRaycaster.PerformRaycast(Context, _raycastService, e, SelectBuildings, SelectStaticObjects, SelectEnvCellStaticObjects, selectEnvCells: false);
             if (hit.Hit && IsManipulatable(hit.Type)) {
                 SelectObject(hit);
                 Context.NotifyInspectorSelected(hit);
@@ -354,7 +366,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 }
             }
 
-            var hit = SceneRaycaster.PerformRaycast(Context, e, SelectBuildings, SelectStaticObjects, SelectEnvCellStaticObjects, selectEnvCells: false);
+            var hit = SceneRaycaster.PerformRaycast(Context, _raycastService, e, SelectBuildings, SelectStaticObjects, SelectEnvCellStaticObjects, selectEnvCells: false);
             if (IsDifferentHit(hit, _lastHoveredHit)) {
                 _lastHoveredHit = hit;
                 Context.NotifyInspectorHovered(hit);
@@ -382,7 +394,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
             // Capture surface for snapping
             var fallback = _dragHandler.UpdateTranslation(origin, direction, Context.Camera);
-            var groundHit = SceneRaycaster.GetGroundHitPoint(Context, e, origin, direction, GizmoState.InstanceId, fallback);
+            var groundHit = SceneRaycaster.GetGroundHitPoint(Context, _raycastService, e, origin, direction, GizmoState.InstanceId, fallback);
             _currentSurfaceNormal = groundHit.Hit ? Vector3.Normalize(groundHit.Normal) : Vector3.UnitZ;
             
             if (component == GizmoComponent.Center) _dragStartNormal = _currentSurfaceNormal;
@@ -419,7 +431,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 Vector3 newPos;
                 if (GizmoState.ActiveComponent == GizmoComponent.Center) {
                     var fallback = _dragHandler.UpdateTranslation(origin, direction, Context!.Camera);
-                    var groundHit = SceneRaycaster.GetGroundHitPoint(Context, e, origin, direction, GizmoState.InstanceId, fallback);
+                    var groundHit = SceneRaycaster.GetGroundHitPoint(Context, _raycastService, e, origin, direction, GizmoState.InstanceId, fallback);
                     newPos = groundHit.Position;
 
                     // Container constraints
@@ -443,13 +455,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 GizmoState.RotationAngle = _dragHandler.AngleDelta;
             }
 
-            uint previewCellId = Context!.GetEnvCellAt?.Invoke(GizmoState.Position) ?? 0;
-            Context.NotifyObjectPositionPreview?.Invoke(GizmoState.LandblockId, GizmoState.InstanceId, GizmoState.Position, GizmoState.Rotation, previewCellId);
+            uint previewCellId = _editorService.GetEnvCellAt(GizmoState.Position);
+            _editorService.NotifyObjectPositionPreview(GizmoState.LandblockId, GizmoState.InstanceId, GizmoState.Position, GizmoState.Rotation, previewCellId);
         }
 
         private Vector3 ApplyContainerConstraints(Vector3 targetPos, Vector3 fallbackPos, ViewportInputEvent e) {
             bool startedInside = _dragStartObject?.CellId != null;
-            uint currentCellId = Context!.GetEnvCellAt?.Invoke(targetPos) ?? 0;
+            uint currentCellId = _editorService.GetEnvCellAt(targetPos);
             bool currentlyInside = currentCellId != 0;
 
             // If you started inside, you must stay inside. 
@@ -463,7 +475,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             if (Context == null || _dragStartObject == null || _isHistoryUpdate) return;
 
             var worldPos = GizmoState.Position;
-            var finalCellId = await Context.LandscapeObjectService.ResolveCellIdAsync(Context.Document, worldPos, _dragStartObject.CellId);
+            var finalCellId = await _landscapeObjectService.ResolveCellIdAsync(Context.Document, worldPos, _dragStartObject.CellId);
 
             // Ensure the final calculated cell ID matches the starting container category.
             bool startingInside = _dragStartObject.CellId != null;
@@ -507,10 +519,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             GizmoState.IsLocalSpace = IsLocalSpace;
             GizmoState.Mode = Mode;
 
-            var transform = Context!.GetStaticObjectTransform?.Invoke(hit.LandblockId, hit.InstanceId);
-            if (transform.HasValue) {
-                UpdateGizmoFromWorld(hit.LandblockId, hit.InstanceId, overridePos ?? transform.Value.position, overrideRot ?? transform.Value.rotation);
-                GizmoState.ObjectLocalBounds = Context.GetStaticObjectLocalBounds?.Invoke(hit.LandblockId, hit.InstanceId) ?? overrideBounds;
+            var transformer = _editorService.GetStaticObjectTransform(hit.LandblockId, hit.InstanceId);
+            if (transformer.HasValue) {
+                UpdateGizmoFromWorld(hit.LandblockId, hit.InstanceId, overridePos ?? transformer.Value.position, overrideRot ?? transformer.Value.rotation);
+                GizmoState.ObjectLocalBounds = _editorService.GetStaticObjectLocalBounds(hit.LandblockId, hit.InstanceId) ?? overrideBounds;
             }
             else if (overridePos.HasValue && overrideRot.HasValue) {
                 UpdateGizmoFromWorld(hit.LandblockId, hit.InstanceId, overridePos.Value, overrideRot.Value);
@@ -521,24 +533,22 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 GizmoState.ObjectLocalBounds = overrideBounds;
             }
 
-            if (Context.LandscapeObjectService != null) {
-                var layerId = Context.LandscapeObjectService.GetStaticObjectLayerId(Context.Document, hit.LandblockId, hit.InstanceId);
-                GizmoState.LayerId = string.IsNullOrEmpty(layerId) ? (Context.ActiveLayer?.Id ?? Context.Document.BaseLayerId ?? "") : layerId;
-            }
+            var layerId = _landscapeObjectService.GetStaticObjectLayerId(Context!.Document, hit.LandblockId, hit.InstanceId);
+            GizmoState.LayerId = string.IsNullOrEmpty(layerId) ? (Context.ActiveLayer?.Id ?? Context.Document.BaseLayerId ?? "") : layerId;
         }
 
         private void UpdateGizmoFromWorld(ushort lbId, ObjectId instId, Vector3 worldPos, Quaternion rotation) {
-            var lbOrigin = Context!.LandscapeObjectService.ComputeWorldPosition(Context.Document.Region!, lbId, Vector3.Zero);
+            var lbOrigin = _landscapeObjectService.ComputeWorldPosition(Context!.Document.Region!, lbId, Vector3.Zero);
             GizmoState.Position = worldPos;
             GizmoState.Rotation = rotation;
             GizmoState.LocalPosition = worldPos - lbOrigin;
         }
 
         private void RefreshGizmoPosition() {
-            if (!HasSelection || Context?.GetStaticObjectTransform == null) return;
-            var transform = Context.GetStaticObjectTransform(GizmoState.LandblockId, GizmoState.InstanceId);
-            if (transform.HasValue) {
-                UpdateGizmoFromWorld(GizmoState.LandblockId, GizmoState.InstanceId, transform.Value.position, transform.Value.rotation);
+            if (!HasSelection) return;
+            var transformer = _editorService.GetStaticObjectTransform(GizmoState.LandblockId, GizmoState.InstanceId);
+            if (transformer.HasValue) {
+                UpdateGizmoFromWorld(GizmoState.LandblockId, GizmoState.InstanceId, transformer.Value.position, transformer.Value.rotation);
             } else if (!_isHistoryUpdate) {
                 ClearSelection();
             }
@@ -587,7 +597,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             return (ray.Origin.ToVector3(), ray.Direction.ToVector3());
         }
 
-        private void SaveSettings() => Context?.ToolSettingsProvider?.UpdateObjectManipulationToolSettings(new() {
+        private void SaveSettings() => _settingsProvider.UpdateObjectManipulationToolSettings(new() {
             IsLocalSpace = IsLocalSpace, AlignToSurface = AlignToSurface, ShowBoundingBoxes = ShowBoundingBoxes, Mode = Mode
         });
 
@@ -626,13 +636,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             if (_clipboardObject == null || Context == null) return;
 
             var (origin, direction) = GetRay(e);
-            var groundHit = SceneRaycaster.GetGroundHitPoint(Context, e, origin, direction, ObjectId.Empty, origin + direction * 10f);
+            var groundHit = SceneRaycaster.GetGroundHitPoint(Context, _raycastService, e, origin, direction, ObjectId.Empty, origin + direction * 10f);
             
             var worldPos = groundHit.Position;
-            var cellId = await Context.LandscapeObjectService.ResolveCellIdAsync(Context.Document, worldPos, _clipboardObject.CellId);
+            var cellId = await _landscapeObjectService.ResolveCellIdAsync(Context.Document, worldPos, _clipboardObject.CellId);
 
-            ushort newLandblockId = Context.LandscapeObjectService.ComputeLandblockId(Context.Document.Region!, worldPos);
-            var lbOrigin = Context.LandscapeObjectService.ComputeWorldPosition(Context.Document.Region!, newLandblockId, Vector3.Zero);
+            ushort newLandblockId = _landscapeObjectService.ComputeLandblockId(Context.Document.Region!, worldPos);
+            var lbOrigin = _landscapeObjectService.ComputeWorldPosition(Context.Document.Region!, newLandblockId, Vector3.Zero);
             var newLocalPosition = worldPos - lbOrigin;
 
             var newType = _clipboardType;

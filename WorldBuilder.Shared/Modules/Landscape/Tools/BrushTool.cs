@@ -5,13 +5,25 @@ using System.Linq;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Modules.Landscape.Models;
+using WorldBuilder.Shared.Modules.Landscape.Services;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Tools {
     /// <summary>
     /// A tool for painting textures on the terrain using a circular brush.
     /// </summary>
     public class BrushTool : TexturePaintingToolBase {
+        private readonly ILandscapeRaycastService _raycastService;
+        private readonly ILandscapeEditorService _editorService;
+        private readonly ILandscapeObjectService _landscapeObjectService;
+        private readonly IToolSettingsProvider _settingsProvider;
         private const float CELL_SIZE = 24f; // TOD: pull from region info?
+
+        public BrushTool(ILandscapeRaycastService raycastService, ILandscapeEditorService editorService, ILandscapeObjectService landscapeObjectService, IToolSettingsProvider settingsProvider) {
+            _raycastService = raycastService;
+            _editorService = editorService;
+            _landscapeObjectService = landscapeObjectService;
+            _settingsProvider = settingsProvider;
+        }
 
         /// <inheritdoc/>
         public override string Name => "Brush";
@@ -43,10 +55,6 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             SaveSettings();
         }
 
-        public BrushTool() {
-            _brush = new LandscapeBrush();
-            Brush!.Radius = GetWorldRadius(_brushSize);
-        }
 
         /// <summary>
         /// Calculates the world radius for a given brush size.
@@ -62,13 +70,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             base.Activate(context);
 
             // Load settings from project
-            if (context.ToolSettingsProvider?.BrushToolSettings != null) {
-                var settings = context.ToolSettingsProvider.BrushToolSettings;
-                if (settings != null) {
-                    BrushSize = settings.BrushSize;
-                    Texture = (TerrainTextureType)settings.Texture;
-                    SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == settings.SelectedScenery);
-                }
+            var settings = _settingsProvider.BrushToolSettings;
+            if (settings != null) {
+                BrushSize = settings.BrushSize;
+                Texture = (TerrainTextureType)settings.Texture;
+                SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == settings.SelectedScenery);
             } else {
                 SelectedScenery = AllSceneries.FirstOrDefault(s => s.Index == 255);
             }
@@ -98,7 +104,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 return true;
             }
             else {
-                Context.Logger.LogWarning("BrushTool Raycast Missed. Pos: {Pos}", e.Position);
+                Context.Log.LogWarning("BrushTool Raycast Missed. Pos: {Pos}", e.Position);
             }
 
             return false;
@@ -168,13 +174,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         protected void SaveSettings() {
-            if (Context?.ToolSettingsProvider != null) {
-                Context.ToolSettingsProvider.UpdateBrushToolSettings(new BrushToolSettingsData {
-                    BrushSize = _brushSize,
-                    Texture = (int)Texture,
-                    SelectedScenery = SelectedScenery?.Index ?? 255
-                });
-            }
+            _settingsProvider.UpdateBrushToolSettings(new BrushToolSettingsData {
+                BrushSize = _brushSize,
+                Texture = (int)Texture,
+                SelectedScenery = SelectedScenery?.Index ?? 255
+            });
         }
     }
 }

@@ -25,11 +25,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
         }
 
         public void Execute() {
-            _context.AddStaticObject?.Invoke(_layerId, _landblockId, _object);
+            _context.EditorService.AddStaticObject(_layerId, _landblockId, _object);
         }
 
         public void Undo() {
-            _context.DeleteStaticObject?.Invoke(_layerId, _landblockId, _object);
+            _context.EditorService.DeleteStaticObject(_layerId, _landblockId, _object);
         }
     }
 }

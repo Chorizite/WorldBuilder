@@ -102,8 +102,14 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var regionProp = typeof(LandscapeDocument).GetProperty("Region");
             regionProp?.SetValue(doc, regionMock.Object);
 
-            var context = new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, new Mock<ILandscapeObjectService>().Object);
-            context.InvalidateLandblock = onInvalidate;
+            var editorServiceMock = new Mock<ILandscapeEditorService>();
+            editorServiceMock.Setup(m => m.InvalidateLandblock(It.IsAny<int>(), It.IsAny<int>()))
+                .Callback<int, int>((lbX, lbY) => onInvalidate(lbX, lbY));
+
+            var raycastServiceMock = new Mock<ILandscapeRaycastService>();
+            var settingsProviderMock = new Mock<IToolSettingsProvider>();
+
+            var context = new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, new CommandHistory(), new Mock<ICamera>().Object, new Mock<ILogger>().Object, new Mock<ILandscapeObjectService>().Object, raycastServiceMock.Object, editorServiceMock.Object, settingsProviderMock.Object);
             return context;
         }
     }
