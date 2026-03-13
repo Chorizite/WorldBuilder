@@ -1,7 +1,5 @@
 #version 330 core
 
-precision highp float;
-
 layout (location = 0) in vec2 aQuadPos; // (0 to 1, -0.5 to 0.5)
 layout (location = 1) in vec3 aStart;
 layout (location = 2) in vec3 aEnd;

@@ -1,8 +1,4 @@
 #version 330 core
-
-precision highp float;
-precision highp int;
-
 out vec4 FragColor;
 
 in vec3 vNormal;

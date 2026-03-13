@@ -1,8 +1,4 @@
 ﻿#version 330 core
-precision highp float;
-precision highp int;
-precision highp sampler2D;
-precision highp sampler2DArray;
 
 in vec3 Normal;
 in vec2 TexCoord;
