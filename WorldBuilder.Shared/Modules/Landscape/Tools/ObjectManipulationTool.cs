@@ -121,63 +121,126 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         private void OnCommandHistoryChanged(object? sender, CommandHistoryChangedEventArgs e) {
-            if (e.Command is not MoveStaticObjectCommand moveCommand) {
-                RefreshGizmoPosition();
-                return;
-            }
+            if (e.Command == null || _isHistoryUpdate) return;
 
             _isHistoryUpdate = true;
             try {
-                var targetObj = (e.ChangeType == CommandChangeType.Undo) ? moveCommand.OldObject : moveCommand.NewObject;
-                var targetLbId = (e.ChangeType == CommandChangeType.Undo) ? moveCommand.OldLandblockId : moveCommand.NewLandblockId;
-                var targetType = (e.ChangeType == CommandChangeType.Undo) ? moveCommand.OldType : moveCommand.NewType;
-
-                // Check if our current selection was part of this command
-                bool isOurObject = HasSelection && (GizmoState.InstanceId == moveCommand.OldObject.InstanceId || GizmoState.InstanceId == moveCommand.NewObject.InstanceId);
-
-                if (isOurObject) {
-                    var worldPos = Context!.LandscapeObjectService.ComputeWorldPosition(Context.Document.Region!, targetLbId, targetObj.Position);
-                    
-                    bool idChanged = targetObj.InstanceId != GizmoState.InstanceId || targetType != GizmoState.SelectionType;
-
-                    if (idChanged) {
-                        // Clear selection first to force UI notification when it is set back
-                        Context?.NotifyInspectorSelected(SceneRaycastHit.NoHit);
-                    }
-
-                    // Atomic update of GizmoState to prevent flickering or partial state reads
-                    GizmoState.LandblockId = targetLbId;
-                    GizmoState.InstanceId = targetObj.InstanceId;
-                    GizmoState.SelectionType = targetType;
-                    GizmoState.LocalPosition = targetObj.Position;
-                    GizmoState.Rotation = targetObj.Rotation;
-                    GizmoState.Position = worldPos;
-
-                    if (idChanged || e.ChangeType != CommandChangeType.Execute) {
-                        // Notify the rest of the system with the new state
-                        Context?.NotifyInspectorSelected(new SceneRaycastHit {
-                            Hit = true,
-                            Type = targetType,
-                            LandblockId = targetLbId,
-                            CellId = targetType == ObjectType.EnvCellStaticObject ? targetObj.InstanceId.Context : null,
-                            InstanceId = targetObj.InstanceId,
-                            ObjectId = GizmoState.ObjectId,
-                            Position = worldPos,
-                            LocalPosition = targetObj.Position,
-                            Rotation = targetObj.Rotation
-                        });
-                    }
-                }
-                else {
-                    RefreshGizmoPosition();
-                }
-
-                // Trigger a preview update to ensure renderers sync immediately
-                var previewWorldPos = Context!.LandscapeObjectService.ComputeWorldPosition(Context.Document.Region!, targetLbId, targetObj.Position);
-                Context?.NotifyObjectPositionPreview?.Invoke(targetLbId, targetObj.InstanceId, previewWorldPos, targetObj.Rotation, targetObj.CellId ?? 0);
+                HandleCommandSelection(e.Command, e.ChangeType);
             }
             finally {
                 _isHistoryUpdate = false;
+            }
+        }
+
+        private void HandleCommandSelection(ICommand command, CommandChangeType changeType) {
+            if (command is MoveStaticObjectCommand moveCommand) {
+                var targetObj = (changeType == CommandChangeType.Undo) ? moveCommand.OldObject : moveCommand.NewObject;
+                var targetLbId = (changeType == CommandChangeType.Undo) ? moveCommand.OldLandblockId : moveCommand.NewLandblockId;
+                var targetType = (changeType == CommandChangeType.Undo) ? moveCommand.OldType : moveCommand.NewType;
+
+                var worldPos = Context!.LandscapeObjectService.ComputeWorldPosition(Context.Document.Region!, targetLbId, targetObj.Position);
+                
+                // For move, we always want to select the object that moved
+                // Clear selection first to force UI notification when it is set back
+                Context?.NotifyInspectorSelected(SceneRaycastHit.NoHit);
+
+                // Atomic update of GizmoState
+                GizmoState.LandblockId = targetLbId;
+                GizmoState.InstanceId = targetObj.InstanceId;
+                GizmoState.SelectionType = targetType;
+                GizmoState.LocalPosition = targetObj.Position;
+                GizmoState.Rotation = targetObj.Rotation;
+                GizmoState.Position = worldPos;
+                GizmoState.ObjectId = targetObj.ModelId;
+                GizmoState.LayerId = targetObj.LayerId;
+                GizmoState.ObjectLocalBounds = moveCommand.Bounds;
+                HasSelection = true;
+
+                // Notify the rest of the system with the new state
+                var hit = new SceneRaycastHit {
+                    Hit = true,
+                    Type = targetType,
+                    LandblockId = targetLbId,
+                    CellId = targetType == ObjectType.EnvCellStaticObject ? targetObj.InstanceId.Context : null,
+                    InstanceId = targetObj.InstanceId,
+                    ObjectId = GizmoState.ObjectId,
+                    Position = worldPos,
+                    LocalPosition = targetObj.Position,
+                    Rotation = targetObj.Rotation
+                };
+                Context?.NotifyInspectorSelected(hit);
+
+                // Trigger a preview update to ensure renderers sync immediately
+                Context?.NotifyObjectPositionPreview?.Invoke(targetLbId, targetObj.InstanceId, worldPos, targetObj.Rotation, targetObj.CellId ?? 0);
+            }
+            else if (command is AddStaticObjectUICommand addCommand) {
+                if (changeType == CommandChangeType.Undo) {
+                    // Object was removed, so clear selection if it was our selection
+                    if (HasSelection && GizmoState.InstanceId == addCommand.Object.InstanceId) {
+                        ClearSelection();
+                    }
+                }
+                else {
+                    // Object was added or redone, so select it
+                    var worldPos = Context!.LandscapeObjectService.ComputeWorldPosition(Context.Document.Region!, addCommand.LandblockId, addCommand.Object.Position);
+                    var hit = new SceneRaycastHit {
+                        Hit = true,
+                        Type = addCommand.Object.InstanceId.Type,
+                        LandblockId = addCommand.LandblockId,
+                        CellId = addCommand.Object.CellId,
+                        InstanceId = addCommand.Object.InstanceId,
+                        ObjectId = addCommand.Object.ModelId,
+                        Position = worldPos,
+                        LocalPosition = addCommand.Object.Position,
+                        Rotation = addCommand.Object.Rotation
+                    };
+                    SelectObject(hit, addCommand.Bounds);
+                    Context.NotifyInspectorSelected(hit);
+                }
+            }
+            else if (command is DeleteStaticObjectUICommand deleteCommand) {
+                if (changeType == CommandChangeType.Undo) {
+                    // Object was restored, so select it
+                    var worldPos = Context!.LandscapeObjectService.ComputeWorldPosition(Context.Document.Region!, deleteCommand.LandblockId, deleteCommand.Object.Position);
+                    var hit = new SceneRaycastHit {
+                        Hit = true,
+                        Type = deleteCommand.Object.InstanceId.Type,
+                        LandblockId = deleteCommand.LandblockId,
+                        CellId = deleteCommand.Object.CellId,
+                        InstanceId = deleteCommand.Object.InstanceId,
+                        ObjectId = deleteCommand.Object.ModelId,
+                        Position = worldPos,
+                        LocalPosition = deleteCommand.Object.Position,
+                        Rotation = deleteCommand.Object.Rotation
+                    };
+                    SelectObject(hit, deleteCommand.Bounds);
+                    Context.NotifyInspectorSelected(hit);
+                }
+                else {
+                    // Object was deleted or redone, so clear selection if it was our selection
+                    if (HasSelection && GizmoState.InstanceId == deleteCommand.Object.InstanceId) {
+                        ClearSelection();
+                    }
+                }
+            }
+            else if (command is CompoundCommand compound) {
+                // Compounds should handle their subcommands, but we need to find the "relevant" one for selection.
+                // Usually the last one in a sequence (like a drag-and-drop meta-command) is what we want to select.
+                // For simplicity and since most of our compounds are small, we'll recurse.
+                // We use Reflection or a known interface property if we had one, but for now we'll just check a few.
+                // (In a real app, I'd probably add 'ISelectionRestorable' interface to commands)
+                
+                // Helper to get commands list from CompoundCommand via reflection if needed, 
+                // but since we are in the same project, maybe we can just use the public count?
+                // Actually, CompoundCommand is in the same namespace but internal list.
+                // Let's assume for now we might only have one relevant manipulation in a compound or we just want the last one.
+                // Since I can't easily access the internal list without changing CompoundCommand, 
+                // I'll skip trying to recurse into CompoundCommand for now unless I find a reason to.
+                // Actually, let's keep it simple: if it's not a known manipulation command, just refresh.
+                RefreshGizmoPosition();
+            }
+            else {
+                RefreshGizmoPosition();
             }
         }
 
@@ -340,7 +403,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             var newObject = CreateStaticObject(newLocalPosition, GizmoState.Rotation, finalCellId);
 
             if (HasChanged(_dragStartLandblockId, _dragStartObject, newLandblockId, newObject)) {
-                var command = new MoveStaticObjectCommand(Context, GizmoState.LayerId, _dragStartLandblockId, newLandblockId, _dragStartObject, newObject);
+                var command = new MoveStaticObjectCommand(Context, GizmoState.LayerId, _dragStartLandblockId, newLandblockId, _dragStartObject, newObject, GizmoState.ObjectLocalBounds);
                 Context.CommandHistory.Execute(command);
             }
 
@@ -451,11 +514,10 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         public void DeleteSelection() {
             if (!HasSelection || Context == null || !IsManipulatable(GizmoState.SelectionType)) return;
 
-            var obj = CreateStaticObject(GizmoState.LocalPosition, GizmoState.Rotation, 
+            var obj = CreateStaticObject(GizmoState.LocalPosition, GizmoState.Rotation,
                 GizmoState.SelectionType == ObjectType.EnvCellStaticObject ? GizmoState.InstanceId.Context : null);
-            var command = new DeleteStaticObjectUICommand(Context, GizmoState.LayerId, GizmoState.LandblockId, obj);
+            var command = new DeleteStaticObjectUICommand(Context, GizmoState.LayerId, GizmoState.LandblockId, obj, GizmoState.ObjectLocalBounds);
             Context.CommandHistory.Execute(command);
-
             ClearSelection();
         }
 
@@ -505,7 +567,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 CellId = cellId
             };
 
-            var command = new AddStaticObjectUICommand(Context, newObject.LayerId, newLandblockId, newObject);
+            var command = new AddStaticObjectUICommand(Context, newObject.LayerId, newLandblockId, newObject, _clipboardBounds);
             Context.CommandHistory.Execute(command);
             
             var hit = new SceneRaycastHit {
@@ -537,7 +599,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 CellId = _dragStartObject.CellId
             };
 
-            var command = new AddStaticObjectUICommand(Context, newObject.LayerId, _dragStartLandblockId, newObject);
+            var command = new AddStaticObjectUICommand(Context, newObject.LayerId, _dragStartLandblockId, newObject, _dragStartBounds);
             Context.CommandHistory.Execute(command);
             
             // Re-assign the drag start to the *newly created* object so the current move commits to it

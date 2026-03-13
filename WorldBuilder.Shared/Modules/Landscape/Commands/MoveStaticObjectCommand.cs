@@ -3,6 +3,7 @@ using System.Linq;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Shared.Modules.Landscape.Commands {
     /// <summary>
@@ -18,15 +19,18 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
         private readonly StaticObject _newObject;
         private readonly ObjectType _oldType;
         private readonly ObjectType _newType;
+        private readonly BoundingBox? _bounds;
 
         public string Name => "Move Object";
 
+        public string LayerId => _layerId;
         public ushort OldLandblockId => _oldLandblockId;
         public ushort NewLandblockId => _newLandblockId;
         public StaticObject OldObject => _oldObject;
         public StaticObject NewObject => _newObject;
         public ObjectType OldType => _oldType;
         public ObjectType NewType => _newType;
+        public BoundingBox? Bounds => _bounds;
 
         public MoveStaticObjectCommand(
             LandscapeToolContext context,
@@ -34,13 +38,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Commands {
             ushort oldLandblockId,
             ushort newLandblockId,
             StaticObject oldObject,
-            StaticObject newObject) {
+            StaticObject newObject,
+            BoundingBox? bounds = null) {
             _context = context;
             _layerId = layerId;
             _oldLandblockId = oldLandblockId;
             _newLandblockId = newLandblockId;
             _oldObject = oldObject;
             _oldType = oldObject.InstanceId.Type;
+            _bounds = bounds;
             
             // Preserve the original type (Building, StaticObject, etc.)
             _newType = _oldType;
