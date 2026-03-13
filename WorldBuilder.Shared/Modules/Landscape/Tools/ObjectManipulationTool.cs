@@ -37,6 +37,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private StaticObject? _dragStartObject;
         private ushort _dragStartLandblockId;
         private Vector3 _dragStartNormal = Vector3.UnitZ;
+        private BoundingBox? _dragStartBounds;
         private bool _isHistoryUpdate;
 
         public override void Activate(LandscapeToolContext context) {
@@ -263,6 +264,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             CaptureObjectStateForUndo();
 
             if (e.CtrlDown) {
+                _dragStartBounds = GizmoState.ObjectLocalBounds;
                 DuplicateObjectForDrag();
             }
         }
@@ -345,7 +347,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             _dragStartObject = null;
         }
 
-        private void SelectObject(SceneRaycastHit hit) {
+        private void SelectObject(SceneRaycastHit hit, BoundingBox? overrideBounds = null) {
             HasSelection = true;
             GizmoState.LandblockId = hit.LandblockId;
             GizmoState.InstanceId = hit.InstanceId;
@@ -357,11 +359,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             var transform = Context!.GetStaticObjectTransform?.Invoke(hit.LandblockId, hit.InstanceId);
             if (transform.HasValue) {
                 UpdateGizmoFromWorld(hit.LandblockId, hit.InstanceId, transform.Value.position, transform.Value.rotation);
-                GizmoState.ObjectLocalBounds = Context.GetStaticObjectLocalBounds?.Invoke(hit.LandblockId, hit.InstanceId);
+                GizmoState.ObjectLocalBounds = Context.GetStaticObjectLocalBounds?.Invoke(hit.LandblockId, hit.InstanceId) ?? overrideBounds;
             }
             else {
                 UpdateGizmoFromWorld(hit.LandblockId, hit.InstanceId, hit.Position, hit.Rotation);
-                GizmoState.ObjectLocalBounds = null;
+                GizmoState.ObjectLocalBounds = overrideBounds;
             }
 
             if (Context.LandscapeObjectService != null) {
@@ -443,6 +445,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         private static StaticObject? _clipboardObject;
+        private static BoundingBox? _clipboardBounds;
         private static InspectorSelectionType _clipboardType;
 
         public void DeleteSelection() {
@@ -461,6 +464,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             
             _clipboardObject = CreateStaticObject(GizmoState.LocalPosition, GizmoState.Rotation, 
                 GizmoState.SelectionType == InspectorSelectionType.EnvCellStaticObject ? InstanceIdConstants.GetRawId(GizmoState.InstanceId) : null);
+            _clipboardBounds = GizmoState.ObjectLocalBounds;
             _clipboardType = GizmoState.SelectionType;
         }
 
@@ -516,7 +520,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 CellId = cellId
             };
             
-            SelectObject(hit);
+            SelectObject(hit, _clipboardBounds);
             Context.NotifyInspectorSelected(hit);
         }
 
@@ -552,6 +556,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 Rotation = newObject.Rotation,
                 CellId = newObject.CellId
             };
+            SelectObject(hit, _dragStartBounds);
             Context.NotifyInspectorSelected(hit);
         }
 
