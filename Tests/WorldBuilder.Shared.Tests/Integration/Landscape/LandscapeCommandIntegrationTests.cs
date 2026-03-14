@@ -1,10 +1,14 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Repositories;
 using WorldBuilder.Shared.Services;
+using WorldBuilder.Shared.Tests.Helpers;
 using WorldBuilder.Shared.Tests.Mocks;
 using Xunit;
 
@@ -17,6 +21,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
         private readonly uint _regionId = 1;
 
         public LandscapeCommandIntegrationTests() {
+            TestLoggingHelper.SetupTestLogging();
             _db = new TestDatabase();
             _repo = new SQLiteProjectRepository(_db.ConnectionString);
             _repo.InitializeDatabaseAsync(default).Wait();
@@ -29,6 +34,7 @@ namespace WorldBuilder.Shared.Tests.Integration.Landscape {
             _docManager.Dispose();
             _repo.Dispose();
             _db.Dispose();
+            TestLoggingHelper.CleanupTestLogging();
         }
 
         [Fact]

@@ -1,4 +1,4 @@
-﻿using Avalonia.Platform.Storage;
+using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -299,9 +299,6 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
         else
             _errors.Remove(propertyName);
 
-        foreach (var error in errors) {
-            _log.LogWarning(error);
-        }
 
         ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(propertyName));
         OnPropertyChanged(nameof(HasErrors));

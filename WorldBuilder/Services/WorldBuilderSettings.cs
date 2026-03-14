@@ -14,8 +14,10 @@ namespace WorldBuilder.Services {
     public partial class WorldBuilderSettings : ObservableObject {
         private readonly ILogger<WorldBuilderSettings>? _log;
 
+        public static string? OverrideAppDataDirectory { get; set; }
+
         [JsonIgnore]
-        public string AppDataDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WorldBuilder");
+        public string AppDataDirectory => OverrideAppDataDirectory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WorldBuilder");
 
         [JsonIgnore]
         public string SettingsFilePath => Path.Combine(AppDataDirectory, "settings.json");

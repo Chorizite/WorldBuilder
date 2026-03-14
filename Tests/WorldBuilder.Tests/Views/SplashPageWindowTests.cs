@@ -5,15 +5,28 @@ using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging.Abstractions;
+using System;
+using System.Linq;
 using WorldBuilder.Lib.Factories;
 using WorldBuilder.Messages;
+using WorldBuilder.Shared.Tests.Helpers;
 using WorldBuilder.ViewModels;
 using WorldBuilder.Views;
 using Xunit;
 
 namespace WorldBuilder.Tests.Views;
 
-public class SplashPageWindowTests {
+public class SplashPageWindowTests : IDisposable {
+    private readonly string _testSettingsDir;
+
+    public SplashPageWindowTests() {
+        _testSettingsDir = TestSettingsHelper.SetupTestSettings();
+    }
+
+    public void Dispose() {
+        TestSettingsHelper.CleanupTestSettings(_testSettingsDir);
+    }
+
     [AvaloniaFact]
     public void SplashPageWindow_InitializesWithoutThrowing() {
         // Arrange & Act

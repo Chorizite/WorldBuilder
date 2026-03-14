@@ -4,17 +4,29 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging.Abstractions;
+using System;
 using WorldBuilder.Lib;
 using WorldBuilder.Lib.Settings;
 using WorldBuilder.Messages;
 using WorldBuilder.Services;
+using WorldBuilder.Shared.Tests.Helpers;
 using WorldBuilder.ViewModels;
 using WorldBuilder.Views;
 using Xunit;
 
 namespace WorldBuilder.Tests.Views;
 
-public class ProjectSelectionViewTests {
+public class ProjectSelectionViewTests : IDisposable {
+    private readonly string _testSettingsDir;
+
+    public ProjectSelectionViewTests() {
+        _testSettingsDir = TestSettingsHelper.SetupTestSettings();
+    }
+
+    public void Dispose() {
+        TestSettingsHelper.CleanupTestSettings(_testSettingsDir);
+    }
+
     [AvaloniaFact]
     public void ProjectSelectionView_InitializesWithoutThrowing() {
         // Arrange & Act
