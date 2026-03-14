@@ -64,47 +64,17 @@ namespace WorldBuilder.Shared.Services {
                 await repository.SetKeyValueAsync("ManagedDatSetId", managedId.ToString(), null, ct);
 
                 // Delete local DATs
+                DatUtils.DeleteDatSet(localDatDir, _log);
+
+                // Also delete the 'dats' folder if it's empty
                 try {
-                    // Specifically delete each dat file
-                    var datFiles = new[] { ""client_portal.dat", "client_local_English.dat", "client_highres.dat" };
-                    foreach (var datName in datFiles) {
-                        var datPath = Path.Combine(localDatDir, datName);
-                        if (File.Exists(datPath)) {
-                            try {
-                                File.Delete(datPath);
-                            }
-                            catch (Exception ex) {
-                                _log.LogWarning(ex, "Failed to delete local DAT file: {datPath}", datPath);
-                            }
-                        }
-                    }
-
-                    // Delete iterative numbered cell dat files (client_cell_1.dat, etc)
-                    for (int i = 1; i <= 100; i++) {
-                        var numberedCellPath = Path.Combine(localDatDir, $"client_cell_{i}.dat");
-                        if (File.Exists(numberedCellPath)) {
-                            try {
-                                File.Delete(numberedCellPath);
-                            }
-                            catch (Exception ex) {
-                                _log.LogWarning(ex, "Failed to delete local numbered DAT file: {numberedCellPath}", numberedCellPath);
-                            }
-                        }
-                    }
-
-                    // Delete the parent base dat directory only if its empty
-                    if (Directory.Exists(localDatDir) && !Directory.EnumerateFileSystemEntries(localDatDir).Any()) {
-                        Directory.Delete(localDatDir);
-                    }
-
-                    // Also delete the 'dats' folder if it's empty
                     var datsParent = Path.GetDirectoryName(localDatDir);
                     if (datsParent != null && Directory.Exists(datsParent) && !Directory.EnumerateFileSystemEntries(datsParent).Any()) {
                         Directory.Delete(datsParent);
                     }
                 }
                 catch (Exception ex) {
-                    _log.LogWarning(ex, "Failed to delete local DAT directory after migration: {localDatDir}", localDatDir);
+                    _log.LogWarning(ex, "Failed to delete parent 'dats' folder after migration");
                 }
 
                 _log.LogInformation("Migration complete for project {projectFile}", projectFile);

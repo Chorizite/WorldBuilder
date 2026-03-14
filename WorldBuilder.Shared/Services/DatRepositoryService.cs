@@ -224,9 +224,7 @@ namespace WorldBuilder.Shared.Services {
             if (set == null) return Result<Unit>.Failure("Managed DAT set not found", "NOT_FOUND");
 
             var setDir = Path.Combine(_repositoryRoot, id.ToString());
-            if (Directory.Exists(setDir)) {
-                Directory.Delete(setDir, true);
-            }
+            DatUtils.DeleteDatSet(setDir, _log);
 
             _managedSets.Remove(set);
             SaveRegistry();
