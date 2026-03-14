@@ -49,6 +49,21 @@ namespace WorldBuilder.Shared.Services {
         /// </summary>
         int PortalIteration { get; }
 
+        /// <summary>
+        /// Gets the current cell iteration (from the first cell region).
+        /// </summary>
+        int CellIteration { get; }
+
+        /// <summary>
+        /// Gets the current high res iteration.
+        /// </summary>
+        int HighResIteration { get; }
+
+        /// <summary>
+        /// Gets the current language iteration.
+        /// </summary>
+        int LanguageIteration { get; }
+
         /// <summary>Attempts to save a database object to the appropriate DAT.</summary>
         /// <typeparam name="T">The type of database object.</typeparam>
         /// <param name="obj">The object to save.</param>

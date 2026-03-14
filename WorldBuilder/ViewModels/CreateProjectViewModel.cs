@@ -6,17 +6,36 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Runtime;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using WorldBuilder.Lib;
 using WorldBuilder.Messages;
 using WorldBuilder.Services;
+using WorldBuilder.Shared.Services;
 using static WorldBuilder.ViewModels.SplashPageViewModel;
 
 namespace WorldBuilder.ViewModels;
+
+/// <summary>
+/// The type of DAT source for a project.
+/// </summary>
+public enum DatSourceType {
+    /// <summary>
+    /// Use a managed DAT set.
+    /// </summary>
+    [Description("Managed")]
+    Managed,
+    /// <summary>
+    /// Use a local DAT directory.
+    /// </summary>
+    [Description("Add New")]
+    AddNew
+}
 
 /// <summary>
 /// View model for the create project screen, handling project creation parameters and validation.
@@ -25,12 +44,36 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
     private readonly Dictionary<string, List<string>> _errors = new();
     private readonly ILogger<CreateProjectViewModel> _log;
     private readonly WorldBuilderSettings _settings;
+    private readonly IDatRepositoryService _datRepository;
+    private string? _lastManagedDatsDir;
+
+    /// <summary>
+    /// Gets the available DAT source types.
+    /// </summary>
+    public List<DatSourceType> DatSourceTypes { get; } = [DatSourceType.Managed, DatSourceType.AddNew];
+
+    /// <summary>
+    /// Gets or sets the selected DAT source type.
+    /// </summary>
+    [ObservableProperty]
+    private DatSourceType _selectedDatSourceType = DatSourceType.Managed;
 
     /// <summary>
     /// Gets or sets the base DAT directory path.
     /// </summary>
     [ObservableProperty]
     private string _baseDatDirectory = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the selected existing managed DAT set.
+    /// </summary>
+    [ObservableProperty]
+    private ManagedDatSet? _selectedManagedDatSet;
+
+    /// <summary>
+    /// Gets the collection of existing managed DAT sets.
+    /// </summary>
+    public ObservableCollection<ManagedDatSet> ManagedDataSets { get; } = [];
 
     /// <summary>
     /// Gets or sets the project name.
@@ -52,26 +95,6 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(GoNextCommand))]
     private bool _canProceed;
-
-    /// <summary>
-    /// Gets or sets a value indicating whether the project is currently being created.
-    /// </summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanProceed))]
-    [NotifyCanExecuteChangedFor(nameof(GoNextCommand))]
-    private bool _isLoading;
-
-    /// <summary>
-    /// Gets or sets the current loading status message.
-    /// </summary>
-    [ObservableProperty]
-    private string _loadingStatus = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the current loading progress (0.0 to 1.0).
-    /// </summary>
-    [ObservableProperty]
-    private float _loadingProgress;
 
     /// <summary>
     /// Gets or sets the errors related to the base DAT directory field.
@@ -125,12 +148,43 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
     /// </summary>
     /// <param name="settings">The application settings</param>
     /// <param name="log">The logger instance</param>
-    public CreateProjectViewModel(WorldBuilderSettings settings, ILogger<CreateProjectViewModel> log) {
+    /// <param name="datRepository">The DAT repository service</param>
+    public CreateProjectViewModel(WorldBuilderSettings settings, ILogger<CreateProjectViewModel> log, IDatRepositoryService datRepository) {
         _log = log;
         _settings = settings;
+        _datRepository = datRepository;
 
         _location = settings.App.ProjectsDirectory;
-        _baseDatDirectory = settings.App.LastBaseDatDirectory;
+        
+        UpdateManagedDats();
+
+        // Windows-specific Asheron's Call discovery
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+            var defaultAcPath = @"C:\Turbine\Asheron's Call\";
+            if (Directory.Exists(defaultAcPath) && Directory.EnumerateFiles(defaultAcPath, "client_*.dat").Any()) {
+                _baseDatDirectory = defaultAcPath;
+            }
+        }
+
+        if (string.IsNullOrEmpty(_baseDatDirectory)) {
+            _baseDatDirectory = settings.App.LastBaseDatDirectory;
+        }
+
+        // Set default selection
+        if (ManagedDataSets.Count > 0) {
+            SelectedDatSourceType = DatSourceType.Managed;
+            var endOfRetail = ManagedDataSets.FirstOrDefault(s => s.FriendlyName == "EndOfRetail");
+            if (endOfRetail != null) {
+                SelectedManagedDatSet = endOfRetail;
+            }
+            else {
+                SelectedManagedDatSet = ManagedDataSets.First();
+            }
+        }
+        else {
+            SelectedDatSourceType = DatSourceType.AddNew;
+        }
+
         ValidateBaseDatDirectory();
         ValidateLocation();
         UpdateCanProceed();
@@ -138,17 +192,27 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
         // Subscribe to property changes to trigger validation and update CanProceed
         PropertyChanged += (s, e) => {
             switch (e.PropertyName) {
+                case nameof(SelectedDatSourceType):
+                    ValidateBaseDatDirectory();
+                    UpdateCanProceed();
+                    break;
                 case nameof(BaseDatDirectory):
+                    ValidateBaseDatDirectory();
+                    UpdateCanProceed();
+                    break;
+                case nameof(SelectedManagedDatSet):
                     ValidateBaseDatDirectory();
                     UpdateCanProceed();
                     break;
                 case nameof(ProjectName):
                     ValidateProjectName();
                     ValidateLocation();
+                    UpdateManagedDats();
                     UpdateCanProceed();
                     break;
                 case nameof(Location):
                     ValidateLocation();
+                    UpdateManagedDats();
                     UpdateCanProceed();
                     break;
                 case nameof(IsLoading):
@@ -156,6 +220,26 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
                     break;
             }
         };
+    }
+
+    private void UpdateManagedDats() {
+        // Calculate ManagedDatsDirectory relative to current Location
+        var managedDatsDir = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(ProjectLocation)) ?? string.Empty, "Dats");
+        
+        if (managedDatsDir == _lastManagedDatsDir) return;
+        _lastManagedDatsDir = managedDatsDir;
+
+        var previousId = SelectedManagedDatSet?.Id;
+
+        _datRepository.SetRepositoryRoot(managedDatsDir);
+        ManagedDataSets.Clear();
+        foreach (var set in _datRepository.GetManagedDataSets()) {
+            ManagedDataSets.Add(set);
+        }
+
+        if (previousId != null) {
+            SelectedManagedDatSet = ManagedDataSets.FirstOrDefault(s => s.Id == previousId);
+        }
     }
 
     /// <summary>
@@ -218,24 +302,31 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
     private void ValidateBaseDatDirectory() {
         var errors = new List<string>();
 
-        if (string.IsNullOrWhiteSpace(BaseDatDirectory)) {
-            errors.Add("Base DAT directory is required.");
-        }
-        else if (!Directory.Exists(BaseDatDirectory)) {
-            errors.Add("Base DAT directory does not exist.");
+        if (SelectedDatSourceType == DatSourceType.Managed) {
+            if (SelectedManagedDatSet == null) {
+                errors.Add("A managed DAT set must be selected.");
+            }
         }
         else {
-            var paths = new[] {
-                "client_cell_1.dat",
-                "client_portal.dat",
-                "client_highres.dat",
-                "client_local_English.dat"
-            };
+            if (string.IsNullOrWhiteSpace(BaseDatDirectory)) {
+                errors.Add("Base DAT directory is required.");
+            }
+            else if (!Directory.Exists(BaseDatDirectory)) {
+                errors.Add("Base DAT directory does not exist.");
+            }
+            else {
+                var paths = new[] {
+                    "client_cell_1.dat",
+                    "client_portal.dat",
+                    "client_highres.dat",
+                    "client_local_English.dat"
+                };
 
-            foreach (var path in paths) {
-                var filePath = Path.Combine(BaseDatDirectory, path);
-                if (!File.Exists(filePath)) {
-                    errors.Add($"File '{path}' not found in the specified directory.");
+                foreach (var path in paths) {
+                    var filePath = Path.Combine(BaseDatDirectory, path);
+                    if (!File.Exists(filePath)) {
+                        errors.Add($"File '{path}' not found in the specified directory.");
+                    }
                 }
             }
         }
@@ -286,9 +377,13 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
     }
 
     private void UpdateCanProceed() {
+        var datSourceValid = SelectedDatSourceType == DatSourceType.Managed
+            ? SelectedManagedDatSet != null
+            : !string.IsNullOrWhiteSpace(BaseDatDirectory) && !GetErrors(nameof(BaseDatDirectory)).Cast<string>().Any();
+
         CanProceed = !HasErrors &&
                      !IsLoading &&
-                     !string.IsNullOrWhiteSpace(BaseDatDirectory) &&
+                     datSourceValid &&
                      !string.IsNullOrWhiteSpace(ProjectName) &&
                      !string.IsNullOrWhiteSpace(Location);
     }

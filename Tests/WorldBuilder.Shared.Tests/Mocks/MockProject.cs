@@ -1,4 +1,4 @@
-﻿using Moq;
+using Moq;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -14,6 +14,7 @@ namespace WorldBuilder.Shared.Tests.Mocks {
     internal class MockProject : IProject {
         public string Name { get; init; }
         public bool IsReadOnly { get; init; }
+        public Guid? ManagedDatSetId { get; init; }
         public ServiceProvider Services { get; init; }
         public IDocumentManager Documents { get; init; }
 

@@ -300,6 +300,22 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     }
 
     [RelayCommand]
+    private async Task OpenManageDatsWindow() {
+        var viewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<ManageDatsViewModel>(_serviceProvider);
+        var window = new Views.ManageDatsWindow {
+            DataContext = viewModel
+        };
+
+        var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+        if (desktop?.MainWindow != null) {
+            await window.ShowDialog(desktop.MainWindow);
+        }
+        else {
+            window.Show();
+        }
+    }
+
+    [RelayCommand]
     private async Task Open() {
         var localPath = await ProjectSelectionViewModel.OpenProjectFileDialog(_settings, TopLevel);
 

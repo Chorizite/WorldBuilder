@@ -225,6 +225,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var lbSizeUnits = regionInfo.LandblockSizeInUnits; // 192
                 var buildingsGrid = new List<SceneryInstance>[8, 8];
                 foreach (var b in buildings) {
+                    if (!b.IsBuilding) continue;
                     var gx = (int)Math.Clamp(b.LocalPosition.X / 24f, 0, 7);
                     var gy = (int)Math.Clamp(b.LocalPosition.Y / 24f, 0, 7);
                     buildingsGrid[gx, gy] ??= new List<SceneryInstance>();
@@ -365,15 +366,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         };
 
                         // Collision detection using spatial index
-                        var gx2 = (int)Math.Clamp(lx / 24f, 0, 7);
-                        var gy2 = (int)Math.Clamp(ly / 24f, 0, 7);
-                        var nearbyBuildings = buildingsGrid[gx2, gy2];
+                        var gx2 = (int)(lx / 24f);
+                        var gy2 = (int)(ly / 24f);
 
-                        if (nearbyBuildings != null && Collision(nearbyBuildings, instance)) {
-                            if (instance.DisqualificationReason == SceneryDisqualificationReason.None) {
-                                if (!ShowDisqualifiedScenery) continue;
-                                instance.DisqualificationReason = SceneryDisqualificationReason.Building;
-                                instance.Flags |= InstanceData.INSTANCE_FLAG_DISQUALIFIED;
+                        if (gx2 >= 0 && gx2 < 8 && gy2 >= 0 && gy2 < 8) {
+                            var nearbyBuildings = buildingsGrid[gx2, gy2];
+                            if (nearbyBuildings != null && nearbyBuildings.Count > 0) {
+                                if (instance.DisqualificationReason == SceneryDisqualificationReason.None) {
+                                    if (!ShowDisqualifiedScenery) continue;
+                                    instance.DisqualificationReason = SceneryDisqualificationReason.Building;
+                                    instance.Flags |= InstanceData.INSTANCE_FLAG_DISQUALIFIED;
+                                }
                             }
                         }
 
@@ -411,17 +414,5 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #endregion
 
-        #region Private: Collision Detection
-
-        private bool Collision(List<SceneryInstance> instances, SceneryInstance target) {
-            foreach (var instance in instances) {
-                if (instance.BoundingBox.Contains2D(target.WorldPosition)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        #endregion
     }
 }

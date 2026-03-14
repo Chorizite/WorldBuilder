@@ -28,6 +28,12 @@ namespace WorldBuilder.Shared.Services {
         public ReadOnlyDictionary<uint, uint> RegionFileMap => _regionFileMap.AsReadOnly();
         /// <inheritdoc/>
         public int PortalIteration => Portal.Iteration;
+        /// <inheritdoc/>
+        public int CellIteration => CellRegions.Values.FirstOrDefault()?.Iteration ?? 0;
+        /// <inheritdoc/>
+        public int HighResIteration => HighRes.Iteration;
+        /// <inheritdoc/>
+        public int LanguageIteration => Language.Iteration;
 
         private readonly string _datDirectory;
 

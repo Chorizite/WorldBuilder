@@ -10,12 +10,14 @@ using WorldBuilder.Lib.Settings;
 using WorldBuilder.Messages;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Tests.Helpers;
+using WorldBuilder.Shared.Tests.Mocks;
 using WorldBuilder.ViewModels;
 using WorldBuilder.Views;
 using Xunit;
 
 namespace WorldBuilder.Tests.Views;
 
+[Collection("StaticSettingsTests")]
 public class ProjectSelectionViewTests : IDisposable {
     private readonly string _testSettingsDir;
 
@@ -41,7 +43,8 @@ public class ProjectSelectionViewTests : IDisposable {
         // Arrange
         var settings = new WorldBuilderSettings();
         var projectManager = new ProjectManager();
-        var viewModel = new ProjectSelectionViewModel(settings, projectManager, NullLogger<ProjectSelectionViewModel>.Instance);
+        var datRepository = new MockDatRepositoryService();
+        var viewModel = new ProjectSelectionViewModel(settings, projectManager, datRepository, NullLogger<ProjectSelectionViewModel>.Instance);
         var view = new ProjectSelectionView();
         view.DataContext = viewModel;
 
@@ -58,7 +61,8 @@ public class ProjectSelectionViewTests : IDisposable {
         // Arrange
         var settings = new WorldBuilderSettings();
         var projectManager = new ProjectManager();
-        var viewModel = new ProjectSelectionViewModel(settings, projectManager, NullLogger<ProjectSelectionViewModel>.Instance);
+        var datRepository = new MockDatRepositoryService();
+        var viewModel = new ProjectSelectionViewModel(settings, projectManager, datRepository, NullLogger<ProjectSelectionViewModel>.Instance);
 
         var recentProject = new RecentProject {
             Name = "Test Project",
@@ -78,7 +82,8 @@ public class ProjectSelectionViewTests : IDisposable {
         // Arrange
         var settings = new WorldBuilderSettings();
         var projectManager = new ProjectManager();
-        var viewModel = new ProjectSelectionViewModel(settings, projectManager, NullLogger<ProjectSelectionViewModel>.Instance);
+        var datRepository = new MockDatRepositoryService();
+        var viewModel = new ProjectSelectionViewModel(settings, projectManager, datRepository, NullLogger<ProjectSelectionViewModel>.Instance);
 
         var recentProject = new RecentProject {
             Name = "Error Project",

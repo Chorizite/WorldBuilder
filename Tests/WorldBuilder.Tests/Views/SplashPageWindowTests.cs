@@ -16,6 +16,7 @@ using Xunit;
 
 namespace WorldBuilder.Tests.Views;
 
+[Collection("StaticSettingsTests")]
 public class SplashPageWindowTests : IDisposable {
     private readonly string _testSettingsDir;
 

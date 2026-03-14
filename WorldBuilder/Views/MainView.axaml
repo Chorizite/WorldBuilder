@@ -26,6 +26,7 @@
             <Menu Grid.Column="0">
                 <MenuItem Header="File">
                     <MenuItem Command="{Binding OpenCommand}" Header="Open" />
+                    <MenuItem Command="{Binding OpenManageDatsWindowCommand}" Header="Manage Dats" />
                     <MenuItem Command="{Binding OpenExportDatsWindowCommand}" Header="Export Dats" IsVisible="{Binding !IsReadOnly}" />
                     <MenuItem Command="{Binding CloseProjectCommand}" Header="Close" />
                     <MenuItem Command="{Binding ExitApplicationCommand}" Header="Exit" InputGesture="{Binding ExitHotkeyText, Converter={StaticResource StringToKeyGestureConverter}}" />
