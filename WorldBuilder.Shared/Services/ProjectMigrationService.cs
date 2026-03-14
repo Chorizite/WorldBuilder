@@ -64,16 +64,17 @@ namespace WorldBuilder.Shared.Services {
                 await repository.SetKeyValueAsync("ManagedDatSetId", managedId.ToString(), null, ct);
 
                 // Delete local DATs
+                DatUtils.DeleteDatSet(localDatDir, _log);
+
+                // Also delete the 'dats' folder if it's empty
                 try {
-                    Directory.Delete(localDatDir, true);
-                    // Also delete the 'dats' folder if it's empty
                     var datsParent = Path.GetDirectoryName(localDatDir);
                     if (datsParent != null && Directory.Exists(datsParent) && !Directory.EnumerateFileSystemEntries(datsParent).Any()) {
                         Directory.Delete(datsParent);
                     }
                 }
                 catch (Exception ex) {
-                    _log.LogWarning(ex, "Failed to delete local DAT directory after migration: {localDatDir}", localDatDir);
+                    _log.LogWarning(ex, "Failed to delete parent 'dats' folder after migration");
                 }
 
                 _log.LogInformation("Migration complete for project {projectFile}", projectFile);
