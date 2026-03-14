@@ -14,8 +14,20 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Services;
 using Xunit;
 
+using WorldBuilder.Shared.Tests.Helpers;
+
 namespace WorldBuilder.Tests.Modules.Landscape {
-    public class LandscapeViewModelTests {
+    public class LandscapeViewModelTests : IDisposable {
+        private readonly string _testSettingsDir;
+
+        public LandscapeViewModelTests() {
+            _testSettingsDir = TestSettingsHelper.SetupTestSettings();
+        }
+
+        public void Dispose() {
+            TestSettingsHelper.CleanupTestSettings(_testSettingsDir);
+        }
+
         [Fact]
         public void Constructor_SetsFirstToolAsActive() {
             var projectMock = new Mock<IProject>();

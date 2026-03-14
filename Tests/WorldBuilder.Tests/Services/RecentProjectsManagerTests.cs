@@ -4,22 +4,20 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using WorldBuilder.Services;
+using WorldBuilder.Shared.Tests.Helpers;
 using Xunit;
 
 namespace WorldBuilder.Tests.Services {
     public class RecentProjectsManagerTests : IDisposable {
-        private readonly string _testDataDir;
+        private readonly string _testSettingsDir;
 
         public RecentProjectsManagerTests() {
-            _testDataDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-            Directory.CreateDirectory(_testDataDir);
+            _testSettingsDir = TestSettingsHelper.SetupTestSettings();
         }
 
         [Fact]
         public async Task InitializationTask_CompletesAfterLoading() {
             var settings = new WorldBuilderSettings();
-            // Note: This will use the real AppDataDirectory, which is not great for tests
-            // but for verifying the task completion it should be fine.
             
             var manager = new RecentProjectsManager(settings, NullLogger<RecentProjectsManager>.Instance);
             
@@ -31,9 +29,7 @@ namespace WorldBuilder.Tests.Services {
         }
 
         public void Dispose() {
-            if (Directory.Exists(_testDataDir)) {
-                Directory.Delete(_testDataDir, true);
-            }
+            TestSettingsHelper.CleanupTestSettings(_testSettingsDir);
         }
     }
 }

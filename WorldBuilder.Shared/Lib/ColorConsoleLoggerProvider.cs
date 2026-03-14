@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
 namespace WorldBuilder.Shared.Lib {
@@ -8,6 +8,8 @@ namespace WorldBuilder.Shared.Lib {
     [ProviderAlias("ColorConsole")]
     public sealed class ColorConsoleLoggerProvider : ILoggerProvider {
         private ColorConsoleLoggerConfiguration _currentConfig = new();
+
+        public static LogLevel MinLogLevel { get; set; } = LogLevel.Trace;
 
         private readonly ConcurrentDictionary<string, ColorConsoleLogger> _loggers =
             new(StringComparer.OrdinalIgnoreCase);
@@ -96,6 +98,8 @@ namespace WorldBuilder.Shared.Lib {
             Exception? exception,
             Func<TState, Exception?, string> formatter) {
             if (logLevel == LogLevel.Trace) return;
+
+            if (logLevel < ColorConsoleLoggerProvider.MinLogLevel) return;
 
             ColorConsoleLoggerConfiguration config = getCurrentConfig();
             if (config.EventId == 0 || config.EventId == eventId.Id) {

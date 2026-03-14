@@ -20,8 +20,9 @@
 	  </PackageReference>
   </ItemGroup>
 
-  <ItemGroup>
+   <ItemGroup>
     <ProjectReference Include="..\..\WorldBuilder\WorldBuilder.csproj" />
+    <ProjectReference Include="..\WorldBuilder.Shared.Tests\WorldBuilder.Shared.Tests.csproj" />
   </ItemGroup>
 
   <ItemGroup>
