@@ -121,7 +121,7 @@
                     <DataTemplate DataType="vm:SceneryViewModel">
                         <StackPanel Spacing="4">
                             <TextBlock Text="Scenery" FontWeight="Bold" />
-                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto">
+                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto">
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Model ID: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:DataIdControl Grid.Row="0" Grid.Column="1" 
                                                    DataId="{Binding ObjectId}" 
@@ -143,6 +143,9 @@
                                                    X="{Binding RotationX, Mode=TwoWay}" Y="{Binding RotationY, Mode=TwoWay}" Z="{Binding RotationZ, Mode=TwoWay}"
                                                    Suffix="°"
                                                    IsEditable="{Binding #Root.((vm:PropertiesPanelViewModel)DataContext).IsEditable}" />
+
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="Disqualified: " Opacity="0.7" VerticalAlignment="Center" IsVisible="{Binding IsDisqualified}" />
+                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding DisqualificationReason}" VerticalAlignment="Center" Foreground="Red" IsVisible="{Binding IsDisqualified}" />
                             </Grid>
                         </StackPanel>
                     </DataTemplate>

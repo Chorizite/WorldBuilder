@@ -9,4 +9,11 @@ namespace WorldBuilder.Shared.Models {
         EnvCell,
         EnvCellStaticObject
     }
+    public enum SceneryDisqualificationReason : byte {
+        None,
+        Road,
+        Building,
+        Slope,
+        OutsideLandblock
+    }
 }

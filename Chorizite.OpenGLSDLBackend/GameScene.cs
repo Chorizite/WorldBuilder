@@ -90,6 +90,7 @@ public class GameScene : IDisposable {
         if (_sceneryManager != null) {
             _sceneryManager.RenderDistance = _state.ObjectRenderDistance;
             _sceneryManager.LightIntensity = _state.LightIntensity;
+            _sceneryManager.ShowDisqualifiedScenery = _state.ShowDisqualifiedScenery;
             _sceneryManager.SetVisibilityFilters(_state.ShowScenery);
         }
 
@@ -397,6 +398,7 @@ public class GameScene : IDisposable {
         _sceneryManager = new SceneryRenderManager(_gl, _log, landscapeDoc, dats, _graphicsDevice, _meshManager, _staticObjectManager, documentManager, _visibilityManager.CullingFrustum);
         _sceneryManager.RenderDistance = _state.ObjectRenderDistance;
         _sceneryManager.LightIntensity = _state.LightIntensity;
+        _sceneryManager.ShowDisqualifiedScenery = _state.ShowDisqualifiedScenery;
         _sceneryManager.SetVisibilityFilters(_state.ShowScenery);
         if (_initialized && _sceneryShader != null) {
             _sceneryManager.Initialize(_sceneryShader);

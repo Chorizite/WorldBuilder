@@ -47,6 +47,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         /// <summary>World-space bounding box.</summary>
         public BoundingBox BoundingBox;
+
+        /// <summary>The reason this scenery instance was disqualified from regular generation.</summary>
+        public SceneryDisqualificationReason DisqualificationReason;
+
+        /// <summary>Rendering flags for this instance.</summary>
+        public uint Flags;
     }
 
     /// <summary>

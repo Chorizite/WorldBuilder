@@ -14,6 +14,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                    (point.Z >= box.Min.Z && point.Z <= box.Max.Z);
         }
 
+        public static bool Contains2D(this BoundingBox box, Vector3 point) {
+            return (point.X >= box.Min.X && point.X <= box.Max.X) &&
+                   (point.Y >= box.Min.Y && point.Y <= box.Max.Y);
+        }
+
         public static BoundingBox Union(this BoundingBox box, BoundingBox other) {
             return new BoundingBox(Vector3.Min(box.Min, other.Min), Vector3.Max(box.Max, other.Max));
         }

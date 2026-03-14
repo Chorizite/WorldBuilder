@@ -732,6 +732,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 for (int i = 0; i < setup.Parts.Count; i++) {
                     var partId = setup.Parts[i];
                     var transform = Matrix4x4.Identity;
+
+                    if (setup.Flags.HasFlag(SetupFlags.HasDefaultScale) && setup.DefaultScale.Count > i) {
+                        transform *= Matrix4x4.CreateScale(setup.DefaultScale[i]);
+                    }
+
                     if (placementFrame.Frames != null && i < placementFrame.Frames.Count) {
                         var orientation = new System.Numerics.Quaternion(
                             (float)placementFrame.Frames[i].Orientation.X,
@@ -739,7 +744,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             (float)placementFrame.Frames[i].Orientation.Z,
                             (float)placementFrame.Frames[i].Orientation.W
                         );
-                        transform = Matrix4x4.CreateFromQuaternion(orientation)
+                        transform *= Matrix4x4.CreateFromQuaternion(orientation)
                             * Matrix4x4.CreateTranslation(placementFrame.Frames[i].Origin);
                     }
 

@@ -11,6 +11,7 @@ layout(location = 2) in vec2 aTexCoord;
 struct ModernInstanceData {
     mat4 Transform;
     uint CellId;
+    uint Flags;
 };
 
 struct ModernBatchData {
@@ -50,10 +51,12 @@ out vec2 TexCoord;
 out flat uvec2 TextureHandle;
 out flat uint TextureIndex;
 out vec3 LightingColor;
+out flat uint Flags;
 
 void main() {
     int instanceIndex = gl_BaseInstanceARB + gl_InstanceID;
     ModernInstanceData inst = Instances[instanceIndex];
+    Flags = inst.Flags;
 
     if (uFilterByCell == 1) {
         bool isVisible = false;

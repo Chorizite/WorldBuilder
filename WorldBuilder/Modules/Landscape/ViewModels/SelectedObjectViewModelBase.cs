@@ -78,6 +78,8 @@ public abstract partial class SelectedObjectViewModelBase : ViewModelBase, ISele
     public virtual int VertexX => 0;
     public virtual int VertexY => 0;
 
+    public virtual SceneryDisqualificationReason DisqualificationReason { get; protected set; } = SceneryDisqualificationReason.None;
+
     public string InstanceIdHex => InstanceId.ToString();
     public string LandblockIdHex => $"0x{LandblockId:X4}";
     public virtual string CellIdHex => CellId.HasValue ? $"0x{CellId.Value:X8}" : "None";

@@ -388,7 +388,7 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
             }
         }
         else if (e.Selection.Type == ObjectType.Scenery) {
-            PropertiesPanel.SelectedItem = new SceneryViewModel(e.Selection.ObjectId, e.Selection.InstanceId, lbId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
+            PropertiesPanel.SelectedItem = new SceneryViewModel(e.Selection.ObjectId, e.Selection.InstanceId, lbId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation, e.Selection.DisqualificationReason);
         }
         else if (e.Selection.Type == ObjectType.Portal) {
             uint cellId = e.Selection.ObjectId; // For portals, ObjectId is the parent CellId
@@ -929,6 +929,7 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
         EditorState.ShowPortals = _settings.Landscape.Rendering.ShowPortals;
         EditorState.ShowSkybox = _settings.Landscape.Rendering.ShowSkybox;
         EditorState.ShowUnwalkableSlopes = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
+        EditorState.ShowDisqualifiedScenery = _settings.Landscape.Rendering.ShowDisqualifiedScenery;
         EditorState.ObjectRenderDistance = _settings.Landscape.Rendering.ObjectRenderDistance;
         EditorState.MaxDrawDistance = _settings.Landscape.Camera.MaxDrawDistance;
         EditorState.MouseSensitivity = _settings.Landscape.Camera.MouseSensitivity;
@@ -955,6 +956,7 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
         if (_settings == null) return;
         switch (e.PropertyName) {
             case nameof(EditorState.ShowScenery): _settings.Landscape.Rendering.ShowScenery = EditorState.ShowScenery; break;
+            case nameof(EditorState.ShowDisqualifiedScenery): _settings.Landscape.Rendering.ShowDisqualifiedScenery = EditorState.ShowDisqualifiedScenery; break;
             case nameof(EditorState.ShowStaticObjects): _settings.Landscape.Rendering.ShowStaticObjects = EditorState.ShowStaticObjects; break;
             case nameof(EditorState.ShowBuildings): _settings.Landscape.Rendering.ShowBuildings = EditorState.ShowBuildings; break;
             case nameof(EditorState.ShowEnvCells): _settings.Landscape.Rendering.ShowEnvCells = EditorState.ShowEnvCells; break;

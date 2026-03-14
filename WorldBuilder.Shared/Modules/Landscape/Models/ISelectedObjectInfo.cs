@@ -21,5 +21,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         
         int VertexX { get; }
         int VertexY { get; }
+
+        SceneryDisqualificationReason DisqualificationReason { get; }
     }
 }
