@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using WorldBuilder.Lib;
+using WorldBuilder.Shared.Services;
 using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Services {
@@ -15,6 +16,7 @@ namespace WorldBuilder.Services {
     public class RecentProjectsManager {
         private readonly ILogger<RecentProjectsManager> _log;
         private readonly WorldBuilderSettings _settings;
+        private readonly IDatRepositoryService _datRepository;
         private readonly TaskCompletionSource<bool> _loadTask = new();
 
         /// <summary>
@@ -38,6 +40,7 @@ namespace WorldBuilder.Services {
         public RecentProjectsManager() {
             _settings = new WorldBuilderSettings();
             _log = Microsoft.Extensions.Logging.Abstractions.NullLogger<RecentProjectsManager>.Instance;
+            _datRepository = new DatRepositoryService(new Microsoft.Extensions.Logging.Abstractions.NullLogger<DatRepositoryService>());
             RecentProjects = new ObservableCollection<RecentProject>();
             // Add sample data for design-time
             RecentProjects.Add(new RecentProject { Name = "Test", FilePath = @"C:\test.wbproj", LastOpened = DateTime.Now });
@@ -50,9 +53,11 @@ namespace WorldBuilder.Services {
         /// </summary>
         /// <param name="settings">The application settings</param>
         /// <param name="log">The logger instance</param>
-        public RecentProjectsManager(WorldBuilderSettings settings, ILogger<RecentProjectsManager> log) {
+        /// <param name="datRepository">The DAT repository service</param>
+        public RecentProjectsManager(WorldBuilderSettings settings, ILogger<RecentProjectsManager> log, IDatRepositoryService datRepository) {
             _settings = settings;
             _log = log;
+            _datRepository = datRepository;
             RecentProjects = new ObservableCollection<RecentProject>();
 
             // Load recent projects asynchronously
@@ -65,8 +70,17 @@ namespace WorldBuilder.Services {
         /// <param name="name">The name of the project</param>
         /// <param name="filePath">The file path of the project</param>
         /// <param name="isReadOnly">Whether the project is read-only</param>
+        /// <param name="managedDatId">The managed DAT set ID, if any</param>
+        /// <param name="versionInfo">The version information, if any</param>
         /// <returns>A task representing the asynchronous operation</returns>
-        public async Task AddRecentProject(string name, string filePath, bool isReadOnly) {
+        public async Task AddRecentProject(string name, string filePath, bool isReadOnly, Guid? managedDatId = null, string? versionInfo = null) {
+            if (name == "client_portal" && managedDatId.HasValue) {
+                var managedSet = _datRepository.GetManagedDataSet(managedDatId.Value);
+                if (managedSet != null) {
+                    name = managedSet.FriendlyName;
+                }
+            }
+
             // Remove if already exists
             var existing = RecentProjects.FirstOrDefault(p => p.FilePath == filePath);
             if (existing != null) {
@@ -78,8 +92,12 @@ namespace WorldBuilder.Services {
                 Name = name,
                 FilePath = filePath,
                 LastOpened = DateTime.Now,
-                IsReadOnly = isReadOnly
+                IsReadOnly = isReadOnly,
+                ManagedDatId = managedDatId,
+                VersionInfo = versionInfo
             };
+
+            await recentProject.Verify(_datRepository);
 
             RecentProjects.Insert(0, recentProject);
 
@@ -114,7 +132,7 @@ namespace WorldBuilder.Services {
 
                 if (projects != null) {
                     RecentProjects.Clear();
-                    await Task.WhenAll(projects.Select(p => p.Verify()));
+                    await Task.WhenAll(projects.Select(p => p.Verify(_datRepository)));
                     foreach (var project in projects.OrderByDescending(p => p.LastOpened)) {
                         if (project.HasError) {
                             _log.LogWarning($"Failed to load recent project {project.Name} ({project.FilePath}): {project.Error}");

@@ -177,5 +177,20 @@ namespace WorldBuilder.Shared.Repositories {
         /// <returns>A task representing the result of the operation.</returns>
         Task<Result<Unit>> UpdateEventServerTimestampAsync(string eventId, ulong serverTimestamp, ITransaction? tx,
             CancellationToken ct);
+
+        /// <summary>Retrieves a value from the KeyValues table.</summary>
+        /// <param name="key">The key to retrieve.</param>
+        /// <param name="tx">The transaction (optional).</param>
+        /// <param name="ct">The cancellation token.</param>
+        /// <returns>A task containing the result with the value.</returns>
+        Task<Result<string?>> GetKeyValueAsync(string key, ITransaction? tx, CancellationToken ct);
+
+        /// <summary>Sets a value in the KeyValues table.</summary>
+        /// <param name="key">The key to set.</param>
+        /// <param name="value">The value to set.</param>
+        /// <param name="tx">The transaction (optional).</param>
+        /// <param name="ct">The cancellation token.</param>
+        /// <returns>A task representing the result of the operation.</returns>
+        Task<Result<Unit>> SetKeyValueAsync(string key, string? value, ITransaction? tx, CancellationToken ct);
     }
 }

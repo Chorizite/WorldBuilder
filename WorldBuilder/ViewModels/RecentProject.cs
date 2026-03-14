@@ -50,6 +50,32 @@ namespace WorldBuilder.ViewModels {
             set => SetProperty(ref _isReadOnly, value);
         }
 
+        private Guid? _managedDatId;
+
+        /// <summary>
+        /// Gets or sets the managed DAT set ID, if any.
+        /// </summary>
+        public Guid? ManagedDatId {
+            get => _managedDatId;
+            set => SetProperty(ref _managedDatId, value);
+        }
+
+        private string? _versionInfo;
+
+        /// <summary>
+        /// Gets or sets the version information for a managed DAT set.
+        /// </summary>
+        public string? VersionInfo {
+            get => _versionInfo;
+            set => SetProperty(ref _versionInfo, value);
+        }
+
+        /// <summary>
+        /// Gets the display subtext for the project (either version info or file path).
+        /// </summary>
+        [JsonIgnore]
+        public string DisplaySubText => VersionInfo ?? FilePath;
+
         // Your [JsonIgnore] properties remain unchanged
         /// <summary>
         /// Gets a display-formatted string of the last opened date.
@@ -69,11 +95,21 @@ namespace WorldBuilder.ViewModels {
         [JsonIgnore]
         public string IconGlyph => IsReadOnly ? "FolderOpen" : "Library";
 
+        private string? _error;
+
         /// <summary>
         /// Gets or sets the error message if the project has one.
         /// </summary>
         [JsonIgnore]
-        public string? Error { get; set; }
+        public string? Error {
+            get => _error;
+            set {
+                if (SetProperty(ref _error, value)) {
+                    OnPropertyChanged(nameof(HasError));
+                    OnPropertyChanged(nameof(TooltipText));
+                }
+            }
+        }
 
         /// <summary>
         /// Gets a value indicating whether the project has an error.
@@ -88,24 +124,23 @@ namespace WorldBuilder.ViewModels {
         public string TooltipText => HasError ? (Error ?? "Unknown error") : FilePath;
 
         /// <summary>
-        /// Verifies that the project file exists and can be opened.
+        /// Verifies that the project file and its managed DAT set (if any) exist.
         /// </summary>
-        /// <returns>A task that resolves to true if the project is valid, false otherwise</returns>
-        internal async Task<bool> Verify() {
+        /// <param name="datRepository">The DAT repository service to check for managed sets</param>
+        /// <returns>A task that resolves to true if the project and its dependencies exist, false otherwise</returns>
+        internal Task<bool> Verify(WorldBuilder.Shared.Services.IDatRepositoryService datRepository) {
             if (!File.Exists(FilePath)) {
                 Error = "File no longer exists";
-                return false;
+                return Task.FromResult(false);
             }
 
-            try {
-                await Project.Open(FilePath, default);
-            }
-            catch (Exception ex) {
-                Error = ex.Message;
-                return false;
+            if (ManagedDatId.HasValue && datRepository.GetManagedDataSet(ManagedDatId.Value) == null) {
+                Error = "Managed DAT set no longer exists";
+                return Task.FromResult(false);
             }
 
-            return true;
+            Error = null;
+            return Task.FromResult(true);
         }
     }
 }

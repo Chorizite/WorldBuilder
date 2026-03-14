@@ -31,6 +31,9 @@ namespace WorldBuilder.Shared.Tests.Mocks {
 
         public string SourceDirectory => "";
         public int PortalIteration => 0;
+        public int CellIteration => 0;
+        public int HighResIteration => 0;
+        public int LanguageIteration => 0;
 
         public bool TryGetFileBytes(uint regionId, uint fileId, ref byte[] bytes, out int bytesRead) {
             bytesRead = 0;

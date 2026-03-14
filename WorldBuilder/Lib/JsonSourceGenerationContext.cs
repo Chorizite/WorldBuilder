@@ -31,6 +31,8 @@ namespace WorldBuilder.Lib {
     [JsonSerializable(typeof(Vector3))]
     [JsonSerializable(typeof(Vector4))]
     [JsonSerializable(typeof(DateTime))]
+    [JsonSerializable(typeof(Guid))]
+    [JsonSerializable(typeof(Guid?))]
     [JsonSerializable(typeof(string))]
     [JsonSerializable(typeof(float))]
     [JsonSerializable(typeof(double))]

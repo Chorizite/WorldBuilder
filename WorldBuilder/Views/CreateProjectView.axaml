@@ -43,26 +43,73 @@
                     FontWeight="Bold"
                     Text="Create New Project" />
 
-                <!--  Base DAT Directory  -->
+                <!--  DAT Source Selection  -->
                 <StackPanel>
                     <TextBlock
                         Margin="0,0,0,5"
                         FontWeight="SemiBold"
-                        Text="Base DAT Directory *" />
+                        Text="DAT Source Selection" />
 
-                    <Grid ColumnDefinitions="*,Auto">
-                        <TextBox
+                    <Grid ColumnDefinitions="150, *">
+                        <ComboBox
                             Grid.Column="0"
-                            Text="{Binding BaseDatDirectory}"
-                            Watermark="Select directory containing DAT files..." />
+                            HorizontalAlignment="Stretch"
+                            ItemsSource="{Binding DatSourceTypes}"
+                            SelectedItem="{Binding SelectedDatSourceType}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding, Converter={StaticResource EnumDescriptionConverter}}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
 
-                        <Button
+                        <!-- Managed DAT Selection -->
+                        <ComboBox
                             Grid.Column="1"
-                            Margin="5,0,0,0"
-                            Padding="15,5"
-                            Command="{Binding BrowseBaseDatDirectoryCommand}"
-                            Content="Browse..." />
+                            Margin="8,0,0,0"
+                            HorizontalAlignment="Stretch"
+                            IsVisible="{Binding SelectedDatSourceType, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static vm:DatSourceType.Managed}}"
+                            ItemsSource="{Binding ManagedDataSets}"
+                            SelectedItem="{Binding SelectedManagedDatSet}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding FriendlyName}" />
+                                        <TextBlock
+                                            FontSize="10"
+                                            Opacity="0.6"
+                                            Text="{Binding Id, StringFormat='({0})'}"
+                                            VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+
+                        <!-- Base DAT Directory Selection -->
+                        <Grid Grid.Column="1" Margin="8,0,0,0" ColumnDefinitions="*,Auto"
+                              IsVisible="{Binding SelectedDatSourceType, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static vm:DatSourceType.AddNew}}">
+                            <TextBox
+                                Grid.Column="0"
+                                Text="{Binding BaseDatDirectory}"
+                                Watermark="Select directory containing DAT files..." />
+
+                            <Button
+                                Grid.Column="1"
+                                Margin="5,0,0,0"
+                                Padding="15,5"
+                                Command="{Binding BrowseBaseDatDirectoryCommand}"
+                                Content="Browse..." />
+                        </Grid>
                     </Grid>
+
+                    <!-- Error display for DAT selection -->
+                    <ItemsControl ItemsSource="{Binding BaseDatDirectoryErrors}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Classes="error" Text="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
 
                 <!--  Project Name  -->

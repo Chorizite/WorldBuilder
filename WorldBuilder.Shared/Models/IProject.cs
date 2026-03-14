@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using WorldBuilder.Shared.Modules.Landscape;
 using WorldBuilder.Shared.Repositories;
 using WorldBuilder.Shared.Services;
@@ -12,6 +12,11 @@ namespace WorldBuilder.Shared.Models {
         /// Gets the name of the project.
         /// </summary>
         string Name { get; }
+
+        /// <summary>
+        /// Gets the managed DAT set ID, if any.
+        /// </summary>
+        Guid? ManagedDatSetId { get; }
 
         /// <summary>
         /// Gets a value indicating whether this project is read-only.

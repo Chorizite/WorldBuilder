@@ -15,6 +15,9 @@ using WorldBuilder.Lib.Extensions;
 using WorldBuilder.Messages;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.ViewModels;
+using HanumanInstitute.MvvmDialogs;
+using HanumanInstitute.MvvmDialogs.Avalonia;
+using HanumanInstitute.MvvmDialogs.FrameworkDialogs;
 
 namespace WorldBuilder.Services {
     /// <summary>
@@ -24,6 +27,7 @@ namespace WorldBuilder.Services {
         private readonly ILogger<ProjectManager> _log;
         private readonly WorldBuilderSettings _settings;
         private readonly RecentProjectsManager _recentProjectsManager;
+        private readonly HanumanInstitute.MvvmDialogs.IDialogService _dialogService;
         private ServiceProvider? _projectProvider;
         private readonly IServiceProvider _rootProvider;
 
@@ -51,6 +55,7 @@ namespace WorldBuilder.Services {
             _recentProjectsManager = new RecentProjectsManager();
             _rootProvider = new ServiceCollection().BuildServiceProvider();
             _log = new NullLogger<ProjectManager>();
+            _dialogService = new HanumanInstitute.MvvmDialogs.Avalonia.DialogService(new HanumanInstitute.MvvmDialogs.Avalonia.DialogManager());
         }
 
         /// <summary>
@@ -60,11 +65,13 @@ namespace WorldBuilder.Services {
         /// <param name="log">The logger instance</param>
         /// <param name="settings">The application settings</param>
         /// <param name="recentProjectsManager">The recent projects manager</param>
-        public ProjectManager(IServiceProvider rootProvider, ILogger<ProjectManager> log, WorldBuilderSettings settings, RecentProjectsManager recentProjectsManager) {
+        /// <param name="dialogService">The dialog service</param>
+        public ProjectManager(IServiceProvider rootProvider, ILogger<ProjectManager> log, WorldBuilderSettings settings, RecentProjectsManager recentProjectsManager, HanumanInstitute.MvvmDialogs.IDialogService dialogService) {
             _rootProvider = rootProvider;
             _log = log;
             _settings = settings;
             _recentProjectsManager = recentProjectsManager;
+            _dialogService = dialogService;
 
             WeakReferenceMessenger.Default.Register<OpenProjectMessage>(this);
             WeakReferenceMessenger.Default.Register<CreateProjectMessage>(this);
@@ -77,10 +84,17 @@ namespace WorldBuilder.Services {
         public async void Receive(OpenProjectMessage message) {
             _log.LogInformation($"OpenProjectMessage: {message.Value}");
             try {
-                await SetProject(message.Value);
+                await SetProject(message.Value, message.ManagedDatId);
             }
             catch (Exception ex) {
                 _log.LogError(ex, $"Failed to open project: {message.Value}");
+
+                var messageText = $"Failed to open project: {Path.GetFileName(message.Value)}\n\n{ex.Message}";
+                if (ex is DirectoryNotFoundException || ex is FileNotFoundException) {
+                    messageText += "\n\nThis may be caused by a missing or deleted managed DAT set.";
+                }
+
+                await _dialogService.ShowMessageBoxAsync(null, messageText, "Project Load Error");
             }
         }
 
@@ -101,7 +115,7 @@ namespace WorldBuilder.Services {
                     model.LoadingProgress = p.progress * 100f;
                 });
 
-                var projectResult = await Project.Create(model.ProjectName, model.ProjectLocation, model.BaseDatDirectory, progress, default);
+                var projectResult = await Project.Create(model.ProjectName, model.ProjectLocation, model.BaseDatDirectory, model.SelectedManagedDatSet?.Id, progress, default);
 
                 if (projectResult.IsSuccess) {
                     _settings.App.LastBaseDatDirectory = model.BaseDatDirectory;
@@ -145,15 +159,18 @@ namespace WorldBuilder.Services {
             }
 
             CurrentProjectChanged?.Invoke(this, EventArgs.Empty);
-            _ = _recentProjectsManager.AddRecentProject(project.Name, project.ProjectFile, project.IsReadOnly);
+            _ = _recentProjectsManager.AddRecentProject(project.Name, project.ProjectFile, project.IsReadOnly, project.ManagedDatSetId);
         }
 
-        private async Task SetProject(string projectPath) {
+        private async Task SetProject(string projectPath, Guid? managedId = null) {
             _projectProvider?.Dispose();
 
-            var projectResult = await Project.Open(projectPath, default);
+            var projectResult = await Project.Open(projectPath, managedId, null, CancellationToken.None);
             if (projectResult.IsSuccess) {
                 SetProject(projectResult.Value);
+            }
+            else {
+                throw new Exception(projectResult.Error.Message);
             }
         }
 

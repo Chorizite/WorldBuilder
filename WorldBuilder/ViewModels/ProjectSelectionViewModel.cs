@@ -19,6 +19,7 @@ using WorldBuilder.Lib;
 using WorldBuilder.Messages;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Services;
 using static WorldBuilder.ViewModels.SplashPageViewModel;
 
 namespace WorldBuilder.ViewModels;
@@ -30,11 +31,28 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
     private readonly ILogger<ProjectSelectionViewModel> _log;
     private readonly WorldBuilderSettings _settings;
     private readonly ProjectManager _projectManager;
+    private readonly IDatRepositoryService _datRepository;
 
     /// <summary>
     /// Gets the collection of recent projects.
     /// </summary>
     public ObservableCollection<RecentProject> RecentProjects => _projectManager.RecentProjects;
+
+    /// <summary>
+    /// Gets the collection of managed DAT sets.
+    /// </summary>
+    public ObservableCollection<ManagedDatSet> ManagedDataSets { get; } = [];
+
+    /// <summary>
+    /// Gets or sets the selected managed DAT set.
+    /// </summary>
+    [ObservableProperty]
+    private ManagedDatSet? _selectedManagedDat;
+
+    /// <summary>
+    /// Gets a value indicating whether there are any managed DAT sets available.
+    /// </summary>
+    public bool HasManagedDataSets => ManagedDataSets.Count > 0;
 
     /// <summary>
     /// Gets the application version string.
@@ -49,6 +67,7 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
         _log = new NullLogger<ProjectSelectionViewModel>();
         _settings = new WorldBuilderSettings();
         _projectManager = new ProjectManager();
+        _datRepository = new DatRepositoryService(new NullLogger<DatRepositoryService>());
     }
 
     /// <summary>
@@ -56,11 +75,37 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
     /// </summary>
     /// <param name="settings">The application settings</param>
     /// <param name="projectManager">The project manager instance</param>
+    /// <param name="datRepository">The DAT repository service</param>
     /// <param name="log">The logger instance</param>
-    public ProjectSelectionViewModel(WorldBuilderSettings settings, ProjectManager projectManager, ILogger<ProjectSelectionViewModel> log) {
+    public ProjectSelectionViewModel(WorldBuilderSettings settings, ProjectManager projectManager, IDatRepositoryService datRepository, ILogger<ProjectSelectionViewModel> log) {
         _log = log;
         _settings = settings;
         _projectManager = projectManager;
+        _datRepository = datRepository;
+
+        // Initialize ManagedDataSets
+        _datRepository.SetRepositoryRoot(_settings.App.ManagedDatsDirectory);
+        foreach (var set in _datRepository.GetManagedDataSets()) {
+            ManagedDataSets.Add(set);
+        }
+        SelectedManagedDat = ManagedDataSets.FirstOrDefault(s => s.FriendlyName == "EndOfRetail") ?? ManagedDataSets.FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Opens a managed DAT set as a read-only project.
+    /// </summary>
+    /// <param name="set">The managed DAT set to open</param>
+    [RelayCommand]
+    private void OpenManagedDatSet(ManagedDatSet? set) {
+        if (set == null) return;
+
+        var portalPath = Path.Combine(_datRepository.GetDatSetPath(set.Id, _settings.App.ProjectsDirectory), "client_portal.dat");
+        if (File.Exists(portalPath)) {
+            LoadProject(portalPath, set.Id);
+        }
+        else {
+            _log.LogWarning("Managed DAT set files not found: {portalPath}", portalPath);
+        }
     }
 
     /// <summary>
@@ -69,6 +114,14 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
     [RelayCommand]
     private void NewProject() {
         WeakReferenceMessenger.Default.Send(new SplashPageChangedMessage(SplashPage.CreateProject));
+    }
+
+    /// <summary>
+    /// Opens the managed DAT management view.
+    /// </summary>
+    [RelayCommand]
+    private void ManageDats() {
+        WeakReferenceMessenger.Default.Send(new SplashPageChangedMessage(SplashPage.ManageDats));
     }
 
     /// <summary>
@@ -137,16 +190,16 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
             return;
         }
 
-        LoadProject(project.FilePath);
+        LoadProject(project.FilePath, project.ManagedDatId);
     }
 
     private void ShowErrorDetails(RecentProject project) {
         WeakReferenceMessenger.Default.Send(new ShowProjectErrorDetailsMessage(project));
     }
 
-    private void LoadProject(string filePath) {
+    private void LoadProject(string filePath, Guid? managedDatId = null) {
         _log.LogInformation($"LoadProject: {filePath}");
-        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(filePath));
+        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(filePath, this, managedDatId));
     }
 
     /// <summary>

@@ -147,11 +147,11 @@ public partial class App : Application {
 
                     if (extension == ".dat") {
                         log?.LogInformation("Opening DAT file from CLI: {Path}", CommandLineOptions.ProjectPath);
-                        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(CommandLineOptions.ProjectPath));
+                        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(CommandLineOptions.ProjectPath, projectSelectionVM?.CurrentPage));
                     }
                     else {
                         log?.LogInformation("Opening project from CLI: {Path}", CommandLineOptions.ProjectPath);
-                        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(CommandLineOptions.ProjectPath));
+                        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(CommandLineOptions.ProjectPath, projectSelectionVM?.CurrentPage));
                     }
                     return;
                 }
@@ -173,7 +173,7 @@ public partial class App : Application {
                         log?.LogInformation("Auto-loading most recent project: {ProjectName} ({ProjectPath})", 
                             mostRecentProject.Name, mostRecentProject.FilePath);
                         
-                        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(mostRecentProject.FilePath));
+                        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(mostRecentProject.FilePath, projectSelectionVM?.CurrentPage));
                         return;
                     }
                 }

@@ -7,6 +7,7 @@
         <ResourceDictionary>
             <converters:BoolToIconConverter x:Key="BoolToIconConverter" />
             <converters:EnumToBoolConverter x:Key="EnumToBoolConverter" />
+            <converters:EnumDescriptionConverter x:Key="EnumDescriptionConverter" />
             <converters:ThemeToViewportBrushConverter x:Key="ThemeToViewportBrushConverter" />
             <SolidColorBrush x:Key="ErrorBrush" Color="{DynamicResource SemiColorDanger}" />
         </ResourceDictionary>

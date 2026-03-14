@@ -32,7 +32,7 @@ public partial class SplashPageViewModel : ViewModelBase, IRecipient<SplashPageC
     /// <summary>
     /// Enumerates the available splash page types.
     /// </summary>
-    public enum SplashPage { ProjectSelection, CreateProject };
+    public enum SplashPage { ProjectSelection, CreateProject, ManageDats };
 
     /// <summary>
     /// Initializes a new instance of the SplashPageViewModel class for design-time use.
@@ -77,6 +77,7 @@ public partial class SplashPageViewModel : ViewModelBase, IRecipient<SplashPageC
         return value switch {
             SplashPage.ProjectSelection => _splashFactory.Create<ProjectSelectionViewModel>(),
             SplashPage.CreateProject => _splashFactory.Create<CreateProjectViewModel>(),
+            SplashPage.ManageDats => _splashFactory.Create<ManageDatsViewModel>(),
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, null),
         };
     }

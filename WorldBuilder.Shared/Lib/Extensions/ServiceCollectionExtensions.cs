@@ -29,6 +29,10 @@ namespace WorldBuilder.Shared.Lib.Extensions {
 
             services.AddLogging();
 
+            // Core repository and DAT services
+            services.AddSingleton<IDatRepositoryService, DatRepositoryService>();
+            services.AddSingleton<IProjectMigrationService, ProjectMigrationService>();
+
             // Repository services
             services.AddSingleton<IProjectRepository>(provider =>
                 new SQLiteProjectRepository(projectDirectory, provider.GetService<ILoggerFactory>()));

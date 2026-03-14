@@ -1,5 +1,6 @@
 using HanumanInstitute.MvvmDialogs;
 using HanumanInstitute.MvvmDialogs.Avalonia;
+using HanumanInstitute.MvvmDialogs.Avalonia.MessageBox;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
@@ -36,7 +37,10 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton<ThemeService>();
             collection.AddSingleton<RecentProjectsManager>();
             collection.AddSingleton<ProjectManager>();
+            collection.AddSingleton<IDatRepositoryService, DatRepositoryService>();
+            collection.AddSingleton<IProjectMigrationService, ProjectMigrationService>();
             collection.AddSingleton<SplashPageFactory>();
+
             collection.AddSingleton<IUpdateService, VelopackUpdateService>();
             collection.AddSingleton<SharedOpenGLContextManager>();
             collection.AddSingleton<PerformanceService>();
@@ -47,7 +51,8 @@ namespace WorldBuilder.Lib.Extensions {
             // Register dialog service
             collection.AddSingleton<IDialogService>(provider => new DialogService(
                 new DialogManager(
-                    viewLocator: new CombinedViewLocator(true)),
+                    viewLocator: new CombinedViewLocator(true),
+                    dialogFactory: new DialogFactory().AddMessageBox()),
                 viewModelFactory: provider.GetService));
 
             return collection;
@@ -62,6 +67,7 @@ namespace WorldBuilder.Lib.Extensions {
             // ViewModels - splash page
             collection.AddTransient<RecentProject>();
             collection.AddTransient<CreateProjectViewModel>();
+            collection.AddTransient<ManageDatsViewModel>();
             collection.AddTransient<SplashPageViewModel>();
             collection.AddTransient<ProjectSelectionViewModel>();
 
@@ -72,6 +78,7 @@ namespace WorldBuilder.Lib.Extensions {
 
             // Windows
             collection.AddTransient<SettingsWindow>();
+            collection.AddTransient<ManageDatsWindow>();
             collection.AddTransient<ExportDatsWindow>();
             collection.AddTransient<ErrorDetailsWindow>();
             collection.AddTransient<TextInputWindow>();
@@ -109,6 +116,7 @@ namespace WorldBuilder.Lib.Extensions {
             // ViewModels
             collection.AddTransient<MainViewModel>();
             collection.AddTransient<ExportDatsWindowViewModel>();
+            collection.AddTransient<ManageDatsViewModel>();
             collection.AddTransient<WorldBuilder.Modules.DatBrowser.ViewModels.DatBrowserViewModel>();
             
             // Register factory for lazy loading
@@ -189,6 +197,9 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton<SyncService>(project.Services.GetRequiredService<SyncService>());
             collection.AddSingleton<IDatExportService>(project.Services.GetRequiredService<IDatExportService>());
             collection.AddSingleton<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeObjectService>(project.Services.GetRequiredService<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeObjectService>());
+            
+            collection.AddSingleton(rootProvider.GetRequiredService<IDatRepositoryService>());
+            collection.AddSingleton(rootProvider.GetRequiredService<IProjectMigrationService>());
         }
     }
 }

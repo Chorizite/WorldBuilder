@@ -549,6 +549,27 @@ namespace WorldBuilder.Shared.Repositories {
             }, ct);
         }
 
+        public async Task<Result<string?>> GetKeyValueAsync(string key, ITransaction? tx, CancellationToken ct) {
+            return await ExecuteAsync(tx, async (connection, sqliteTx) => {
+                using var cmd = new SqliteCommand("SELECT Value FROM KeyValues WHERE Key = @key", connection, sqliteTx);
+                cmd.Parameters.AddWithValue("@key", key);
+                var result = await cmd.ExecuteScalarAsync(ct);
+                if (result == null || result == DBNull.Value) return Result<string?>.Success(null);
+                return Result<string?>.Success((string)result);
+            }, ct);
+        }
+
+        public async Task<Result<Unit>> SetKeyValueAsync(string key, string? value, ITransaction? tx, CancellationToken ct) {
+            return await ExecuteAsync(tx, async (connection, sqliteTx) => {
+                var sql = "INSERT INTO KeyValues (Key, Value) VALUES (@key, @value) ON CONFLICT(Key) DO UPDATE SET Value = @value";
+                using var cmd = new SqliteCommand(sql, connection, sqliteTx);
+                cmd.Parameters.AddWithValue("@key", key);
+                cmd.Parameters.AddWithValue("@value", (object?)value ?? DBNull.Value);
+                await cmd.ExecuteNonQueryAsync(ct);
+                return Result<Unit>.Success(Unit.Value);
+            }, ct);
+        }
+
         public void Dispose() {
             if (_disposed) return;
             _disposed = true;
