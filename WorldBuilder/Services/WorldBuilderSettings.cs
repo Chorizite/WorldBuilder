@@ -17,7 +17,7 @@ namespace WorldBuilder.Services {
         public static string? OverrideAppDataDirectory { get; set; }
 
         [JsonIgnore]
-        public string AppDataDirectory => OverrideAppDataDirectory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WorldBuilder");
+        public string AppDataDirectory { get; }
 
         [JsonIgnore]
         public string SettingsFilePath => Path.Combine(AppDataDirectory, "settings.json");
@@ -63,11 +63,14 @@ namespace WorldBuilder.Services {
         }
 
         public WorldBuilderSettings() {
+            AppDataDirectory = OverrideAppDataDirectory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WorldBuilder");
             SetupListeners();
         }
 
         public WorldBuilderSettings(ILogger<WorldBuilderSettings> log) {
             _log = log;
+
+            AppDataDirectory = OverrideAppDataDirectory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WorldBuilder");
 
             if (!Directory.Exists(AppDataDirectory)) {
                 Directory.CreateDirectory(AppDataDirectory);

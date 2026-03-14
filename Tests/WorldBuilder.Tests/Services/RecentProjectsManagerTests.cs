@@ -8,6 +8,7 @@ using WorldBuilder.Shared.Tests.Helpers;
 using Xunit;
 
 namespace WorldBuilder.Tests.Services {
+    [Collection("StaticSettingsTests")]
     public class RecentProjectsManagerTests : IDisposable {
         private readonly string _testSettingsDir;
 

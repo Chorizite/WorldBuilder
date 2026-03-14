@@ -18,6 +18,7 @@ namespace WorldBuilder.Services {
         private readonly WorldBuilderSettings _settings;
         private readonly IDatRepositoryService _datRepository;
         private readonly TaskCompletionSource<bool> _loadTask = new();
+        private readonly System.Threading.SemaphoreSlim _fileLock = new(1, 1);
 
         /// <summary>
         /// Gets a task that completes when the recent projects have been loaded.
@@ -121,13 +122,31 @@ namespace WorldBuilder.Services {
         /// Loads recent projects from persistent storage.
         /// </summary>
         private async Task LoadRecentProjects() {
+            await _fileLock.WaitAsync();
             try {
                 if (!File.Exists(RecentProjectsFilePath)) {
                     _loadTask.TrySetResult(true);
                     return;
                 }
 
-                var json = await File.ReadAllTextAsync(RecentProjectsFilePath);
+                string? json = null;
+                for (int i = 0; i < 3; i++) {
+                    try {
+                        using var stream = new FileStream(RecentProjectsFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                        using var reader = new StreamReader(stream);
+                        json = await reader.ReadToEndAsync();
+                        break;
+                    }
+                    catch (IOException) when (i < 2) {
+                        await Task.Delay(50 * (i + 1));
+                    }
+                }
+
+                if (string.IsNullOrEmpty(json)) {
+                    _loadTask.TrySetResult(true);
+                    return;
+                }
+
                 var projects = JsonSerializer.Deserialize<System.Collections.Generic.List<RecentProject>>(json, SourceGenerationContext.Default.ListRecentProject);
 
                 if (projects != null) {
@@ -146,6 +165,7 @@ namespace WorldBuilder.Services {
                 RecentProjects.Clear();
             }
             finally {
+                _fileLock.Release();
                 _loadTask.TrySetResult(true);
             }
         }
@@ -154,12 +174,28 @@ namespace WorldBuilder.Services {
         /// Saves recent projects to persistent storage.
         /// </summary>
         private async Task SaveRecentProjects() {
+            await _fileLock.WaitAsync();
             try {
                 var json = JsonSerializer.Serialize(RecentProjects.ToList(), SourceGenerationContext.Default.ListRecentProject);
-                await File.WriteAllTextAsync(RecentProjectsFilePath, json);
+                
+                for (int i = 0; i < 3; i++) {
+                    try {
+                        using (var stream = new FileStream(RecentProjectsFilePath, FileMode.Create, FileAccess.Write, FileShare.Read))
+                        using (var writer = new StreamWriter(stream)) {
+                            await writer.WriteAsync(json);
+                        }
+                        break;
+                    }
+                    catch (IOException) when (i < 2) {
+                        await Task.Delay(50 * (i + 1));
+                    }
+                }
             }
             catch (Exception ex) {
                 _log.LogError(ex, "Failed to save recent projects");
+            }
+            finally {
+                _fileLock.Release();
             }
         }
     }

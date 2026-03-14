@@ -17,6 +17,7 @@ using Xunit;
 using WorldBuilder.Shared.Tests.Helpers;
 
 namespace WorldBuilder.Tests.Modules.Landscape {
+    [Collection("StaticSettingsTests")]
     public class LandscapeViewModelTests : IDisposable {
         private readonly string _testSettingsDir;
 
