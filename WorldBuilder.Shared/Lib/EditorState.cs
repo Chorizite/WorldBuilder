@@ -7,6 +7,7 @@ namespace WorldBuilder.Shared.Lib {
     /// </summary>
     public partial class EditorState : ObservableObject {
         [ObservableProperty] private bool _showScenery = true;
+        [ObservableProperty] private bool _showDisqualifiedScenery = false;
         [ObservableProperty] private bool _showStaticObjects = true;
         [ObservableProperty] private bool _showBuildings = true;
         [ObservableProperty] private bool _showEnvCells = true;

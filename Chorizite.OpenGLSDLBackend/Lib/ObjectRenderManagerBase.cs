@@ -687,16 +687,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             lb.BuildingPartGroups.Clear();
             foreach (var instance in instances) {
                 var cellId = instance.InstanceId.Index;
-                PopulateRecursive(lb.StaticPartGroups, instance.ObjectId, instance.IsSetup, instance.Transform, cellId);
+                PopulateRecursive(lb.StaticPartGroups, instance.ObjectId, instance.IsSetup, instance.Transform, cellId, instance.Flags);
             }
         }
 
-        protected void PopulateRecursive(Dictionary<ulong, List<InstanceData>> groups, ulong objectId, bool isSetup, Matrix4x4 transform, uint cellId) {
+        protected void PopulateRecursive(Dictionary<ulong, List<InstanceData>> groups, ulong objectId, bool isSetup, Matrix4x4 transform, uint cellId, uint flags = 0) {
             if (isSetup) {
                 var renderData = MeshManager.TryGetRenderData(objectId);
                 if (renderData is { IsSetup: true }) {
                     foreach (var (partId, partTransform) in renderData.SetupParts) {
-                        PopulateRecursive(groups, partId, (partId >> 24) == 0x02, partTransform * transform, cellId);
+                        PopulateRecursive(groups, partId, (partId >> 24) == 0x02, partTransform * transform, cellId, flags);
                     }
                 }
             }
@@ -705,7 +705,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     list = new List<InstanceData>();
                     groups[objectId] = list;
                 }
-                list.Add(new InstanceData { Transform = transform, CellId = cellId });
+                list.Add(new InstanceData { Transform = transform, CellId = cellId, Flags = flags });
             }
         }
 
@@ -1064,13 +1064,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 var partRenderData = MeshManager.TryGetRenderData(partId);
                                 if (partRenderData != null) {
                                     drawCalls.Add((partRenderData, 1, allInstances.Count));
-                                    allInstances.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = instance.InstanceId.Index });
+                                    allInstances.Add(new InstanceData { Transform = partTransform * instance.Transform, CellId = instance.InstanceId.Index, Flags = instance.Flags });
                                 }
                             }
                         }
                         else {
                             drawCalls.Add((renderData, 1, 0));
-                            allInstances.Add(new InstanceData { Transform = instance.Transform, CellId = instance.InstanceId.Index });
+                            allInstances.Add(new InstanceData { Transform = instance.Transform, CellId = instance.InstanceId.Index, Flags = instance.Flags });
                         }
 
                         if (_useModernRendering && (shader == null || shader == _shader)) {

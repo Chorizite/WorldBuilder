@@ -12,6 +12,7 @@ namespace WorldBuilder.Shared.Models {
         public bool SelectEnvCells { get; set; } = true;
         public bool SelectEnvCellStaticObjects { get; set; } = true;
         public bool SelectPortals { get; set; } = true;
+        public bool ShowDisqualifiedScenery { get; set; } = true;
         public bool EnableAnisotropicFiltering { get; set; } = true;
 
         public Vector4 VertexColor { get; set; } = LandscapeColorsSettings.Instance.Vertex;

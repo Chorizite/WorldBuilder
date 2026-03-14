@@ -8,6 +8,7 @@ in vec2 TexCoord;
 in flat uvec2 TextureHandle;
 in flat uint TextureIndex;
 in vec3 LightingColor;
+in flat uint Flags;
 
 uniform int uRenderPass;
 uniform vec4 uHighlightColor;
@@ -33,6 +34,10 @@ void main() {
 
     if (uHighlightColor.a > 0.0) {
         color.rgb = mix(color.rgb, uHighlightColor.rgb, uHighlightColor.a);
+    }
+
+    if ((Flags & 1u) != 0u) {
+        color.rgb = mix(color.rgb, vec3(1.0, 0.0, 0.0), 0.5);
     }
 
     FragColor = color;

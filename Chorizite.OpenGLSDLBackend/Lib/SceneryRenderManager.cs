@@ -32,6 +32,29 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Visibility filters
         private bool _showScenery = true;
 
+        private bool _showDisqualifiedScenery = false;
+        /// <summary>
+        /// Whether to show scenery that would normally be disqualified (roads, buildings, etc).
+        /// </summary>
+        public bool ShowDisqualifiedScenery {
+            get => _showDisqualifiedScenery;
+            set {
+                if (_showDisqualifiedScenery == value) return;
+                _showDisqualifiedScenery = value;
+                RefreshAll();
+            }
+        }
+
+        private void RefreshAll() {
+            foreach (var lb in _landblocks.Values) {
+                lb.GpuReady = false;
+                lb.InstancesReady = false;
+                lb.MdiCommands.Clear();
+                _pendingGeneration[GeometryUtils.PackKey(lb.GridX, lb.GridY)] = lb;
+            }
+            NeedsPrepare = true;
+        }
+
         // Caches
         private readonly ConcurrentDictionary<uint, Scene> _sceneCache = new();
 
@@ -115,7 +138,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                         // Narrow phase: Mesh-precise raycast
                         if (MeshManager.IntersectMesh(renderData, inst.Transform, origin, direction, out float d, out Vector3 normal)) {
-                            if (d < hit.Distance && d <= maxDistance) {
+                            bool isCloser = d < hit.Distance;
+                            bool isSameDistance = Math.Abs(d - hit.Distance) < 0.001f;
+                            bool isPreferable = isSameDistance && hit.DisqualificationReason != SceneryDisqualificationReason.None && inst.DisqualificationReason == SceneryDisqualificationReason.None;
+
+                            if ((isCloser || isPreferable) && d <= maxDistance) {
                                 hit.Hit = true;
                                 hit.Distance = d;
                                 hit.Type = ObjectType.Scenery;
@@ -126,6 +153,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 hit.Rotation = inst.Rotation;
                                 hit.LandblockId = kvp.Key;
                                 hit.Normal = normal;
+                                hit.DisqualificationReason = inst.DisqualificationReason;
                             }
                         }
                     }
@@ -197,17 +225,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var lbSizeUnits = regionInfo.LandblockSizeInUnits; // 192
                 var buildingsGrid = new List<SceneryInstance>[8, 8];
                 foreach (var b in buildings) {
-                    var minX = (int)Math.Max(0, (b.BoundingBox.Min.X - regionInfo.MapOffset.X - lbGlobalX * lbSizeUnits) / 24f);
-                    var maxX = (int)Math.Min(7, (b.BoundingBox.Max.X - regionInfo.MapOffset.X - lbGlobalX * lbSizeUnits) / 24f);
-                    var minY = (int)Math.Max(0, (b.BoundingBox.Min.Y - regionInfo.MapOffset.Y - lbGlobalY * lbSizeUnits) / 24f);
-                    var maxY = (int)Math.Min(7, (b.BoundingBox.Max.Y - regionInfo.MapOffset.Y - lbGlobalY * lbSizeUnits) / 24f);
-
-                    for (int gx = minX; gx <= maxX; gx++) {
-                        for (int gy = minY; gy <= maxY; gy++) {
-                            buildingsGrid[gx, gy] ??= new List<SceneryInstance>();
-                            buildingsGrid[gx, gy].Add(b);
-                        }
-                    }
+                    var gx = (int)Math.Clamp(b.LocalPosition.X / 24f, 0, 7);
+                    var gy = (int)Math.Clamp(b.LocalPosition.Y / 24f, 0, 7);
+                    buildingsGrid[gx, gy] ??= new List<SceneryInstance>();
+                    buildingsGrid[gx, gy].Add(b);
                 }
 
                 var region = regionInfo.Region;
@@ -278,10 +299,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         var lx = cellX * cellSize + localPos.X;
                         var ly = cellY * cellSize + localPos.Y;
 
-                        if (lx < 0 || ly < 0 || lx >= lbSizeUnits || ly >= lbSizeUnits) continue;
+                        SceneryDisqualificationReason disqualificationReason = SceneryDisqualificationReason.None;
+
+                        if (lx < 0 || ly < 0 || lx >= lbSizeUnits || ly >= lbSizeUnits) {
+                            if (!ShowDisqualifiedScenery) continue;
+                            disqualificationReason = SceneryDisqualificationReason.OutsideLandblock;
+                        }
 
                         // Road check
-                        if (TerrainGeometryGenerator.OnRoad(new Vector3(lx, ly, 0), lbTerrainEntries)) continue;
+                        if (TerrainGeometryGenerator.OnRoad(new Vector3(lx, ly, 0), lbTerrainEntries)) {
+                            if (!ShowDisqualifiedScenery) continue;
+                            disqualificationReason = SceneryDisqualificationReason.Road;
+                        }
 
                         // Height and normal
                         var lbOffset = new Vector3(lx, ly, 0);
@@ -289,7 +318,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         lbOffset.Z = z;
 
                         var normal = TerrainGeometryGenerator.GetNormal(region, lbTerrainEntries, lbGlobalX, lbGlobalY, lbOffset);
-                        if (!SceneryHelpers.CheckSlope(obj, normal.Z)) continue;
+                        if (!SceneryHelpers.CheckSlope(obj, normal.Z)) {
+                            if (disqualificationReason == SceneryDisqualificationReason.None) {
+                                if (!ShowDisqualifiedScenery) continue;
+                                disqualificationReason = SceneryDisqualificationReason.Slope;
+                            }
+                        }
 
                         Quaternion quat;
                         if (obj.Align != 0) {
@@ -314,9 +348,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         var localBbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max) : default;
                         var bbox = localBbox.Transform(transform);
 
+                        ushort instanceIndex = (ushort)((((uint)cellX & 0x7u) << 13) | (((uint)cellY & 0x7u) << 10) | ((uint)j & 0x3FFu));
                         var instance = new SceneryInstance {
                             ObjectId = obj.ObjectId,
-                            InstanceId = ObjectId.FromDat(ObjectType.Scenery, 0, key, (ushort)scenery.Count),
+                            InstanceId = ObjectId.FromDat(ObjectType.Scenery, 0, key, instanceIndex),
                             IsSetup = isSetup,
                             WorldPosition = worldOrigin,
                             LocalPosition = new Vector3(lx, ly, z),
@@ -324,7 +359,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             Scale = scale,
                             Transform = transform,
                             LocalBoundingBox = localBbox,
-                            BoundingBox = bbox
+                            BoundingBox = bbox,
+                            DisqualificationReason = disqualificationReason,
+                            Flags = disqualificationReason != SceneryDisqualificationReason.None ? InstanceData.INSTANCE_FLAG_DISQUALIFIED : 0u
                         };
 
                         // Collision detection using spatial index
@@ -332,8 +369,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         var gy2 = (int)Math.Clamp(ly / 24f, 0, 7);
                         var nearbyBuildings = buildingsGrid[gx2, gy2];
 
-                        if (nearbyBuildings != null && Collision(nearbyBuildings, instance))
-                            continue;
+                        if (nearbyBuildings != null && Collision(nearbyBuildings, instance)) {
+                            if (instance.DisqualificationReason == SceneryDisqualificationReason.None) {
+                                if (!ShowDisqualifiedScenery) continue;
+                                instance.DisqualificationReason = SceneryDisqualificationReason.Building;
+                                instance.Flags |= InstanceData.INSTANCE_FLAG_DISQUALIFIED;
+                            }
+                        }
 
                         scenery.Add(instance);
                     }
@@ -373,7 +415,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private bool Collision(List<SceneryInstance> instances, SceneryInstance target) {
             foreach (var instance in instances) {
-                if (target.BoundingBox.Intersects2D(instance.BoundingBox)) {
+                if (instance.BoundingBox.Contains2D(target.WorldPosition)) {
                     return true;
                 }
             }

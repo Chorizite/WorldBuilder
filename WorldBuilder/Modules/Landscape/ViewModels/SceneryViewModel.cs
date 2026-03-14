@@ -16,8 +16,17 @@ public partial class SceneryViewModel : SelectedObjectViewModelBase {
 
     public string ObjectIdHex => $"0x{ObjectId:X8}";
 
-    public SceneryViewModel(uint objectId, ObjectId instanceId, ushort landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation) 
+    public bool IsDisqualified => DisqualificationReason != SceneryDisqualificationReason.None;
+
+    private SceneryDisqualificationReason _disqualificationReason;
+    public override SceneryDisqualificationReason DisqualificationReason {
+        get => _disqualificationReason;
+        protected set => SetProperty(ref _disqualificationReason, value);
+    }
+
+    public SceneryViewModel(uint objectId, ObjectId instanceId, ushort landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation, SceneryDisqualificationReason reason) 
         : base(instanceId, landblockId, position, localPosition, rotation) {
         ObjectIdVal = objectId;
+        DisqualificationReason = reason;
     }
 }

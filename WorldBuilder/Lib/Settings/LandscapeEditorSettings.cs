@@ -184,9 +184,14 @@ namespace WorldBuilder.Lib.Settings {
         private bool _showUnwalkableSlopes = false;
         public bool ShowUnwalkableSlopes { get => _showUnwalkableSlopes; set => SetProperty(ref _showUnwalkableSlopes, value); }
 
+        [SettingDescription("Render scenery that would normally be disqualified (e.g. on roads or buildings)")]
+        [SettingOrder(10)]
+        private bool _showDisqualifiedScenery = false;
+        public bool ShowDisqualifiedScenery { get => _showDisqualifiedScenery; set => SetProperty(ref _showDisqualifiedScenery, value); }
+
         [SettingDescription("Number of landblocks to render objects (scenery, buildings, etc) around the camera")]
         [SettingRange(1, 64, 1, 4)]
-        [SettingOrder(10)]
+        [SettingOrder(11)]
         private int _objectRenderDistance = 12;
         public int ObjectRenderDistance { get => _objectRenderDistance; set => SetProperty(ref _objectRenderDistance, value); }
 

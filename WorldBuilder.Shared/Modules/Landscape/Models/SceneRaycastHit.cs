@@ -77,6 +77,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         /// <summary>The Y vertex coordinate (for terrain hits).</summary>
         public int VertexY { get; set; }
 
+        public SceneryDisqualificationReason DisqualificationReason { get; set; }
+
         /// <summary>A predefined 'no hit' result.</summary>
         public static SceneRaycastHit NoHit => new() { Hit = false, Distance = float.MaxValue, Type = ObjectType.None };
     }
