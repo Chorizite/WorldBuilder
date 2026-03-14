@@ -108,9 +108,11 @@ public class Project : IProject, IAsyncDisposable {
                 if (!Directory.Exists(projectDirectory)) {
                     return Result<Project>.Failure($"Invalid project directory, does not exist: {projectDirectory}", "PROJECT_DIRECTORY_NOT_FOUND");
                 }
-                // Set repository root to sibling Dats folder of the projects directory
-                var datsSiblingDir = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(projectDirectory) ?? string.Empty) ?? string.Empty, "Dats");
-                datRepository.SetRepositoryRoot(datsSiblingDir);
+                if (string.IsNullOrEmpty(datRepository.RepositoryRoot)) {
+                    // Set repository root to sibling Dats folder of the projects directory
+                    var datsSiblingDir = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(projectDirectory) ?? string.Empty) ?? string.Empty, "Dats");
+                    datRepository.SetRepositoryRoot(datsSiblingDir);
+                }
 
                 await migrationService.MigrateIfNeededAsync(projectFile, progress, ct);
 
@@ -162,8 +164,10 @@ public class Project : IProject, IAsyncDisposable {
             Directory.CreateDirectory(projectDirectory);
         }
 
-        var datsSiblingDir = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(projectDirectory) ?? string.Empty) ?? string.Empty, "Dats");
-        datRepository.SetRepositoryRoot(datsSiblingDir);
+        if (string.IsNullOrEmpty(datRepository.RepositoryRoot)) {
+            var datsSiblingDir = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(projectDirectory) ?? string.Empty) ?? string.Empty, "Dats");
+            datRepository.SetRepositoryRoot(datsSiblingDir);
+        }
 
         if (managedId == null) {
             // Import/Reference DATs

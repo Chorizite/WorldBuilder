@@ -49,6 +49,40 @@ namespace WorldBuilder.Tests.Services {
             Assert.Equal("TestManagedSet", manager.RecentProjects[0].Name);
         }
 
+        [Fact]
+        public async Task RecentProjects_Verify_RespectsRepositoryRoot() {
+            var settings = new WorldBuilderSettings();
+            var mockDatRepo = new Mock<WorldBuilder.Shared.Services.IDatRepositoryService>();
+            
+            var managedId = Guid.NewGuid();
+            var managedSet = new WorldBuilder.Shared.Services.ManagedDatSet {
+                Id = managedId,
+                FriendlyName = "TestManagedSet"
+            };
+
+            mockDatRepo.Setup(r => r.GetManagedDataSet(managedId)).Returns(managedSet);
+
+            var manager = new RecentProjectsManager(settings, NullLogger<RecentProjectsManager>.Instance, mockDatRepo.Object);
+            await manager.InitializationTask;
+
+            // Create a fake project file
+            var projectFile = Path.Combine(_testSettingsDir, "test.wbproj");
+            File.WriteAllText(projectFile, "{}");
+
+            await manager.AddRecentProject("Test Project", projectFile, false, managedId);
+
+            Assert.Single(manager.RecentProjects);
+            Assert.False(manager.RecentProjects[0].HasError);
+            Assert.Equal(managedId, manager.RecentProjects[0].ManagedDatId);
+            
+            // Now verify that if it's NOT in the repo, it shows an error
+            var otherManagedId = Guid.NewGuid();
+            await manager.AddRecentProject("Project With Missing DAT", projectFile, false, otherManagedId);
+            
+            Assert.True(manager.RecentProjects[0].HasError);
+            Assert.Equal("Managed DAT set no longer exists", manager.RecentProjects[0].Error);
+        }
+
         public void Dispose() {
             TestSettingsHelper.CleanupTestSettings(_testSettingsDir);
         }

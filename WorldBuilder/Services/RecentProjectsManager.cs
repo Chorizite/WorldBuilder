@@ -75,6 +75,7 @@ namespace WorldBuilder.Services {
         /// <param name="versionInfo">The version information, if any</param>
         /// <returns>A task representing the asynchronous operation</returns>
         public async Task AddRecentProject(string name, string filePath, bool isReadOnly, Guid? managedDatId = null, string? versionInfo = null) {
+            _datRepository.SetRepositoryRoot(_settings.App.ManagedDatsDirectory);
             if (name == "client_portal" && managedDatId.HasValue) {
                 var managedSet = _datRepository.GetManagedDataSet(managedDatId.Value);
                 if (managedSet != null) {
@@ -122,6 +123,7 @@ namespace WorldBuilder.Services {
         /// Loads recent projects from persistent storage.
         /// </summary>
         private async Task LoadRecentProjects() {
+            _datRepository.SetRepositoryRoot(_settings.App.ManagedDatsDirectory);
             await _fileLock.WaitAsync();
             try {
                 if (!File.Exists(RecentProjectsFilePath)) {

@@ -133,8 +133,9 @@ namespace WorldBuilder.Services {
                     model.LoadingProgress = p.progress * 100f;
                 });
 
-                var migrationService = _rootProvider.GetRequiredService<IProjectMigrationService>();
                 var datRepository = _rootProvider.GetRequiredService<IDatRepositoryService>();
+                datRepository.SetRepositoryRoot(_settings.App.ManagedDatsDirectory);
+                var migrationService = _rootProvider.GetRequiredService<IProjectMigrationService>();
                 var projectResult = await Project.Create(model.ProjectName, model.ProjectLocation, model.BaseDatDirectory, datRepository, migrationService, model.SelectedManagedDatSet?.Id, progress, default);
 
                 if (projectResult.IsSuccess) {
@@ -185,8 +186,9 @@ namespace WorldBuilder.Services {
         private async Task SetProject(string projectPath, Guid? managedId = null, IProgress<(string message, float progress)>? progress = null) {
             _projectProvider?.Dispose();
 
-            var migrationService = _rootProvider.GetRequiredService<IProjectMigrationService>();
             var datRepository = _rootProvider.GetRequiredService<IDatRepositoryService>();
+            datRepository.SetRepositoryRoot(_settings.App.ManagedDatsDirectory);
+            var migrationService = _rootProvider.GetRequiredService<IProjectMigrationService>();
             var projectResult = await Project.Open(projectPath, datRepository, migrationService, managedId, progress, CancellationToken.None);
             if (projectResult.IsSuccess) {
                 SetProject(projectResult.Value);
