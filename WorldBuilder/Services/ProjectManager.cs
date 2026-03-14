@@ -83,8 +83,20 @@ namespace WorldBuilder.Services {
         /// <param name="message">The message containing the project file path</param>
         public async void Receive(OpenProjectMessage message) {
             _log.LogInformation($"OpenProjectMessage: {message.Value}");
+            var sourceVM = message.SourceViewModel;
             try {
-                await SetProject(message.Value, message.ManagedDatId);
+                if (sourceVM != null) {
+                    sourceVM.IsLoading = true;
+                    sourceVM.LoadingProgress = 0f;
+                    sourceVM.LoadingStatus = "Opening project...";
+                }
+
+                var progress = sourceVM != null ? new Progress<(string message, float progress)>(p => {
+                    sourceVM.LoadingStatus = p.message;
+                    sourceVM.LoadingProgress = p.progress * 100f;
+                }) : null;
+
+                await SetProject(message.Value, message.ManagedDatId, progress);
             }
             catch (Exception ex) {
                 _log.LogError(ex, $"Failed to open project: {message.Value}");
@@ -95,6 +107,11 @@ namespace WorldBuilder.Services {
                 }
 
                 await _dialogService.ShowMessageBoxAsync(null, messageText, "Project Load Error");
+            }
+            finally {
+                if (sourceVM != null) {
+                    sourceVM.IsLoading = false;
+                }
             }
         }
 
@@ -162,10 +179,10 @@ namespace WorldBuilder.Services {
             _ = _recentProjectsManager.AddRecentProject(project.Name, project.ProjectFile, project.IsReadOnly, project.ManagedDatSetId);
         }
 
-        private async Task SetProject(string projectPath, Guid? managedId = null) {
+        private async Task SetProject(string projectPath, Guid? managedId = null, IProgress<(string message, float progress)>? progress = null) {
             _projectProvider?.Dispose();
 
-            var projectResult = await Project.Open(projectPath, managedId, null, CancellationToken.None);
+            var projectResult = await Project.Open(projectPath, managedId, progress, CancellationToken.None);
             if (projectResult.IsSuccess) {
                 SetProject(projectResult.Value);
             }

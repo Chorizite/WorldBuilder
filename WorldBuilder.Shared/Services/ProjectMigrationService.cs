@@ -53,7 +53,7 @@ namespace WorldBuilder.Shared.Services {
                 }
 
                 // Import local DATs
-                var importResult = await _datRepository.ImportAsync(localDatDir, null, null, ct);
+                var importResult = await _datRepository.ImportAsync(localDatDir, null, progress, ct);
                 if (importResult.IsFailure) {
                     return Result<Unit>.Failure($"Failed to import local DATs: {importResult.Error.Message}", importResult.Error.Code);
                 }
