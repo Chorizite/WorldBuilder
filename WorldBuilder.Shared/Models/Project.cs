@@ -88,11 +88,13 @@ public class Project : IProject, IAsyncDisposable {
     /// Opens an existing project from the specified project file path.
     /// </summary>
     /// <param name="projectFile">The path to the project file to open</param>
+    /// <param name="datRepository">The DAT repository service</param>
+    /// <param name="migrationService">The project migration service</param>
     /// <param name="managedId">Optional managed DAT set ID</param>
     /// <param name="progress">Optional progress reporter for migrations</param>
     /// <param name="ct">A cancellation token to cancel the operation</param>
     /// <returns>A Result containing a Project instance if successful, or an error</returns>
-    public static async Task<Result<Project>> Open(string projectFile, Guid? managedId = null, IProgress<(string message, float progress)>? progress = null, CancellationToken ct = default) {
+    public static async Task<Result<Project>> Open(string projectFile, IDatRepositoryService datRepository, IProjectMigrationService migrationService, Guid? managedId = null, IProgress<(string message, float progress)>? progress = null, CancellationToken ct = default) {
         try {
             var isReadOnly = projectFile.EndsWith(".dat", StringComparison.OrdinalIgnoreCase);
             string? baseDatDir = null;
@@ -106,17 +108,6 @@ public class Project : IProject, IAsyncDisposable {
                 if (!Directory.Exists(projectDirectory)) {
                     return Result<Project>.Failure($"Invalid project directory, does not exist: {projectDirectory}", "PROJECT_DIRECTORY_NOT_FOUND");
                 }
-
-                // Silent migration
-                var migrationServiceProvider = new ServiceCollection()
-                    .AddLogging()
-                    .AddSingleton<IDatRepositoryService, DatRepositoryService>()
-                    .AddSingleton<IProjectMigrationService, ProjectMigrationService>()
-                    .BuildServiceProvider();
-                
-                var datRepository = migrationServiceProvider.GetRequiredService<IDatRepositoryService>();
-                var migrationService = migrationServiceProvider.GetRequiredService<IProjectMigrationService>();
-                
                 // Set repository root to sibling Dats folder of the projects directory
                 var datsSiblingDir = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(projectDirectory) ?? string.Empty) ?? string.Empty, "Dats");
                 datRepository.SetRepositoryRoot(datsSiblingDir);
@@ -125,7 +116,7 @@ public class Project : IProject, IAsyncDisposable {
 
                 // Resolve ManagedDatSetId from the DB
                 var connectionString = $"Data Source={projectFile}";
-                using var repository = new SQLiteProjectRepository(connectionString, migrationServiceProvider.GetService<ILoggerFactory>());
+                using var repository = new SQLiteProjectRepository(connectionString, null); // Use null for logger factory as we don't have one here easily
                 var datIdResult = await repository.GetKeyValueAsync("ManagedDatSetId", null, ct);
                 if (datIdResult.IsSuccess && Guid.TryParse(datIdResult.Value, out var resolvedId)) {
                     managedDatSetId = resolvedId;
@@ -153,11 +144,13 @@ public class Project : IProject, IAsyncDisposable {
     /// <param name="projectName">The name for the new project</param>
     /// <param name="projectDirectory">The directory where the project should be created</param>
     /// <param name="baseDatDirectory">The directory containing the base dat files, ignored if managedId is provided</param>
+    /// <param name="datRepository">The DAT repository service</param>
+    /// <param name="migrationService">The project migration service</param>
     /// <param name="managedId">Optional existing managed DAT set ID to use</param>
     /// <param name="progress">Optional progress reporter</param>
     /// <param name="ct">A cancellation token to cancel the operation</param>
     /// <returns>A Result containing a Project instance if successful, or an error</returns>
-    public static async Task<Result<Project>> Create(string projectName, string projectDirectory, string baseDatDirectory, Guid? managedId = null, IProgress<(string message, float progress)>? progress = null, CancellationToken ct = default) {
+    public static async Task<Result<Project>> Create(string projectName, string projectDirectory, string baseDatDirectory, IDatRepositoryService datRepository, IProjectMigrationService migrationService, Guid? managedId = null, IProgress<(string message, float progress)>? progress = null, CancellationToken ct = default) {
         if (managedId == null && !Directory.Exists(baseDatDirectory)) {
             return Result<Project>.Failure($"Base dat directory does not exist: {baseDatDirectory}", "BASE_DAT_DIRECTORY_NOT_FOUND");
         }
@@ -169,13 +162,6 @@ public class Project : IProject, IAsyncDisposable {
             Directory.CreateDirectory(projectDirectory);
         }
 
-        // Initialize DAT repository service
-        var migrationServiceProvider = new ServiceCollection()
-            .AddLogging()
-            .AddSingleton<IDatRepositoryService, DatRepositoryService>()
-            .BuildServiceProvider();
-        
-        var datRepository = migrationServiceProvider.GetRequiredService<IDatRepositoryService>();
         var datsSiblingDir = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(projectDirectory) ?? string.Empty) ?? string.Empty, "Dats");
         datRepository.SetRepositoryRoot(datsSiblingDir);
 
@@ -196,12 +182,12 @@ public class Project : IProject, IAsyncDisposable {
         
         // Initial setup of DB to store ManagedDatSetId
         var connectionString = $"Data Source={projectPath}";
-        using (var repository = new SQLiteProjectRepository(connectionString, migrationServiceProvider.GetService<ILoggerFactory>())) {
+        using (var repository = new SQLiteProjectRepository(connectionString, null)) {
             await repository.InitializeDatabaseAsync(ct);
             await repository.SetKeyValueAsync("ManagedDatSetId", managedId.Value.ToString(), null, ct);
         }
 
-        var projectResult = await Open(projectPath, managedId, progress, ct);
+        var projectResult = await Open(projectPath, datRepository, migrationService, managedId, progress, ct);
         if (projectResult.IsFailure) return projectResult;
 
         var project = projectResult.Value;

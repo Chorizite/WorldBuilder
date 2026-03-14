@@ -18,6 +18,7 @@ using WorldBuilder.ViewModels;
 using HanumanInstitute.MvvmDialogs;
 using HanumanInstitute.MvvmDialogs.Avalonia;
 using HanumanInstitute.MvvmDialogs.FrameworkDialogs;
+using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Services {
     /// <summary>
@@ -132,7 +133,9 @@ namespace WorldBuilder.Services {
                     model.LoadingProgress = p.progress * 100f;
                 });
 
-                var projectResult = await Project.Create(model.ProjectName, model.ProjectLocation, model.BaseDatDirectory, model.SelectedManagedDatSet?.Id, progress, default);
+                var migrationService = _rootProvider.GetRequiredService<IProjectMigrationService>();
+                var datRepository = _rootProvider.GetRequiredService<IDatRepositoryService>();
+                var projectResult = await Project.Create(model.ProjectName, model.ProjectLocation, model.BaseDatDirectory, datRepository, migrationService, model.SelectedManagedDatSet?.Id, progress, default);
 
                 if (projectResult.IsSuccess) {
                     _settings.App.LastBaseDatDirectory = model.BaseDatDirectory;
@@ -182,7 +185,9 @@ namespace WorldBuilder.Services {
         private async Task SetProject(string projectPath, Guid? managedId = null, IProgress<(string message, float progress)>? progress = null) {
             _projectProvider?.Dispose();
 
-            var projectResult = await Project.Open(projectPath, managedId, progress, CancellationToken.None);
+            var migrationService = _rootProvider.GetRequiredService<IProjectMigrationService>();
+            var datRepository = _rootProvider.GetRequiredService<IDatRepositoryService>();
+            var projectResult = await Project.Open(projectPath, datRepository, migrationService, managedId, progress, CancellationToken.None);
             if (projectResult.IsSuccess) {
                 SetProject(projectResult.Value);
             }
