@@ -9,6 +9,7 @@ using WorldBuilder.Shared.Modules.Landscape.Services;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Services;
+using WorldBuilder.Shared.Tests.Mocks;
 using Xunit;
 
 namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
@@ -24,6 +25,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var raycastServiceMock = new Mock<ILandscapeRaycastService>();
             var editorServiceMock = new Mock<ILandscapeEditorService>();
             var settingsProviderMock = new Mock<IToolSettingsProvider>();
+            var inputManager = new MockInputManager();
             
             var context = new LandscapeToolContext(
                 doc, 
@@ -37,7 +39,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
                 editorServiceMock.Object,
                 settingsProviderMock.Object);
 
-            var tool = new ObjectManipulationTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
+            var tool = new ObjectManipulationTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object, inputManager);
             tool.Activate(context);
 
             var objId = ObjectId.FromDat(ObjectType.StaticObject, 0, 1, 123);
@@ -81,10 +83,11 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var editorServiceMock = new Mock<ILandscapeEditorService>();
             var landscapeObjectServiceMock = new Mock<ILandscapeObjectService>();
             var settingsProviderMock = new Mock<IToolSettingsProvider>();
-
+            var inputManager = new MockInputManager();
+            
             var context = new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, history, new Mock<ICamera>().Object, new Mock<Microsoft.Extensions.Logging.ILogger>().Object, landscapeObjectServiceMock.Object, raycastServiceMock.Object, editorServiceMock.Object, settingsProviderMock.Object);
 
-            var tool = new ObjectManipulationTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
+            var tool = new ObjectManipulationTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object, inputManager);
             tool.Activate(context);
 
             var objId = ObjectId.FromDat(ObjectType.StaticObject, 0, 1, 123);
@@ -113,10 +116,11 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var editorServiceMock = new Mock<ILandscapeEditorService>();
             var landscapeObjectServiceMock = new Mock<ILandscapeObjectService>();
             var settingsProviderMock = new Mock<IToolSettingsProvider>();
-
+            var inputManager = new MockInputManager();
+            
             var context = new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, history, new Mock<ICamera>().Object, new Mock<Microsoft.Extensions.Logging.ILogger>().Object, landscapeObjectServiceMock.Object, raycastServiceMock.Object, editorServiceMock.Object, settingsProviderMock.Object);
 
-            var tool = new ObjectManipulationTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
+            var tool = new ObjectManipulationTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object, inputManager);
             tool.Activate(context);
 
             var objId1 = ObjectId.FromDat(ObjectType.StaticObject, 0, 1, 123);
@@ -147,10 +151,11 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var editorServiceMock = new Mock<ILandscapeEditorService>();
             var landscapeObjectServiceMock = new Mock<ILandscapeObjectService>();
             var settingsProviderMock = new Mock<IToolSettingsProvider>();
-
+            var inputManager = new MockInputManager();
+            
             var context = new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, history, new Mock<ICamera>().Object, new Mock<Microsoft.Extensions.Logging.ILogger>().Object, landscapeObjectServiceMock.Object, raycastServiceMock.Object, editorServiceMock.Object, settingsProviderMock.Object);
 
-            var tool = new ObjectManipulationTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
+            var tool = new ObjectManipulationTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object, inputManager);
             tool.Activate(context);
 
             var objId1 = ObjectId.FromDat(ObjectType.StaticObject, 0, 1, 123);
@@ -184,10 +189,11 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var editorServiceMock = new Mock<ILandscapeEditorService>();
             var landscapeObjectServiceMock = new Mock<ILandscapeObjectService>();
             var settingsProviderMock = new Mock<IToolSettingsProvider>();
-
+            var inputManager = new MockInputManager();
+            
             var context = new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, history, new Mock<ICamera>().Object, new Mock<Microsoft.Extensions.Logging.ILogger>().Object, landscapeObjectServiceMock.Object, raycastServiceMock.Object, editorServiceMock.Object, settingsProviderMock.Object);
 
-            var tool = new ObjectManipulationTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
+            var tool = new ObjectManipulationTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object, inputManager);
             tool.Activate(context);
 
             var objId1 = ObjectId.FromDat(ObjectType.StaticObject, 0, 1, 123);
@@ -221,10 +227,11 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var editorServiceMock = new Mock<ILandscapeEditorService>();
             var landscapeObjectServiceMock = new Mock<ILandscapeObjectService>();
             var settingsProviderMock = new Mock<IToolSettingsProvider>();
-
+            var inputManager = new MockInputManager();
+            
             var context = new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, history, new Mock<ICamera>().Object, new Mock<Microsoft.Extensions.Logging.ILogger>().Object, landscapeObjectServiceMock.Object, raycastServiceMock.Object, editorServiceMock.Object, settingsProviderMock.Object);
 
-            var tool = new ObjectManipulationTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
+            var tool = new ObjectManipulationTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object, inputManager);
             tool.Activate(context);
 
             var objId1 = ObjectId.FromDat(ObjectType.StaticObject, 0, 1, 123);
@@ -259,10 +266,11 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var editorServiceMock = new Mock<ILandscapeEditorService>();
             var landscapeObjectServiceMock = new Mock<ILandscapeObjectService>();
             var settingsProviderMock = new Mock<IToolSettingsProvider>();
-
+            var inputManager = new MockInputManager();
+            
             var context = new LandscapeToolContext(doc, new EditorState(), new Mock<IDatReaderWriter>().Object, history, new Mock<ICamera>().Object, new Mock<Microsoft.Extensions.Logging.ILogger>().Object, landscapeObjectServiceMock.Object, raycastServiceMock.Object, editorServiceMock.Object, settingsProviderMock.Object);
 
-            var tool = new ObjectManipulationTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
+            var tool = new ObjectManipulationTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object, inputManager);
             tool.Activate(context);
 
             var objId1 = ObjectId.FromDat(ObjectType.StaticObject, 0, 1, 123);

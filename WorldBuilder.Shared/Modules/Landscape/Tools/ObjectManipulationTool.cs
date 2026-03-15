@@ -27,6 +27,11 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         [ObservableProperty] private bool _selectEnvCellStaticObjects = true;
         [ObservableProperty] private GizmoMode _mode = GizmoMode.Translate;
 
+        // Hotkey display properties
+        [ObservableProperty] private string? _translateHotkey;
+        [ObservableProperty] private string? _rotateHotkey;
+        [ObservableProperty] private string? _bothHotkey;
+
         /// <summary>The gizmo state, used for rendering.</summary>
         public GizmoState GizmoState { get; } = new();
 
@@ -34,6 +39,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private readonly ILandscapeEditorService _editorService;
         private readonly ILandscapeObjectService _landscapeObjectService;
         private readonly IToolSettingsProvider _settingsProvider;
+        private readonly IInputManager _inputManager;
         private readonly GizmoDragHandler _dragHandler = new();
         private SceneRaycastHit _lastHoveredHit;
         private Vector3 _currentSurfaceNormal = Vector3.UnitZ;
@@ -46,11 +52,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private bool _isDuplicating;
         private BoundingBox? _dragStartBounds;
 
-        public ObjectManipulationTool(ILandscapeRaycastService raycastService, ILandscapeEditorService editorService, ILandscapeObjectService landscapeObjectService, IToolSettingsProvider settingsProvider) {
+        public ObjectManipulationTool(ILandscapeRaycastService raycastService, ILandscapeEditorService editorService, ILandscapeObjectService landscapeObjectService, IToolSettingsProvider settingsProvider, IInputManager inputManager) {
             _raycastService = raycastService;
             _editorService = editorService;
             _landscapeObjectService = landscapeObjectService;
             _settingsProvider = settingsProvider;
+            
+            _inputManager = inputManager;
+            _inputManager.KeyBindingsChanged += OnKeyBindingsChanged;
+            UpdateHotkeyDisplay();
         }
 
         public override void Activate(LandscapeToolContext context) {
@@ -91,15 +101,16 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         public override bool OnKeyDown(ViewportInputEvent e) {
-            if (string.Equals(e.Key, "T", StringComparison.OrdinalIgnoreCase)) {
+            var modifiers = e.ConvertModifiersToString();
+            if (e.Key == _inputManager.GetKey("TranslateTool") && modifiers == _inputManager.GetKeyModifiers("TranslateTool")) {
                 Mode = GizmoMode.Translate;
                 return true;
             }
-            if (string.Equals(e.Key, "R", StringComparison.OrdinalIgnoreCase)) {
+            if (e.Key == _inputManager.GetKey("RotateTool") && modifiers == _inputManager.GetKeyModifiers("RotateTool")) {
                 Mode = GizmoMode.Rotate;
                 return true;
             }
-            if (string.Equals(e.Key, "F", StringComparison.OrdinalIgnoreCase)) {
+            if (e.Key == _inputManager.GetKey("BothTool") && modifiers == _inputManager.GetKeyModifiers("BothTool")) {
                 Mode = GizmoMode.Both;
                 return true;
             }
@@ -714,5 +725,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         partial void OnAlignToSurfaceChanged(bool value) => SaveSettings();
         partial void OnShowBoundingBoxesChanged(bool value) => SaveSettings();
         partial void OnModeChanged(GizmoMode value) { GizmoState.Mode = value; SaveSettings(); }
+
+        private void OnKeyBindingsChanged(object? sender, EventArgs e) {
+            UpdateHotkeyDisplay();
+        }
+
+        private void UpdateHotkeyDisplay() {
+            TranslateHotkey = _inputManager.GetKeyBinding("TranslateTool").ToString();
+            RotateHotkey = _inputManager.GetKeyBinding("RotateTool").ToString();
+            BothHotkey = _inputManager.GetKeyBinding("BothTool").ToString();
+        }
     }
 }

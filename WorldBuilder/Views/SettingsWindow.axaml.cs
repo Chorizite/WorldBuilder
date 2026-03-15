@@ -4,9 +4,11 @@ using Avalonia.Platform.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Linq;
+using WorldBuilder.Lib.Input;
 using WorldBuilder.Lib.Settings;
 using WorldBuilder.Services;
 using WorldBuilder.ViewModels;
+using WorldBuilder.Views.Settings;
 
 namespace WorldBuilder.Views {
     public partial class SettingsWindow : Window {
@@ -15,6 +17,7 @@ namespace WorldBuilder.Views {
         private WorldBuilderSettings? Settings => ViewModel?.Settings;
         private SettingsUIGenerator? _uiGenerator;
         private ListBox? _navigationList;
+        private InputManager? _inputManager;
 
         public SettingsWindow() {
             InitializeComponent();
@@ -24,6 +27,10 @@ namespace WorldBuilder.Views {
             base.OnDataContextChanged(e);
 
             if (DataContext is SettingsWindowViewModel viewModel && viewModel.Settings != null) {
+
+                _inputManager = WorldBuilder.App.Services?.GetService<InputManager>()
+                    ?? throw new InvalidOperationException("InputManager not available");
+
                 // Store a copy of original settings for cancel/reset
                 _originalSettings = SettingsCloner.Clone(viewModel.Settings);
 
@@ -38,17 +45,54 @@ namespace WorldBuilder.Views {
             // Generate and add navigation
             _navigationList = _uiGenerator.GenerateNavigation();
             _navigationList.SelectionChanged += Navigation_SelectionChanged;
+            
+            // Add keymap to left menu navbar
+            AddKeymapMenuItem(_navigationList);
+
             NavigationContainer.Children.Add(_navigationList);
 
             // Generate and add content panels
             var contentPanels = _uiGenerator.GenerateContentPanels();
             ContentContainer.Children.Add(contentPanels);
 
+            // Add keymap panel
+            var keymapScrollViewer = GenerateKeymapUI();
+            ContentContainer.Children.Add(keymapScrollViewer);
+
             // Select first enabled item by default
             var firstEnabled = _navigationList.Items.OfType<ListBoxItem>().FirstOrDefault(i => i.IsEnabled);
             if (firstEnabled != null) {
                 _navigationList.SelectedItem = firstEnabled;
             }
+        }
+
+        private void AddKeymapMenuItem(ListBox navigationList) { 
+
+            // Add keymap navigation item manually
+            var applicationItem = navigationList.Items.OfType<ListBoxItem>()
+                .FirstOrDefault(i => i.Content?.ToString() == "Application");
+
+            if (applicationItem != null) {
+                var keymapNavItem = new ListBoxItem {
+                    Content = "Keymap",
+                    Tag = "application-keymap",
+                    Classes = { "NavSubSection" },
+                    IsEnabled = true
+                };
+                var appIndex = navigationList.Items.IndexOf(applicationItem);
+                navigationList.Items.Insert(appIndex + 1, keymapNavItem);
+            }
+        }
+
+        private ScrollViewer GenerateKeymapUI() {
+            var keymapScrollViewer = new ScrollViewer {
+                Name = "applicationkeymapPanel",
+                IsVisible = false,
+                HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+                VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
+            };
+            keymapScrollViewer.Content = new KeymapPanelControl();
+            return keymapScrollViewer;
         }
 
         private void Navigation_SelectionChanged(object? sender, SelectionChangedEventArgs e) {
@@ -65,6 +109,10 @@ namespace WorldBuilder.Views {
                         }
                     }
                 }
+                // Also handle direct ScrollViewer children
+                if (child is ScrollViewer svb) {
+                    svb.IsVisible = false;
+                }
             }
 
             // Show selected panel
@@ -77,6 +125,11 @@ namespace WorldBuilder.Views {
                             return;
                         }
                     }
+                }
+                // Check for direct ScrollViewer children
+                if (child is ScrollViewer svb && svb.Name == panelName) {
+                    svb.IsVisible = true;
+                    return;
                 }
             }
         }
@@ -109,8 +162,10 @@ namespace WorldBuilder.Views {
             // Restore original settings
             if (_originalSettings != null && Settings != null) {
                 SettingsCloner.Restore(_originalSettings, Settings);
+                
+                // Reload InputManager bindings from restored settings
+                _inputManager?.LoadSettings();
             }
-
             Close();
         }
 
@@ -123,6 +178,9 @@ namespace WorldBuilder.Views {
             // Reset to default values
             if (Settings != null) {
                 SettingsCloner.ResetToDefaults(Settings, _originalSettings?.Project);
+                
+                // Reload InputManager bindings from updated settings
+                _inputManager?.LoadSettings();
             }
         }
     }

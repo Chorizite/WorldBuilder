@@ -9,6 +9,7 @@ using WorldBuilder.Modules.DatBrowser.Factories;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Lib.Extensions;
+using WorldBuilder.Lib.Input;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape;
 using WorldBuilder.Shared.Repositories;
@@ -34,6 +35,8 @@ namespace WorldBuilder.Lib.Extensions {
             });
 
             collection.AddSingleton<WorldBuilderSettings>();
+            collection.AddSingleton<InputManager>();
+            collection.AddSingleton<IInputManager>(provider => provider.GetRequiredService<InputManager>());
             collection.AddSingleton<ThemeService>();
             collection.AddSingleton<RecentProjectsManager>();
             collection.AddSingleton<ProjectManager>();
@@ -200,6 +203,7 @@ namespace WorldBuilder.Lib.Extensions {
             
             collection.AddSingleton(rootProvider.GetRequiredService<IDatRepositoryService>());
             collection.AddSingleton(rootProvider.GetRequiredService<IProjectMigrationService>());
+            collection.AddSingleton(rootProvider.GetRequiredService<IInputManager>());
         }
     }
 }

@@ -9,6 +9,7 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Modules.Landscape.Services;
 using WorldBuilder.Shared.Services;
+using WorldBuilder.Shared.Tests.Mocks;
 using Xunit;
 
 namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
@@ -20,8 +21,9 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var editorServiceMock = new Mock<ILandscapeEditorService>();
             var landscapeObjectServiceMock = new Mock<ILandscapeObjectService>();
             var settingsProviderMock = new Mock<IToolSettingsProvider>();
+            var inputManager = new MockInputManager();
             
-            var tool = new ObjectManipulationTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
+            var tool = new ObjectManipulationTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object, inputManager);
             var context = CreateContext(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
             tool.Activate(context);
 
@@ -71,8 +73,9 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             var editorServiceMock = new Mock<ILandscapeEditorService>();
             var landscapeObjectServiceMock = new Mock<ILandscapeObjectService>();
             var settingsProviderMock = new Mock<IToolSettingsProvider>();
+            var inputManager = new MockInputManager();
             
-            var tool = new ObjectManipulationTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
+            var tool = new ObjectManipulationTool(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object, inputManager);
             var context = CreateContext(raycastServiceMock.Object, editorServiceMock.Object, landscapeObjectServiceMock.Object, settingsProviderMock.Object);
             tool.Activate(context);
 
