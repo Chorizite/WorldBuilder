@@ -1,0 +1,55 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:local="clr-namespace:WorldBuilder.Views.Settings"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="800"
+             x:Class="WorldBuilder.Views.Settings.KeymapPanelControl"
+             x:DataType="local:KeymapPanelControl" Padding="0,0,4,0">
+
+  <UserControl.Styles>
+    <Style Selector="TextBox.search-box">
+      <Setter Property="Padding" Value="8,6" />
+      <Setter Property="Margin" Value="0,0,6,8" />
+      <Setter Property="Watermark" Value="Search key bindings..." />
+    </Style>
+    <Style Selector="TextBlock.category-header">
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,16,0,8" />
+      <Setter Property="Foreground" Value="{DynamicResource SemiColorPrimary}" />
+    </Style>
+    <Style Selector="ScrollViewer.keymap-scroll">
+      <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+      <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <!-- Title -->
+    <TextBlock Grid.Row="0"
+               Text="Keyboard Shortcuts"
+               FontSize="20"
+               FontWeight="Bold"
+               Margin="0,0,0,16" />
+
+    <!-- Search Box -->
+    <TextBox x:Name="SearchTextBox"
+             Grid.Row="1"
+             Classes="search-box"
+             TextChanged="OnSearchTextChanged" />
+
+    <!-- Key Bindings List -->
+    <ScrollViewer Grid.Row="2"
+                  Classes="keymap-scroll">
+      <StackPanel x:Name="KeyBindingsStackPanel"
+                  Spacing="4" />
+    </ScrollViewer>
+  </Grid>
+</UserControl>

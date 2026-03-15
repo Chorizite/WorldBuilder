@@ -1,11 +1,9 @@
-﻿using System;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
+using WorldBuilder.Lib.Input;
 using WorldBuilder.Services;
-
-using WorldBuilder.Shared.Lib.Settings;
 
 namespace WorldBuilder.Lib.Settings {
     /// <summary>
@@ -48,6 +46,10 @@ namespace WorldBuilder.Lib.Settings {
         public static void ResetToDefaults(WorldBuilderSettings target, ProjectSettings? proj) {
             if (target != null) {
                 var defaults = new WorldBuilderSettings { Project = proj };
+                
+                if (defaults.App?.KeymapSettings != null)
+                    defaults.App.KeymapSettings.KeyBindings = defaults.App.KeymapSettings.GetDefaultBindings();
+                
                 DeepCopy(defaults, target);
             }
         }

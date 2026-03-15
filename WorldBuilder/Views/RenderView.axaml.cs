@@ -3,22 +3,17 @@ using Avalonia.Input;
 using Avalonia.Threading;
 using Chorizite.OpenGLSDLBackend;
 using Chorizite.OpenGLSDLBackend.Lib;
-using DatReaderWriter;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Silk.NET.OpenGL;
-using System;
-using System.ComponentModel;
 using System.Numerics;
 using WorldBuilder.Lib;
+using WorldBuilder.Lib.Input;
 using WorldBuilder.Lib.Platform;
-using WorldBuilder.Lib.Settings;
 using WorldBuilder.Modules.Landscape;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
-using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Views;
@@ -33,6 +28,7 @@ public partial class RenderView : Base3DViewport {
     private EditorState? _cachedEditorState;
     private WorldBuilder.Shared.Services.IDatReaderWriter? _cachedDats;
     private bool _cachedIs3DCamera = true;
+    private InputManager? _inputManager;
 
     public WorldBuilder.Shared.Models.ICamera? Camera => _gameScene?.Camera;
 
@@ -52,6 +48,8 @@ public partial class RenderView : Base3DViewport {
     public RenderView() {
         InitializeComponent();
         InitializeBase3DView();
+
+        _inputManager = WorldBuilder.App.Services?.GetService<InputManager>();
     }
 
     public static SharedOpenGLContextManager SharedContextManager {
@@ -131,6 +129,22 @@ public partial class RenderView : Base3DViewport {
         }
     }
 
+    private readonly Dictionary<InputAction, string> _holdKeys = new() {
+        { InputAction.MoveForward, "W" },
+        { InputAction.MoveBackward, "S" },
+        { InputAction.MoveLeft, "A" },
+        { InputAction.MoveRight, "D" },
+        { InputAction.MoveUp, "E" },
+        { InputAction.MoveDown, "Q" },
+        { InputAction.TurnUp, "Up" },
+        { InputAction.TurnDown, "Down" },
+        { InputAction.TurnLeft, "Left" },
+        { InputAction.TurnRight, "Right" },
+        { InputAction.SpeedModifier, "LeftShift" }
+    };
+
+    private bool _isSpeedModifier;
+
     protected override void OnGlKeyDown(KeyEventArgs e) {
         if (DataContext is LandscapeViewModel vm && vm.ActiveTool != null) {
             var inputEvent = CreateInputEvent(e);
@@ -139,39 +153,63 @@ public partial class RenderView : Base3DViewport {
                 return;
             }
         }
+        if (_inputManager != null) {
 
-        // Handle Tab key specially to prevent focus navigation
-        if (e.Key == Key.Tab) {
-            _gameScene?.HandleKeyDown("Tab");
-            e.Handled = true;
-            return;
-        }
-
-        // Handle Ctrl+Arrow key combinations for camera speed control
-        if ((e.KeyModifiers & KeyModifiers.Control) != 0 && _gameScene?.CurrentCamera is Camera3D camera3d) {
-            bool handled = false;
-            float speedMultiplier = (e.KeyModifiers & KeyModifiers.Shift) != 0 ? 2.0f : 1.0f;
-
-            switch (e.Key) {
-                case Key.Up:
-                    camera3d.MoveSpeed += camera3d.MoveSpeed * 0.1f * speedMultiplier; // Same as mouse wheel up, doubled with Shift
-                    ShowSpeedFeedback(camera3d.MoveSpeed);
-                    handled = true;
-                    break;
-                case Key.Down:
-                    camera3d.MoveSpeed -= camera3d.MoveSpeed * 0.1f * speedMultiplier; // Same as mouse wheel down, doubled with Shift
-                    ShowSpeedFeedback(camera3d.MoveSpeed);
-                    handled = true;
-                    break;
-            }
-
-            if (handled) {
+            if (_inputManager.IsAction(e, InputAction.ToggleCameraMode)) {
+                _gameScene?.HandleKeyDown("Tab");
                 e.Handled = true;
                 return;
             }
-        }
 
-        _gameScene?.HandleKeyDown(e.Key.ToString());
+            // Handle Ctrl+Arrow key combinations for camera speed control
+            if (_gameScene?.CurrentCamera is Camera3D cam) {
+                bool handled = false;
+                float speedMultiplier = _isSpeedModifier ? 2.0f : 1.0f;
+
+                if (_inputManager.HasAction(e, InputAction.IncreaseSpeed)) {
+                    cam.MoveSpeed += cam.MoveSpeed * 0.1f * speedMultiplier; // Same as mouse wheel up, doubled with Shift
+                    ShowSpeedFeedback(cam.MoveSpeed);
+                    handled = true;
+                }
+                if (_inputManager.HasAction(e, InputAction.DecreaseSpeed)) {
+                    cam.MoveSpeed -= cam.MoveSpeed * 0.1f * speedMultiplier; // Same as mouse wheel down, doubled with Shift
+                    ShowSpeedFeedback(cam.MoveSpeed);
+                    handled = true;
+                }
+
+                if (handled) {
+                    e.Handled = true;
+                    return;
+                }
+            }
+
+            // TODO: interface should probably change for this
+            if (_gameScene?.CurrentCamera is Chorizite.OpenGLSDLBackend.ICamera camera) {
+
+                var keyStr = e.Key.ToString();
+                bool handled = false;
+                foreach (var (inputAction, keyString) in _holdKeys) {
+                    if (keyStr == _inputManager.GetKey(inputAction)) {
+                        if (inputAction == InputAction.SpeedModifier) {
+                            _isSpeedModifier = true;
+                        }
+                        camera.HandleKeyDown(keyString);
+                        handled = true;
+                    }
+                }
+
+                if (_inputManager.IsAction(e, InputAction.ResetCameraAngle)) {
+                    camera.HandleKeyDown("R");
+                    handled = true;
+                }
+
+                if (handled) {
+                    e.Handled = true;
+                    return;
+                }
+            }
+        }
+        //_gameScene?.HandleKeyDown(e.Key.ToString());
     }
 
     protected override void OnGlKeyUp(KeyEventArgs e) {
@@ -182,7 +220,30 @@ public partial class RenderView : Base3DViewport {
                 return;
             }
         }
-        _gameScene?.HandleKeyUp(e.Key.ToString());
+        // TODO: interface should probably change for this
+        if (_inputManager != null && _gameScene?.CurrentCamera is Chorizite.OpenGLSDLBackend.ICamera camera) {
+            var keyStr = e.Key.ToString();
+            bool handled = false;
+            foreach (var (inputAction, keyString) in _holdKeys) {
+                if (keyStr == _inputManager.GetKey(inputAction)) {
+                    if (inputAction == InputAction.SpeedModifier) {
+                        _isSpeedModifier = false;
+                    }
+                    camera.HandleKeyUp(keyString);
+                    handled = true;
+                }
+            }
+            if (_inputManager.IsAction(e, InputAction.ResetCameraAngle)) {
+                camera.HandleKeyUp("R");
+                handled = true;
+            }
+
+            if (handled) {
+                e.Handled = true;
+                return;
+            }
+        }
+        //_gameScene?.HandleKeyUp(e.Key.ToString());
     }
 
     private ViewportInputEvent CreateInputEvent(KeyEventArgs e) {
@@ -273,7 +334,7 @@ public partial class RenderView : Base3DViewport {
     private DispatcherTimer? _speedFeedbackTimer;
 
     protected override void OnGlPointerWheelChanged(PointerWheelEventArgs e) {
-        float multiplier = (e.KeyModifiers & KeyModifiers.Shift) != 0 ? 2.0f : 1.0f;
+        float multiplier = _isSpeedModifier ? 2.0f : 1.0f;
 
         _gameScene?.HandlePointerWheelChanged((float)e.Delta.Y * multiplier);
 

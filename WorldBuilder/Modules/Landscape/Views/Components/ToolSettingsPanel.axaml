@@ -192,17 +192,17 @@
                                    IsChecked="{Binding Mode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static gizmo:GizmoMode.Translate}}" 
                                    FontSize="12"
                                    VerticalAlignment="Center"
-                                   ToolTip.Tip="Translate (T)" />
+                                   ToolTip.Tip="{Binding TranslateHotkey, StringFormat='Translate ({0})'}" />
                       <RadioButton Content="R" 
                                    IsChecked="{Binding Mode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static gizmo:GizmoMode.Rotate}}" 
                                    FontSize="12"
                                    VerticalAlignment="Center"
-                                   ToolTip.Tip="Rotate (R)" />
+                                   ToolTip.Tip="{Binding RotateHotkey, StringFormat='Rotate ({0})'}" />
                       <RadioButton Content="F" 
                                    IsChecked="{Binding Mode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static gizmo:GizmoMode.Both}}" 
                                    FontSize="12"
                                    VerticalAlignment="Center"
-                                   ToolTip.Tip="Both (F)" />
+                                   ToolTip.Tip="{Binding BothHotkey, StringFormat='Both ({0})'}" />
                     </StackPanel>
                   </HeaderedContentControl>
                   <HeaderedContentControl Header="Options" Template="{StaticResource RibbonGroupTemplate}">

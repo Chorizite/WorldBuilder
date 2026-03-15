@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HanumanInstitute.MvvmDialogs;
 using WorldBuilder.Services;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.ViewModels;
 
@@ -14,8 +15,11 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
         private readonly BookmarksManager _bookmarksManager;
         private readonly LandscapeViewModel _landScapeViewModel;
         private readonly IDialogService _dialogService;
+        private readonly IInputManager _inputManager;
 
         public BookmarksManager BookmarksManager => _bookmarksManager;
+
+        [ObservableProperty] private string? _addBookmarkHotkey;
 
         private readonly ObservableCollection<BookmarkNode> _searchResultsCollection = new();
 
@@ -33,11 +37,14 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
         [ObservableProperty]
         private BookmarkNode? _selectedItem;
 
-        public BookmarksPanelViewModel(WorldBuilderSettings settings, BookmarksManager bookmarksManager, LandscapeViewModel landScapeViewModel, IDialogService dialogService) {
+        public BookmarksPanelViewModel(WorldBuilderSettings settings, IInputManager inputManager, BookmarksManager bookmarksManager, LandscapeViewModel landScapeViewModel, IDialogService dialogService) {
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _bookmarksManager = bookmarksManager ?? throw new ArgumentNullException(nameof(bookmarksManager));
             _landScapeViewModel = landScapeViewModel ?? throw new ArgumentNullException(nameof(landScapeViewModel));
             _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+            _inputManager = inputManager ?? throw new ArgumentNullException(nameof(inputManager));
+            _inputManager.KeyBindingsChanged += OnKeyBindingsChanged;
+            UpdateHotkeyDisplay();
 
             Bookmarks = new HierarchicalTreeDataGridSource<BookmarkNode>(_bookmarksManager.Bookmarks) {
                 Columns = {
@@ -420,6 +427,14 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
                 }
             }
             return null;
+        }
+
+        private void OnKeyBindingsChanged(object? sender, EventArgs e) {
+            UpdateHotkeyDisplay();
+        }
+
+        private void UpdateHotkeyDisplay() {
+            AddBookmarkHotkey = _inputManager.GetKeyBinding("AddBookmark").ToString();
         }
     }
 }
