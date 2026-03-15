@@ -175,11 +175,11 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private EnvCellBrowserViewModel? _envCellBrowser;
         private LayoutDescBrowserViewModel? _layoutDescBrowser;
         private LanguageInfoBrowserViewModel? _languageInfoBrowser;
-        private readonly InputManager _inputManager;
+        private readonly WorldBuilder.Shared.Lib.IInputManager _inputManager;
 
         public IDatReaderWriter Dats => _dats;
 
-        public DatBrowserViewModel(IDatBrowserViewModelFactory viewModelFactory, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats, InputManager inputManager) {
+        public DatBrowserViewModel(IDatBrowserViewModelFactory viewModelFactory, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats, WorldBuilder.Shared.Lib.IInputManager inputManager) {
             _viewModelFactory = viewModelFactory;
             _dialogService = dialogService;
             _serviceProvider = serviceProvider;
@@ -395,7 +395,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         }
 
         public bool HandleHotkey(KeyEventArgs e) {
-            if (e.Key.ToString() == _inputManager.GetKey(InputAction.GoToFileId) && e.KeyModifiers.ToString() == _inputManager.GetKeyModifiers(InputAction.GoToFileId)) {
+            if (_inputManager is InputManager inputManager && inputManager.IsAction(e, InputAction.GoToFileId)) {
                 _ = ShowGoToFileIdPrompt();
                 return true;
             }
