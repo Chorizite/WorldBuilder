@@ -33,6 +33,15 @@ namespace WorldBuilder.Lib.Settings {
             set => SetProperty(ref _managedDatsDirectory, value);
         }
 
+        [SettingDescription("Directory where managed ACE SQLite databases are stored")]
+        [SettingPath(PathType.Folder, DialogTitle = "Select Managed ACE DBs Directory")]
+        [SettingOrder(1.5)]
+        private string? _managedAceDbsDirectory;
+        public string ManagedAceDbsDirectory {
+            get => _managedAceDbsDirectory ?? Path.Combine(Path.GetDirectoryName(ProjectsDirectory) ?? string.Empty, "Server");
+            set => SetProperty(ref _managedAceDbsDirectory, value);
+        }
+
         [SettingDescription("Automatically load most recent project on startup")]
         [SettingOrder(2)]
         private bool _autoLoadProject = false;

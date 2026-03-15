@@ -43,12 +43,12 @@
                     FontWeight="Bold"
                     Text="Create New Project" />
 
-                <!--  DAT Source Selection  -->
+                <!--  Base Dats  -->
                 <StackPanel>
                     <TextBlock
                         Margin="0,0,0,5"
                         FontWeight="SemiBold"
-                        Text="DAT Source Selection" />
+                        Text="Base Dats" />
 
                     <Grid ColumnDefinitions="150, *">
                         <ComboBox
@@ -104,6 +104,89 @@
 
                     <!-- Error display for DAT selection -->
                     <ItemsControl ItemsSource="{Binding BaseDatDirectoryErrors}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Classes="error" Text="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!--  ACE DB Selection  -->
+                <StackPanel>
+                    <TextBlock
+                        Margin="0,0,0,5"
+                        FontWeight="SemiBold"
+                        Text="ACE Server Database (Optional)" />
+
+                    <Grid ColumnDefinitions="150, *">
+                        <ComboBox
+                            Grid.Column="0"
+                            HorizontalAlignment="Stretch"
+                            ItemsSource="{Binding AceSourceTypes}"
+                            SelectedItem="{Binding SelectedAceSourceType}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding, Converter={StaticResource EnumDescriptionConverter}}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+
+                        <!-- Managed ACE Selection -->
+                        <Grid Grid.Column="1" Margin="8,0,0,0" ColumnDefinitions="*, Auto"
+                              IsVisible="{Binding SelectedAceSourceType, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static vm:AceSourceType.Managed}}">
+                            <ComboBox
+                                Grid.Column="0"
+                                HorizontalAlignment="Stretch"
+                                ItemsSource="{Binding ManagedAceDbs}"
+                                SelectedItem="{Binding SelectedManagedAceDb}">
+                                <ComboBox.PlaceholderText>Select an ACE Database...</ComboBox.PlaceholderText>
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding FriendlyName}" />
+                                            <TextBlock
+                                                FontSize="10"
+                                                Opacity="0.6"
+                                                Text="{Binding DisplayVersion}"
+                                                VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+
+                            <Button
+                                Grid.Column="1"
+                                Margin="8,0,0,0"
+                                Padding="12,5"
+                                Command="{Binding DownloadLatestAceDbCommand}"
+                                ToolTip.Tip="Download latest ace_world.db from GitHub">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <icons:MaterialIcon Kind="Download" Width="18" Height="18" />
+                                    <TextBlock Text="Download" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+
+                        <!-- Local ACE DB Selection -->
+                        <Grid Grid.Column="1" Margin="8,0,0,0" ColumnDefinitions="*,Auto"
+                              IsVisible="{Binding SelectedAceSourceType, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static vm:AceSourceType.Local}}">
+                            <TextBox
+                                Grid.Column="0"
+                                Text="{Binding LocalAceDbPath}"
+                                Watermark="Select ACE SQLite database file..." />
+
+                            <Button
+                                Grid.Column="1"
+                                Margin="5,0,0,0"
+                                Padding="15,5"
+                                Command="{Binding BrowseLocalAceDbCommand}"
+                                Content="Browse..." />
+                        </Grid>
+                    </Grid>
+
+                    <!-- Error display for ACE selection -->
+                    <ItemsControl ItemsSource="{Binding AceDatabaseErrors}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <TextBlock Classes="error" Text="{Binding}" />
@@ -204,7 +287,7 @@
                     VerticalAlignment="Center"
                     MinWidth="400">
                 <StackPanel Spacing="16">
-                    <TextBlock Text="Creating Project..."
+                    <TextBlock Text="{Binding LoadingTitle}"
                                FontSize="20"
                                FontWeight="Bold"
                                HorizontalAlignment="Center" />

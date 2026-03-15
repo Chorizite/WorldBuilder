@@ -31,6 +31,7 @@ namespace WorldBuilder.Shared.Lib.Extensions {
 
             // Core repository and DAT services
             services.AddSingleton<IDatRepositoryService, DatRepositoryService>();
+            services.AddSingleton<IAceRepositoryService, AceRepositoryService>();
             services.AddSingleton<IProjectMigrationService, ProjectMigrationService>();
 
             // Repository services

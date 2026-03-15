@@ -190,16 +190,16 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
             return;
         }
 
-        LoadProject(project.FilePath, project.ManagedDatId);
+        LoadProject(project.FilePath, project.ManagedDatId, project.ManagedAceId);
     }
 
     private void ShowErrorDetails(RecentProject project) {
         WeakReferenceMessenger.Default.Send(new ShowProjectErrorDetailsMessage(project));
     }
 
-    private void LoadProject(string filePath, Guid? managedDatId = null) {
+    private void LoadProject(string filePath, Guid? managedDatId = null, Guid? managedAceId = null) {
         _log.LogInformation($"LoadProject: {filePath}");
-        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(filePath, this, managedDatId));
+        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(filePath, this, managedDatId, managedAceId));
     }
 
     /// <summary>

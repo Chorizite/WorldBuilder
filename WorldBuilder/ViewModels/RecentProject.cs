@@ -60,6 +60,16 @@ namespace WorldBuilder.ViewModels {
             set => SetProperty(ref _managedDatId, value);
         }
 
+        private Guid? _managedAceId;
+
+        /// <summary>
+        /// Gets or sets the managed ACE DB ID, if any.
+        /// </summary>
+        public Guid? ManagedAceId {
+            get => _managedAceId;
+            set => SetProperty(ref _managedAceId, value);
+        }
+
         private string? _versionInfo;
 
         /// <summary>
@@ -127,8 +137,9 @@ namespace WorldBuilder.ViewModels {
         /// Verifies that the project file and its managed DAT set (if any) exist.
         /// </summary>
         /// <param name="datRepository">The DAT repository service to check for managed sets</param>
+        /// <param name="aceRepository">The ACE repository service to check for managed ACE DBs</param>
         /// <returns>A task that resolves to true if the project and its dependencies exist, false otherwise</returns>
-        internal Task<bool> Verify(WorldBuilder.Shared.Services.IDatRepositoryService datRepository) {
+        internal Task<bool> Verify(WorldBuilder.Shared.Services.IDatRepositoryService datRepository, WorldBuilder.Shared.Services.IAceRepositoryService aceRepository) {
             if (!File.Exists(FilePath)) {
                 Error = "File no longer exists";
                 return Task.FromResult(false);

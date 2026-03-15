@@ -37,7 +37,9 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton<ThemeService>();
             collection.AddSingleton<RecentProjectsManager>();
             collection.AddSingleton<ProjectManager>();
+            collection.AddSingleton<HttpClient>();
             collection.AddSingleton<IDatRepositoryService, DatRepositoryService>();
+            collection.AddSingleton<IAceRepositoryService, AceRepositoryService>();
             collection.AddSingleton<IProjectMigrationService, ProjectMigrationService>();
             collection.AddSingleton<SplashPageFactory>();
 
@@ -199,6 +201,7 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeObjectService>(project.Services.GetRequiredService<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeObjectService>());
             
             collection.AddSingleton(rootProvider.GetRequiredService<IDatRepositoryService>());
+            collection.AddSingleton(rootProvider.GetRequiredService<IAceRepositoryService>());
             collection.AddSingleton(rootProvider.GetRequiredService<IProjectMigrationService>());
         }
     }
