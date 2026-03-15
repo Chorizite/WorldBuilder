@@ -173,7 +173,7 @@ public partial class App : Application {
                         log?.LogInformation("Auto-loading most recent project: {ProjectName} ({ProjectPath})", 
                             mostRecentProject.Name, mostRecentProject.FilePath);
                         
-                        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(mostRecentProject.FilePath, projectSelectionVM?.CurrentPage, mostRecentProject.ManagedDatId, mostRecentProject.ManagedAceId));
+                        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(mostRecentProject.FilePath, projectSelectionVM?.CurrentPage));
                         return;
                     }
                 }

@@ -76,12 +76,10 @@ namespace WorldBuilder.Services {
         /// <param name="filePath">The file path of the project</param>
         /// <param name="isReadOnly">Whether the project is read-only</param>
         /// <param name="managedDatId">The managed DAT set ID, if any</param>
-        /// <param name="managedAceId">The managed ACE DB ID, if any</param>
         /// <param name="versionInfo">The version information, if any</param>
         /// <returns>A task representing the asynchronous operation</returns>
-        public async Task AddRecentProject(string name, string filePath, bool isReadOnly, Guid? managedDatId = null, Guid? managedAceId = null, string? versionInfo = null) {
+        public async Task AddRecentProject(string name, string filePath, bool isReadOnly, Guid? managedDatId = null, string? versionInfo = null) {
             _datRepository.SetRepositoryRoot(_settings.App.ManagedDatsDirectory);
-            _aceRepository.SetRepositoryRoot(_settings.App.ManagedAceDbsDirectory);
             if (name == "client_portal" && managedDatId.HasValue) {
                 var managedSet = _datRepository.GetManagedDataSet(managedDatId.Value);
                 if (managedSet != null) {
@@ -102,11 +100,10 @@ namespace WorldBuilder.Services {
                 LastOpened = DateTime.Now,
                 IsReadOnly = isReadOnly,
                 ManagedDatId = managedDatId,
-                ManagedAceId = managedAceId,
                 VersionInfo = versionInfo
             };
 
-            await recentProject.Verify(_datRepository, _aceRepository);
+            await recentProject.Verify(_datRepository);
 
             RecentProjects.Insert(0, recentProject);
 
@@ -131,7 +128,6 @@ namespace WorldBuilder.Services {
         /// </summary>
         private async Task LoadRecentProjects() {
             _datRepository.SetRepositoryRoot(_settings.App.ManagedDatsDirectory);
-            _aceRepository.SetRepositoryRoot(_settings.App.ManagedAceDbsDirectory);
             await _fileLock.WaitAsync();
             try {
                 if (!File.Exists(RecentProjectsFilePath)) {
@@ -161,7 +157,7 @@ namespace WorldBuilder.Services {
 
                 if (projects != null) {
                     RecentProjects.Clear();
-                    await Task.WhenAll(projects.Select(p => p.Verify(_datRepository, _aceRepository)));
+                    await Task.WhenAll(projects.Select(p => p.Verify(_datRepository)));
                     foreach (var project in projects.OrderByDescending(p => p.LastOpened)) {
                         if (project.HasError) {
                             _log.LogWarning($"Failed to load recent project {project.Name} ({project.FilePath}): {project.Error}");

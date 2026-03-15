@@ -97,7 +97,7 @@ namespace WorldBuilder.Services {
                     sourceVM.LoadingProgress = p.progress * 100f;
                 }) : null;
 
-                await SetProject(message.Value, message.ManagedDatId, message.ManagedAceId, progress);
+                await SetProject(message.Value, progress);
             }
             catch (Exception ex) {
                 _log.LogError(ex, $"Failed to open project: {message.Value}");
@@ -195,10 +195,10 @@ namespace WorldBuilder.Services {
             }
 
             CurrentProjectChanged?.Invoke(this, EventArgs.Empty);
-            _ = _recentProjectsManager.AddRecentProject(project.Name, project.ProjectFile, project.IsReadOnly, project.ManagedDatSetId, project.ManagedAceDbId);
+            _ = _recentProjectsManager.AddRecentProject(project.Name, project.ProjectFile, project.IsReadOnly, project.ManagedDatSetId);
         }
 
-        private async Task SetProject(string projectPath, Guid? managedId = null, Guid? managedAceId = null, IProgress<(string message, float progress)>? progress = null) {
+        private async Task SetProject(string projectPath, IProgress<(string message, float progress)>? progress = null) {
             _projectProvider?.Dispose();
 
             var datRepository = _rootProvider.GetRequiredService<IDatRepositoryService>();
@@ -206,7 +206,7 @@ namespace WorldBuilder.Services {
             var aceRepository = _rootProvider.GetRequiredService<IAceRepositoryService>();
             aceRepository.SetRepositoryRoot(_settings.App.ManagedAceDbsDirectory);
             var migrationService = _rootProvider.GetRequiredService<IProjectMigrationService>();
-            var projectResult = await Project.Open(projectPath, datRepository, aceRepository, migrationService, managedId, managedAceId, progress, CancellationToken.None);
+            var projectResult = await Project.Open(projectPath, datRepository, aceRepository, migrationService, progress, CancellationToken.None);
             if (projectResult.IsSuccess) {
                 SetProject(projectResult.Value);
             }

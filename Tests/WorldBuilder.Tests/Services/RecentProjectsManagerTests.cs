@@ -93,15 +93,12 @@ namespace WorldBuilder.Tests.Services {
             var mockAceRepo = new Mock<WorldBuilder.Shared.Services.IAceRepositoryService>();
 
             var managedDatId = Guid.NewGuid();
-            var managedAceId = Guid.NewGuid();
             var managedSet = new WorldBuilder.Shared.Services.ManagedDatSet {
                 Id = managedDatId,
                 FriendlyName = "TestManagedSet"
             };
 
             mockDatRepo.Setup(r => r.GetManagedDataSet(managedDatId)).Returns(managedSet);
-            // Missing ACE DB setup should return null by default for mocks, but let's be explicit
-            mockAceRepo.Setup(r => r.GetManagedAceDb(managedAceId)).Returns((WorldBuilder.Shared.Services.ManagedAceDb?)null);
 
             var manager = new RecentProjectsManager(settings, NullLogger<RecentProjectsManager>.Instance, mockDatRepo.Object, mockAceRepo.Object);
             await manager.InitializationTask;
@@ -110,11 +107,10 @@ namespace WorldBuilder.Tests.Services {
             var projectFile = Path.Combine(_testSettingsDir, "test_ace.wbproj");
             File.WriteAllText(projectFile, "{}");
 
-            await manager.AddRecentProject("Test Project", projectFile, false, managedDatId, managedAceId);
+            await manager.AddRecentProject("Test Project", projectFile, false, managedDatId);
 
             Assert.Single(manager.RecentProjects);
             Assert.False(manager.RecentProjects[0].HasError);
-            Assert.Equal(managedAceId, manager.RecentProjects[0].ManagedAceId);
         }
 
         public void Dispose() {
