@@ -69,6 +69,18 @@ namespace WorldBuilder.Lib.Settings {
             }
         }
 
+        [SettingHidden]
+        private ProjectServerSettings _server = new();
+        public ProjectServerSettings Server {
+            get => _server;
+            set {
+                if (_server != null) _server.PropertyChanged -= OnSubSettingsPropertyChanged;
+                if (SetProperty(ref _server, value) && _server != null) {
+                    _server.PropertyChanged += OnSubSettingsPropertyChanged;
+                }
+            }
+        }
+
         private void OnSubSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
             RequestSave();
         }
@@ -81,6 +93,7 @@ namespace WorldBuilder.Lib.Settings {
             if (_graphics != null) _graphics.PropertyChanged += OnSubSettingsPropertyChanged;
             if (_export != null) _export.PropertyChanged += OnSubSettingsPropertyChanged;
             if (_landscapeTools != null) _landscapeTools.PropertyChanged += OnSubSettingsPropertyChanged;
+            if (_server != null) _server.PropertyChanged += OnSubSettingsPropertyChanged;
         }
 
         [SettingHidden]
@@ -312,5 +325,15 @@ namespace WorldBuilder.Lib.Settings {
 
         private bool _showBoundingBoxes = true;
         public bool ShowBoundingBoxes { get => _showBoundingBoxes; set => SetProperty(ref _showBoundingBoxes, value); }
+    }
+
+    [SettingCategory("Server", ParentCategory = "Project", Order = 2)]
+    public partial class ProjectServerSettings : ObservableObject {
+        [SettingAceDatabase]
+        [SettingDisplayName("Server Database")]
+        [SettingDescription("The ACE database to use for this project.")]
+        [JsonIgnore]
+        private Guid? _aceDbId;
+        public Guid? AceDbId { get => _aceDbId; set => SetProperty(ref _aceDbId, value); }
     }
 }

@@ -19,6 +19,16 @@ namespace WorldBuilder.Shared.Models {
         Guid? ManagedDatSetId { get; }
 
         /// <summary>
+        /// Gets the managed ACE DB ID, if any.
+        /// </summary>
+        Guid? ManagedAceDbId { get; set; }
+
+        /// <summary>
+        /// Raised when the ManagedAceDbId has changed.
+        /// </summary>
+        event EventHandler ManagedAceDbIdChanged;
+
+        /// <summary>
         /// Gets a value indicating whether this project is read-only.
         /// </summary>
         bool IsReadOnly { get; }

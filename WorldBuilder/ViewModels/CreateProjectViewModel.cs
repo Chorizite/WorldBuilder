@@ -16,47 +16,11 @@ using System.Threading.Tasks;
 using WorldBuilder.Lib;
 using WorldBuilder.Messages;
 using WorldBuilder.Services;
+using WorldBuilder.Shared.Lib.Settings;
 using WorldBuilder.Shared.Services;
 using static WorldBuilder.ViewModels.SplashPageViewModel;
 
 namespace WorldBuilder.ViewModels;
-
-/// <summary>
-/// The type of DAT source for a project.
-/// </summary>
-public enum DatSourceType {
-    /// <summary>
-    /// Use a managed DAT set.
-    /// </summary>
-    [Description("Managed")]
-    Managed,
-    /// <summary>
-    /// Use a local DAT directory.
-    /// </summary>
-    [Description("Add New")]
-    AddNew
-}
-
-/// <summary>
-/// The type of ACE source for a project.
-/// </summary>
-public enum AceSourceType {
-    /// <summary>
-    /// Do not use an ACE database.
-    /// </summary>
-    [Description("None")]
-    None,
-    /// <summary>
-    /// Use a managed ACE database.
-    /// </summary>
-    [Description("Managed")]
-    Managed,
-    /// <summary>
-    /// Use a local ACE database file.
-    /// </summary>
-    [Description("Add New")]
-    Local
-}
 
 /// <summary>
 /// View model for the create project screen, handling project creation parameters and validation.
@@ -74,6 +38,11 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
     /// </summary>
     [ObservableProperty]
     private string _loadingTitle = "Creating Project...";
+
+    /// <summary>
+    /// Gets the ACE database selection view model.
+    /// </summary>
+    public AceDatabaseSelectionViewModel AceDatabaseSelection { get; }
 
     /// <summary>
     /// Gets the available DAT source types.
@@ -102,34 +71,6 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
     /// Gets the collection of existing managed DAT sets.
     /// </summary>
     public ObservableCollection<ManagedDatSet> ManagedDataSets { get; } = [];
-
-    /// <summary>
-    /// Gets the available ACE source types.
-    /// </summary>
-    public List<AceSourceType> AceSourceTypes { get; } = [AceSourceType.None, AceSourceType.Managed, AceSourceType.Local];
-
-    /// <summary>
-    /// Gets or sets the selected ACE source type.
-    /// </summary>
-    [ObservableProperty]
-    private AceSourceType _selectedAceSourceType = AceSourceType.Managed;
-
-    /// <summary>
-    /// Gets or sets the local ACE database path.
-    /// </summary>
-    [ObservableProperty]
-    private string _localAceDbPath = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the selected existing managed ACE DB.
-    /// </summary>
-    [ObservableProperty]
-    private ManagedAceDb? _selectedManagedAceDb;
-
-    /// <summary>
-    /// Gets the collection of existing managed ACE DBs.
-    /// </summary>
-    public ObservableCollection<ManagedAceDb> ManagedAceDbs { get; } = [];
 
     /// <summary>
     /// Gets or sets the project name.
@@ -212,11 +153,13 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
     /// <param name="log">The logger instance</param>
     /// <param name="datRepository">The DAT repository service</param>
     /// <param name="aceRepository">The ACE repository service</param>
-    public CreateProjectViewModel(WorldBuilderSettings settings, ILogger<CreateProjectViewModel> log, IDatRepositoryService datRepository, IAceRepositoryService aceRepository) {
+    /// <param name="aceSelectionFactory">The ACE selection ViewModel factory</param>
+    public CreateProjectViewModel(WorldBuilderSettings settings, ILogger<CreateProjectViewModel> log, IDatRepositoryService datRepository, IAceRepositoryService aceRepository, AceDatabaseSelectionViewModel aceSelectionViewModel) {
         _log = log;
         _settings = settings;
         _datRepository = datRepository;
         _aceRepository = aceRepository;
+        AceDatabaseSelection = aceSelectionViewModel;
 
         _location = settings.App.ProjectsDirectory;
         
@@ -249,13 +192,18 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
             SelectedDatSourceType = DatSourceType.AddNew;
         }
 
-        if (ManagedAceDbs.Count > 0) {
-            SelectedManagedAceDb = ManagedAceDbs.OrderByDescending(d => d.ImportDate).First();
-        }
-
         ValidateSources();
         ValidateLocation();
         UpdateCanProceed();
+
+        AceDatabaseSelection.PropertyChanged += (s, e) => {
+            if (e.PropertyName == nameof(AceDatabaseSelection.SelectedAceSourceType) ||
+                e.PropertyName == nameof(AceDatabaseSelection.SelectedManagedAceDb) ||
+                e.PropertyName == nameof(AceDatabaseSelection.LocalAceDbPath)) {
+                ValidateSources();
+                UpdateCanProceed();
+            }
+        };
 
         // Subscribe to property changes to trigger validation and update CanProceed
         PropertyChanged += (s, e) => {
@@ -269,18 +217,6 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
                     UpdateCanProceed();
                     break;
                 case nameof(SelectedManagedDatSet):
-                    ValidateSources();
-                    UpdateCanProceed();
-                    break;
-                case nameof(SelectedAceSourceType):
-                    ValidateSources();
-                    UpdateCanProceed();
-                    break;
-                case nameof(LocalAceDbPath):
-                    ValidateSources();
-                    UpdateCanProceed();
-                    break;
-                case nameof(SelectedManagedAceDb):
                     ValidateSources();
                     UpdateCanProceed();
                     break;
@@ -312,7 +248,6 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
         _lastManagedResourcesDir = projectsRoot;
 
         var previousDatId = SelectedManagedDatSet?.Id;
-        var previousAceId = SelectedManagedAceDb?.Id;
 
         _datRepository.SetRepositoryRoot(managedDatsDir);
         ManagedDataSets.Clear();
@@ -324,46 +259,7 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
             SelectedManagedDatSet = ManagedDataSets.FirstOrDefault(s => s.Id == previousDatId);
         }
 
-        _aceRepository.SetRepositoryRoot(managedAceDbsDir);
-        ManagedAceDbs.Clear();
-        foreach (var db in _aceRepository.GetManagedAceDbs()) {
-            ManagedAceDbs.Add(db);
-        }
-
-        if (previousAceId != null) {
-            SelectedManagedAceDb = ManagedAceDbs.FirstOrDefault(d => d.Id == previousAceId);
-        }
-    }
-
-    /// <summary>
-    /// Downloads the latest ACE DB from GitHub.
-    /// </summary>
-    [RelayCommand]
-    private async Task DownloadLatestAceDb() {
-        LoadingTitle = "Downloading ACE Database...";
-        IsLoading = true;
-        LoadingStatus = "Preparing download...";
-        LoadingProgress = 0f;
-
-        var progress = new Progress<(string message, float progress)>(p => {
-            LoadingStatus = p.message;
-            LoadingProgress = p.progress * 100f;
-        });
-
-        var result = await _aceRepository.DownloadLatestAsync(progress, default);
-        
-        IsLoading = false;
-        LoadingTitle = "Creating Project..."; // Reset for project creation
-
-        if (result.IsSuccess) {
-            // Re-scan repository to find the new database
-            UpdateManagedResources(true);
-            SelectedAceSourceType = AceSourceType.Managed;
-            SelectedManagedAceDb = ManagedAceDbs.FirstOrDefault(d => d.Id == result.Value.Id);
-        }
-        else {
-            _log.LogError("Failed to download ACE DB: {Error}", result.Error.Message);
-        }
+        AceDatabaseSelection.UpdateManagedResources();
     }
 
     /// <summary>
@@ -384,31 +280,6 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
         var localPath = files[0].TryGetLocalPath();
         if (!string.IsNullOrWhiteSpace(localPath)) {
             BaseDatDirectory = localPath;
-        }
-    }
-
-    /// <summary>
-    /// Opens a file picker to select a local ACE database.
-    /// </summary>
-    /// <returns>A task representing the asynchronous operation</returns>
-    [RelayCommand]
-    private async Task BrowseLocalAceDb() {
-        var files = await TopLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions() {
-            Title = "Choose ACE SQLite database",
-            AllowMultiple = false,
-            SuggestedStartLocation = await TopLevel.StorageProvider.TryGetFolderFromPathAsync(_settings.App.ProjectsDirectory),
-            FileTypeFilter = new[] {
-                new FilePickerFileType("SQLite Database") {
-                    Patterns = new[] { "*.db", "*.sqlite" }
-                }
-            }
-        });
-
-        if (files.Count == 0) return;
-
-        var localPath = files[0].TryGetLocalPath();
-        if (!string.IsNullOrWhiteSpace(localPath)) {
-            LocalAceDbPath = localPath;
         }
     }
 
@@ -481,8 +352,8 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
             }
         }
 
-        if (SelectedAceSourceType == AceSourceType.Local) {
-            if (!string.IsNullOrWhiteSpace(LocalAceDbPath) && !File.Exists(LocalAceDbPath)) {
+        if (AceDatabaseSelection.SelectedAceSourceType == AceSourceType.Local) {
+            if (!string.IsNullOrWhiteSpace(AceDatabaseSelection.LocalAceDbPath) && !File.Exists(AceDatabaseSelection.LocalAceDbPath)) {
                 aceErrors.Add("Local ACE database file does not exist.");
             }
         }
@@ -491,7 +362,7 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
         SetErrors(nameof(BaseDatDirectory), datErrors);
 
         AceDatabaseErrors = aceErrors;
-        SetErrors(nameof(SelectedManagedAceDb), aceErrors);
+        SetErrors(nameof(AceDatabaseSelection.SelectedManagedAceDb), aceErrors);
     }
 
     private void ValidateProjectName() {
@@ -540,9 +411,9 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
             ? SelectedManagedDatSet != null
             : !string.IsNullOrWhiteSpace(BaseDatDirectory) && !GetErrors(nameof(BaseDatDirectory)).Cast<string>().Any();
 
-        var aceSourceValid = SelectedAceSourceType == AceSourceType.Managed
+        var aceSourceValid = AceDatabaseSelection.SelectedAceSourceType == AceSourceType.Managed
             ? true // Optional
-            : string.IsNullOrWhiteSpace(LocalAceDbPath) || (!GetErrors(nameof(SelectedManagedAceDb)).Cast<string>().Any());
+            : string.IsNullOrWhiteSpace(AceDatabaseSelection.LocalAceDbPath) || (!GetErrors(nameof(AceDatabaseSelection.SelectedManagedAceDb)).Cast<string>().Any());
 
         CanProceed = !HasErrors &&
                      !IsLoading &&
@@ -562,5 +433,4 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
         ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(propertyName));
         OnPropertyChanged(nameof(HasErrors));
     }
-
 }

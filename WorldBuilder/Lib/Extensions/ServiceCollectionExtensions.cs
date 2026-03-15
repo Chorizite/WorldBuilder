@@ -72,6 +72,7 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddTransient<ManageDatsViewModel>();
             collection.AddTransient<SplashPageViewModel>();
             collection.AddTransient<ProjectSelectionViewModel>();
+            collection.AddTransient<AceDatabaseSelectionViewModel>();
 
             // ViewModels - main app
             collection.AddTransient<SettingsWindowViewModel>();

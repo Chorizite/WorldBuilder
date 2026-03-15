@@ -14,6 +14,8 @@ using WorldBuilder.Lib;
 using WorldBuilder.Lib.Extensions;
 using WorldBuilder.Messages;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Repositories;
+using WorldBuilder.Shared.Lib.Settings;
 using WorldBuilder.ViewModels;
 using HanumanInstitute.MvvmDialogs;
 using HanumanInstitute.MvvmDialogs.Avalonia;
@@ -140,15 +142,15 @@ namespace WorldBuilder.Services {
                 var migrationService = _rootProvider.GetRequiredService<IProjectMigrationService>();
 
                 Guid? managedAceId = null;
-                if (model.SelectedAceSourceType == AceSourceType.Local && !string.IsNullOrEmpty(model.LocalAceDbPath)) {
+                if (model.AceDatabaseSelection.SelectedAceSourceType == AceSourceType.Local && !string.IsNullOrEmpty(model.AceDatabaseSelection.LocalAceDbPath)) {
                     model.LoadingStatus = "Importing local ACE database...";
-                    var importResult = await aceRepository.ImportAsync(model.LocalAceDbPath, null, progress, default);
+                    var importResult = await aceRepository.ImportAsync(model.AceDatabaseSelection.LocalAceDbPath, null, progress, default);
                     if (importResult.IsSuccess) {
                         managedAceId = importResult.Value.Id;
                     }
                 }
-                else if (model.SelectedAceSourceType == AceSourceType.Managed) {
-                    managedAceId = model.SelectedManagedAceDb?.Id;
+                else if (model.AceDatabaseSelection.SelectedAceSourceType == AceSourceType.Managed) {
+                    managedAceId = model.AceDatabaseSelection.SelectedManagedAceDb?.Id;
                 }
 
                 var projectResult = await Project.Create(model.ProjectName, model.ProjectLocation, model.BaseDatDirectory, datRepository, aceRepository, migrationService, model.SelectedManagedDatSet?.Id, managedAceId, progress, default);
@@ -182,6 +184,24 @@ namespace WorldBuilder.Services {
             // Load project settings
             var settingsPath = Path.Combine(project.ProjectDirectory, "project_settings.json");
             _settings.Project = WorldBuilder.Lib.Settings.ProjectSettings.Load(settingsPath);
+            _settings.Project.Server.AceDbId = project.ManagedAceDbId;
+
+            project.ManagedAceDbIdChanged += (s, e) => {
+                _settings.Project.Server.AceDbId = project.ManagedAceDbId;
+            };
+
+            _settings.Project.Server.PropertyChanged += async (s, e) => {
+                if (e.PropertyName == nameof(_settings.Project.Server.AceDbId)) {
+                    var newId = _settings.Project.Server.AceDbId;
+                    if (CurrentProject != null) {
+                        var repository = GetProjectService<IProjectRepository>();
+                        if (repository != null) {
+                            await repository.SetKeyValueAsync("ManagedAceDbId", newId?.ToString(), null, default);
+                            CurrentProject.ManagedAceDbId = newId;
+                        }
+                    }
+                }
+            };
 
             if (project.IsReadOnly) {
                 _settings.Project.FilePath = null;

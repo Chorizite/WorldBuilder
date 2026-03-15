@@ -19,6 +19,7 @@ namespace WorldBuilder.Lib.Settings {
         public string? Format { get; }
         public double Order { get; }
         public bool IsHidden { get; }
+        public bool IsAceDatabase { get; }
 
         [UnconditionalSuppressMessage("Trimming", "IL2075:Selectively keep fields for settings", Justification = "Settings classes are preserved by SourceGenerationContext")]
         public SettingPropertyMetadata(PropertyInfo property) {
@@ -49,6 +50,9 @@ namespace WorldBuilder.Lib.Settings {
             
             IsHidden = property.GetCustomAttribute<SettingHiddenAttribute>() != null || 
                        field?.GetCustomAttribute<SettingHiddenAttribute>() != null;
+
+            IsAceDatabase = property.GetCustomAttribute<SettingAceDatabaseAttribute>() != null ||
+                            field?.GetCustomAttribute<SettingAceDatabaseAttribute>() != null;
         }
 
         private static string SplitCamelCase(string str) {

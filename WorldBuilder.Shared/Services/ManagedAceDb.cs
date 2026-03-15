@@ -13,6 +13,6 @@ namespace WorldBuilder.Shared.Services {
         public string Md5 { get; set; } = string.Empty;
         public DateTime ImportDate { get; set; }
 
-        public string DisplayVersion => $"{BaseVersion} - {Md5.Substring(0, 8)})";
+        public string DisplayVersion => $"{BaseVersion} - {Md5.Substring(0, 8)}";
     }
 }

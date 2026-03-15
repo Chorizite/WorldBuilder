@@ -1,0 +1,89 @@
+<UserControl
+    x:Class="WorldBuilder.Views.AceDatabaseSelectionView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:WorldBuilder.ViewModels"
+    xmlns:settings="clr-namespace:WorldBuilder.Shared.Lib.Settings;assembly=WorldBuilder.Shared"
+    xmlns:icons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+    x:DataType="vm:AceDatabaseSelectionViewModel"
+    mc:Ignorable="d">
+
+    <Grid>
+        <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="150, *">
+                <ComboBox
+                    Grid.Column="0"
+                    HorizontalAlignment="Stretch"
+                    ItemsSource="{Binding AceSourceTypes}"
+                    SelectedItem="{Binding SelectedAceSourceType}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding, Converter={StaticResource EnumDescriptionConverter}}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <!-- Managed ACE Selection -->
+                <Grid Grid.Column="1" Margin="8,0,0,0" ColumnDefinitions="*, Auto"
+                      IsVisible="{Binding SelectedAceSourceType, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static settings:AceSourceType.Managed}}">
+                    <ComboBox
+                        Grid.Column="0"
+                        HorizontalAlignment="Stretch"
+                        ItemsSource="{Binding ManagedAceDbs}"
+                        SelectedItem="{Binding SelectedManagedAceDb}">
+                        <ComboBox.PlaceholderText>Select an ACE Database...</ComboBox.PlaceholderText>
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding FriendlyName}" />
+                                    <TextBlock
+                                        FontSize="10"
+                                        Opacity="0.6"
+                                        Text="{Binding DisplayVersion}"
+                                        VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <Button
+                        Grid.Column="1"
+                        Margin="8,0,0,0"
+                        Padding="12,5"
+                        Command="{Binding DownloadLatestAceDbCommand}"
+                        ToolTip.Tip="Download latest ace_world.db from GitHub">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <icons:MaterialIcon Kind="Download" Width="18" Height="18" />
+                            <TextBlock Text="Download" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+
+                <!-- Local ACE DB Selection -->
+                <Grid Grid.Column="1" Margin="8,0,0,0" ColumnDefinitions="*,Auto"
+                      IsVisible="{Binding SelectedAceSourceType, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static settings:AceSourceType.Local}}">
+                    <TextBox
+                        Grid.Column="0"
+                        Text="{Binding LocalAceDbPath}"
+                        Watermark="Select ACE SQLite database file..." />
+
+                    <Button
+                        Grid.Column="1"
+                        Margin="5,0,0,0"
+                        Padding="15,5"
+                        Command="{Binding BrowseLocalAceDbCommand}"
+                        CommandParameter="{Binding $parent[Window]}"
+                        Content="Browse..." />
+                </Grid>
+            </Grid>
+            
+            <!-- Loading indicator -->
+            <StackPanel IsVisible="{Binding IsLoading}" Spacing="4">
+                <ProgressBar Value="{Binding LoadingProgress}" Minimum="0" Maximum="100" Height="4" />
+                <TextBlock Text="{Binding LoadingStatus}" FontSize="11" HorizontalAlignment="Center" Opacity="0.7" />
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>

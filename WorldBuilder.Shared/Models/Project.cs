@@ -19,6 +19,12 @@ public class Project : IProject, IAsyncDisposable {
     private readonly IDocumentManager _documentManager;
     private bool _disposed;
     private readonly string? _baseDatDirectory;
+    private Guid? _managedAceDbId;
+
+    /// <summary>
+    /// Raised when the ManagedAceDbId has changed.
+    /// </summary>
+    public event EventHandler? ManagedAceDbIdChanged;
 
     /// <summary>
     /// Gets the name of the project (determined by the project file name)
@@ -43,7 +49,15 @@ public class Project : IProject, IAsyncDisposable {
     /// <summary>
     /// Gets the managed ACE DB ID, if any.
     /// </summary>
-    public Guid? ManagedAceDbId { get; }
+    public Guid? ManagedAceDbId {
+        get => _managedAceDbId;
+        set {
+            if (_managedAceDbId != value) {
+                _managedAceDbId = value;
+                ManagedAceDbIdChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
 
     /// <summary>
     /// Gets the path to the project directory
@@ -70,7 +84,7 @@ public class Project : IProject, IAsyncDisposable {
         IsReadOnly = isReadOnly;
         _baseDatDirectory = baseDatDirectory;
         ManagedDatSetId = managedDatSetId;
-        ManagedAceDbId = managedAceDbId;
+        _managedAceDbId = managedAceDbId;
 
         var services = new ServiceCollection();
         var connectionString = IsReadOnly ? $"Data Source=file:{Guid.NewGuid()}?mode=memory&cache=shared" : $"Data Source={ProjectFile}";

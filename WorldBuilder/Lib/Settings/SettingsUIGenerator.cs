@@ -1,10 +1,11 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -12,7 +13,8 @@ using System.Linq;
 using System.Numerics;
 using System.Reflection;
 using WorldBuilder.Lib.Converters;
-
+using WorldBuilder.ViewModels;
+using WorldBuilder.Shared.Services;
 using WorldBuilder.Shared.Lib.Settings;
 
 namespace WorldBuilder.Lib.Settings {
@@ -205,6 +207,10 @@ namespace WorldBuilder.Lib.Settings {
             "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code",
             Justification = "<Pending>")]
         private Control? CreateInputControl(SettingPropertyMetadata metadata, object instance, string bindingPath) {
+            if (metadata.IsAceDatabase) {
+                return CreateAceDatabaseControl(metadata, instance, bindingPath);
+            }
+
             var propType = metadata.Property.PropertyType;
 
             if (_controlFactories.TryGetValue(propType, out var factory)) {
@@ -216,6 +222,38 @@ namespace WorldBuilder.Lib.Settings {
             }
 
             return CreateDefaultControl(metadata, instance, bindingPath);
+        }
+
+        [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "<Pending>")]
+        private Control? CreateAceDatabaseControl(SettingPropertyMetadata metadata, object instance, string bindingPath) {
+            var services = App.Services;
+            if (services == null) return null;
+
+            var viewModel = services.GetRequiredService<AceDatabaseSelectionViewModel>();
+            var view = new Views.AceDatabaseSelectionView { DataContext = viewModel };
+
+            // Bind the AceDbId property bidirectionally
+            var binding = new Binding {
+                Source = viewModel,
+                Path = nameof(AceDatabaseSelectionViewModel.SelectedManagedAceDb) + "." + nameof(ManagedAceDb.Id),
+                Mode = BindingMode.TwoWay
+            };
+            
+            // Link the view model to the setting property
+            viewModel.DatabaseSelected += (s, guid) => {
+                metadata.Property.SetValue(instance, guid);
+            };
+
+            // Set initial value
+            var currentGuid = (Guid?)metadata.Property.GetValue(instance);
+            if (currentGuid != null) {
+                viewModel.SelectedAceSourceType = AceSourceType.Managed;
+                viewModel.SelectedManagedAceDb = viewModel.ManagedAceDbs.FirstOrDefault(d => d.Id == currentGuid);
+            } else {
+                viewModel.SelectedAceSourceType = AceSourceType.None;
+            }
+
+            return view;
         }
 
         [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "<Pending>")]

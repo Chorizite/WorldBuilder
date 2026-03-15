@@ -15,6 +15,17 @@ namespace WorldBuilder.Shared.Tests.Mocks {
         public string Name { get; init; }
         public bool IsReadOnly { get; init; }
         public Guid? ManagedDatSetId { get; init; }
+        private Guid? _managedAceDbId;
+        public Guid? ManagedAceDbId {
+            get => _managedAceDbId;
+            set {
+                if (_managedAceDbId != value) {
+                    _managedAceDbId = value;
+                    ManagedAceDbIdChanged?.Invoke(this, EventArgs.Empty);
+                }
+            }
+        }
+        public event EventHandler? ManagedAceDbIdChanged;
         public ServiceProvider Services { get; init; }
         public IDocumentManager Documents { get; init; }
 

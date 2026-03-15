@@ -107,4 +107,11 @@ namespace WorldBuilder.Shared.Lib.Settings {
             Format = format;
         }
     }
+
+    /// <summary>
+    /// Marks a property as using the ACE database selection UI
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+    public class SettingAceDatabaseAttribute : Attribute {
+    }
 }
