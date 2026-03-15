@@ -1,9 +1,9 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Linq;
 using WorldBuilder.Lib.Input;
 using WorldBuilder.Lib.Settings;
 using WorldBuilder.Services;
@@ -21,6 +21,84 @@ namespace WorldBuilder.Views {
 
         public SettingsWindow() {
             InitializeComponent();
+
+            var settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
+            SetWindowPositionSize(settings);
+
+            // Add window state event handlers
+            SizeChanged += (s, e) => {
+                Task.Delay(50).ContinueWith(_ => {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                        if (settings?.Project != null && WindowState == WindowState.Normal) {
+                            settings.Project.SettingsWindowWidth = Width;
+                            settings.Project.SettingsWindowHeight = Height;
+                        }
+                    });
+                });
+            };
+
+            PositionChanged += (s, e) => {
+                Task.Delay(50).ContinueWith(_ => {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                        if (settings?.Project != null && WindowState == WindowState.Normal) {
+                            settings.Project.SettingsWindowX = Position.X;
+                            settings.Project.SettingsWindowY = Position.Y;
+                        }
+                    });
+                });
+            };
+
+            PropertyChanged += (s, e) => {
+                if (settings?.Project != null && e.Property == WindowStateProperty) {
+                    if (WindowState == WindowState.Normal || WindowState == WindowState.Maximized) {
+                        settings.Project.SettingsWindowIsMaximized = WindowState == WindowState.Maximized;
+                    }
+                }
+            };
+
+            Closing += (s, e) => {
+                if (settings?.Project != null)
+                    settings.Project.Save();
+            };
+        }
+
+        private void SetWindowPositionSize(WorldBuilderSettings? settings) {
+            if (settings?.Project != null) {
+                var unmaximizedWidth = settings.Project.SettingsWindowWidth;
+                var unmaximizedHeight = settings.Project.SettingsWindowHeight;
+                var unmaximizedX = settings.Project.SettingsWindowX;
+                var unmaximizedY = settings.Project.SettingsWindowY;
+
+                if (double.IsNaN(unmaximizedX) || double.IsNaN(unmaximizedY)) {
+                    // Use relative positioning if no saved position exists
+                    var desktop = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+                    if (desktop?.MainWindow != null) {
+                        var mainWindow = desktop.MainWindow;
+                        var screen = mainWindow.Screens.ScreenFromWindow(mainWindow);
+                        var scaling = screen?.Scaling ?? 1.0;
+
+                        var offsetX = (int)(80 * scaling);
+                        var offsetY = (int)(180 * scaling);
+
+                        unmaximizedX = mainWindow.Position.X + offsetX;
+                        unmaximizedY = mainWindow.Position.Y + offsetY;
+                    }
+                    else {
+                        unmaximizedX = 100;
+                        unmaximizedY = 100;
+                    }
+                }
+
+                Width = unmaximizedWidth;
+                Height = unmaximizedHeight;
+                Position = new PixelPoint((int)unmaximizedX, (int)unmaximizedY);
+
+                if (settings.Project.SettingsWindowIsMaximized) {
+                    Loaded += (s, e) => {
+                        WindowState = WindowState.Maximized;
+                    };
+                }
+            }
         }
 
         protected override void OnDataContextChanged(EventArgs e) {
@@ -181,6 +259,8 @@ namespace WorldBuilder.Views {
                 
                 // Reload InputManager bindings from updated settings
                 _inputManager?.LoadSettings();
+
+                SetWindowPositionSize(new WorldBuilderSettings { Project = new ProjectSettings() });
             }
         }
     }
