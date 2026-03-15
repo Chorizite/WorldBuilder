@@ -78,8 +78,9 @@ namespace WorldBuilder.Services {
         /// <param name="managedDatId">The managed DAT set ID, if any</param>
         /// <param name="versionInfo">The version information, if any</param>
         /// <returns>A task representing the asynchronous operation</returns>
-        public async Task AddRecentProject(string name, string filePath, bool isReadOnly, Guid? managedDatId = null, string? versionInfo = null) {
+        public async Task AddRecentProject(string name, string filePath, bool isReadOnly, Guid? managedDatId = null, Guid? managedAceId = null, string? versionInfo = null) {
             _datRepository.SetRepositoryRoot(_settings.App.ManagedDatsDirectory);
+            _aceRepository.SetRepositoryRoot(_settings.App.ManagedAceDbsDirectory);
             if (name == "client_portal" && managedDatId.HasValue) {
                 var managedSet = _datRepository.GetManagedDataSet(managedDatId.Value);
                 if (managedSet != null) {
@@ -87,8 +88,15 @@ namespace WorldBuilder.Services {
                 }
             }
 
+            if (isReadOnly && managedAceId.HasValue) {
+                var aceDb = _aceRepository.GetManagedAceDb(managedAceId.Value);
+                if (aceDb != null) {
+                    name += $" - {aceDb.FriendlyName}";
+                }
+            }
+
             // Remove if already exists
-            var existing = RecentProjects.FirstOrDefault(p => p.FilePath == filePath);
+            var existing = RecentProjects.FirstOrDefault(p => p.FilePath == filePath && (!p.IsReadOnly || p.ManagedAceId == managedAceId));
             if (existing != null) {
                 RecentProjects.Remove(existing);
             }
@@ -100,6 +108,7 @@ namespace WorldBuilder.Services {
                 LastOpened = DateTime.Now,
                 IsReadOnly = isReadOnly,
                 ManagedDatId = managedDatId,
+                ManagedAceId = managedAceId,
                 VersionInfo = versionInfo
             };
 

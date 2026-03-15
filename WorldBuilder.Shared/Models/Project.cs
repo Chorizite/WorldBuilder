@@ -97,15 +97,17 @@ public class Project : IProject, IAsyncDisposable {
     /// <param name="datRepository">The DAT repository service</param>
     /// <param name="aceRepository">The ACE repository service</param>
     /// <param name="migrationService">The project migration service</param>
+    /// <param name="managedId">Optional managed DAT set ID</param>
+    /// <param name="managedAceId">Optional managed ACE DB ID</param>
     /// <param name="progress">Optional progress reporter for migrations</param>
     /// <param name="ct">A cancellation token to cancel the operation</param>
     /// <returns>A Result containing a Project instance if successful, or an error</returns>
-    public static async Task<Result<Project>> Open(string projectFile, IDatRepositoryService datRepository, IAceRepositoryService aceRepository, IProjectMigrationService migrationService, IProgress<(string message, float progress)>? progress = null, CancellationToken ct = default) {
+    public static async Task<Result<Project>> Open(string projectFile, IDatRepositoryService datRepository, IAceRepositoryService aceRepository, IProjectMigrationService migrationService, Guid? managedId = null, Guid? managedAceId = null, IProgress<(string message, float progress)>? progress = null, CancellationToken ct = default) {
         try {
             var isReadOnly = projectFile.EndsWith(".dat", StringComparison.OrdinalIgnoreCase);
             string? baseDatDir = null;
-            Guid? managedDatSetId = null;
-            Guid? managedAceDbId = null;
+            Guid? managedDatSetId = managedId;
+            Guid? managedAceDbId = managedAceId;
 
             if (isReadOnly) {
                 baseDatDir = Path.GetDirectoryName(projectFile);
@@ -218,7 +220,7 @@ public class Project : IProject, IAsyncDisposable {
             }
         }
 
-        var projectResult = await Open(projectPath, datRepository, aceRepository, migrationService, progress, ct);
+        var projectResult = await Open(projectPath, datRepository, aceRepository, migrationService, managedId, managedAceId, progress, ct);
         if (projectResult.IsFailure) return projectResult;
 
         var project = projectResult.Value;

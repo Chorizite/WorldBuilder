@@ -105,7 +105,7 @@ namespace WorldBuilder.Shared.Services {
 
                 var metadata = new ManagedAceDb {
                     Id = id,
-                    FriendlyName = friendlyName ?? $"ACE {versionInfo.patchVersion} ({versionInfo.baseVersion})",
+                    FriendlyName = friendlyName ?? $"ACE ({versionInfo.patchVersion})",
                     BaseVersion = versionInfo.baseVersion,
                     PatchVersion = versionInfo.patchVersion,
                     LastModified = versionInfo.lastModified,

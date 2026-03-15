@@ -60,6 +60,16 @@ namespace WorldBuilder.ViewModels {
             set => SetProperty(ref _managedDatId, value);
         }
 
+        private Guid? _managedAceId;
+
+        /// <summary>
+        /// Gets or sets the managed ACE DB ID, if any.
+        /// </summary>
+        public Guid? ManagedAceId {
+            get => _managedAceId;
+            set => SetProperty(ref _managedAceId, value);
+        }
+
         private string? _versionInfo;
 
         /// <summary>

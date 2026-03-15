@@ -14,11 +14,25 @@ public class OpenProjectMessage : ValueChangedMessage<string> {
     public SplashPageViewModelBase? SourceViewModel { get; }
 
     /// <summary>
+    /// Gets the managed DAT set ID, if any.
+    /// </summary>
+    public Guid? ManagedDatId { get; }
+
+    /// <summary>
+    /// Gets the managed ACE DB ID, if any.
+    /// </summary>
+    public Guid? ManagedAceId { get; }
+
+    /// <summary>
     /// Initializes a new instance of the OpenProjectMessage class with the specified project file path.
     /// </summary>
     /// <param name="value">The path to the project file to open</param>
     /// <param name="sourceViewModel">The source view model that sent the message</param>
-    public OpenProjectMessage(string value, SplashPageViewModelBase? sourceViewModel = null) : base(value) {
+    /// <param name="managedDatId">The managed DAT set ID, if any</param>
+    /// <param name="managedAceId">The managed ACE DB ID, if any</param>
+    public OpenProjectMessage(string value, SplashPageViewModelBase? sourceViewModel = null, Guid? managedDatId = null, Guid? managedAceId = null) : base(value) {
         SourceViewModel = sourceViewModel;
+        ManagedDatId = managedDatId;
+        ManagedAceId = managedAceId;
     }
 }
