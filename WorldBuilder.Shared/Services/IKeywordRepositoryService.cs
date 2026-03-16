@@ -12,7 +12,7 @@ namespace WorldBuilder.Shared.Services {
         /// <summary>
         /// The current version of the keyword generator.
         /// </summary>
-        const int CurrentGeneratorVersion = 1;
+        const int CurrentGeneratorVersion = 2;
 
         /// <summary>
         /// Gets the repository root directory.

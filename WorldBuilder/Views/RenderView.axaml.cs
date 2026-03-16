@@ -112,7 +112,6 @@ public partial class RenderView : Base3DViewport {
             }
 
             Dispatcher.UIThread.Post(() => {
-                _logger.LogInformation("RenderView initialized, invoking SceneInitialized");
                 SceneInitialized?.Invoke();
 
                 if (DataContext is LandscapeViewModel vm) {

@@ -108,7 +108,7 @@ public class Project : IProject, IAsyncDisposable {
 
     private async Task Initialize(CancellationToken ct) {
         var log = Services.GetRequiredService<ILogger<Project>>();
-        log.LogInformation("Initializing project {Name} ({ProjectFile})...", Name, ProjectFile);
+        log.LogTrace("Initializing project {Name} ({ProjectFile})...", Name, ProjectFile);
         await _documentManager.InitializeAsync(ct);
 
         var projectDirectory = Path.GetDirectoryName(ProjectFile);
@@ -119,23 +119,23 @@ public class Project : IProject, IAsyncDisposable {
             if (string.IsNullOrEmpty(datRepo.RepositoryRoot)) {
                 var datsSiblingDir = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(projectDirectory) ?? string.Empty) ?? string.Empty, "Dats");
                 datRepo.SetRepositoryRoot(datsSiblingDir);
-                log.LogInformation("Internal DAT repository root set to: {Path}", datsSiblingDir);
+                log.LogTrace("Internal DAT repository root set to: {Path}", datsSiblingDir);
             }
 
             if (string.IsNullOrEmpty(aceRepo.RepositoryRoot)) {
                 var serverSiblingDir = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(projectDirectory) ?? string.Empty) ?? string.Empty, "Server");
                 aceRepo.SetRepositoryRoot(serverSiblingDir);
-                log.LogInformation("Internal ACE repository root set to: {Path}", serverSiblingDir);
+                log.LogTrace("Internal ACE repository root set to: {Path}", serverSiblingDir);
             }
 
             if (string.IsNullOrEmpty(_keywordRepository.RepositoryRoot)) {
                 var keywordsSiblingDir = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(projectDirectory) ?? string.Empty) ?? string.Empty, "Keywords");
                 _keywordRepository.SetRepositoryRoot(keywordsSiblingDir);
-                log.LogInformation("Internal Keyword repository root set to: {Path}", keywordsSiblingDir);
+                log.LogTrace("Internal Keyword repository root set to: {Path}", keywordsSiblingDir);
             }
         }
 
-        log.LogInformation("ManagedDatSetId: {DatId}, ManagedAceDbId: {AceId}", ManagedDatSetId, ManagedAceDbId);
+        log.LogTrace("ManagedDatSetId: {DatId}, ManagedAceDbId: {AceId}", ManagedDatSetId, ManagedAceDbId);
         if (ManagedDatSetId.HasValue && ManagedAceDbId.HasValue) {
             _ = Task.Run(async () => {
                 await EnsureKeywordsValid(ManagedDatSetId.Value, ManagedAceDbId.Value, CancellationToken.None);
@@ -143,7 +143,7 @@ public class Project : IProject, IAsyncDisposable {
         }
 
         ManagedAceDbIdChanged += (s, e) => {
-            log.LogInformation("ManagedAceDbId changed to: {AceId}", ManagedAceDbId);
+            log.LogTrace("ManagedAceDbId changed to: {AceId}", ManagedAceDbId);
             if (ManagedDatSetId.HasValue && ManagedAceDbId.HasValue) {
                 // EnsureKeywordsValid handles its own Task.Run if needed
                 _ = EnsureKeywordsValid(ManagedDatSetId.Value, ManagedAceDbId.Value, CancellationToken.None);
@@ -153,7 +153,6 @@ public class Project : IProject, IAsyncDisposable {
 
     private async Task EnsureKeywordsValid(Guid datId, Guid aceId, CancellationToken ct) {
         var log = Services.GetRequiredService<ILogger<Project>>();
-        log.LogInformation("Ensuring keywords are valid for {DatId}/{AceId}...", datId, aceId);
         if (!_keywordRepository.AreKeywordsValid(datId, aceId)) {
             log.LogInformation("Keywords invalid for {DatId}/{AceId}, triggering generation...", datId, aceId);
             // Run in background
@@ -162,7 +161,7 @@ public class Project : IProject, IAsyncDisposable {
             }, ct);
         }
         else {
-            log.LogInformation("Keywords are already valid for {DatId}/{AceId}.", datId, aceId);
+            log.LogTrace("Keywords are already valid for {DatId}/{AceId}.", datId, aceId);
         }
     }
 

@@ -150,7 +150,7 @@ namespace WorldBuilder.Lib {
         /// </summary>
         public void SetViewportDimensions(IGlContext context, int width, int height) {
             _viewportDimensions.AddOrUpdate(context, (width, height), (ctx, dims) => (width, height));
-            _logger.LogDebug("Set viewport dimensions for context {Context}: {Width}x{Height}", context.GetHashCode(), width, height);
+            _logger.LogTrace("Set viewport dimensions for context {Context}: {Width}x{Height}", context.GetHashCode(), width, height);
         }
 
         /// <summary>
@@ -158,8 +158,6 @@ namespace WorldBuilder.Lib {
         /// </summary>
         public (int width, int height)? GetViewportDimensions(IGlContext context) {
             if (_viewportDimensions.TryGetValue(context, out var dims)) {
-                _logger.LogDebug("Retrieved viewport dimensions for context {Context}: {Width}x{Height}",
-                                context.GetHashCode(), dims.width, dims.height);
                 return dims;
             }
             else {

@@ -37,7 +37,7 @@ namespace WorldBuilder.Shared.Services {
             var datIdResult = await repository.GetKeyValueAsync("ManagedDatSetId", null, ct);
             if (datIdResult.IsSuccess && !string.IsNullOrEmpty(datIdResult.Value)) {
                 // Already migrated
-                _log.LogInformation("Project {projectFile} already migrated to centralized DATs", projectFile);
+                _log.LogTrace("Project {projectFile} already migrated to centralized DATs", projectFile);
                 return Result<Unit>.Success(Unit.Value);
             }
 

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 	</PropertyGroup>
@@ -23,7 +23,12 @@
 		<PackageReference Include="Microsoft.Data.Sqlite.Core" />
 		<PackageReference Include="SQLitePCLRaw.bundle_green" />
 		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
         <PackageReference Include="CommunityToolkit.Mvvm" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\ACE\ACE.Database\ACE.Database.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

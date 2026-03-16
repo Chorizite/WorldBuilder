@@ -31,7 +31,6 @@ namespace WorldBuilder.Services {
             lock (_managers) {
                 var key = (dats, regionId);
                 if (!_managers.TryGetValue(key, out var entry)) {
-                    _logger.LogInformation("Creating new shared LandSurfaceManager for region {RegionId}", regionId);
                     entry = new SurfaceManagerEntry {
                         Manager = new LandSurfaceManager(graphicsDevice, dats, region, _loggerFactory.CreateLogger<LandSurfaceManager>())
                     };

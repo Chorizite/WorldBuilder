@@ -50,9 +50,9 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
     }
 
     public async Task InitializeAsync(CancellationToken ct) {
-        _logger.LogInformation("Initializing DocumentManager");
+        _logger.LogTrace("Initializing DocumentManager");
         await _repo.InitializeDatabaseAsync(ct);
-        _logger.LogInformation("DocumentManager initialized");
+        _logger.LogTrace("DocumentManager initialized");
     }
 
     public async Task<ITransaction> CreateTransactionAsync(CancellationToken ct) {

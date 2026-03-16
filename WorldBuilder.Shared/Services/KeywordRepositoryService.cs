@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
+using ACE.Database.Models.World;
 using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Shared.Services {
@@ -106,31 +108,31 @@ namespace WorldBuilder.Shared.Services {
                 // 1. Map SetupId -> List of Keywords
                 var setupKeywords = new Dictionary<uint, HashSet<string>>();
 
-                using (var connection = new SqliteConnection($"Data Source={acePath};Mode=ReadOnly")) {
-                    await connection.OpenAsync(ct);
+                var optionsBuilder = new DbContextOptionsBuilder<WorldDbContext>();
+                optionsBuilder.UseSqlite($"Data Source={acePath}");
 
-                    // Get all string properties and class_Name from weenie table
-                    // Joined via weenie_properties_d_i_d (type 1 is Setup)
-                    var query = @"
-                        SELECT wpd.value AS SetupId, w.class_Name, wps.value AS StringValue
-                        FROM weenie w
-                        INNER JOIN weenie_properties_d_i_d wpd ON w.class_Id = wpd.object_Id AND wpd.type = 1
-                        LEFT JOIN weenie_properties_string wps ON w.class_Id = wps.object_Id";
+                using (var context = new WorldDbContext(optionsBuilder.Options)) {
+                    var data = await context.Weenie
+                        .SelectMany(w => w.WeeniePropertiesDID.Where(wpd => wpd.Type == 1), (w, wpd) => new {
+                            SetupId = wpd.Value,
+                            w.ClassName,
+                            Strings = w.WeeniePropertiesString.Select(s => s.Value)
+                        })
+                        .ToListAsync(ct);
 
-                    using (var command = new SqliteCommand(query, connection)) {
-                        using (var reader = await command.ExecuteReaderAsync(ct)) {
-                            while (await reader.ReadAsync(ct)) {
-                                var setupId = (uint)reader.GetInt32(0);
-                                var className = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
-                                var stringValue = reader.IsDBNull(2) ? string.Empty : reader.GetString(2);
+                    foreach (var item in data) {
+                        if (!setupKeywords.TryGetValue(item.SetupId, out var keywords)) {
+                            keywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                            setupKeywords[item.SetupId] = keywords;
+                        }
 
-                                if (!setupKeywords.TryGetValue(setupId, out var keywords)) {
-                                    keywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                                    setupKeywords[setupId] = keywords;
-                                }
+                        if (!string.IsNullOrWhiteSpace(item.ClassName)) {
+                            keywords.Add(item.ClassName);
+                        }
 
-                                if (!string.IsNullOrWhiteSpace(className)) keywords.Add(className);
-                                if (!string.IsNullOrWhiteSpace(stringValue)) keywords.Add(stringValue);
+                        foreach (var stringValue in item.Strings) {
+                            if (!string.IsNullOrWhiteSpace(stringValue)) {
+                                keywords.Add(stringValue);
                             }
                         }
                     }

@@ -237,7 +237,7 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
     }
 
     private void LoadProject(string filePath, Guid? managedDatId = null, Guid? managedAceId = null) {
-        _log.LogInformation($"LoadProject: {filePath}");
+        _log.LogTrace($"LoadProject: {filePath}");
         WeakReferenceMessenger.Default.Send(new OpenProjectMessage(filePath, this, managedDatId, managedAceId));
     }
 
