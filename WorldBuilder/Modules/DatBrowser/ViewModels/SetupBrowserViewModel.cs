@@ -12,6 +12,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private readonly IKeywordRepositoryService _keywordRepository;
         private readonly ProjectManager _projectManager;
         private CancellationTokenSource? _searchCts;
+        private bool _isDisposed;
 
         [ObservableProperty]
         private string _keywordsSearchText = string.Empty;
@@ -33,16 +34,22 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             _projectManager = projectManager;
 
             UpdateSearchState();
-            _projectManager.CurrentProjectChanged += (s, e) => UpdateSearchState();
+            _projectManager.CurrentProjectChanged += OnCurrentProjectChanged;
             _keywordRepository.GlobalProgress += OnKeywordGenerationProgress;
 
-            GridBrowser.PropertyChanged += (s, e) => {
-                if (e.PropertyName == nameof(GridBrowserViewModel.KeywordsSearchText)) {
-                    if (KeywordsSearchText != GridBrowser.KeywordsSearchText) {
-                        KeywordsSearchText = GridBrowser.KeywordsSearchText;
-                    }
+            GridBrowser.PropertyChanged += OnGridBrowserPropertyChanged;
+        }
+
+        private void OnCurrentProjectChanged(object? sender, System.EventArgs e) {
+            UpdateSearchState();
+        }
+
+        private void OnGridBrowserPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
+            if (e.PropertyName == nameof(GridBrowserViewModel.KeywordsSearchText)) {
+                if (KeywordsSearchText != GridBrowser.KeywordsSearchText) {
+                    KeywordsSearchText = GridBrowser.KeywordsSearchText;
                 }
-            };
+            }
         }
 
         partial void OnSearchTypeChanged(SearchType value) {
@@ -50,12 +57,15 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         }
 
         private void OnKeywordGenerationProgress(object? sender, IKeywordRepositoryService.KeywordGenerationProgress e) {
+            if (_isDisposed) return;
             Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                if (_isDisposed) return;
                 UpdateSearchState();
             });
         }
 
         private void UpdateSearchState() {
+            if (_isDisposed) return;
             var project = _projectManager.CurrentProject;
             bool enabled = true;
             bool isEmbeddingSearch = false;
@@ -73,8 +83,8 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             else {
                 isEmbeddingSearch = _keywordRepository.IsEmbeddingSearchActive(project.ManagedIds.ManagedDatSetId.Value, project.ManagedIds.ManagedAceDbId.Value);
                 if (isEmbeddingSearch) {
-                    tooltip = "Semantic search active. You can search by meaning (e.g., 'pointy objects' or 'wooden table').";
-                    watermark = "Semantic search (e.g., 'pointy wooden table')...";
+                    tooltip = "Semantic search active. You can search by meaning (e.g., 'halloween' or 'antarctica').";
+                    watermark = "Semantic search (e.g., 'halloween')...";
                 }
                 else {
                     var db = _keywordRepository.GetManagedKeywordDb(project.ManagedIds.ManagedDatSetId.Value, project.ManagedIds.ManagedAceDbId.Value);
@@ -110,11 +120,15 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         }
 
         private void PerformSearch(string value) {
+            if (_isDisposed) return;
+
             _searchCts?.Cancel();
+            _searchCts?.Dispose();
             _searchCts = new CancellationTokenSource();
             var ct = _searchCts.Token;
 
             Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                if (_isDisposed) return;
                 GridBrowser.IsKeywordsSearching = true;
             });
 
@@ -133,7 +147,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                     }
 
                     Avalonia.Threading.Dispatcher.UIThread.Post(() => {
-                        if (!ct.IsCancellationRequested) {
+                        if (!ct.IsCancellationRequested && !_isDisposed) {
                             Initialize(filteredIds);
                             GridBrowser.IsKeywordsSearching = false;
                         }
@@ -143,7 +157,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 catch (System.OperationCanceledException) { }
                 catch (System.Exception) {
                     Avalonia.Threading.Dispatcher.UIThread.Post(() => {
-                        if (!ct.IsCancellationRequested) {
+                        if (!ct.IsCancellationRequested && !_isDisposed) {
                             GridBrowser.IsKeywordsSearching = false;
                         }
                     });
@@ -152,10 +166,17 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         }
 
         public override void Dispose() {
+            if (_isDisposed) return;
+            _isDisposed = true;
+
             base.Dispose();
+            _projectManager.CurrentProjectChanged -= OnCurrentProjectChanged;
             _keywordRepository.GlobalProgress -= OnKeywordGenerationProgress;
+            GridBrowser.PropertyChanged -= OnGridBrowserPropertyChanged;
+
             _searchCts?.Cancel();
             _searchCts?.Dispose();
+            _searchCts = null;
         }
     }
 }

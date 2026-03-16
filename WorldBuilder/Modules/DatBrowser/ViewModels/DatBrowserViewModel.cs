@@ -345,10 +345,16 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             if (oldValue is INotifyPropertyChanged oldNotify) {
                 oldNotify.PropertyChanged -= OnBrowserPropertyChanged;
             }
+            if (oldValue is IDatBrowserViewModel oldBrowser && oldBrowser.GridBrowser != null) {
+                oldBrowser.GridBrowser.PropertyChanged -= OnGridBrowserPropertyChanged;
+            }
             if (newValue is INotifyPropertyChanged newNotify) {
                 newNotify.PropertyChanged += OnBrowserPropertyChanged;
-                UpdateSearchProperties();
             }
+            if (newValue is IDatBrowserViewModel newBrowser && newBrowser.GridBrowser != null) {
+                newBrowser.GridBrowser.PropertyChanged += OnGridBrowserPropertyChanged;
+            }
+            UpdateSearchProperties();
             UpdateSelectedObject();
         }
 
@@ -377,12 +383,6 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 else if (e.PropertyName == nameof(SetupBrowserViewModel.SearchType)) {
                     SearchType = setupBrowser.SearchType;
                 }
-            }
-            if (sender is IDatBrowserViewModel browser && e.PropertyName == nameof(IDatBrowserViewModel.GridBrowser)) {
-                if (browser.GridBrowser is INotifyPropertyChanged gridNotify) {
-                    gridNotify.PropertyChanged += OnGridBrowserPropertyChanged;
-                }
-                UpdateSearchProperties();
             }
         }
 
