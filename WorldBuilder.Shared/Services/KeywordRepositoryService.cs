@@ -185,7 +185,7 @@ namespace WorldBuilder.Shared.Services {
                 var connectionString = $"Data Source={targetPath}";
                 var metadata        = GetOrResetMetadata(datId, aceId, targetPath, forceRegenerate);
 
-                // Phase 1 – keyword extraction
+                // keyword extraction
                 if (metadata.KeywordProgress < 1f || !await TableExistsAsync(connectionString, "SetupKeywords", ct)) {
                     ReportProgress("Extracting keywords from ACE database...", 0.1f, 0f, 0f);
 
@@ -197,11 +197,11 @@ namespace WorldBuilder.Shared.Services {
                     SaveRegistry();
                 }
 
-                // Phase 2 – vector store init
+                // vector store init
                 await ApplyWalModeAsync(connectionString, ct);
                 await EnsureVectorCollectionAsync(connectionString, ct);
 
-                // Phase 3 – embedding generation
+                // embedding generation
                 var modelDownload = await EnsureModelDownloadedAsync(ct);
                 if (modelDownload.IsFailure)
                     return Result<ManagedKeywordDb>.Failure($"Embedding model unavailable: {modelDownload.Error.Message}", "MODEL_DOWNLOAD_FAILED");
