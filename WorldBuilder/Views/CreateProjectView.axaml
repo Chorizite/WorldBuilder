@@ -27,6 +27,15 @@
         <Style Selector="Button:disabled">
             <Setter Property="Opacity" Value="0.5" />
         </Style>
+        <Style Selector="TextBox.no-error-template /template/ DataValidationErrors">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Padding="{TemplateBinding Padding}" />
+                </ControlTemplate>
+            </Setter>
+        </Style>
     </UserControl.Styles>
 
     <Grid Margin="10">
@@ -60,7 +69,7 @@
                             SelectedItem="{Binding SelectedDatSourceType}">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding, Converter={StaticResource EnumDescriptionConverter}}" />
+                                    <TextBlock Text="{Binding Converter={StaticResource EnumDescriptionConverter}}" />
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
@@ -92,6 +101,7 @@
                               IsVisible="{Binding SelectedDatSourceType, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static settings:DatSourceType.AddNew}}">
                             <TextBox
                                 Grid.Column="0"
+                                Classes="no-error-template"
                                 Text="{Binding BaseDatDirectory}"
                                 Watermark="Select directory containing DAT files..." />
 

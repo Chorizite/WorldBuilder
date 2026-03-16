@@ -148,7 +148,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
                     Avalonia.Threading.Dispatcher.UIThread.Post(() => {
                         if (!ct.IsCancellationRequested && !_isDisposed) {
-                            Initialize(filteredIds);
+                            GridBrowser.SetFileIds(filteredIds ?? _database.GetAllIdsOfType<DatReaderWriter.DBObjs.Setup>().OrderBy(x => x).ToList());
                             GridBrowser.IsKeywordsSearching = false;
                         }
                     });
