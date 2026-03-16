@@ -1,32 +1,21 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using DatReaderWriter.Lib.IO;
 using HanumanInstitute.MvvmDialogs;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using WorldBuilder.Lib.Extensions;
-using WorldBuilder.Lib.Factories;
+using Microsoft.Extensions.DependencyInjection;
+using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
+using WorldBuilder.Lib;
+using WorldBuilder.Messages;
+using WorldBuilder.Modules.DatBrowser.ViewModels;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Services;
-using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
-using WorldBuilder.Modules.DatBrowser.ViewModels;
-using DatReaderWriter;
-using DatReaderWriter.DBObjs;
-using DatReaderWriter.Lib.IO;
-using System.Diagnostics.CodeAnalysis;
-using Avalonia.Controls;
-
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using WorldBuilder.Lib;
-using WorldBuilder.Lib.Settings;
-using System.Runtime.InteropServices;
-using Avalonia.Platform.Storage;
-using WorldBuilder.Messages;
-using Avalonia;
 
 namespace WorldBuilder.ViewModels;
 
@@ -337,26 +326,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
         _settingsWindow = new Views.SettingsWindow {
             DataContext = viewModel
         };
-
-        // Manually anchor relative to main window in case of multiple monitors with different DPIs
-        var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
-        if (desktop?.MainWindow != null) {
-            var mainWindow = desktop.MainWindow;
-            var screen = mainWindow.Screens.ScreenFromWindow(mainWindow);
-            var scaling = screen?.Scaling ?? 1.0;
-
-            var offsetX = (int)(80 * scaling);
-            var offsetY = (int)(180 * scaling);
-
-            _settingsWindow.Position = new PixelPoint(
-                mainWindow.Position.X + offsetX,
-                mainWindow.Position.Y + offsetY
-            );
-            _settingsWindow.Show(mainWindow);
-        }
-        else {
-            _settingsWindow.Show();
-        }
+        var desktop = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+        if (desktop?.MainWindow != null)
+            _settingsWindow.Show(desktop.MainWindow);
 
         viewModel.Closed += (s, e) => _settingsWindow = null;
     }

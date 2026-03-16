@@ -17,6 +17,7 @@ using WorldBuilder.Services;
 using HanumanInstitute.MvvmDialogs;
 using System.Threading.Tasks;
 using WorldBuilder.Lib;
+using WorldBuilder.Lib.Input;
 using WorldBuilder.Modules.DatBrowser.Factories;
 
 using CommunityToolkit.Mvvm.Input;
@@ -174,14 +175,16 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private EnvCellBrowserViewModel? _envCellBrowser;
         private LayoutDescBrowserViewModel? _layoutDescBrowser;
         private LanguageInfoBrowserViewModel? _languageInfoBrowser;
+        private readonly WorldBuilder.Shared.Lib.IInputManager _inputManager;
 
         public IDatReaderWriter Dats => _dats;
 
-        public DatBrowserViewModel(IDatBrowserViewModelFactory viewModelFactory, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats) {
+        public DatBrowserViewModel(IDatBrowserViewModelFactory viewModelFactory, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats, WorldBuilder.Shared.Lib.IInputManager inputManager) {
             _viewModelFactory = viewModelFactory;
             _dialogService = dialogService;
             _serviceProvider = serviceProvider;
             _dats = dats;
+            _inputManager = inputManager;
 
             SelectedType = DBObjType.Setup;
             // Don't create browser here - let the lazy loading handle it
@@ -392,7 +395,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         }
 
         public bool HandleHotkey(KeyEventArgs e) {
-            if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.G) {
+            if (_inputManager is InputManager inputManager && inputManager.IsAction(e, InputAction.GoToFileId)) {
                 _ = ShowGoToFileIdPrompt();
                 return true;
             }

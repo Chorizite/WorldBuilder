@@ -1,0 +1,107 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:local="clr-namespace:WorldBuilder.Views.Settings"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="60"
+             x:Class="WorldBuilder.Views.Settings.KeymapEntryControl"
+             x:DataType="local:KeymapEntryControl">
+
+  <UserControl.Styles>
+    <Style Selector="Border.key-display">
+      <Setter Property="Background" Value="{DynamicResource SemiColorSurface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="8,1" />
+      <Setter Property="MinHeight" Value="32" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Focusable" Value="True" />
+    </Style>
+    <Style Selector="Border.key-display:pointerover">
+      <Setter Property="Background" Value="{DynamicResource SemiColorPrimaryLight}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}" />
+    </Style>
+    <Style Selector="Border.key-display.capture-mode">
+      <Setter Property="Background" Value="{DynamicResource SemiColorPrimary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}" />
+    </Style>
+    <Style Selector="Border.key-display:focus">
+      <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="TextBlock.key-display-text">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource SemiColorText1}" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="TextBlock.key-display-text.capture-mode">
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="FontStyle" Value="Italic" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="Button.unbind-inline">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="2,1" />
+      <Setter Property="Margin" Value="2,0,0,0" />
+      <Setter Property="Foreground" Value="#FF6B6B" />
+      <Setter Property="Opacity" Value="0.9" />
+      <Setter Property="FontWeight" Value="Normal" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.unbind-inline:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="TextBlock.action-name">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border Padding="4,2" Margin="0,0,0,1">
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="240" />
+        <ColumnDefinition Width="*" MaxWidth="260" />
+      </Grid.ColumnDefinitions>
+
+      <!-- Action Name -->
+      <TextBlock x:Name="ActionNameTextBlock" 
+                 Grid.Column="0"
+                 Classes="action-name"
+                 Text="{Binding ActionName}" />
+
+      <!-- Key Display Control -->
+      <Border x:Name="KeyDisplayBorder"
+              Grid.Column="1"
+              Classes="key-display"
+              PointerPressed="OnKeyDisplayBorderPointerPressed">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          
+          <!-- Key Display Text -->
+          <TextBlock x:Name="KeyDisplayTextBlock"
+                     Grid.Column="0"
+                     Classes="key-display-text"
+                     Text="{Binding CurrentKeyDisplay}" />
+          
+          <!-- Unbind Button -->
+          <Button x:Name="UnbindButton"
+                  Grid.Column="1"
+                  Classes="unbind-inline"
+                  Content="✕"
+                  Click="OnUnbindButtonClick"
+                  ToolTip.Tip="Unbind"
+                  IsVisible="{Binding HasBinding}" />
+        </Grid>
+      </Border>
+    </Grid>
+  </Border>
+</UserControl>

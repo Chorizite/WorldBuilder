@@ -17,6 +17,7 @@ using System.Linq;
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
+using WorldBuilder.Lib.Input;
 using WorldBuilder.Lib.Settings;
 using WorldBuilder.Lib;
 using WorldBuilder.Shared.Lib;
@@ -43,6 +44,7 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
     private readonly IDialogService _dialogService;
     private readonly BookmarksManager _bookmarksManager;
     private readonly ILandscapeObjectService _landscapeObjectService;
+    private readonly WorldBuilder.Shared.Lib.IInputManager _inputManager;
     private DocumentRental<LandscapeDocument>? _landscapeRental;
 
     public string Name => "Landscape";
@@ -103,7 +105,7 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
 
     public GameScene GameScene => _gameScene!;
 
-    public LandscapeViewModel(IProject project, IDatReaderWriter dats, IPortalService portalService, IDocumentManager documentManager, BookmarksManager bookmarksManager, ILogger<LandscapeViewModel> log, IDialogService dialogService, WorldBuilderSettings settings, ILandscapeObjectService landscapeObjectService) {
+    public LandscapeViewModel(IProject project, IDatReaderWriter dats, IPortalService portalService, IDocumentManager documentManager, BookmarksManager bookmarksManager, ILogger<LandscapeViewModel> log, IDialogService dialogService, WorldBuilderSettings settings, WorldBuilder.Shared.Lib.IInputManager inputManager, ILandscapeObjectService landscapeObjectService) {
         _project = project ?? throw new ArgumentNullException(nameof(project));
         _dats = dats ?? throw new ArgumentNullException(nameof(dats));
         _portalService = portalService ?? throw new ArgumentNullException(nameof(portalService));
@@ -111,6 +113,7 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
         _log = log ?? throw new ArgumentNullException(nameof(log));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _inputManager = inputManager ?? throw new ArgumentNullException(nameof(inputManager));
         _bookmarksManager = bookmarksManager ?? throw new ArgumentNullException(nameof(bookmarksManager));
         _landscapeObjectService = landscapeObjectService ?? throw new ArgumentNullException(nameof(landscapeObjectService));
 
@@ -157,7 +160,7 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
                 PropertiesPanel.SelectedItem = LayersPanel.SelectedItem;
             }
         };
-        BookmarksPanel = new BookmarksPanelViewModel(_settings!, _bookmarksManager, this, _dialogService);
+        BookmarksPanel = new BookmarksPanelViewModel(_settings!, _inputManager, _bookmarksManager, this, _dialogService);
 
         _ = LoadLandscapeAsync();
 
@@ -166,11 +169,11 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
             var activeProject = _settings?.Project;
             if (activeProject != null) {
                 var settingsProvider = new ToolSettingsProvider(activeProject);
-                Tools.Add(new BrushTool(this, this, _landscapeObjectService, settingsProvider));
+                Tools.Add(new BrushTool(this, this, _landscapeObjectService, settingsProvider, _inputManager));
                 Tools.Add(new BucketFillTool(this, this, _landscapeObjectService, settingsProvider));
                 Tools.Add(new RoadVertexTool(this, this, _landscapeObjectService, settingsProvider));
                 Tools.Add(new RoadLineTool(this, this, _landscapeObjectService, settingsProvider));
-                Tools.Add(new ObjectManipulationTool(this, this, _landscapeObjectService, settingsProvider));
+                Tools.Add(new ObjectManipulationTool(this, this, _landscapeObjectService, settingsProvider, _inputManager));
                 Tools.Add(new InspectorTool(this, this, _landscapeObjectService, settingsProvider));
             }
         }
@@ -1022,13 +1025,14 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
     }
 
     public bool HandleHotkey(KeyEventArgs e) {
+        var inputManager = _inputManager as InputManager;
         if (e.Key == Key.Escape) {
             if (ActiveTool is ITexturePaintingTool paintingTool && paintingTool.IsEyeDropperActive) {
                 paintingTool.IsEyeDropperActive = false;
                 return true;
             }
         }
-        if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.G) {
+        if (inputManager != null && inputManager.IsAction(e, InputAction.GoToLocation)) {
             _ = ShowGoToLocationPrompt();
             return true;
         }
@@ -1042,7 +1046,7 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
             CommandHistory.Redo();
             return true;
         }
-        if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.B) {
+        if (inputManager != null && inputManager.IsAction(e, InputAction.AddBookmark)) { 
             BookmarksPanel?.AddBookmark();
             return true;
         }

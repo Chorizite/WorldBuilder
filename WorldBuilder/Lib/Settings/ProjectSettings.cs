@@ -34,6 +34,26 @@ namespace WorldBuilder.Lib.Settings {
         public bool IsMaximized { get => _isMaximized; set => SetProperty(ref _isMaximized, value); }
 
         [SettingHidden]
+        private double _settingsWindowWidth = 700;
+        public double SettingsWindowWidth { get => _settingsWindowWidth; set => SetProperty(ref _settingsWindowWidth, value); }
+
+        [SettingHidden]
+        private double _settingsWindowHeight = 500;
+        public double SettingsWindowHeight { get => _settingsWindowHeight; set => SetProperty(ref _settingsWindowHeight, value); }
+
+        [SettingHidden]
+        private double _settingsWindowX = double.NaN;
+        public double SettingsWindowX { get => _settingsWindowX; set => SetProperty(ref _settingsWindowX, value); }
+
+        [SettingHidden]
+        private double _settingsWindowY = double.NaN;
+        public double SettingsWindowY { get => _settingsWindowY; set => SetProperty(ref _settingsWindowY, value); }
+
+        [SettingHidden]
+        private bool _settingsWindowIsMaximized = false;
+        public bool SettingsWindowIsMaximized { get => _settingsWindowIsMaximized; set => SetProperty(ref _settingsWindowIsMaximized, value); }
+
+        [SettingHidden]
         private ProjectGraphicsSettings _graphics = new();
         public ProjectGraphicsSettings Graphics {
             get => _graphics;

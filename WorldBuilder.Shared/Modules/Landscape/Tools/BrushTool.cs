@@ -2,6 +2,7 @@ using DatReaderWriter.Enums;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
+using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Modules.Landscape.Models;
@@ -16,13 +17,15 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         private readonly ILandscapeEditorService _editorService;
         private readonly ILandscapeObjectService _landscapeObjectService;
         private readonly IToolSettingsProvider _settingsProvider;
+        private readonly IInputManager _inputManager;
         private const float CELL_SIZE = 24f; // TOD: pull from region info?
 
-        public BrushTool(ILandscapeRaycastService raycastService, ILandscapeEditorService editorService, ILandscapeObjectService landscapeObjectService, IToolSettingsProvider settingsProvider) {
+        public BrushTool(ILandscapeRaycastService raycastService, ILandscapeEditorService editorService, ILandscapeObjectService landscapeObjectService, IToolSettingsProvider settingsProvider, IInputManager inputManager) {
             _raycastService = raycastService;
             _editorService = editorService;
             _landscapeObjectService = landscapeObjectService;
             _settingsProvider = settingsProvider;
+            _inputManager = inputManager;
         }
 
         /// <inheritdoc/>
@@ -151,11 +154,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         public override bool OnKeyDown(ViewportInputEvent e) {
-            if (e.Key == "OemOpenBrackets") {
+            // Convert ViewportInputEvent modifiers to string format for InputManager
+            var modifiers = e.ConvertModifiersToString();
+            
+            if (e.Key == _inputManager.GetKey("DecreaseBrushSize") &&  modifiers == _inputManager.GetKeyModifiers("DecreaseBrushSize")) {
                 BrushSize = Math.Max(1, BrushSize - 1);
                 return true;
             }
-            if (e.Key == "OemCloseBrackets") {
+            if (e.Key == _inputManager.GetKey("IncreaseBrushSize") &&  modifiers == _inputManager.GetKeyModifiers("IncreaseBrushSize")) {
                 BrushSize++;
                 return true;
             }

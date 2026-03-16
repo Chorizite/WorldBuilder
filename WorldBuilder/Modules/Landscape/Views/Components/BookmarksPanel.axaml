@@ -18,7 +18,7 @@
     <Grid RowDefinitions="Auto, *">
         <Grid Grid.Row="0" Margin="4" ColumnDefinitions="Auto, *">
             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
-                <Button Command="{Binding AddBookmarkCommand}" ToolTip.Tip="Add New Bookmark (Ctrl+B)">
+                <Button Command="{Binding AddBookmarkCommand}" ToolTip.Tip="{Binding AddBookmarkHotkey, StringFormat='Add New Bookmark ({0})'}">
                     <icons:MaterialIcon Kind="Plus" Width="16" Height="16" />
                 </Button>
                 <Button Command="{Binding AddFolderCommand}" ToolTip.Tip="Add New Folder">

@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
@@ -79,5 +79,11 @@ namespace WorldBuilder.Lib.Settings {
         [SettingOrder(8)]
         private bool _forceLegacyRendering = false;
         public bool ForceLegacyRendering { get => _forceLegacyRendering; set => SetProperty(ref _forceLegacyRendering, value); }
+
+        [SettingDescription("Keyboard shortcut configuration")]
+        [SettingHidden]
+        [SettingOrder(9)]
+        private KeymapSettings _keymapSettings = new KeymapSettings();
+        public KeymapSettings KeymapSettings { get => _keymapSettings; set => SetProperty(ref _keymapSettings, value); }
     }
 }
