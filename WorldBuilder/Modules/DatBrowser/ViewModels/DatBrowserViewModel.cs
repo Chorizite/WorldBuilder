@@ -117,6 +117,9 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private string? _currentKeywordsNames;
 
         [ObservableProperty]
+        private string? _currentKeywordsTags;
+
+        [ObservableProperty]
         private string? _currentKeywordsDescriptions;
 
         private bool _isSettingObject;
@@ -489,6 +492,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                             _showKeywords = keywords.HasValue;
                             OnPropertyChanged(nameof(ShowKeywords));
                             CurrentKeywordsNames = keywords?.Names;
+                            CurrentKeywordsTags = keywords?.Tags;
                             CurrentKeywordsDescriptions = keywords?.Descriptions;
                         });
                     });
@@ -498,6 +502,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             _showKeywords = false;
             OnPropertyChanged(nameof(ShowKeywords));
             CurrentKeywordsNames = null;
+            CurrentKeywordsTags = null;
             CurrentKeywordsDescriptions = null;
         }
     }

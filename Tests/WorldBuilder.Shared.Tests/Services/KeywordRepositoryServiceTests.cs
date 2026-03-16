@@ -57,7 +57,7 @@ namespace WorldBuilder.Shared.Tests.Services {
                 var weenie = new Weenie {
                     ClassId = 1,
                     ClassName = "TestWeenie",
-                    Type = 1
+                    Type = 1 // Generic
                 };
                 context.Weenie.Add(weenie);
 
@@ -75,7 +75,7 @@ namespace WorldBuilder.Shared.Tests.Services {
 
                 context.WeeniePropertiesString.Add(new WeeniePropertiesString {
                     ObjectId = 1,
-                    Type = 16, // Description
+                    Type = 16, // LongDesc
                     Value = "A very sharp sword"
                 });
 
@@ -126,6 +126,7 @@ namespace WorldBuilder.Shared.Tests.Services {
             // Should contain string values in correct columns
             Assert.DoesNotContain("TestWeenie", keywords.Value.Names, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("Awesome Sword", keywords.Value.Names, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Generic", keywords.Value.Tags, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("very sharp sword", keywords.Value.Descriptions, StringComparison.OrdinalIgnoreCase);
 
             var keywords2 = await _service.GetKeywordsForSetupAsync(_datId, _aceId, 101, CancellationToken.None);

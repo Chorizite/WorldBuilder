@@ -131,6 +131,17 @@
                                      Padding="10"
                                      CornerRadius="4"/>
                         </StackPanel>
+
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Tags" Foreground="{DynamicResource SemiColorText3}" FontSize="10" FontWeight="SemiBold" Margin="5,0"/>
+                            <TextBox Text="{Binding CurrentKeywordsTags}" 
+                                     IsReadOnly="True" 
+                                     TextWrapping="Wrap" 
+                                     BorderThickness="0"
+                                     Background="{DynamicResource SemiColorFill0}"
+                                     Padding="10"
+                                     CornerRadius="4"/>
+                        </StackPanel>
                         
                         <StackPanel Spacing="2">
                             <TextBlock Text="Descriptions" Foreground="{DynamicResource SemiColorText3}" FontSize="10" FontWeight="SemiBold" Margin="5,0"/>

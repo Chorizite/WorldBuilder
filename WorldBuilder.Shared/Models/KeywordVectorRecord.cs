@@ -19,6 +19,12 @@ namespace WorldBuilder.Shared.Models {
         public string Names { get; set; } = "";
 
         /// <summary>
+        /// The object tags from the game data (ranked lower than names, higher than descriptions).
+        /// </summary>
+        [VectorStoreData]
+        public string Tags { get; set; } = "";
+
+        /// <summary>
         /// The object descriptions from the game data.
         /// </summary>
         [VectorStoreData]

@@ -12,7 +12,7 @@ namespace WorldBuilder.Shared.Services {
         /// <summary>
         /// The current version of the keyword generator.
         /// </summary>
-        const int CurrentGeneratorVersion = 4;
+        const int CurrentGeneratorVersion = 5;
 
         /// <summary>
         /// Progress for keyword generation.
@@ -77,7 +77,7 @@ namespace WorldBuilder.Shared.Services {
         /// <summary>
         /// Gets keywords for a specific setup ID.
         /// </summary>
-        Task<(string Names, string Descriptions)?> GetKeywordsForSetupAsync(Guid datId, Guid aceId, uint setupId, CancellationToken ct);
+        Task<(string Names, string Tags, string Descriptions)?> GetKeywordsForSetupAsync(Guid datId, Guid aceId, uint setupId, CancellationToken ct);
 
         /// <summary>
         /// Searches for setups matching the given keyword query.

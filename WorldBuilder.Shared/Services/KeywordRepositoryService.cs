@@ -10,6 +10,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using ACE.Database.Models.World;
+using ACE.Entity.Enum;
 using ACE.Entity.Enum.Properties;
 using WorldBuilder.Shared.Lib;
 using Microsoft.SemanticKernel;
@@ -175,8 +176,8 @@ namespace WorldBuilder.Shared.Services {
                 if (metadata.KeywordProgress < 1f) {
                     GlobalProgress?.Invoke(this, new IKeywordRepositoryService.KeywordGenerationProgress("Extracting keywords from ACE database...", 0.1f, 0f, 0f));
 
-                    // Map SetupId -> (Names, Descriptions)
-                    var setupKeywords = new Dictionary<uint, (HashSet<string> Names, HashSet<string> Descriptions)>();
+                    // Map SetupId -> (Names, Tags, Descriptions)
+                    var setupKeywords = new Dictionary<uint, (HashSet<string> Names, HashSet<string> Tags, HashSet<string> Descriptions)>();
 
                     var optionsBuilder = new DbContextOptionsBuilder<WorldDbContext>();
                     optionsBuilder.UseSqlite($"Data Source={acePath}");
@@ -186,15 +187,18 @@ namespace WorldBuilder.Shared.Services {
                             .Where(w => !w.WeeniePropertiesFloat.Any(wpf => wpf.Type == (ushort)PropertyFloat.GeneratorRadius))
                             .SelectMany(w => w.WeeniePropertiesDID.Where(wpd => wpd.Type == (ushort)PropertyDataId.Setup), (w, wpd) => new {
                                 SetupId = wpd.Value,
+                                Type = (WeenieType)w.Type,
                                 Strings = w.WeeniePropertiesString.Select(s => new { s.Type, s.Value })
                             })
                             .ToListAsync(ct);
 
                         foreach (var item in data) {
                             if (!setupKeywords.TryGetValue(item.SetupId, out var keywords)) {
-                                keywords = (new HashSet<string>(StringComparer.OrdinalIgnoreCase), new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+                                keywords = (new HashSet<string>(StringComparer.OrdinalIgnoreCase), new HashSet<string>(StringComparer.OrdinalIgnoreCase), new HashSet<string>(StringComparer.OrdinalIgnoreCase));
                                 setupKeywords[item.SetupId] = keywords;
                             }
+
+                            keywords.Tags.Add(item.Type.ToString());
 
                             foreach (var str in item.Strings) {
                                 if (string.IsNullOrWhiteSpace(str.Value)) continue;
@@ -216,15 +220,16 @@ namespace WorldBuilder.Shared.Services {
                         using (var transaction = targetConn.BeginTransaction()) {
                             // Create SetupKeywords table (compatibility with old search if needed)
                             using (var cmd = targetConn.CreateCommand()) {
-                                cmd.CommandText = "CREATE TABLE IF NOT EXISTS SetupKeywords (SetupId INTEGER PRIMARY KEY, Names TEXT, Descriptions TEXT)";
+                                cmd.CommandText = "CREATE TABLE IF NOT EXISTS SetupKeywords (SetupId INTEGER PRIMARY KEY, Names TEXT, Tags TEXT, Descriptions TEXT)";
                                 await cmd.ExecuteNonQueryAsync(ct);
                             }
 
                             // Insert keywords
                             var insertCmd = targetConn.CreateCommand();
-                            insertCmd.CommandText = "INSERT OR REPLACE INTO SetupKeywords (SetupId, Names, Descriptions) VALUES (@id, @names, @descriptions)";
+                            insertCmd.CommandText = "INSERT OR REPLACE INTO SetupKeywords (SetupId, Names, Tags, Descriptions) VALUES (@id, @names, @tags, @descriptions)";
                             var idParam = insertCmd.Parameters.Add("@id", SqliteType.Integer);
                             var namesParam = insertCmd.Parameters.Add("@names", SqliteType.Text);
+                            var tagsParam = insertCmd.Parameters.Add("@tags", SqliteType.Text);
                             var descParam = insertCmd.Parameters.Add("@descriptions", SqliteType.Text);
 
                             int count = 0;
@@ -232,6 +237,7 @@ namespace WorldBuilder.Shared.Services {
                             foreach (var kvp in setupKeywords) {
                                 idParam.Value = kvp.Key;
                                 namesParam.Value = string.Join(" ", kvp.Value.Names);
+                                tagsParam.Value = string.Join(" ", kvp.Value.Tags);
                                 descParam.Value = string.Join(" ", kvp.Value.Descriptions);
                                 await insertCmd.ExecuteNonQueryAsync(ct);
                                 
@@ -286,14 +292,14 @@ namespace WorldBuilder.Shared.Services {
                 var maxParallelism = Math.Max(1, Environment.ProcessorCount / 2);
 
                 // Get all setups that need embeddings
-                var pendingSetups = new List<(uint SetupId, string Names, string Descriptions)>();
+                var pendingSetups = new List<(uint SetupId, string Names, string Tags, string Descriptions)>();
                 using (var conn = new SqliteConnection(connectionString)) {
                     await conn.OpenAsync(ct);
                     using (var cmd = conn.CreateCommand()) {
-                        cmd.CommandText = "SELECT SetupId, Names, Descriptions FROM SetupKeywords";
+                        cmd.CommandText = "SELECT SetupId, Names, Tags, Descriptions FROM SetupKeywords";
                         using (var reader = await cmd.ExecuteReaderAsync(ct)) {
                             while (await reader.ReadAsync(ct)) {
-                                pendingSetups.Add(((uint)reader.GetInt64(0), reader.GetString(1), reader.GetString(2)));
+                                pendingSetups.Add(((uint)reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3)));
                             }
                         }
                     }
@@ -316,7 +322,7 @@ namespace WorldBuilder.Shared.Services {
                         await _dbLock.WaitAsync(bct);
                         try {
                             for (int j = 0; j < batch.Count; j++) {
-                                var record = await collection.GetAsync((int)batch[j].SetupId, cancellationToken: bct) ?? new KeywordVectorRecord { SetupId = (int)batch[j].SetupId, Names = batch[j].Names, Descriptions = batch[j].Descriptions };
+                                var record = await collection.GetAsync((int)batch[j].SetupId, cancellationToken: bct) ?? new KeywordVectorRecord { SetupId = (int)batch[j].SetupId, Names = batch[j].Names, Tags = batch[j].Tags, Descriptions = batch[j].Descriptions };
                                 record.NameEmbedding = embeddings[j].Vector;
                                 if (record.DescEmbedding.Length == 0) record.DescEmbedding = _emptyVector;
                                 await collection.UpsertAsync(record, cancellationToken: bct);
@@ -352,7 +358,7 @@ namespace WorldBuilder.Shared.Services {
                         await _dbLock.WaitAsync(bct);
                         try {
                             for (int j = 0; j < batch.Count; j++) {
-                                var record = await collection.GetAsync((int)batch[j].SetupId, cancellationToken: bct) ?? new KeywordVectorRecord { SetupId = (int)batch[j].SetupId, Names = batch[j].Names, Descriptions = batch[j].Descriptions };
+                                var record = await collection.GetAsync((int)batch[j].SetupId, cancellationToken: bct) ?? new KeywordVectorRecord { SetupId = (int)batch[j].SetupId, Names = batch[j].Names, Tags = batch[j].Tags, Descriptions = batch[j].Descriptions };
                                 record.DescEmbedding = embeddings[j].Vector;
                                 if (record.NameEmbedding.Length == 0) record.NameEmbedding = _emptyVector;
                                 await collection.UpsertAsync(record, cancellationToken: bct);
@@ -436,7 +442,7 @@ namespace WorldBuilder.Shared.Services {
             }
         }
 
-        public async Task<(string Names, string Descriptions)?> GetKeywordsForSetupAsync(Guid datId, Guid aceId, uint setupId, CancellationToken ct) {
+        public async Task<(string Names, string Tags, string Descriptions)?> GetKeywordsForSetupAsync(Guid datId, Guid aceId, uint setupId, CancellationToken ct) {
             var path = GetKeywordDbPath(datId, aceId);
             if (!File.Exists(path)) return null;
 
@@ -445,11 +451,11 @@ namespace WorldBuilder.Shared.Services {
                     await connection.OpenAsync(ct);
 
                     using (var cmd = connection.CreateCommand()) {
-                        cmd.CommandText = "SELECT Names, Descriptions FROM SetupKeywords WHERE SetupId = @id";
+                        cmd.CommandText = "SELECT Names, Tags, Descriptions FROM SetupKeywords WHERE SetupId = @id";
                         cmd.Parameters.AddWithValue("@id", setupId);
                         using (var reader = await cmd.ExecuteReaderAsync(ct)) {
                             if (await reader.ReadAsync(ct)) {
-                                return (reader.GetString(0), reader.GetString(1));
+                                return (reader.GetString(0), reader.GetString(1), reader.GetString(2));
                             }
                         }
                     }
@@ -474,7 +480,7 @@ namespace WorldBuilder.Shared.Services {
                     await connection.OpenAsync(ct);
 
                     using (var cmd = connection.CreateCommand()) {
-                        // Boost exact name matches, then partial name matches, then description matches
+                        // Boost exact name matches, then partial name matches, then tags, then description matches
                         cmd.CommandText = @"
                             SELECT SetupId, 
                                 (CASE 
@@ -482,11 +488,12 @@ namespace WorldBuilder.Shared.Services {
                                     WHEN Names COLLATE NOCASE LIKE @exactWord1 OR Names COLLATE NOCASE LIKE @exactWord2 OR Names COLLATE NOCASE LIKE @exactWord3 THEN 90.0 - (length(Names) * 0.01)
                                     WHEN Names COLLATE NOCASE LIKE @startsWith THEN 75.0 - (length(Names) * 0.01)
                                     WHEN Names COLLATE NOCASE LIKE @query THEN 50.0 - (length(Names) * 0.01)
+                                    WHEN Tags COLLATE NOCASE LIKE @query THEN 30.0
                                     WHEN Descriptions COLLATE NOCASE LIKE @query THEN 10.0
                                     ELSE 1.0
                                 END) as Score
                             FROM SetupKeywords 
-                            WHERE Names COLLATE NOCASE LIKE @query OR Descriptions COLLATE NOCASE LIKE @query";
+                            WHERE Names COLLATE NOCASE LIKE @query OR Tags COLLATE NOCASE LIKE @query OR Descriptions COLLATE NOCASE LIKE @query";
                         cmd.Parameters.AddWithValue("@exactQuery", query);
                         cmd.Parameters.AddWithValue("@exactWord1", $"{query} %");
                         cmd.Parameters.AddWithValue("@exactWord2", $"% {query} %");
