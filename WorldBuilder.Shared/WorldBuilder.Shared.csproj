@@ -33,7 +33,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\ACE\ACE.Database\ACE.Database.csproj" />
+	  <ProjectReference Include="..\ACE\Source\ACE.Database\ACE.Database.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
