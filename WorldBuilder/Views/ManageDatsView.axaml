@@ -151,6 +151,49 @@
                     </Border>
                 </Grid>
             </TabItem>
+            
+            <TabItem Header="Keywords">
+                <Grid RowDefinitions="*">
+                    <Border Grid.Row="0" Background="{DynamicResource SemiColorFill1}" CornerRadius="8" Padding="1">
+                        <ListBox Background="Transparent" ItemsSource="{Binding ManagedKeywordDbs}" SelectedItem="{Binding SelectedKeywordDb}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ManagedKeywordDbViewModel">
+                                    <Grid ColumnDefinitions="*, Auto" Margin="4">
+                                        <StackPanel Grid.Column="0" Spacing="4">
+                                            <TextBlock FontSize="16" FontWeight="SemiBold">
+                                                <Run Text="{Binding DatSetName}" /> / <Run Text="{Binding AceDbName}" />
+                                            </TextBlock>
+                                            <TextBlock FontSize="12" Foreground="{DynamicResource SemiColorText2}">
+                                                Generator Version: <Run Text="{Binding GeneratorVersion}" /> - Generated: <Run Text="{Binding LastGenerated, StringFormat='{}{0:g}'}" />
+                                            </TextBlock>
+                                            <TextBlock FontSize="10" Foreground="{DynamicResource SemiColorText3}">
+                                                DAT ID: <Run Text="{Binding DatSetId}" /> - ACE ID: <Run Text="{Binding AceDbId}" />
+                                            </TextBlock>
+                                        </StackPanel>
+                                        
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                            <Button Command="{Binding $parent[UserControl].((vm:ManageDatsViewModel)DataContext).RegenerateKeywordsCommand}" 
+                                                    CommandParameter="{Binding}"
+                                                    Classes="Secondary" 
+                                                    Theme="{StaticResource BorderlessButton}"
+                                                    ToolTip.Tip="Regenerate Keywords">
+                                                <icons:MaterialIcon Kind="Refresh" Width="20" Height="20" />
+                                            </Button>
+                                            <Button Command="{Binding $parent[UserControl].((vm:ManageDatsViewModel)DataContext).RemoveKeywordsCommand}" 
+                                                    CommandParameter="{Binding}"
+                                                    Classes="Danger" 
+                                                    Theme="{StaticResource BorderlessButton}"
+                                                    ToolTip.Tip="Remove Keywords">
+                                                <icons:MaterialIcon Kind="Delete" Width="20" Height="20" />
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+                </Grid>
+            </TabItem>
         </TabControl>
 
         <!-- Loading Overlay -->

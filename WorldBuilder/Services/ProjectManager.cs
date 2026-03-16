@@ -139,7 +139,10 @@ namespace WorldBuilder.Services {
                 datRepository.SetRepositoryRoot(_settings.App.ManagedDatsDirectory);
                 var aceRepository = _rootProvider.GetRequiredService<IAceRepositoryService>();
                 aceRepository.SetRepositoryRoot(_settings.App.ManagedAceDbsDirectory);
+                var keywordRepository = _rootProvider.GetRequiredService<IKeywordRepositoryService>();
+                keywordRepository.SetRepositoryRoot(_settings.App.ManagedKeywordsDirectory);
                 var migrationService = _rootProvider.GetRequiredService<IProjectMigrationService>();
+                var loggerFactory = _rootProvider.GetRequiredService<ILoggerFactory>();
 
                 Guid? managedAceId = null;
                 if (model.AceDatabaseSelection.SelectedAceSourceType == AceSourceType.Local && !string.IsNullOrEmpty(model.AceDatabaseSelection.LocalAceDbPath)) {
@@ -153,7 +156,7 @@ namespace WorldBuilder.Services {
                     managedAceId = model.AceDatabaseSelection.SelectedManagedAceDb?.Id;
                 }
 
-                var projectResult = await Project.Create(model.ProjectName, model.ProjectLocation, model.BaseDatDirectory, datRepository, aceRepository, migrationService, model.SelectedManagedDatSet?.Id, managedAceId, progress, default);
+                var projectResult = await Project.Create(model.ProjectName, model.ProjectLocation, model.BaseDatDirectory, datRepository, aceRepository, migrationService, loggerFactory, model.SelectedManagedDatSet?.Id, managedAceId, progress, default);
 
                 if (projectResult.IsSuccess) {
                     _settings.App.LastBaseDatDirectory = model.BaseDatDirectory;
@@ -180,6 +183,7 @@ namespace WorldBuilder.Services {
 
             _projectProvider = services.BuildServiceProvider();
             CompositeProvider = new(_projectProvider, _rootProvider);
+            CurrentProject = project;
 
             // Load project settings
             var settingsPath = Path.Combine(project.ProjectDirectory, "project_settings.json");
@@ -187,18 +191,16 @@ namespace WorldBuilder.Services {
             _settings.Project.Server.AceDbId = project.ManagedAceDbId;
 
             project.ManagedAceDbIdChanged += (s, e) => {
-                _settings.Project.Server.AceDbId = project.ManagedAceDbId;
+                if (_settings.Project.Server.AceDbId != project.ManagedAceDbId) {
+                    _settings.Project.Server.AceDbId = project.ManagedAceDbId;
+                }
             };
 
             _settings.Project.Server.PropertyChanged += async (s, e) => {
                 if (e.PropertyName == nameof(_settings.Project.Server.AceDbId)) {
                     var newId = _settings.Project.Server.AceDbId;
-                    if (CurrentProject != null) {
-                        var repository = GetProjectService<IProjectRepository>();
-                        if (repository != null) {
-                            await repository.SetKeyValueAsync("ManagedAceDbId", newId?.ToString(), null, default);
-                            CurrentProject.ManagedAceDbId = newId;
-                        }
+                    if (CurrentProject.ManagedAceDbId != newId) {
+                        await CurrentProject.SetManagedAceDbIdAsync(newId);
                     }
                 }
             };
@@ -206,8 +208,6 @@ namespace WorldBuilder.Services {
             if (project.IsReadOnly) {
                 _settings.Project.FilePath = null;
             }
-
-            CurrentProject = project;
 
             var cacheDir = Path.Combine(_settings.AppDataDirectory, "cache", project.Name);
             if (!Directory.Exists(cacheDir)) {
@@ -225,8 +225,11 @@ namespace WorldBuilder.Services {
             datRepository.SetRepositoryRoot(_settings.App.ManagedDatsDirectory);
             var aceRepository = _rootProvider.GetRequiredService<IAceRepositoryService>();
             aceRepository.SetRepositoryRoot(_settings.App.ManagedAceDbsDirectory);
+            var keywordRepository = _rootProvider.GetRequiredService<IKeywordRepositoryService>();
+            keywordRepository.SetRepositoryRoot(_settings.App.ManagedKeywordsDirectory);
             var migrationService = _rootProvider.GetRequiredService<IProjectMigrationService>();
-            var projectResult = await Project.Open(projectPath, datRepository, aceRepository, migrationService, managedId, managedAceId, progress, CancellationToken.None);
+            var loggerFactory = _rootProvider.GetRequiredService<ILoggerFactory>();
+            var projectResult = await Project.Open(projectPath, datRepository, aceRepository, migrationService, loggerFactory, managedId, managedAceId, progress, CancellationToken.None);
             if (projectResult.IsSuccess) {
                 SetProject(projectResult.Value);
             }

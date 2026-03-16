@@ -79,7 +79,7 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
             return Result<DocumentRental<T>>.Failure("Document cannot be null", "ARGUMENT_NULL");
         }
 
-        _logger.LogDebug("Creating document with ID: {DocumentId}, Type: {DocumentType}", document.Id, typeof(T).Name);
+        _logger.LogTrace("Creating document with ID: {DocumentId}, Type: {DocumentType}", document.Id, typeof(T).Name);
 
         await _cacheLock.WaitAsync(ct);
         try {
@@ -100,10 +100,10 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
                 if (insertResult.IsFailure) {
                     return Result<DocumentRental<T>>.Failure(insertResult.Error);
                 }
-                _logger.LogDebug("Terrain patch with ID {DocumentId} inserted into database", document.Id);
+                _logger.LogTrace("Terrain patch with ID {DocumentId} inserted into database", document.Id);
             }
             else if (document is LandscapeDocument) {
-                _logger.LogDebug("Virtual LandscapeDocument with ID {DocumentId} added to system", document.Id);
+                _logger.LogTrace("Virtual LandscapeDocument with ID {DocumentId} added to system", document.Id);
             }
             else {
                 return Result<DocumentRental<T>>.Failure($"Document type {typeof(T).Name} is not supported for generic persistence", "UNSUPPORTED_TYPE");
@@ -113,7 +113,7 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
             var entry = new DocumentCacheEntry(document);
             entry.IncrementRentCount(document);
             _cache[document.Id] = entry;
-            _logger.LogDebug("Document with ID {DocumentId} added to cache", document.Id);
+            _logger.LogTrace("Document with ID {DocumentId} added to cache", document.Id);
 
             return Result<DocumentRental<T>>.Success(new DocumentRental<T>(document,
                 () => ReturnDocument(document.Id)));
@@ -132,7 +132,7 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
             return Result<DocumentRental<T>>.Failure("DocumentManager is disposed", "OBJECT_DISPOSED");
         }
 
-        _logger.LogDebug("Renting document with ID: {DocumentId}", id);
+        _logger.LogTrace("Renting document with ID: {DocumentId}", id);
 
         await _cacheLock.WaitAsync(ct);
         try {
@@ -140,20 +140,20 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
                 try {
                     var doc = (T)entry.Document;
                     entry.IncrementRentCount(doc);
-                    _logger.LogDebug("Document with ID {DocumentId} found in cache (Instance: {Hash})", id, doc.GetHashCode());
+                    _logger.LogTrace("Document with ID {DocumentId} found in cache (Instance: {Hash})", id, doc.GetHashCode());
                     return Result<DocumentRental<T>>.Success(new DocumentRental<T>(doc, () => ReturnDocument(id)));
                 }
                 catch (ObjectDisposedException) {
-                    _logger.LogDebug("Document with ID {DocumentId} was garbage collected, removing from cache", id);
+                    _logger.LogTrace("Document with ID {DocumentId} was garbage collected, removing from cache", id);
                     _cache.TryRemove(id, out _);
                 }
             }
 
-            _logger.LogDebug("Document with ID {DocumentId} not found in cache, loading/creating", id);
+            _logger.LogTrace("Document with ID {DocumentId} not found in cache, loading/creating", id);
             T? newDoc = null;
 
             if (typeof(T) == typeof(LandscapeDocument) && id.StartsWith("LandscapeDocument_")) {
-                _logger.LogDebug("Creating virtual LandscapeDocument for ID {DocumentId}", id);
+                _logger.LogTrace("Creating virtual LandscapeDocument for ID {DocumentId}", id);
                 newDoc = new LandscapeDocument(id) as T;
             }
             else if (typeof(T) == typeof(TerrainPatchDocument)) {
@@ -161,7 +161,7 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
             }
 
             if (newDoc == null) {
-                _logger.LogWarning("Document with ID {DocumentId} not found or could not be created", id);
+                _logger.LogTrace("Document with ID {DocumentId} not found or could not be created", id);
                 return Result<DocumentRental<T>>.Failure($"Document with ID {id} not found",
                     "DOCUMENT_NOT_FOUND");
             }
@@ -169,7 +169,7 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
             var newEntry = new DocumentCacheEntry(newDoc);
             newEntry.IncrementRentCount(newDoc);
             _cache[id] = newEntry;
-            _logger.LogDebug("Document with ID {DocumentId} loaded/created and added to cache (Instance: {Hash})", id, newDoc.GetHashCode());
+            _logger.LogTrace("Document with ID {DocumentId} loaded/created and added to cache (Instance: {Hash})", id, newDoc.GetHashCode());
 
             return Result<DocumentRental<T>>.Success(new DocumentRental<T>(newDoc, () => ReturnDocument(id)));
         }
@@ -205,7 +205,7 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
         var doc = rental.Document;
 
         if (doc is TerrainPatchDocument tp) {
-            _logger.LogDebug("Persisting terrain patch with ID: {DocumentId}, Version: {Version} (Instance: {Hash})", doc.Id, doc.Version, doc.GetHashCode());
+            _logger.LogTrace("Persisting terrain patch with ID: {DocumentId}, Version: {Version} (Instance: {Hash})", doc.Id, doc.Version, doc.GetHashCode());
             var blob = tp.Serialize();
             var parts = TP_ID_REGEX().Match(doc.Id);
             uint regionId = parts.Success ? uint.Parse(parts.Groups[1].Value) : 0;
@@ -214,10 +214,10 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
             if (updateResult.IsFailure) {
                 return Result<Unit>.Failure(updateResult.Error);
             }
-            _logger.LogDebug("Terrain patch with ID {DocumentId} persisted to database", doc.Id);
+            _logger.LogTrace("Terrain patch with ID {DocumentId} persisted to database", doc.Id);
         }
         else if (doc is LandscapeDocument) {
-            _logger.LogDebug("LandscapeDocument {DocumentId} persist requested, skipping blob storage", doc.Id);
+            _logger.LogTrace("LandscapeDocument {DocumentId} persist requested, skipping blob storage", doc.Id);
         }
         else {
             return Result<Unit>.Failure($"Document type {typeof(T).Name} is not supported for generic persistence", "UNSUPPORTED_TYPE");
@@ -235,7 +235,7 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
             return Result<bool>.Failure("Event cannot be null", "ARGUMENT_NULL");
         }
 
-        _logger.LogInformation("Applying event {EventId} of type {EventType} for user {UserId}", evt.Id, evt.GetType().Name,
+        _logger.LogTrace("Applying event {EventId} of type {EventType} for user {UserId}", evt.Id, evt.GetType().Name,
             UserId);
 
         evt.UserId = UserId;
@@ -254,7 +254,7 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
                 return Result<bool>.Failure(insertEventResult.Error);
             }
 
-            _logger.LogInformation("Event {EventId} applied successfully", evt.Id);
+            _logger.LogTrace("Event {EventId} applied successfully", evt.Id);
 
             return res;
         }
@@ -277,7 +277,7 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
             return Result<TResult>.Failure("Event cannot be null", "ARGUMENT_NULL");
         }
 
-        _logger.LogInformation("Applying event {EventId} of type {EventType} for user {UserId}", evt.Id, evt.GetType().Name,
+        _logger.LogTrace("Applying event {EventId} of type {EventType} for user {UserId}", evt.Id, evt.GetType().Name,
             UserId);
 
         evt.UserId = UserId;
@@ -296,7 +296,7 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
                 return Result<TResult>.Failure(insertEventResult.Error);
             }
 
-            _logger.LogInformation("Event {EventId} applied successfully", evt.Id);
+            _logger.LogTrace("Event {EventId} applied successfully", evt.Id);
 
             return res;
         }
@@ -364,12 +364,12 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
     }
 
     private async Task<T?> LoadDocumentAsync<T>(string id, ITransaction? tx, CancellationToken ct) where T : BaseDocument {
-        _logger.LogDebug("Loading document with ID: {DocumentId} from database", id);
+        _logger.LogTrace("Loading document with ID: {DocumentId} from database", id);
 
         if (typeof(T) == typeof(TerrainPatchDocument)) {
             var blobResult = await _repo.GetTerrainPatchBlobAsync(id, tx, ct);
             if (blobResult.IsFailure || blobResult.Value == null) {
-                _logger.LogWarning("Terrain patch with ID {DocumentId} not found in database", id);
+                _logger.LogTrace("Terrain patch with ID {DocumentId} not found in database", id);
                 return null;
             }
             _logger.LogDebug("Terrain patch with ID {DocumentId} loaded from database", id);
@@ -391,7 +391,7 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
                 if (kvp.Value.RentCount == 0 && kvp.Value.LastAccessTime < expiredThreshold) {
                     if (_cache.TryRemove(kvp.Key, out var entry)) {
                         entry.Dispose();
-                        _logger.LogDebug("Evicted document {DocumentId} from cache", kvp.Key);
+                        _logger.LogTrace("Evicted document {DocumentId} from cache", kvp.Key);
                     }
                 }
             }

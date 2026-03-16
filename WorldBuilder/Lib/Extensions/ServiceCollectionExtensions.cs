@@ -43,6 +43,7 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton<HttpClient>();
             collection.AddSingleton<IDatRepositoryService, DatRepositoryService>();
             collection.AddSingleton<IAceRepositoryService, AceRepositoryService>();
+            collection.AddSingleton<IKeywordRepositoryService, KeywordRepositoryService>();
             collection.AddSingleton<IProjectMigrationService, ProjectMigrationService>();
             collection.AddSingleton<SplashPageFactory>();
 
@@ -202,10 +203,12 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton<ISyncClient>(project.Services.GetRequiredService<ISyncClient>());
             collection.AddSingleton<SyncService>(project.Services.GetRequiredService<SyncService>());
             collection.AddSingleton<IDatExportService>(project.Services.GetRequiredService<IDatExportService>());
+            collection.AddSingleton<IKeywordRepositoryService>(project.Services.GetRequiredService<IKeywordRepositoryService>());
             collection.AddSingleton<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeObjectService>(project.Services.GetRequiredService<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeObjectService>());
             
             collection.AddSingleton(rootProvider.GetRequiredService<IDatRepositoryService>());
             collection.AddSingleton(rootProvider.GetRequiredService<IAceRepositoryService>());
+            collection.AddSingleton(rootProvider.GetRequiredService<IKeywordRepositoryService>());
             collection.AddSingleton(rootProvider.GetRequiredService<IProjectMigrationService>());
             collection.AddSingleton(rootProvider.GetRequiredService<IInputManager>());
         }

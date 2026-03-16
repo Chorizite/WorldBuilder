@@ -21,7 +21,12 @@ namespace WorldBuilder.Shared.Models {
         /// <summary>
         /// Gets the managed ACE DB ID, if any.
         /// </summary>
-        Guid? ManagedAceDbId { get; set; }
+        Guid? ManagedAceDbId { get; }
+
+        /// <summary>
+        /// Sets the managed ACE DB ID and persists it to the project database.
+        /// </summary>
+        Task SetManagedAceDbIdAsync(Guid? value);
 
         /// <summary>
         /// Raised when the ManagedAceDbId has changed.

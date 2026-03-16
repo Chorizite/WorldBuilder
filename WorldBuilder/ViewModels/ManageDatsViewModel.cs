@@ -134,6 +134,33 @@ public partial class ManagedAceDbViewModel : ObservableObject {
 }
 
 /// <summary>
+/// View model for a single managed keyword database.
+/// </summary>
+public partial class ManagedKeywordDbViewModel : ObservableObject {
+    private readonly ManagedKeywordDb _model;
+    private readonly IDatRepositoryService _datRepository;
+    private readonly IAceRepositoryService _aceRepository;
+    private readonly IKeywordRepositoryService _keywordRepository;
+    private readonly ILogger _log;
+
+    public Guid DatSetId => _model.DatSetId;
+    public Guid AceDbId => _model.AceDbId;
+    public int GeneratorVersion => _model.GeneratorVersion;
+    public DateTime LastGenerated => _model.LastGenerated;
+
+    public string DatSetName => _datRepository.GetManagedDataSet(DatSetId)?.FriendlyName ?? DatSetId.ToString()[..8];
+    public string AceDbName => _aceRepository.GetManagedAceDb(AceDbId)?.FriendlyName ?? AceDbId.ToString()[..8];
+
+    public ManagedKeywordDbViewModel(ManagedKeywordDb model, IDatRepositoryService datRepository, IAceRepositoryService aceRepository, IKeywordRepositoryService keywordRepository, ILogger log) {
+        _model = model;
+        _datRepository = datRepository;
+        _aceRepository = aceRepository;
+        _keywordRepository = keywordRepository;
+        _log = log;
+    }
+}
+
+/// <summary>
 /// View model for the manage DATs screen.
 /// </summary>
 public partial class ManageDatsViewModel : SplashPageViewModelBase {
@@ -141,10 +168,12 @@ public partial class ManageDatsViewModel : SplashPageViewModelBase {
     private readonly WorldBuilderSettings _settings;
     private readonly IDatRepositoryService _datRepository;
     private readonly IAceRepositoryService _aceRepository;
+    private readonly IKeywordRepositoryService _keywordRepository;
     private readonly IDialogService _dialogService;
 
     public ObservableCollection<ManagedDatSetViewModel> ManagedDataSets { get; } = [];
     public ObservableCollection<ManagedAceDbViewModel> ManagedAceDbs { get; } = [];
+    public ObservableCollection<ManagedKeywordDbViewModel> ManagedKeywordDbs { get; } = [];
 
     [ObservableProperty]
     private ManagedDatSetViewModel? _selectedSet;
@@ -152,12 +181,20 @@ public partial class ManageDatsViewModel : SplashPageViewModelBase {
     [ObservableProperty]
     private ManagedAceDbViewModel? _selectedAceDb;
 
-    public ManageDatsViewModel(WorldBuilderSettings settings, ILogger<ManageDatsViewModel> log, IDatRepositoryService datRepository, IAceRepositoryService aceRepository, IDialogService dialogService) {
+    [ObservableProperty]
+    private ManagedKeywordDbViewModel? _selectedKeywordDb;
+
+    public ManageDatsViewModel(WorldBuilderSettings settings, ILogger<ManageDatsViewModel> log, IDatRepositoryService datRepository, IAceRepositoryService aceRepository, IKeywordRepositoryService keywordRepository, IDialogService dialogService) {
         _settings = settings;
         _log = log;
         _datRepository = datRepository;
         _aceRepository = aceRepository;
+        _keywordRepository = keywordRepository;
         _dialogService = dialogService;
+
+        _datRepository.SetRepositoryRoot(_settings.App.ManagedDatsDirectory);
+        _aceRepository.SetRepositoryRoot(_settings.App.ManagedAceDbsDirectory);
+        _keywordRepository.SetRepositoryRoot(_settings.App.ManagedKeywordsDirectory);
 
         RefreshList();
     }
@@ -171,6 +208,11 @@ public partial class ManageDatsViewModel : SplashPageViewModelBase {
         ManagedAceDbs.Clear();
         foreach (var db in _aceRepository.GetManagedAceDbs()) {
             ManagedAceDbs.Add(new ManagedAceDbViewModel(db, _aceRepository, _log));
+        }
+
+        ManagedKeywordDbs.Clear();
+        foreach (var kw in _keywordRepository.GetManagedKeywordDbs()) {
+            ManagedKeywordDbs.Add(new ManagedKeywordDbViewModel(kw, _datRepository, _aceRepository, _keywordRepository, _log));
         }
     }
 
@@ -314,6 +356,51 @@ public partial class ManageDatsViewModel : SplashPageViewModelBase {
             var result = await _aceRepository.DeleteAsync(dbVM.Id, CancellationToken.None);
             IsLoading = false;
 
+            if (result.IsSuccess) {
+                RefreshList();
+            }
+            else {
+                await _dialogService.ShowMessageBoxAsync(null, result.Error.Message, "Delete Failed");
+            }
+        }
+    }
+
+    [RelayCommand]
+    private async Task RegenerateKeywords(ManagedKeywordDbViewModel? kwVM) {
+        if (kwVM == null) return;
+
+        IsLoading = true;
+        LoadingStatus = "Regenerating keywords...";
+        LoadingProgress = 0f;
+
+        var progress = new Progress<(string message, float progress)>(p => {
+            LoadingStatus = p.message;
+            LoadingProgress = p.progress * 100f;
+        });
+
+        var result = await _keywordRepository.GenerateAsync(kwVM.DatSetId, kwVM.AceDbId, progress, CancellationToken.None);
+        
+        IsLoading = false;
+
+        if (result.IsSuccess) {
+            RefreshList();
+        }
+        else {
+            await _dialogService.ShowMessageBoxAsync(null, result.Error.Message, "Regeneration Failed");
+        }
+    }
+
+    [RelayCommand]
+    private async Task RemoveKeywords(ManagedKeywordDbViewModel? kwVM) {
+        if (kwVM == null) return;
+
+        var confirm = await _dialogService.ShowMessageBoxAsync(null, 
+            $"Are you sure you want to remove the keywords for '{kwVM.DatSetName}' / '{kwVM.AceDbName}'?",
+            "Confirm Removal",
+            MessageBoxButton.YesNo);
+
+        if (confirm == true) {
+            var result = await _keywordRepository.DeleteAsync(kwVM.DatSetId, kwVM.AceDbId, CancellationToken.None);
             if (result.IsSuccess) {
                 RefreshList();
             }

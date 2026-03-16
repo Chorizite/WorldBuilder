@@ -19,6 +19,7 @@ using CommunityToolkit.Mvvm.Messaging;
 public class ManageDatsViewModelTests {
     private readonly Mock<IDatRepositoryService> _mockDatRepo;
     private readonly Mock<IAceRepositoryService> _mockAceRepo;
+    private readonly Mock<IKeywordRepositoryService> _mockKeywordRepo;
     private readonly Mock<IDialogService> _mockDialog;
     private readonly WorldBuilderSettings _settings;
     private readonly ManageDatsViewModel _viewModel;
@@ -26,13 +27,16 @@ public class ManageDatsViewModelTests {
     public ManageDatsViewModelTests() {
         _mockDatRepo = new Mock<IDatRepositoryService>();
         _mockAceRepo = new Mock<IAceRepositoryService>();
+        _mockKeywordRepo = new Mock<IKeywordRepositoryService>();
         _mockDialog = new Mock<IDialogService>();
         _settings = new WorldBuilderSettings();
 
         _mockDatRepo.Setup(r => r.GetManagedDataSets()).Returns(new List<ManagedDatSet>());
         _mockAceRepo.Setup(r => r.GetManagedAceDbs()).Returns(new List<ManagedAceDb>());
+        _mockKeywordRepo.Setup(r => r.GetManagedKeywordDbs()).Returns(new List<ManagedKeywordDb>());
 
-        _viewModel = new ManageDatsViewModel(_settings, new NullLogger<ManageDatsViewModel>(), _mockDatRepo.Object, _mockAceRepo.Object, _mockDialog.Object);    }
+        _viewModel = new ManageDatsViewModel(_settings, new NullLogger<ManageDatsViewModel>(), _mockDatRepo.Object, _mockAceRepo.Object, _mockKeywordRepo.Object, _mockDialog.Object);
+    }
 
     [Fact]
     public void Constructor_LoadsManagedDataSets() {
@@ -43,13 +47,35 @@ public class ManageDatsViewModelTests {
         };
         _mockDatRepo.Setup(r => r.GetManagedDataSets()).Returns(sets);
         _mockAceRepo.Setup(r => r.GetManagedAceDbs()).Returns(new List<ManagedAceDb>());
+        _mockKeywordRepo.Setup(r => r.GetManagedKeywordDbs()).Returns(new List<ManagedKeywordDb>());
 
         // Act - Need a new VM instance to trigger RefreshList in constructor
-        var vm = new ManageDatsViewModel(_settings, new NullLogger<ManageDatsViewModel>(), _mockDatRepo.Object, _mockAceRepo.Object, _mockDialog.Object);
+        var vm = new ManageDatsViewModel(_settings, new NullLogger<ManageDatsViewModel>(), _mockDatRepo.Object, _mockAceRepo.Object, _mockKeywordRepo.Object, _mockDialog.Object);
         // Assert
         Assert.Equal(2, vm.ManagedDataSets.Count);
         Assert.Equal("Set 1", vm.ManagedDataSets[0].FriendlyName);
         Assert.Equal("Set 2", vm.ManagedDataSets[1].FriendlyName);
+    }
+
+    [Fact]
+    public void Constructor_LoadsManagedKeywordDbs() {
+        // Arrange
+        var datId = Guid.NewGuid();
+        var aceId = Guid.NewGuid();
+        var keywords = new List<ManagedKeywordDb> {
+            new ManagedKeywordDb { DatSetId = datId, AceDbId = aceId, GeneratorVersion = 1, LastGenerated = DateTime.UtcNow }
+        };
+        _mockDatRepo.Setup(r => r.GetManagedDataSets()).Returns(new List<ManagedDatSet> { new ManagedDatSet { Id = datId, FriendlyName = "My Dat" } });
+        _mockAceRepo.Setup(r => r.GetManagedAceDbs()).Returns(new List<ManagedAceDb> { new ManagedAceDb { Id = aceId, FriendlyName = "My Ace" } });
+        _mockKeywordRepo.Setup(r => r.GetManagedKeywordDbs()).Returns(keywords);
+
+        // Act
+        var vm = new ManageDatsViewModel(_settings, new NullLogger<ManageDatsViewModel>(), _mockDatRepo.Object, _mockAceRepo.Object, _mockKeywordRepo.Object, _mockDialog.Object);
+
+        // Assert
+        Assert.Single(vm.ManagedKeywordDbs);
+        Assert.Equal("My Dat", vm.ManagedKeywordDbs[0].DatSetName);
+        Assert.Equal("My Ace", vm.ManagedKeywordDbs[0].AceDbName);
     }
 
     [Fact]

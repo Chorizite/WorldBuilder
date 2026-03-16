@@ -20,18 +20,24 @@ namespace WorldBuilder.Shared.Lib.Extensions {
         public static IServiceCollection AddWorldBuilderSharedServices(
             this IServiceCollection services,
             string projectDirectory,
-            string datDirectory) {
+            string datDirectory,
+            ILoggerFactory? loggerFactory = null) {
             if (string.IsNullOrEmpty(projectDirectory))
                 throw new ArgumentException("Project directory cannot be null or empty", nameof(projectDirectory));
 
             if (string.IsNullOrEmpty(datDirectory))
                 throw new ArgumentException("DAT directory cannot be null or empty", nameof(datDirectory));
 
+            if (loggerFactory != null) {
+                services.AddSingleton(loggerFactory);
+            }
             services.AddLogging();
+            services.AddSingleton<System.Net.Http.HttpClient>();
 
             // Core repository and DAT services
             services.AddSingleton<IDatRepositoryService, DatRepositoryService>();
             services.AddSingleton<IAceRepositoryService, AceRepositoryService>();
+            services.AddSingleton<IKeywordRepositoryService, KeywordRepositoryService>();
             services.AddSingleton<IProjectMigrationService, ProjectMigrationService>();
 
             // Repository services

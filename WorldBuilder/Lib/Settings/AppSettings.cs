@@ -42,6 +42,15 @@ namespace WorldBuilder.Lib.Settings {
             set => SetProperty(ref _managedAceDbsDirectory, value);
         }
 
+        [SettingDescription("Directory where generated keyword databases are stored")]
+        [SettingPath(PathType.Folder, DialogTitle = "Select Managed Keywords Directory")]
+        [SettingOrder(1.6)]
+        private string? _managedKeywordsDirectory;
+        public string ManagedKeywordsDirectory {
+            get => _managedKeywordsDirectory ?? Path.Combine(Path.GetDirectoryName(ProjectsDirectory) ?? string.Empty, "Keywords");
+            set => SetProperty(ref _managedKeywordsDirectory, value);
+        }
+
         [SettingDescription("Automatically load most recent project on startup")]
         [SettingOrder(2)]
         private bool _autoLoadProject = false;
