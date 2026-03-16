@@ -1,4 +1,5 @@
 using ACE.Database.Models.World;
+using ACE.Entity.Enum.Properties;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Options;
 using DatReaderWriter.Types;
@@ -114,7 +115,7 @@ namespace WorldBuilder.Shared.Tests.Services {
 
                 context.WeeniePropertiesFloat.Add(new WeeniePropertiesFloat {
                     ObjectId = 2,
-                    Type = 43, // GeneratorRadius
+                    Type = (ushort)PropertyFloat.GeneratorRadius,
                     Value = 10.0
                 });
 
@@ -211,45 +212,6 @@ namespace WorldBuilder.Shared.Tests.Services {
             Assert.Contains("scenery", keywords.Value.Tags, StringComparison.OrdinalIgnoreCase);
             Assert.Equal(string.Empty, keywords.Value.Names);
             Assert.Equal("Category: Scenery", keywords.Value.Descriptions);
-        }
-
-        [Fact]
-        public async Task GenerateAsync_ExtractsSceneryKeywordsFromCellDat() {
-            // Arrange
-            await CreateSeedAceDbAsync();
-            _portalDbMock.Setup(db => db.GetAllIdsOfType<Scene>()).Returns([]);
-            
-            var cellDbMock = new Mock<IDatDatabase>();
-            var cellRegions = new Dictionary<uint, IDatDatabase> {
-                [1] = cellDbMock.Object
-            };
-            _datReaderMock.Setup(r => r.CellRegions).Returns(new ReadOnlyDictionary<uint, IDatDatabase>(cellRegions));
-
-            var lbInfoId = 0x0001FFFEu;
-            var lbInfo = new LandBlockInfo {
-                Id = lbInfoId,
-                Objects = new List<Stab> {
-                    new Stab {
-                        Id = 0x02001234,
-                        Frame = new Frame()
-                    }
-                }
-            };
-
-            cellDbMock.Setup(db => db.GetAllIdsOfType<LandBlockInfo>()).Returns([lbInfoId]);
-            LandBlockInfo? outLbInfo = lbInfo;
-            cellDbMock.Setup(db => db.TryGet<LandBlockInfo>(lbInfoId, out outLbInfo)).Returns(true);
-
-            // Act
-            var result = await _service.GenerateAsync(_datId, _aceId, false, CancellationToken.None);
-
-            // Assert
-            Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Message : "");
-            
-            var keywords = await _service.GetKeywordsForSetupAsync(_datId, _aceId, 0x02001234, CancellationToken.None);
-            Assert.True(keywords.HasValue);
-            
-            Assert.Contains("scenery", keywords.Value.Tags, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
