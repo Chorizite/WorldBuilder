@@ -360,7 +360,7 @@ namespace WorldBuilder.Shared.Services {
             }
 
             var options = new DbContextOptionsBuilder<WorldDbContext>()
-                .UseSqlite($"Data Source={acePath}")
+                .UseSqlite($"Data Source={acePath};Pooling=False")
                 .Options;
 
             using var context = new WorldDbContext(options);

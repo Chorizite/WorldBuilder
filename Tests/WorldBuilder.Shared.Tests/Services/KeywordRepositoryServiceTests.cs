@@ -54,6 +54,7 @@ namespace WorldBuilder.Shared.Tests.Services {
         }
 
         public void Dispose() {
+            SqliteConnection.ClearAllPools();
             if (Directory.Exists(_testDir)) {
                 Directory.Delete(_testDir, true);
             }
@@ -61,7 +62,7 @@ namespace WorldBuilder.Shared.Tests.Services {
 
         private async Task CreateSeedAceDbAsync() {
             var options = new DbContextOptionsBuilder<WorldDbContext>()
-                .UseSqlite($"Data Source={_aceDbPath}")
+                .UseSqlite($"Data Source={_aceDbPath};Pooling=False")
                 .Options;
 
             using (var context = new WorldDbContext(options)) {
