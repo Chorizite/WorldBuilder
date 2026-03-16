@@ -153,6 +153,14 @@ namespace WorldBuilder.Shared.Services {
                 var release = await _httpClient.GetFromJsonAsync("https://api.github.com/repos/amoeba/ace-to-sqlite/releases/latest", AceSourceGenerationContext.Default.GitHubRelease, ct);
                 if (release == null) return Result<ManagedAceDb>.Failure("Failed to fetch release info", "DOWNLOAD_FAILED");
 
+                // Check if we already have this version
+                var existing = _managedDbs.FirstOrDefault(d => d.PatchVersion == release.TagName);
+                if (existing != null) {
+                    _log.LogInformation("Already have latest ACE version {Version}", release.TagName);
+                    progress?.Report(($"Already have latest ACE version {release.TagName}", 1.0f));
+                    return Result<ManagedAceDb>.Success(existing);
+                }
+
                 var asset = release.Assets.FirstOrDefault(a => a.Name.Equals("ace_world.db", StringComparison.OrdinalIgnoreCase));
                 if (asset == null) return Result<ManagedAceDb>.Failure("Release does not contain ace_world.db", "ASSET_NOT_FOUND");
 
