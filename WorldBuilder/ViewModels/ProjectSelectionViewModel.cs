@@ -1,4 +1,4 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
@@ -238,7 +238,7 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
 
     private void LoadProject(string filePath, Guid? managedDatId = null, Guid? managedAceId = null) {
         _log.LogTrace($"LoadProject: {filePath}");
-        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(filePath, this, managedDatId, managedAceId));
+        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(filePath, this, new ManagedEnvironmentIds(managedDatId, managedAceId)));
     }
 
     /// <summary>

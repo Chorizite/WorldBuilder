@@ -20,7 +20,7 @@ public class Project : IProject, IAsyncDisposable {
     private readonly IKeywordRepositoryService _keywordRepository;
     private bool _disposed;
     private readonly string? _baseDatDirectory;
-    private Guid? _managedAceDbId;
+    private ManagedEnvironmentIds _managedIds;
 
     /// <summary>
     /// Raised when the ManagedAceDbId has changed.
@@ -43,21 +43,16 @@ public class Project : IProject, IAsyncDisposable {
     public bool IsReadOnly { get; }
 
     /// <summary>
-    /// Gets the managed DAT set ID, if any.
+    /// Gets the managed environment IDs for this project.
     /// </summary>
-    public Guid? ManagedDatSetId { get; }
-
-    /// <summary>
-    /// Gets the managed ACE DB ID, if any.
-    /// </summary>
-    public Guid? ManagedAceDbId => _managedAceDbId;
+    public ManagedEnvironmentIds ManagedIds => _managedIds;
 
     /// <summary>
     /// Sets the managed ACE DB ID and persists it to the project database.
     /// </summary>
     public async Task SetManagedAceDbIdAsync(Guid? value) {
-        if (_managedAceDbId != value) {
-            _managedAceDbId = value;
+        if (_managedIds.ManagedAceDbId != value) {
+            _managedIds = _managedIds with { ManagedAceDbId = value };
             var repo = Services.GetRequiredService<IProjectRepository>();
             await repo.SetKeyValueAsync("ManagedAceDbId", value?.ToString() ?? string.Empty, null, CancellationToken.None);
             ManagedAceDbIdChanged?.Invoke(this, EventArgs.Empty);
@@ -84,16 +79,15 @@ public class Project : IProject, IAsyncDisposable {
     /// </summary>
     public LandscapeModule Landscape { get; }
 
-    private Project(string projectFile, IDatRepositoryService datRepository, IAceRepositoryService aceRepository, IKeywordRepositoryService keywordRepository, IProjectMigrationService migrationService, ILoggerFactory? loggerFactory = null, string? baseDatDirectory = null, bool isReadOnly = false, Guid? managedDatSetId = null, Guid? managedAceDbId = null) {
+    private Project(string projectFile, ProjectDependencies deps, string? baseDatDirectory = null, bool isReadOnly = false, ManagedEnvironmentIds? managedIds = null) {
         ProjectFile = projectFile;
         IsReadOnly = isReadOnly;
         _baseDatDirectory = baseDatDirectory;
-        ManagedDatSetId = managedDatSetId;
-        _managedAceDbId = managedAceDbId;
+        _managedIds = managedIds ?? default;
 
         var services = new ServiceCollection();
         var connectionString = IsReadOnly ? $"Data Source=file:{Guid.NewGuid()}?mode=memory&cache=shared" : $"Data Source={ProjectFile}";
-        services.AddWorldBuilderSharedServices(connectionString, BaseDatDirectory, loggerFactory, datRepository, aceRepository, keywordRepository, migrationService);
+        services.AddWorldBuilderSharedServices(connectionString, BaseDatDirectory, deps.LoggerFactory, deps.DatRepository, deps.AceRepository, deps.KeywordRepository, deps.MigrationService);
 
         services.AddSingleton<LandscapeModule>();
         services.AddSingleton<IProject>(this);
@@ -140,18 +134,18 @@ public class Project : IProject, IAsyncDisposable {
             log.LogTrace("Internal Models root set to: {Path}", modelsSiblingDir);
         }
 
-        log.LogTrace("ManagedDatSetId: {DatId}, ManagedAceDbId: {AceId}", ManagedDatSetId, ManagedAceDbId);
-        if (ManagedDatSetId.HasValue && ManagedAceDbId.HasValue) {
+        log.LogTrace("ManagedDatSetId: {DatId}, ManagedAceDbId: {AceId}", ManagedIds.ManagedDatSetId, ManagedIds.ManagedAceDbId);
+        if (ManagedIds.ManagedDatSetId.HasValue && ManagedIds.ManagedAceDbId.HasValue) {
             _ = Task.Run(async () => {
-                await EnsureKeywordsValid(ManagedDatSetId.Value, ManagedAceDbId.Value, CancellationToken.None);
+                await EnsureKeywordsValid(ManagedIds.ManagedDatSetId.Value, ManagedIds.ManagedAceDbId.Value, CancellationToken.None);
             });
         }
 
         ManagedAceDbIdChanged += (s, e) => {
-            log.LogTrace("ManagedAceDbId changed to: {AceId}", ManagedAceDbId);
-            if (ManagedDatSetId.HasValue && ManagedAceDbId.HasValue) {
+            log.LogTrace("ManagedAceDbId changed to: {AceId}", ManagedIds.ManagedAceDbId);
+            if (ManagedIds.ManagedDatSetId.HasValue && ManagedIds.ManagedAceDbId.HasValue) {
                 // EnsureKeywordsValid handles its own Task.Run if needed
-                _ = EnsureKeywordsValid(ManagedDatSetId.Value, ManagedAceDbId.Value, CancellationToken.None);
+                _ = EnsureKeywordsValid(ManagedIds.ManagedDatSetId.Value, ManagedIds.ManagedAceDbId.Value, CancellationToken.None);
             }
         };
     }
@@ -174,21 +168,16 @@ public class Project : IProject, IAsyncDisposable {
     /// Opens an existing project from the specified project file path.
     /// </summary>
     /// <param name="projectFile">The path to the project file to open</param>
-    /// <param name="datRepository">The DAT repository service</param>
-    /// <param name="aceRepository">The ACE repository service</param>
-    /// <param name="migrationService">The project migration service</param>
-    /// <param name="loggerFactory">Optional logger factory for internal services</param>
-    /// <param name="managedId">Optional managed DAT set ID</param>
-    /// <param name="managedAceId">Optional managed ACE DB ID</param>
+    /// <param name="deps">The project dependencies</param>
+    /// <param name="managedIds">Optional managed environment IDs</param>
     /// <param name="progress">Optional progress reporter for migrations</param>
     /// <param name="ct">A cancellation token to cancel the operation</param>
     /// <returns>A Result containing a Project instance if successful, or an error</returns>
-    public static async Task<Result<Project>> Open(string projectFile, IDatRepositoryService datRepository, IAceRepositoryService aceRepository, IKeywordRepositoryService keywordRepository, IProjectMigrationService migrationService, ILoggerFactory? loggerFactory = null, Guid? managedId = null, Guid? managedAceId = null, IProgress<(string message, float progress)>? progress = null, CancellationToken ct = default) {
+    public static async Task<Result<Project>> Open(string projectFile, ProjectDependencies deps, ManagedEnvironmentIds? managedIds = null, IProgress<(string message, float progress)>? progress = null, CancellationToken ct = default) {
         try {
             var isReadOnly = projectFile.EndsWith(".dat", StringComparison.OrdinalIgnoreCase);
             string? baseDatDir = null;
-            Guid? managedDatSetId = managedId;
-            Guid? managedAceDbId = managedAceId;
+            var currentManagedIds = managedIds ?? default;
 
             if (isReadOnly) {
                 baseDatDir = Path.GetDirectoryName(projectFile);
@@ -198,27 +187,27 @@ public class Project : IProject, IAsyncDisposable {
                 if (!Directory.Exists(projectDirectory)) {
                     return Result<Project>.Failure($"Invalid project directory, does not exist: {projectDirectory}", "PROJECT_DIRECTORY_NOT_FOUND");
                 }
-                if (string.IsNullOrEmpty(datRepository.RepositoryRoot)) {
+                if (string.IsNullOrEmpty(deps.DatRepository.RepositoryRoot)) {
                     // Set repository root to sibling Dats folder of the projects directory
                     var datsSiblingDir = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(projectDirectory) ?? string.Empty) ?? string.Empty, "Dats");
-                    datRepository.SetRepositoryRoot(datsSiblingDir);
+                    deps.DatRepository.SetRepositoryRoot(datsSiblingDir);
                 }
-                if (string.IsNullOrEmpty(aceRepository.RepositoryRoot)) {
+                if (string.IsNullOrEmpty(deps.AceRepository.RepositoryRoot)) {
                     // Set repository root to sibling Server folder of the projects directory
                     var serverSiblingDir = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(projectDirectory) ?? string.Empty) ?? string.Empty, "Server");
-                    aceRepository.SetRepositoryRoot(serverSiblingDir);
+                    deps.AceRepository.SetRepositoryRoot(serverSiblingDir);
                 }
 
-                await migrationService.MigrateIfNeededAsync(projectFile, progress, ct);
+                await deps.MigrationService.MigrateIfNeededAsync(projectFile, progress, ct);
 
                 // Resolve Managed IDs from the DB
                 var connectionString = $"Data Source={projectFile}";
-                using var repository = new SQLiteProjectRepository(connectionString, loggerFactory);
+                using var repository = new SQLiteProjectRepository(connectionString, deps.LoggerFactory);
                 
                 var datIdResult = await repository.GetKeyValueAsync("ManagedDatSetId", null, ct);
                 if (datIdResult.IsSuccess && Guid.TryParse(datIdResult.Value, out var resolvedDatId)) {
-                    managedDatSetId = resolvedDatId;
-                    baseDatDir = datRepository.GetDatSetPath(resolvedDatId, projectDirectory);
+                    currentManagedIds = currentManagedIds with { ManagedDatSetId = resolvedDatId };
+                    baseDatDir = deps.DatRepository.GetDatSetPath(resolvedDatId, projectDirectory);
                 }
                 else {
                     // Fallback to legacy path if not migrated for some reason
@@ -227,11 +216,11 @@ public class Project : IProject, IAsyncDisposable {
 
                 var aceIdResult = await repository.GetKeyValueAsync("ManagedAceDbId", null, ct);
                 if (aceIdResult.IsSuccess && Guid.TryParse(aceIdResult.Value, out var resolvedAceId)) {
-                    managedAceDbId = resolvedAceId;
+                    currentManagedIds = currentManagedIds with { ManagedAceDbId = resolvedAceId };
                 }
             }
 
-            var project = new Project(projectFile, datRepository, aceRepository, keywordRepository, migrationService, loggerFactory, baseDatDir, isReadOnly, managedDatSetId, managedAceDbId);
+            var project = new Project(projectFile, deps, baseDatDir, isReadOnly, currentManagedIds);
             await project.Initialize(ct);
 
             return Result<Project>.Success(project);
@@ -247,16 +236,14 @@ public class Project : IProject, IAsyncDisposable {
     /// <param name="projectName">The name for the new project</param>
     /// <param name="projectDirectory">The directory where the project should be created</param>
     /// <param name="baseDatDirectory">The directory containing the base dat files, ignored if managedId is provided</param>
-    /// <param name="datRepository">The DAT repository service</param>
-    /// <param name="aceRepository">The ACE repository service</param>
-    /// <param name="migrationService">The project migration service</param>
-    /// <param name="managedId">Optional existing managed DAT set ID to use</param>
-    /// <param name="managedAceId">Optional existing managed ACE DB ID to use</param>
+    /// <param name="deps">The project dependencies</param>
+    /// <param name="managedIds">Optional existing managed environment IDs to use</param>
     /// <param name="progress">Optional progress reporter</param>
     /// <param name="ct">A cancellation token to cancel the operation</param>
     /// <returns>A Result containing a Project instance if successful, or an error</returns>
-    public static async Task<Result<Project>> Create(string projectName, string projectDirectory, string baseDatDirectory, IDatRepositoryService datRepository, IAceRepositoryService aceRepository, IKeywordRepositoryService keywordRepository, IProjectMigrationService migrationService, ILoggerFactory? loggerFactory = null, Guid? managedId = null, Guid? managedAceId = null, IProgress<(string message, float progress)>? progress = null, CancellationToken ct = default) {
-        if (managedId == null && !Directory.Exists(baseDatDirectory)) {
+    public static async Task<Result<Project>> Create(string projectName, string projectDirectory, string baseDatDirectory, ProjectDependencies deps, ManagedEnvironmentIds? managedIds = null, IProgress<(string message, float progress)>? progress = null, CancellationToken ct = default) {
+        var currentManagedIds = managedIds ?? default;
+        if (!currentManagedIds.ManagedDatSetId.HasValue && !Directory.Exists(baseDatDirectory)) {
             return Result<Project>.Failure($"Base dat directory does not exist: {baseDatDirectory}", "BASE_DAT_DIRECTORY_NOT_FOUND");
         }
         if (Directory.Exists(projectDirectory) && Directory.EnumerateFileSystemEntries(projectDirectory).Any()) {
@@ -267,24 +254,24 @@ public class Project : IProject, IAsyncDisposable {
             Directory.CreateDirectory(projectDirectory);
         }
 
-        if (string.IsNullOrEmpty(datRepository.RepositoryRoot)) {
+        if (string.IsNullOrEmpty(deps.DatRepository.RepositoryRoot)) {
             var datsSiblingDir = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(projectDirectory) ?? string.Empty) ?? string.Empty, "Dats");
-            datRepository.SetRepositoryRoot(datsSiblingDir);
+            deps.DatRepository.SetRepositoryRoot(datsSiblingDir);
         }
-        if (string.IsNullOrEmpty(aceRepository.RepositoryRoot)) {
+        if (string.IsNullOrEmpty(deps.AceRepository.RepositoryRoot)) {
             var serverSiblingDir = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(projectDirectory) ?? string.Empty) ?? string.Empty, "Server");
-            aceRepository.SetRepositoryRoot(serverSiblingDir);
+            deps.AceRepository.SetRepositoryRoot(serverSiblingDir);
         }
 
-        if (managedId == null) {
+        if (!currentManagedIds.ManagedDatSetId.HasValue) {
             // Import/Reference DATs
             progress?.Report(("Importing base DAT files into repository...", 0.1f));
-            var importResult = await datRepository.ImportAsync(baseDatDirectory, null, progress, ct);
+            var importResult = await deps.DatRepository.ImportAsync(baseDatDirectory, null, progress, ct);
             if (importResult.IsFailure) {
                 return Result<Project>.Failure($"Failed to import DAT files: {importResult.Error.Message}", importResult.Error.Code);
             }
 
-            managedId = importResult.Value.Id;
+            currentManagedIds = currentManagedIds with { ManagedDatSetId = importResult.Value.Id };
         }
 
         progress?.Report(("Initializing database...", 0.9f));
@@ -293,15 +280,15 @@ public class Project : IProject, IAsyncDisposable {
         
         // Initial setup of DB to store Managed IDs
         var connectionString = $"Data Source={projectPath}";
-        using (var repository = new SQLiteProjectRepository(connectionString, loggerFactory)) {
+        using (var repository = new SQLiteProjectRepository(connectionString, deps.LoggerFactory)) {
             await repository.InitializeDatabaseAsync(ct);
-            await repository.SetKeyValueAsync("ManagedDatSetId", managedId.Value.ToString(), null, ct);
-            if (managedAceId.HasValue) {
-                await repository.SetKeyValueAsync("ManagedAceDbId", managedAceId.Value.ToString(), null, ct);
+            await repository.SetKeyValueAsync("ManagedDatSetId", currentManagedIds.ManagedDatSetId.Value.ToString(), null, ct);
+            if (currentManagedIds.ManagedAceDbId.HasValue) {
+                await repository.SetKeyValueAsync("ManagedAceDbId", currentManagedIds.ManagedAceDbId.Value.ToString(), null, ct);
             }
         }
 
-        var projectResult = await Open(projectPath, datRepository, aceRepository, keywordRepository, migrationService, loggerFactory, managedId, managedAceId, progress, ct);
+        var projectResult = await Open(projectPath, deps, currentManagedIds, progress, ct);
         if (projectResult.IsFailure) return projectResult;
 
         var project = projectResult.Value;

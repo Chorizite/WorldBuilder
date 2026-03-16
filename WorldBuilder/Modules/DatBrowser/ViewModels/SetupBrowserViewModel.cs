@@ -62,22 +62,22 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             string tooltip = "Search by keywords (e.g., class name, string properties)";
             string watermark = "Search keywords...";
 
-            if (project == null || !project.ManagedDatSetId.HasValue || !project.ManagedAceDbId.HasValue) {
+            if (project == null || !project.ManagedIds.ManagedDatSetId.HasValue || !project.ManagedIds.ManagedAceDbId.HasValue) {
                 enabled = false;
                 tooltip = "Associate an ACE world database in project settings to enable keyword search.";
             }
-            else if (!_keywordRepository.CanSearchKeywords(project.ManagedDatSetId.Value, project.ManagedAceDbId.Value)) {
+            else if (!_keywordRepository.CanSearchKeywords(project.ManagedIds.ManagedDatSetId.Value, project.ManagedIds.ManagedAceDbId.Value)) {
                 enabled = false;
                 tooltip = "Keywords database is not generated or out of date.";
             }
             else {
-                isEmbeddingSearch = _keywordRepository.IsEmbeddingSearchActive(project.ManagedDatSetId.Value, project.ManagedAceDbId.Value);
+                isEmbeddingSearch = _keywordRepository.IsEmbeddingSearchActive(project.ManagedIds.ManagedDatSetId.Value, project.ManagedIds.ManagedAceDbId.Value);
                 if (isEmbeddingSearch) {
                     tooltip = "Semantic search active. You can search by meaning (e.g., 'pointy objects' or 'wooden table').";
                     watermark = "Semantic search (e.g., 'pointy wooden table')...";
                 }
                 else {
-                    var db = _keywordRepository.GetManagedKeywordDb(project.ManagedDatSetId.Value, project.ManagedAceDbId.Value);
+                    var db = _keywordRepository.GetManagedKeywordDb(project.ManagedIds.ManagedDatSetId.Value, project.ManagedIds.ManagedAceDbId.Value);
                     if (db != null && db.NameEmbeddingProgress >= 1f && db.DescEmbeddingProgress >= 1f) {
                         tooltip = "Embeddings generated, but semantic search is inactive (possibly missing model files). Try regenerating with 'Force'.";
                     }
@@ -126,8 +126,8 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                     IEnumerable<uint>? filteredIds = null;
                     if (!string.IsNullOrWhiteSpace(value) && IsKeywordsSearchEnabled) {
                         var project = _projectManager.CurrentProject;
-                        if (project != null && project.ManagedDatSetId.HasValue && project.ManagedAceDbId.HasValue) {
-                            var matchingIds = await _keywordRepository.SearchSetupsAsync(project.ManagedDatSetId.Value, project.ManagedAceDbId.Value, value, SearchType, ct);
+                        if (project != null && project.ManagedIds.ManagedDatSetId.HasValue && project.ManagedIds.ManagedAceDbId.HasValue) {
+                            var matchingIds = await _keywordRepository.SearchSetupsAsync(project.ManagedIds.ManagedDatSetId.Value, project.ManagedIds.ManagedAceDbId.Value, value, SearchType, ct);
                             filteredIds = matchingIds;
                         }
                     }

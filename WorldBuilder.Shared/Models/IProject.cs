@@ -14,14 +14,9 @@ namespace WorldBuilder.Shared.Models {
         string Name { get; }
 
         /// <summary>
-        /// Gets the managed DAT set ID, if any.
+        /// Gets the managed environment IDs for this project.
         /// </summary>
-        Guid? ManagedDatSetId { get; }
-
-        /// <summary>
-        /// Gets the managed ACE DB ID, if any.
-        /// </summary>
-        Guid? ManagedAceDbId { get; }
+        ManagedEnvironmentIds ManagedIds { get; }
 
         /// <summary>
         /// Sets the managed ACE DB ID and persists it to the project database.

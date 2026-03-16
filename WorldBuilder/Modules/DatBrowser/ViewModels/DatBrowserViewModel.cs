@@ -573,9 +573,9 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private void UpdateCurrentKeywords(IDBObj? obj) {
             if (obj is DatReaderWriter.DBObjs.Setup setup) {
                 var project = _projectManager.CurrentProject;
-                if (project != null && project.ManagedDatSetId.HasValue && project.ManagedAceDbId.HasValue) {
+                if (project != null && project.ManagedIds.ManagedDatSetId.HasValue && project.ManagedIds.ManagedAceDbId.HasValue) {
                     Task.Run(async () => {
-                        var keywords = await _keywordRepository.GetKeywordsForSetupAsync(project.ManagedDatSetId.Value, project.ManagedAceDbId.Value, setup.Id, default);
+                        var keywords = await _keywordRepository.GetKeywordsForSetupAsync(project.ManagedIds.ManagedDatSetId.Value, project.ManagedIds.ManagedAceDbId.Value, setup.Id, default);
                         Avalonia.Threading.Dispatcher.UIThread.Post(() => {
                             _showKeywords = keywords.HasValue;
                             OnPropertyChanged(nameof(ShowKeywords));

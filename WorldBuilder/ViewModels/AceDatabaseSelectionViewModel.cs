@@ -64,9 +64,9 @@ namespace WorldBuilder.ViewModels {
             UpdateManagedResources();
 
             // Set initial selection from current project if any
-            if (_projectManager.CurrentProject?.ManagedAceDbId != null) {
+            if (_projectManager.CurrentProject?.ManagedIds.ManagedAceDbId != null) {
                 SelectedAceSourceType = AceSourceType.Managed;
-                SelectedManagedAceDb = ManagedAceDbs.FirstOrDefault(d => d.Id == _projectManager.CurrentProject.ManagedAceDbId);
+                SelectedManagedAceDb = ManagedAceDbs.FirstOrDefault(d => d.Id == _projectManager.CurrentProject.ManagedIds.ManagedAceDbId);
             }
 
             PropertyChanged += (s, e) => {
