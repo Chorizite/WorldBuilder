@@ -25,9 +25,6 @@ using WorldBuilder.Shared.Models;
 
 namespace WorldBuilder.Shared.Services {
     public partial class KeywordRepositoryService : IKeywordRepositoryService {
-
-        // ── Private types ─────────────────────────────────────────────────────────
-
         private record SetupKeywordData(
             HashSet<string> Names,
             HashSet<string> Tags,
@@ -42,8 +39,6 @@ namespace WorldBuilder.Shared.Services {
                 new HashSet<string>(StringComparer.OrdinalIgnoreCase),
                 null, null, null) { }
         }
-
-        // ── Constants ─────────────────────────────────────────────────────────────
 
         private const uint SetupIdPrefix    = 0x02000000;
         private const uint SetupIdMask      = 0xFF000000;
@@ -73,8 +68,6 @@ namespace WorldBuilder.Shared.Services {
         private const double HybridKeywordWeight = 0.55;
         private const double HybridVectorWeight  = 0.45;
 
-        // ── Fields ────────────────────────────────────────────────────────────────
-
         private readonly ILogger<KeywordRepositoryService>  _log;
         private readonly IDatRepositoryService              _datRepository;
         private readonly IAceRepositoryService              _aceRepository;
@@ -89,8 +82,6 @@ namespace WorldBuilder.Shared.Services {
 
         public event EventHandler<IKeywordRepositoryService.KeywordGenerationProgress>? GlobalProgress;
         public string RepositoryRoot => _repositoryRoot;
-
-        // ── Construction / configuration ─────────────────────────────────────────
 
         public KeywordRepositoryService(
             ILogger<KeywordRepositoryService> log,
@@ -114,8 +105,6 @@ namespace WorldBuilder.Shared.Services {
             _modelsRoot = modelsDirectory;
             if (!Directory.Exists(_modelsRoot)) Directory.CreateDirectory(_modelsRoot);
         }
-
-        // ── Registry ──────────────────────────────────────────────────────────────
 
         private void LoadRegistry() {
             var path = Path.Combine(_repositoryRoot, _registryFileName);
@@ -142,8 +131,6 @@ namespace WorldBuilder.Shared.Services {
                 _log.LogError(ex, "Failed to save managed keyword registry");
             }
         }
-
-        // ── Public read-only queries ──────────────────────────────────────────────
 
         public IReadOnlyList<ManagedKeywordDb> GetManagedKeywordDbs() => _managedKeywordDbs.AsReadOnly();
 
@@ -186,8 +173,6 @@ namespace WorldBuilder.Shared.Services {
                 && db.NameEmbeddingProgress >= 1f
                 && EmbeddingModelExists();
         }
-
-        // ── Generation ────────────────────────────────────────────────────────────
 
         public async Task<Result<ManagedKeywordDb>> GenerateAsync(Guid datId, Guid aceId, bool forceRegenerate, CancellationToken ct) {
             _log.LogInformation("Generating keyword database for DatSet {DatId} / AceDb {AceId}...", datId, aceId);
@@ -258,8 +243,6 @@ namespace WorldBuilder.Shared.Services {
             return Result<Unit>.Success(Unit.Value);
         }
 
-        // ── Search ────────────────────────────────────────────────────────────────
-
         public async Task<(string Names, string Tags, string Descriptions)?> GetKeywordsForSetupAsync(Guid datId, Guid aceId, uint setupId, CancellationToken ct) {
             var path = GetKeywordDbPath(datId, aceId);
             if (!File.Exists(path)) return null;
@@ -317,8 +300,6 @@ namespace WorldBuilder.Shared.Services {
                 return [];
             }
         }
-
-        // ── Generation helpers ────────────────────────────────────────────────────
 
         private ManagedKeywordDb GetOrResetMetadata(Guid datId, Guid aceId, string targetPath, bool forceRegenerate) {
             var existing = GetManagedKeywordDb(datId, aceId);
@@ -529,7 +510,6 @@ namespace WorldBuilder.Shared.Services {
         /// <summary>
         /// Builds the text that gets embedded for a single game object.
         /// Name is placed first for positional prominence; tags and description follow as context.
-        /// Format: "Fire Beetle | Creature | Undead | A small beetle that breathes fire..."
         /// </summary>
         private static string BuildCombinedEmbeddingText(string names, string tags, string descriptions) {
             var parts = new List<string>(3);
@@ -555,7 +535,6 @@ namespace WorldBuilder.Shared.Services {
 
         /// <summary>
         /// Pulls candidate rows from SQLite (matching ANY query term) then scores in C#.
-        /// This allows richer multi-term logic without complex dynamic SQL.
         /// </summary>
         private async Task RunKeywordSearchAsync(
             string connectionString,
@@ -675,8 +654,7 @@ namespace WorldBuilder.Shared.Services {
 
         /// <summary>
         /// Merges keyword and vector score dictionaries into a single normalised score.
-        /// Each source is independently normalised to [0, 1] before being blended,
-        /// so the weight constants truly reflect contribution and not raw scale differences.
+        /// Each source is independently normalised to [0, 1] before being blended
         /// </summary>
         private static Dictionary<uint, double> MergeScores(
             Dictionary<uint, double> keywordScores,
@@ -703,8 +681,6 @@ namespace WorldBuilder.Shared.Services {
             }
             return merged;
         }
-
-        // ── Shared infrastructure helpers ─────────────────────────────────────────
 
         private bool EmbeddingModelExists() {
             var (modelPath, vocabPath) = GetModelPaths();
@@ -734,6 +710,7 @@ namespace WorldBuilder.Shared.Services {
             var dir = Path.GetDirectoryName(modelPath)!;
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
+            // TODO: allow configurable models, either from huggingface or openapi compatible endpoints for generating embeddings.
             const string modelUrl = "https://huggingface.co/TaylorAI/bge-micro-v2/resolve/main/onnx/model.onnx";
             const string vocabUrl = "https://huggingface.co/TaylorAI/bge-micro-v2/resolve/main/vocab.txt";
 
@@ -796,8 +773,6 @@ namespace WorldBuilder.Shared.Services {
                 _log.LogTrace("  0x{Id:X8} score={Score:F3} name='{Name}'", id, score, kw?.Names ?? "?");
             }
         }
-
-        // ── JSON source generation ────────────────────────────────────────────────
 
         [JsonSourceGenerationOptions(WriteIndented = true)]
         [JsonSerializable(typeof(ManagedKeywordDb))]

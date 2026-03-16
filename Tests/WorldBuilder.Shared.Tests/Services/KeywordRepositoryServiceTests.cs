@@ -210,7 +210,7 @@ namespace WorldBuilder.Shared.Tests.Services {
             
             Assert.Contains("scenery", keywords.Value.Tags, StringComparison.OrdinalIgnoreCase);
             Assert.Equal(string.Empty, keywords.Value.Names);
-            Assert.Equal(string.Empty, keywords.Value.Descriptions);
+            Assert.Equal("Category: Scenery", keywords.Value.Descriptions);
         }
 
         [Fact]
