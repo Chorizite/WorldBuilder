@@ -44,7 +44,7 @@
             </StackPanel>
         </Grid>
 
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer x:Name="Part_ScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <ItemsRepeater ItemsSource="{Binding FileIds}" Margin="10">
                 <ItemsRepeater.Layout>
                     <UniformGridLayout MinItemWidth="{Binding CalculatedItemSize}" 

@@ -1,16 +1,20 @@
+using ACE.Database.Models.World;
+using DatReaderWriter.DBObjs;
+using DatReaderWriter.Options;
+using DatReaderWriter.Types;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Moq;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using Moq;
-using Xunit;
 using WorldBuilder.Shared.Services;
-using ACE.Database.Models.World;
-using Microsoft.Data.Sqlite;
+using Xunit;
 
 namespace WorldBuilder.Shared.Tests.Services {
     public class KeywordRepositoryServiceTests : IDisposable {
@@ -19,6 +23,8 @@ namespace WorldBuilder.Shared.Tests.Services {
         private readonly Mock<ILogger<KeywordRepositoryService>> _loggerMock;
         private readonly Mock<IDatRepositoryService> _datRepoMock;
         private readonly Mock<IAceRepositoryService> _aceRepoMock;
+        private readonly Mock<IDatReaderWriter> _datReaderMock;
+        private readonly Mock<IDatDatabase> _portalDbMock;
         private readonly KeywordRepositoryService _service;
         private readonly Guid _datId = Guid.NewGuid();
         private readonly Guid _aceId = Guid.NewGuid();
@@ -31,8 +37,15 @@ namespace WorldBuilder.Shared.Tests.Services {
             _loggerMock = new Mock<ILogger<KeywordRepositoryService>>();
             _datRepoMock = new Mock<IDatRepositoryService>();
             _aceRepoMock = new Mock<IAceRepositoryService>();
+            _datReaderMock = new Mock<IDatReaderWriter>();
+            _portalDbMock = new Mock<IDatDatabase>();
 
             _aceRepoMock.Setup(r => r.GetAceDbPath(_aceId, It.IsAny<string>())).Returns(_aceDbPath);
+            _datRepoMock.Setup(r => r.GetDatSetPath(_datId, It.IsAny<string>())).Returns(_testDir);
+            _datRepoMock.Setup(r => r.GetDatReaderWriter(It.IsAny<string>())).Returns(_datReaderMock.Object);
+
+            _datReaderMock.Setup(r => r.Portal).Returns(_portalDbMock.Object);
+            _datReaderMock.Setup(r => r.CellRegions).Returns(new ReadOnlyDictionary<uint, IDatDatabase>(new Dictionary<uint, IDatDatabase>()));
 
             _service = new KeywordRepositoryService(_loggerMock.Object, _datRepoMock.Object, _aceRepoMock.Object, new System.Net.Http.HttpClient());
             _service.SetRepositoryRoot(_testDir);
@@ -113,12 +126,13 @@ namespace WorldBuilder.Shared.Tests.Services {
         public async Task GenerateAsync_ExtractsKeywordsFromAceDb() {
             // Arrange
             await CreateSeedAceDbAsync();
+            _portalDbMock.Setup(db => db.GetAllIdsOfType<Scene>()).Returns([]);
 
             // Act
             var result = await _service.GenerateAsync(_datId, _aceId, false, CancellationToken.None);
 
             // Assert
-            Assert.True(result.IsSuccess);
+            Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Message : "");
             
             var keywords = await _service.GetKeywordsForSetupAsync(_datId, _aceId, 100, CancellationToken.None);
             Assert.True(keywords.HasValue);
@@ -131,6 +145,111 @@ namespace WorldBuilder.Shared.Tests.Services {
 
             var keywords2 = await _service.GetKeywordsForSetupAsync(_datId, _aceId, 101, CancellationToken.None);
             Assert.False(keywords2.HasValue);
+        }
+
+        [Fact]
+        public async Task GenerateAsync_ExtractsSceneryKeywordsFromPortalDat() {
+            // Arrange
+            await CreateSeedAceDbAsync();
+            
+            var sceneId = 0x12000001u;
+            var scene = new Scene {
+                Id = sceneId,
+                Objects = new List<ObjectDesc> {
+                    new ObjectDesc {
+                        ObjectId = 0x02000064, // Matches setup ID 100 (0x64) from CreateSeedAceDbAsync
+                        BaseLoc = new Frame()
+                    }
+                }
+            };
+            
+            _portalDbMock.Setup(db => db.GetAllIdsOfType<Scene>()).Returns([sceneId]);
+            Scene? outScene = scene;
+            _portalDbMock.Setup(db => db.TryGet<Scene>(sceneId, out outScene)).Returns(true);
+
+            // Act
+            var result = await _service.GenerateAsync(_datId, _aceId, false, CancellationToken.None);
+
+            // Assert
+            Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Message : "");
+            
+            var keywords = await _service.GetKeywordsForSetupAsync(_datId, _aceId, 0x02000064, CancellationToken.None);
+            Assert.True(keywords.HasValue);
+            
+            Assert.Contains("scenery", keywords.Value.Tags, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public async Task GenerateAsync_ExtractsSceneryKeywordsFromPortalDat_NoWeenie() {
+            // Arrange
+            await CreateSeedAceDbAsync();
+            
+            var sceneId = 0x12000002u;
+            var scene = new Scene {
+                Id = sceneId,
+                Objects = new List<ObjectDesc> {
+                    new ObjectDesc {
+                        ObjectId = 0x020000FF, // NOT in CreateSeedAceDbAsync
+                        BaseLoc = new Frame()
+                    }
+                }
+            };
+            
+            _portalDbMock.Setup(db => db.GetAllIdsOfType<Scene>()).Returns([sceneId]);
+            Scene? outScene = scene;
+            _portalDbMock.Setup(db => db.TryGet<Scene>(sceneId, out outScene)).Returns(true);
+
+            // Act
+            var result = await _service.GenerateAsync(_datId, _aceId, false, CancellationToken.None);
+
+            // Assert
+            Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Message : "");
+            
+            var keywords = await _service.GetKeywordsForSetupAsync(_datId, _aceId, 0x020000FF, CancellationToken.None);
+            Assert.True(keywords.HasValue);
+            
+            Assert.Contains("scenery", keywords.Value.Tags, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(string.Empty, keywords.Value.Names);
+            Assert.Equal(string.Empty, keywords.Value.Descriptions);
+        }
+
+        [Fact]
+        public async Task GenerateAsync_ExtractsSceneryKeywordsFromCellDat() {
+            // Arrange
+            await CreateSeedAceDbAsync();
+            _portalDbMock.Setup(db => db.GetAllIdsOfType<Scene>()).Returns([]);
+            
+            var cellDbMock = new Mock<IDatDatabase>();
+            var cellRegions = new Dictionary<uint, IDatDatabase> {
+                [1] = cellDbMock.Object
+            };
+            _datReaderMock.Setup(r => r.CellRegions).Returns(new ReadOnlyDictionary<uint, IDatDatabase>(cellRegions));
+
+            var lbInfoId = 0x0001FFFEu;
+            var lbInfo = new LandBlockInfo {
+                Id = lbInfoId,
+                Objects = new List<Stab> {
+                    new Stab {
+                        Id = 0x02001234,
+                        Frame = new Frame()
+                    }
+                }
+            };
+
+            cellDbMock.Setup(db => db.GetAllIdsOfType<LandBlockInfo>()).Returns([lbInfoId]);
+            LandBlockInfo? outLbInfo = lbInfo;
+            cellDbMock.Setup(db => db.TryGet<LandBlockInfo>(lbInfoId, out outLbInfo)).Returns(true);
+
+            // Act
+            var result = await _service.GenerateAsync(_datId, _aceId, false, CancellationToken.None);
+
+            // Assert
+            Assert.True(result.IsSuccess, result.IsFailure ? result.Error.Message : "");
+            
+            var keywords = await _service.GetKeywordsForSetupAsync(_datId, _aceId, 0x02001234, CancellationToken.None);
+            Assert.True(keywords.HasValue);
+            
+            Assert.Contains("scenery", keywords.Value.Tags, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

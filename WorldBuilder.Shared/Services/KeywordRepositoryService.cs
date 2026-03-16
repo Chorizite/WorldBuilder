@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using ACE.Database.Models.World;
 using ACE.Entity.Enum;
 using ACE.Entity.Enum.Properties;
+using DatReaderWriter.DBObjs;
 using WorldBuilder.Shared.Lib;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.Onnx;
@@ -176,8 +177,45 @@ namespace WorldBuilder.Shared.Services {
                 if (metadata.KeywordProgress < 1f) {
                     GlobalProgress?.Invoke(this, new IKeywordRepositoryService.KeywordGenerationProgress("Extracting keywords from ACE database...", 0.1f, 0f, 0f));
 
+                    // 1a. Scenery Extraction from Portal Dat
+                    var scenerySetupIds = new HashSet<uint>();
+                    var datSetPath = _datRepository.GetDatSetPath(datId, string.Empty);
+                    if (Directory.Exists(datSetPath)) {
+                        using var datReader = _datRepository.GetDatReaderWriter(datSetPath);
+                        var sceneIds = datReader.Portal.GetAllIdsOfType<Scene>();
+                        foreach (var sceneId in sceneIds) {
+                            if (datReader.Portal.TryGet<Scene>(sceneId, out var scene)) {
+                                foreach (var obj in scene.Objects) {
+                                    // if it's a setup id (0x02XXXXXX)
+                                    if ((obj.ObjectId & 0xFF000000) == 0x02000000) {
+                                        scenerySetupIds.Add(obj.ObjectId);
+                                    }
+                                }
+                            }
+                        }
+
+                        // 1b. Scenery Extraction from Cell Dats
+                        foreach (var cellRegion in datReader.CellRegions.Values) {
+                            var lbInfoIds = cellRegion.GetAllIdsOfType<LandBlockInfo>();
+                            foreach (var lbInfoId in lbInfoIds) {
+                                if (cellRegion.TryGet<LandBlockInfo>(lbInfoId, out var lbInfo)) {
+                                    foreach (var obj in lbInfo.Objects) {
+                                        if ((obj.Id & 0xFF000000) == 0x02000000) {
+                                            scenerySetupIds.Add(obj.Id);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Map SetupId -> (Names, Tags, Descriptions)
                     var setupKeywords = new Dictionary<uint, (HashSet<string> Names, HashSet<string> Tags, HashSet<string> Descriptions)>();
+
+                    // Ensure all scenery objects are included
+                    foreach (var setupId in scenerySetupIds) {
+                        setupKeywords[setupId] = (new HashSet<string>(StringComparer.OrdinalIgnoreCase), new HashSet<string> { "scenery" }, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+                    }
 
                     var optionsBuilder = new DbContextOptionsBuilder<WorldDbContext>();
                     optionsBuilder.UseSqlite($"Data Source={acePath}");
@@ -199,6 +237,9 @@ namespace WorldBuilder.Shared.Services {
                             }
 
                             keywords.Tags.Add(item.Type.ToString());
+                            if (scenerySetupIds.Contains(item.SetupId)) {
+                                keywords.Tags.Add("scenery");
+                            }
 
                             foreach (var str in item.Strings) {
                                 if (string.IsNullOrWhiteSpace(str.Value)) continue;
@@ -289,7 +330,7 @@ namespace WorldBuilder.Shared.Services {
                 var embeddingGenerator = kernel.GetRequiredService<IEmbeddingGenerator<string, Embedding<float>>>();
                 #pragma warning restore SKEXP0070
 
-                var maxParallelism = Math.Max(1, Environment.ProcessorCount / 2);
+                var maxParallelism = Math.Max(1, System.Environment.ProcessorCount / 2);
 
                 // Get all setups that need embeddings
                 var pendingSetups = new List<(uint SetupId, string Names, string Tags, string Descriptions)>();
@@ -412,8 +453,9 @@ namespace WorldBuilder.Shared.Services {
         }
 
         private async Task<Result<Unit>> EnsureModelDownloadedAsync(string modelPath, string vocabPath, CancellationToken ct) {
-            var modelUrl = "https://huggingface.co/TaylorAI/bge-micro-v2/resolve/main/onnx/model.onnx";
-            var vocabUrl = "https://huggingface.co/TaylorAI/bge-micro-v2/resolve/main/vocab.txt";
+            // TODO: allow customizing these, or being able to point to an openai compatible api for generating embeddings
+            var modelUrl = "https://huggingface.co/TaydlorAI/bge-micro-v2/resolve/main/onnx/model.onnx";
+            var vocabUrl = "https://huggingface.co/TaydlorAI/bge-micro-v2/resolve/main/vocab.txt";
 
             try {
                 if (!File.Exists(modelPath)) {
@@ -475,7 +517,7 @@ namespace WorldBuilder.Shared.Services {
 
             var results = new Dictionary<uint, double>();
             try {
-                // 1. Traditional Text Search (Highest Priority)
+                // Text Search (Highest Priority)
                 using (var connection = new SqliteConnection($"Data Source={path};Mode=ReadOnly")) {
                     await connection.OpenAsync(ct);
 

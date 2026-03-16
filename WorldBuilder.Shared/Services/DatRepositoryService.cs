@@ -244,6 +244,10 @@ namespace WorldBuilder.Shared.Services {
             SaveRegistry();
             return Result<Unit>.Success(Unit.Value);
         }
+
+        public IDatReaderWriter GetDatReaderWriter(string datSetPath) {
+            return new DefaultDatReaderWriter(datSetPath);
+        }
     }
 
     [JsonSourceGenerationOptions(WriteIndented = true)]

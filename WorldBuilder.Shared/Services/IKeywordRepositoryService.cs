@@ -12,7 +12,7 @@ namespace WorldBuilder.Shared.Services {
         /// <summary>
         /// The current version of the keyword generator.
         /// </summary>
-        const int CurrentGeneratorVersion = 5;
+        const int CurrentGeneratorVersion = 6;
 
         /// <summary>
         /// Progress for keyword generation.

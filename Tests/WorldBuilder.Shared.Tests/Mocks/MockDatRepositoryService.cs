@@ -41,6 +41,10 @@ namespace WorldBuilder.Shared.Tests.Mocks {
             return Task.FromResult(Result<Unit>.Success(Unit.Value));
         }
 
+        public IDatReaderWriter GetDatReaderWriter(string datSetPath) {
+            return new MockDatReaderWriter();
+        }
+
         public void SetRepositoryRoot(string rootDirectory) {
         }
     }
