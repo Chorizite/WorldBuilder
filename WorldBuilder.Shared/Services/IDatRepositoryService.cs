@@ -65,6 +65,11 @@ namespace WorldBuilder.Shared.Services {
         Task<Result<Unit>> UpdateFriendlyNameAsync(Guid id, string newFriendlyName, CancellationToken ct);
 
         /// <summary>
+        /// Gets a DAT reader/writer for a specific DAT set.
+        /// </summary>
+        IDatReaderWriter GetDatReaderWriter(string datSetPath);
+
+        /// <summary>
         /// Sets the root directory for the centralized DAT repository.
         /// </summary>
         void SetRepositoryRoot(string rootDirectory);

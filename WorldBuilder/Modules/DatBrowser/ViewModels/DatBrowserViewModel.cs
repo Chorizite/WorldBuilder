@@ -113,7 +113,39 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         [ObservableProperty]
         private ObservableCollection<ReflectionNodeViewModel> _reflectionNodes = new();
 
+        [ObservableProperty]
+        private string? _currentKeywordsNames;
+
+        [ObservableProperty]
+        private string? _currentKeywordsTags;
+
+        [ObservableProperty]
+        private string? _currentKeywordsDescriptions;
+
+        [ObservableProperty]
+        private string _keywordsSearchText = string.Empty;
+
+        [ObservableProperty]
+        private bool _isKeywordsSearchEnabled;
+
+        [ObservableProperty]
+        private string _keywordsSearchTooltip = string.Empty;
+
+        [ObservableProperty]
+        private SearchType _searchType = SearchType.Hybrid;
+
+        [ObservableProperty]
+        private bool _isKeywordsSearching;
+
+        [ObservableProperty]
+        private bool _isEmbeddingSearchActive;
+
+        public IEnumerable<SearchType> SearchTypes => System.Enum.GetValues<SearchType>();
+
         private bool _isSettingObject;
+        private bool _showKeywords;
+
+        public bool ShowKeywords => _showKeywords;
 
 
         private readonly IDatBrowserViewModelFactory _viewModelFactory;
@@ -176,15 +208,19 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private LayoutDescBrowserViewModel? _layoutDescBrowser;
         private LanguageInfoBrowserViewModel? _languageInfoBrowser;
         private readonly WorldBuilder.Shared.Lib.IInputManager _inputManager;
+        private readonly IKeywordRepositoryService _keywordRepository;
+        private readonly ProjectManager _projectManager;
 
         public IDatReaderWriter Dats => _dats;
 
-        public DatBrowserViewModel(IDatBrowserViewModelFactory viewModelFactory, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats, WorldBuilder.Shared.Lib.IInputManager inputManager) {
+        public DatBrowserViewModel(IDatBrowserViewModelFactory viewModelFactory, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats, WorldBuilder.Shared.Lib.IInputManager inputManager, IKeywordRepositoryService keywordRepository, ProjectManager projectManager) {
             _viewModelFactory = viewModelFactory;
             _dialogService = dialogService;
             _serviceProvider = serviceProvider;
             _dats = dats;
             _inputManager = inputManager;
+            _keywordRepository = keywordRepository;
+            _projectManager = projectManager;
 
             SelectedType = DBObjType.Setup;
             // Don't create browser here - let the lazy loading handle it
@@ -309,9 +345,16 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             if (oldValue is INotifyPropertyChanged oldNotify) {
                 oldNotify.PropertyChanged -= OnBrowserPropertyChanged;
             }
+            if (oldValue is IDatBrowserViewModel oldBrowser && oldBrowser.GridBrowser != null) {
+                oldBrowser.GridBrowser.PropertyChanged -= OnGridBrowserPropertyChanged;
+            }
             if (newValue is INotifyPropertyChanged newNotify) {
                 newNotify.PropertyChanged += OnBrowserPropertyChanged;
             }
+            if (newValue is IDatBrowserViewModel newBrowser && newBrowser.GridBrowser != null) {
+                newBrowser.GridBrowser.PropertyChanged += OnGridBrowserPropertyChanged;
+            }
+            UpdateSearchProperties();
             UpdateSelectedObject();
         }
 
@@ -323,6 +366,67 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 if (ObjectOverview is SurfaceTextureOverviewViewModel stovm) {
                     stovm.SelectedTextureId = stBrowser.PreviewFileId;
                 }
+            }
+            if (sender is SetupBrowserViewModel setupBrowser) {
+                if (e.PropertyName == nameof(SetupBrowserViewModel.KeywordsSearchText)) {
+                    KeywordsSearchText = setupBrowser.KeywordsSearchText;
+                }
+                else if (e.PropertyName == nameof(SetupBrowserViewModel.IsKeywordsSearchEnabled)) {
+                    IsKeywordsSearchEnabled = setupBrowser.IsKeywordsSearchEnabled;
+                }
+                else if (e.PropertyName == nameof(SetupBrowserViewModel.KeywordsSearchTooltip)) {
+                    KeywordsSearchTooltip = setupBrowser.KeywordsSearchTooltip;
+                }
+                else if (e.PropertyName == nameof(SetupBrowserViewModel.IsEmbeddingSearchActive)) {
+                    IsEmbeddingSearchActive = setupBrowser.IsEmbeddingSearchActive;
+                }
+                else if (e.PropertyName == nameof(SetupBrowserViewModel.SearchType)) {
+                    SearchType = setupBrowser.SearchType;
+                }
+            }
+        }
+
+        private void OnGridBrowserPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+            if (sender is GridBrowserViewModel gridBrowser) {
+                if (e.PropertyName == nameof(GridBrowserViewModel.IsKeywordsSearching)) {
+                    IsKeywordsSearching = gridBrowser.IsKeywordsSearching;
+                }
+                else if (e.PropertyName == nameof(GridBrowserViewModel.IsEmbeddingSearchActive)) {
+                    IsEmbeddingSearchActive = gridBrowser.IsEmbeddingSearchActive;
+                }
+            }
+        }
+
+        private void UpdateSearchProperties() {
+            if (CurrentBrowser is SetupBrowserViewModel setupBrowser) {
+                KeywordsSearchText = setupBrowser.KeywordsSearchText;
+                IsKeywordsSearchEnabled = setupBrowser.IsKeywordsSearchEnabled;
+                KeywordsSearchTooltip = setupBrowser.KeywordsSearchTooltip;
+                IsEmbeddingSearchActive = setupBrowser.IsEmbeddingSearchActive;
+                SearchType = setupBrowser.SearchType;
+                if (setupBrowser.GridBrowser != null) {
+                    IsKeywordsSearching = setupBrowser.GridBrowser.IsKeywordsSearching;
+                    IsEmbeddingSearchActive = setupBrowser.GridBrowser.IsEmbeddingSearchActive;
+                }
+            }
+            else {
+                KeywordsSearchText = string.Empty;
+                IsKeywordsSearchEnabled = false;
+                KeywordsSearchTooltip = string.Empty;
+                IsKeywordsSearching = false;
+                IsEmbeddingSearchActive = false;
+            }
+        }
+
+        partial void OnKeywordsSearchTextChanged(string value) {
+            if (CurrentBrowser is SetupBrowserViewModel setupBrowser) {
+                setupBrowser.KeywordsSearchText = value;
+            }
+        }
+
+        partial void OnSearchTypeChanged(SearchType value) {
+            if (CurrentBrowser is SetupBrowserViewModel setupBrowser) {
+                setupBrowser.SearchType = value;
             }
         }
 
@@ -346,6 +450,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 newNotify.PropertyChanged += OnOverviewPropertyChanged;
             }
             SelectedPropertiesTabIndex = ObjectOverview != null ? 0 : 1;
+            UpdateCurrentKeywords(value);
 
             if (value != null) {
                 _isSettingObject = true;
@@ -463,6 +568,30 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 return new EnvCellOverviewViewModel(envCell, _dats);
             }
             return null;
+        }
+
+        private void UpdateCurrentKeywords(IDBObj? obj) {
+            if (obj is DatReaderWriter.DBObjs.Setup setup) {
+                var project = _projectManager.CurrentProject;
+                if (project != null && project.ManagedIds.ManagedDatSetId.HasValue && project.ManagedIds.ManagedAceDbId.HasValue) {
+                    Task.Run(async () => {
+                        var keywords = await _keywordRepository.GetKeywordsForSetupAsync(project.ManagedIds.ManagedDatSetId.Value, project.ManagedIds.ManagedAceDbId.Value, setup.Id, default);
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                            _showKeywords = keywords.HasValue;
+                            OnPropertyChanged(nameof(ShowKeywords));
+                            CurrentKeywordsNames = keywords?.Names;
+                            CurrentKeywordsTags = keywords?.Tags;
+                            CurrentKeywordsDescriptions = keywords?.Descriptions;
+                        });
+                    });
+                    return;
+                }
+            }
+            _showKeywords = false;
+            OnPropertyChanged(nameof(ShowKeywords));
+            CurrentKeywordsNames = null;
+            CurrentKeywordsTags = null;
+            CurrentKeywordsDescriptions = null;
         }
     }
 }

@@ -44,7 +44,8 @@ public class ProjectSelectionViewTests : IDisposable {
         var settings = new WorldBuilderSettings();
         var projectManager = new ProjectManager();
         var datRepository = new MockDatRepositoryService();
-        var viewModel = new ProjectSelectionViewModel(settings, projectManager, datRepository, NullLogger<ProjectSelectionViewModel>.Instance);
+        var aceRepository = new MockAceRepositoryService();
+        var viewModel = new ProjectSelectionViewModel(settings, projectManager, datRepository, aceRepository, NullLogger<ProjectSelectionViewModel>.Instance);
         var view = new ProjectSelectionView();
         view.DataContext = viewModel;
 
@@ -62,7 +63,8 @@ public class ProjectSelectionViewTests : IDisposable {
         var settings = new WorldBuilderSettings();
         var projectManager = new ProjectManager();
         var datRepository = new MockDatRepositoryService();
-        var viewModel = new ProjectSelectionViewModel(settings, projectManager, datRepository, NullLogger<ProjectSelectionViewModel>.Instance);
+        var aceRepository = new MockAceRepositoryService();
+        var viewModel = new ProjectSelectionViewModel(settings, projectManager, datRepository, aceRepository, NullLogger<ProjectSelectionViewModel>.Instance);
 
         var recentProject = new RecentProject {
             Name = "Test Project",
@@ -83,7 +85,8 @@ public class ProjectSelectionViewTests : IDisposable {
         var settings = new WorldBuilderSettings();
         var projectManager = new ProjectManager();
         var datRepository = new MockDatRepositoryService();
-        var viewModel = new ProjectSelectionViewModel(settings, projectManager, datRepository, NullLogger<ProjectSelectionViewModel>.Instance);
+        var aceRepository = new MockAceRepositoryService();
+        var viewModel = new ProjectSelectionViewModel(settings, projectManager, datRepository, aceRepository, NullLogger<ProjectSelectionViewModel>.Instance);
 
         var recentProject = new RecentProject {
             Name = "Error Project",

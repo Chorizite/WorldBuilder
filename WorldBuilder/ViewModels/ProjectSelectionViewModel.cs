@@ -1,4 +1,4 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
@@ -32,6 +32,7 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
     private readonly WorldBuilderSettings _settings;
     private readonly ProjectManager _projectManager;
     private readonly IDatRepositoryService _datRepository;
+    private readonly IAceRepositoryService _aceRepository;
 
     /// <summary>
     /// Gets the collection of recent projects.
@@ -48,6 +49,17 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
     /// </summary>
     [ObservableProperty]
     private ManagedDatSet? _selectedManagedDat;
+
+    /// <summary>
+    /// Gets the collection of managed ACE DBs.
+    /// </summary>
+    public ObservableCollection<ManagedAceDb?> ManagedAceDbs { get; } = [];
+
+    /// <summary>
+    /// Gets or sets the selected managed ACE DB.
+    /// </summary>
+    [ObservableProperty]
+    private ManagedAceDb? _selectedManagedAce;
 
     /// <summary>
     /// Gets a value indicating whether there are any managed DAT sets available.
@@ -68,6 +80,10 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
         _settings = new WorldBuilderSettings();
         _projectManager = new ProjectManager();
         _datRepository = new DatRepositoryService(new NullLogger<DatRepositoryService>());
+        _aceRepository = new AceRepositoryService(new NullLogger<AceRepositoryService>(), new System.Net.Http.HttpClient());
+
+        ManagedAceDbs.Add(null);
+        SelectedManagedAce = null;
     }
 
     /// <summary>
@@ -76,12 +92,14 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
     /// <param name="settings">The application settings</param>
     /// <param name="projectManager">The project manager instance</param>
     /// <param name="datRepository">The DAT repository service</param>
+    /// <param name="aceRepository">The ACE repository service</param>
     /// <param name="log">The logger instance</param>
-    public ProjectSelectionViewModel(WorldBuilderSettings settings, ProjectManager projectManager, IDatRepositoryService datRepository, ILogger<ProjectSelectionViewModel> log) {
+    public ProjectSelectionViewModel(WorldBuilderSettings settings, ProjectManager projectManager, IDatRepositoryService datRepository, IAceRepositoryService aceRepository, ILogger<ProjectSelectionViewModel> log) {
         _log = log;
         _settings = settings;
         _projectManager = projectManager;
         _datRepository = datRepository;
+        _aceRepository = aceRepository;
 
         // Initialize ManagedDataSets
         _datRepository.SetRepositoryRoot(_settings.App.ManagedDatsDirectory);
@@ -89,6 +107,27 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
             ManagedDataSets.Add(set);
         }
         SelectedManagedDat = ManagedDataSets.FirstOrDefault(s => s.FriendlyName == "EndOfRetail") ?? ManagedDataSets.FirstOrDefault();
+
+        // Initialize ManagedAceDbs
+        _aceRepository.SetRepositoryRoot(_settings.App.ManagedAceDbsDirectory);
+        ManagedAceDbs.Add(null);
+        var aceDbs = _aceRepository.GetManagedAceDbs()
+            .OrderByDescending(db => ParseVersion(db.PatchVersion))
+            .ToList();
+        
+        foreach (var db in aceDbs) {
+            ManagedAceDbs.Add(db);
+        }
+        SelectedManagedAce = aceDbs.FirstOrDefault();
+    }
+
+    private static Version ParseVersion(string versionStr) {
+        if (string.IsNullOrEmpty(versionStr)) return new Version(0, 0, 0);
+        var cleanVersion = versionStr.TrimStart('v', 'V');
+        if (Version.TryParse(cleanVersion, out var version)) {
+            return version;
+        }
+        return new Version(0, 0, 0);
     }
 
     /// <summary>
@@ -101,7 +140,7 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
 
         var portalPath = Path.Combine(_datRepository.GetDatSetPath(set.Id, _settings.App.ProjectsDirectory), "client_portal.dat");
         if (File.Exists(portalPath)) {
-            LoadProject(portalPath, set.Id);
+            LoadProject(portalPath, set.Id, SelectedManagedAce?.Id);
         }
         else {
             _log.LogWarning("Managed DAT set files not found: {portalPath}", portalPath);
@@ -190,16 +229,16 @@ public partial class ProjectSelectionViewModel : SplashPageViewModelBase {
             return;
         }
 
-        LoadProject(project.FilePath, project.ManagedDatId);
+        LoadProject(project.FilePath);
     }
 
     private void ShowErrorDetails(RecentProject project) {
         WeakReferenceMessenger.Default.Send(new ShowProjectErrorDetailsMessage(project));
     }
 
-    private void LoadProject(string filePath, Guid? managedDatId = null) {
-        _log.LogInformation($"LoadProject: {filePath}");
-        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(filePath, this, managedDatId));
+    private void LoadProject(string filePath, Guid? managedDatId = null, Guid? managedAceId = null) {
+        _log.LogTrace($"LoadProject: {filePath}");
+        WeakReferenceMessenger.Default.Send(new OpenProjectMessage(filePath, this, new ManagedEnvironmentIds(managedDatId, managedAceId)));
     }
 
     /// <summary>

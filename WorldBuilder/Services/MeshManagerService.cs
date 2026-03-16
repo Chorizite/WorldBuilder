@@ -23,7 +23,6 @@ namespace WorldBuilder.Services {
 
         public ObjectMeshManager GetMeshManager(OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats) {
             return _managers.GetOrAdd(dats, _ => {
-                _logger.LogInformation("Creating new shared ObjectMeshManager for dats");
                 return new ObjectMeshManager(graphicsDevice, dats, _loggerFactory.CreateLogger<ObjectMeshManager>());
             });
         }

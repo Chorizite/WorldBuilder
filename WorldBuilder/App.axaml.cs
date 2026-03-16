@@ -96,7 +96,7 @@ public partial class App : Application {
                 var project = ProjectManager.CurrentProject;
 
                 var log = Services?.GetService<ILogger<App>>();
-                log?.LogInformation("Current project changed: {ProjectName}", project?.Name);
+                log?.LogTrace("Current project changed: {ProjectName}", project?.Name);
 
                 if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) {
                     if (project == null) {

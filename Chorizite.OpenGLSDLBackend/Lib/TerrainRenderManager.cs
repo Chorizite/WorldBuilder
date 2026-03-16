@@ -647,7 +647,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             int newCapacity = Math.Max(256, _globalCapacitySlots * 2);
             while (newCapacity < requiredSlots) newCapacity *= 2;
 
-            _log.LogDebug($"Resizing terrain global buffers to {newCapacity} slots...");
+            _log.LogTrace($"Resizing terrain global buffers to {newCapacity} slots...");
 
             uint newVbo = _gl.GenBuffer();
             _gl.BindBuffer(BufferTargetARB.ArrayBuffer, newVbo);

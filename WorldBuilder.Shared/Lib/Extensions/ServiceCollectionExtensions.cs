@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
 using WorldBuilder.Shared.Modules.Landscape;
@@ -20,18 +20,36 @@ namespace WorldBuilder.Shared.Lib.Extensions {
         public static IServiceCollection AddWorldBuilderSharedServices(
             this IServiceCollection services,
             string projectDirectory,
-            string datDirectory) {
+            string datDirectory,
+            ILoggerFactory? loggerFactory = null,
+            IDatRepositoryService? datRepository = null,
+            IAceRepositoryService? aceRepository = null,
+            IKeywordRepositoryService? keywordRepository = null,
+            IProjectMigrationService? migrationService = null) {
             if (string.IsNullOrEmpty(projectDirectory))
                 throw new ArgumentException("Project directory cannot be null or empty", nameof(projectDirectory));
 
             if (string.IsNullOrEmpty(datDirectory))
                 throw new ArgumentException("DAT directory cannot be null or empty", nameof(datDirectory));
 
+            if (loggerFactory != null) {
+                services.AddSingleton(loggerFactory);
+            }
             services.AddLogging();
+            services.AddSingleton<System.Net.Http.HttpClient>();
 
             // Core repository and DAT services
-            services.AddSingleton<IDatRepositoryService, DatRepositoryService>();
-            services.AddSingleton<IProjectMigrationService, ProjectMigrationService>();
+            if (datRepository != null) services.AddSingleton(datRepository);
+            else services.AddSingleton<IDatRepositoryService, DatRepositoryService>();
+
+            if (aceRepository != null) services.AddSingleton(aceRepository);
+            else services.AddSingleton<IAceRepositoryService, AceRepositoryService>();
+
+            if (keywordRepository != null) services.AddSingleton(keywordRepository);
+            else services.AddSingleton<IKeywordRepositoryService, KeywordRepositoryService>();
+
+            if (migrationService != null) services.AddSingleton(migrationService);
+            else services.AddSingleton<IProjectMigrationService, ProjectMigrationService>();
 
             // Repository services
             services.AddSingleton<IProjectRepository>(provider =>

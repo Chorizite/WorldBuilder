@@ -6,9 +6,14 @@
              xmlns:v="using:WorldBuilder.Modules.DatBrowser.Views"
              xmlns:views="using:WorldBuilder.Views"
              xmlns:conv="using:WorldBuilder.Converters"
+             xmlns:icon="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:materialIcons="using:Material.Icons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="WorldBuilder.Modules.DatBrowser.Views.DatBrowserView"
              x:DataType="vm:DatBrowserViewModel">
+    <UserControl.Resources>
+        <StreamGeometry x:Key="WarningIcon">M12,2L1,21H23L12,2M12,6L19.53,19H4.47L12,6M11,10V14H13V10H11M11,16V18H13V16H11Z</StreamGeometry>
+    </UserControl.Resources>
     <UserControl.DataTemplates>
         <DataTemplate DataType="vm:SetupBrowserViewModel">
             <v:SetupBrowserView/>
@@ -63,20 +68,81 @@
         </Style>
     </UserControl.Styles>
     
-    <Grid ColumnDefinitions="*, Auto, 400">
+    <Grid ColumnDefinitions="*, Auto, Auto">
         <Grid Grid.Column="0" RowDefinitions="Auto, *">
-            <StackPanel Grid.Row="0" Orientation="Horizontal">
-                <ComboBox ItemsSource="{Binding DatTypes}" 
-                          SelectedItem="{Binding SelectedType}"
-                          HorizontalAlignment="Stretch" 
-                          MinWidth="200"
-                          Margin="5"/>
-                <Button Content="Browse" 
-                        Command="{Binding BrowseCommand}" 
-                        IsVisible="{Binding CanBrowse}"
-                        VerticalAlignment="Center" 
-                        Margin="5"/>
-            </StackPanel>
+            <Grid Grid.Row="0" ColumnDefinitions="*, Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <ComboBox ItemsSource="{Binding DatTypes}" 
+                              SelectedItem="{Binding SelectedType}"
+                              HorizontalAlignment="Stretch" 
+                              MinWidth="200"
+                              Margin="5"/>
+                    <Button Content="Browse" 
+                            Command="{Binding BrowseCommand}" 
+                            IsVisible="{Binding CanBrowse}"
+                            VerticalAlignment="Center" 
+                            Margin="5"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" Margin="5" VerticalAlignment="Center" IsVisible="{Binding IsKeywordsSearchEnabled}">
+                    <ComboBox ItemsSource="{Binding SearchTypes}" 
+                              SelectedItem="{Binding SearchType}"
+                              ToolTip.Tip="{Binding SearchType, Converter={StaticResource EnumDescriptionConverter}}"
+                              VerticalAlignment="Center"
+                              IsEnabled="{Binding IsEmbeddingSearchActive}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" 
+                                           VerticalAlignment="Center"
+                                           ToolTip.Tip="{Binding Converter={StaticResource EnumDescriptionConverter}}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <TextBox Text="{Binding KeywordsSearchText}" 
+                             Watermark="Search keywords..." 
+                             IsEnabled="{Binding IsKeywordsSearchEnabled}"
+                             ToolTip.Tip="{Binding KeywordsSearchTooltip}"
+                             VerticalAlignment="Center"
+                             MinWidth="250">
+                        <TextBox.InnerRightContent>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,5,0">
+                                <ProgressBar IsIndeterminate="True" 
+                                             IsVisible="{Binding IsKeywordsSearching}" 
+                                             Width="16" Height="16" 
+                                             Classes="Ring"
+                                             Theme="{DynamicResource ProgressRing}"
+                                             Margin="0,0,5,0" />
+                                <materialIcons:MaterialIcon Kind="AutoFix" 
+                                                           IsVisible="{Binding IsEmbeddingSearchActive}"
+                                                           IsEnabled="{Binding IsKeywordsSearchEnabled}"
+                                                           Width="16" Height="16" 
+                                                           Foreground="{DynamicResource SemiColorPrimary}"
+                                                           ToolTip.Tip="{Binding KeywordsSearchTooltip}"
+                                                           Margin="0,0,5,0"/>
+                                <materialIcons:MaterialIcon Kind="TextBoxSearch" 
+                                                           IsVisible="{Binding !IsEmbeddingSearchActive}"
+                                                           IsEnabled="{Binding IsKeywordsSearchEnabled}"
+                                                           Width="16" Height="16" 
+                                                           Foreground="{DynamicResource SemiColorText2}"
+                                                           ToolTip.Tip="{Binding KeywordsSearchTooltip}"
+                                                           Margin="0,0,5,0">
+                                    <materialIcons:MaterialIcon.Styles>
+                                        <Style Selector="materialIcons|MaterialIcon[IsEnabled=False]">
+                                            <Setter Property="IsVisible" Value="False" />
+                                        </Style>
+                                    </materialIcons:MaterialIcon.Styles>
+                                </materialIcons:MaterialIcon>
+                                <PathIcon Data="{DynamicResource WarningIcon}" 
+                                          IsVisible="{Binding !IsKeywordsSearchEnabled}" 
+                                          Width="16" Height="16" 
+                                          Foreground="Orange"
+                                          ToolTip.Tip="{Binding KeywordsSearchTooltip}"/>
+                            </StackPanel>
+                        </TextBox.InnerRightContent>
+                    </TextBox>
+                </StackPanel>
+            </Grid>
             
             <ContentControl Grid.Row="1" Content="{Binding CurrentBrowser}" />
         </Grid>
@@ -85,6 +151,7 @@
                       IsVisible="{Binding SelectedObject, Converter={x:Static conv:NumericConverters.IsNotZero}}" />
 
         <TabControl Grid.Column="2" SelectedIndex="{Binding SelectedPropertiesTabIndex}"
+                    Width="400"
                     IsVisible="{Binding SelectedObject, Converter={x:Static conv:NumericConverters.IsNotZero}}" HorizontalAlignment="Left">
             <TabItem Header="Overview" IsVisible="{Binding ObjectOverview, Converter={x:Static ObjectConverters.IsNotNull}}">
                 <ContentControl Content="{Binding ObjectOverview}" />
@@ -113,6 +180,44 @@
                         </TreeDataTemplate>
                     </TreeView.ItemTemplate>
                 </TreeView>
+            </TabItem>
+            <TabItem Header="Keywords" IsVisible="{Binding ShowKeywords}">
+                <ScrollViewer>
+                    <StackPanel Margin="10" Spacing="10">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Names" Foreground="{DynamicResource SemiColorText3}" FontSize="10" FontWeight="SemiBold" Margin="5,0"/>
+                            <TextBox Text="{Binding CurrentKeywordsNames}" 
+                                     IsReadOnly="True" 
+                                     TextWrapping="Wrap" 
+                                     BorderThickness="0"
+                                     Background="{DynamicResource SemiColorFill0}"
+                                     Padding="10"
+                                     CornerRadius="4"/>
+                        </StackPanel>
+
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Tags" Foreground="{DynamicResource SemiColorText3}" FontSize="10" FontWeight="SemiBold" Margin="5,0"/>
+                            <TextBox Text="{Binding CurrentKeywordsTags}" 
+                                     IsReadOnly="True" 
+                                     TextWrapping="Wrap" 
+                                     BorderThickness="0"
+                                     Background="{DynamicResource SemiColorFill0}"
+                                     Padding="10"
+                                     CornerRadius="4"/>
+                        </StackPanel>
+                        
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Descriptions" Foreground="{DynamicResource SemiColorText3}" FontSize="10" FontWeight="SemiBold" Margin="5,0"/>
+                            <TextBox Text="{Binding CurrentKeywordsDescriptions}" 
+                                     IsReadOnly="True" 
+                                     TextWrapping="Wrap" 
+                                     BorderThickness="0"
+                                     Background="{DynamicResource SemiColorFill0}"
+                                     Padding="10"
+                                     CornerRadius="4"/>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
     </Grid>

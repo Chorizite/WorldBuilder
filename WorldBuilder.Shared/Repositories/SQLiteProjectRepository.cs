@@ -57,7 +57,7 @@ namespace WorldBuilder.Shared.Repositories {
 
         /// <inheritdoc/>
         public Task InitializeDatabaseAsync(CancellationToken ct) {
-            _logger?.LogInformation("Initializing database");
+            _logger?.LogTrace("Initializing database");
             
             var serviceProvider = new ServiceCollection()
                 .AddFluentMigratorCore()
@@ -70,7 +70,7 @@ namespace WorldBuilder.Shared.Repositories {
             using var scope = serviceProvider.CreateScope();
             var runner = scope.ServiceProvider.GetRequiredService<IMigrationRunner>();
             runner.MigrateUp();
-            _logger?.LogInformation("Database initialized successfully");
+            _logger?.LogTrace("Database initialized successfully");
             return Task.CompletedTask;
         }
 

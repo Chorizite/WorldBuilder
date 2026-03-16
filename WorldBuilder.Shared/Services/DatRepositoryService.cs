@@ -190,8 +190,8 @@ namespace WorldBuilder.Shared.Services {
             foreach (var file in filesToCopy) {
                 var fileName = Path.GetFileName(file);
                 var targetPath = Path.Combine(targetDirectory, fileName);
-                
-                progress?.Report(($"Copying {fileName}...", (float)copiedBytes / totalBytes));
+                var fileSize = new FileInfo(file).Length;
+                long fileCopied = 0;
 
                 using var sourceStream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, true);
                 using var targetStream = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
@@ -201,7 +201,8 @@ namespace WorldBuilder.Shared.Services {
                 while ((read = await sourceStream.ReadAsync(buffer, ct)) > 0) {
                     await targetStream.WriteAsync(buffer.AsMemory(0, read), ct);
                     copiedBytes += read;
-                    progress?.Report(($"Copying {fileName}...", (float)copiedBytes / totalBytes));
+                    fileCopied += read;
+                    progress?.Report(($"Copying {fileName} ({(float)fileCopied / 1024 / 1024:F1} / {(float)fileSize / 1024 / 1024:F1} MB)...", (float)copiedBytes / totalBytes));
                 }
             }
 
@@ -242,6 +243,10 @@ namespace WorldBuilder.Shared.Services {
             set.FriendlyName = newFriendlyName;
             SaveRegistry();
             return Result<Unit>.Success(Unit.Value);
+        }
+
+        public IDatReaderWriter GetDatReaderWriter(string datSetPath) {
+            return new DefaultDatReaderWriter(datSetPath);
         }
     }
 

@@ -17,63 +17,184 @@
             <Button Grid.Column="0" Command="{Binding GoBackCommand}" Padding="8" Background="Transparent" BorderThickness="0" ToolTip.Tip="Go Back">
                 <icons:MaterialIcon Kind="ArrowLeft" Width="24" Height="24" />
             </Button>
-            <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="24" FontWeight="Bold" Margin="10,0,0,0">Manage DAT Repository</TextBlock>
-            <Button Grid.Column="2" Command="{Binding ImportCommand}" Theme="{StaticResource SolidButton}" Classes="Primary">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <icons:MaterialIcon Kind="Plus" Width="18" Height="18" />
-                    <TextBlock>Import DATs</TextBlock>
-                </StackPanel>
-            </Button>
+            <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="24" FontWeight="Bold" Margin="10,0,0,0">Manage Repository</TextBlock>
         </Grid>
 
-        <!--  DAT Sets List  -->
-        <Border Grid.Row="1" Background="{DynamicResource SemiColorFill1}" CornerRadius="8" Padding="1">
-            <ListBox Background="Transparent" ItemsSource="{Binding ManagedDataSets}" SelectedItem="{Binding SelectedSet}">
-                <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:ManagedDatSetViewModel">
-                        <Grid ColumnDefinitions="*, Auto" Margin="4">
-                            <StackPanel Grid.Column="0" Spacing="4">
-                                <Grid ColumnDefinitions="*, Auto">
-                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
-                                        <TextBlock FontSize="16" FontWeight="SemiBold" Text="{Binding FriendlyName}" IsVisible="{Binding !IsEditing}" VerticalAlignment="Center" />
-                                        <TextBox Text="{Binding FriendlyName}" IsVisible="{Binding IsEditing}" Width="300" VerticalAlignment="Center" />
+        <!--  Tabs  -->
+        <TabControl Grid.Row="1">
+            <TabItem Header="DAT Sets">
+                <Grid RowDefinitions="Auto, *">
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10">
+                        <Button Command="{Binding ImportCommand}" Theme="{StaticResource SolidButton}" Classes="Primary">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <icons:MaterialIcon Kind="Plus" Width="18" Height="18" />
+                                <TextBlock>Import DATs</TextBlock>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                    
+                    <Border Grid.Row="1" Background="{DynamicResource SemiColorFill1}" CornerRadius="8" Padding="1">
+                        <ListBox Background="Transparent" ItemsSource="{Binding ManagedDataSets}" SelectedItem="{Binding SelectedSet}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ManagedDatSetViewModel">
+                                    <Grid ColumnDefinitions="*, Auto" Margin="4">
+                                        <StackPanel Grid.Column="0" Spacing="4">
+                                            <Grid ColumnDefinitions="*, Auto">
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="{Binding FriendlyName}" IsVisible="{Binding !IsEditing}" VerticalAlignment="Center" />
+                                                    <TextBox Text="{Binding FriendlyName}" IsVisible="{Binding IsEditing}" Width="300" VerticalAlignment="Center" />
+                                                    
+                                                    <Button Command="{Binding StartEditCommand}" IsVisible="{Binding !IsEditing}" Background="Transparent" BorderThickness="0" Padding="4" ToolTip.Tip="Rename">
+                                                        <icons:MaterialIcon Kind="Pencil" Width="14" Height="14" Opacity="0.6" />
+                                                    </Button>
+                                                    
+                                                    <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding IsEditing}">
+                                                        <Button Command="{Binding SaveEditCommand}" Theme="{StaticResource SolidButton}" Classes="Primary" Padding="4" ToolTip.Tip="Save">
+                                                            <icons:MaterialIcon Kind="Check" Width="14" Height="14" />
+                                                        </Button>
+                                                        <Button Command="{Binding CancelEditCommand}" Padding="4" ToolTip.Tip="Cancel">
+                                                            <icons:MaterialIcon Kind="Close" Width="14" Height="14" />
+                                                        </Button>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1" FontSize="11" Foreground="{DynamicResource SemiColorText3}" VerticalAlignment="Center">
+                                                    Imported: <Run Text="{Binding ImportDate, StringFormat='{}{0:g}'}" />
+                                                </TextBlock>
+                                            </Grid>
+                                            <TextBlock FontSize="12" Foreground="{DynamicResource SemiColorText2}" Text="{Binding DisplayIteration}" />
+                                            <TextBlock FontSize="10" Foreground="{DynamicResource SemiColorText3}" Text="{Binding CombinedMd5, StringFormat='MD5: {0}'}" />
+                                        </StackPanel>
                                         
-                                        <Button Command="{Binding StartEditCommand}" IsVisible="{Binding !IsEditing}" Background="Transparent" BorderThickness="0" Padding="4" ToolTip.Tip="Rename">
-                                            <icons:MaterialIcon Kind="Pencil" Width="14" Height="14" Opacity="0.6" />
+                                        <Button Grid.Column="1" 
+                                                Command="{Binding $parent[UserControl].((vm:ManageDatsViewModel)DataContext).RemoveCommand}" 
+                                                CommandParameter="{Binding}"
+                                                Classes="Danger" 
+                                                Theme="{StaticResource BorderlessButton}"
+                                                VerticalAlignment="Center"
+                                                Margin="10,0,0,0"
+                                                ToolTip.Tip="Remove DAT set">
+                                            <icons:MaterialIcon Kind="Delete" Width="20" Height="20" />
                                         </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+                </Grid>
+            </TabItem>
+            
+            <TabItem Header="ACE Databases">
+                <Grid RowDefinitions="Auto, *">
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,0,0,10">
+                        <Button Command="{Binding DownloadAceDbCommand}" Theme="{StaticResource SolidButton}" Classes="Secondary">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <icons:MaterialIcon Kind="Download" Width="18" Height="18" />
+                                <TextBlock>Download Latest</TextBlock>
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding ImportAceDbCommand}" Theme="{StaticResource SolidButton}" Classes="Primary">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <icons:MaterialIcon Kind="Plus" Width="18" Height="18" />
+                                <TextBlock>Import ACE DB</TextBlock>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                    
+                    <Border Grid.Row="1" Background="{DynamicResource SemiColorFill1}" CornerRadius="8" Padding="1">
+                        <ListBox Background="Transparent" ItemsSource="{Binding ManagedAceDbs}" SelectedItem="{Binding SelectedAceDb}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ManagedAceDbViewModel">
+                                    <Grid ColumnDefinitions="*, Auto" Margin="4">
+                                        <StackPanel Grid.Column="0" Spacing="4">
+                                            <Grid ColumnDefinitions="*, Auto">
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="{Binding FriendlyName}" IsVisible="{Binding !IsEditing}" VerticalAlignment="Center" />
+                                                    <TextBox Text="{Binding FriendlyName}" IsVisible="{Binding IsEditing}" Width="300" VerticalAlignment="Center" />
+                                                    
+                                                    <Button Command="{Binding StartEditCommand}" IsVisible="{Binding !IsEditing}" Background="Transparent" BorderThickness="0" Padding="4" ToolTip.Tip="Rename">
+                                                        <icons:MaterialIcon Kind="Pencil" Width="14" Height="14" Opacity="0.6" />
+                                                    </Button>
+                                                    
+                                                    <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding IsEditing}">
+                                                        <Button Command="{Binding SaveEditCommand}" Theme="{StaticResource SolidButton}" Classes="Primary" Padding="4" ToolTip.Tip="Save">
+                                                            <icons:MaterialIcon Kind="Check" Width="14" Height="14" />
+                                                        </Button>
+                                                        <Button Command="{Binding CancelEditCommand}" Padding="4" ToolTip.Tip="Cancel">
+                                                            <icons:MaterialIcon Kind="Close" Width="14" Height="14" />
+                                                        </Button>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1" FontSize="11" Foreground="{DynamicResource SemiColorText3}" VerticalAlignment="Center">
+                                                    Imported: <Run Text="{Binding ImportDate, StringFormat='{}{0:g}'}" />
+                                                </TextBlock>
+                                            </Grid>
+                                            <TextBlock FontSize="12" Foreground="{DynamicResource SemiColorText2}">
+                                                Version: <Run Text="{Binding DisplayVersion}" /> - Modified: <Run Text="{Binding LastModified}" />
+                                            </TextBlock>
+                                            <TextBlock FontSize="10" Foreground="{DynamicResource SemiColorText3}" Text="{Binding Md5, StringFormat='MD5: {0}'}" />
+                                        </StackPanel>
                                         
-                                        <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding IsEditing}">
-                                            <Button Command="{Binding SaveEditCommand}" Theme="{StaticResource SolidButton}" Classes="Primary" Padding="4" ToolTip.Tip="Save">
-                                                <icons:MaterialIcon Kind="Check" Width="14" Height="14" />
+                                        <Button Grid.Column="1" 
+                                                Command="{Binding $parent[UserControl].((vm:ManageDatsViewModel)DataContext).RemoveAceDbCommand}" 
+                                                CommandParameter="{Binding}"
+                                                Classes="Danger" 
+                                                Theme="{StaticResource BorderlessButton}"
+                                                VerticalAlignment="Center"
+                                                Margin="10,0,0,0"
+                                                ToolTip.Tip="Remove ACE database">
+                                            <icons:MaterialIcon Kind="Delete" Width="20" Height="20" />
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+                </Grid>
+            </TabItem>
+            
+            <TabItem Header="Keywords">
+                <Grid RowDefinitions="*">
+                    <Border Grid.Row="0" Background="{DynamicResource SemiColorFill1}" CornerRadius="8" Padding="1">
+                        <ListBox Background="Transparent" ItemsSource="{Binding ManagedKeywordDbs}" SelectedItem="{Binding SelectedKeywordDb}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ManagedKeywordDbViewModel">
+                                    <Grid ColumnDefinitions="*, Auto" Margin="4">
+                                        <StackPanel Grid.Column="0" Spacing="4">
+                                            <TextBlock FontSize="16" FontWeight="SemiBold">
+                                                <Run Text="{Binding DatSetName}" /> / <Run Text="{Binding AceDbName}" />
+                                            </TextBlock>
+                                            <TextBlock FontSize="12" Foreground="{DynamicResource SemiColorText2}">
+                                                Generator Version: <Run Text="{Binding GeneratorVersion}" /> - Generated: <Run Text="{Binding LastGenerated, StringFormat='{}{0:g}'}" />
+                                            </TextBlock>
+                                            <TextBlock FontSize="10" Foreground="{DynamicResource SemiColorText3}">
+                                                DAT ID: <Run Text="{Binding DatSetId}" /> - ACE ID: <Run Text="{Binding AceDbId}" />
+                                            </TextBlock>
+                                        </StackPanel>
+                                        
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                            <Button Command="{Binding $parent[UserControl].((vm:ManageDatsViewModel)DataContext).RegenerateKeywordsCommand}" 
+                                                    CommandParameter="{Binding}"
+                                                    Classes="Secondary" 
+                                                    Theme="{StaticResource BorderlessButton}"
+                                                    ToolTip.Tip="Regenerate Keywords">
+                                                <icons:MaterialIcon Kind="Refresh" Width="20" Height="20" />
                                             </Button>
-                                            <Button Command="{Binding CancelEditCommand}" Padding="4" ToolTip.Tip="Cancel">
-                                                <icons:MaterialIcon Kind="Close" Width="14" Height="14" />
+                                            <Button Command="{Binding $parent[UserControl].((vm:ManageDatsViewModel)DataContext).RemoveKeywordsCommand}" 
+                                                    CommandParameter="{Binding}"
+                                                    Classes="Danger" 
+                                                    Theme="{StaticResource BorderlessButton}"
+                                                    ToolTip.Tip="Remove Keywords">
+                                                <icons:MaterialIcon Kind="Delete" Width="20" Height="20" />
                                             </Button>
                                         </StackPanel>
-                                    </StackPanel>
-                                    <TextBlock Grid.Column="1" FontSize="11" Foreground="{DynamicResource SemiColorText3}" VerticalAlignment="Center">
-                                        Imported: <Run Text="{Binding ImportDate, StringFormat='{}{0:g}'}" />
-                                    </TextBlock>
-                                </Grid>
-                                <TextBlock FontSize="12" Foreground="{DynamicResource SemiColorText2}" Text="{Binding DisplayIteration}" />
-                                <TextBlock FontSize="10" Foreground="{DynamicResource SemiColorText3}" Text="{Binding CombinedMd5, StringFormat='MD5: {0}'}" />
-                            </StackPanel>
-                            
-                            <Button Grid.Column="1" 
-                                    Command="{Binding $parent[UserControl].((vm:ManageDatsViewModel)DataContext).RemoveCommand}" 
-                                    CommandParameter="{Binding}"
-                                    Classes="Danger" 
-                                    Theme="{StaticResource BorderlessButton}"
-                                    VerticalAlignment="Center"
-                                    Margin="10,0,0,0"
-                                    ToolTip.Tip="Remove DAT set">
-                                <icons:MaterialIcon Kind="Delete" Width="20" Height="20" />
-                            </Button>
-                        </Grid>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
 
         <!-- Loading Overlay -->
         <Grid Grid.RowSpan="3"

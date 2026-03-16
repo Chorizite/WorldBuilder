@@ -17,6 +17,7 @@ namespace WorldBuilder.Services {
         private readonly ILogger<RecentProjectsManager> _log;
         private readonly WorldBuilderSettings _settings;
         private readonly IDatRepositoryService _datRepository;
+        private readonly IAceRepositoryService _aceRepository;
         private readonly TaskCompletionSource<bool> _loadTask = new();
         private readonly System.Threading.SemaphoreSlim _fileLock = new(1, 1);
 
@@ -42,6 +43,7 @@ namespace WorldBuilder.Services {
             _settings = new WorldBuilderSettings();
             _log = Microsoft.Extensions.Logging.Abstractions.NullLogger<RecentProjectsManager>.Instance;
             _datRepository = new DatRepositoryService(new Microsoft.Extensions.Logging.Abstractions.NullLogger<DatRepositoryService>());
+            _aceRepository = new AceRepositoryService(new Microsoft.Extensions.Logging.Abstractions.NullLogger<AceRepositoryService>(), new System.Net.Http.HttpClient());
             RecentProjects = new ObservableCollection<RecentProject>();
             // Add sample data for design-time
             RecentProjects.Add(new RecentProject { Name = "Test", FilePath = @"C:\test.wbproj", LastOpened = DateTime.Now });
@@ -55,10 +57,12 @@ namespace WorldBuilder.Services {
         /// <param name="settings">The application settings</param>
         /// <param name="log">The logger instance</param>
         /// <param name="datRepository">The DAT repository service</param>
-        public RecentProjectsManager(WorldBuilderSettings settings, ILogger<RecentProjectsManager> log, IDatRepositoryService datRepository) {
+        /// <param name="aceRepository">The ACE repository service</param>
+        public RecentProjectsManager(WorldBuilderSettings settings, ILogger<RecentProjectsManager> log, IDatRepositoryService datRepository, IAceRepositoryService aceRepository) {
             _settings = settings;
             _log = log;
             _datRepository = datRepository;
+            _aceRepository = aceRepository;
             RecentProjects = new ObservableCollection<RecentProject>();
 
             // Load recent projects asynchronously
@@ -74,8 +78,9 @@ namespace WorldBuilder.Services {
         /// <param name="managedDatId">The managed DAT set ID, if any</param>
         /// <param name="versionInfo">The version information, if any</param>
         /// <returns>A task representing the asynchronous operation</returns>
-        public async Task AddRecentProject(string name, string filePath, bool isReadOnly, Guid? managedDatId = null, string? versionInfo = null) {
+        public async Task AddRecentProject(string name, string filePath, bool isReadOnly, Guid? managedDatId = null, Guid? managedAceId = null, string? versionInfo = null) {
             _datRepository.SetRepositoryRoot(_settings.App.ManagedDatsDirectory);
+            _aceRepository.SetRepositoryRoot(_settings.App.ManagedAceDbsDirectory);
             if (name == "client_portal" && managedDatId.HasValue) {
                 var managedSet = _datRepository.GetManagedDataSet(managedDatId.Value);
                 if (managedSet != null) {
@@ -83,8 +88,15 @@ namespace WorldBuilder.Services {
                 }
             }
 
+            if (isReadOnly && managedAceId.HasValue) {
+                var aceDb = _aceRepository.GetManagedAceDb(managedAceId.Value);
+                if (aceDb != null) {
+                    name += $" - {aceDb.FriendlyName}";
+                }
+            }
+
             // Remove if already exists
-            var existing = RecentProjects.FirstOrDefault(p => p.FilePath == filePath);
+            var existing = RecentProjects.FirstOrDefault(p => p.FilePath == filePath && (!p.IsReadOnly || p.ManagedAceId == managedAceId));
             if (existing != null) {
                 RecentProjects.Remove(existing);
             }
@@ -96,6 +108,7 @@ namespace WorldBuilder.Services {
                 LastOpened = DateTime.Now,
                 IsReadOnly = isReadOnly,
                 ManagedDatId = managedDatId,
+                ManagedAceId = managedAceId,
                 VersionInfo = versionInfo
             };
 

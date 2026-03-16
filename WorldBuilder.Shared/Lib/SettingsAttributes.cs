@@ -8,7 +8,7 @@ namespace WorldBuilder.Shared.Lib.Settings {
     public class SettingCategoryAttribute : Attribute {
         public string Name { get; set; }
         public string? ParentCategory { get; set; }
-        public int Order { get; set; }
+        public double Order { get; set; }
 
         public SettingCategoryAttribute(string name, string? parentCategory = null) {
             Name = name;
@@ -70,9 +70,9 @@ namespace WorldBuilder.Shared.Lib.Settings {
     /// </summary>
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class SettingOrderAttribute : Attribute {
-        public int Order { get; set; }
+        public double Order { get; set; }
 
-        public SettingOrderAttribute(int order) {
+        public SettingOrderAttribute(double order) {
             Order = order;
         }
     }
@@ -106,5 +106,12 @@ namespace WorldBuilder.Shared.Lib.Settings {
         public SettingFormatAttribute(string format) {
             Format = format;
         }
+    }
+
+    /// <summary>
+    /// Marks a property as using the ACE database selection UI
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+    public class SettingAceDatabaseAttribute : Attribute {
     }
 }

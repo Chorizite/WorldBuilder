@@ -14,6 +14,8 @@ using WorldBuilder.Lib;
 using WorldBuilder.Lib.Extensions;
 using WorldBuilder.Messages;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Repositories;
+using WorldBuilder.Shared.Lib.Settings;
 using WorldBuilder.ViewModels;
 using HanumanInstitute.MvvmDialogs;
 using HanumanInstitute.MvvmDialogs.Avalonia;
@@ -97,7 +99,7 @@ namespace WorldBuilder.Services {
                     sourceVM.LoadingProgress = p.progress * 100f;
                 }) : null;
 
-                await SetProject(message.Value, message.ManagedDatId, progress);
+                await SetProject(message.Value, message.ManagedIds.ManagedDatSetId, message.ManagedIds.ManagedAceDbId, progress);
             }
             catch (Exception ex) {
                 _log.LogError(ex, $"Failed to open project: {message.Value}");
@@ -133,10 +135,32 @@ namespace WorldBuilder.Services {
                     model.LoadingProgress = p.progress * 100f;
                 });
 
-                var datRepository = _rootProvider.GetRequiredService<IDatRepositoryService>();
-                datRepository.SetRepositoryRoot(_settings.App.ManagedDatsDirectory);
-                var migrationService = _rootProvider.GetRequiredService<IProjectMigrationService>();
-                var projectResult = await Project.Create(model.ProjectName, model.ProjectLocation, model.BaseDatDirectory, datRepository, migrationService, model.SelectedManagedDatSet?.Id, progress, default);
+                var deps = new ProjectDependencies(
+                    _rootProvider.GetRequiredService<IDatRepositoryService>(),
+                    _rootProvider.GetRequiredService<IAceRepositoryService>(),
+                    _rootProvider.GetRequiredService<IKeywordRepositoryService>(),
+                    _rootProvider.GetRequiredService<IProjectMigrationService>(),
+                    _rootProvider.GetRequiredService<ILoggerFactory>()
+                );
+                deps.DatRepository.SetRepositoryRoot(_settings.App.ManagedDatsDirectory);
+                deps.AceRepository.SetRepositoryRoot(_settings.App.ManagedAceDbsDirectory);
+                deps.KeywordRepository.SetRepositoryRoot(_settings.App.ManagedKeywordsDirectory);
+                deps.KeywordRepository.SetModelsRoot(_settings.App.ManagedModelsDirectory);
+
+                Guid? managedAceId = null;
+                if (model.AceDatabaseSelection.SelectedAceSourceType == AceSourceType.Local && !string.IsNullOrEmpty(model.AceDatabaseSelection.LocalAceDbPath)) {
+                    model.LoadingStatus = "Importing local ACE database...";
+                    var importResult = await deps.AceRepository.ImportAsync(model.AceDatabaseSelection.LocalAceDbPath, null, progress, default);
+                    if (importResult.IsSuccess) {
+                        managedAceId = importResult.Value.Id;
+                    }
+                }
+                else if (model.AceDatabaseSelection.SelectedAceSourceType == AceSourceType.Managed) {
+                    managedAceId = model.AceDatabaseSelection.SelectedManagedAceDb?.Id;
+                }
+
+                var managedIds = new ManagedEnvironmentIds(model.SelectedManagedDatSet?.Id, managedAceId);
+                var projectResult = await Project.Create(model.ProjectName, model.ProjectLocation, model.BaseDatDirectory, deps, managedIds, progress, default);
 
                 if (projectResult.IsSuccess) {
                     _settings.App.LastBaseDatDirectory = model.BaseDatDirectory;
@@ -163,16 +187,31 @@ namespace WorldBuilder.Services {
 
             _projectProvider = services.BuildServiceProvider();
             CompositeProvider = new(_projectProvider, _rootProvider);
+            CurrentProject = project;
 
             // Load project settings
             var settingsPath = Path.Combine(project.ProjectDirectory, "project_settings.json");
             _settings.Project = WorldBuilder.Lib.Settings.ProjectSettings.Load(settingsPath);
+            _settings.Project.Server.AceDbId = project.ManagedIds.ManagedAceDbId;
+
+            project.ManagedAceDbIdChanged += (s, e) => {
+                if (_settings.Project.Server.AceDbId != project.ManagedIds.ManagedAceDbId) {
+                    _settings.Project.Server.AceDbId = project.ManagedIds.ManagedAceDbId;
+                }
+            };
+
+            _settings.Project.Server.PropertyChanged += async (s, e) => {
+                if (e.PropertyName == nameof(_settings.Project.Server.AceDbId)) {
+                    var newId = _settings.Project.Server.AceDbId;
+                    if (CurrentProject.ManagedIds.ManagedAceDbId != newId) {
+                        await CurrentProject.SetManagedAceDbIdAsync(newId);
+                    }
+                }
+            };
 
             if (project.IsReadOnly) {
                 _settings.Project.FilePath = null;
             }
-
-            CurrentProject = project;
 
             var cacheDir = Path.Combine(_settings.AppDataDirectory, "cache", project.Name);
             if (!Directory.Exists(cacheDir)) {
@@ -180,16 +219,26 @@ namespace WorldBuilder.Services {
             }
 
             CurrentProjectChanged?.Invoke(this, EventArgs.Empty);
-            _ = _recentProjectsManager.AddRecentProject(project.Name, project.ProjectFile, project.IsReadOnly, project.ManagedDatSetId);
+            _ = _recentProjectsManager.AddRecentProject(project.Name, project.ProjectFile, project.IsReadOnly, project.ManagedIds.ManagedDatSetId, project.ManagedIds.ManagedAceDbId);
         }
 
-        private async Task SetProject(string projectPath, Guid? managedId = null, IProgress<(string message, float progress)>? progress = null) {
+        private async Task SetProject(string projectPath, Guid? managedId = null, Guid? managedAceId = null, IProgress<(string message, float progress)>? progress = null) {
             _projectProvider?.Dispose();
 
-            var datRepository = _rootProvider.GetRequiredService<IDatRepositoryService>();
-            datRepository.SetRepositoryRoot(_settings.App.ManagedDatsDirectory);
-            var migrationService = _rootProvider.GetRequiredService<IProjectMigrationService>();
-            var projectResult = await Project.Open(projectPath, datRepository, migrationService, managedId, progress, CancellationToken.None);
+            var deps = new ProjectDependencies(
+                _rootProvider.GetRequiredService<IDatRepositoryService>(),
+                _rootProvider.GetRequiredService<IAceRepositoryService>(),
+                _rootProvider.GetRequiredService<IKeywordRepositoryService>(),
+                _rootProvider.GetRequiredService<IProjectMigrationService>(),
+                _rootProvider.GetRequiredService<ILoggerFactory>()
+            );
+            deps.DatRepository.SetRepositoryRoot(_settings.App.ManagedDatsDirectory);
+            deps.AceRepository.SetRepositoryRoot(_settings.App.ManagedAceDbsDirectory);
+            deps.KeywordRepository.SetRepositoryRoot(_settings.App.ManagedKeywordsDirectory);
+            deps.KeywordRepository.SetModelsRoot(_settings.App.ManagedModelsDirectory);
+
+            var managedIds = new ManagedEnvironmentIds(managedId, managedAceId);
+            var projectResult = await Project.Open(projectPath, deps, managedIds, progress, CancellationToken.None);
             if (projectResult.IsSuccess) {
                 SetProject(projectResult.Value);
             }

@@ -14,7 +14,16 @@ namespace WorldBuilder.Shared.Tests.Mocks {
     internal class MockProject : IProject {
         public string Name { get; init; }
         public bool IsReadOnly { get; init; }
-        public Guid? ManagedDatSetId { get; init; }
+        private ManagedEnvironmentIds _managedIds;
+        public ManagedEnvironmentIds ManagedIds => _managedIds;
+        public async Task SetManagedAceDbIdAsync(Guid? value) {
+            if (_managedIds.ManagedAceDbId != value) {
+                _managedIds = _managedIds with { ManagedAceDbId = value };
+                ManagedAceDbIdChanged?.Invoke(this, EventArgs.Empty);
+            }
+            await Task.CompletedTask;
+        }
+        public event EventHandler? ManagedAceDbIdChanged;
         public ServiceProvider Services { get; init; }
         public IDocumentManager Documents { get; init; }
 

@@ -33,6 +33,33 @@ namespace WorldBuilder.Lib.Settings {
             set => SetProperty(ref _managedDatsDirectory, value);
         }
 
+        [SettingDescription("Directory where managed ACE SQLite databases are stored")]
+        [SettingPath(PathType.Folder, DialogTitle = "Select Managed ACE DBs Directory")]
+        [SettingOrder(1.5)]
+        private string? _managedAceDbsDirectory;
+        public string ManagedAceDbsDirectory {
+            get => _managedAceDbsDirectory ?? Path.Combine(Path.GetDirectoryName(ProjectsDirectory) ?? string.Empty, "Server");
+            set => SetProperty(ref _managedAceDbsDirectory, value);
+        }
+
+        [SettingDescription("Directory where generated keyword databases are stored")]
+        [SettingPath(PathType.Folder, DialogTitle = "Select Managed Keywords Directory")]
+        [SettingOrder(1.6)]
+        private string? _managedKeywordsDirectory;
+        public string ManagedKeywordsDirectory {
+            get => _managedKeywordsDirectory ?? Path.Combine(Path.GetDirectoryName(ProjectsDirectory) ?? string.Empty, "Keywords");
+            set => SetProperty(ref _managedKeywordsDirectory, value);
+        }
+
+        [SettingDescription("Directory where managed embedding models are stored")]
+        [SettingPath(PathType.Folder, DialogTitle = "Select Managed Models Directory")]
+        [SettingOrder(1.7)]
+        private string? _managedModelsDirectory;
+        public string ManagedModelsDirectory {
+            get => _managedModelsDirectory ?? Path.Combine(Path.GetDirectoryName(ProjectsDirectory) ?? string.Empty, "Models");
+            set => SetProperty(ref _managedModelsDirectory, value);
+        }
+
         [SettingDescription("Automatically load most recent project on startup")]
         [SettingOrder(2)]
         private bool _autoLoadProject = false;

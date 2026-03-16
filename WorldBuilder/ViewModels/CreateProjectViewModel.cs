@@ -16,26 +16,11 @@ using System.Threading.Tasks;
 using WorldBuilder.Lib;
 using WorldBuilder.Messages;
 using WorldBuilder.Services;
+using WorldBuilder.Shared.Lib.Settings;
 using WorldBuilder.Shared.Services;
 using static WorldBuilder.ViewModels.SplashPageViewModel;
 
 namespace WorldBuilder.ViewModels;
-
-/// <summary>
-/// The type of DAT source for a project.
-/// </summary>
-public enum DatSourceType {
-    /// <summary>
-    /// Use a managed DAT set.
-    /// </summary>
-    [Description("Managed")]
-    Managed,
-    /// <summary>
-    /// Use a local DAT directory.
-    /// </summary>
-    [Description("Add New")]
-    AddNew
-}
 
 /// <summary>
 /// View model for the create project screen, handling project creation parameters and validation.
@@ -45,7 +30,19 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
     private readonly ILogger<CreateProjectViewModel> _log;
     private readonly WorldBuilderSettings _settings;
     private readonly IDatRepositoryService _datRepository;
-    private string? _lastManagedDatsDir;
+    private readonly IAceRepositoryService _aceRepository;
+    private string? _lastManagedResourcesDir;
+
+    /// <summary>
+    /// Gets or sets the loading overlay title.
+    /// </summary>
+    [ObservableProperty]
+    private string _loadingTitle = "Creating Project...";
+
+    /// <summary>
+    /// Gets the ACE database selection view model.
+    /// </summary>
+    public AceDatabaseSelectionViewModel AceDatabaseSelection { get; }
 
     /// <summary>
     /// Gets the available DAT source types.
@@ -103,6 +100,12 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
     private List<string> _baseDatDirectoryErrors = new();
 
     /// <summary>
+    /// Gets or sets the errors related to the ACE database field.
+    /// </summary>
+    [ObservableProperty]
+    private List<string> _aceDatabaseErrors = new();
+
+    /// <summary>
     /// Gets or sets the errors related to the project name field.
     /// </summary>
     [ObservableProperty]
@@ -149,14 +152,18 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
     /// <param name="settings">The application settings</param>
     /// <param name="log">The logger instance</param>
     /// <param name="datRepository">The DAT repository service</param>
-    public CreateProjectViewModel(WorldBuilderSettings settings, ILogger<CreateProjectViewModel> log, IDatRepositoryService datRepository) {
+    /// <param name="aceRepository">The ACE repository service</param>
+    /// <param name="aceSelectionFactory">The ACE selection ViewModel factory</param>
+    public CreateProjectViewModel(WorldBuilderSettings settings, ILogger<CreateProjectViewModel> log, IDatRepositoryService datRepository, IAceRepositoryService aceRepository, AceDatabaseSelectionViewModel aceSelectionViewModel) {
         _log = log;
         _settings = settings;
         _datRepository = datRepository;
+        _aceRepository = aceRepository;
+        AceDatabaseSelection = aceSelectionViewModel;
 
         _location = settings.App.ProjectsDirectory;
         
-        UpdateManagedDats();
+        UpdateManagedResources();
 
         // Windows-specific Asheron's Call discovery
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
@@ -185,34 +192,43 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
             SelectedDatSourceType = DatSourceType.AddNew;
         }
 
-        ValidateBaseDatDirectory();
+        ValidateSources();
         ValidateLocation();
         UpdateCanProceed();
+
+        AceDatabaseSelection.PropertyChanged += (s, e) => {
+            if (e.PropertyName == nameof(AceDatabaseSelection.SelectedAceSourceType) ||
+                e.PropertyName == nameof(AceDatabaseSelection.SelectedManagedAceDb) ||
+                e.PropertyName == nameof(AceDatabaseSelection.LocalAceDbPath)) {
+                ValidateSources();
+                UpdateCanProceed();
+            }
+        };
 
         // Subscribe to property changes to trigger validation and update CanProceed
         PropertyChanged += (s, e) => {
             switch (e.PropertyName) {
                 case nameof(SelectedDatSourceType):
-                    ValidateBaseDatDirectory();
+                    ValidateSources();
                     UpdateCanProceed();
                     break;
                 case nameof(BaseDatDirectory):
-                    ValidateBaseDatDirectory();
+                    ValidateSources();
                     UpdateCanProceed();
                     break;
                 case nameof(SelectedManagedDatSet):
-                    ValidateBaseDatDirectory();
+                    ValidateSources();
                     UpdateCanProceed();
                     break;
                 case nameof(ProjectName):
                     ValidateProjectName();
                     ValidateLocation();
-                    UpdateManagedDats();
+                    UpdateManagedResources();
                     UpdateCanProceed();
                     break;
                 case nameof(Location):
                     ValidateLocation();
-                    UpdateManagedDats();
+                    UpdateManagedResources();
                     UpdateCanProceed();
                     break;
                 case nameof(IsLoading):
@@ -222,14 +238,16 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
         };
     }
 
-    private void UpdateManagedDats() {
-        // Calculate ManagedDatsDirectory relative to current Location
-        var managedDatsDir = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(ProjectLocation)) ?? string.Empty, "Dats");
+    private void UpdateManagedResources(bool force = false) {
+        // Calculate ManagedResourcesDirectory relative to current Location
+        var projectsRoot = Path.GetDirectoryName(Path.GetDirectoryName(ProjectLocation)) ?? string.Empty;
+        var managedDatsDir = Path.Combine(projectsRoot, "Dats");
+        var managedAceDbsDir = Path.Combine(projectsRoot, "Server");
         
-        if (managedDatsDir == _lastManagedDatsDir) return;
-        _lastManagedDatsDir = managedDatsDir;
+        if (!force && projectsRoot == _lastManagedResourcesDir) return;
+        _lastManagedResourcesDir = projectsRoot;
 
-        var previousId = SelectedManagedDatSet?.Id;
+        var previousDatId = SelectedManagedDatSet?.Id;
 
         _datRepository.SetRepositoryRoot(managedDatsDir);
         ManagedDataSets.Clear();
@@ -237,9 +255,11 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
             ManagedDataSets.Add(set);
         }
 
-        if (previousId != null) {
-            SelectedManagedDatSet = ManagedDataSets.FirstOrDefault(s => s.Id == previousId);
+        if (previousDatId != null) {
+            SelectedManagedDatSet = ManagedDataSets.FirstOrDefault(s => s.Id == previousDatId);
         }
+
+        AceDatabaseSelection.UpdateManagedResources();
     }
 
     /// <summary>
@@ -299,20 +319,21 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
         WeakReferenceMessenger.Default.Send(new CreateProjectMessage(this));
     }
 
-    private void ValidateBaseDatDirectory() {
-        var errors = new List<string>();
+    private void ValidateSources() {
+        var datErrors = new List<string>();
+        var aceErrors = new List<string>();
 
         if (SelectedDatSourceType == DatSourceType.Managed) {
             if (SelectedManagedDatSet == null) {
-                errors.Add("A managed DAT set must be selected.");
+                datErrors.Add("A managed DAT set must be selected.");
             }
         }
         else {
             if (string.IsNullOrWhiteSpace(BaseDatDirectory)) {
-                errors.Add("Base DAT directory is required.");
+                datErrors.Add("Base DAT directory is required.");
             }
             else if (!Directory.Exists(BaseDatDirectory)) {
-                errors.Add("Base DAT directory does not exist.");
+                datErrors.Add("Base DAT directory does not exist.");
             }
             else {
                 var paths = new[] {
@@ -325,14 +346,23 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
                 foreach (var path in paths) {
                     var filePath = Path.Combine(BaseDatDirectory, path);
                     if (!File.Exists(filePath)) {
-                        errors.Add($"File '{path}' not found in the specified directory.");
+                        datErrors.Add($"File '{path}' not found in the specified directory.");
                     }
                 }
             }
         }
 
-        BaseDatDirectoryErrors = errors;
-        SetErrors(nameof(BaseDatDirectory), errors);
+        if (AceDatabaseSelection.SelectedAceSourceType == AceSourceType.Local) {
+            if (!string.IsNullOrWhiteSpace(AceDatabaseSelection.LocalAceDbPath) && !File.Exists(AceDatabaseSelection.LocalAceDbPath)) {
+                aceErrors.Add("Local ACE database file does not exist.");
+            }
+        }
+
+        BaseDatDirectoryErrors = datErrors;
+        SetErrors(nameof(BaseDatDirectory), datErrors);
+
+        AceDatabaseErrors = aceErrors;
+        SetErrors(nameof(AceDatabaseSelection.SelectedManagedAceDb), aceErrors);
     }
 
     private void ValidateProjectName() {
@@ -381,9 +411,14 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
             ? SelectedManagedDatSet != null
             : !string.IsNullOrWhiteSpace(BaseDatDirectory) && !GetErrors(nameof(BaseDatDirectory)).Cast<string>().Any();
 
+        var aceSourceValid = AceDatabaseSelection.SelectedAceSourceType == AceSourceType.Managed
+            ? true // Optional
+            : string.IsNullOrWhiteSpace(AceDatabaseSelection.LocalAceDbPath) || (!GetErrors(nameof(AceDatabaseSelection.SelectedManagedAceDb)).Cast<string>().Any());
+
         CanProceed = !HasErrors &&
                      !IsLoading &&
                      datSourceValid &&
+                     aceSourceValid &&
                      !string.IsNullOrWhiteSpace(ProjectName) &&
                      !string.IsNullOrWhiteSpace(Location);
     }
@@ -398,5 +433,4 @@ public partial class CreateProjectViewModel : SplashPageViewModelBase, INotifyDa
         ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(propertyName));
         OnPropertyChanged(nameof(HasErrors));
     }
-
 }

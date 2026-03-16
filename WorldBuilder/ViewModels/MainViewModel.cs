@@ -30,7 +30,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     private readonly Project _project;
     private readonly IDatReaderWriter _dats;
     private readonly PerformanceService _performanceService;
+    private readonly IKeywordRepositoryService _keywordRepository;
     private readonly CancellationTokenSource _cts = new();
+    private CancellationTokenSource? _keywordProgressCts;
     private Window? _settingsWindow;
     private Window? _gpuDebugWindow;
     private Window? _appLogWindow;
@@ -116,6 +118,21 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     /// </summary>
     [ObservableProperty] private string _greeting = "Welcome to Avalonia!";
 
+    /// <summary>
+    /// Gets or sets whether the keyword progress is visible.
+    /// </summary>
+    [ObservableProperty] private bool _isKeywordProgressVisible;
+
+    /// <summary>
+    /// Gets or sets the keyword progress message.
+    /// </summary>
+    [ObservableProperty] private string _keywordProgressMessage = "";
+
+    /// <summary>
+    /// Gets or sets the keyword progress value.
+    /// </summary>
+    [ObservableProperty] private float _keywordProgressValue;
+
     public ObservableCollection<ToolTabViewModel> ToolTabs { get; } = new();
 
     public string ExitHotkeyText => RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "Cmd+Q" : "Alt+F4";
@@ -124,7 +141,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     [UnconditionalSuppressMessage("Trimming", "IL2026")]
     [UnconditionalSuppressMessage("AOT", "IL3050")]
     public MainViewModel(WorldBuilderSettings settings, ThemeService themeService, IDialogService dialogService, IServiceProvider serviceProvider, Project project,
-        IEnumerable<IToolModule> toolModules, PerformanceService performanceService, IDatReaderWriter dats) {
+        IEnumerable<IToolModule> toolModules, PerformanceService performanceService, IDatReaderWriter dats, IKeywordRepositoryService keywordRepository) {
         _settings = settings;
         _themeService = themeService;
         _dialogService = dialogService;
@@ -132,6 +149,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
         _project = project;
         _performanceService = performanceService;
         _dats = dats;
+        _keywordRepository = keywordRepository;
+
+        _keywordRepository.GlobalProgress += OnKeywordGlobalProgress;
 
         foreach (var module in toolModules) {
             ToolTabs.Add(new ToolTabViewModel(module));
@@ -262,6 +282,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
 
     /// <inheritdoc />
     public void Dispose() {
+        _keywordProgressCts?.Cancel();
+        _keywordProgressCts?.Dispose();
+        _keywordRepository.GlobalProgress -= OnKeywordGlobalProgress;
         _themeService.PropertyChanged -= OnThemeServicePropertyChanged;
         WeakReferenceMessenger.Default.UnregisterAll(this);
         _cts.Cancel();
@@ -402,5 +425,26 @@ public partial class MainViewModel : ViewModelBase, IDisposable, IRecipient<Open
     [RelayCommand]
     private void ToggleTheme() {
         _themeService.ToggleTheme();
+    }
+
+    private void OnKeywordGlobalProgress(object? sender, IKeywordRepositoryService.KeywordGenerationProgress e) {
+        Avalonia.Threading.Dispatcher.UIThread.Post(async () => {
+            _keywordProgressCts?.Cancel();
+            _keywordProgressCts = new CancellationTokenSource();
+            var ct = _keywordProgressCts.Token;
+
+            KeywordProgressMessage = e.Message;
+            // Combined progress
+            KeywordProgressValue = (e.KeywordProgress + e.NameEmbeddingProgress + e.DescEmbeddingProgress) / 3f;
+            IsKeywordProgressVisible = true;
+
+            if (KeywordProgressValue >= 1f) {
+                try {
+                    await Task.Delay(5000, ct);
+                    IsKeywordProgressVisible = false;
+                }
+                catch (TaskCanceledException) { }
+            }
+        });
     }
 }

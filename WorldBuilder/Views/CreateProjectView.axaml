@@ -5,6 +5,8 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:WorldBuilder.ViewModels"
+    xmlns:views="clr-namespace:WorldBuilder.Views"
+    xmlns:settings="clr-namespace:WorldBuilder.Shared.Lib.Settings;assembly=WorldBuilder.Shared"
     xmlns:icons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
     d:DesignHeight="450"
     d:DesignWidth="800"
@@ -25,6 +27,15 @@
         <Style Selector="Button:disabled">
             <Setter Property="Opacity" Value="0.5" />
         </Style>
+        <Style Selector="TextBox.no-error-template /template/ DataValidationErrors">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Padding="{TemplateBinding Padding}" />
+                </ControlTemplate>
+            </Setter>
+        </Style>
     </UserControl.Styles>
 
     <Grid Margin="10">
@@ -43,12 +54,12 @@
                     FontWeight="Bold"
                     Text="Create New Project" />
 
-                <!--  DAT Source Selection  -->
+                <!--  Base Dats  -->
                 <StackPanel>
                     <TextBlock
                         Margin="0,0,0,5"
                         FontWeight="SemiBold"
-                        Text="DAT Source Selection" />
+                        Text="Base Dats" />
 
                     <Grid ColumnDefinitions="150, *">
                         <ComboBox
@@ -58,7 +69,7 @@
                             SelectedItem="{Binding SelectedDatSourceType}">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding, Converter={StaticResource EnumDescriptionConverter}}" />
+                                    <TextBlock Text="{Binding Converter={StaticResource EnumDescriptionConverter}}" />
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
@@ -68,7 +79,7 @@
                             Grid.Column="1"
                             Margin="8,0,0,0"
                             HorizontalAlignment="Stretch"
-                            IsVisible="{Binding SelectedDatSourceType, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static vm:DatSourceType.Managed}}"
+                            IsVisible="{Binding SelectedDatSourceType, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static settings:DatSourceType.Managed}}"
                             ItemsSource="{Binding ManagedDataSets}"
                             SelectedItem="{Binding SelectedManagedDatSet}">
                             <ComboBox.ItemTemplate>
@@ -87,9 +98,10 @@
 
                         <!-- Base DAT Directory Selection -->
                         <Grid Grid.Column="1" Margin="8,0,0,0" ColumnDefinitions="*,Auto"
-                              IsVisible="{Binding SelectedDatSourceType, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static vm:DatSourceType.AddNew}}">
+                              IsVisible="{Binding SelectedDatSourceType, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static settings:DatSourceType.AddNew}}">
                             <TextBox
                                 Grid.Column="0"
+                                Classes="no-error-template"
                                 Text="{Binding BaseDatDirectory}"
                                 Watermark="Select directory containing DAT files..." />
 
@@ -104,6 +116,31 @@
 
                     <!-- Error display for DAT selection -->
                     <ItemsControl ItemsSource="{Binding BaseDatDirectoryErrors}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Classes="error" Text="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!--  ACE DB Selection  -->
+                <StackPanel>
+                    <TextBlock
+                        Margin="0,0,0,5"
+                        FontWeight="SemiBold"
+                        Text="ACE Server Database (Optional)" />
+
+                    <ContentControl Content="{Binding AceDatabaseSelection}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate>
+                                <views:AceDatabaseSelectionView />
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+
+                    <!-- Error display for ACE selection -->
+                    <ItemsControl ItemsSource="{Binding AceDatabaseErrors}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <TextBlock Classes="error" Text="{Binding}" />
@@ -204,7 +241,7 @@
                     VerticalAlignment="Center"
                     MinWidth="400">
                 <StackPanel Spacing="16">
-                    <TextBlock Text="Creating Project..."
+                    <TextBlock Text="{Binding LoadingTitle}"
                                FontSize="20"
                                FontWeight="Bold"
                                HorizontalAlignment="Center" />

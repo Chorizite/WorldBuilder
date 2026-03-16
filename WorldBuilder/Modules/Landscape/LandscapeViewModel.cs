@@ -754,7 +754,6 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
     }
 
     public void InitializeToolContext(ICamera camera, Action<int, int> invalidateCallback) {
-        _log.LogInformation("LandscapeViewModel.InitializeToolContext called");
         Camera = camera;
         _invalidateCallback = (x, y) => {
             if (ActiveDocument != null) {
@@ -810,7 +809,7 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
     private void RestoreCameraState() {
         if (_settings?.Project == null || _gameScene == null) return;
 
-        _log.LogInformation("Restoring camera state from project settings");
+        _log.LogTrace("Restoring camera state from project settings");
         _isRestoringCamera = true;
         try {
             var projectSettings = _settings.Project;
