@@ -38,8 +38,8 @@ public class VisibilityManager {
         var maxY = (gridY + 1) * lbSize + offset.Y;
 
         var box = new Chorizite.Core.Lib.BoundingBox(
-            new Vector3(minX, minY, -1000f),
-            new Vector3(maxX, maxY, 5000f)
+            new Vector3(minX, minY, -100000f),
+            new Vector3(maxX, maxY, 100000f)
         );
         return _cullingFrustum.TestBox(box);
     }

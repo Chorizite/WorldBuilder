@@ -102,21 +102,23 @@ public class Camera2D : CameraBase {
     protected override void UpdateMatrices() {
         // View matrix: looking down -Z axis (top-down view, Z is up)
         // Camera is positioned at (X, Y, Z) looking at (X, Y, Z-1)
-        var eye = new Vector3(_position.X, _position.Y, _position.Z);
-        var target = new Vector3(_position.X, _position.Y, _position.Z - 1.0f);
+        var eye = new Vector3(_position.X, _position.Y, 500f);
+        var target = new Vector3(_position.X, _position.Y, 0f);
         var up = new Vector3(0, 1, 0); // Y is "North" and "up" on screen
         _viewMatrix = Matrix4x4.CreateLookAt(eye, target, up);
 
         // Orthographic projection using world-space units
         // Base size of 10 units, scaled by zoom and aspect ratio
         float baseSize = 10.0f / _zoom;
-        float aspectRatio = AspectRatio;
         float halfHeight = baseSize;
-        float halfWidth = baseSize * aspectRatio;
+        float halfWidth = baseSize * AspectRatio;
+
+        float nearPlane = -1000000.0f;
+        float farPlane = 1000000.0f;
 
         // Use a very large near/far plane to ensure we see terrain regardless of camera height
         // This also ensures raycasting works correctly from any height.
-        _projectionMatrix = Matrix4x4.CreateOrthographic(halfWidth * 2, halfHeight * 2, -10000.0f, 10000.0f);
+        _projectionMatrix = Matrix4x4.CreateOrthographic(halfWidth * 2, halfHeight * 2, nearPlane, farPlane);
     }
 
     /// <inheritdoc/>
