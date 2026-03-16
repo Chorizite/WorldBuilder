@@ -133,6 +133,11 @@ public class Project : IProject, IAsyncDisposable {
                 _keywordRepository.SetRepositoryRoot(keywordsSiblingDir);
                 log.LogTrace("Internal Keyword repository root set to: {Path}", keywordsSiblingDir);
             }
+
+            // Always try to set models root if keyword repo is used
+            var modelsSiblingDir = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(projectDirectory) ?? string.Empty) ?? string.Empty, "Models");
+            _keywordRepository.SetModelsRoot(modelsSiblingDir);
+            log.LogTrace("Internal Models root set to: {Path}", modelsSiblingDir);
         }
 
         log.LogTrace("ManagedDatSetId: {DatId}, ManagedAceDbId: {AceId}", ManagedDatSetId, ManagedAceDbId);
@@ -157,7 +162,7 @@ public class Project : IProject, IAsyncDisposable {
             log.LogInformation("Keywords invalid for {DatId}/{AceId}, triggering generation...", datId, aceId);
             // Run in background
             _ = Task.Run(async () => {
-                await _keywordRepository.GenerateAsync(datId, aceId, null, CancellationToken.None);
+                await _keywordRepository.GenerateAsync(datId, aceId, false, CancellationToken.None);
             }, ct);
         }
         else {

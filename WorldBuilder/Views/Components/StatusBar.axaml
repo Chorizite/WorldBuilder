@@ -7,10 +7,16 @@
             BorderBrush="{DynamicResource SemiColorBorder}"
             BorderThickness="0,1,0,0"
             Padding="8,2">
-        <Grid ColumnDefinitions="*, Auto, Auto">
-            <TextBlock Text="Ready" VerticalAlignment="Center" FontSize="12" />
+        <Grid ColumnDefinitions="Auto, *, Auto, Auto">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsKeywordProgressVisible}" VerticalAlignment="Center" Margin="0,0,16,0">
+                <ProgressBar Value="{Binding KeywordProgressValue}" Minimum="0" Maximum="1" Width="100" Height="14" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding KeywordProgressMessage}" VerticalAlignment="Center" FontSize="11" Opacity="0.8" />
+            </StackPanel>
+
+            <TextBlock Grid.Column="1" Text="Ready" VerticalAlignment="Center" FontSize="12" IsVisible="{Binding !IsKeywordProgressVisible}" />
+            <Panel Grid.Column="1" IsVisible="{Binding IsKeywordProgressVisible}" />
             
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="15" Margin="0,0,15,0">
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="15" Margin="0,0,15,0">
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <TextBlock Text="RAM:" VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
                     <TextBlock Text="{Binding RamUsage}" VerticalAlignment="Center" FontSize="11" Opacity="0.8" />
@@ -25,7 +31,7 @@
                 </StackPanel>
             </StackPanel>
             
-            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="15">
+            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="15" HorizontalAlignment="Right">
                 <StackPanel Orientation="Horizontal" Spacing="4" ToolTip.Tip="{Binding GlDetailsTooltip}" Background="Transparent">
                     <TextBlock Text="GL:" VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
                     <TextBlock Text="{Binding GlVersionShort}" VerticalAlignment="Center" FontSize="11" Opacity="0.8" />

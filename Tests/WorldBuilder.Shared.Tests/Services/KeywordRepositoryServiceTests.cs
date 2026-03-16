@@ -34,8 +34,9 @@ namespace WorldBuilder.Shared.Tests.Services {
 
             _aceRepoMock.Setup(r => r.GetAceDbPath(_aceId, It.IsAny<string>())).Returns(_aceDbPath);
 
-            _service = new KeywordRepositoryService(_loggerMock.Object, _datRepoMock.Object, _aceRepoMock.Object);
+            _service = new KeywordRepositoryService(_loggerMock.Object, _datRepoMock.Object, _aceRepoMock.Object, new System.Net.Http.HttpClient());
             _service.SetRepositoryRoot(_testDir);
+            _service.SetModelsRoot(Path.Combine(_testDir, "models"));
         }
 
         public void Dispose() {
@@ -78,6 +79,32 @@ namespace WorldBuilder.Shared.Tests.Services {
                     Value = "A very sharp sword"
                 });
 
+                // Add another weenie with GeneratorRadius that should be ignored
+                var weenie2 = new Weenie {
+                    ClassId = 2,
+                    ClassName = "IgnoreMeWeenie",
+                    Type = 1
+                };
+                context.Weenie.Add(weenie2);
+
+                context.WeeniePropertiesDID.Add(new WeeniePropertiesDID {
+                    ObjectId = 2,
+                    Type = 1, // Setup
+                    Value = 101
+                });
+
+                context.WeeniePropertiesString.Add(new WeeniePropertiesString {
+                    ObjectId = 2,
+                    Type = 1, // Name
+                    Value = "Generator Thing"
+                });
+
+                context.WeeniePropertiesFloat.Add(new WeeniePropertiesFloat {
+                    ObjectId = 2,
+                    Type = 43, // GeneratorRadius
+                    Value = 10.0
+                });
+
                 await context.SaveChangesAsync();
             }
         }
@@ -88,7 +115,7 @@ namespace WorldBuilder.Shared.Tests.Services {
             await CreateSeedAceDbAsync();
 
             // Act
-            var result = await _service.GenerateAsync(_datId, _aceId, null, CancellationToken.None);
+            var result = await _service.GenerateAsync(_datId, _aceId, false, CancellationToken.None);
 
             // Assert
             Assert.True(result.IsSuccess);
@@ -96,10 +123,13 @@ namespace WorldBuilder.Shared.Tests.Services {
             var keywords = await _service.GetKeywordsForSetupAsync(_datId, _aceId, 100, CancellationToken.None);
             Assert.True(keywords.HasValue);
             
-            // Should contain class name and string values in correct columns
-            Assert.Contains("TestWeenie", keywords.Value.Names, StringComparison.OrdinalIgnoreCase);
+            // Should contain string values in correct columns
+            Assert.DoesNotContain("TestWeenie", keywords.Value.Names, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("Awesome Sword", keywords.Value.Names, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("very sharp sword", keywords.Value.Descriptions, StringComparison.OrdinalIgnoreCase);
+
+            var keywords2 = await _service.GetKeywordsForSetupAsync(_datId, _aceId, 101, CancellationToken.None);
+            Assert.False(keywords2.HasValue);
         }
     }
 }

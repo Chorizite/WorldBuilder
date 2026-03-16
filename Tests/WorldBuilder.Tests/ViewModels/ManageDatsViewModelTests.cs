@@ -66,7 +66,9 @@ public class ManageDatsViewModelTests {
             new ManagedKeywordDb { DatSetId = datId, AceDbId = aceId, GeneratorVersion = 1, LastGenerated = DateTime.UtcNow }
         };
         _mockDatRepo.Setup(r => r.GetManagedDataSets()).Returns(new List<ManagedDatSet> { new ManagedDatSet { Id = datId, FriendlyName = "My Dat" } });
+        _mockDatRepo.Setup(r => r.GetManagedDataSet(datId)).Returns(new ManagedDatSet { Id = datId, FriendlyName = "My Dat" });
         _mockAceRepo.Setup(r => r.GetManagedAceDbs()).Returns(new List<ManagedAceDb> { new ManagedAceDb { Id = aceId, FriendlyName = "My Ace" } });
+        _mockAceRepo.Setup(r => r.GetManagedAceDb(aceId)).Returns(new ManagedAceDb { Id = aceId, FriendlyName = "My Ace" });
         _mockKeywordRepo.Setup(r => r.GetManagedKeywordDbs()).Returns(keywords);
 
         // Act

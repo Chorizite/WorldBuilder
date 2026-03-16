@@ -43,7 +43,13 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton<HttpClient>();
             collection.AddSingleton<IDatRepositoryService, DatRepositoryService>();
             collection.AddSingleton<IAceRepositoryService, AceRepositoryService>();
-            collection.AddSingleton<IKeywordRepositoryService, KeywordRepositoryService>();
+            collection.AddSingleton<IKeywordRepositoryService, KeywordRepositoryService>(sp => 
+                new KeywordRepositoryService(
+                    sp.GetRequiredService<ILogger<KeywordRepositoryService>>(),
+                    sp.GetRequiredService<IDatRepositoryService>(),
+                    sp.GetRequiredService<IAceRepositoryService>(),
+                    sp.GetRequiredService<HttpClient>()
+                ));
             collection.AddSingleton<IProjectMigrationService, ProjectMigrationService>();
             collection.AddSingleton<SplashPageFactory>();
 

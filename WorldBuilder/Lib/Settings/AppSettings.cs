@@ -51,6 +51,15 @@ namespace WorldBuilder.Lib.Settings {
             set => SetProperty(ref _managedKeywordsDirectory, value);
         }
 
+        [SettingDescription("Directory where managed embedding models are stored")]
+        [SettingPath(PathType.Folder, DialogTitle = "Select Managed Models Directory")]
+        [SettingOrder(1.7)]
+        private string? _managedModelsDirectory;
+        public string ManagedModelsDirectory {
+            get => _managedModelsDirectory ?? Path.Combine(Path.GetDirectoryName(ProjectsDirectory) ?? string.Empty, "Models");
+            set => SetProperty(ref _managedModelsDirectory, value);
+        }
+
         [SettingDescription("Automatically load most recent project on startup")]
         [SettingOrder(2)]
         private bool _autoLoadProject = false;

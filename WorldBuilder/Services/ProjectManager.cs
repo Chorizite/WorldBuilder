@@ -141,6 +141,7 @@ namespace WorldBuilder.Services {
                 aceRepository.SetRepositoryRoot(_settings.App.ManagedAceDbsDirectory);
                 var keywordRepository = _rootProvider.GetRequiredService<IKeywordRepositoryService>();
                 keywordRepository.SetRepositoryRoot(_settings.App.ManagedKeywordsDirectory);
+                keywordRepository.SetModelsRoot(_settings.App.ManagedModelsDirectory);
                 var migrationService = _rootProvider.GetRequiredService<IProjectMigrationService>();
                 var loggerFactory = _rootProvider.GetRequiredService<ILoggerFactory>();
 
@@ -227,6 +228,7 @@ namespace WorldBuilder.Services {
             aceRepository.SetRepositoryRoot(_settings.App.ManagedAceDbsDirectory);
             var keywordRepository = _rootProvider.GetRequiredService<IKeywordRepositoryService>();
             keywordRepository.SetRepositoryRoot(_settings.App.ManagedKeywordsDirectory);
+            keywordRepository.SetModelsRoot(_settings.App.ManagedModelsDirectory);
             var migrationService = _rootProvider.GetRequiredService<IProjectMigrationService>();
             var loggerFactory = _rootProvider.GetRequiredService<ILoggerFactory>();
             var projectResult = await Project.Open(projectPath, datRepository, aceRepository, keywordRepository, migrationService, loggerFactory, managedId, managedAceId, progress, CancellationToken.None);

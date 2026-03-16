@@ -12,7 +12,17 @@ namespace WorldBuilder.Shared.Services {
         /// <summary>
         /// The current version of the keyword generator.
         /// </summary>
-        const int CurrentGeneratorVersion = 3;
+        const int CurrentGeneratorVersion = 4;
+
+        /// <summary>
+        /// Progress for keyword generation.
+        /// </summary>
+        public record KeywordGenerationProgress(string Message, float KeywordProgress, float NameEmbeddingProgress, float DescEmbeddingProgress);
+
+        /// <summary>
+        /// Fired when global generation progress changes.
+        /// </summary>
+        event EventHandler<KeywordGenerationProgress>? GlobalProgress;
 
         /// <summary>
         /// Gets the repository root directory.
@@ -23,6 +33,11 @@ namespace WorldBuilder.Shared.Services {
         /// Sets the repository root directory.
         /// </summary>
         void SetRepositoryRoot(string rootDirectory);
+
+        /// <summary>
+        /// Sets the root directory for embedding models.
+        /// </summary>
+        void SetModelsRoot(string modelsDirectory);
 
         /// <summary>
         /// Gets all managed keyword databases.
@@ -40,9 +55,14 @@ namespace WorldBuilder.Shared.Services {
         bool AreKeywordsValid(Guid datId, Guid aceId);
 
         /// <summary>
+        /// Checks if the keyword database is at least partially generated enough to support basic search.
+        /// </summary>
+        bool CanSearchKeywords(Guid datId, Guid aceId);
+
+        /// <summary>
         /// Generates a keyword database for a specific DAT/ACE pair.
         /// </summary>
-        Task<Result<ManagedKeywordDb>> GenerateAsync(Guid datId, Guid aceId, IProgress<(string message, float progress)>? progress, CancellationToken ct);
+        Task<Result<ManagedKeywordDb>> GenerateAsync(Guid datId, Guid aceId, bool forceRegenerate, CancellationToken ct);
 
         /// <summary>
         /// Gets the path to the keyword database for a specific DAT/ACE pair.

@@ -27,6 +27,12 @@
                          MinWidth="300">
                     <TextBox.InnerRightContent>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,5,0">
+                            <ProgressBar IsIndeterminate="True" 
+                                         IsVisible="{Binding IsKeywordsSearching}" 
+                                         Width="16" Height="16" 
+                                         Classes="Ring"
+                                         Theme="{DynamicResource ProgressRing}"
+                                         Margin="0,0,5,0" />
                             <PathIcon Data="{DynamicResource WarningIcon}" 
                                       IsVisible="{Binding !IsKeywordsSearchEnabled}" 
                                       Width="16" Height="16" 

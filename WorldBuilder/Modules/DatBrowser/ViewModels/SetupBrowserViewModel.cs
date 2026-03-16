@@ -28,6 +28,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
             UpdateSearchState();
             _projectManager.CurrentProjectChanged += (s, e) => UpdateSearchState();
+            _keywordRepository.GlobalProgress += OnKeywordGenerationProgress;
 
             GridBrowser.PropertyChanged += (s, e) => {
                 if (e.PropertyName == nameof(GridBrowserViewModel.KeywordsSearchText)) {
@@ -36,6 +37,12 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                     }
                 }
             };
+        }
+
+        private void OnKeywordGenerationProgress(object? sender, IKeywordRepositoryService.KeywordGenerationProgress e) {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                UpdateSearchState();
+            });
         }
 
         private void UpdateSearchState() {
@@ -47,7 +54,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 enabled = false;
                 tooltip = "Associate an ACE world database in project settings to enable keyword search.";
             }
-            else if (!_keywordRepository.AreKeywordsValid(project.ManagedDatSetId.Value, project.ManagedAceDbId.Value)) {
+            else if (!_keywordRepository.CanSearchKeywords(project.ManagedDatSetId.Value, project.ManagedAceDbId.Value)) {
                 enabled = false;
                 tooltip = "Keywords database is not generated or out of date.";
             }
@@ -68,6 +75,10 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             _searchCts = new CancellationTokenSource();
             var ct = _searchCts.Token;
 
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                GridBrowser.IsKeywordsSearching = true;
+            });
+
             Task.Run(async () => {
                 try {
                     // Debounce search
@@ -85,15 +96,25 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                     Avalonia.Threading.Dispatcher.UIThread.Post(() => {
                         if (!ct.IsCancellationRequested) {
                             Initialize(filteredIds);
+                            GridBrowser.IsKeywordsSearching = false;
                         }
                     });
                 }
                 catch (TaskCanceledException) { }
+                catch (System.OperationCanceledException) { }
+                catch (System.Exception) {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                        if (!ct.IsCancellationRequested) {
+                            GridBrowser.IsKeywordsSearching = false;
+                        }
+                    });
+                }
             }, ct);
         }
 
         public override void Dispose() {
             base.Dispose();
+            _keywordRepository.GlobalProgress -= OnKeywordGenerationProgress;
             _searchCts?.Cancel();
             _searchCts?.Dispose();
         }

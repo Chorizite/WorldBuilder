@@ -68,6 +68,9 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private bool _isKeywordsSearchEnabled;
 
         [ObservableProperty]
+        private bool _isKeywordsSearching;
+
+        [ObservableProperty]
         private string _keywordsSearchTooltip = string.Empty;
 
         public bool IsSetupType => _type == DBObjType.Setup;

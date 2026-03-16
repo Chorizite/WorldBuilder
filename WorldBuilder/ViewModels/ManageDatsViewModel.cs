@@ -163,7 +163,7 @@ public partial class ManagedKeywordDbViewModel : ObservableObject {
 /// <summary>
 /// View model for the manage DATs screen.
 /// </summary>
-public partial class ManageDatsViewModel : SplashPageViewModelBase {
+public partial class ManageDatsViewModel : SplashPageViewModelBase, IDisposable {
     private readonly ILogger<ManageDatsViewModel> _log;
     private readonly WorldBuilderSettings _settings;
     private readonly IDatRepositoryService _datRepository;
@@ -196,7 +196,22 @@ public partial class ManageDatsViewModel : SplashPageViewModelBase {
         _aceRepository.SetRepositoryRoot(_settings.App.ManagedAceDbsDirectory);
         _keywordRepository.SetRepositoryRoot(_settings.App.ManagedKeywordsDirectory);
 
+        _keywordRepository.GlobalProgress += OnKeywordGlobalProgress;
+
         RefreshList();
+    }
+
+    private void OnKeywordGlobalProgress(object? sender, IKeywordRepositoryService.KeywordGenerationProgress e) {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+            if (IsLoading && LoadingStatus != null && (LoadingStatus.Contains("keyword", StringComparison.OrdinalIgnoreCase) || LoadingStatus.Contains("embedding", StringComparison.OrdinalIgnoreCase))) {
+                LoadingStatus = e.Message;
+                LoadingProgress = (e.KeywordProgress + e.NameEmbeddingProgress + e.DescEmbeddingProgress) / 3f * 100f;
+            }
+        });
+    }
+
+    public void Dispose() {
+        _keywordRepository.GlobalProgress -= OnKeywordGlobalProgress;
     }
 
     private void RefreshList() {
@@ -373,12 +388,7 @@ public partial class ManageDatsViewModel : SplashPageViewModelBase {
         LoadingStatus = "Regenerating keywords...";
         LoadingProgress = 0f;
 
-        var progress = new Progress<(string message, float progress)>(p => {
-            LoadingStatus = p.message;
-            LoadingProgress = p.progress * 100f;
-        });
-
-        var result = await _keywordRepository.GenerateAsync(kwVM.DatSetId, kwVM.AceDbId, progress, CancellationToken.None);
+        var result = await _keywordRepository.GenerateAsync(kwVM.DatSetId, kwVM.AceDbId, true, CancellationToken.None);
         
         IsLoading = false;
 
