@@ -84,7 +84,7 @@ public class Project : IProject, IAsyncDisposable {
     /// </summary>
     public LandscapeModule Landscape { get; }
 
-    private Project(string projectFile, ILoggerFactory? loggerFactory = null, string? baseDatDirectory = null, bool isReadOnly = false, Guid? managedDatSetId = null, Guid? managedAceDbId = null) {
+    private Project(string projectFile, IDatRepositoryService datRepository, IAceRepositoryService aceRepository, IKeywordRepositoryService keywordRepository, IProjectMigrationService migrationService, ILoggerFactory? loggerFactory = null, string? baseDatDirectory = null, bool isReadOnly = false, Guid? managedDatSetId = null, Guid? managedAceDbId = null) {
         ProjectFile = projectFile;
         IsReadOnly = isReadOnly;
         _baseDatDirectory = baseDatDirectory;
@@ -93,7 +93,7 @@ public class Project : IProject, IAsyncDisposable {
 
         var services = new ServiceCollection();
         var connectionString = IsReadOnly ? $"Data Source=file:{Guid.NewGuid()}?mode=memory&cache=shared" : $"Data Source={ProjectFile}";
-        services.AddWorldBuilderSharedServices(connectionString, BaseDatDirectory, loggerFactory);
+        services.AddWorldBuilderSharedServices(connectionString, BaseDatDirectory, loggerFactory, datRepository, aceRepository, keywordRepository, migrationService);
 
         services.AddSingleton<LandscapeModule>();
         services.AddSingleton<IProject>(this);
@@ -178,7 +178,7 @@ public class Project : IProject, IAsyncDisposable {
     /// <param name="progress">Optional progress reporter for migrations</param>
     /// <param name="ct">A cancellation token to cancel the operation</param>
     /// <returns>A Result containing a Project instance if successful, or an error</returns>
-    public static async Task<Result<Project>> Open(string projectFile, IDatRepositoryService datRepository, IAceRepositoryService aceRepository, IProjectMigrationService migrationService, ILoggerFactory? loggerFactory = null, Guid? managedId = null, Guid? managedAceId = null, IProgress<(string message, float progress)>? progress = null, CancellationToken ct = default) {
+    public static async Task<Result<Project>> Open(string projectFile, IDatRepositoryService datRepository, IAceRepositoryService aceRepository, IKeywordRepositoryService keywordRepository, IProjectMigrationService migrationService, ILoggerFactory? loggerFactory = null, Guid? managedId = null, Guid? managedAceId = null, IProgress<(string message, float progress)>? progress = null, CancellationToken ct = default) {
         try {
             var isReadOnly = projectFile.EndsWith(".dat", StringComparison.OrdinalIgnoreCase);
             string? baseDatDir = null;
@@ -226,7 +226,7 @@ public class Project : IProject, IAsyncDisposable {
                 }
             }
 
-            var project = new Project(projectFile, loggerFactory, baseDatDir, isReadOnly, managedDatSetId, managedAceDbId);
+            var project = new Project(projectFile, datRepository, aceRepository, keywordRepository, migrationService, loggerFactory, baseDatDir, isReadOnly, managedDatSetId, managedAceDbId);
             await project.Initialize(ct);
 
             return Result<Project>.Success(project);
@@ -250,7 +250,7 @@ public class Project : IProject, IAsyncDisposable {
     /// <param name="progress">Optional progress reporter</param>
     /// <param name="ct">A cancellation token to cancel the operation</param>
     /// <returns>A Result containing a Project instance if successful, or an error</returns>
-    public static async Task<Result<Project>> Create(string projectName, string projectDirectory, string baseDatDirectory, IDatRepositoryService datRepository, IAceRepositoryService aceRepository, IProjectMigrationService migrationService, ILoggerFactory? loggerFactory = null, Guid? managedId = null, Guid? managedAceId = null, IProgress<(string message, float progress)>? progress = null, CancellationToken ct = default) {
+    public static async Task<Result<Project>> Create(string projectName, string projectDirectory, string baseDatDirectory, IDatRepositoryService datRepository, IAceRepositoryService aceRepository, IKeywordRepositoryService keywordRepository, IProjectMigrationService migrationService, ILoggerFactory? loggerFactory = null, Guid? managedId = null, Guid? managedAceId = null, IProgress<(string message, float progress)>? progress = null, CancellationToken ct = default) {
         if (managedId == null && !Directory.Exists(baseDatDirectory)) {
             return Result<Project>.Failure($"Base dat directory does not exist: {baseDatDirectory}", "BASE_DAT_DIRECTORY_NOT_FOUND");
         }
@@ -296,7 +296,7 @@ public class Project : IProject, IAsyncDisposable {
             }
         }
 
-        var projectResult = await Open(projectPath, datRepository, aceRepository, migrationService, loggerFactory, managedId, managedAceId, progress, ct);
+        var projectResult = await Open(projectPath, datRepository, aceRepository, keywordRepository, migrationService, loggerFactory, managedId, managedAceId, progress, ct);
         if (projectResult.IsFailure) return projectResult;
 
         var project = projectResult.Value;

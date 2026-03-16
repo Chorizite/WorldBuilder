@@ -206,9 +206,6 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton<IKeywordRepositoryService>(project.Services.GetRequiredService<IKeywordRepositoryService>());
             collection.AddSingleton<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeObjectService>(project.Services.GetRequiredService<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeObjectService>());
             
-            collection.AddSingleton(rootProvider.GetRequiredService<IDatRepositoryService>());
-            collection.AddSingleton(rootProvider.GetRequiredService<IAceRepositoryService>());
-            collection.AddSingleton(rootProvider.GetRequiredService<IKeywordRepositoryService>());
             collection.AddSingleton(rootProvider.GetRequiredService<IProjectMigrationService>());
             collection.AddSingleton(rootProvider.GetRequiredService<IInputManager>());
         }

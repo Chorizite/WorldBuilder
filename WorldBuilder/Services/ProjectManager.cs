@@ -156,7 +156,7 @@ namespace WorldBuilder.Services {
                     managedAceId = model.AceDatabaseSelection.SelectedManagedAceDb?.Id;
                 }
 
-                var projectResult = await Project.Create(model.ProjectName, model.ProjectLocation, model.BaseDatDirectory, datRepository, aceRepository, migrationService, loggerFactory, model.SelectedManagedDatSet?.Id, managedAceId, progress, default);
+                var projectResult = await Project.Create(model.ProjectName, model.ProjectLocation, model.BaseDatDirectory, datRepository, aceRepository, keywordRepository, migrationService, loggerFactory, model.SelectedManagedDatSet?.Id, managedAceId, progress, default);
 
                 if (projectResult.IsSuccess) {
                     _settings.App.LastBaseDatDirectory = model.BaseDatDirectory;
@@ -229,7 +229,7 @@ namespace WorldBuilder.Services {
             keywordRepository.SetRepositoryRoot(_settings.App.ManagedKeywordsDirectory);
             var migrationService = _rootProvider.GetRequiredService<IProjectMigrationService>();
             var loggerFactory = _rootProvider.GetRequiredService<ILoggerFactory>();
-            var projectResult = await Project.Open(projectPath, datRepository, aceRepository, migrationService, loggerFactory, managedId, managedAceId, progress, CancellationToken.None);
+            var projectResult = await Project.Open(projectPath, datRepository, aceRepository, keywordRepository, migrationService, loggerFactory, managedId, managedAceId, progress, CancellationToken.None);
             if (projectResult.IsSuccess) {
                 SetProject(projectResult.Value);
             }

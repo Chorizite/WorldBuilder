@@ -113,7 +113,16 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         [ObservableProperty]
         private ObservableCollection<ReflectionNodeViewModel> _reflectionNodes = new();
 
+        [ObservableProperty]
+        private string? _currentKeywordsNames;
+
+        [ObservableProperty]
+        private string? _currentKeywordsDescriptions;
+
         private bool _isSettingObject;
+        private bool _showKeywords;
+
+        public bool ShowKeywords => _showKeywords;
 
 
         private readonly IDatBrowserViewModelFactory _viewModelFactory;
@@ -176,15 +185,19 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private LayoutDescBrowserViewModel? _layoutDescBrowser;
         private LanguageInfoBrowserViewModel? _languageInfoBrowser;
         private readonly WorldBuilder.Shared.Lib.IInputManager _inputManager;
+        private readonly IKeywordRepositoryService _keywordRepository;
+        private readonly ProjectManager _projectManager;
 
         public IDatReaderWriter Dats => _dats;
 
-        public DatBrowserViewModel(IDatBrowserViewModelFactory viewModelFactory, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats, WorldBuilder.Shared.Lib.IInputManager inputManager) {
+        public DatBrowserViewModel(IDatBrowserViewModelFactory viewModelFactory, IDialogService dialogService, IServiceProvider serviceProvider, IDatReaderWriter dats, WorldBuilder.Shared.Lib.IInputManager inputManager, IKeywordRepositoryService keywordRepository, ProjectManager projectManager) {
             _viewModelFactory = viewModelFactory;
             _dialogService = dialogService;
             _serviceProvider = serviceProvider;
             _dats = dats;
             _inputManager = inputManager;
+            _keywordRepository = keywordRepository;
+            _projectManager = projectManager;
 
             SelectedType = DBObjType.Setup;
             // Don't create browser here - let the lazy loading handle it
@@ -346,6 +359,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 newNotify.PropertyChanged += OnOverviewPropertyChanged;
             }
             SelectedPropertiesTabIndex = ObjectOverview != null ? 0 : 1;
+            UpdateCurrentKeywords(value);
 
             if (value != null) {
                 _isSettingObject = true;
@@ -463,6 +477,28 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 return new EnvCellOverviewViewModel(envCell, _dats);
             }
             return null;
+        }
+
+        private void UpdateCurrentKeywords(IDBObj? obj) {
+            if (obj is DatReaderWriter.DBObjs.Setup setup) {
+                var project = _projectManager.CurrentProject;
+                if (project != null && project.ManagedDatSetId.HasValue && project.ManagedAceDbId.HasValue) {
+                    Task.Run(async () => {
+                        var keywords = await _keywordRepository.GetKeywordsForSetupAsync(project.ManagedDatSetId.Value, project.ManagedAceDbId.Value, setup.Id, default);
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                            _showKeywords = keywords.HasValue;
+                            OnPropertyChanged(nameof(ShowKeywords));
+                            CurrentKeywordsNames = keywords?.Names;
+                            CurrentKeywordsDescriptions = keywords?.Descriptions;
+                        });
+                    });
+                    return;
+                }
+            }
+            _showKeywords = false;
+            OnPropertyChanged(nameof(ShowKeywords));
+            CurrentKeywordsNames = null;
+            CurrentKeywordsDescriptions = null;
         }
     }
 }

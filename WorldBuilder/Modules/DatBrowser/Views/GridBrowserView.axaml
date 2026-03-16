@@ -10,12 +10,33 @@
         x:Class="WorldBuilder.Modules.DatBrowser.Views.GridBrowserView"
         x:DataType="vm:GridBrowserViewModel">
     <Grid RowDefinitions="Auto, *">
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="10,0,10,0" Spacing="10">
-            <TextBlock Text="Items Per Row:" VerticalAlignment="Center"/>
-            <Slider Minimum="1" Maximum="36" Value="{Binding ItemsPerRow}" Width="200" VerticalAlignment="Center"/>
-            <TextBlock Text="{Binding ItemsPerRow}" VerticalAlignment="Center" Width="30"/>
-            <CheckBox Content="Show Wireframe" IsChecked="{Binding ShowWireframe}" IsVisible="{Binding Is3DViewAndNotEnvironment}" VerticalAlignment="Center"/>
-        </StackPanel>
+        <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto" Margin="10,5,10,5">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                <TextBlock Text="Items Per Row:" VerticalAlignment="Center"/>
+                <Slider Minimum="1" Maximum="36" Value="{Binding ItemsPerRow}" Width="200" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding ItemsPerRow}" VerticalAlignment="Center" Width="30"/>
+                <CheckBox Content="Show Wireframe" IsChecked="{Binding ShowWireframe}" IsVisible="{Binding Is3DViewAndNotEnvironment}" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" IsVisible="{Binding IsSetupType}" MinWidth="300">
+                <TextBox Text="{Binding KeywordsSearchText}" 
+                         Watermark="Search keywords..." 
+                         IsEnabled="{Binding IsKeywordsSearchEnabled}"
+                         ToolTip.Tip="{Binding KeywordsSearchTooltip}"
+                         HorizontalAlignment="Stretch"
+                         MinWidth="300">
+                    <TextBox.InnerRightContent>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,5,0">
+                            <PathIcon Data="{DynamicResource WarningIcon}" 
+                                      IsVisible="{Binding !IsKeywordsSearchEnabled}" 
+                                      Width="16" Height="16" 
+                                      Foreground="Orange"
+                                      ToolTip.Tip="{Binding KeywordsSearchTooltip}"/>
+                        </StackPanel>
+                    </TextBox.InnerRightContent>
+                </TextBox>
+            </StackPanel>
+        </Grid>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <ItemsRepeater ItemsSource="{Binding FileIds}" Margin="10">

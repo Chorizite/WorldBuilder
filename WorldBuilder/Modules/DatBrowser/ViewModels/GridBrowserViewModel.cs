@@ -60,6 +60,17 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         [ObservableProperty]
         private Vector4 _wireframeColor = new Vector4(0.0f, 1.0f, 0.0f, 0.5f);
+        
+        [ObservableProperty]
+        private string _keywordsSearchText = string.Empty;
+
+        [ObservableProperty]
+        private bool _isKeywordsSearchEnabled;
+
+        [ObservableProperty]
+        private string _keywordsSearchTooltip = string.Empty;
+
+        public bool IsSetupType => _type == DBObjType.Setup;
 
         public bool IsDarkMode => _themeService.IsDarkMode;
 
@@ -107,6 +118,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         public void SetFileIds(IEnumerable<uint> fileIds) {
             _fileIds = fileIds ?? Enumerable.Empty<uint>();
+            OnPropertyChanged(nameof(FileIds));
         }
 
         [RelayCommand]

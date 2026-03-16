@@ -94,13 +94,12 @@ namespace WorldBuilder.Shared.Tests.Services {
             Assert.True(result.IsSuccess);
             
             var keywords = await _service.GetKeywordsForSetupAsync(_datId, _aceId, 100, CancellationToken.None);
-            Assert.NotNull(keywords);
+            Assert.True(keywords.HasValue);
             
-            // Should contain class name and string values
-            Assert.Contains("TestWeenie", keywords, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("Awesome", keywords, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("Sword", keywords, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("sharp", keywords, StringComparison.OrdinalIgnoreCase);
+            // Should contain class name and string values in correct columns
+            Assert.Contains("TestWeenie", keywords.Value.Names, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Awesome Sword", keywords.Value.Names, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("very sharp sword", keywords.Value.Descriptions, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

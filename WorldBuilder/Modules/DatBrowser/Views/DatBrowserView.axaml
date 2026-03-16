@@ -6,9 +6,13 @@
              xmlns:v="using:WorldBuilder.Modules.DatBrowser.Views"
              xmlns:views="using:WorldBuilder.Views"
              xmlns:conv="using:WorldBuilder.Converters"
+             xmlns:icon="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="WorldBuilder.Modules.DatBrowser.Views.DatBrowserView"
              x:DataType="vm:DatBrowserViewModel">
+    <UserControl.Resources>
+        <StreamGeometry x:Key="WarningIcon">M12,2L1,21H23L12,2M12,6L19.53,19H4.47L12,6M11,10V14H13V10H11M11,16V18H13V16H11Z</StreamGeometry>
+    </UserControl.Resources>
     <UserControl.DataTemplates>
         <DataTemplate DataType="vm:SetupBrowserViewModel">
             <v:SetupBrowserView/>
@@ -113,6 +117,33 @@
                         </TreeDataTemplate>
                     </TreeView.ItemTemplate>
                 </TreeView>
+            </TabItem>
+            <TabItem Header="Keywords" IsVisible="{Binding ShowKeywords}">
+                <ScrollViewer>
+                    <StackPanel Margin="10" Spacing="10">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Names" Foreground="{DynamicResource SemiColorText3}" FontSize="10" FontWeight="SemiBold" Margin="5,0"/>
+                            <TextBox Text="{Binding CurrentKeywordsNames}" 
+                                     IsReadOnly="True" 
+                                     TextWrapping="Wrap" 
+                                     BorderThickness="0"
+                                     Background="{DynamicResource SemiColorFill0}"
+                                     Padding="10"
+                                     CornerRadius="4"/>
+                        </StackPanel>
+                        
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Descriptions" Foreground="{DynamicResource SemiColorText3}" FontSize="10" FontWeight="SemiBold" Margin="5,0"/>
+                            <TextBox Text="{Binding CurrentKeywordsDescriptions}" 
+                                     IsReadOnly="True" 
+                                     TextWrapping="Wrap" 
+                                     BorderThickness="0"
+                                     Background="{DynamicResource SemiColorFill0}"
+                                     Padding="10"
+                                     CornerRadius="4"/>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
     </Grid>

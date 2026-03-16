@@ -10,6 +10,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using ACE.Database.Models.World;
+using ACE.Entity.Enum.Properties;
 using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Shared.Services {
@@ -105,34 +106,39 @@ namespace WorldBuilder.Shared.Services {
 
                 progress?.Report(("Extracting keywords from ACE database...", 0.1f));
 
-                // 1. Map SetupId -> List of Keywords
-                var setupKeywords = new Dictionary<uint, HashSet<string>>();
+                // 1. Map SetupId -> (Names, Descriptions)
+                var setupKeywords = new Dictionary<uint, (HashSet<string> Names, HashSet<string> Descriptions)>();
 
                 var optionsBuilder = new DbContextOptionsBuilder<WorldDbContext>();
                 optionsBuilder.UseSqlite($"Data Source={acePath}");
 
                 using (var context = new WorldDbContext(optionsBuilder.Options)) {
                     var data = await context.Weenie
-                        .SelectMany(w => w.WeeniePropertiesDID.Where(wpd => wpd.Type == 1), (w, wpd) => new {
+                        .SelectMany(w => w.WeeniePropertiesDID.Where(wpd => wpd.Type == (ushort)PropertyDataId.Setup), (w, wpd) => new {
                             SetupId = wpd.Value,
                             w.ClassName,
-                            Strings = w.WeeniePropertiesString.Select(s => s.Value)
+                            Strings = w.WeeniePropertiesString.Select(s => new { s.Type, s.Value })
                         })
                         .ToListAsync(ct);
 
                     foreach (var item in data) {
                         if (!setupKeywords.TryGetValue(item.SetupId, out var keywords)) {
-                            keywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                            keywords = (new HashSet<string>(StringComparer.OrdinalIgnoreCase), new HashSet<string>(StringComparer.OrdinalIgnoreCase));
                             setupKeywords[item.SetupId] = keywords;
                         }
 
                         if (!string.IsNullOrWhiteSpace(item.ClassName)) {
-                            keywords.Add(item.ClassName);
+                            keywords.Names.Add(item.ClassName);
                         }
 
-                        foreach (var stringValue in item.Strings) {
-                            if (!string.IsNullOrWhiteSpace(stringValue)) {
-                                keywords.Add(stringValue);
+                        foreach (var str in item.Strings) {
+                            if (string.IsNullOrWhiteSpace(str.Value)) continue;
+
+                            if (str.Type == (ushort)PropertyString.Name) {
+                                keywords.Names.Add(str.Value);
+                            }
+                            else if (str.Type == (ushort)PropertyString.ShortDesc || str.Type == (ushort)PropertyString.LongDesc) {
+                                keywords.Descriptions.Add(str.Value);
                             }
                         }
                     }
@@ -168,21 +174,23 @@ namespace WorldBuilder.Shared.Services {
 
                         // Create SetupKeywords table
                         using (var cmd = targetConn.CreateCommand()) {
-                            cmd.CommandText = "CREATE TABLE SetupKeywords (SetupId INTEGER PRIMARY KEY, Keywords TEXT)";
+                            cmd.CommandText = "CREATE TABLE SetupKeywords (SetupId INTEGER PRIMARY KEY, Names TEXT, Descriptions TEXT)";
                             await cmd.ExecuteNonQueryAsync(ct);
                         }
 
                         // Insert keywords
                         var insertCmd = targetConn.CreateCommand();
-                        insertCmd.CommandText = "INSERT INTO SetupKeywords (SetupId, Keywords) VALUES (@id, @keywords)";
+                        insertCmd.CommandText = "INSERT INTO SetupKeywords (SetupId, Names, Descriptions) VALUES (@id, @names, @descriptions)";
                         var idParam = insertCmd.Parameters.Add("@id", SqliteType.Integer);
-                        var keywordsParam = insertCmd.Parameters.Add("@keywords", SqliteType.Text);
+                        var namesParam = insertCmd.Parameters.Add("@names", SqliteType.Text);
+                        var descParam = insertCmd.Parameters.Add("@descriptions", SqliteType.Text);
 
                         int count = 0;
                         int total = setupKeywords.Count;
                         foreach (var kvp in setupKeywords) {
                             idParam.Value = kvp.Key;
-                            keywordsParam.Value = string.Join(" ", kvp.Value);
+                            namesParam.Value = string.Join(" ", kvp.Value.Names);
+                            descParam.Value = string.Join(" ", kvp.Value.Descriptions);
                             await insertCmd.ExecuteNonQueryAsync(ct);
                             
                             count++;
@@ -241,7 +249,7 @@ namespace WorldBuilder.Shared.Services {
             return Result<Unit>.Success(Unit.Value);
         }
 
-        public async Task<string?> GetKeywordsForSetupAsync(Guid datId, Guid aceId, uint setupId, CancellationToken ct) {
+        public async Task<(string Names, string Descriptions)?> GetKeywordsForSetupAsync(Guid datId, Guid aceId, uint setupId, CancellationToken ct) {
             var path = GetKeywordDbPath(datId, aceId);
             if (!File.Exists(path)) return null;
 
@@ -250,17 +258,49 @@ namespace WorldBuilder.Shared.Services {
                     await connection.OpenAsync(ct);
 
                     using (var cmd = connection.CreateCommand()) {
-                        cmd.CommandText = "SELECT Keywords FROM SetupKeywords WHERE SetupId = @id";
+                        cmd.CommandText = "SELECT Names, Descriptions FROM SetupKeywords WHERE SetupId = @id";
                         cmd.Parameters.AddWithValue("@id", setupId);
-                        var result = await cmd.ExecuteScalarAsync(ct);
-                        return result?.ToString();
+                        using (var reader = await cmd.ExecuteReaderAsync(ct)) {
+                            if (await reader.ReadAsync(ct)) {
+                                return (reader.GetString(0), reader.GetString(1));
+                            }
+                        }
                     }
                 }
             }
             catch (Exception ex) {
                 _log.LogError(ex, "Failed to retrieve keywords for setup {SetupId}", setupId);
-                return null;
             }
+            return null;
+        }
+
+        public async Task<List<uint>> SearchSetupsAsync(Guid datId, Guid aceId, string query, CancellationToken ct) {
+            if (string.IsNullOrWhiteSpace(query)) return [];
+
+            var path = GetKeywordDbPath(datId, aceId);
+            if (!File.Exists(path)) return [];
+
+            var results = new List<uint>();
+            try {
+                using (var connection = new SqliteConnection($"Data Source={path};Mode=ReadOnly")) {
+                    await connection.OpenAsync(ct);
+
+                    using (var cmd = connection.CreateCommand()) {
+                        cmd.CommandText = "SELECT SetupId FROM SetupKeywords WHERE Names LIKE @query OR Descriptions LIKE @query";
+                        cmd.Parameters.AddWithValue("@query", $"%{query}%");
+                        
+                        using (var reader = await cmd.ExecuteReaderAsync(ct)) {
+                            while (await reader.ReadAsync(ct)) {
+                                results.Add((uint)reader.GetInt64(0));
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) {
+                _log.LogError(ex, "Failed to search keywords for query {Query}", query);
+            }
+            return results;
         }
 
         [JsonSourceGenerationOptions(WriteIndented = true)]
