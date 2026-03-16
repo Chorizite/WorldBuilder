@@ -122,6 +122,26 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         [ObservableProperty]
         private string? _currentKeywordsDescriptions;
 
+        [ObservableProperty]
+        private string _keywordsSearchText = string.Empty;
+
+        [ObservableProperty]
+        private bool _isKeywordsSearchEnabled;
+
+        [ObservableProperty]
+        private string _keywordsSearchTooltip = string.Empty;
+
+        [ObservableProperty]
+        private SearchType _searchType = SearchType.Hybrid;
+
+        [ObservableProperty]
+        private bool _isKeywordsSearching;
+
+        [ObservableProperty]
+        private bool _isEmbeddingSearchActive;
+
+        public IEnumerable<SearchType> SearchTypes => System.Enum.GetValues<SearchType>();
+
         private bool _isSettingObject;
         private bool _showKeywords;
 
@@ -327,6 +347,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             }
             if (newValue is INotifyPropertyChanged newNotify) {
                 newNotify.PropertyChanged += OnBrowserPropertyChanged;
+                UpdateSearchProperties();
             }
             UpdateSelectedObject();
         }
@@ -339,6 +360,73 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 if (ObjectOverview is SurfaceTextureOverviewViewModel stovm) {
                     stovm.SelectedTextureId = stBrowser.PreviewFileId;
                 }
+            }
+            if (sender is SetupBrowserViewModel setupBrowser) {
+                if (e.PropertyName == nameof(SetupBrowserViewModel.KeywordsSearchText)) {
+                    KeywordsSearchText = setupBrowser.KeywordsSearchText;
+                }
+                else if (e.PropertyName == nameof(SetupBrowserViewModel.IsKeywordsSearchEnabled)) {
+                    IsKeywordsSearchEnabled = setupBrowser.IsKeywordsSearchEnabled;
+                }
+                else if (e.PropertyName == nameof(SetupBrowserViewModel.KeywordsSearchTooltip)) {
+                    KeywordsSearchTooltip = setupBrowser.KeywordsSearchTooltip;
+                }
+                else if (e.PropertyName == nameof(SetupBrowserViewModel.IsEmbeddingSearchActive)) {
+                    IsEmbeddingSearchActive = setupBrowser.IsEmbeddingSearchActive;
+                }
+                else if (e.PropertyName == nameof(SetupBrowserViewModel.SearchType)) {
+                    SearchType = setupBrowser.SearchType;
+                }
+            }
+            if (sender is IDatBrowserViewModel browser && e.PropertyName == nameof(IDatBrowserViewModel.GridBrowser)) {
+                if (browser.GridBrowser is INotifyPropertyChanged gridNotify) {
+                    gridNotify.PropertyChanged += OnGridBrowserPropertyChanged;
+                }
+                UpdateSearchProperties();
+            }
+        }
+
+        private void OnGridBrowserPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+            if (sender is GridBrowserViewModel gridBrowser) {
+                if (e.PropertyName == nameof(GridBrowserViewModel.IsKeywordsSearching)) {
+                    IsKeywordsSearching = gridBrowser.IsKeywordsSearching;
+                }
+                else if (e.PropertyName == nameof(GridBrowserViewModel.IsEmbeddingSearchActive)) {
+                    IsEmbeddingSearchActive = gridBrowser.IsEmbeddingSearchActive;
+                }
+            }
+        }
+
+        private void UpdateSearchProperties() {
+            if (CurrentBrowser is SetupBrowserViewModel setupBrowser) {
+                KeywordsSearchText = setupBrowser.KeywordsSearchText;
+                IsKeywordsSearchEnabled = setupBrowser.IsKeywordsSearchEnabled;
+                KeywordsSearchTooltip = setupBrowser.KeywordsSearchTooltip;
+                IsEmbeddingSearchActive = setupBrowser.IsEmbeddingSearchActive;
+                SearchType = setupBrowser.SearchType;
+                if (setupBrowser.GridBrowser != null) {
+                    IsKeywordsSearching = setupBrowser.GridBrowser.IsKeywordsSearching;
+                    IsEmbeddingSearchActive = setupBrowser.GridBrowser.IsEmbeddingSearchActive;
+                }
+            }
+            else {
+                KeywordsSearchText = string.Empty;
+                IsKeywordsSearchEnabled = false;
+                KeywordsSearchTooltip = string.Empty;
+                IsKeywordsSearching = false;
+                IsEmbeddingSearchActive = false;
+            }
+        }
+
+        partial void OnKeywordsSearchTextChanged(string value) {
+            if (CurrentBrowser is SetupBrowserViewModel setupBrowser) {
+                setupBrowser.KeywordsSearchText = value;
+            }
+        }
+
+        partial void OnSearchTypeChanged(SearchType value) {
+            if (CurrentBrowser is SetupBrowserViewModel setupBrowser) {
+                setupBrowser.SearchType = value;
             }
         }
 

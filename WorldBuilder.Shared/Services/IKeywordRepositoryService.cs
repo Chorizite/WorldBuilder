@@ -5,6 +5,17 @@ using System.Threading.Tasks;
 using WorldBuilder.Shared.Lib;
 
 namespace WorldBuilder.Shared.Services {
+    public enum SearchType {
+        [System.ComponentModel.Description("Keyword: Traditional word-based search. Matches exact words and phrases found in names, tags, and descriptions.")]
+        Keyword,
+
+        [System.ComponentModel.Description("Semantic: Meaning-based search using AI embeddings. Finds related items even if they don't share exact words (e.g., 'tree' might find 'flora' or 'pine').")]
+        Semantic,
+
+        [System.ComponentModel.Description("Hybrid: Combines keyword and semantic search for the best of both worlds. Prioritizes exact matches while still discovering related content.")]
+        Hybrid
+    }
+
     /// <summary>
     /// Service for managing keyword databases generated from DAT/ACE pairs.
     /// </summary>
@@ -12,7 +23,7 @@ namespace WorldBuilder.Shared.Services {
         /// <summary>
         /// The current version of the keyword generator.
         /// </summary>
-        const int CurrentGeneratorVersion = 6;
+        const int CurrentGeneratorVersion = 9;
 
         /// <summary>
         /// Progress for keyword generation.
@@ -60,6 +71,11 @@ namespace WorldBuilder.Shared.Services {
         bool CanSearchKeywords(Guid datId, Guid aceId);
 
         /// <summary>
+        /// Checks if embedding-based search is currently active for a specific DAT/ACE pair.
+        /// </summary>
+        bool IsEmbeddingSearchActive(Guid datId, Guid aceId);
+
+        /// <summary>
         /// Generates a keyword database for a specific DAT/ACE pair.
         /// </summary>
         Task<Result<ManagedKeywordDb>> GenerateAsync(Guid datId, Guid aceId, bool forceRegenerate, CancellationToken ct);
@@ -82,6 +98,6 @@ namespace WorldBuilder.Shared.Services {
         /// <summary>
         /// Searches for setups matching the given keyword query.
         /// </summary>
-        Task<List<uint>> SearchSetupsAsync(Guid datId, Guid aceId, string query, CancellationToken ct);
+        Task<List<uint>> SearchSetupsAsync(Guid datId, Guid aceId, string query, SearchType searchType, CancellationToken ct);
     }
 }

@@ -28,6 +28,8 @@ namespace WorldBuilder.Lib.Extensions {
         /// <param name="collection">The service collection to add services to</param>
         /// <returns>The service collection for chaining</returns>
         public static IServiceCollection AddWorldBuilderCoreServices(this IServiceCollection collection) {
+            SQLitePCL.Batteries_V2.Init();
+
             collection.AddLogging((c) => {
                 c.AddProvider(new ColorConsoleLoggerProvider());
                 c.SetMinimumLevel(LogLevel.Debug);
@@ -122,6 +124,9 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton(rootProvider.GetRequiredService<PerformanceService>());
             collection.AddSingleton(rootProvider.GetRequiredService<BookmarksManager>());
             collection.AddSingleton(rootProvider.GetRequiredService<AppLogService>());
+            collection.AddSingleton(rootProvider.GetRequiredService<IDatRepositoryService>());
+            collection.AddSingleton(rootProvider.GetRequiredService<IAceRepositoryService>());
+            collection.AddSingleton(rootProvider.GetRequiredService<IKeywordRepositoryService>());
 
             collection.AddSingleton((Project)project);
             collection.AddSingleton<IProject>(project);
@@ -209,7 +214,6 @@ namespace WorldBuilder.Lib.Extensions {
             collection.AddSingleton<ISyncClient>(project.Services.GetRequiredService<ISyncClient>());
             collection.AddSingleton<SyncService>(project.Services.GetRequiredService<SyncService>());
             collection.AddSingleton<IDatExportService>(project.Services.GetRequiredService<IDatExportService>());
-            collection.AddSingleton<IKeywordRepositoryService>(project.Services.GetRequiredService<IKeywordRepositoryService>());
             collection.AddSingleton<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeObjectService>(project.Services.GetRequiredService<WorldBuilder.Shared.Modules.Landscape.Services.ILandscapeObjectService>());
             
             collection.AddSingleton(rootProvider.GetRequiredService<IProjectMigrationService>());

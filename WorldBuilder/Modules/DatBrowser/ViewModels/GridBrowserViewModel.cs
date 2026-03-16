@@ -71,7 +71,13 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private bool _isKeywordsSearching;
 
         [ObservableProperty]
+        private bool _isEmbeddingSearchActive;
+
+        [ObservableProperty]
         private string _keywordsSearchTooltip = string.Empty;
+
+        [ObservableProperty]
+        private string _keywordsSearchWatermark = "Search keywords...";
 
         public bool IsSetupType => _type == DBObjType.Setup;
 

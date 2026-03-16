@@ -251,5 +251,20 @@ namespace WorldBuilder.Shared.Tests.Services {
             
             Assert.Contains("scenery", keywords.Value.Tags, StringComparison.OrdinalIgnoreCase);
         }
+
+        [Fact]
+        public async Task SearchSetupsAsync_FallsBackToTextSearchWhenEmbeddingsNotGenerated() {
+            // Arrange
+            await CreateSeedAceDbAsync();
+            _portalDbMock.Setup(db => db.GetAllIdsOfType<Scene>()).Returns([]);
+            await _service.GenerateAsync(_datId, _aceId, false, CancellationToken.None);
+
+            // Act
+            var results = await _service.SearchSetupsAsync(_datId, _aceId, "Awesome", SearchType.Hybrid, CancellationToken.None);
+
+            // Assert
+            Assert.Single(results);
+            Assert.Equal(100u, results[0]);
+        }
     }
 }

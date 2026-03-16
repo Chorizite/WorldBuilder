@@ -20,7 +20,13 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private bool _isKeywordsSearchEnabled;
 
         [ObservableProperty]
+        private bool _isEmbeddingSearchActive;
+
+        [ObservableProperty]
         private string _keywordsSearchTooltip = string.Empty;
+
+        [ObservableProperty]
+        private SearchType _searchType = SearchType.Hybrid;
 
         public SetupBrowserViewModel(IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService, IKeywordRepositoryService keywordRepository, ProjectManager projectManager) : base(DBObjType.Setup, dats, settings, themeService) {
             _keywordRepository = keywordRepository;
@@ -39,6 +45,10 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             };
         }
 
+        partial void OnSearchTypeChanged(SearchType value) {
+            PerformSearch(KeywordsSearchText);
+        }
+
         private void OnKeywordGenerationProgress(object? sender, IKeywordRepositoryService.KeywordGenerationProgress e) {
             Avalonia.Threading.Dispatcher.UIThread.Post(() => {
                 UpdateSearchState();
@@ -48,7 +58,9 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private void UpdateSearchState() {
             var project = _projectManager.CurrentProject;
             bool enabled = true;
+            bool isEmbeddingSearch = false;
             string tooltip = "Search by keywords (e.g., class name, string properties)";
+            string watermark = "Search keywords...";
 
             if (project == null || !project.ManagedDatSetId.HasValue || !project.ManagedAceDbId.HasValue) {
                 enabled = false;
@@ -58,11 +70,38 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 enabled = false;
                 tooltip = "Keywords database is not generated or out of date.";
             }
+            else {
+                isEmbeddingSearch = _keywordRepository.IsEmbeddingSearchActive(project.ManagedDatSetId.Value, project.ManagedAceDbId.Value);
+                if (isEmbeddingSearch) {
+                    tooltip = "Semantic search active. You can search by meaning (e.g., 'pointy objects' or 'wooden table').";
+                    watermark = "Semantic search (e.g., 'pointy wooden table')...";
+                }
+                else {
+                    var db = _keywordRepository.GetManagedKeywordDb(project.ManagedDatSetId.Value, project.ManagedAceDbId.Value);
+                    if (db != null && db.NameEmbeddingProgress >= 1f && db.DescEmbeddingProgress >= 1f) {
+                        tooltip = "Embeddings generated, but semantic search is inactive (possibly missing model files). Try regenerating with 'Force'.";
+                    }
+                    else {
+                        tooltip = "Search by keywords (e.g., class name, string properties). Consider generating embeddings for semantic search.";
+                    }
+                    watermark = "Search keywords...";
+                }
+            }
 
             IsKeywordsSearchEnabled = enabled;
             KeywordsSearchTooltip = tooltip;
-            GridBrowser.IsKeywordsSearchEnabled = enabled;
-            GridBrowser.KeywordsSearchTooltip = tooltip;
+            IsEmbeddingSearchActive = isEmbeddingSearch;
+
+            if (!isEmbeddingSearch) {
+                SearchType = SearchType.Keyword;
+            }
+
+            if (GridBrowser != null) {
+                GridBrowser.IsKeywordsSearchEnabled = enabled;
+                GridBrowser.KeywordsSearchTooltip = tooltip;
+                GridBrowser.KeywordsSearchWatermark = watermark;
+                GridBrowser.IsEmbeddingSearchActive = isEmbeddingSearch;
+            }
         }
 
         partial void OnKeywordsSearchTextChanged(string value) {
@@ -88,7 +127,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                     if (!string.IsNullOrWhiteSpace(value) && IsKeywordsSearchEnabled) {
                         var project = _projectManager.CurrentProject;
                         if (project != null && project.ManagedDatSetId.HasValue && project.ManagedAceDbId.HasValue) {
-                            var matchingIds = await _keywordRepository.SearchSetupsAsync(project.ManagedDatSetId.Value, project.ManagedAceDbId.Value, value, ct);
+                            var matchingIds = await _keywordRepository.SearchSetupsAsync(project.ManagedDatSetId.Value, project.ManagedAceDbId.Value, value, SearchType, ct);
                             filteredIds = matchingIds;
                         }
                     }

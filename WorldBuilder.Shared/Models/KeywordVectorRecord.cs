@@ -19,7 +19,7 @@ namespace WorldBuilder.Shared.Models {
         public string Names { get; set; } = "";
 
         /// <summary>
-        /// The object tags from the game data (ranked lower than names, higher than descriptions).
+        /// The object tags from the game data (WeenieType, CreatureType, ItemType, etc.).
         /// </summary>
         [VectorStoreData]
         public string Tags { get; set; } = "";
@@ -31,15 +31,12 @@ namespace WorldBuilder.Shared.Models {
         public string Descriptions { get; set; } = "";
 
         /// <summary>
-        /// The embedding vector for names (384 dimensions for bge-micro-v2).
+        /// Combined embedding for the full record: "Name | Tags | Description".
+        /// Encoding name, tags, and description jointly gives the model full context
+        /// and produces better semantic matches than separate per-field vectors.
+        /// 384 dimensions for bge-micro-v2.
         /// </summary>
         [VectorStoreVector(384)]
-        public ReadOnlyMemory<float> NameEmbedding { get; set; }
-
-        /// <summary>
-        /// The embedding vector for descriptions (384 dimensions for bge-micro-v2).
-        /// </summary>
-        [VectorStoreVector(384)]
-        public ReadOnlyMemory<float> DescEmbedding { get; set; }
+        public ReadOnlyMemory<float> Embedding { get; set; }
     }
 }

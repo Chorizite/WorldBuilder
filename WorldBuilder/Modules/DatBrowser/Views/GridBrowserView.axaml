@@ -17,31 +17,6 @@
                 <TextBlock Text="{Binding ItemsPerRow}" VerticalAlignment="Center" Width="30"/>
                 <CheckBox Content="Show Wireframe" IsChecked="{Binding ShowWireframe}" IsVisible="{Binding Is3DViewAndNotEnvironment}" VerticalAlignment="Center"/>
             </StackPanel>
-
-            <StackPanel Grid.Column="2" Orientation="Horizontal" IsVisible="{Binding IsSetupType}" MinWidth="300">
-                <TextBox Text="{Binding KeywordsSearchText}" 
-                         Watermark="Search keywords..." 
-                         IsEnabled="{Binding IsKeywordsSearchEnabled}"
-                         ToolTip.Tip="{Binding KeywordsSearchTooltip}"
-                         HorizontalAlignment="Stretch"
-                         MinWidth="300">
-                    <TextBox.InnerRightContent>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,5,0">
-                            <ProgressBar IsIndeterminate="True" 
-                                         IsVisible="{Binding IsKeywordsSearching}" 
-                                         Width="16" Height="16" 
-                                         Classes="Ring"
-                                         Theme="{DynamicResource ProgressRing}"
-                                         Margin="0,0,5,0" />
-                            <PathIcon Data="{DynamicResource WarningIcon}" 
-                                      IsVisible="{Binding !IsKeywordsSearchEnabled}" 
-                                      Width="16" Height="16" 
-                                      Foreground="Orange"
-                                      ToolTip.Tip="{Binding KeywordsSearchTooltip}"/>
-                        </StackPanel>
-                    </TextBox.InnerRightContent>
-                </TextBox>
-            </StackPanel>
         </Grid>
 
         <ScrollViewer x:Name="Part_ScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto">
