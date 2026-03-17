@@ -22,7 +22,6 @@ public partial class RenderView : Base3DViewport {
     public GL? GL { get; private set; }
 
     private GameScene? _gameScene;
-    private Vector2 _lastPointerPosition;
     private LandscapeDocument? _cachedLandscapeDocument;
     private LandSurfaceManager? _cachedSurfaceManager;
     private EditorState? _cachedEditorState;
@@ -245,45 +244,12 @@ public partial class RenderView : Base3DViewport {
         //_gameScene?.HandleKeyUp(e.Key.ToString());
     }
 
-    private ViewportInputEvent CreateInputEvent(KeyEventArgs e) {
-        var size = new Vector2((float)Bounds.Width, (float)Bounds.Height) * InputScale;
-        return new ViewportInputEvent {
-            Position = _lastPointerPosition,
-            Delta = Vector2.Zero,
-            ViewportSize = size,
-            ShiftDown = (e.KeyModifiers & KeyModifiers.Shift) != 0,
-            CtrlDown = (e.KeyModifiers & KeyModifiers.Control) != 0,
-            AltDown = (e.KeyModifiers & KeyModifiers.Alt) != 0,
-            Key = e.Key.ToString()
-        };
-    }
-
-    private ViewportInputEvent CreateInputEvent(PointerEventArgs e) {
-        var relativeTo = _viewport ?? this;
-        var point = e.GetCurrentPoint(relativeTo);
-        var size = new Vector2((float)relativeTo.Bounds.Width, (float)relativeTo.Bounds.Height) * InputScale;
-        var pos = e.GetPosition(relativeTo);
-        var posVec = new Vector2((float)pos.X, (float)pos.Y) * InputScale;
-        var delta = posVec - _lastPointerPosition;
-
-        return new ViewportInputEvent {
-            Position = posVec,
-            Delta = delta,
-            ViewportSize = size,
-            IsLeftDown = point.Properties.IsLeftButtonPressed,
-            IsRightDown = point.Properties.IsRightButtonPressed,
-            ShiftDown = (e.KeyModifiers & KeyModifiers.Shift) != 0,
-            CtrlDown = (e.KeyModifiers & KeyModifiers.Control) != 0,
-            AltDown = (e.KeyModifiers & KeyModifiers.Alt) != 0
-        };
-    }
 
     protected override void OnGlPointerMoved(PointerEventArgs e, Vector2 mousePositionScaled) {
         var inputEvent = CreateInputEvent(e);
         if (PlatformMouse.OnPointerMoved(this, e, inputEvent)) {
             _gameScene?.HandlePointerMoved(inputEvent, !PlatformMouse.IsCheckingBounds);
         }
-        _lastPointerPosition = mousePositionScaled;
     }
 
     protected override void OnGlPointerPressed(PointerPressedEventArgs e) {
@@ -291,7 +257,6 @@ public partial class RenderView : Base3DViewport {
         this.Focus();
 
         var inputEvent = CreateInputEvent(e);
-        _lastPointerPosition = inputEvent.Position;
 
         _gameScene?.HandlePointerPressed(inputEvent);
 
@@ -533,20 +498,9 @@ public partial class RenderView : Base3DViewport {
         var projectSettings = settings?.Project;
         if (projectSettings == null) return;
 
-        if (!string.IsNullOrEmpty(projectSettings.LandscapeCameraLocationString) &&
-            Position.TryParse(projectSettings.LandscapeCameraLocationString, out var pos, _cachedLandscapeDocument?.Region)) {
-            scene.Teleport(pos!.GlobalPosition, (uint)((pos.LandblockId << 16) | pos.CellId));
-            if (pos.Rotation.HasValue) {
-                scene.CurrentCamera.Rotation = pos.Rotation.Value;
-            }
-        }
-
+        scene.RestoreCamera(projectSettings.LandscapeCameraLocationString, projectSettings.LandscapeCameraFieldOfView);
         scene.Camera3D.MoveSpeed = projectSettings.LandscapeCameraMovementSpeed;
-        scene.Camera3D.FieldOfView = projectSettings.LandscapeCameraFieldOfView;
-        scene.Camera2D.FieldOfView = projectSettings.LandscapeCameraFieldOfView;
-
         scene.SetCameraMode(projectSettings.LandscapeCameraIs3D);
-        scene.SyncZoomFromZ();
     }
 
     public void InvalidateLandblock(int x, int y) {

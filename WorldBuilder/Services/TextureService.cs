@@ -57,13 +57,8 @@ namespace WorldBuilder.Services {
         public async Task<Bitmap?> GetTextureAsync(uint textureId, uint paletteId = 0, bool isClipMap = false) {
             var cacheKey = ((long)textureId << 32) | (paletteId << 1) | (isClipMap ? 1L : 0L);
 
-            lock (_textureCache) {
-                if (_textureCache.TryGetValue(cacheKey, out var cachedBitmap)) {
-                    // Move to end of LRU
-                    _lruList.Remove(cacheKey);
-                    _lruList.AddLast(cacheKey);
-                    return cachedBitmap;
-                }
+            if (TryGetCachedBitmap(cacheKey, out var cachedBitmap)) {
+                return cachedBitmap;
             }
 
             return await Task.Run(() => {
@@ -113,6 +108,17 @@ namespace WorldBuilder.Services {
             });
         }
 
+        private bool TryGetCachedBitmap(long key, out Bitmap? bitmap) {
+            lock (_textureCache) {
+                if (_textureCache.TryGetValue(key, out bitmap)) {
+                    _lruList.Remove(key);
+                    _lruList.AddLast(key);
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private void AddToCache(long key, Bitmap? bitmap) {
             lock (_textureCache) {
                 if (_textureCache.Count >= MaxCacheSize) {
@@ -137,12 +143,8 @@ namespace WorldBuilder.Services {
 
             var cacheKey = (long)palette.Id << 32;
             
-            lock (_textureCache) {
-                if (_textureCache.TryGetValue(cacheKey, out var cachedPalette) && cachedPalette != null) {
-                    _lruList.Remove(cacheKey);
-                    _lruList.AddLast(cacheKey);
-                    return cachedPalette;
-                }
+            if (TryGetCachedBitmap(cacheKey, out var cachedPalette)) {
+                return cachedPalette;
             }
 
             var numColors = palette.Colors.Count;
@@ -156,9 +158,7 @@ namespace WorldBuilder.Services {
                 unsafe {
                     uint* ptr = (uint*)locked.Address;
                     for (int i = 0; i < numColors; i++) {
-                        var color = palette.Colors[i];
-                        uint val = (uint)(color.Red | (color.Green << 8) | (color.Blue << 16) | (color.Alpha << 24));
-                        ptr[i] = val;
+                        ptr[i] = ColorToRgba32(palette.Colors[i]);
                     }
                 }
             }
@@ -172,12 +172,8 @@ namespace WorldBuilder.Services {
 
             var cacheKey = (long)palSet.Id << 32;
 
-            lock (_textureCache) {
-                if (_textureCache.TryGetValue(cacheKey, out var cachedPalSet) && cachedPalSet != null) {
-                    _lruList.Remove(cacheKey);
-                    _lruList.AddLast(cacheKey);
-                    return cachedPalSet;
-                }
+            if (TryGetCachedBitmap(cacheKey, out var cachedPalSet)) {
+                return cachedPalSet;
             }
 
             // Calculate all colors from all palettes
@@ -206,9 +202,7 @@ namespace WorldBuilder.Services {
                 unsafe {
                     uint* ptr = (uint*)locked.Address;
                     for (int i = 0; i < allColors.Count; i++) {
-                        var color = allColors[i];
-                        uint val = (uint)(color.Red | (color.Green << 8) | (color.Blue << 16) | (color.Alpha << 24));
-                        ptr[i] = val;
+                        ptr[i] = ColorToRgba32(allColors[i]);
                     }
                 }
             }
@@ -219,12 +213,9 @@ namespace WorldBuilder.Services {
         public Bitmap CreateSolidColorBitmap(ColorARGB color, int width = 32, int height = 32) {
             uint colorVal = (uint)(color.Red | (color.Green << 8) | (color.Blue << 16) | (color.Alpha << 24));
             var cacheKey = ((long)colorVal << 32) | ((long)width << 16) | (uint)height;
-            lock (_textureCache) {
-                if (_textureCache.TryGetValue(cacheKey, out var cachedBitmap) && cachedBitmap != null) {
-                    _lruList.Remove(cacheKey);
-                    _lruList.AddLast(cacheKey);
-                    return cachedBitmap;
-                }
+            
+            if (TryGetCachedBitmap(cacheKey, out var cachedBitmap) && cachedBitmap != null) {
+                return cachedBitmap;
             }
 
             var wb = new WriteableBitmap(new Avalonia.PixelSize(width, height), new Avalonia.Vector(96, 96), Avalonia.Platform.PixelFormat.Rgba8888, Avalonia.Platform.AlphaFormat.Unpremul);
@@ -232,7 +223,7 @@ namespace WorldBuilder.Services {
             using (var locked = wb.Lock()) {
                 unsafe {
                     uint* ptr = (uint*)locked.Address;
-                    uint val = (uint)(color.Red | (color.Green << 8) | (color.Blue << 16) | (color.Alpha << 24));
+                    uint val = ColorToRgba32(color);
                     for (int i = 0; i < width * height; i++) {
                         ptr[i] = val;
                     }
@@ -241,6 +232,10 @@ namespace WorldBuilder.Services {
 
             AddToCache(cacheKey, wb);
             return wb;
+        }
+
+        private static uint ColorToRgba32(ColorARGB color) {
+            return (uint)(color.Red | (color.Green << 8) | (color.Blue << 16) | (color.Alpha << 24));
         }
 
         public void Dispose() {

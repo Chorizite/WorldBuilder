@@ -30,6 +30,7 @@ namespace WorldBuilder.Views {
         public abstract DebugRenderSettings RenderSettings { get; }
         public bool RenderContinuously { get; set; } = true;
         protected bool _renderRequested = true;
+        protected Vector2 _lastPointerPosition;
 
         public void RequestRender() {
             _renderRequested = true;
@@ -189,6 +190,35 @@ namespace WorldBuilder.Views {
         protected abstract void OnGlResize(PixelSize canvasSize);
         protected abstract void OnGlDestroy();
 
+        protected ViewportInputEvent CreateInputEvent(PointerEventArgs e) {
+            var pos = e.GetPosition(this);
+            var scaledPos = new Vector2((float)pos.X, (float)pos.Y) * InputScale;
+            var properties = e.GetCurrentPoint(this).Properties;
+            var delta = scaledPos - _lastPointerPosition;
+
+            return new ViewportInputEvent {
+                Position = scaledPos,
+                Delta = delta,
+                IsLeftDown = properties.IsLeftButtonPressed,
+                IsRightDown = properties.IsRightButtonPressed,
+                ShiftDown = (e.KeyModifiers & KeyModifiers.Shift) != 0,
+                CtrlDown = (e.KeyModifiers & KeyModifiers.Control) != 0,
+                AltDown = (e.KeyModifiers & KeyModifiers.Alt) != 0,
+                ViewportSize = new Vector2((float)Bounds.Width, (float)Bounds.Height) * InputScale
+            };
+        }
+
+        protected ViewportInputEvent CreateInputEvent(KeyEventArgs e) {
+            return new ViewportInputEvent {
+                Key = e.Key.ToString(),
+                Position = _lastPointerPosition,
+                ShiftDown = (e.KeyModifiers & KeyModifiers.Shift) != 0,
+                CtrlDown = (e.KeyModifiers & KeyModifiers.Control) != 0,
+                AltDown = (e.KeyModifiers & KeyModifiers.Alt) != 0,
+                ViewportSize = new Vector2((float)Bounds.Width, (float)Bounds.Height) * InputScale
+            };
+        }
+
         #region Input Event Handlers
 
         protected override void OnKeyDown(KeyEventArgs e) {
@@ -222,6 +252,7 @@ namespace WorldBuilder.Views {
             var pos = e.GetPosition(this);
             var scaledPos = new Vector2((float)pos.X, (float)pos.Y) * InputScale;
             OnGlPointerMoved(e, scaledPos);
+            _lastPointerPosition = scaledPos;
         }
 
         protected abstract void OnGlPointerMoved(PointerEventArgs e, Vector2 mousePositionScaled);
@@ -235,6 +266,8 @@ namespace WorldBuilder.Views {
 
         protected override void OnPointerPressed(PointerPressedEventArgs e) {
             base.OnPointerPressed(e);
+            var pos = e.GetPosition(this);
+            _lastPointerPosition = new Vector2((float)pos.X, (float)pos.Y) * InputScale;
             OnGlPointerPressed(e);
         }
 
