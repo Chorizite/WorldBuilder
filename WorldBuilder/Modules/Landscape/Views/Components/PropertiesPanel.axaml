@@ -215,11 +215,11 @@
                                                    DataId="{Binding ObjectId}" 
                                                    Dats="{Binding #Root.((vm:PropertiesPanelViewModel)DataContext).Dats}" />
                                 
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Cell ID: " Opacity="0.7" VerticalAlignment="Center" />
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CellIdHex}" VerticalAlignment="Center" />
-
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Instance ID: " Opacity="0.7" VerticalAlignment="Center" />
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding InstanceIdHex}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Instance ID: " Opacity="0.7" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding InstanceIdHex}" VerticalAlignment="Center" />
+                                
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Cell ID: " Opacity="0.7" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CellIdHex}" VerticalAlignment="Center" />
                                 
                                 <TextBlock Grid.Row="3" Grid.Column="0" Text="Position: " Opacity="0.7" VerticalAlignment="Center" />
                                 <comp:Vector3Editor Grid.Row="3" Grid.Column="1" 

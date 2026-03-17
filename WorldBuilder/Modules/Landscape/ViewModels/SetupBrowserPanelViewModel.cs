@@ -15,7 +15,7 @@ using System.ComponentModel;
 using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Modules.Landscape.ViewModels {
-    public partial class SetupBrowserPanelViewModel : ViewModelBase, IDisposable {
+    public partial class SetupBrowserPanelViewModel : ViewModelBase, IDisposable, IKeywordSearchViewModel {
         private readonly IKeywordRepositoryService _keywordRepository;
         private readonly ProjectManager _projectManager;
         private readonly IDatReaderWriter _dats;
@@ -40,7 +40,7 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
         [ObservableProperty]
         private SearchType _searchType = SearchType.Hybrid;
 
-        public static IEnumerable<SearchType> SearchTypes => Enum.GetValues<SearchType>();
+        public IEnumerable<SearchType> SearchTypes => Enum.GetValues<SearchType>();
 
         public bool IsObjectToolActive => _objTool.IsActive;
 
@@ -67,7 +67,9 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
                 _dats,
                 _settings,
                 _themeService,
-                onSelected: OnSetupSelected);
+                onSelected: OnSetupSelected) {
+                ShowToolbar = false
+            };
 
             _keywordRepository.GlobalProgress += OnKeywordGenerationProgress;
             _projectManager.CurrentProjectChanged += OnProjectChanged;
@@ -87,34 +89,51 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
         }
 
         partial void OnKeywordsSearchTextChanged(string value) {
-            _searchCts?.Cancel();
-            _searchCts = new CancellationTokenSource();
-            _ = PerformSearchAsync(value, SearchType, _searchCts.Token);
+            TriggerSearch();
         }
 
         partial void OnSearchTypeChanged(SearchType value) {
+            TriggerSearch();
+        }
+
+        private void TriggerSearch() {
             _searchCts?.Cancel();
+            _searchCts?.Dispose();
             _searchCts = new CancellationTokenSource();
-            _ = PerformSearchAsync(KeywordsSearchText, value, _searchCts.Token);
+            
+            if (GridBrowser != null) {
+                GridBrowser.IsKeywordsSearching = !string.IsNullOrWhiteSpace(KeywordsSearchText);
+            }
+            
+            _ = PerformSearchAsync(KeywordsSearchText, SearchType, _searchCts.Token);
         }
 
         private async Task PerformSearchAsync(string query, SearchType searchType, CancellationToken ct) {
             if (GridBrowser == null) return;
 
-            if (string.IsNullOrWhiteSpace(query)) {
-                GridBrowser.SetFileIds(_dats.Portal.GetAllIdsOfType<DatReaderWriter.DBObjs.Setup>().OrderBy(x => x).ToList());
-                return;
-            }
-
             try {
+                if (!string.IsNullOrWhiteSpace(query)) {
+                    await Task.Delay(300, ct);
+                }
+
+                if (string.IsNullOrWhiteSpace(query)) {
+                    GridBrowser.SetFileIds(_dats.Portal.GetAllIdsOfType<DatReaderWriter.DBObjs.Setup>().OrderBy(x => x).ToList());
+                    GridBrowser.IsKeywordsSearching = false;
+                    return;
+                }
+
                 var project = _projectManager.CurrentProject;
-                if (project == null) return;
+                if (project == null) {
+                    GridBrowser.IsKeywordsSearching = false;
+                    return;
+                }
 
                 var datId = project.ManagedIds.ManagedDatSetId ?? Guid.Empty;
                 var aceId = project.ManagedIds.ManagedAceDbId ?? Guid.Empty;
 
                 if (!_keywordRepository.AreKeywordsValid(datId, aceId)) {
                     GridBrowser.SetFileIds(Enumerable.Empty<uint>());
+                    GridBrowser.IsKeywordsSearching = false;
                     return;
                 }
 
@@ -131,7 +150,7 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
             }
             catch (OperationCanceledException) { }
             catch (Exception) {
-                // Log error potentially
+                GridBrowser.IsKeywordsSearching = false;
             }
         }
 

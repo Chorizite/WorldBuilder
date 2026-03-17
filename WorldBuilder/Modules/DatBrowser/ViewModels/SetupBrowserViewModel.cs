@@ -8,7 +8,7 @@ using WorldBuilder.Services;
 using WorldBuilder.Shared.Services;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
-    public partial class SetupBrowserViewModel : BaseDatBrowserViewModel<DatReaderWriter.DBObjs.Setup> {
+    public partial class SetupBrowserViewModel : BaseDatBrowserViewModel<DatReaderWriter.DBObjs.Setup>, IKeywordSearchViewModel {
         private readonly IKeywordRepositoryService _keywordRepository;
         private readonly ProjectManager _projectManager;
         private CancellationTokenSource? _searchCts;
@@ -28,6 +28,8 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         [ObservableProperty]
         private SearchType _searchType = SearchType.Hybrid;
+
+        public IEnumerable<SearchType> SearchTypes => System.Enum.GetValues<SearchType>();
 
         public SetupBrowserViewModel(IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService, IKeywordRepositoryService keywordRepository, ProjectManager projectManager) : base(DBObjType.Setup, dats, settings, themeService) {
             _keywordRepository = keywordRepository;

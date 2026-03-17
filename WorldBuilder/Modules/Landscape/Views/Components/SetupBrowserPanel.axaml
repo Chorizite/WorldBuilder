@@ -5,6 +5,7 @@
              xmlns:vm="using:WorldBuilder.Modules.Landscape.ViewModels"
              xmlns:datVm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
              xmlns:datViews="using:WorldBuilder.Modules.DatBrowser.Views"
+             xmlns:mainComponents="using:WorldBuilder.Views.Components"
              xmlns:materialIcons="using:Material.Icons.Avalonia"
              xmlns:conv="using:WorldBuilder.Converters"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="300"
@@ -21,60 +22,11 @@
                 Background="{DynamicResource SemiColorBackground1}" 
                 CornerRadius="6" BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1">
             <StackPanel Orientation="Horizontal" Spacing="8">
-                <ComboBox ItemsSource="{Binding SearchTypes}" 
-                          SelectedItem="{Binding SearchType}"
-                          ToolTip.Tip="{Binding SearchType, Converter={StaticResource EnumDescriptionConverter}}"
-                          VerticalAlignment="Center"
-                          MinWidth="100">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}" VerticalAlignment="Center"
-                                       ToolTip.Tip="{Binding Converter={StaticResource EnumDescriptionConverter}}"/>
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
-
-                <TextBox Text="{Binding KeywordsSearchText}" 
-                         Watermark="Search setups..." 
-                         IsEnabled="{Binding IsKeywordsSearchEnabled}"
-                         ToolTip.Tip="{Binding KeywordsSearchTooltip}"
-                         VerticalAlignment="Center"
-                         MinWidth="300">
-                    <TextBox.InnerRightContent>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,5,0">
-                            <ProgressBar IsIndeterminate="True" 
-                                         IsVisible="{Binding GridBrowser.IsKeywordsSearching, FallbackValue=False}" 
-                                         Width="16" Height="16" 
-                                         Classes="Ring"
-                                         Theme="{DynamicResource ProgressRing}"
-                                         Margin="0,0,5,0" />
-                            <materialIcons:MaterialIcon Kind="AutoFix" 
-                                                       IsVisible="{Binding IsEmbeddingSearchActive}"
-                                                       Width="16" Height="16" 
-                                                       Foreground="{DynamicResource SemiColorPrimary}"
-                                                       Margin="0,0,5,0"/>
-                            <materialIcons:MaterialIcon Kind="TextBoxSearch" 
-                                                       IsVisible="{Binding !IsEmbeddingSearchActive}"
-                                                       IsEnabled="{Binding IsKeywordsSearchEnabled}"
-                                                       Width="16" Height="16" 
-                                                       Foreground="{DynamicResource SemiColorText2}"
-                                                       Margin="0,0,5,0"/>
-                            <PathIcon Data="{StaticResource WarningIcon}" 
-                                      IsVisible="{Binding !IsKeywordsSearchEnabled}" 
-                                      Width="16" Height="16" 
-                                      Foreground="Orange"
-                                      ToolTip.Tip="{Binding KeywordsSearchTooltip}"/>
-                        </StackPanel>
-                    </TextBox.InnerRightContent>
-                </TextBox>
+                <mainComponents:KeywordsSearchControl DataContext="{Binding}" />
                 
                 <Separator Classes="Vertical" Margin="5,2" />
                 
-                <TextBlock Text="Items Per Row:" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource SemiColorText1}"/>
-                <Slider Minimum="2" Maximum="24" Value="{Binding GridBrowser.ItemsPerRow, FallbackValue=8}" Width="150" VerticalAlignment="Center"/>
-                <TextBlock Text="{Binding GridBrowser.ItemsPerRow, FallbackValue=8}" VerticalAlignment="Center" Width="20" FontSize="12"/>
-
-                <CheckBox Content="Wireframe" IsChecked="{Binding GridBrowser.ShowWireframe, FallbackValue=False}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                <mainComponents:GridSettingsControl DataContext="{Binding GridBrowser}" />
             </StackPanel>
         </Border>
 

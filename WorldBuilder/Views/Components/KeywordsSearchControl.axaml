@@ -1,0 +1,64 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:vm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
+             xmlns:materialIcons="using:Material.Icons.Avalonia"
+             xmlns:conv="using:WorldBuilder.Converters"
+             mc:Ignorable="d"
+             x:Class="WorldBuilder.Views.Components.KeywordsSearchControl"
+             x:DataType="vm:IKeywordSearchViewModel">
+    <UserControl.Resources>
+        <conv:EnumDescriptionConverter x:Key="EnumDescriptionConverter"/>
+        <StreamGeometry x:Key="WarningIcon">M12,2L1,21H23L12,2M12,6L19.53,19H4.47L12,6M11,10V14H13V10H11M11,16V18H13V16H11Z</StreamGeometry>
+    </UserControl.Resources>
+    <StackPanel Orientation="Horizontal" Spacing="8">
+        <ComboBox ItemsSource="{Binding SearchTypes}" 
+                  SelectedItem="{Binding SearchType}"
+                  ToolTip.Tip="{Binding SearchType, Converter={StaticResource EnumDescriptionConverter}}"
+                  VerticalAlignment="Center"
+                  IsEnabled="{Binding IsEmbeddingSearchActive}"
+                  MinWidth="100">
+            <ComboBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}" VerticalAlignment="Center"
+                               ToolTip.Tip="{Binding Converter={StaticResource EnumDescriptionConverter}}"/>
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+
+        <TextBox Text="{Binding KeywordsSearchText}" 
+                 Watermark="Search..." 
+                 IsEnabled="{Binding IsKeywordsSearchEnabled}"
+                 ToolTip.Tip="{Binding KeywordsSearchTooltip}"
+                 VerticalAlignment="Center"
+                 MinWidth="250">
+            <TextBox.InnerRightContent>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,5,0">
+                    <ProgressBar IsIndeterminate="True" 
+                                 IsVisible="{Binding GridBrowser.IsKeywordsSearching, FallbackValue=False}" 
+                                 Width="16" Height="16" 
+                                 Classes="Ring"
+                                 Theme="{DynamicResource ProgressRing}"
+                                 Margin="0,0,5,0" />
+                    <materialIcons:MaterialIcon Kind="AutoFix" 
+                                               IsVisible="{Binding IsEmbeddingSearchActive}"
+                                               Width="16" Height="16" 
+                                               Foreground="{DynamicResource SemiColorPrimary}"
+                                               Margin="0,0,5,0"/>
+                    <materialIcons:MaterialIcon Kind="TextBoxSearch" 
+                                               IsVisible="{Binding !IsEmbeddingSearchActive}"
+                                               IsEnabled="{Binding IsKeywordsSearchEnabled}"
+                                               Width="16" Height="16" 
+                                               Foreground="{DynamicResource SemiColorText2}"
+                                               Margin="0,0,5,0"/>
+                    <PathIcon Data="{StaticResource WarningIcon}" 
+                              IsVisible="{Binding !IsKeywordsSearchEnabled}" 
+                              Width="16" Height="16" 
+                              Foreground="Orange"
+                              ToolTip.Tip="{Binding KeywordsSearchTooltip}"/>
+                </StackPanel>
+            </TextBox.InnerRightContent>
+        </TextBox>
+    </StackPanel>
+</UserControl>

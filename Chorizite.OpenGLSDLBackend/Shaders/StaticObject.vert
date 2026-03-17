@@ -51,5 +51,5 @@ void main() {
     TextureIndex = aTextureIndex;
     
     float diff = max(dot(Normal, normalize(uLightDirection)), 0.0);
-    LightingColor = clamp(uAmbientColor + uSunlightColor * diff + 0.1, 0.0, 1.0);
+    LightingColor = clamp(uAmbientColor + uSunlightColor * diff + 0.15, 0.0, 1.0);
 }

@@ -6,17 +6,13 @@
         xmlns:views="using:WorldBuilder.Views"
         xmlns:sys="using:System"
         xmlns:materialIcons="using:Material.Icons.Avalonia"
+        xmlns:mainComponents="using:WorldBuilder.Views.Components"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="WorldBuilder.Modules.DatBrowser.Views.GridBrowserView"
         x:DataType="vm:GridBrowserViewModel">
     <Grid RowDefinitions="Auto, *">
-        <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto" Margin="10,5,10,5">
-            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-                <TextBlock Text="Items Per Row:" VerticalAlignment="Center"/>
-                <Slider Minimum="1" Maximum="36" Value="{Binding ItemsPerRow}" Width="200" VerticalAlignment="Center"/>
-                <TextBlock Text="{Binding ItemsPerRow}" VerticalAlignment="Center" Width="30"/>
-                <CheckBox Content="Show Wireframe" IsChecked="{Binding ShowWireframe}" IsVisible="{Binding Is3DViewAndNotEnvironment}" VerticalAlignment="Center"/>
-            </StackPanel>
+        <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto" Margin="10,5,10,5" IsVisible="{Binding ShowToolbar}">
+            <mainComponents:GridSettingsControl DataContext="{Binding}" />
         </Grid>
 
         <ScrollViewer x:Name="Part_ScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto">

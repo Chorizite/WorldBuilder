@@ -80,5 +80,5 @@ void main() {
     TextureIndex = Batches[gl_DrawIDARB + uDrawIDOffset].TextureIndex;
     
     float diff = max(dot(Normal, normalize(uLightDirection)), 0.0);
-    LightingColor = clamp(uAmbientColor + uSunlightColor * diff + 0.1, 0.0, 1.0);
+    LightingColor = clamp(uAmbientColor + uSunlightColor * diff + 0.15, 0.0, 1.0);
 }

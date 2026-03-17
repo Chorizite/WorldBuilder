@@ -27,7 +27,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
-    public partial class DatBrowserViewModel : ViewModelBase, IToolModule, IHotkeyHandler {
+    public partial class DatBrowserViewModel : ViewModelBase, IToolModule, IHotkeyHandler, IKeywordSearchViewModel {
         public string Name => "Dat Browser";
         public ViewModelBase ViewModel => this;
 
@@ -141,6 +141,8 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private bool _isEmbeddingSearchActive;
 
         public IEnumerable<SearchType> SearchTypes => System.Enum.GetValues<SearchType>();
+
+        public GridBrowserViewModel? GridBrowser => (CurrentBrowser as IDatBrowserViewModel)?.GridBrowser;
 
         private bool _isSettingObject;
         private bool _showKeywords;
@@ -354,6 +356,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             if (newValue is IDatBrowserViewModel newBrowser && newBrowser.GridBrowser != null) {
                 newBrowser.GridBrowser.PropertyChanged += OnGridBrowserPropertyChanged;
             }
+            OnPropertyChanged(nameof(GridBrowser));
             UpdateSearchProperties();
             UpdateSelectedObject();
         }
