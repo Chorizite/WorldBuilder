@@ -69,7 +69,10 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private string _keywordsSearchText = string.Empty;
 
         [ObservableProperty]
-        private bool _isKeywordsSearchEnabled;
+        private bool _isKeywordsSearchEnabled = true;
+
+        [ObservableProperty]
+        private bool _showKeywordsSearchWarning = false;
 
         [ObservableProperty]
         private bool _isKeywordsSearching;

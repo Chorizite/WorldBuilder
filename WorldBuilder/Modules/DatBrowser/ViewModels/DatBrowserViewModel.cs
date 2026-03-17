@@ -99,7 +99,10 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private ViewModelBase? _currentBrowser;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsSearchVisible))]
         private IDBObj? _selectedObject;
+
+        public bool IsSearchVisible => SelectedObject == null;
 
         [ObservableProperty]
         private object? _objectOverview;
@@ -126,7 +129,10 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private string _keywordsSearchText = string.Empty;
 
         [ObservableProperty]
-        private bool _isKeywordsSearchEnabled;
+        private bool _isKeywordsSearchEnabled = true;
+
+        [ObservableProperty]
+        private bool _showKeywordsSearchWarning;
 
         [ObservableProperty]
         private string _keywordsSearchTooltip = string.Empty;
@@ -139,6 +145,9 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
 
         [ObservableProperty]
         private bool _isEmbeddingSearchActive;
+
+        [ObservableProperty]
+        private bool _isSearchTypeSelectionEnabled;
 
         public IEnumerable<SearchType> SearchTypes => System.Enum.GetValues<SearchType>();
 
@@ -370,21 +379,27 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                     stovm.SelectedTextureId = stBrowser.PreviewFileId;
                 }
             }
-            if (sender is SetupBrowserViewModel setupBrowser) {
-                if (e.PropertyName == nameof(SetupBrowserViewModel.KeywordsSearchText)) {
-                    KeywordsSearchText = setupBrowser.KeywordsSearchText;
+            if (sender is IDatBrowserViewModel browser) {
+                if (e.PropertyName == nameof(IDatBrowserViewModel.KeywordsSearchText)) {
+                    KeywordsSearchText = browser.KeywordsSearchText;
                 }
-                else if (e.PropertyName == nameof(SetupBrowserViewModel.IsKeywordsSearchEnabled)) {
-                    IsKeywordsSearchEnabled = setupBrowser.IsKeywordsSearchEnabled;
+                else if (e.PropertyName == nameof(IDatBrowserViewModel.IsKeywordsSearchEnabled)) {
+                    IsKeywordsSearchEnabled = browser.IsKeywordsSearchEnabled;
                 }
-                else if (e.PropertyName == nameof(SetupBrowserViewModel.KeywordsSearchTooltip)) {
-                    KeywordsSearchTooltip = setupBrowser.KeywordsSearchTooltip;
+                else if (e.PropertyName == nameof(IDatBrowserViewModel.ShowKeywordsSearchWarning)) {
+                    ShowKeywordsSearchWarning = browser.ShowKeywordsSearchWarning;
                 }
-                else if (e.PropertyName == nameof(SetupBrowserViewModel.IsEmbeddingSearchActive)) {
-                    IsEmbeddingSearchActive = setupBrowser.IsEmbeddingSearchActive;
+                else if (e.PropertyName == nameof(IDatBrowserViewModel.KeywordsSearchTooltip)) {
+                    KeywordsSearchTooltip = browser.KeywordsSearchTooltip;
                 }
-                else if (e.PropertyName == nameof(SetupBrowserViewModel.SearchType)) {
-                    SearchType = setupBrowser.SearchType;
+                else if (e.PropertyName == nameof(IDatBrowserViewModel.IsEmbeddingSearchActive)) {
+                    IsEmbeddingSearchActive = browser.IsEmbeddingSearchActive;
+                }
+                else if (e.PropertyName == nameof(IDatBrowserViewModel.IsSearchTypeSelectionEnabled)) {
+                    IsSearchTypeSelectionEnabled = browser.IsSearchTypeSelectionEnabled;
+                }
+                else if (e.PropertyName == nameof(IDatBrowserViewModel.SearchType)) {
+                    SearchType = browser.SearchType;
                 }
             }
         }
@@ -401,35 +416,39 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         }
 
         private void UpdateSearchProperties() {
-            if (CurrentBrowser is SetupBrowserViewModel setupBrowser) {
-                KeywordsSearchText = setupBrowser.KeywordsSearchText;
-                IsKeywordsSearchEnabled = setupBrowser.IsKeywordsSearchEnabled;
-                KeywordsSearchTooltip = setupBrowser.KeywordsSearchTooltip;
-                IsEmbeddingSearchActive = setupBrowser.IsEmbeddingSearchActive;
-                SearchType = setupBrowser.SearchType;
-                if (setupBrowser.GridBrowser != null) {
-                    IsKeywordsSearching = setupBrowser.GridBrowser.IsKeywordsSearching;
-                    IsEmbeddingSearchActive = setupBrowser.GridBrowser.IsEmbeddingSearchActive;
+            if (CurrentBrowser is IDatBrowserViewModel browser) {
+                KeywordsSearchText = browser.KeywordsSearchText;
+                IsKeywordsSearchEnabled = browser.IsKeywordsSearchEnabled;
+                ShowKeywordsSearchWarning = browser.ShowKeywordsSearchWarning;
+                KeywordsSearchTooltip = browser.KeywordsSearchTooltip;
+                IsEmbeddingSearchActive = browser.IsEmbeddingSearchActive;
+                IsSearchTypeSelectionEnabled = browser.IsSearchTypeSelectionEnabled;
+                SearchType = browser.SearchType;
+                if (browser.GridBrowser != null) {
+                    IsKeywordsSearching = browser.GridBrowser.IsKeywordsSearching;
+                    IsEmbeddingSearchActive = browser.GridBrowser.IsEmbeddingSearchActive;
                 }
             }
             else {
                 KeywordsSearchText = string.Empty;
                 IsKeywordsSearchEnabled = false;
+                ShowKeywordsSearchWarning = false;
                 KeywordsSearchTooltip = string.Empty;
                 IsKeywordsSearching = false;
                 IsEmbeddingSearchActive = false;
+                IsSearchTypeSelectionEnabled = false;
             }
         }
 
         partial void OnKeywordsSearchTextChanged(string value) {
-            if (CurrentBrowser is SetupBrowserViewModel setupBrowser) {
-                setupBrowser.KeywordsSearchText = value;
+            if (CurrentBrowser is IDatBrowserViewModel browser) {
+                browser.KeywordsSearchText = value;
             }
         }
 
         partial void OnSearchTypeChanged(SearchType value) {
-            if (CurrentBrowser is SetupBrowserViewModel setupBrowser) {
-                setupBrowser.SearchType = value;
+            if (CurrentBrowser is IDatBrowserViewModel browser) {
+                browser.SearchType = value;
             }
         }
 

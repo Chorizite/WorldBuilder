@@ -139,7 +139,7 @@
                     ResizeDirection="Rows" />
 
       <!-- Setup Browser Panel -->
-      <components:SetupBrowserPanel Grid.Row="3" MinHeight="100" MaxHeight="600"
+      <components:SetupBrowserPanel Grid.Row="3" MinHeight="100"
                                    VerticalAlignment="Stretch"
                                    DataContext="{Binding SetupBrowserPanel}" 
                                    IsVisible="{Binding IsObjectToolActive}" />

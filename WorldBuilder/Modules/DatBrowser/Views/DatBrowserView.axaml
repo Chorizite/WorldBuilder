@@ -85,7 +85,7 @@
                             Margin="5"/>
                 </StackPanel>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" Margin="5" VerticalAlignment="Center" IsVisible="{Binding IsKeywordsSearchEnabled}">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" Margin="5" VerticalAlignment="Center" IsVisible="{Binding IsSearchVisible}">
                     <mainComponents:KeywordsSearchControl DataContext="{Binding}" />
                 </StackPanel>
             </Grid>

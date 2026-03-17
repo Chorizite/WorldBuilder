@@ -17,7 +17,7 @@
                   SelectedItem="{Binding SearchType}"
                   ToolTip.Tip="{Binding SearchType, Converter={StaticResource EnumDescriptionConverter}}"
                   VerticalAlignment="Center"
-                  IsEnabled="{Binding IsEmbeddingSearchActive}"
+                  IsEnabled="{Binding IsSearchTypeSelectionEnabled}"
                   MinWidth="100">
             <ComboBox.ItemTemplate>
                 <DataTemplate>
@@ -27,38 +27,39 @@
             </ComboBox.ItemTemplate>
         </ComboBox>
 
-        <TextBox Text="{Binding KeywordsSearchText}" 
-                 Watermark="Search..." 
-                 IsEnabled="{Binding IsKeywordsSearchEnabled}"
-                 ToolTip.Tip="{Binding KeywordsSearchTooltip}"
-                 VerticalAlignment="Center"
-                 MinWidth="250">
-            <TextBox.InnerRightContent>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,5,0">
-                    <ProgressBar IsIndeterminate="True" 
-                                 IsVisible="{Binding GridBrowser.IsKeywordsSearching, FallbackValue=False}" 
-                                 Width="16" Height="16" 
-                                 Classes="Ring"
-                                 Theme="{DynamicResource ProgressRing}"
-                                 Margin="0,0,5,0" />
-                    <materialIcons:MaterialIcon Kind="AutoFix" 
-                                               IsVisible="{Binding IsEmbeddingSearchActive}"
-                                               Width="16" Height="16" 
-                                               Foreground="{DynamicResource SemiColorPrimary}"
-                                               Margin="0,0,5,0"/>
-                    <materialIcons:MaterialIcon Kind="TextBoxSearch" 
-                                               IsVisible="{Binding !IsEmbeddingSearchActive}"
-                                               IsEnabled="{Binding IsKeywordsSearchEnabled}"
-                                               Width="16" Height="16" 
-                                               Foreground="{DynamicResource SemiColorText2}"
-                                               Margin="0,0,5,0"/>
-                    <PathIcon Data="{StaticResource WarningIcon}" 
-                              IsVisible="{Binding !IsKeywordsSearchEnabled}" 
-                              Width="16" Height="16" 
-                              Foreground="Orange"
-                              ToolTip.Tip="{Binding KeywordsSearchTooltip}"/>
-                </StackPanel>
-            </TextBox.InnerRightContent>
-        </TextBox>
+        <Panel Background="Transparent" 
+               ToolTip.Tip="{Binding KeywordsSearchTooltip}"
+               VerticalAlignment="Center">
+            <TextBox Text="{Binding KeywordsSearchText}" 
+                     Watermark="Search..." 
+                     IsEnabled="{Binding IsKeywordsSearchEnabled}"
+                     MinWidth="250">
+                <TextBox.InnerRightContent>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,5,0">
+                        <ProgressBar IsIndeterminate="True" 
+                                     IsVisible="{Binding GridBrowser.IsKeywordsSearching, FallbackValue=False}" 
+                                     Width="16" Height="16" 
+                                     Classes="Ring"
+                                     Theme="{DynamicResource ProgressRing}"
+                                     Margin="0,0,5,0" />
+                        <materialIcons:MaterialIcon Kind="AutoFix" 
+                                                   IsVisible="{Binding IsEmbeddingSearchActive}"
+                                                   Width="16" Height="16" 
+                                                   Foreground="{DynamicResource SemiColorPrimary}"
+                                                   Margin="0,0,5,0"/>
+                        <materialIcons:MaterialIcon Kind="TextBoxSearch" 
+                                                   IsVisible="{Binding !IsEmbeddingSearchActive}"
+                                                   Width="16" Height="16" 
+                                                   Foreground="{DynamicResource SemiColorText2}"
+                                                   Margin="0,0,5,0"/>
+                        <PathIcon Data="{StaticResource WarningIcon}" 
+                                  IsVisible="{Binding ShowKeywordsSearchWarning}" 
+                                  Width="16" Height="16" 
+                                  Foreground="Orange"
+                                  ToolTip.Tip="{Binding KeywordsSearchTooltip}"/>
+                    </StackPanel>
+                </TextBox.InnerRightContent>
+            </TextBox>
+        </Panel>
     </StackPanel>
 </UserControl>
