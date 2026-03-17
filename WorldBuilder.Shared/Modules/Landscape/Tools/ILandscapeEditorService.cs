@@ -12,10 +12,11 @@ public interface ILandscapeEditorService {
     void UpdateStaticObject(string layerId, ushort oldLbId, StaticObject oldObject, ushort newLbId, StaticObject newObj);
     void AddStaticObject(string layerId, ushort landblockId, StaticObject obj);
     void DeleteStaticObject(string layerId, ushort landblockId, StaticObject obj);
-    void NotifyObjectPositionPreview(ushort landblockId, ObjectId instanceId, Vector3 position, Quaternion rotation, uint currentCellId);
+    void NotifyObjectPositionPreview(ushort landblockId, ObjectId instanceId, Vector3 position, Quaternion rotation, uint currentCellId, uint modelId = 0);
     
     BoundingBox? GetStaticObjectBounds(ushort landblockId, ObjectId instanceId);
     BoundingBox? GetStaticObjectLocalBounds(ushort landblockId, ObjectId instanceId);
+    BoundingBox? GetModelBounds(uint modelId);
     (Vector3 position, Quaternion rotation, Vector3 localPosition)? GetStaticObjectTransform(ushort landblockId, ObjectId instanceId);
     uint GetEnvCellAt(Vector3 worldPos);
 }

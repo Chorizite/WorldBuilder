@@ -9,8 +9,6 @@ using WorldBuilder.Shared.Services;
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 
 public partial class PortalViewModel : SelectedObjectViewModelBase {
-    public override ObjectType Type => ObjectType.Portal;
-
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CellIdHex))]
     private uint _cellIdVal;
@@ -24,9 +22,10 @@ public partial class PortalViewModel : SelectedObjectViewModelBase {
 
     public string OtherCellIdHex => $"0x{OtherCellId:X4}";
 
-    public PortalViewModel(ushort landblockId, uint cellId, ObjectId instanceId, Vector3 position, Vector3 localPosition, Quaternion rotation, IDatDatabase? cellDatabase) 
-        : base(instanceId, landblockId, position, localPosition, rotation) {
+    public PortalViewModel(ushort landblockId, uint cellId, ObjectId instanceId, Vector3 position, Vector3 localPosition, Quaternion rotation, IDatDatabase? cellDatabase, string layerId = "") 
+        : base(instanceId, landblockId, position, localPosition, rotation, layerId) {
         CellIdVal = cellId;
+        Type = ObjectType.Portal;
 
         if (cellDatabase != null && cellDatabase.TryGet<EnvCell>(cellId, out var envCell)) {
             var rawPortalIndex = instanceId.Index;

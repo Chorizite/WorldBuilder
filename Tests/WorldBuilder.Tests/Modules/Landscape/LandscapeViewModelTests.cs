@@ -17,6 +17,8 @@ using WorldBuilder.Shared.Tests.Mocks;
 using Xunit;
 
 using WorldBuilder.Shared.Tests.Helpers;
+using System;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace WorldBuilder.Tests.Modules.Landscape {
     [Collection("StaticSettingsTests")]
@@ -41,12 +43,17 @@ namespace WorldBuilder.Tests.Modules.Landscape {
             var dialogServiceMock = new Mock<IDialogService>();
             var bookmarksManagerMock = new Mock<BookmarksManager>();
             var landscapeObjectServiceMock = new Mock<ILandscapeObjectService>();
+            var keywordRepositoryMock = new Mock<IKeywordRepositoryService>();
+            var settings = new WorldBuilderSettings { Project = new ProjectSettings() };
+            var rootProvider = new ServiceCollection().BuildServiceProvider();
+            var projectManager = new ProjectManager();
+            var themeService = new ThemeService(settings);
             var inputManager = new MockInputManager();
             
             projectMock.Setup(p => p.IsReadOnly).Returns(false);
             
-            var settings = new WorldBuilderSettings { Project = new ProjectSettings() };
-            var vm = new LandscapeViewModel(projectMock.Object, datsMock.Object, portalServiceMock.Object, docManagerMock.Object, bookmarksManagerMock.Object, loggerMock.Object, dialogServiceMock.Object, settings, inputManager, landscapeObjectServiceMock.Object);
+            var vm = new LandscapeViewModel(projectMock.Object, datsMock.Object, portalServiceMock.Object, docManagerMock.Object, bookmarksManagerMock.Object, loggerMock.Object, dialogServiceMock.Object, settings, inputManager, landscapeObjectServiceMock.Object, keywordRepositoryMock.Object, projectManager, themeService);
+
             
             Assert.IsType<BrushTool>(vm.ActiveTool);
         }
@@ -61,13 +68,17 @@ namespace WorldBuilder.Tests.Modules.Landscape {
             var dialogServiceMock = new Mock<IDialogService>();
             var bookmarksManagerMock = new Mock<BookmarksManager>();
             var landscapeObjectServiceMock = new Mock<ILandscapeObjectService>();
-            
+            var keywordRepositoryMock = new Mock<IKeywordRepositoryService>();
+            var settings = new WorldBuilderSettings { Project = new ProjectSettings() };
+            var rootProvider = new ServiceCollection().BuildServiceProvider();
+            var projectManager = new ProjectManager();
+            var themeService = new ThemeService(settings);
             var inputManager = new MockInputManager();
             
             projectMock.Setup(p => p.IsReadOnly).Returns(false);
             
-            var settings = new WorldBuilderSettings { Project = new ProjectSettings() };
-            var vm = new LandscapeViewModel(projectMock.Object, datsMock.Object, portalServiceMock.Object, docManagerMock.Object, bookmarksManagerMock.Object, loggerMock.Object, dialogServiceMock.Object, settings, inputManager, landscapeObjectServiceMock.Object);
+            var vm = new LandscapeViewModel(projectMock.Object, datsMock.Object, portalServiceMock.Object, docManagerMock.Object, bookmarksManagerMock.Object, loggerMock.Object, dialogServiceMock.Object, settings, inputManager, landscapeObjectServiceMock.Object, keywordRepositoryMock.Object, projectManager, themeService);
+
             
             Assert.IsType<BrushTool>(vm.ActiveTool);
             Assert.False(vm.IsDebugShapesEnabled);
@@ -83,13 +94,17 @@ namespace WorldBuilder.Tests.Modules.Landscape {
             var dialogServiceMock = new Mock<IDialogService>();
             var bookmarksManagerMock = new Mock<BookmarksManager>();
             var landscapeObjectServiceMock = new Mock<ILandscapeObjectService>();
-            
+            var keywordRepositoryMock = new Mock<IKeywordRepositoryService>();
+            var settings = new WorldBuilderSettings { Project = new ProjectSettings() };
+            var rootProvider = new ServiceCollection().BuildServiceProvider();
+            var projectManager = new ProjectManager();
+            var themeService = new ThemeService(settings);
             var inputManager = new MockInputManager();
             
             projectMock.Setup(p => p.IsReadOnly).Returns(false);
             
-            var settings = new WorldBuilderSettings { Project = new ProjectSettings() };
-            var vm = new LandscapeViewModel(projectMock.Object, datsMock.Object, portalServiceMock.Object, docManagerMock.Object, bookmarksManagerMock.Object, loggerMock.Object, dialogServiceMock.Object, settings, inputManager, landscapeObjectServiceMock.Object);
+            var vm = new LandscapeViewModel(projectMock.Object, datsMock.Object, portalServiceMock.Object, docManagerMock.Object, bookmarksManagerMock.Object, loggerMock.Object, dialogServiceMock.Object, settings, inputManager, landscapeObjectServiceMock.Object, keywordRepositoryMock.Object, projectManager, themeService);
+
             
             var inspectorTool = vm.Tools.OfType<InspectorTool>().First();
             vm.ActiveTool = inspectorTool;
@@ -107,13 +122,17 @@ namespace WorldBuilder.Tests.Modules.Landscape {
             var dialogServiceMock = new Mock<IDialogService>();
             var bookmarksManagerMock = new Mock<BookmarksManager>();
             var landscapeObjectServiceMock = new Mock<ILandscapeObjectService>();
-            
+            var keywordRepositoryMock = new Mock<IKeywordRepositoryService>();
+            var settings = new WorldBuilderSettings { Project = new ProjectSettings() };
+            var rootProvider = new ServiceCollection().BuildServiceProvider();
+            var projectManager = new ProjectManager();
+            var themeService = new ThemeService(settings);
             var inputManager = new MockInputManager();
             
             projectMock.Setup(p => p.IsReadOnly).Returns(false);
             
-            var settings = new WorldBuilderSettings { Project = new ProjectSettings() };
-            var vm = new LandscapeViewModel(projectMock.Object, datsMock.Object, portalServiceMock.Object, docManagerMock.Object, bookmarksManagerMock.Object, loggerMock.Object, dialogServiceMock.Object, settings, inputManager, landscapeObjectServiceMock.Object);
+            var vm = new LandscapeViewModel(projectMock.Object, datsMock.Object, portalServiceMock.Object, docManagerMock.Object, bookmarksManagerMock.Object, loggerMock.Object, dialogServiceMock.Object, settings, inputManager, landscapeObjectServiceMock.Object, keywordRepositoryMock.Object, projectManager, themeService);
+
             
             var brushTool = vm.Tools.OfType<BrushTool>().First();
             var inspectorTool = vm.Tools.OfType<InspectorTool>().First();

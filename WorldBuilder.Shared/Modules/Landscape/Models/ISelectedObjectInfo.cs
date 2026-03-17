@@ -7,6 +7,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         ObjectType Type { get; }
         ushort LandblockId { get; set; }
         uint? CellId { get; set; }
+        string LayerId { get; set; }
         ObjectId InstanceId { get; set; }
         uint ObjectId { get; }
         Vector3 Position { get; set; }

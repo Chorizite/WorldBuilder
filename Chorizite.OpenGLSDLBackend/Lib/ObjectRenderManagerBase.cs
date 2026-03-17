@@ -405,17 +405,35 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// Updates the transform of a specific instance in its owner landblock.
         /// This is used for realtime previews during manipulation.
         /// </summary>
-        public virtual void UpdateInstanceTransform(ushort landblockId, ObjectId instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
+        public virtual void UpdateInstanceTransform(ushort landblockId, ObjectId instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0, uint modelId = 0) {
             ushort key = landblockId;
             if (_landblocks.TryGetValue(key, out var lb)) {
                 lock (lb) {
+                    bool found = false;
                     for (int i = 0; i < lb.Instances.Count; i++) {
                         if (lb.Instances[i].InstanceId == instanceId) {
+                            if (position == Vector3.Zero) {
+                                lb.Instances.RemoveAt(i);
+                                PopulatePartGroups(lb, lb.Instances);
+                                NeedsPrepare = true;
+                                MarkMdiDirty();
+
+                                if (UseInstanceBuffer) {
+                                    if (Interlocked.Exchange(ref lb.IsQueuedForUpload, 1) == 0) {
+                                        _uploadQueue[key] = lb;
+                                    }
+                                }
+                                return;
+                            }
                             var instance = lb.Instances[i];
                             instance.WorldPosition = position;
                             instance.Rotation = rotation;
                             instance.Transform = Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateTranslation(position);
                             instance.CurrentPreviewCellId = currentCellId;
+                            if (modelId != 0) {
+                                instance.ObjectId = modelId;
+                                instance.IsSetup = (modelId >> 24) == 0x02;
+                            }
                             if (instance.LocalBoundingBox.Max != instance.LocalBoundingBox.Min) {
                                 instance.BoundingBox = instance.LocalBoundingBox.Transform(instance.Transform);
                             }
@@ -439,7 +457,50 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     _uploadQueue[key] = lb;
                                 }
                             }
-                            return;
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (!found && modelId != 0 && position != Vector3.Zero) {
+                        // Add temporary preview instance
+                        var isSetup = (modelId >> 24) == 0x02;
+                        var transform = Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateTranslation(position);
+                        var bounds = MeshManager.GetBounds(modelId, isSetup);
+                        var localBbox = bounds.HasValue ? new BoundingBox(bounds.Value.Min, bounds.Value.Max) : default;
+                        var bbox = localBbox.Transform(transform);
+
+                        var lbOrigin = Vector3.Zero;
+                        if (LandscapeDoc.Region is WorldBuilder.Shared.Modules.Landscape.Models.ITerrainInfo regionInfo) {
+                            var lbSizeUnits = regionInfo.LandblockSizeInUnits;
+                            var lbX = landblockId >> 8;
+                            var lbY = landblockId & 0xFF;
+                            lbOrigin = new Vector3(new Vector2(lbX * lbSizeUnits, lbY * lbSizeUnits) + regionInfo.MapOffset, 0);
+                        }
+
+                        lb.Instances.Add(new SceneryInstance {
+                            ObjectId = modelId,
+                            InstanceId = instanceId,
+                            IsSetup = isSetup,
+                            IsBuilding = false,
+                            WorldPosition = position,
+                            LocalPosition = position - lbOrigin,
+                            Rotation = rotation,
+                            Scale = Vector3.One,
+                            Transform = transform,
+                            LocalBoundingBox = localBbox,
+                            BoundingBox = bbox,
+                            CurrentPreviewCellId = currentCellId
+                        });
+
+                        PopulatePartGroups(lb, lb.Instances);
+                        NeedsPrepare = true;
+                        MarkMdiDirty();
+
+                        if (UseInstanceBuffer) {
+                            if (Interlocked.Exchange(ref lb.IsQueuedForUpload, 1) == 0) {
+                                _uploadQueue[key] = lb;
+                            }
                         }
                     }
                 }
@@ -686,7 +747,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             lb.StaticPartGroups.Clear();
             lb.BuildingPartGroups.Clear();
             foreach (var instance in instances) {
-                var cellId = instance.InstanceId.Index;
+                var cellId = instance.CurrentPreviewCellId != 0 ? instance.CurrentPreviewCellId : instance.InstanceId.Index;
                 PopulateRecursive(lb.StaticPartGroups, instance.ObjectId, instance.IsSetup, instance.Transform, cellId, instance.Flags);
             }
         }

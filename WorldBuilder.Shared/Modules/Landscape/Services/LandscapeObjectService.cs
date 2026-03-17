@@ -93,12 +93,6 @@ public class LandscapeObjectService : ILandscapeObjectService {
 
     public async Task<uint?> ResolveCellIdAsync(LandscapeDocument doc, Vector3 worldPos, uint? startCellId = null) {
         var finalCellId = await doc.GetEnvCellAtAsync(worldPos);
-        
-        if (startCellId.HasValue && finalCellId == 0) {
-            // "Sticky" logic: if we were in a cell and moved slightly out, stay in the cell
-            return startCellId;
-        }
-        
         return finalCellId != 0 ? finalCellId : null;
     }
 

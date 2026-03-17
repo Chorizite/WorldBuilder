@@ -608,13 +608,38 @@ public class GameScene : IDisposable {
         _activeTool = tool;
     }
 
+    private ushort _previewLandblockId;
+    private ObjectId _previewInstanceId;
+
     /// <summary>
     /// Updates the transform of an object for realtime preview during manipulation.
     /// </summary>
-    public void UpdateObjectPreview(ushort landblockId, ObjectId instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
-        _staticObjectManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId);
-        _envCellManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId);
+    public void UpdateObjectPreview(ushort landblockId, ObjectId instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0, uint modelId = 0) {
+        if (_previewInstanceId != instanceId || _previewLandblockId != landblockId) {
+            if (_previewInstanceId != ObjectId.Empty) {
+                bool isSameObjectCrossedBoundary = (_previewInstanceId == instanceId && _previewLandblockId != landblockId);
+                bool isOldObjectGhost = _previewInstanceId.IsGhost;
+
+                if (isSameObjectCrossedBoundary || isOldObjectGhost) {
+                    _staticObjectManager?.UpdateInstanceTransform(_previewLandblockId, _previewInstanceId, Vector3.Zero, Quaternion.Identity);
+                    _envCellManager?.UpdateInstanceTransform(_previewLandblockId, _previewInstanceId, Vector3.Zero, Quaternion.Identity);
+                    _sceneryManager?.UpdateInstanceTransform(_previewLandblockId, _previewInstanceId, Vector3.Zero, Quaternion.Identity);
+                }
+            }
+            _previewLandblockId = landblockId;
+            _previewInstanceId = instanceId;
+        }
+
+        _staticObjectManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId, modelId);
+        _envCellManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId, modelId);
         _sceneryManager?.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId);
+
+        // Highlight objects being dragged/placed
+        if (position != Vector3.Zero) {
+            SetSelectedObject(instanceId.Type, landblockId, instanceId, modelId);
+        } else if (instanceId.IsGhost) {
+            SetSelectedObject(ObjectType.None, 0, ObjectId.Empty);
+        }
     }
 
     public uint GetEnvCellAt(Vector3 pos) {
@@ -652,6 +677,18 @@ public class GameScene : IDisposable {
     }
 
     /// <summary>
+    /// Gets the local-space bounding box for a specific model ID.
+    /// </summary>
+    public BoundingBox? GetModelBounds(uint modelId) {
+        var isSetup = (modelId >> 24) == 0x02;
+        var bounds = _meshManager?.GetBounds(modelId, isSetup);
+        if (bounds.HasValue) {
+            return new BoundingBox(bounds.Value.Min, bounds.Value.Max);
+        }
+        return null;
+    }
+
+    /// <summary>
     /// Gets the layer ID that owns a static object.
     /// </summary>
     public string? GetStaticObjectLayerId(ushort landblockId, ObjectId instanceId) {
@@ -674,7 +711,6 @@ public class GameScene : IDisposable {
         }
 
         if (type == ObjectType.Portal || type == ObjectType.Scenery) {
-            // Portals and Scenery currently always belong to the Base layer
             return _landscapeDoc.BaseLayerId ?? string.Empty;
         }
 

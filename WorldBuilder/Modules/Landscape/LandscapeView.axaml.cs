@@ -8,6 +8,10 @@ using Microsoft.Extensions.DependencyInjection;
 using WorldBuilder.Shared.Models;
 using WorldBuilder.Services;
 using WorldBuilder.Views;
+using System.Linq;
+using System;
+using System.Numerics;
+using System.Threading.Tasks;
 
 namespace WorldBuilder.Modules.Landscape;
 
@@ -335,5 +339,62 @@ public partial class LandscapeView : UserControl {
                 vm.OnActiveTabChanged(tabHeader);
             }
         }
+    }
+
+    private void OnViewportDragOver(object? sender, DragEventArgs e) {
+#pragma warning disable CS0618
+        if (e.Data.Contains("WorldBuilder.SetupId") && DataContext is LandscapeViewModel vm) {
+            var objTool = vm.Tools.OfType<WorldBuilder.Shared.Modules.Landscape.Tools.ObjectManipulationTool>().FirstOrDefault();
+            if (objTool != null) {
+                if (vm.ActiveTool != objTool) {
+                    vm.ActiveTool = objTool;
+                }
+
+                var setupId = (uint)e.Data.Get("WorldBuilder.SetupId")!;
+#pragma warning restore CS0618
+                if (!objTool.IsPlacementMode || objTool.PlacementSetupId != setupId) {
+                    objTool.EnterPlacementMode(setupId);
+                }
+
+                var pos = e.GetPosition(_renderView!);
+                var inputEvent = CreateViewportInputEvent(pos);
+                objTool.OnPointerMoved(inputEvent);
+
+                e.DragEffects = DragDropEffects.Copy | DragDropEffects.Move;
+                e.Handled = true;
+            }
+        }
+    }
+
+    private async void OnViewportDrop(object? sender, DragEventArgs e) {
+#pragma warning disable CS0618
+        if (e.Data.Contains("WorldBuilder.SetupId") && DataContext is LandscapeViewModel vm) {
+            var objTool = vm.Tools.OfType<WorldBuilder.Shared.Modules.Landscape.Tools.ObjectManipulationTool>().FirstOrDefault();
+            if (objTool != null && objTool.IsPlacementMode) {
+                var pos = e.GetPosition(_renderView!);
+#pragma warning restore CS0618
+                var inputEvent = CreateViewportInputEvent(pos);
+                await objTool.CommitPlacementAsync(inputEvent);
+                _renderView?.Focus();
+                e.Handled = true;
+            }
+        }
+    }
+
+    private ViewportInputEvent CreateViewportInputEvent(Point pos) {
+        if (DataContext is LandscapeViewModel vm && _renderView != null) {
+            var topLevel = TopLevel.GetTopLevel(this);
+            var scaling = topLevel?.RenderScaling ?? 1.0;
+            var scaledPos = new Vector2((float)(pos.X * scaling), (float)(pos.Y * scaling));
+            var viewportSize = new Vector2((float)(_renderView.Bounds.Width * scaling), (float)(_renderView.Bounds.Height * scaling));
+
+            return new ViewportInputEvent {
+                Position = scaledPos,
+                ViewportSize = viewportSize,
+                IsLeftDown = true,
+                RayOrigin = vm.Camera?.Position ?? Vector3.Zero,
+            };
+        }
+        return new ViewportInputEvent();
     }
 }

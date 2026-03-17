@@ -62,9 +62,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
             // Terrain / Vertices
             // Simple check if inside env cell for terrain selection logic
-            bool insideEnvCell = raycastService.RaycastEnvCells(origin, direction, true, false, out _, ObjectId.Empty);
+            bool isInsideEnvCell = raycastService.GetEnvCellAt(context.Camera.Position) != 0;
             
-            if (!insideEnvCell) {
+            if (!isInsideEnvCell) {
                 var terrainHit = raycastService.RaycastTerrain((float)e.Position.X, (float)e.Position.Y, e.ViewportSize, context.Camera);
                 if (terrainHit.Hit) {
                     if (selectVertices) {
@@ -134,27 +134,23 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             ViewportInputEvent e,
             Vector3 rayOrigin,
             Vector3 rayDirection,
-            ObjectId ignoreInstanceId,
-            Vector3 fallbackPosition) {
+            ObjectId ignoreInstanceId) {
 
-            if (context == null || raycastService == null) return (fallbackPosition, Vector3.UnitZ, false);
+            if (context == null || raycastService == null) return (Vector3.Zero, Vector3.UnitZ, false);
 
             var bestDistance = float.MaxValue;
             var bestPoint = Vector3.Zero;
             var bestNormal = Vector3.UnitZ;
             bool hitAny = false;
 
-            // 1. Raycast terrain (skip if camera is inside an envcell — terrain is invisible there)
-            bool insideEnvCell = raycastService.RaycastEnvCells(rayOrigin, rayDirection, true, false, out _, ObjectId.Empty);
-            if (!insideEnvCell) {
-                var terrainHit = raycastService.RaycastTerrain((float)e.Position.X, (float)e.Position.Y, e.ViewportSize, context.Camera);
+            // 1. Raycast terrain
+            var terrainHit = raycastService.RaycastTerrain((float)e.Position.X, (float)e.Position.Y, e.ViewportSize, context.Camera);
 
-                if (terrainHit.Hit) {
-                    bestDistance = terrainHit.Distance;
-                    bestPoint = terrainHit.HitPosition;
-                    bestNormal = context.Document.GetSurfaceNormal(terrainHit.HitPosition); // Terrain normal calculated from document
-                    hitAny = true;
-                }
+            if (terrainHit.Hit) {
+                bestDistance = terrainHit.Distance;
+                bestPoint = terrainHit.HitPosition;
+                bestNormal = context.Document.GetSurfaceNormal(terrainHit.HitPosition); // Terrain normal calculated from document
+                hitAny = true;
             }
 
             // 2. Raycast env cells (floors/portals/walls, AND objects)
@@ -181,7 +177,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 return (bestPoint, bestNormal, true);
             }
 
-            return (fallbackPosition, Vector3.UnitZ, false);
+            // Fallback: project ray to a fixed distance
+            return (rayOrigin + rayDirection * 1000.0f, Vector3.UnitZ, false);
         }
     }
 }

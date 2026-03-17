@@ -8,8 +8,6 @@ using WorldBuilder.Shared.Services;
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 
 public partial class EnvCellViewModel : SelectedObjectViewModelBase {
-    public override ObjectType Type => ObjectType.EnvCell;
-
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ObjectIdHex))]
     private uint _objectIdVal;
@@ -20,9 +18,10 @@ public partial class EnvCellViewModel : SelectedObjectViewModelBase {
 
     public string ObjectIdHex => $"0x{ObjectId:X8}";
 
-    public EnvCellViewModel(uint objectId, ObjectId instanceId, ushort landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation, IDatDatabase? cellDatabase)
-        : base(instanceId, landblockId, position, localPosition, rotation) {
+    public EnvCellViewModel(uint objectId, ObjectId instanceId, ushort landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation, IDatDatabase? cellDatabase, string layerId = "")
+        : base(instanceId, landblockId, position, localPosition, rotation, layerId) {
         ObjectIdVal = objectId;
+        Type = ObjectType.EnvCell;
 
         if (cellDatabase != null && cellDatabase.TryGet<EnvCell>(objectId, out var envCell)) {
             this.EnvironmentId = 0x0D000000u | (uint)envCell.EnvironmentId;

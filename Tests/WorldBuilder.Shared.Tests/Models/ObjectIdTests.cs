@@ -36,5 +36,34 @@ namespace WorldBuilder.Shared.Tests.Models {
 
             Assert.Equal(0xFFFFFFFFu, id.DataId);
         }
+
+        [Fact]
+        public void Parse_HandlesEmptyString() {
+            var id = ObjectId.Parse("empty");
+            Assert.True(id.IsEmpty);
+            Assert.Equal(ObjectId.Empty, id);
+        }
+
+        [Fact]
+        public void ToString_ReturnsEmptyForEmptyId() {
+            var id = ObjectId.Empty;
+            Assert.Equal("empty", id.ToString());
+        }
+
+        [Fact]
+        public void Parse_RoundTrip_Dat() {
+            var id = ObjectId.FromDat(ObjectType.StaticObject, 1, 0x1234, 0x5678);
+            var s = id.ToString();
+            var parsed = ObjectId.Parse(s);
+            Assert.Equal(id, parsed);
+        }
+
+        [Fact]
+        public void Parse_RoundTrip_Db() {
+            var id = ObjectId.NewDb(ObjectType.StaticObject, 0x12345678);
+            var s = id.ToString();
+            var parsed = ObjectId.Parse(s);
+            Assert.Equal(id, parsed);
+        }
     }
 }

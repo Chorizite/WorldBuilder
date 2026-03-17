@@ -10,8 +10,6 @@ using WorldBuilder.Shared.Services;
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 
 public partial class LandscapeVertexViewModel : SelectedObjectViewModelBase {
-    public override ObjectType Type => ObjectType.Vertex;
-
     public override int VertexX => _vertexX;
     private int _vertexX;
 
@@ -30,7 +28,8 @@ public partial class LandscapeVertexViewModel : SelectedObjectViewModelBase {
     public string VertexYHex => $"0x{VertexY:X4}";
 
     public LandscapeVertexViewModel(int vx, int vy, LandscapeDocument doc, IDatReaderWriter dats, CommandHistory history) 
-        : base(WorldBuilder.Shared.Models.ObjectId.Empty, 0, Vector3.Zero, Vector3.Zero, Quaternion.Identity) {
+        : base(WorldBuilder.Shared.Models.ObjectId.Empty, 0, Vector3.Zero, Vector3.Zero, Quaternion.Identity, doc.BaseLayerId ?? "") {
+        Type = ObjectType.Vertex;
         _vertexX = vx;
         _vertexY = vy;
         

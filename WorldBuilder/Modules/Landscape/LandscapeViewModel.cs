@@ -46,6 +46,9 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
     private readonly BookmarksManager _bookmarksManager;
     private readonly ILandscapeObjectService _landscapeObjectService;
     private readonly WorldBuilder.Shared.Lib.IInputManager _inputManager;
+    private readonly IKeywordRepositoryService _keywordRepository;
+    private readonly ProjectManager _projectManager;
+    private readonly ThemeService _themeService;
     private DocumentRental<LandscapeDocument>? _landscapeRental;
 
     public string Name => "Landscape";
@@ -74,6 +77,8 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
 
     [ObservableProperty] private bool _is3DCameraEnabled = true;
 
+    [ObservableProperty] private Avalonia.Controls.GridLength _bottomPanelHeight = new Avalonia.Controls.GridLength(0);
+
     private void OnIsDebugShapesEnabledChanged(bool value) {
         EditorState.ShowDebugShapes = value;
         if (ActiveTool is InspectorTool inspector) {
@@ -85,7 +90,7 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
         UpdateToolContext();
     }
 
-    private readonly WorldBuilderSettings? _settings;
+    private readonly WorldBuilderSettings _settings;
     public EditorState EditorState { get; } = new();
 
     public CommandHistory CommandHistory { get; } = new();
@@ -93,6 +98,9 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
     public LayersPanelViewModel LayersPanel { get; }
     public BookmarksPanelViewModel BookmarksPanel { get; }
     public PropertiesPanelViewModel PropertiesPanel { get; }
+    public SetupBrowserPanelViewModel SetupBrowserPanel { get; }
+
+    public bool IsObjectToolActive => ActiveTool is ObjectManipulationTool;
 
     private readonly IDocumentManager _documentManager;
     private readonly LandscapeSettingsBridge _settingsBridge;
@@ -109,7 +117,7 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
 
     public GameScene GameScene => _gameScene!;
 
-    public LandscapeViewModel(IProject project, IDatReaderWriter dats, IPortalService portalService, IDocumentManager documentManager, BookmarksManager bookmarksManager, ILogger<LandscapeViewModel> log, IDialogService dialogService, WorldBuilderSettings settings, WorldBuilder.Shared.Lib.IInputManager inputManager, ILandscapeObjectService landscapeObjectService) {
+    public LandscapeViewModel(IProject project, IDatReaderWriter dats, IPortalService portalService, IDocumentManager documentManager, BookmarksManager bookmarksManager, ILogger<LandscapeViewModel> log, IDialogService dialogService, WorldBuilderSettings settings, WorldBuilder.Shared.Lib.IInputManager inputManager, ILandscapeObjectService landscapeObjectService, IKeywordRepositoryService keywordRepository, ProjectManager projectManager, ThemeService themeService) {
         _project = project ?? throw new ArgumentNullException(nameof(project));
         _dats = dats ?? throw new ArgumentNullException(nameof(dats));
         _portalService = portalService ?? throw new ArgumentNullException(nameof(portalService));
@@ -120,6 +128,9 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
         _inputManager = inputManager ?? throw new ArgumentNullException(nameof(inputManager));
         _bookmarksManager = bookmarksManager ?? throw new ArgumentNullException(nameof(bookmarksManager));
         _landscapeObjectService = landscapeObjectService ?? throw new ArgumentNullException(nameof(landscapeObjectService));
+        _keywordRepository = keywordRepository ?? throw new ArgumentNullException(nameof(keywordRepository));
+        _projectManager = projectManager ?? throw new ArgumentNullException(nameof(projectManager));
+        _themeService = themeService ?? throw new ArgumentNullException(nameof(themeService));
 
         _toolSettingsProvider = new ToolSettingsProvider(_settings.Project!);
         _settingsBridge = new LandscapeSettingsBridge(_settings, EditorState);
@@ -164,17 +175,42 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
 
         _ = LoadLandscapeAsync();
 
+        var objTool = new ObjectManipulationTool(this, this, _landscapeObjectService, _toolSettingsProvider, _inputManager);
+
         // Register Tools
         if (!_project.IsReadOnly) {
             Tools.Add(new BrushTool(this, this, _landscapeObjectService, _toolSettingsProvider, _inputManager));
             Tools.Add(new BucketFillTool(this, this, _landscapeObjectService, _toolSettingsProvider));
             Tools.Add(new RoadVertexTool(this, this, _landscapeObjectService, _toolSettingsProvider));
             Tools.Add(new RoadLineTool(this, this, _landscapeObjectService, _toolSettingsProvider));
-            Tools.Add(new ObjectManipulationTool(this, this, _landscapeObjectService, _toolSettingsProvider, _inputManager));
+            Tools.Add(objTool);
             Tools.Add(new InspectorTool(this, this, _landscapeObjectService, _toolSettingsProvider));
         }
+
+        SetupBrowserPanel = new SetupBrowserPanelViewModel(_keywordRepository, _projectManager, _dats, _settings, _themeService, objTool);
+
         ActiveTool = Tools.FirstOrDefault();
         PropertiesPanel.IsEditable = ActiveTool is ObjectManipulationTool;
+
+        // Initialize bottom panel height from settings
+        _bottomPanelHeight = IsObjectToolActive ? new Avalonia.Controls.GridLength(_settings.Landscape.BottomPanelHeight, Avalonia.Controls.GridUnitType.Pixel) : new Avalonia.Controls.GridLength(0);
+
+        _settings.Landscape.PropertyChanged += (s, e) => {
+            if (e.PropertyName == nameof(LandscapeEditorSettings.BottomPanelHeight) && IsObjectToolActive) {
+                BottomPanelHeight = new Avalonia.Controls.GridLength(_settings.Landscape.BottomPanelHeight, Avalonia.Controls.GridUnitType.Pixel);
+            }
+        };
+
+        this.PropertyChanged += (s, e) => {
+            if (e.PropertyName == nameof(IsObjectToolActive)) {
+                BottomPanelHeight = IsObjectToolActive ? new Avalonia.Controls.GridLength(_settings.Landscape.BottomPanelHeight, Avalonia.Controls.GridUnitType.Pixel) : new Avalonia.Controls.GridLength(0);
+            }
+            else if (e.PropertyName == nameof(BottomPanelHeight)) {
+                if (BottomPanelHeight.IsAbsolute && IsObjectToolActive) {
+                    _settings.Landscape.BottomPanelHeight = BottomPanelHeight.Value;
+                }
+            }
+        };
     }
 
     partial void OnActiveToolChanged(ILandscapeTool? oldValue, ILandscapeTool? newValue) {
@@ -220,6 +256,8 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
         if (newValue != null && _toolContext != null) {
             newValue.Activate(_toolContext);
         }
+
+        OnPropertyChanged(nameof(IsObjectToolActive));
 
         _gameScene?.SetActiveTool(newValue);
     }
@@ -378,25 +416,25 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
 
         if (e.Selection.Type == ObjectType.StaticObject || e.Selection.Type == ObjectType.Building) {
             if (e.Selection.Type == ObjectType.StaticObject) {
-                PropertiesPanel.SelectedItem = new StaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, lbId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
+                PropertiesPanel.SelectedItem = new StaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, lbId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation, e.Selection.LayerId);
             }
             else if (e.Selection.Type == ObjectType.Building) {
-                PropertiesPanel.SelectedItem = new BuildingViewModel(e.Selection.ObjectId, e.Selection.InstanceId, lbId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
+                PropertiesPanel.SelectedItem = new BuildingViewModel(e.Selection.ObjectId, e.Selection.InstanceId, lbId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation, e.Selection.LayerId);
             }
         }
         else if (e.Selection.Type == ObjectType.Scenery) {
-            PropertiesPanel.SelectedItem = new SceneryViewModel(e.Selection.ObjectId, e.Selection.InstanceId, lbId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation, e.Selection.DisqualificationReason);
+            PropertiesPanel.SelectedItem = new SceneryViewModel(e.Selection.ObjectId, e.Selection.InstanceId, lbId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation, e.Selection.DisqualificationReason, e.Selection.LayerId);
         }
         else if (e.Selection.Type == ObjectType.Portal) {
             uint cellId = e.Selection.ObjectId; // For portals, ObjectId is the parent CellId
-            PropertiesPanel.SelectedItem = new PortalViewModel(lbId, cellId, e.Selection.InstanceId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation, ActiveDocument?.CellDatabase);
+            PropertiesPanel.SelectedItem = new PortalViewModel(lbId, cellId, e.Selection.InstanceId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation, ActiveDocument?.CellDatabase, e.Selection.LayerId);
         }
         else if (e.Selection.Type == ObjectType.EnvCell) {
-            PropertiesPanel.SelectedItem = new EnvCellViewModel(e.Selection.ObjectId, e.Selection.InstanceId, lbId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation, ActiveDocument?.CellDatabase);
+            PropertiesPanel.SelectedItem = new EnvCellViewModel(e.Selection.ObjectId, e.Selection.InstanceId, lbId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation, ActiveDocument?.CellDatabase, e.Selection.LayerId);
         }
         else if (e.Selection.Type == ObjectType.EnvCellStaticObject) {
             uint cellId = e.Selection.InstanceId.Context;
-            PropertiesPanel.SelectedItem = new EnvCellStaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, lbId, cellId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation);
+            PropertiesPanel.SelectedItem = new EnvCellStaticObjectViewModel(e.Selection.ObjectId, e.Selection.InstanceId, lbId, cellId, e.Selection.Position, e.Selection.LocalPosition, e.Selection.Rotation, e.Selection.LayerId);
         }
         else if (e.Selection.Type == ObjectType.Vertex) {
             PropertiesPanel.SelectedItem = new LandscapeVertexViewModel(e.Selection.VertexX, e.Selection.VertexY, ActiveDocument!, _dats, CommandHistory);
@@ -515,22 +553,41 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
         }
     }
 
-    public void NotifyObjectPositionPreview(ushort landblockId, ObjectId instanceId, Vector3 position, Quaternion rotation, uint currentCellId) {
-        _gameScene?.UpdateObjectPreview(landblockId, instanceId, position, rotation, currentCellId);
+    public void NotifyObjectPositionPreview(ushort landblockId, ObjectId instanceId, Vector3 position, Quaternion rotation, uint currentCellId, uint modelId = 0) {
+        _gameScene?.UpdateObjectPreview(landblockId, instanceId, position, rotation, currentCellId, modelId);
 
         // Update PropertiesPanel in real-time
         if (PropertiesPanel.SelectedItem is ISelectedObjectInfo info && info.InstanceId == instanceId && ActiveDocument?.Region != null) {
             _isUpdatingFromSelection = true;
             try {
-                // Recalculate local position relative to the NEW landblock origin
+                // Recalculate local position relative to the landblock origin
                 var lbOrigin = _landscapeObjectService.ComputeWorldPosition(ActiveDocument.Region, landblockId, Vector3.Zero);
                 var localPos = position - lbOrigin;
+
+                // Check for type transition between static types to force UI re-templating
+                var targetType = currentCellId != 0 ? ObjectType.EnvCellStaticObject : ObjectType.StaticObject;
+                if (info.Type != targetType && (info.Type == ObjectType.StaticObject || info.Type == ObjectType.EnvCellStaticObject)) {
+                    if (targetType == ObjectType.EnvCellStaticObject) {
+                        PropertiesPanel.SelectedItem = new EnvCellStaticObjectViewModel(info.ObjectId, info.InstanceId, landblockId, currentCellId, position, localPos, rotation, info.LayerId);
+                    } else {
+                        PropertiesPanel.SelectedItem = new StaticObjectViewModel(info.ObjectId, info.InstanceId, landblockId, position, localPos, rotation, info.LayerId);
+                    }
+                    return;
+                }
 
                 info.LandblockId = landblockId;
                 info.CellId = currentCellId != 0 ? currentCellId : null;
                 info.Position = position;
                 info.LocalPosition = localPos;
                 info.Rotation = rotation;
+
+                if (info is SelectedObjectViewModelBase vm) {
+                    vm.Type = targetType;
+                }
+                else if (info is SceneRaycastHit hit) {
+                    hit.Type = targetType;
+                    PropertiesPanel.SelectedItem = hit; // Trigger UI refresh if needed
+                }
             }
             finally {
                 _isUpdatingFromSelection = false;
@@ -540,6 +597,7 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
 
     public BoundingBox? GetStaticObjectBounds(ushort landblockId, ObjectId instanceId) => _gameScene?.GetStaticObjectBounds(landblockId, instanceId);
     public BoundingBox? GetStaticObjectLocalBounds(ushort landblockId, ObjectId instanceId) => _gameScene?.GetStaticObjectLocalBounds(landblockId, instanceId);
+    public BoundingBox? GetModelBounds(uint modelId) => _gameScene?.GetModelBounds(modelId);
     public (Vector3 position, Quaternion rotation, Vector3 localPosition)? GetStaticObjectTransform(ushort landblockId, ObjectId instanceId) => _gameScene?.GetStaticObjectTransform(landblockId, instanceId);
     public uint GetEnvCellAt(Vector3 worldPos) => _gameScene?.GetEnvCellAt(worldPos) ?? 0;
 

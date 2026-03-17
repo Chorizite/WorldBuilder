@@ -26,6 +26,9 @@ namespace WorldBuilder.Shared.Models {
         public bool IsDb => (_high & DbFlag) != 0;
         public bool IsDat => !IsDb && !IsEmpty;
 
+        /// <summary>Whether this is a ghost ID used for dragging objects from the asset panel.</summary>
+        public bool IsGhost => IsDat && Context == 0xFFFFFFFF && Index == 0xFFFF;
+
         public ObjectType Type => (ObjectType)((_high >> TypeShift) & TypeMask);
         public byte State => (byte)((_high >> StateShift) & StateMask);
         public uint Context => (uint)(_low >> 32);
@@ -86,6 +89,7 @@ namespace WorldBuilder.Shared.Models {
         /// </summary>
         public static ObjectId Parse(string s) {
             if (string.IsNullOrEmpty(s)) throw new ArgumentException("ID cannot be empty", nameof(s));
+            if (s == "empty") return Empty;
             
             var parts = s.Split(':');
             if (parts.Length < 2) throw new FormatException($"Invalid ObjectId format: {s}");

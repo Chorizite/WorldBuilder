@@ -224,7 +224,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         #region Protected: Overrides
 
-        public override void UpdateInstanceTransform(ushort landblockId, ObjectId instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0) {
+        public override void UpdateInstanceTransform(ushort landblockId, ObjectId instanceId, Vector3 position, Quaternion rotation, uint currentCellId = 0, uint modelId = 0) {
             var type = instanceId.Type;
             if (type == ObjectType.EnvCellStaticObject || type == ObjectType.EnvCell) {
                 ushort key = landblockId;
@@ -233,7 +233,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         lock (lb) {
                             for (int i = 0; i < lb.Instances.Count; i++) {
                                 if (lb.Instances[i].InstanceId == instanceId) {
-                                    base.UpdateInstanceTransform(lbKey, instanceId, position, rotation, currentCellId);
+                                    base.UpdateInstanceTransform(lbKey, instanceId, position, rotation, currentCellId, modelId);
                                     return;
                                 }
                             }
@@ -241,7 +241,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     }
                 }
             }
-            base.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId);
+            base.UpdateInstanceTransform(landblockId, instanceId, position, rotation, currentCellId, modelId);
         }
 
         public override void PrepareRenderBatches(Matrix4x4 viewProjectionMatrix, Vector3 cameraPosition, HashSet<uint>? filter = null, bool isOutside = false) {
@@ -545,7 +545,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             lb.BuildingPartGroups.Clear();
             foreach (var instance in instances) {
                 var targetGroup = instance.IsBuilding ? lb.BuildingPartGroups : lb.StaticPartGroups;
-                var cellId = instance.InstanceId.DataId;
+                var cellId = instance.CurrentPreviewCellId != 0 ? instance.CurrentPreviewCellId : instance.InstanceId.DataId;
                 PopulateRecursive(targetGroup, instance.ObjectId, instance.IsSetup, instance.Transform, cellId);
             }
         }
