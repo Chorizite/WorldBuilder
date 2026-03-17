@@ -1,12 +1,14 @@
-﻿using Microsoft.Data.Sqlite;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Threading.Tasks;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
+using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Repositories;
 using Xunit;
 
@@ -97,6 +99,64 @@ namespace WorldBuilder.Shared.Tests.Repositories {
             var result = await _repo.GetTerrainPatchBlobAsync(patchId, null, default);
             Assert.True(result.IsSuccess);
             Assert.Equal(data, result.Value);
+        }
+
+        [Fact]
+        public async Task UpsertStaticObjectAsync_Succeeds_OnConflict() {
+            var layerId = "Layer1";
+            // Create layer first to satisfy FK
+            await _repo.UpsertLayerAsync(new LandscapeLayer(layerId, true) { Name = "Base" }, 1, 0, null, default);
+
+            var obj = new StaticObject {
+                InstanceId = ObjectId.NewDb(ObjectType.StaticObject),
+                ModelId = 1,
+                LayerId = layerId,
+                Position = new Vector3(1, 2, 3),
+                Rotation = Quaternion.Identity
+            };
+
+            // Initial insert
+            var result1 = await _repo.UpsertStaticObjectAsync(obj, 1, 0x0101, null, null, default);
+            Assert.True(result1.IsSuccess);
+
+            // Update same object (should trigger ON CONFLICT)
+            obj.Position = new Vector3(4, 5, 6);
+            var result2 = await _repo.UpsertStaticObjectAsync(obj, 1, 0x0101, null, null, default);
+            Assert.True(result2.IsSuccess);
+
+            // Verify update
+            var objects = await _repo.GetStaticObjectsAsync(0x0101, null, null, default);
+            Assert.Single(objects);
+            Assert.Equal(4, objects[0].Position.X);
+        }
+
+        [Fact]
+        public async Task UpsertBuildingAsync_Succeeds_OnConflict() {
+            var layerId = "Layer1";
+            // Create layer first to satisfy FK
+            await _repo.UpsertLayerAsync(new LandscapeLayer(layerId, true) { Name = "Base" }, 1, 0, null, default);
+
+            var bldg = new BuildingObject {
+                InstanceId = ObjectId.NewDb(ObjectType.Building),
+                ModelId = 1,
+                LayerId = layerId,
+                Position = new Vector3(1, 2, 3),
+                Rotation = Quaternion.Identity
+            };
+
+            // Initial insert
+            var result1 = await _repo.UpsertBuildingAsync(bldg, 1, 0x0101, null, default);
+            Assert.True(result1.IsSuccess);
+
+            // Update same building (should trigger ON CONFLICT)
+            bldg.Position = new Vector3(4, 5, 6);
+            var result2 = await _repo.UpsertBuildingAsync(bldg, 1, 0x0101, null, default);
+            Assert.True(result2.IsSuccess);
+
+            // Verify update
+            var buildings = await _repo.GetBuildingsAsync(0x0101, null, default);
+            Assert.Single(buildings);
+            Assert.Equal(4, buildings[0].Position.X);
         }
 
         private async Task<List<string>> GetTableNamesAsync() {

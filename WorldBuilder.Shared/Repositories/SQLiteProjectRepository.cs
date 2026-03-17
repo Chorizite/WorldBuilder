@@ -347,7 +347,7 @@ namespace WorldBuilder.Shared.Repositories {
             return await ExecuteAsync(tx, async (connection, sqliteTx) => {
                 var sql = @"INSERT INTO StaticObjects (InstanceId, RegionId, LandblockId, CellId, ModelId, LayerId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, IsDeleted)
                             VALUES (@id, @regionId, @lbId, @cellId, @modelId, @layerId, @posX, @posY, @posZ, @rotW, @rotX, @rotY, @rotZ, @isDeleted)
-                            ON CONFLICT(InstanceId) DO UPDATE SET LandblockId = @lbId, CellId = @cellId, ModelId = @modelId, LayerId = @layerId, 
+                            ON CONFLICT(InstanceId, LayerId) DO UPDATE SET LandblockId = @lbId, CellId = @cellId, ModelId = @modelId, 
                             PosX = @posX, PosY = @posY, PosZ = @posZ, RotW = @rotW, RotX = @rotX, RotY = @rotY, RotZ = @rotZ, IsDeleted = @isDeleted";
                 using var cmd = new SqliteCommand(sql, connection, sqliteTx);
                 cmd.Parameters.AddWithValue("@id", obj.InstanceId.ToString());
@@ -373,7 +373,7 @@ namespace WorldBuilder.Shared.Repositories {
             return await ExecuteAsync(tx, async (connection, sqliteTx) => {
                 var sql = @"INSERT INTO Buildings (InstanceId, RegionId, LandblockId, ModelId, LayerId, PosX, PosY, PosZ, RotW, RotX, RotY, RotZ, IsDeleted)
                             VALUES (@id, @regionId, @lbId, @modelId, @layerId, @posX, @posY, @posZ, @rotW, @rotX, @rotY, @rotZ, @isDeleted)
-                            ON CONFLICT(InstanceId) DO UPDATE SET LandblockId = @lbId, ModelId = @modelId, LayerId = @layerId, 
+                            ON CONFLICT(InstanceId, LayerId) DO UPDATE SET LandblockId = @lbId, ModelId = @modelId, 
                             PosX = @posX, PosY = @posY, PosZ = @posZ, RotW = @rotW, RotX = @rotX, RotY = @rotY, RotZ = @rotZ, IsDeleted = @isDeleted";
                 using var cmd = new SqliteCommand(sql, connection, sqliteTx);
                 cmd.Parameters.AddWithValue("@id", obj.InstanceId.ToString());

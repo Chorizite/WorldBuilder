@@ -263,6 +263,35 @@ public class GameScene : IDisposable {
     }
 
     /// <summary>
+    /// Gets a string representation of the current camera location in landblock format.
+    /// </summary>
+    public string GetLocationString() {
+        var pos = Position.FromGlobal(CurrentCamera.Position, null, _currentEnvCellId != 0 ? _currentEnvCellId : null);
+        pos.Rotation = Camera3D.Rotation; // Always use 3D rotation for persistence
+        return pos.ToLandblockString();
+    }
+
+    /// <summary>
+    /// Restores the camera state from a location string.
+    /// </summary>
+    public void RestoreCamera(string? locationString, float defaultFov = 60f) {
+        if (string.IsNullOrEmpty(locationString)) return;
+
+        if (Position.TryParse(locationString, out var pos) && pos != null) {
+            Teleport(pos.GlobalPosition, (uint)((pos.LandblockId << 16) | pos.CellId));
+            if (pos.Rotation.HasValue) {
+                CurrentCamera.Rotation = pos.Rotation.Value;
+            }
+            
+            if (CurrentCamera is Camera3D camera3D) {
+                camera3D.FieldOfView = defaultFov;
+            }
+            
+            SyncZoomFromZ();
+        }
+    }
+
+    /// <summary>
     /// Creates a new GameScene.
     /// </summary>
     public GameScene(GL gl, OpenGLGraphicsDevice graphicsDevice, ILoggerFactory loggerFactory, IPortalService portalService, IRenderPerformanceTracker? performanceTracker = null) {

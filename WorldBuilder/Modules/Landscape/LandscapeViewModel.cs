@@ -29,6 +29,7 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 using WorldBuilder.Shared.Modules.Landscape.Tools;
 using WorldBuilder.Shared.Modules.Landscape.Commands;
 using WorldBuilder.Shared.Modules.Landscape.Lib;
+using WorldBuilder.Modules.Landscape.Lib;
 using WorldBuilder.Shared.Modules.Landscape.Services;
 using WorldBuilder.Shared.Services;
 using WorldBuilder.ViewModels;
@@ -93,8 +94,11 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
     public BookmarksPanelViewModel BookmarksPanel { get; }
     public PropertiesPanelViewModel PropertiesPanel { get; }
 
-    private readonly ConcurrentDictionary<string, CancellationTokenSource> _saveDebounceTokens = new();
     private readonly IDocumentManager _documentManager;
+    private readonly LandscapeSettingsBridge _settingsBridge;
+    private readonly DebouncedAction<ObjectId> _commitDebounce;
+    private readonly DebouncedAction<string> _saveDebounce;
+    private readonly ToolSettingsProvider _toolSettingsProvider;
 
     private LandscapeToolContext? _toolContext;
     private WorldBuilder.Shared.Models.ICamera? _camera;
@@ -117,16 +121,12 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
         _bookmarksManager = bookmarksManager ?? throw new ArgumentNullException(nameof(bookmarksManager));
         _landscapeObjectService = landscapeObjectService ?? throw new ArgumentNullException(nameof(landscapeObjectService));
 
+        _toolSettingsProvider = new ToolSettingsProvider(_settings.Project!);
+        _settingsBridge = new LandscapeSettingsBridge(_settings, EditorState);
+        _commitDebounce = new DebouncedAction<ObjectId>(TimeSpan.FromMilliseconds(500));
+        _saveDebounce = new DebouncedAction<string>(TimeSpan.FromMilliseconds(2000));
+
         CommandHistory.MaxHistoryDepth = _settings.App.HistoryLimit;
-        SyncSettingsToState();
-
-        _settings.PropertyChanged += OnSettingsPropertyChanged;
-        _settings.Landscape.PropertyChanged += OnLandscapeSettingsPropertyChanged;
-        _settings.Landscape.Camera.PropertyChanged += OnCameraSettingsPropertyChanged;
-        _settings.Landscape.Rendering.PropertyChanged += OnRenderingSettingsPropertyChanged;
-        _settings.Landscape.Grid.PropertyChanged += OnGridSettingsPropertyChanged;
-
-        EditorState.PropertyChanged += OnEditorStatePropertyChanged;
         CommandHistory.OnChange += OnCommandHistoryChanged;
 
         HistoryPanel = new HistoryPanelViewModel(CommandHistory);
@@ -166,16 +166,12 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
 
         // Register Tools
         if (!_project.IsReadOnly) {
-            var activeProject = _settings?.Project;
-            if (activeProject != null) {
-                var settingsProvider = new ToolSettingsProvider(activeProject);
-                Tools.Add(new BrushTool(this, this, _landscapeObjectService, settingsProvider, _inputManager));
-                Tools.Add(new BucketFillTool(this, this, _landscapeObjectService, settingsProvider));
-                Tools.Add(new RoadVertexTool(this, this, _landscapeObjectService, settingsProvider));
-                Tools.Add(new RoadLineTool(this, this, _landscapeObjectService, settingsProvider));
-                Tools.Add(new ObjectManipulationTool(this, this, _landscapeObjectService, settingsProvider, _inputManager));
-                Tools.Add(new InspectorTool(this, this, _landscapeObjectService, settingsProvider));
-            }
+            Tools.Add(new BrushTool(this, this, _landscapeObjectService, _toolSettingsProvider, _inputManager));
+            Tools.Add(new BucketFillTool(this, this, _landscapeObjectService, _toolSettingsProvider));
+            Tools.Add(new RoadVertexTool(this, this, _landscapeObjectService, _toolSettingsProvider));
+            Tools.Add(new RoadLineTool(this, this, _landscapeObjectService, _toolSettingsProvider));
+            Tools.Add(new ObjectManipulationTool(this, this, _landscapeObjectService, _toolSettingsProvider, _inputManager));
+            Tools.Add(new InspectorTool(this, this, _landscapeObjectService, _toolSettingsProvider));
         }
         ActiveTool = Tools.FirstOrDefault();
         PropertiesPanel.IsEditable = ActiveTool is ObjectManipulationTool;
@@ -304,10 +300,8 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
                 _toolContext.InspectorSelected -= OnInspectorSelected;
             }
 
-            var activeProject = _settings?.Project;
-            if (activeProject != null) {
-                var settingsProvider = new ToolSettingsProvider(activeProject);
-                _toolContext = new LandscapeToolContext(ActiveDocument, EditorState, _dats, CommandHistory, Camera, _log, _landscapeObjectService, this, this, settingsProvider, ActiveLayer);
+            if (_settings?.Project != null) {
+                _toolContext = new LandscapeToolContext(ActiveDocument, EditorState, _dats, CommandHistory, Camera, _log, _landscapeObjectService, this, this, _toolSettingsProvider, ActiveLayer);
             }
             else {
                 // Fallback or log if project is null?
@@ -413,33 +407,54 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
     }
 
     private bool _isUpdatingFromSelection;
-    private async void OnSelectedObjectPropertyChanged(object? sender, PropertyChangedEventArgs e) {
-        if (_isUpdatingFromSelection || sender is not ISelectedObjectInfo info || _toolContext == null || ActiveDocument?.Region == null) return;
+    private Task ExecuteDocumentCommandAsync<T>(T command) where T : BaseCommand {
+        if (ActiveDocument == null) return Task.CompletedTask;
 
-        if (e.PropertyName == nameof(ISelectedObjectInfo.LocalPosition) || e.PropertyName == nameof(ISelectedObjectInfo.Rotation) ||
-            e.PropertyName == "X" || e.PropertyName == "Y" || e.PropertyName == "Z" ||
-            e.PropertyName == "RotationX" || e.PropertyName == "RotationY" || e.PropertyName == "RotationZ") {
-
-            // Calculate world position
-            var worldPos = _landscapeObjectService.ComputeWorldPosition(ActiveDocument.Region, info.LandblockId, info.LocalPosition);
-            info.Position = worldPos;
-
-            // Preview in real-time
-            var currentCellId = await _landscapeObjectService.ResolveCellIdAsync(ActiveDocument, worldPos, info.Type == ObjectType.EnvCellStaticObject ? info.InstanceId.Context : null);
-            
-            _isUpdatingFromSelection = true;
-            try {
-                info.CellId = currentCellId;
-            }
-            finally {
-                _isUpdatingFromSelection = false;
-            }
-
-            NotifyObjectPositionPreview(info.LandblockId, info.InstanceId, worldPos, info.Rotation, currentCellId ?? 0);
-
-            // Debounce the actual commit
-            RequestCommitObjectChange(info);
+        lock (_updateTaskLock) {
+            _updateTask = _updateTask.ContinueWith(async t => {
+                var result = await _documentManager.ApplyLocalEventAsync(command, null!, default);
+                if (result.IsSuccess) {
+                    RequestSave(ActiveDocument.Id.ToString());
+                }
+                else {
+                    _log.LogError("Failed to execute document command {CommandType}: {Error}", typeof(T).Name, result.Error);
+                }
+            }, TaskScheduler.Default).Unwrap();
+            return _updateTask;
         }
+    }
+
+    public void UpdateStaticObject(string layerId, ushort oldLbId, StaticObject oldObject, ushort newLbId, StaticObject newObj) {
+        _ = ExecuteDocumentCommandAsync(new UpdateStaticObjectCommand {
+            TerrainDocumentId = ActiveDocument?.Id.ToString() ?? "",
+            LayerId = layerId,
+            OldLandblockId = oldLbId,
+            NewLandblockId = newLbId,
+            OldObject = oldObject,
+            NewObject = newObj,
+            UserId = ""
+        });
+    }
+
+    public void AddStaticObject(string layerId, ushort landblockId, StaticObject obj) {
+        _ = ExecuteDocumentCommandAsync(new AddStaticObjectCommand {
+            TerrainDocumentId = ActiveDocument?.Id.ToString() ?? "",
+            LayerId = layerId,
+            LandblockId = landblockId,
+            Object = obj,
+            UserId = ""
+        });
+    }
+
+    public void DeleteStaticObject(string layerId, ushort landblockId, StaticObject obj) {
+        _ = ExecuteDocumentCommandAsync(new DeleteStaticObjectCommand {
+            TerrainDocumentId = ActiveDocument?.Id.ToString() ?? "",
+            LayerId = layerId,
+            LandblockId = landblockId,
+            InstanceId = obj.InstanceId,
+            PreviousState = obj,
+            UserId = ""
+        });
     }
 
     #region ILandscapeRaycastService Implementation
@@ -471,78 +486,32 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
 
     public void InvalidateLandblock(int x, int y) => _invalidateCallback?.Invoke(x, y);
 
-    public void UpdateStaticObject(string layerId, ushort oldLbId, StaticObject oldObject, ushort newLbId, StaticObject newObj) {
-        if (ActiveDocument == null) return;
+    private async void OnSelectedObjectPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+        if (_isUpdatingFromSelection || sender is not ISelectedObjectInfo info || _toolContext == null || ActiveDocument?.Region == null) return;
 
-        lock (_updateTaskLock) {
-            _updateTask = _updateTask.ContinueWith(async t => {
-                var command = new UpdateStaticObjectCommand {
-                    TerrainDocumentId = ActiveDocument.Id,
-                    LayerId = layerId,
-                    OldLandblockId = oldLbId,
-                    NewLandblockId = newLbId,
-                    OldObject = oldObject,
-                    NewObject = newObj,
-                    UserId = ""
-                };
+        if (e.PropertyName == nameof(ISelectedObjectInfo.LocalPosition) || e.PropertyName == nameof(ISelectedObjectInfo.Rotation) ||
+            e.PropertyName == "X" || e.PropertyName == "Y" || e.PropertyName == "Z" ||
+            e.PropertyName == "RotationX" || e.PropertyName == "RotationY" || e.PropertyName == "RotationZ") {
 
-                var result = await _documentManager.ApplyLocalEventAsync(command, null!, default);
-                if (result.IsSuccess) {
-                    RequestSave(ActiveDocument.Id);
-                }
-                else {
-                    _log.LogError("Failed to update static object: {Error}", result.Error);
-                }
-            }, TaskScheduler.Default).Unwrap();
-        }
-    }
+            // Calculate world position
+            var worldPos = _landscapeObjectService.ComputeWorldPosition(ActiveDocument.Region, info.LandblockId, info.LocalPosition);
+            info.Position = worldPos;
 
-    public void AddStaticObject(string layerId, ushort landblockId, StaticObject obj) {
-        if (ActiveDocument == null) return;
+            // Preview in real-time
+            var currentCellId = await _landscapeObjectService.ResolveCellIdAsync(ActiveDocument, worldPos, info.Type == ObjectType.EnvCellStaticObject ? info.InstanceId.Context : null);
+            
+            _isUpdatingFromSelection = true;
+            try {
+                info.CellId = currentCellId;
+            }
+            finally {
+                _isUpdatingFromSelection = false;
+            }
 
-        lock (_updateTaskLock) {
-            _updateTask = _updateTask.ContinueWith(async t => {
-                var command = new AddStaticObjectCommand {
-                    TerrainDocumentId = ActiveDocument.Id,
-                    LayerId = layerId,
-                    LandblockId = landblockId,
-                    Object = obj,
-                    UserId = ""
-                };
+            NotifyObjectPositionPreview(info.LandblockId, info.InstanceId, worldPos, info.Rotation, currentCellId ?? 0);
 
-                var result = await _documentManager.ApplyLocalEventAsync(command, null!, default);
-                if (result.IsSuccess) {
-                    RequestSave(ActiveDocument.Id);
-                }
-                else {
-                    _log.LogError("Failed to add static object: {Error}", result.Error);
-                }
-            }, TaskScheduler.Default).Unwrap();
-        }
-    }
-
-    public void DeleteStaticObject(string layerId, ushort landblockId, StaticObject obj) {
-        if (ActiveDocument == null) return;
-
-        lock (_updateTaskLock) {
-            _updateTask = _updateTask.ContinueWith(async t => {
-                var command = new DeleteStaticObjectCommand {
-                    TerrainDocumentId = ActiveDocument.Id,
-                    LayerId = layerId,
-                    LandblockId = landblockId,
-                    InstanceId = obj.InstanceId,
-                    PreviousState = obj,
-                    UserId = ""
-                };
-
-                var result = await _documentManager.ApplyLocalEventAsync(command, null!, default);
-                if (result.IsSuccess) {
-                    RequestSave(ActiveDocument.Id);
-                }
-                else {
-                    _log.LogError("Failed to delete static object: {Error}", result.Error);
-                }
-            }, TaskScheduler.Default).Unwrap();
+            // Debounce the actual commit
+            RequestCommitObjectChange(info);
         }
     }
 
@@ -574,31 +543,9 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
     public (Vector3 position, Quaternion rotation, Vector3 localPosition)? GetStaticObjectTransform(ushort landblockId, ObjectId instanceId) => _gameScene?.GetStaticObjectTransform(landblockId, instanceId);
     public uint GetEnvCellAt(Vector3 worldPos) => _gameScene?.GetEnvCellAt(worldPos) ?? 0;
 
-    private readonly ConcurrentDictionary<ObjectId, CancellationTokenSource> _commitDebounceTokens = new();
-
     private void RequestCommitObjectChange(ISelectedObjectInfo info) {
         if (_project.IsReadOnly) return;
-
-        if (_commitDebounceTokens.TryGetValue(info.InstanceId, out var existingCts)) {
-            existingCts.Cancel();
-            existingCts.Dispose();
-        }
-
-        var cts = new CancellationTokenSource();
-        _commitDebounceTokens[info.InstanceId] = cts;
-
-        var token = cts.Token;
-        _ = Task.Run(async () => {
-            try {
-                await Task.Delay(500, token);
-                if (token.IsCancellationRequested) return;
-                await Dispatcher.UIThread.InvokeAsync(() => {
-                    if (token.IsCancellationRequested) return;
-                    CommitObjectChange(info);
-                });
-            }
-            catch (OperationCanceledException) { }
-        });
+        _commitDebounce.Request(info.InstanceId, () => CommitObjectChange(info));
     }
 
     private void CommitObjectChange(ISelectedObjectInfo info) {
@@ -694,26 +641,8 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
             }
         }
 
-        if (_saveDebounceTokens.TryGetValue(docId, out var existingCts)) {
-            existingCts.Cancel();
-            existingCts.Dispose();
-        }
-
-        var cts = new CancellationTokenSource();
-        _saveDebounceTokens[docId] = cts;
-
-        var token = cts.Token;
-        _ = Task.Run(async () => {
-            try {
-                await Task.Delay(500, token);
-                await PersistDocumentAsync(docId, token);
-            }
-            catch (OperationCanceledException) {
-                // Ignore
-            }
-            catch (Exception ex) {
-                _log.LogError(ex, "Error during debounced save for {DocId}", docId);
-            }
+        _saveDebounce.Request(docId, async () => {
+            await Dispatcher.UIThread.InvokeAsync(() => PersistDocumentAsync(docId, default));
         });
     }
 
@@ -814,21 +743,9 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
         try {
             var projectSettings = _settings.Project;
 
-            // Try restoring from string first if available
-            if (!string.IsNullOrEmpty(projectSettings.LandscapeCameraLocationString) &&
-                Position.TryParse(projectSettings.LandscapeCameraLocationString, out var pos, ActiveDocument?.Region)) {
-                _gameScene.Teleport(pos!.GlobalPosition, (uint)((pos.LandblockId << 16) | pos.CellId));
-                if (pos.Rotation.HasValue) {
-                    _gameScene.CurrentCamera.Rotation = pos.Rotation.Value;
-                }
-            }
-
+            _gameScene.RestoreCamera(projectSettings.LandscapeCameraLocationString, projectSettings.LandscapeCameraFieldOfView);
             _gameScene.Camera3D.MoveSpeed = projectSettings.LandscapeCameraMovementSpeed;
-            _gameScene.Camera3D.FieldOfView = projectSettings.LandscapeCameraFieldOfView;
-            _gameScene.Camera2D.FieldOfView = projectSettings.LandscapeCameraFieldOfView;
-
             _gameScene.SetCameraMode(projectSettings.LandscapeCameraIs3D);
-            _gameScene.SyncZoomFromZ();
         }
         finally {
             _isRestoringCamera = false;
@@ -839,13 +756,7 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
         if (_isRestoringCamera || _settings?.Project == null || _gameScene == null) return;
 
         var projectSettings = _settings.Project;
-        var pos = _gameScene.Camera.Position;
-
-        // Save location string
-        var loc = Position.FromGlobal(pos, ActiveDocument?.Region, _gameScene.CurrentEnvCellId != 0 ? _gameScene.CurrentEnvCellId : null);
-
-        loc.Rotation = _gameScene.Camera3D.Rotation;    // Camera2D.Rotation is always Quaternion.Identity, and we want to persist 3D camera rotation through saves
-        projectSettings.LandscapeCameraLocationString = loc.ToLandblockString();
+        projectSettings.LandscapeCameraLocationString = _gameScene.GetLocationString();
 
         projectSettings.LandscapeCameraIs3D = _gameScene.Is3DMode;
         projectSettings.LandscapeCameraMovementSpeed = _gameScene.Camera3D.MoveSpeed;
@@ -1008,13 +919,7 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
     }
 
     private void CancelPendingCommits() {
-        foreach (var cts in _commitDebounceTokens.Values) {
-            try {
-                cts.Cancel();
-                cts.Dispose();
-            } catch { }
-        }
-        _commitDebounceTokens.Clear();
+        _commitDebounce.CancelAll();
     }
 
     private void OnCommandHistoryChanged(object? sender, CommandHistoryChangedEventArgs e) {
@@ -1036,12 +941,12 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
             return true;
         }
         if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.Z) {
-            CancelPendingCommits();
+            _commitDebounce.CancelAll();
             CommandHistory.Undo();
             return true;
         }
         if (e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift) && e.Key == Key.Z) {
-            CancelPendingCommits();
+            _commitDebounce.CancelAll();
             CommandHistory.Redo();
             return true;
         }
@@ -1078,14 +983,7 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
     }
 
     public void Dispose() {
-        if (_settings != null) {
-            _settings.PropertyChanged -= OnSettingsPropertyChanged;
-            _settings.Landscape.PropertyChanged -= OnLandscapeSettingsPropertyChanged;
-            _settings.Landscape.Camera.PropertyChanged -= OnCameraSettingsPropertyChanged;
-            _settings.Landscape.Rendering.PropertyChanged -= OnRenderingSettingsPropertyChanged;
-            _settings.Landscape.Grid.PropertyChanged -= OnGridSettingsPropertyChanged;
-        }
-        EditorState.PropertyChanged -= OnEditorStatePropertyChanged;
+        _settingsBridge.Dispose();
         CommandHistory.OnChange -= OnCommandHistoryChanged;
         _landscapeRental?.Dispose();
     }

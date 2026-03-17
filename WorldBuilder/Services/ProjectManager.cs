@@ -135,17 +135,7 @@ namespace WorldBuilder.Services {
                     model.LoadingProgress = p.progress * 100f;
                 });
 
-                var deps = new ProjectDependencies(
-                    _rootProvider.GetRequiredService<IDatRepositoryService>(),
-                    _rootProvider.GetRequiredService<IAceRepositoryService>(),
-                    _rootProvider.GetRequiredService<IKeywordRepositoryService>(),
-                    _rootProvider.GetRequiredService<IProjectMigrationService>(),
-                    _rootProvider.GetRequiredService<ILoggerFactory>()
-                );
-                deps.DatRepository.SetRepositoryRoot(_settings.App.ManagedDatsDirectory);
-                deps.AceRepository.SetRepositoryRoot(_settings.App.ManagedAceDbsDirectory);
-                deps.KeywordRepository.SetRepositoryRoot(_settings.App.ManagedKeywordsDirectory);
-                deps.KeywordRepository.SetModelsRoot(_settings.App.ManagedModelsDirectory);
+                var deps = CreateProjectDependencies();
 
                 Guid? managedAceId = null;
                 if (model.AceDatabaseSelection.SelectedAceSourceType == AceSourceType.Local && !string.IsNullOrEmpty(model.AceDatabaseSelection.LocalAceDbPath)) {
@@ -225,6 +215,19 @@ namespace WorldBuilder.Services {
         private async Task SetProject(string projectPath, Guid? managedId = null, Guid? managedAceId = null, IProgress<(string message, float progress)>? progress = null) {
             _projectProvider?.Dispose();
 
+            var deps = CreateProjectDependencies();
+
+            var managedIds = new ManagedEnvironmentIds(managedId, managedAceId);
+            var projectResult = await Project.Open(projectPath, deps, managedIds, progress, CancellationToken.None);
+            if (projectResult.IsSuccess) {
+                SetProject(projectResult.Value);
+            }
+            else {
+                throw new Exception(projectResult.Error.Message);
+            }
+        }
+
+        private ProjectDependencies CreateProjectDependencies() {
             var deps = new ProjectDependencies(
                 _rootProvider.GetRequiredService<IDatRepositoryService>(),
                 _rootProvider.GetRequiredService<IAceRepositoryService>(),
@@ -236,15 +239,7 @@ namespace WorldBuilder.Services {
             deps.AceRepository.SetRepositoryRoot(_settings.App.ManagedAceDbsDirectory);
             deps.KeywordRepository.SetRepositoryRoot(_settings.App.ManagedKeywordsDirectory);
             deps.KeywordRepository.SetModelsRoot(_settings.App.ManagedModelsDirectory);
-
-            var managedIds = new ManagedEnvironmentIds(managedId, managedAceId);
-            var projectResult = await Project.Open(projectPath, deps, managedIds, progress, CancellationToken.None);
-            if (projectResult.IsSuccess) {
-                SetProject(projectResult.Value);
-            }
-            else {
-                throw new Exception(projectResult.Error.Message);
-            }
+            return deps;
         }
 
         /// <summary>

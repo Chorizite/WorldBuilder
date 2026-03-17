@@ -21,7 +21,6 @@ namespace WorldBuilder.Views {
     public partial class DatObjectViewer : Base3DViewport {
         private GL? _gl;
         private SingleObjectScene? _scene;
-        private Vector2 _lastPointerPosition;
         private WorldBuilderSettings? _settings;
 
         // Thread-safe copies for the render thread
@@ -332,7 +331,6 @@ namespace WorldBuilder.Views {
             if (PlatformMouse.OnPointerMoved(this, e, input)) {
                 _scene?.HandlePointerMoved(input.Position, input.Delta);
             }
-            _lastPointerPosition = mousePositionScaled;
         }
 
         protected override void OnPointerEntered(PointerEventArgs e) {
@@ -345,25 +343,6 @@ namespace WorldBuilder.Views {
             _renderIsPointerOver = false;
         }
 
-        private ViewportInputEvent CreateInputEvent(PointerEventArgs e) {
-            var relativeTo = _viewport ?? this;
-            var point = e.GetCurrentPoint(relativeTo);
-            var size = new Vector2((float)relativeTo.Bounds.Width, (float)relativeTo.Bounds.Height) * InputScale;
-            var pos = e.GetPosition(relativeTo);
-            var posVec = new Vector2((float)pos.X, (float)pos.Y) * InputScale;
-            var delta = posVec - _lastPointerPosition;
-
-            return new ViewportInputEvent {
-                Position = posVec,
-                Delta = delta,
-                ViewportSize = size,
-                IsLeftDown = point.Properties.IsLeftButtonPressed,
-                IsRightDown = point.Properties.IsRightButtonPressed,
-                ShiftDown = (e.KeyModifiers & KeyModifiers.Shift) != 0,
-                CtrlDown = (e.KeyModifiers & KeyModifiers.Control) != 0,
-                AltDown = (e.KeyModifiers & KeyModifiers.Alt) != 0
-            };
-        }
 
         protected override void OnGlPointerWheelChanged(PointerWheelEventArgs e) {
             _scene?.HandlePointerWheelChanged((float)e.Delta.Y);
@@ -389,7 +368,6 @@ namespace WorldBuilder.Views {
                 if (_renderAltMouseLook)
                     PlatformMouse.OnPointerPressed(this, e, input);
             }
-            _lastPointerPosition = input.Position;
         }
 
         protected override void OnGlPointerReleased(PointerReleasedEventArgs e) {
