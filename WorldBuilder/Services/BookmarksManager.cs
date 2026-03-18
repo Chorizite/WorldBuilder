@@ -92,7 +92,7 @@ namespace WorldBuilder.Services {
         /// <param name="name">An optional name for the bookmark</param>
         /// <param name="folder">The folder to add the bookmark to, or null for root level</param>
         /// <returns>A task representing the asynchronous operation</returns>
-        public async Task AddBookmark(string loc, string name = "", BookmarkFolder? folder = null) {
+        public async Task<Bookmark> AddBookmark(string loc, string name = "", BookmarkFolder? folder = null) {
             var bookmark = new Bookmark {
                 Name = name,
                 Location = loc,
@@ -101,6 +101,7 @@ namespace WorldBuilder.Services {
             var container = folder?.Items ?? Bookmarks;
             container.Add(bookmark);
             await SaveBookmarks();
+            return bookmark;
         }
 
         /// <summary>
@@ -109,7 +110,7 @@ namespace WorldBuilder.Services {
         /// <param name="name">The name of the folder</param>
         /// <param name="parent">The parent folder to add the folder to, or null for root level</param>
         /// <returns>A task representing the asynchronous operation</returns>
-        public async Task AddFolder(string name, BookmarkFolder? parent = null) {
+        public async Task<BookmarkFolder> AddFolder(string name, BookmarkFolder? parent = null) {
             var folder = new BookmarkFolder {
                 Name = name,
                 Parent = parent
@@ -117,6 +118,7 @@ namespace WorldBuilder.Services {
             var container = parent?.Items ?? Bookmarks;
             container.Add(folder);
             await SaveBookmarks();
+            return folder;
         }
 
         /// <summary>
