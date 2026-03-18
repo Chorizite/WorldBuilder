@@ -8,14 +8,19 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using WorldBuilder.Controls;
 using WorldBuilder.Shared.Services;
 using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
     public record OpenQualifiedDataIdMessage(uint DataId, Type? TargetType);
 
-    public partial class ReflectionNodeViewModel : ViewModelBase {
-        public string Name { get; set; }
+    public partial class ReflectionNodeViewModel : ViewModelBase, ITreeNode<ReflectionNodeViewModel> {
+        private string? _name;
+        public string? Name { 
+            get => _name; 
+            set => _name = value;
+        }
         public string? Value { get; set; }
         public string TypeName { get; }
         public ObservableCollection<ReflectionNodeViewModel>? Children { get; }
@@ -335,7 +340,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         public int GetHashCode(object obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
     }
 
-    internal class TypeComparer : IComparer<string> {
+    internal class TypeComparer : IComparer<string?> {
         private readonly Type? _keyType;
 
         public TypeComparer(Type? keyType) {
