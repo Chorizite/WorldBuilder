@@ -397,10 +397,13 @@ namespace Chorizite.OpenGLSDLBackend {
                     var extent = new Vector3(avgOffset);
                     
                     if (emitter.ParticleType == ParticleType.Explode) {
-                        float explodeSpread = absC.Length() * aAbsMult * Math.Abs(emitter.A.X) * avgLife;
+                        // Explode normalizes C, so it becomes a directional unit vector multiplied by A.X
+                        float explodeSpread = aAbsMult * Math.Abs(emitter.A.X) * avgLife;
                         extent += absB * (avgLife * avgLife) + new Vector3(explodeSpread);
                     } else if (emitter.ParticleType == ParticleType.Implode) {
-                        extent += absB * (avgLife * avgLife) + new Vector3(absC.Length());
+                        // Implode particles multiply their offset by C on spawn
+                        float implodeSpread = avgOffset * absC.Length();
+                        extent += absB * (avgLife * avgLife) + new Vector3(implodeSpread);
                     } else if (emitter.ParticleType == ParticleType.Swarm) {
                         extent += (absA * avgLife) + absC;
                     } else if (emitter.ParticleType == ParticleType.Still) {

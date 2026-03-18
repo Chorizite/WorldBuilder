@@ -972,6 +972,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     throw new NotSupportedException($"Unsupported surface format: {renderSurface.Format}");
                             }
                         }
+
+                        if (surface.Translucency > 0.0f && textureData != null) {
+                            // If we got this from the cache, we need to clone it so we don't scale the cached raw data
+                            if (sourceFormat.HasValue && TextureHelpers.IsCompressedFormat(sourceFormat.Value) && _decodedTextureCache.ContainsKey(renderSurfaceId)) {
+                                var clonedData = new byte[textureData.Length];
+                                System.Buffer.BlockCopy(textureData, 0, clonedData, 0, textureData.Length);
+                                textureData = clonedData;
+                            }
+
+                            float alphaScale = 1.0f - surface.Translucency;
+                            for (int i = 3; i < textureData.Length; i += 4) {
+                                textureData[i] = (byte)(textureData[i] * alphaScale);
+                            }
+                        }
                     }
                     else {
                         return;
@@ -1011,7 +1025,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         batch = new TextureBatchData {
                             Key = key,
                             CullMode = poly.SidesType,
-                            TextureData = textureData,
+                            TextureData = textureData!,
                             UploadPixelFormat = uploadPixelFormat,
                             UploadPixelType = uploadPixelType,
                             IsTransparent = isTransparent,

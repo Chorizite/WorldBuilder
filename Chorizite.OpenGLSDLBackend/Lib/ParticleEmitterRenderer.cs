@@ -53,9 +53,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             public float FinalTrans;
             public bool IsActive;
 
-            // Absolute position calculated every frame
             public Vector3 CalculatedPosition;
-            public float CalculatedRotation;
         }
 
         public ParticleEmitterRenderer(OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager, ParticleEmitter emitter) {
@@ -153,7 +151,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 // Physics update
                 p.CalculatedPosition = CalculatePosition(ref p);
-                p.CalculatedRotation = CalculateRotation(ref p);
                 _particles[i] = p;
             }
 
@@ -251,7 +248,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             p.IsActive = true;
 
             p.CalculatedPosition = CalculatePosition(ref p);
-            p.CalculatedRotation = CalculateRotation(ref p);
 
             _particles.Add(p);
             _totalEmitted++;
@@ -360,18 +356,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        private float CalculateRotation(ref Particle p) {
-            float t = p.Lifetime;
-            switch (_emitter.ParticleType) {
-                case ParticleType.ParabolicLVGAGR:
-                case ParticleType.ParabolicLVLALR:
-                case ParticleType.ParabolicGVGAGR:
-                    // Angular velocity C. Assume rotation around Z axis for billboard plane
-                    return t * p.C.Z;
-                default:
-                    return 0f;
-            }
-        }
 
         public unsafe void Render(Matrix4x4 viewProjection, Vector3 cameraUp, Vector3 cameraRight) {
             if (_particles.Count == 0) return;
@@ -387,8 +371,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("uCameraUp", cameraUp);
             _shader.SetUniform("uCameraRight", cameraRight);
 
-            // The AC client specifies scale natively.
-            float baseSize = 1.0f;
+            float baseSize = 0.9f;
 
             // Prepare instance data
             var instances = new ParticleInstance[_particles.Count];
@@ -400,11 +383,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     Position = p.CalculatedPosition,
                     ScaleOpacityActive = new Vector3(
                         (p.StartScale + (p.FinalScale - p.StartScale) * lerp) * baseSize,
-                        p.StartTrans + (p.FinalTrans - p.StartTrans) * lerp,
+                        1.0f - (p.StartTrans + (p.FinalTrans - p.StartTrans) * lerp),
                         1.0f
                     ),
                     TextureIndex = _gfxRenderData?.Batches.Count > 0 ? _gfxRenderData.Batches[0].TextureIndex : 0,
-                    Rotation = p.CalculatedRotation
+                    Rotation = 0f
                 };
             }
 
@@ -418,6 +401,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (_gfxRenderData?.Batches.Count > 0) {
                 var batch = _gfxRenderData.Batches[0];
 
+                gl.Enable(EnableCap.Blend);
                 if (batch.IsAdditive) {
                     gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
                 }
