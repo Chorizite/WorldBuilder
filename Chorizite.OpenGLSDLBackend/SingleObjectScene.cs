@@ -379,8 +379,8 @@ namespace Chorizite.OpenGLSDLBackend {
                     if (_particleGfxObjId != 0) {
                         MeshManager.IncrementRefCount(_particleGfxObjId);
                     }
-                    // Use emitter properties for a default bounding box if needed (minimum of 5 to not zoom too close)
-                    var maxBound = Math.Clamp(emitter.MaxOffset + (float)emitter.Lifespan * emitter.MaxA, 5f, 30f);
+                    // Use emitter properties for a default bounding box if needed (minimum of 0.5 to not zoom too close)
+                    var maxBound = Math.Clamp(emitter.MaxOffset + (float)emitter.Lifespan * emitter.MaxA, 0.5f, 30f);
                     var mockData = new ObjectRenderData {
                         BoundingBox = new Chorizite.Core.Lib.BoundingBox(new Vector3(-maxBound), new Vector3(maxBound))
                     };

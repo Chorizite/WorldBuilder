@@ -7,6 +7,7 @@ layout (location = 1) in vec2 aTexCoord;
 layout (location = 2) in vec3 iPosition;
 layout (location = 3) in vec3 iScaleOpacityActive; // x=scale, y=opacity, z=active (1.0 or 0.0)
 layout (location = 4) in float iTextureIndex;
+layout (location = 5) in float iRotation; // Rotation in radians
 
 out vec2 TexCoord;
 out float Opacity;
@@ -31,9 +32,15 @@ void main() {
     vec3 cameraRight = uCameraRight;
     vec3 cameraUp = uCameraUp;
 
+    float cosR = cos(iRotation);
+    float sinR = sin(iRotation);
+
+    vec3 rotatedRight = cameraRight * cosR + cameraUp * sinR;
+    vec3 rotatedUp = cameraUp * cosR - cameraRight * sinR;
+
     vec3 worldPos = iPosition
-        + cameraRight * aPosition.x * iScaleOpacityActive.x
-        + cameraUp * aPosition.z * iScaleOpacityActive.x; // Use Z for vertical in AC world
+        + rotatedRight * aPosition.x * iScaleOpacityActive.x
+        + rotatedUp * aPosition.z * iScaleOpacityActive.x; // Use Z for vertical in AC world
 
     gl_Position = uViewProjection * vec4(worldPos, 1.0);
 }

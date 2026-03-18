@@ -11,6 +11,8 @@ using Silk.NET.OpenGL;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
     public class ParticleEmitterRenderer : IDisposable {
+        private const float EPSILON = 1e-5f;
+
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private readonly ObjectMeshManager _meshManager;
         private readonly ParticleEmitter _emitter;
@@ -34,10 +36,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             public Vector3 Position;
             public Vector3 ScaleOpacityActive;
             public float TextureIndex;
+            public float Rotation;
         }
 
         struct Particle {
-            public Vector3 Position;
+            public Vector3 Offset;
+            public Vector3 A;
+            public Vector3 B;
+            public Vector3 C;
             public float Lifetime;
             public float MaxLifetime;
             public float StartScale;
@@ -46,8 +52,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             public float FinalTrans;
             public bool IsActive;
 
-            // Specifically for different particle types
-            public Vector3 A, B, C;
+            // Absolute position calculated every frame
+            public Vector3 CalculatedPosition;
+            public float CalculatedRotation;
         }
 
         public ParticleEmitterRenderer(OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager, ParticleEmitter emitter) {
@@ -102,20 +109,27 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Reserve space for MaxParticles
             gl.BufferData(BufferTargetARB.ArrayBuffer, (uint)(_emitter.MaxParticles * Marshal.SizeOf<ParticleInstance>()), (void*)0, BufferUsageARB.DynamicDraw);
 
+            uint stride = (uint)Marshal.SizeOf<ParticleInstance>();
+
             // iPosition
             gl.EnableVertexAttribArray(2);
-            gl.VertexAttribPointer(2, 3, VertexAttribPointerType.Float, false, (uint)Marshal.SizeOf<ParticleInstance>(), (void*)0);
+            gl.VertexAttribPointer(2, 3, VertexAttribPointerType.Float, false, stride, (void*)0);
             gl.VertexAttribDivisor(2, 1);
 
             // iScaleOpacityActive
             gl.EnableVertexAttribArray(3);
-            gl.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, false, (uint)Marshal.SizeOf<ParticleInstance>(), (void*)(3 * sizeof(float)));
+            gl.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, false, stride, (void*)(3 * sizeof(float)));
             gl.VertexAttribDivisor(3, 1);
 
             // iTextureIndex
             gl.EnableVertexAttribArray(4);
-            gl.VertexAttribPointer(4, 1, VertexAttribPointerType.Float, false, (uint)Marshal.SizeOf<ParticleInstance>(), (void*)(6 * sizeof(float)));
+            gl.VertexAttribPointer(4, 1, VertexAttribPointerType.Float, false, stride, (void*)(6 * sizeof(float)));
             gl.VertexAttribDivisor(4, 1);
+
+            // iRotation
+            gl.EnableVertexAttribArray(5);
+            gl.VertexAttribPointer(5, 1, VertexAttribPointerType.Float, false, stride, (void*)(7 * sizeof(float)));
+            gl.VertexAttribDivisor(5, 1);
 
             gl.BindVertexArray(0);
 
@@ -135,8 +149,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     continue;
                 }
 
-                // Physics update based on type
-                UpdateParticlePhysics(ref p, deltaTime);
+                // Physics update
+                p.CalculatedPosition = CalculatePosition(ref p);
+                p.CalculatedRotation = CalculateRotation(ref p);
                 _particles[i] = p;
             }
 
@@ -189,65 +204,168 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private void Emit() {
             var p = new Particle();
             p.Lifetime = 0;
-            p.MaxLifetime = (float)(_emitter.Lifespan + (_random.NextDouble() * 2.0 - 1.0) * _emitter.LifespanRand);
+            p.MaxLifetime = GetRandomLifespan();
             if (p.MaxLifetime < 0.1f) p.MaxLifetime = 0.1f;
 
-            // Random offset
-            Vector3 randomDir = new Vector3((float)_random.NextDouble() * 2f - 1f, (float)_random.NextDouble() * 2f - 1f, (float)_random.NextDouble() * 2f - 1f);
-            if (randomDir.LengthSquared() > 0.001f) randomDir = Vector3.Normalize(randomDir);
-            
-            // This is a simplification of the complex AC offset logic
-            float offset = _emitter.MinOffset + (float)_random.NextDouble() * (_emitter.MaxOffset - _emitter.MinOffset);
-            p.Position = randomDir * offset;
+            p.Offset = GetRandomOffset();
+            p.A = GetRandomA();
+            p.B = GetRandomB();
+            p.C = GetRandomC();
 
-            p.A = _emitter.A * (_emitter.MinA + (float)_random.NextDouble() * (_emitter.MaxA - _emitter.MinA));
-            p.B = _emitter.B * (_emitter.MinB + (float)_random.NextDouble() * (_emitter.MaxB - _emitter.MinB));
-            p.C = _emitter.C * (_emitter.MinC + (float)_random.NextDouble() * (_emitter.MaxC - _emitter.MinC));
+            // Handle specific ParticleType initialization
+            switch (_emitter.ParticleType) {
+                case ParticleType.Explode:
+                    // A and B are passed as magnitudes, C is a random unit vector
+                    p.A = _emitter.A;
+                    p.B = _emitter.B;
 
-            p.StartScale = _emitter.StartScale + (float)(_random.NextDouble() * 2.0 - 1.0) * _emitter.ScaleRand;
-            p.FinalScale = _emitter.FinalScale + (float)(_random.NextDouble() * 2.0 - 1.0) * _emitter.ScaleRand;
-            p.StartTrans = _emitter.StartTrans + (float)(_random.NextDouble() * 2.0 - 1.0) * _emitter.TransRand;
-            p.FinalTrans = _emitter.FinalTrans + (float)(_random.NextDouble() * 2.0 - 1.0) * _emitter.TransRand;
+                    float ra = (float)(_random.NextDouble() * 2.0 * Math.PI - Math.PI);
+                    float po = (float)(_random.NextDouble() * 2.0 * Math.PI - Math.PI);
+                    float rb = (float)Math.Cos(po);
+
+                    p.C = new Vector3(
+                        (float)(Math.Cos(ra) * _emitter.C.X * rb),
+                        (float)(Math.Sin(ra) * _emitter.C.Y * rb),
+                        (float)(Math.Sin(po) * _emitter.C.Z * rb)
+                    );
+
+                    if (NormalizeCheckSmall(ref p.C))
+                        p.C = Vector3.Zero;
+                    break;
+
+                case ParticleType.Implode:
+                    p.A = _emitter.A;
+                    p.B = _emitter.B;
+                    p.Offset *= _emitter.C;
+                    p.C = p.Offset;
+                    break;
+            }
+
+            p.StartScale = GetRandomStartScale();
+            p.FinalScale = GetRandomFinalScale();
+            p.StartTrans = GetRandomStartTrans();
+            p.FinalTrans = GetRandomFinalTrans();
             p.IsActive = true;
+
+            p.CalculatedPosition = CalculatePosition(ref p);
+            p.CalculatedRotation = CalculateRotation(ref p);
 
             _particles.Add(p);
             _totalEmitted++;
         }
 
-        private void UpdateParticlePhysics(ref Particle p, float deltaTime) {
+        private float GetRandomLifespan() {
+            return (float)Math.Max(0.0, _random.NextDouble() * 2.0 * _emitter.LifespanRand - _emitter.LifespanRand + _emitter.Lifespan);
+        }
+
+        private Vector3 GetRandomOffset() {
+            var rng = new Vector3(
+                (float)(_random.NextDouble() * 2.0 - 1.0),
+                (float)(_random.NextDouble() * 2.0 - 1.0),
+                (float)(_random.NextDouble() * 2.0 - 1.0)
+            );
+
+            var offsetDir = _emitter.OffsetDir;
+            var randomAngle = rng - offsetDir * Vector3.Dot(offsetDir, rng);
+
+            if (NormalizeCheckSmall(ref randomAngle))
+                return Vector3.Zero;
+
+            var scaled = randomAngle * ((_emitter.MaxOffset - _emitter.MinOffset) + _emitter.MinOffset) * (float)_random.NextDouble();
+            return scaled;
+        }
+
+        private Vector3 GetRandomA() {
+            var magnitude = (_emitter.MaxA - _emitter.MinA) * _random.NextDouble() + _emitter.MinA;
+            return _emitter.A * (float)magnitude;
+        }
+
+        private Vector3 GetRandomB() {
+            var magnitude = (_emitter.MaxB - _emitter.MinB) * _random.NextDouble() + _emitter.MinB;
+            return _emitter.B * (float)magnitude;
+        }
+
+        private Vector3 GetRandomC() {
+            var magnitude = (_emitter.MaxC - _emitter.MinC) * _random.NextDouble() + _emitter.MinC;
+            return _emitter.C * (float)magnitude;
+        }
+
+        private float GetRandomStartScale() {
+            return Math.Clamp((float)(_random.NextDouble() * 2.0 * _emitter.ScaleRand - _emitter.ScaleRand + _emitter.StartScale), 0.01f, 100.0f);
+        }
+
+        private float GetRandomFinalScale() {
+            return Math.Clamp((float)(_random.NextDouble() * 2.0 * _emitter.ScaleRand - _emitter.ScaleRand + _emitter.FinalScale), 0.01f, 100.0f);
+        }
+
+        private float GetRandomStartTrans() {
+            return Math.Clamp((float)(_random.NextDouble() * 2.0 * _emitter.TransRand - _emitter.TransRand + _emitter.StartTrans), 0.0f, 1.0f);
+        }
+
+        private float GetRandomFinalTrans() {
+            return Math.Clamp((float)(_random.NextDouble() * 2.0 * _emitter.TransRand - _emitter.TransRand + _emitter.FinalTrans), 0.0f, 1.0f);
+        }
+
+        private bool NormalizeCheckSmall(ref Vector3 v) {
+            var dist = v.Length();
+            if (dist < EPSILON)
+                return true;
+
+            v *= 1.0f / dist;
+            return false;
+        }
+
+        private Vector3 CalculatePosition(ref Particle p) {
             float t = p.Lifetime;
+            Vector3 parentOrigin = Vector3.Zero; // Previews always at origin
 
             switch (_emitter.ParticleType) {
                 case ParticleType.Still:
-                    break;
+                    return parentOrigin + p.Offset;
+
                 case ParticleType.LocalVelocity:
                 case ParticleType.GlobalVelocity:
-                    p.Position += p.A * deltaTime;
-                    break;
+                    return (t * p.A) + parentOrigin + p.Offset;
+
                 case ParticleType.ParabolicLVGA:
                 case ParticleType.ParabolicLVLA:
                 case ParticleType.ParabolicGVGA:
-                    // Velocity = A + B*t
-                    p.Position += (p.A + p.B * t) * deltaTime;
-                    break;
+                    return (t * t * p.B / 2.0f) + (t * p.A) + parentOrigin + p.Offset;
+
                 case ParticleType.ParabolicLVGAGR:
                 case ParticleType.ParabolicLVLALR:
                 case ParticleType.ParabolicGVGAGR:
-                    p.Position += (p.A + p.B * t) * deltaTime;
-                    // Rotation C omitted for simplicity in preview
-                    break;
+                    return (t * t * p.B / 2.0f) + (t * p.A) + parentOrigin + p.Offset;
+
                 case ParticleType.Swarm:
-                    p.Position += p.A * deltaTime;
-                    // Sin/Cos based offset would go here
-                    break;
+                    var swarm = (t * p.A) + parentOrigin + p.Offset;
+                    return new Vector3(
+                        (float)Math.Cos(t * p.B.X) * p.C.X + swarm.X,
+                        (float)Math.Sin(t * p.B.Y) * p.C.Y + swarm.Y,
+                        (float)Math.Cos(t * p.B.Z) * p.C.Z + swarm.Z
+                    );
+
                 case ParticleType.Explode:
-                    // (lifetime * B + C * A.X) * lifetime + Offset
-                    // Simplification:
-                    p.Position += (p.B + p.C * p.A.X) * deltaTime;
-                    break;
+                    return (t * p.B + p.C * p.A.X) * t + p.Offset + parentOrigin;
+
+                case ParticleType.Implode:
+                    return ((float)Math.Cos(p.A.X * t) * p.C) + (t * t * p.B) + parentOrigin + p.Offset;
+
                 default:
-                    p.Position += p.A * deltaTime;
-                    break;
+                    return (t * p.A) + parentOrigin + p.Offset;
+            }
+        }
+
+        private float CalculateRotation(ref Particle p) {
+            float t = p.Lifetime;
+            switch (_emitter.ParticleType) {
+                case ParticleType.ParabolicLVGAGR:
+                case ParticleType.ParabolicLVLALR:
+                case ParticleType.ParabolicGVGAGR:
+                    // Angular velocity C. Assume rotation around Z axis for billboard plane
+                    return t * p.C.Z;
+                default:
+                    return 0f;
             }
         }
 
@@ -265,9 +383,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("uCameraUp", cameraUp);
             _shader.SetUniform("uCameraRight", cameraRight);
 
-            // The AC client specifies scale natively. Base scale logic based on the GfxObj box
-            // often causes massive disparities. Let's start with a fixed metric scale.
-            float baseSize = 0.5f;
+            // The AC client specifies scale natively.
+            float baseSize = 1.0f;
 
             // Prepare instance data
             var instances = new ParticleInstance[_particles.Count];
@@ -276,13 +393,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 float lerp = Math.Clamp(p.Lifetime / p.MaxLifetime, 0f, 1f);
                 
                 instances[i] = new ParticleInstance {
-                    Position = p.Position,
+                    Position = p.CalculatedPosition,
                     ScaleOpacityActive = new Vector3(
                         (p.StartScale + (p.FinalScale - p.StartScale) * lerp) * baseSize,
                         1.0f - (p.StartTrans + (p.FinalTrans - p.StartTrans) * lerp),
                         1.0f
                     ),
-                    TextureIndex = _gfxRenderData?.Batches.Count > 0 ? _gfxRenderData.Batches[0].TextureIndex : 0
+                    TextureIndex = _gfxRenderData?.Batches.Count > 0 ? _gfxRenderData.Batches[0].TextureIndex : 0,
+                    Rotation = p.CalculatedRotation
                 };
             }
 
