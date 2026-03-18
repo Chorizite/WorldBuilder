@@ -132,10 +132,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public static void FillA8(byte[] src, Span<byte> dst, int width, int height) {
             for (int i = 0; i < width * height; i++) {
                 byte val = src[i];
+                dst[i * 4] = 255;
+                dst[i * 4 + 1] = 255;
+                dst[i * 4 + 2] = 255;
+                dst[i * 4 + 3] = val;
+            }
+        }
+
+        public static void FillA8Additive(byte[] src, Span<byte> dst, int width, int height) {
+            for (int i = 0; i < width * height; i++) {
+                byte val = src[i];
                 dst[i * 4] = val;
                 dst[i * 4 + 1] = val;
                 dst[i * 4 + 2] = val;
-                dst[i * 4 + 3] = 255;
+                dst[i * 4 + 3] = val;
             }
         }
 

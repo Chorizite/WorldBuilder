@@ -508,7 +508,8 @@ namespace Chorizite.OpenGLSDLBackend {
                                   * Matrix4x4.CreateTranslation(center);
 
                     // Pass 1: Opaque
-                    _shader.SetUniform("uRenderPass", EnableTransparencyPass ? (int)RenderPass.Opaque : (int)RenderPass.SinglePass);
+                    var pass1RenderPass = EnableTransparencyPass ? RenderPass.Opaque : RenderPass.SinglePass;
+                    _shader.SetUniform("uRenderPass", (int)pass1RenderPass);
                     Gl.DepthMask(true);
 
                     if (ShowCulling) {
@@ -520,13 +521,13 @@ namespace Chorizite.OpenGLSDLBackend {
                         Gl.Disable(EnableCap.CullFace);
                     }
 
-                    RenderCurrentObject(data, transform);
+                    RenderCurrentObject(data, transform, pass1RenderPass);
 
                     // Pass 2: Transparent
                     if (EnableTransparencyPass) {
                         _shader.SetUniform("uRenderPass", (int)RenderPass.Transparent);
                         Gl.DepthMask(false);
-                        RenderCurrentObject(data, transform);
+                        RenderCurrentObject(data, transform, RenderPass.Transparent);
                     }
 
                     if (ShowWireframe && _debugRenderer != null) {
@@ -542,7 +543,7 @@ namespace Chorizite.OpenGLSDLBackend {
             }
         }
 
-        private unsafe void RenderCurrentObject(ObjectRenderData data, Matrix4x4 transform) {
+        private unsafe void RenderCurrentObject(ObjectRenderData data, Matrix4x4 transform, RenderPass renderPass) {
             var drawCalls = new List<(ObjectRenderData renderData, int count, int offset)>();
             var allInstances = new List<InstanceData>();
 
@@ -563,13 +564,13 @@ namespace Chorizite.OpenGLSDLBackend {
             if (drawCalls.Count == 0) return;
 
             if (_useModernRendering) {
-                RenderModernMDI(_shader!, drawCalls, allInstances, RenderPass.SinglePass, ShowCulling);
+                RenderModernMDI(_shader!, drawCalls, allInstances, renderPass, ShowCulling);
             }
             else {
                 GraphicsDevice.UpdateInstanceBuffer(allInstances);
 
                 foreach (var call in drawCalls) {
-                    RenderObjectBatches(_shader!, call.renderData, call.count, call.offset, RenderPass.SinglePass, ShowCulling);
+                    RenderObjectBatches(_shader!, call.renderData, call.count, call.offset, renderPass, ShowCulling);
                 }
             }
         }

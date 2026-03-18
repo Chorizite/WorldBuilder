@@ -14,13 +14,16 @@ out vec4 FragColor;
 void main() {
     vec4 color = texture(uTextureArray, vec3(TexCoord, TextureIndex));
     
-    if (uRenderPass == 0) {
+    int renderPass = uRenderPass & 0xFF;
+    bool isAdditive = (uRenderPass & 0x100) != 0;
+
+    if (renderPass == 0) {
         // Opaque pass - discard transparent pixels so they don't write to depth (Alpha Test)
-        if (color.a < 0.95) discard;
-    } else if (uRenderPass == 1) {
+        if (isAdditive || color.a < 0.95) discard;
+    } else if (renderPass == 1) {
         // Transparent pass - discard pixels that were already drawn in the opaque pass
-        if (color.a >= 0.95) discard;
-    } else if (uRenderPass == 2) {
+        if (!isAdditive && color.a >= 0.95) discard;
+    } else if (renderPass == 2) {
         // Single pass mode (or fallback)
         if (color.a < 0.1) discard;
     }

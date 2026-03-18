@@ -871,6 +871,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     bool isClipMap = surface.Type.HasFlag(SurfaceType.Base1ClipMap);
                     uint paletteId = 0;
                     bool isDxt3or5 = false;
+                    DatReaderWriter.Enums.PixelFormat? sourceFormat = null;
 
                     if (isSolid) {
                         texWidth = texHeight = 32;
@@ -892,6 +893,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         texWidth = renderSurface.Width;
                         texHeight = renderSurface.Height;
                         paletteId = renderSurface.DefaultPaletteId;
+                        sourceFormat = renderSurface.Format;
 
                         if (TextureHelpers.IsCompressedFormat(renderSurface.Format)) {
                             isDxt3or5 = renderSurface.Format == DatReaderWriter.Enums.PixelFormat.PFID_DXT3 || renderSurface.Format == DatReaderWriter.Enums.PixelFormat.PFID_DXT5;
@@ -958,7 +960,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 case DatReaderWriter.Enums.PixelFormat.PFID_A8:
                                 case DatReaderWriter.Enums.PixelFormat.PFID_CUSTOM_LSCAPE_ALPHA:
                                     textureData = new byte[texWidth * texHeight * 4];
-                                    TextureHelpers.FillA8(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                    if (surface.Type.HasFlag(SurfaceType.Additive)) {
+                                        TextureHelpers.FillA8Additive(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                    }
+                                    else {
+                                        TextureHelpers.FillA8(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                    }
                                     uploadPixelFormat = PixelFormat.Rgba;
                                     break;
                                 default:
@@ -973,11 +980,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     var isAdditive = !isSolid && surface.Type.HasFlag(SurfaceType.Additive);
                     var isTransparent = isSolid ? surface.ColorValue.Alpha < 255 :
                         (surface.Type.HasFlag(SurfaceType.Translucent) ||
+                         surface.Type.HasFlag(SurfaceType.Base1ClipMap) ||
+                         ((uint)surface.Type & 0x100) != 0 || // Alpha
+                         ((uint)surface.Type & 0x200) != 0 || // InvAlpha
                          isAdditive ||
                          (surface.Translucency > 0.0f && surface.Translucency < 1.0f) ||
                          textureFormat == TextureFormat.A8 ||
                          textureFormat == TextureFormat.Rgba32f ||
-                         isDxt3or5);
+                         isDxt3or5 ||
+                         (sourceFormat != null && (sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_A8R8G8B8 || 
+                                                     sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_A4R4G4B4 ||
+                                                     sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_DXT3 ||
+                                                     sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_DXT5)));
 
                     var format = (texWidth, texHeight, textureFormat);
                     var key = new TextureAtlasManager.TextureKey {
@@ -1140,6 +1154,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     bool isClipMap = surface.Type.HasFlag(SurfaceType.Base1ClipMap);
                     uint paletteId = 0;
                     bool isDxt3or5 = false;
+                    DatReaderWriter.Enums.PixelFormat? sourceFormat = null;
 
                     if (isSolid) {
                         texWidth = texHeight = 32;
@@ -1159,6 +1174,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         texWidth = renderSurface.Width;
                         texHeight = renderSurface.Height;
                         paletteId = renderSurface.DefaultPaletteId;
+                        sourceFormat = renderSurface.Format;
 
                         if (TextureHelpers.IsCompressedFormat(renderSurface.Format)) {
                             isDxt3or5 = renderSurface.Format == DatReaderWriter.Enums.PixelFormat.PFID_DXT3 || renderSurface.Format == DatReaderWriter.Enums.PixelFormat.PFID_DXT5;
@@ -1223,7 +1239,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 case DatReaderWriter.Enums.PixelFormat.PFID_A8:
                                 case DatReaderWriter.Enums.PixelFormat.PFID_CUSTOM_LSCAPE_ALPHA:
                                     textureData = new byte[texWidth * texHeight * 4];
-                                    TextureHelpers.FillA8(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                    if (surface.Type.HasFlag(SurfaceType.Additive)) {
+                                        TextureHelpers.FillA8Additive(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                    }
+                                    else {
+                                        TextureHelpers.FillA8(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                    }
                                     uploadPixelFormat = PixelFormat.Rgba;
                                     break;
                                 default: return;
@@ -1237,11 +1258,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     var isAdditive = !isSolid && surface.Type.HasFlag(SurfaceType.Additive);
                     var isTransparent = isSolid ? surface.ColorValue.Alpha < 255 :
                         (surface.Type.HasFlag(SurfaceType.Translucent) ||
+                         surface.Type.HasFlag(SurfaceType.Base1ClipMap) ||
+                         ((uint)surface.Type & 0x100) != 0 || // Alpha
+                         ((uint)surface.Type & 0x200) != 0 || // InvAlpha
                          isAdditive ||
                          (surface.Translucency > 0.0f && surface.Translucency < 1.0f) ||
                          textureFormat == TextureFormat.A8 ||
                          textureFormat == TextureFormat.Rgba32f ||
-                         isDxt3or5);
+                         isDxt3or5 ||
+                         (sourceFormat != null && (sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_A8R8G8B8 || 
+                                                     sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_A4R4G4B4 ||
+                                                     sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_DXT3 ||
+                                                     sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_DXT5)));
 
                     var format = (texWidth, texHeight, textureFormat);
                     var key = new TextureAtlasManager.TextureKey {
