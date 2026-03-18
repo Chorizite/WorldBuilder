@@ -337,10 +337,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             var cameraPos = _graphicsDevice.CurrentSceneData.CameraPosition;
 
-            float baseSize = 1.8f;
-            if (_gfxRenderData != null && (_gfxRenderData.BoundingBox.Max.X - _gfxRenderData.BoundingBox.Min.X) > 0.001f) {
-                // If the gfxobj is not a unit quad, use its size
-                baseSize *= (_gfxRenderData.BoundingBox.Max.X - _gfxRenderData.BoundingBox.Min.X);
+            // ACViewer PointSprite logic:
+            // Effective scale is 0.9 * BoundingBox size (1.8 * 0.5 in ACViewer shader)
+            float baseScale = 0.9f;
+            Vector2 particleSize = new Vector2(1.0f, 1.0f);
+            if (_gfxRenderData != null) {
+                particleSize.X = (_gfxRenderData.BoundingBox.Max.X - _gfxRenderData.BoundingBox.Min.X);
+                particleSize.Y = (_gfxRenderData.BoundingBox.Max.Z - _gfxRenderData.BoundingBox.Min.Z);
+                // If it's a unit quad, dimensions will be 1.0
+                if (particleSize.X < 0.001f) particleSize.X = 1.0f;
+                if (particleSize.Y < 0.001f) particleSize.Y = 1.0f;
             }
 
             // Update particle distances
@@ -371,12 +377,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var instance = new ParticleInstance {
                     Position = p.CalculatedPosition,
                     ScaleOpacityActive = new Vector3(
-                        (p.StartScale + (p.FinalScale - p.StartScale) * lerp) * baseSize,
+                        (p.StartScale + (p.FinalScale - p.StartScale) * lerp) * baseScale,
                         1.0f - (p.StartTrans + (p.FinalTrans - p.StartTrans) * lerp),
                         1.0f
                     ),
-                    TextureIndex = textureIndex,
-                    Rotation = p.Rotation
+                    TextureIndex = (float)textureIndex,
+                    Rotation = p.Rotation,
+                    Size = particleSize
                 };
 
                 batcher.AddParticle(atlas, isAdditive, instance, p.DistanceToCameraSq);

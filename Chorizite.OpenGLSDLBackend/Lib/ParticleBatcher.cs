@@ -12,6 +12,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public Vector3 ScaleOpacityActive; // x=scale, y=opacity, z=active (1.0 or 0.0)
         public float TextureIndex;
         public float Rotation;
+        public Vector2 Size;
     }
 
     public struct ParticleRenderData {
@@ -23,6 +24,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
     public unsafe class ParticleBatcher : IDisposable {
         private const int MAX_PARTICLES_TOTAL = 65536;
+
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private readonly uint _vao;
         private readonly uint _vbo;
@@ -47,13 +49,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var fragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Particle.frag");
             _shader = _graphicsDevice.CreateShader("Particle", vertSource, fragSource);
 
-            // Create quad vertices - anchored at bottom (0,0)
+            // Create quad vertices - centered to match ACViewer expansion logic
             float[] vertices = {
                 // x, y, z, u, v
-                -0.5f, 0.0f,  0.0f, 0.0f, 1.0f,
-                 0.5f, 0.0f,  0.0f, 1.0f, 1.0f,
-                 0.5f, 0.0f,  1.0f, 1.0f, 0.0f,
-                -0.5f, 0.0f,  1.0f, 0.0f, 0.0f
+                -0.5f, 0.0f, -0.5f, 0.0f, 1.0f,
+                 0.5f, 0.0f, -0.5f, 1.0f, 1.0f,
+                 0.5f, 0.0f,  0.5f, 1.0f, 0.0f,
+                -0.5f, 0.0f,  0.5f, 0.0f, 0.0f
             };
 
             ushort[] indices = { 0, 1, 2, 2, 3, 0 };
@@ -110,6 +112,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             gl.VertexAttribPointer(5, 1, VertexAttribPointerType.Float, false, stride, (void*)(7 * sizeof(float)));
             gl.VertexAttribDivisor(5, 1);
 
+            // iSize
+            gl.EnableVertexAttribArray(6);
+            gl.VertexAttribPointer(6, 2, VertexAttribPointerType.Float, false, stride, (void*)(8 * sizeof(float)));
+            gl.VertexAttribDivisor(6, 1);
+
             gl.BindVertexArray(0);
 
             _shader.Bind();
@@ -121,14 +128,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _viewProjection = viewProjection;
             _cameraUp = cameraUp;
             _cameraRight = cameraRight;
-            _currentInstanceCount = 0;
             _allParticles.Clear();
-            _currentAtlas = null;
         }
 
         public void AddParticle(ManagedGLTextureArray? atlas, bool isAdditive, ParticleInstance instance, float distanceSq) {
-            if (_allParticles.Count >= MAX_PARTICLES_TOTAL) return;
-
             _allParticles.Add(new ParticleRenderData {
                 Instance = instance,
                 DistanceSq = distanceSq,
@@ -140,14 +143,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public void Flush() {
             if (_allParticles.Count == 0) return;
 
-            // Global sort back-to-front
+            // Sort back-to-front
             _allParticles.Sort((a, b) => b.DistanceSq.CompareTo(a.DistanceSq));
 
             var gl = _graphicsDevice.GL;
-            _shader.Bind();
-            _shader.SetUniform("uViewProjection", _viewProjection);
-            _shader.SetUniform("uCameraUp", _cameraUp);
-            _shader.SetUniform("uCameraRight", _cameraRight);
+            
             gl.BindVertexArray(_vao);
             gl.DepthMask(false);
             gl.Enable(EnableCap.DepthTest);
@@ -162,12 +162,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var p = _allParticles[i];
                 _currentAtlas = p.Atlas;
                 _currentIsAdditive = p.IsAdditive;
-                
-                // Batch by atlas and additive mode
                 _currentInstanceCount = 0;
-                while (i < _allParticles.Count && _allParticles[i].Atlas == _currentAtlas && _allParticles[i].IsAdditive == _currentIsAdditive && _currentInstanceCount < MAX_PARTICLES_TOTAL) {
+
+                while (i < _allParticles.Count && _allParticles[i].Atlas == _currentAtlas && _allParticles[i].IsAdditive == _currentIsAdditive) {
                     _instanceData[_currentInstanceCount++] = _allParticles[i].Instance;
                     i++;
+                    if (_currentInstanceCount >= MAX_PARTICLES_TOTAL) break;
                 }
 
                 if (_currentInstanceCount > 0 && _currentAtlas != null) {
@@ -182,11 +182,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     gl.BindTexture(GLEnum.Texture2DArray, (uint)_currentAtlas.NativePtr);
                     BaseObjectRenderManager.CurrentAtlas = (uint)_currentAtlas.Slot;
 
-                    // Upload instance data
                     gl.BindBuffer(BufferTargetARB.ArrayBuffer, _instanceVbo);
-                    fixed (ParticleInstance* ptr = _instanceData) {
-                        gl.BufferSubData(BufferTargetARB.ArrayBuffer, 0, (uint)(_currentInstanceCount * Marshal.SizeOf<ParticleInstance>()), ptr);
+                    unsafe {
+                        fixed (ParticleInstance* pData = _instanceData) {
+                            gl.BufferSubData(BufferTargetARB.ArrayBuffer, 0, (uint)(_currentInstanceCount * Marshal.SizeOf<ParticleInstance>()), pData);
+                        }
                     }
+
+                    _shader.Bind();
+                    _shader.SetUniform("uViewProjection", _viewProjection);
+                    _shader.SetUniform("uCameraUp", _cameraUp);
+                    _shader.SetUniform("uCameraRight", _cameraRight);
 
                     gl.DrawElementsInstanced(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedShort, (void*)0, (uint)_currentInstanceCount);
                 }
