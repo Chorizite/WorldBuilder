@@ -11,7 +11,7 @@ using Silk.NET.OpenGL;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
     public class ParticleEmitterRenderer : IDisposable {
-        private const float EPSILON = 1e-5f;
+        private const float EPSILON = 0.0002f;
 
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private readonly ObjectMeshManager _meshManager;
@@ -28,6 +28,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private float _emissionTimer;
         private int _totalEmitted;
         private float _timeRunning;
+        private float _deadTimer;
 
         public bool IsActive => true; // Previews always loop
 
@@ -74,10 +75,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             // Create quad vertices
             float[] vertices = {
-                -0.5f, 0.0f, -0.5f, 0.0f, 0.0f,
-                 0.5f, 0.0f, -0.5f, 1.0f, 0.0f,
-                 0.5f, 0.0f,  0.5f, 1.0f, 1.0f,
-                -0.5f, 0.0f,  0.5f, 0.0f, 1.0f
+                // x, y, z, u, v
+                -0.5f, 0.0f, -0.5f, 0.0f, 1.0f,
+                 0.5f, 0.0f, -0.5f, 1.0f, 1.0f,
+                 0.5f, 0.0f,  0.5f, 1.0f, 0.0f,
+                -0.5f, 0.0f,  0.5f, 0.0f, 0.0f
             };
 
             ushort[] indices = { 0, 1, 2, 2, 3, 0 };
@@ -162,11 +164,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                            (_emitter.TotalParticles == 0 || _totalEmitted < _emitter.TotalParticles);
 
             if (!canEmit && _particles.Count == 0) {
-                // Loop the preview
-                _timeRunning = 0;
-                _totalEmitted = 0;
-                _emissionTimer = 0;
-                canEmit = true;
+                _deadTimer += deltaTime;
+                if (_deadTimer >= 1.0f) {
+                    // Loop the preview
+                    _timeRunning = 0;
+                    _totalEmitted = 0;
+                    _emissionTimer = 0;
+                    _deadTimer = 0f;
+                    canEmit = true;
+                }
+            } else {
+                _deadTimer = 0f;
             }
 
             if (canEmit) {
@@ -215,18 +223,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Handle specific ParticleType initialization
             switch (_emitter.ParticleType) {
                 case ParticleType.Explode:
-                    // A and B are passed as magnitudes, C is a random unit vector
-                    p.A = _emitter.A;
-                    p.B = _emitter.B;
-
                     float ra = (float)(_random.NextDouble() * 2.0 * Math.PI - Math.PI);
                     float po = (float)(_random.NextDouble() * 2.0 * Math.PI - Math.PI);
                     float rb = (float)Math.Cos(po);
 
+                    var tempC = p.C;
                     p.C = new Vector3(
-                        (float)(Math.Cos(ra) * _emitter.C.X * rb),
-                        (float)(Math.Sin(ra) * _emitter.C.Y * rb),
-                        (float)(Math.Sin(po) * _emitter.C.Z * rb)
+                        (float)(Math.Cos(ra) * tempC.X * rb),
+                        (float)(Math.Sin(ra) * tempC.Y * rb),
+                        (float)(Math.Sin(po) * tempC.Z * rb)
                     );
 
                     if (NormalizeCheckSmall(ref p.C))
@@ -234,9 +239,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     break;
 
                 case ParticleType.Implode:
-                    p.A = _emitter.A;
-                    p.B = _emitter.B;
-                    p.Offset *= _emitter.C;
+                    p.Offset *= p.C;
                     p.C = p.Offset;
                     break;
             }
@@ -255,7 +258,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         private float GetRandomLifespan() {
-            return (float)Math.Max(0.0, _random.NextDouble() * 2.0 * _emitter.LifespanRand - _emitter.LifespanRand + _emitter.Lifespan);
+            var result = (_random.NextDouble() * 2.0 - 1.0) * _emitter.LifespanRand + _emitter.Lifespan;
+            return (float)Math.Max(0.0, result);
         }
 
         private Vector3 GetRandomOffset() {
@@ -291,19 +295,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         private float GetRandomStartScale() {
-            return Math.Clamp((float)(_random.NextDouble() * 2.0 * _emitter.ScaleRand - _emitter.ScaleRand + _emitter.StartScale), 0.01f, 100.0f);
+            return Math.Clamp((float)((_random.NextDouble() * 2.0 - 1.0) * _emitter.ScaleRand + _emitter.StartScale), 0.01f, 100.0f);
         }
 
         private float GetRandomFinalScale() {
-            return Math.Clamp((float)(_random.NextDouble() * 2.0 * _emitter.ScaleRand - _emitter.ScaleRand + _emitter.FinalScale), 0.01f, 100.0f);
+            return Math.Clamp((float)((_random.NextDouble() * 2.0 - 1.0) * _emitter.ScaleRand + _emitter.FinalScale), 0.01f, 100.0f);
         }
 
         private float GetRandomStartTrans() {
-            return Math.Clamp((float)(_random.NextDouble() * 2.0 * _emitter.TransRand - _emitter.TransRand + _emitter.StartTrans), 0.0f, 1.0f);
+            return Math.Clamp((float)((_random.NextDouble() * 2.0 - 1.0) * _emitter.TransRand + _emitter.StartTrans), 0.0f, 1.0f);
         }
 
         private float GetRandomFinalTrans() {
-            return Math.Clamp((float)(_random.NextDouble() * 2.0 * _emitter.TransRand - _emitter.TransRand + _emitter.FinalTrans), 0.0f, 1.0f);
+            return Math.Clamp((float)((_random.NextDouble() * 2.0 - 1.0) * _emitter.TransRand + _emitter.FinalTrans), 0.0f, 1.0f);
         }
 
         private bool NormalizeCheckSmall(ref Vector3 v) {
