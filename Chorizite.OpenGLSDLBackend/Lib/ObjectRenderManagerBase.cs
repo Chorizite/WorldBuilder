@@ -921,7 +921,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 int newInstanceCount = allInstances.Count;
                 int newInstanceBufferOffset = -1;
-                var newMdiCommands = new Dictionary<CullMode, List<LandblockMdiCommand>>();
+                var newMdiCommands = new Dictionary<int, List<LandblockMdiCommand>>();
 
                 if (newInstanceCount > 0) {
                     newInstanceBufferOffset = AllocateInstanceSlice(newInstanceCount);
@@ -1043,13 +1043,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
-        protected void AddMdiCommandsForGroup(Dictionary<CullMode, List<LandblockMdiCommand>> mdiCommands, ulong gfxObjId, int instanceCount, int instanceBufferOffset, int groupOffset) {
+        protected void AddMdiCommandsForGroup(Dictionary<int, List<LandblockMdiCommand>> mdiCommands, ulong gfxObjId, int instanceCount, int instanceBufferOffset, int groupOffset) {
             var renderData = MeshManager.TryGetRenderData(gfxObjId);
             if (renderData != null && !renderData.IsSetup) {
                 foreach (var batch in renderData.Batches) {
-                    if (!mdiCommands.TryGetValue(batch.CullMode, out var list)) {
+                    var mdiIdx = (int)batch.CullMode + (batch.IsAdditive ? 4 : 0);
+                    if (!mdiCommands.TryGetValue(mdiIdx, out var list)) {
                         list = new List<LandblockMdiCommand>();
-                        mdiCommands[batch.CullMode] = list;
+                        mdiCommands[mdiIdx] = list;
                     }
 
                     var cmdAtlas = batch.Atlas.TextureArray as ManagedGLTextureArray ?? throw new Exception("Atlas.TextureArray must be ManagedGLTextureArray");
@@ -1064,6 +1065,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         VAO = renderData.VAO,
                         IBO = batch.IBO,
                         IsTransparent = batch.IsTransparent,
+                        IsAdditive = batch.IsAdditive,
                         TextureIndex = (uint)batch.TextureIndex,
                         Atlas = cmdAtlas,
                         Command = new DrawElementsIndirectCommand {

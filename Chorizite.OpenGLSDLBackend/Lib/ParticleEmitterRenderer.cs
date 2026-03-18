@@ -396,7 +396,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     Position = p.CalculatedPosition,
                     ScaleOpacityActive = new Vector3(
                         (p.StartScale + (p.FinalScale - p.StartScale) * lerp) * baseSize,
-                        1.0f - (p.StartTrans + (p.FinalTrans - p.StartTrans) * lerp),
+                        p.StartTrans + (p.FinalTrans - p.StartTrans) * lerp,
                         1.0f
                     ),
                     TextureIndex = _gfxRenderData?.Batches.Count > 0 ? _gfxRenderData.Batches[0].TextureIndex : 0,
@@ -413,6 +413,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Bind textures
             if (_gfxRenderData?.Batches.Count > 0) {
                 var batch = _gfxRenderData.Batches[0];
+
+                if (batch.IsAdditive) {
+                    gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
+                }
+                else {
+                    gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                }
+
                 if (batch.Atlas != null && batch.Atlas.TextureArray is ManagedGLTextureArray managedTexArray) {
                     gl.ActiveTexture(TextureUnit.Texture0);
                     gl.BindTexture(GLEnum.Texture2DArray, (uint)managedTexArray.NativePtr);
@@ -420,7 +428,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             gl.BindVertexArray(_vao);
+            gl.DepthMask(false);
             gl.DrawElementsInstanced(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedShort, (void*)0, (uint)_particles.Count);
+            gl.DepthMask(true);
             gl.BindVertexArray(0);
         }
 

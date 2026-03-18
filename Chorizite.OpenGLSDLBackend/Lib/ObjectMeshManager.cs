@@ -99,6 +99,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public List<ushort> Indices { get; set; } = new();
         public DatReaderWriter.Enums.CullMode CullMode { get; set; }
         public bool IsTransparent { get; set; }
+        public bool IsAdditive { get; set; }
         public bool HasWrappingUVs { get; set; }
     }
 
@@ -146,6 +147,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public TextureAtlasManager.TextureKey Key { get; set; }
         public DatReaderWriter.Enums.CullMode CullMode { get; set; }
         public bool IsTransparent { get; set; }
+        public bool IsAdditive { get; set; }
         public bool HasWrappingUVs { get; set; }
 
         // Modern rendering path fields
@@ -925,8 +927,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     uploadPixelFormat = PixelFormat.Rgba;
                                     break;
                                 case DatReaderWriter.Enums.PixelFormat.PFID_R8G8B8:
-                                    uploadPixelFormat = PixelFormat.Rgb;
-                                    textureFormat = TextureFormat.RGB8;
+                                    textureData = new byte[texWidth * texHeight * 4];
+                                    TextureHelpers.FillR8G8B8(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                    uploadPixelFormat = PixelFormat.Rgba;
                                     break;
                                 case DatReaderWriter.Enums.PixelFormat.PFID_INDEX16:
                                     if (!_dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var paletteData))
@@ -952,6 +955,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     TextureHelpers.FillA4R4G4B4(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
                                     uploadPixelFormat = PixelFormat.Rgba;
                                     break;
+                                case DatReaderWriter.Enums.PixelFormat.PFID_A8:
+                                case DatReaderWriter.Enums.PixelFormat.PFID_CUSTOM_LSCAPE_ALPHA:
+                                    textureData = new byte[texWidth * texHeight * 4];
+                                    TextureHelpers.FillA8(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                    uploadPixelFormat = PixelFormat.Rgba;
+                                    break;
                                 default:
                                     throw new NotSupportedException($"Unsupported surface format: {renderSurface.Format}");
                             }
@@ -961,9 +970,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         return;
                     }
 
+                    var isAdditive = !isSolid && surface.Type.HasFlag(SurfaceType.Additive);
                     var isTransparent = isSolid ? surface.ColorValue.Alpha < 255 :
                         (surface.Type.HasFlag(SurfaceType.Translucent) ||
-                         surface.Type.HasFlag(SurfaceType.Additive) ||
+                         isAdditive ||
                          (surface.Translucency > 0.0f && surface.Translucency < 1.0f) ||
                          textureFormat == TextureFormat.A8 ||
                          textureFormat == TextureFormat.Rgba32f ||
@@ -990,7 +1000,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             TextureData = textureData,
                             UploadPixelFormat = uploadPixelFormat,
                             UploadPixelType = uploadPixelType,
-                            IsTransparent = isTransparent
+                            IsTransparent = isTransparent,
+                            IsAdditive = isAdditive
                         };
                         batches.Add(batch);
                     }
@@ -1183,8 +1194,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     uploadPixelFormat = PixelFormat.Rgba;
                                     break;
                                 case DatReaderWriter.Enums.PixelFormat.PFID_R8G8B8:
-                                    uploadPixelFormat = PixelFormat.Rgb;
-                                    textureFormat = TextureFormat.RGB8;
+                                    textureData = new byte[texWidth * texHeight * 4];
+                                    TextureHelpers.FillR8G8B8(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                    uploadPixelFormat = PixelFormat.Rgba;
                                     break;
                                 case DatReaderWriter.Enums.PixelFormat.PFID_INDEX16:
                                     if (!_dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var paletteData)) return;
@@ -1208,6 +1220,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     TextureHelpers.FillA4R4G4B4(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
                                     uploadPixelFormat = PixelFormat.Rgba;
                                     break;
+                                case DatReaderWriter.Enums.PixelFormat.PFID_A8:
+                                case DatReaderWriter.Enums.PixelFormat.PFID_CUSTOM_LSCAPE_ALPHA:
+                                    textureData = new byte[texWidth * texHeight * 4];
+                                    TextureHelpers.FillA8(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                    uploadPixelFormat = PixelFormat.Rgba;
+                                    break;
                                 default: return;
                             }
                         }
@@ -1216,9 +1234,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         return;
                     }
 
+                    var isAdditive = !isSolid && surface.Type.HasFlag(SurfaceType.Additive);
                     var isTransparent = isSolid ? surface.ColorValue.Alpha < 255 :
                         (surface.Type.HasFlag(SurfaceType.Translucent) ||
-                         surface.Type.HasFlag(SurfaceType.Additive) ||
+                         isAdditive ||
                          (surface.Translucency > 0.0f && surface.Translucency < 1.0f) ||
                          textureFormat == TextureFormat.A8 ||
                          textureFormat == TextureFormat.Rgba32f ||
@@ -1245,7 +1264,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             TextureData = textureData,
                             UploadPixelFormat = uploadPixelFormat,
                             UploadPixelType = uploadPixelType,
-                            IsTransparent = isTransparent
+                            IsTransparent = isTransparent,
+                            IsAdditive = isAdditive
                         };
                         batches.Add(batch);
                     }
@@ -1510,6 +1530,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         TextureSize = (format.Width, format.Height),
                         TextureFormat = format.Format,
                         IsTransparent = batch.IsTransparent,
+                        IsAdditive = batch.IsAdditive,
                         HasWrappingUVs = batch.HasWrappingUVs,
                         Key = batch.Key,
                         CullMode = batch.CullMode,

@@ -153,8 +153,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         /// <summary>
         /// Pre-calculated draw commands and batch data for this landblock.
-        /// Keyed by CullMode to allow grouped rendering.
+        /// Keyed by (int)CullMode + (isAdditive ? 4 : 0) to allow grouped rendering.
         /// </summary>
-        public Dictionary<DatReaderWriter.Enums.CullMode, List<LandblockMdiCommand>> MdiCommands { get; set; } = new();
+        public Dictionary<int, List<LandblockMdiCommand>> MdiCommands { get; set; } = new();
     }
 }
