@@ -9,10 +9,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
-using Microsoft.EntityFrameworkCore;
-using ACE.Database.Models.World;
-using ACE.Entity.Enum;
-using ACE.Entity.Enum.Properties;
 using DatReaderWriter.DBObjs;
 using WorldBuilder.Shared.Lib;
 using Microsoft.SemanticKernel;
@@ -29,15 +25,17 @@ namespace WorldBuilder.Shared.Services {
             HashSet<string> Names,
             HashSet<string> Tags,
             HashSet<string> Descriptions,
-            string? WeenieType,
-            string? CreatureType,
-            string? ItemType
+            HashSet<string> WeenieTypes,
+            HashSet<string> CreatureTypes,
+            HashSet<string> ItemTypes
         ) {
             public SetupKeywordData() : this(
                 new HashSet<string>(StringComparer.OrdinalIgnoreCase),
                 new HashSet<string>(StringComparer.OrdinalIgnoreCase),
                 new HashSet<string>(StringComparer.OrdinalIgnoreCase),
-                null, null, null) { }
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase)) { }
         }
 
         private const uint SetupIdPrefix    = 0x02000000;
@@ -348,51 +346,78 @@ namespace WorldBuilder.Shared.Services {
                 result[id] = data;
             }
 
-            var options = new DbContextOptionsBuilder<WorldDbContext>()
-                .UseSqlite($"Data Source={acePath};Pooling=False")
-                .Options;
+            await using var conn = new SqliteConnection($"Data Source={acePath};Mode=ReadOnly");
+            await conn.OpenAsync(ct);
 
-            using var context = new WorldDbContext(options);
-            var rows = await context.Weenie
-                .Where(w => !w.WeeniePropertiesFloat.Any(wpf => wpf.Type == (ushort)PropertyFloat.GeneratorRadius))
-                .SelectMany(
-                    w => w.WeeniePropertiesDID.Where(wpd => wpd.Type == (ushort)PropertyDataId.Setup),
-                    (w, wpd) => new {
-                        SetupId = wpd.Value,
-                        Type    = (WeenieType)w.Type,
-                        Strings = w.WeeniePropertiesString.Select(s => new { s.Type, s.Value }),
-                        Ints    = w.WeeniePropertiesInt
-                            .Where(i => i.Type == (ushort)PropertyInt.CreatureType || i.Type == (ushort)PropertyInt.ItemType)
-                            .Select(i => new { i.Type, i.Value })
-                    })
-                .ToListAsync(ct);
+            // We want to find all weenies that have a Setup property (PropertyDataId.Setup = 1)
+            // and do NOT have a GeneratorRadius property (PropertyFloat.GeneratorRadius = 24).
+            var query = @"
+                SELECT w.class_Id, w.type, wpd.value as SetupId
+                FROM weenie w
+                JOIN weenie_properties_d_i_d wpd ON w.class_Id = wpd.object_Id AND wpd.type = 1 -- PropertyDataId.Setup
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM weenie_properties_float wpf 
+                    WHERE wpf.object_Id = w.class_Id AND wpf.type = 24 -- PropertyFloat.GeneratorRadius
+                )";
 
-            foreach (var row in rows) {
-                if (!result.TryGetValue(row.SetupId, out var kw)) kw = new SetupKeywordData();
+            var weenies = new List<(uint ClassId, uint WeenieType, uint SetupId)>();
+            await using (var cmd = new SqliteCommand(query, conn)) {
+                await using var reader = await cmd.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct)) {
+                    weenies.Add(((uint)reader.GetInt32(0), (uint)reader.GetInt32(1), (uint)reader.GetInt32(2)));
+                }
+            }
 
-                kw = kw with { WeenieType = row.Type.ToString() };
-                kw.Tags.Add(row.Type.ToString());
-                if (sceneryIds.Contains(row.SetupId)) kw.Tags.Add("scenery");
+            foreach (var (classId, weenieType, setupId) in weenies) {
+                if (!result.TryGetValue(setupId, out var kw)) kw = new SetupKeywordData();
 
-                foreach (var i in row.Ints) {
-                    if (i.Type == (ushort)PropertyInt.CreatureType) {
-                        var name = Enum.GetName(typeof(CreatureType), (uint)i.Value);
-                        if (name != null) { kw = kw with { CreatureType = name }; kw.Tags.Add(name); }
-                    }
-                    else if (i.Type == (ushort)PropertyInt.ItemType) {
-                        var name = Enum.GetName(typeof(ItemType), (uint)i.Value);
-                        if (name != null) { kw = kw with { ItemType = name }; kw.Tags.Add(name); }
+                var weenieTypeName = Enum.GetName(typeof(WeenieType), weenieType) ?? $"WeenieType:{weenieType}";
+                kw.WeenieTypes.Add(weenieTypeName);
+                kw.Tags.Add(weenieTypeName);
+
+                if (sceneryIds.Contains(setupId)) kw.Tags.Add("scenery");
+
+                // Get Int properties: CreatureType = 2, ItemType = 1
+                var intQuery = $"SELECT type, value FROM weenie_properties_int WHERE object_Id = @id AND type IN ({(ushort)PropertyInt.CreatureType}, {(ushort)PropertyInt.ItemType})";
+                await using (var cmd = new SqliteCommand(intQuery, conn)) {
+                    cmd.Parameters.AddWithValue("@id", classId);
+                    await using var reader = await cmd.ExecuteReaderAsync(ct);
+                    while (await reader.ReadAsync(ct)) {
+                        var type = (ushort)reader.GetInt32(0);
+                        var val  = (uint)reader.GetInt32(1);
+                        if (type == (ushort)PropertyInt.CreatureType) { // CreatureType
+                            var name = Enum.GetName(typeof(CreatureType), val) ?? $"CreatureType:{val}";
+                            kw.CreatureTypes.Add(name);
+                            kw.Tags.Add(name);
+                        } else if (type == (ushort)PropertyInt.ItemType) { // ItemType
+                            var itemType = (ItemType)val;
+                            foreach (ItemType flag in Enum.GetValues<ItemType>()) {
+                                if (flag != ItemType.None && itemType.HasFlag(flag)) {
+                                    var name = flag.ToString();
+                                    kw.ItemTypes.Add(name);
+                                    kw.Tags.Add(name);
+                                }
+                            }
+                        }
                     }
                 }
 
-                foreach (var s in row.Strings) {
-                    if (string.IsNullOrWhiteSpace(s.Value)) continue;
-                    if      (s.Type == (ushort)PropertyString.Name)      kw.Names.Add(s.Value);
-                    else if (s.Type == (ushort)PropertyString.ShortDesc ||
-                             s.Type == (ushort)PropertyString.LongDesc)  kw.Descriptions.Add(s.Value);
+                // Get String properties: Name = 1, ShortDesc = 15, LongDesc = 16
+                var strQuery = $"SELECT type, value FROM weenie_properties_string WHERE object_Id = @id AND type IN ({(ushort)PropertyString.Name}, {(ushort)PropertyString.ShortDesc}, {(ushort)PropertyString.LongDesc})";
+                await using (var cmd = new SqliteCommand(strQuery, conn)) {
+                    cmd.Parameters.AddWithValue("@id", classId);
+                    await using var reader = await cmd.ExecuteReaderAsync(ct);
+                    while (await reader.ReadAsync(ct)) {
+                        var type = (ushort)reader.GetInt32(0);
+                        var val  = reader.GetString(1);
+                        if (string.IsNullOrWhiteSpace(val)) continue;
+
+                        if (type == (ushort)PropertyString.Name) kw.Names.Add(val); // Name
+                        else kw.Descriptions.Add(val);    // ShortDesc or LongDesc
+                    }
                 }
 
-                result[row.SetupId] = kw;
+                result[setupId] = kw;
             }
 
             _log.LogTrace("Extracted keywords for {Count} setups.", result.Count);
@@ -435,11 +460,13 @@ namespace WorldBuilder.Shared.Services {
 
         private static string BuildDescriptionText(SetupKeywordData kw) {
             var sb = new StringBuilder();
-            var category = kw.Tags.Contains("scenery") ? "Scenery" : kw.WeenieType;
-            if (!string.IsNullOrEmpty(category))  sb.AppendLine($"Category: {category}");
-            if (!string.IsNullOrEmpty(kw.CreatureType)) sb.AppendLine($"CreatureType: {kw.CreatureType}");
-            if (!string.IsNullOrEmpty(kw.ItemType))     sb.AppendLine($"ItemType: {kw.ItemType}");
-            if (kw.Descriptions.Count > 0)              sb.AppendLine("Description: " + string.Join(" ", kw.Descriptions));
+            if (kw.Tags.Contains("scenery")) sb.AppendLine("Category: Scenery");
+            
+            if (kw.WeenieTypes.Count > 0)    sb.AppendLine($"WeenieType: {string.Join(", ", kw.WeenieTypes.OrderBy(x => x))}");
+            if (kw.CreatureTypes.Count > 0)  sb.AppendLine($"CreatureType: {string.Join(", ", kw.CreatureTypes.OrderBy(x => x))}");
+            if (kw.ItemTypes.Count > 0)      sb.AppendLine($"ItemType: {string.Join(", ", kw.ItemTypes.OrderBy(x => x))}");
+            
+            if (kw.Descriptions.Count > 0)   sb.AppendLine("Description: " + string.Join(" ", kw.Descriptions));
             return sb.ToString().Trim();
         }
 

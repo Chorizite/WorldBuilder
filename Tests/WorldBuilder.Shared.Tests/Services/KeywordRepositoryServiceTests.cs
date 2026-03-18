@@ -1,10 +1,7 @@
-using ACE.Database.Models.World;
-using ACE.Entity.Enum.Properties;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Options;
 using DatReaderWriter.Types;
 using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System;
@@ -61,66 +58,45 @@ namespace WorldBuilder.Shared.Tests.Services {
         }
 
         private async Task CreateSeedAceDbAsync() {
-            var options = new DbContextOptionsBuilder<WorldDbContext>()
-                .UseSqlite($"Data Source={_aceDbPath};Pooling=False")
-                .Options;
+            await using var conn = new SqliteConnection($"Data Source={_aceDbPath};Pooling=False");
+            await conn.OpenAsync();
 
-            using (var context = new WorldDbContext(options)) {
-                await context.Database.EnsureCreatedAsync();
+            await using (var cmd = conn.CreateCommand()) {
+                cmd.CommandText = @"
+                    CREATE TABLE weenie (class_Id INTEGER PRIMARY KEY, class_Name TEXT, type INTEGER);
+                    CREATE TABLE weenie_properties_d_i_d (object_Id INTEGER, type INTEGER, value INTEGER);
+                    CREATE TABLE weenie_properties_string (object_Id INTEGER, type INTEGER, value TEXT);
+                    CREATE TABLE weenie_properties_float (object_Id INTEGER, type INTEGER, value REAL);
+                    CREATE TABLE weenie_properties_int (object_Id INTEGER, type INTEGER, value INTEGER);
+                ";
+                await cmd.ExecuteNonQueryAsync();
+            }
 
-                // Add a weenie with a setup ID and some string properties
-                var weenie = new Weenie {
-                    ClassId = 1,
-                    ClassName = "TestWeenie",
-                    Type = 1 // Generic
-                };
-                context.Weenie.Add(weenie);
+            await using (var cmd = conn.CreateCommand()) {
+                cmd.CommandText = "INSERT INTO weenie (class_Id, class_Name, type) VALUES (1, 'TestWeenie', 1);"; // 1 = Generic
+                await cmd.ExecuteNonQueryAsync();
 
-                context.WeeniePropertiesDID.Add(new WeeniePropertiesDID {
-                    ObjectId = 1,
-                    Type = 1, // Setup
-                    Value = 100
-                });
+                cmd.CommandText = "INSERT INTO weenie_properties_d_i_d (object_Id, type, value) VALUES (1, 1, 100);"; // 1 = Setup
+                await cmd.ExecuteNonQueryAsync();
 
-                context.WeeniePropertiesString.Add(new WeeniePropertiesString {
-                    ObjectId = 1,
-                    Type = 1, // Name
-                    Value = "Awesome Sword"
-                });
+                cmd.CommandText = "INSERT INTO weenie_properties_string (object_Id, type, value) VALUES (1, 1, 'Awesome Sword');"; // 1 = Name
+                await cmd.ExecuteNonQueryAsync();
 
-                context.WeeniePropertiesString.Add(new WeeniePropertiesString {
-                    ObjectId = 1,
-                    Type = 16, // LongDesc
-                    Value = "A very sharp sword"
-                });
+                cmd.CommandText = "INSERT INTO weenie_properties_string (object_Id, type, value) VALUES (1, 16, 'A very sharp sword');"; // 16 = LongDesc
+                await cmd.ExecuteNonQueryAsync();
 
                 // Add another weenie with GeneratorRadius that should be ignored
-                var weenie2 = new Weenie {
-                    ClassId = 2,
-                    ClassName = "IgnoreMeWeenie",
-                    Type = 1
-                };
-                context.Weenie.Add(weenie2);
+                cmd.CommandText = "INSERT INTO weenie (class_Id, class_Name, type) VALUES (2, 'IgnoreMeWeenie', 1);";
+                await cmd.ExecuteNonQueryAsync();
 
-                context.WeeniePropertiesDID.Add(new WeeniePropertiesDID {
-                    ObjectId = 2,
-                    Type = 1, // Setup
-                    Value = 101
-                });
+                cmd.CommandText = "INSERT INTO weenie_properties_d_i_d (object_Id, type, value) VALUES (2, 1, 101);";
+                await cmd.ExecuteNonQueryAsync();
 
-                context.WeeniePropertiesString.Add(new WeeniePropertiesString {
-                    ObjectId = 2,
-                    Type = 1, // Name
-                    Value = "Generator Thing"
-                });
+                cmd.CommandText = "INSERT INTO weenie_properties_string (object_Id, type, value) VALUES (2, 1, 'Generator Thing');";
+                await cmd.ExecuteNonQueryAsync();
 
-                context.WeeniePropertiesFloat.Add(new WeeniePropertiesFloat {
-                    ObjectId = 2,
-                    Type = (ushort)PropertyFloat.GeneratorRadius,
-                    Value = 10.0
-                });
-
-                await context.SaveChangesAsync();
+                cmd.CommandText = "INSERT INTO weenie_properties_float (object_Id, type, value) VALUES (2, 24, 10.0);"; // 24 = GeneratorRadius
+                await cmd.ExecuteNonQueryAsync();
             }
         }
 
@@ -143,6 +119,7 @@ namespace WorldBuilder.Shared.Tests.Services {
             Assert.DoesNotContain("TestWeenie", keywords.Value.Names, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("Awesome Sword", keywords.Value.Names, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("Generic", keywords.Value.Tags, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("WeenieType: Generic", keywords.Value.Descriptions, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("very sharp sword", keywords.Value.Descriptions, StringComparison.OrdinalIgnoreCase);
 
             var keywords2 = await _service.GetKeywordsForSetupAsync(_datId, _aceId, 101, CancellationToken.None);
