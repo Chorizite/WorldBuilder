@@ -28,8 +28,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             Renderer.Update(deltaTime);
         }
 
-        public void Render(Matrix4x4 viewProjection, Vector3 cameraUp, Vector3 cameraRight) {
-            Renderer.Render(viewProjection, cameraUp, cameraRight);
+        public void Render(ParticleBatcher batcher) {
+            Renderer.Render(batcher);
         }
     }
 }

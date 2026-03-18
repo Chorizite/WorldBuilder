@@ -48,6 +48,8 @@ namespace Chorizite.OpenGLSDLBackend {
         public uint InstanceVBO { get; private set; }
         public void* InstanceVBOPtr { get; private set; }
 
+        public Lib.ParticleBatcher ParticleBatcher { get; private set; } = null!;
+
         /// <summary>OpenGL sampler object with TextureWrapMode.Repeat (for meshes with wrapping UVs).</summary>
         public uint WrapSampler { get; private set; }
         /// <summary>OpenGL sampler object with TextureWrapMode.ClampToEdge (for meshes without wrapping UVs).</summary>
@@ -127,6 +129,8 @@ namespace Chorizite.OpenGLSDLBackend {
             }
 
             _sceneDataBuffer = new ManagedGLUniformBuffer(this, BufferUsage.Dynamic, Marshal.SizeOf<Chorizite.OpenGLSDLBackend.Lib.SceneData>());
+
+            ParticleBatcher = new Lib.ParticleBatcher(this);
         }
 
         public void EnsureInstanceBufferCapacity(int count, int stride, bool forceOrphan = false) {
@@ -539,6 +543,7 @@ namespace Chorizite.OpenGLSDLBackend {
             ClampSampler = 0;
             _sceneDataBuffer?.Dispose();
             _sceneDataBuffer = null;
+            ParticleBatcher?.Dispose();
         }
 
         public override IUniformBuffer CreateUniformBuffer(BufferUsage usage, int size) {

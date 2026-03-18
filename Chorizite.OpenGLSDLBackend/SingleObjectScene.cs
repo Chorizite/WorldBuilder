@@ -670,10 +670,16 @@ namespace Chorizite.OpenGLSDLBackend {
                 }
 
                 Gl.Disable(EnableCap.CullFace);
-                _particleRenderer?.Render(snapshotVP, up, right);
-                foreach (var emitter in _particleEmitters) {
-                    emitter.Render(snapshotVP, up, right);
+                
+                GraphicsDevice.ParticleBatcher.Begin(snapshotVP, up, right);
+                if (_particleRenderer != null) {
+                    _particleRenderer.Render(GraphicsDevice.ParticleBatcher);
                 }
+
+                foreach (var emitter in _particleEmitters) {
+                    emitter.Render(GraphicsDevice.ParticleBatcher);
+                }
+                GraphicsDevice.ParticleBatcher.End();
 
                 Gl.DepthMask(true);
             }

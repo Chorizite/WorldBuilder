@@ -95,6 +95,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
         }
+
+        private int _particleRenderDistance = 2;
+        public int ParticleRenderDistance {
+            get => _particleRenderDistance;
+            set {
+                if (_particleRenderDistance != value) {
+                    _particleRenderDistance = value;
+                }
+            }
+        }
         public int QueuedUploads => _uploadQueue.Count;
         public int QueuedGenerations => _pendingGeneration.Count;
         public int ActiveLandblocks => _landblocks.Count;
@@ -173,11 +183,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var newCameraLbY = (int)Math.Floor(pos.Y / lbSize);
             _lbSizeInUnits = lbSize;
 
-            bool cameraMovedLandblock = newCameraLbX != _cameraLbX || newCameraLbY != _cameraLbY;
+            bool cameraMovedLandblock = newCameraLbX != _cameraLbX || newCameraLbY != _cameraLbY || _landblocks.IsEmpty;
             bool renderDistanceChanged = RenderDistance != _lastRenderDistance;
             
             // Re-scan if moved significantly, rotated significantly, or first time
-            bool moved = Vector3.DistanceSquared(cameraPosition, _cameraPosition) > _scanThreshold * _scanThreshold;
+            bool moved = Vector3.DistanceSquared(cameraPosition, _cameraPosition) > _scanThreshold * _scanThreshold || _landblocks.IsEmpty;
             bool rotated = Vector3.Dot(camera.Forward, _cameraForward) < (1.0f - _scanRotThreshold);
             
             _cameraLbX = newCameraLbX;
@@ -332,23 +342,23 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 });
             }
 
-            lock (_activeLandblocksLock) {
-                foreach (var lb in _activeLandblocks) {
-                    foreach (var emitter in lb.ParticleEmitters) {
-                        var parentTransform = Matrix4x4.Identity;
-                        if (emitter.ParentInstance.HasValue) {
-                            var instance = emitter.ParentInstance.Value;
-                            parentTransform = instance.Transform;
+            foreach (var (key, lb) in _landblocks) {
+                if (!lb.InstancesReady || Math.Abs(lb.GridX - _cameraLbX) > ParticleRenderDistance || Math.Abs(lb.GridY - _cameraLbY) > ParticleRenderDistance) continue;
+                
+                foreach (var emitter in lb.ParticleEmitters) {
+                    var parentTransform = Matrix4x4.Identity;
+                    if (emitter.ParentInstance.HasValue) {
+                        var instance = emitter.ParentInstance.Value;
+                        parentTransform = instance.Transform;
 
-                            if (emitter.PartIndex != 0xFFFFFFFF && instance.IsSetup) {
-                                var data = MeshManager.TryGetRenderData(instance.ObjectId);
-                                if (data != null && emitter.PartIndex < data.SetupParts.Count) {
-                                    parentTransform = data.SetupParts[(int)emitter.PartIndex].Transform * parentTransform;
-                                }
+                        if (emitter.PartIndex != 0xFFFFFFFF && instance.IsSetup) {
+                            var data = MeshManager.TryGetRenderData(instance.ObjectId);
+                            if (data != null && emitter.PartIndex < data.SetupParts.Count) {
+                                parentTransform = data.SetupParts[(int)emitter.PartIndex].Transform * parentTransform;
                             }
                         }
-                        emitter.Update(deltaTime, parentTransform);
                     }
+                    emitter.Update(deltaTime, parentTransform);
                 }
             }
         }
@@ -637,6 +647,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public virtual unsafe void Render(RenderPass renderPass) {
+            Render(renderPass, null);
+        }
+
+        public virtual unsafe void Render(RenderPass renderPass, HashSet<uint>? filter) {
             if (IsDisposed || MeshManager.IsDisposed || !_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || _cameraPosition.Z > 4000) return;
 
             lock (_renderLock) {
@@ -719,35 +733,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 // Render particles last in the transparent pass so they don't get blocked by depth
-                if (renderPass == RenderPass.Transparent || renderPass == RenderPass.SinglePass) {
+                // Global particle render only if filter is null. EnvCellRenderManager handles filtered particles.
+                if (filter == null && (renderPass == RenderPass.Transparent || renderPass == RenderPass.SinglePass)) {
                     var sceneData = GraphicsDevice.CurrentSceneData;
                     var view = sceneData.View;
                     var up = new Vector3(view.M12, view.M22, view.M32);
                     var right = new Vector3(view.M11, view.M21, view.M31);
                     var cameraPos = sceneData.CameraPosition;
 
-                    var allVisibleEmitters = new List<(ActiveParticleEmitter emitter, float distSq)>();
+                    GraphicsDevice.ParticleBatcher.Begin(sceneData.ViewProjection, up, right);
 
-                    void CollectEmitters(ObjectLandblock lb) {
+                    foreach (var (key, lb) in _landblocks) {
+                        if (!lb.InstancesReady || Math.Abs(lb.GridX - _cameraLbX) > ParticleRenderDistance || Math.Abs(lb.GridY - _cameraLbY) > ParticleRenderDistance) continue;
+                        
                         foreach (var emitter in lb.ParticleEmitters) {
-                            var emitterPos = emitter.ParentInstance?.Transform.Translation ?? Vector3.Zero;
-                            allVisibleEmitters.Add((emitter, Vector3.DistanceSquared(emitterPos, cameraPos)));
+                            emitter.Render(GraphicsDevice.ParticleBatcher);
                         }
                     }
 
-                    foreach (var lb in snapshot.VisibleLandblocks) {
-                        CollectEmitters(lb);
-                    }
-                    foreach (var lb in snapshot.IntersectingLandblocks) {
-                        CollectEmitters(lb);
-                    }
-
-                    // Sort back-to-front
-                    allVisibleEmitters.Sort((a, b) => b.distSq.CompareTo(a.distSq));
-
-                    foreach (var (emitter, _) in allVisibleEmitters) {
-                        emitter.Render(sceneData.ViewProjection, up, right);
-                    }
+                    GraphicsDevice.ParticleBatcher.End();
                 }
 
                 // Clear MDI dirty flag after all rendering is complete for this frame.

@@ -19,11 +19,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly List<Particle> _particles = new();
         private readonly Random _random = new();
 
-        private uint _vao;
-        private uint _vbo;
-        private uint _instanceVbo;
-        private uint _ibo;
-        private IShader _shader = null!;
         private ObjectRenderData? _gfxRenderData;
         private ObjectRenderData? _textureRenderData;
         private float _emissionTimer;
@@ -34,14 +29,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public bool IsActive => true; // Previews always loop
 
         public Matrix4x4 ParentTransform { get; set; } = Matrix4x4.Identity;
-
-        [StructLayout(LayoutKind.Sequential)]
-        struct ParticleInstance {
-            public Vector3 Position;
-            public Vector3 ScaleOpacityActive;
-            public float TextureIndex;
-            public float Rotation;
-        }
 
         struct Particle {
             public Vector3 Offset;
@@ -65,82 +52,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _graphicsDevice = graphicsDevice;
             _meshManager = meshManager;
             _emitter = emitter;
-
-            InitializeResources();
-        }
-
-        private unsafe void InitializeResources() {
-            var gl = _graphicsDevice.GL;
-
-            var vertSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Particle.vert");
-            var fragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Particle.frag");
-            _shader = _graphicsDevice.CreateShader("Particle", vertSource, fragSource);
-
-            // Create quad vertices
-            float[] vertices = {
-                // x, y, z, u, v
-                -0.5f, 0.0f, -0.5f, 0.0f, 1.0f,
-                 0.5f, 0.0f, -0.5f, 1.0f, 1.0f,
-                 0.5f, 0.0f,  0.5f, 1.0f, 0.0f,
-                -0.5f, 0.0f,  0.5f, 0.0f, 0.0f
-            };
-
-            ushort[] indices = { 0, 1, 2, 2, 3, 0 };
-
-            _vao = gl.GenVertexArray();
-            gl.BindVertexArray(_vao);
-
-            _vbo = gl.GenBuffer();
-            gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
-            fixed (float* p = vertices) {
-                gl.BufferData(BufferTargetARB.ArrayBuffer, (uint)(vertices.Length * sizeof(float)), p, BufferUsageARB.StaticDraw);
-            }
-
-            _ibo = gl.GenBuffer();
-            gl.BindBuffer(BufferTargetARB.ElementArrayBuffer, _ibo);
-            fixed (ushort* p = indices) {
-                gl.BufferData(BufferTargetARB.ElementArrayBuffer, (uint)(indices.Length * sizeof(ushort)), p, BufferUsageARB.StaticDraw);
-            }
-
-            // Quad attributes
-            gl.EnableVertexAttribArray(0);
-            gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), (void*)0);
-            gl.EnableVertexAttribArray(1);
-            gl.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-
-            // Instance attributes
-            _instanceVbo = gl.GenBuffer();
-            gl.BindBuffer(BufferTargetARB.ArrayBuffer, _instanceVbo);
-            // Reserve space for MaxParticles
-            gl.BufferData(BufferTargetARB.ArrayBuffer, (uint)(_emitter.MaxParticles * Marshal.SizeOf<ParticleInstance>()), (void*)0, BufferUsageARB.DynamicDraw);
-
-            uint stride = (uint)Marshal.SizeOf<ParticleInstance>();
-
-            // iPosition
-            gl.EnableVertexAttribArray(2);
-            gl.VertexAttribPointer(2, 3, VertexAttribPointerType.Float, false, stride, (void*)0);
-            gl.VertexAttribDivisor(2, 1);
-
-            // iScaleOpacityActive
-            gl.EnableVertexAttribArray(3);
-            gl.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, false, stride, (void*)(3 * sizeof(float)));
-            gl.VertexAttribDivisor(3, 1);
-
-            // iTextureIndex
-            gl.EnableVertexAttribArray(4);
-            gl.VertexAttribPointer(4, 1, VertexAttribPointerType.Float, false, stride, (void*)(6 * sizeof(float)));
-            gl.VertexAttribDivisor(4, 1);
-
-            // iRotation
-            gl.EnableVertexAttribArray(5);
-            gl.VertexAttribPointer(5, 1, VertexAttribPointerType.Float, false, stride, (void*)(7 * sizeof(float)));
-            gl.VertexAttribDivisor(5, 1);
-
-            gl.BindVertexArray(0);
-
-            _shader.Bind();
-            _shader.SetUniform("uTextureArray", 0);
-            _shader.Unbind();
         }
 
         public void Update(float deltaTime) {
@@ -382,7 +293,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
 
-        public unsafe void Render(Matrix4x4 viewProjection, Vector3 cameraUp, Vector3 cameraRight) {
+        public unsafe void Render(ParticleBatcher batcher) {
             if (_particles.Count == 0) return;
 
             // Make sure textures are loaded
@@ -396,19 +307,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Decide which data to use for texturing
             var textureData = _textureRenderData ?? _gfxRenderData;
 
-            var gl = _graphicsDevice.GL;
-
-            gl.GetInteger(GLEnum.ActiveTexture, out int oldActiveTexture);
-            gl.GetInteger(GLEnum.TextureBinding2DArray, out int oldTextureBinding);
-            gl.GetInteger(GLEnum.CurrentProgram, out int oldProgram);
-            gl.GetInteger(GLEnum.VertexArrayBinding, out int oldVAO);
-            gl.GetInteger(GLEnum.ElementArrayBufferBinding, out int oldIBO);
-
-            _shader.Bind();
-            _shader.SetUniform("uViewProjection", viewProjection);
-            _shader.SetUniform("uCameraUp", cameraUp);
-            _shader.SetUniform("uCameraRight", cameraRight);
-
             var cameraPos = _graphicsDevice.CurrentSceneData.CameraPosition;
 
             float baseSize = 1.8f;
@@ -416,7 +314,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 baseSize *= (_gfxRenderData.BoundingBox.Max.X - _gfxRenderData.BoundingBox.Min.X);
             }
 
-            // Update particle world positions and distances for sorting
+            // Update particle world positions and distances
             for (int i = 0; i < _particles.Count; i++) {
                 var p = _particles[i];
                 var transform = _emitter.IsParentLocal ? ParentTransform : p.EmissionTransform;
@@ -427,10 +325,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 Vector3 worldPos;
                 if (isGlobal) {
-                    // For global particles, CalculatedPosition already has the world translation.
-                    // We only want to apply the rotation/scale from the transform.
-                    // Actually, if it's GLOBAL, it probably shouldn't be rotated by the parent's current orientation either.
-                    // But if it was emitted from a moving object, it should have been rotated at emission time.
                     worldPos = p.CalculatedPosition;
                 } else {
                     worldPos = Vector3.Transform(p.CalculatedPosition, transform);
@@ -440,11 +334,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _particles[i] = p;
             }
 
-            // Sort back-to-front
-            _particles.Sort((a, b) => b.DistanceToCameraSq.CompareTo(a.DistanceToCameraSq));
-
             // Prepare instance data
-            var instances = new ParticleInstance[_particles.Count];
+            ManagedGLTextureArray? atlas = null;
+            uint textureIndex = 0;
+            bool isAdditive = false;
+
+            if (textureData?.Batches.Count > 0) {
+                var batch = textureData.Batches[0];
+                isAdditive = batch.IsAdditive;
+                textureIndex = (uint)batch.TextureIndex;
+                if (batch.Atlas != null && batch.Atlas.TextureArray is ManagedGLTextureArray managedTexArray) {
+                    atlas = managedTexArray;
+                }
+            }
+
             for (int i = 0; i < _particles.Count; i++) {
                 var p = _particles[i];
                 float lerp = Math.Clamp(p.Lifetime / p.MaxLifetime, 0f, 1f);
@@ -461,69 +364,22 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     worldPos = Vector3.Transform(p.CalculatedPosition, transform);
                 }
                 
-                instances[i] = new ParticleInstance {
+                var instance = new ParticleInstance {
                     Position = worldPos,
                     ScaleOpacityActive = new Vector3(
                         (p.StartScale + (p.FinalScale - p.StartScale) * lerp) * baseSize,
                         1.0f - (p.StartTrans + (p.FinalTrans - p.StartTrans) * lerp),
                         1.0f
                     ),
-                    TextureIndex = textureData?.Batches.Count > 0 ? textureData.Batches[0].TextureIndex : 0,
+                    TextureIndex = textureIndex,
                     Rotation = 0f
                 };
+
+                batcher.AddParticle(atlas, isAdditive, instance, p.DistanceToCameraSq);
             }
-
-            // Upload instance data
-            gl.BindBuffer(BufferTargetARB.ArrayBuffer, _instanceVbo);
-            fixed (ParticleInstance* p = instances) {
-                gl.BufferSubData(BufferTargetARB.ArrayBuffer, 0, (uint)(instances.Length * Marshal.SizeOf<ParticleInstance>()), p);
-            }
-
-            // Bind textures
-            if (textureData?.Batches.Count > 0) {
-                var batch = textureData.Batches[0];
-
-                gl.Enable(EnableCap.Blend);
-                if (batch.IsAdditive) {
-                    gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
-                }
-                else {
-                    gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-                }
-
-                if (batch.Atlas != null && batch.Atlas.TextureArray is ManagedGLTextureArray managedTexArray) {
-                    gl.ActiveTexture(TextureUnit.Texture0);
-                    gl.BindTexture(GLEnum.Texture2DArray, (uint)managedTexArray.NativePtr);
-                    BaseObjectRenderManager.CurrentAtlas = (uint)batch.Atlas.Slot;
-                }
-            }
-
-            gl.BindVertexArray(_vao);
-            gl.DepthMask(false);
-            gl.DrawElementsInstanced(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedShort, (void*)0, (uint)_particles.Count);
-            gl.DepthMask(true);
-            
-            // Restore state
-            gl.BindVertexArray((uint)oldVAO);
-            gl.BindBuffer(GLEnum.ElementArrayBuffer, (uint)oldIBO);
-            gl.UseProgram((uint)oldProgram);
-            gl.ActiveTexture((GLEnum)oldActiveTexture);
-            gl.BindTexture(GLEnum.Texture2DArray, (uint)oldTextureBinding);
-
-            // Reset these so subsequent scenery rendering re-binds them if needed
-            BaseObjectRenderManager.CurrentVAO = 0;
-            BaseObjectRenderManager.CurrentIBO = 0;
-            BaseObjectRenderManager.CurrentAtlas = 0;
         }
 
         public void Dispose() {
-            var gl = _graphicsDevice.GL;
-            gl.DeleteVertexArray(_vao);
-            gl.DeleteBuffer(_vbo);
-            gl.DeleteBuffer(_instanceVbo);
-            gl.DeleteBuffer(_ibo);
-            (_shader as IDisposable)?.Dispose();
-            
             if (_gfxRenderData != null) {
                 _meshManager.ReleaseRenderData(_emitter.HwGfxObjId.DataId);
             }
