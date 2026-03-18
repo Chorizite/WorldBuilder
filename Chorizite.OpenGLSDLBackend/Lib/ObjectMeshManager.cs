@@ -254,6 +254,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         public void IncrementRefCount(ulong id) {
             _usageCount.AddOrUpdate(id, 1, (_, count) => count + 1);
+            lock (_lruList) {
+                _lruList.Remove(id);
+            }
         }
 
         public void GenerateMipmaps() {
@@ -711,6 +714,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 return;
             }
             ct.ThrowIfCancellationRequested();
+
             var resolutions = _dats.ResolveId(id).ToList();
             var selectedResolution = resolutions.OrderByDescending(r => r.Database == _dats.Portal).FirstOrDefault();
             if (selectedResolution == null) return;
@@ -777,6 +781,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             max = Vector3.Max(max, transformed);
                         }
                         hasBounds = true;
+
+                        // Add synthetic geometry ID to parts list
+                        parts.Add(((ulong)id | 0x1_0000_0000UL, currentTransform));
                     }
                 }
 
@@ -792,7 +799,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     // Localize static object transform relative to the cell
                     var localizedTransform = transform * invertCellTransform;
 
-                    CollectParts(stab.Id, localizedTransform * currentTransform, parts, ref min, ref max, ref hasBounds, ct);
+                    CollectParts(stab.Id, localizedTransform * currentTransform, parts, ref min, ref max, ref hasBounds, ct, depth + 1);
                 }
             }
             else if (type == DBObjType.GfxObj) {

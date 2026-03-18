@@ -36,10 +36,13 @@ namespace Chorizite.OpenGLSDLBackend {
         private readonly ConcurrentQueue<ObjectMeshData> _stagedMeshData = new();
         private uint _loadingFileId;
         private bool _loadingIsSetup;
+        private readonly object _lock = new();
 
         private bool _needsRender = true;
         private int _width;
         private int _height;
+
+        private readonly List<ulong> _activeUploads = new();
 
         public bool NeedsRender {
             get {
@@ -189,57 +192,86 @@ namespace Chorizite.OpenGLSDLBackend {
 
 
         public async Task LoadObjectAsync(uint fileId, bool isSetup) {
-            _loadingFileId = fileId;
-            _loadingIsSetup = isSetup;
-
             _loadCts?.Cancel();
             _loadCts = new CancellationTokenSource();
             var ct = _loadCts.Token;
 
+            // Clear stale staged data from previous cancelled tasks
+            while (_stagedMeshData.TryDequeue(out _)) { }
+
             try {
                 if (!isSetup && (fileId & 0xFF000000) == 0x32000000 && _dats.Portal.TryGet<ParticleEmitter>(fileId, out var emitter)) {
                     if (emitter.HwGfxObjId != 0 && !MeshManager.HasRenderData(emitter.HwGfxObjId)) {
-                        var partData = await MeshManager.PrepareMeshDataAsync(emitter.HwGfxObjId, false, ct);
-                        if (partData != null && !ct.IsCancellationRequested) {
-                            _stagedMeshData.Enqueue(partData);
-                            NeedsRender = true;
+                        try {
+                            var partData = await MeshManager.PrepareMeshDataAsync(emitter.HwGfxObjId, false, ct);
+                            if (partData != null && !ct.IsCancellationRequested) {
+                                _stagedMeshData.Enqueue(partData);
+                            }
+                        } catch (OperationCanceledException) { 
+                        } catch (Exception ex) {
+                            _log.LogError(ex, "Error preparing mesh data for particle gfxobj 0x{Id:X8}", emitter.HwGfxObjId);
                         }
                     }
+                    _loadingFileId = fileId;
+                    _loadingIsSetup = isSetup;
+                    NeedsRender = true;
                     return;
                 }
 
                 // Prepare mesh data on background thread
                 var meshData = await MeshManager.PrepareMeshDataAsync(fileId, isSetup, ct);
+                
+                List<(ulong GfxObjId, Matrix4x4 Transform)>? partsToLoad = null;
+
                 if (meshData != null && !ct.IsCancellationRequested) {
                     _stagedMeshData.Enqueue(meshData);
-                    NeedsRender = true;
 
                     // Stage EnvCell geometry if present
                     if (meshData.EnvCellGeometry != null) {
                         _stagedMeshData.Enqueue(meshData.EnvCellGeometry);
-                        NeedsRender = true;
                     }
 
-                    // For Setup objects, also prepare each part's GfxObj on background thread
                     if (meshData.IsSetup && meshData.SetupParts.Count > 0) {
-                        var tasks = new List<Task>();
-                        foreach (var (partId, _) in meshData.SetupParts) {
-                            if (ct.IsCancellationRequested) break;
-                            if (!MeshManager.HasRenderData(partId)) {
-                                async Task LoadPartAsync() {
-                                    try {
-                                        var partData = await MeshManager.PrepareMeshDataAsync(partId, false, ct);
-                                        if (partData != null && !ct.IsCancellationRequested) {
-                                            _stagedMeshData.Enqueue(partData);
-                                            NeedsRender = true;
-                                        }
-                                    } catch (OperationCanceledException) { }
-                                }
-                                tasks.Add(LoadPartAsync());
-                            }
-                        }
-                        await Task.WhenAll(tasks);
+                        partsToLoad = meshData.SetupParts;
                     }
+                }
+                else if (meshData == null && !ct.IsCancellationRequested) {
+                    // It's already loaded, check if we need to load its parts
+                    var existing = MeshManager.TryGetRenderData(fileId);
+                    if (existing != null) {
+                        if (existing.IsSetup) {
+                            partsToLoad = existing.SetupParts;
+                        }
+                    }
+                }
+
+                // For Setup objects, also prepare each part's GfxObj on background thread
+                if (partsToLoad != null && partsToLoad.Count > 0) {
+                    var tasks = new List<Task>();
+                    foreach (var (partId, _) in partsToLoad) {
+                        if (ct.IsCancellationRequested) break;
+                        if (!MeshManager.HasRenderData(partId)) {
+                            async Task LoadPartAsync(ulong partId) {
+                                try {
+                                    var partData = await MeshManager.PrepareMeshDataAsync(partId, false, ct);
+                                    if (partData != null && !ct.IsCancellationRequested) {
+                                        _stagedMeshData.Enqueue(partData);
+                                    }
+                                } catch (OperationCanceledException) { 
+                                } catch (Exception ex) {
+                                    _log.LogError(ex, "Error preparing mesh data for part 0x{Id:X8}", partId);
+                                }
+                            }
+                            tasks.Add(LoadPartAsync(partId));
+                        }
+                    }
+                    await Task.WhenAll(tasks);
+                }
+
+                if (!ct.IsCancellationRequested) {
+                    _loadingFileId = fileId;
+                    _loadingIsSetup = isSetup;
+                    NeedsRender = true;
                 }
             }
             catch (OperationCanceledException) {
@@ -256,16 +288,20 @@ namespace Chorizite.OpenGLSDLBackend {
 
         private void ReleaseCurrentObject() {
             _particleRenderer?.Dispose();
-            if (_currentFileId != 0 && MeshManager != null && !MeshManager.IsDisposed) {
-                MeshManager.ReleaseRenderData(_currentFileId);
+            _particleRenderer = null;
+            if (MeshManager != null && !MeshManager.IsDisposed) {
+                lock (_activeUploads) {
+                    foreach (var id in _activeUploads) {
+                        MeshManager.ReleaseRenderData(id);
+                    }
+                    _activeUploads.Clear();
+                }
                 if (_particleGfxObjId != 0) {
                     MeshManager.ReleaseRenderData(_particleGfxObjId);
                     _particleGfxObjId = 0;
                 }
-                _currentFileId = 0;
             }
-            _particleRenderer?.Dispose();
-            _particleRenderer = null;
+            _currentFileId = 0;
         }
 
         public void Resize(int width, int height) {
@@ -335,10 +371,14 @@ namespace Chorizite.OpenGLSDLBackend {
                 ReleaseCurrentObject();
                 _currentFileId = _loadingFileId;
                 _isSetup = _loadingIsSetup;
+                _loadingFileId = 0; // Atomic swap complete
 
                 if (!_isSetup && (_currentFileId & 0xFF000000) == 0x32000000 && _dats.Portal.TryGet<ParticleEmitter>(_currentFileId, out var emitter)) {
                     _particleRenderer = new ParticleEmitterRenderer(GraphicsDevice, MeshManager, emitter);
                     _particleGfxObjId = emitter.HwGfxObjId;
+                    if (_particleGfxObjId != 0) {
+                        MeshManager.IncrementRefCount(_particleGfxObjId);
+                    }
                     // Use emitter properties for a default bounding box if needed (minimum of 5 to not zoom too close)
                     var maxBound = Math.Clamp(emitter.MaxOffset + (float)emitter.Lifespan * emitter.MaxA, 5f, 30f);
                     var mockData = new ObjectRenderData {
@@ -347,13 +387,29 @@ namespace Chorizite.OpenGLSDLBackend {
                     CenterCameraOnObject(mockData);
                 }
 
-                _loadingFileId = 0;
                 NeedsRender = true;
 
-                // If the object is already loaded, center the camera immediately
-                var existingData = MeshManager.TryGetRenderData(_currentFileId);
+                // If the object is already loaded, increment ref and center the camera immediately
+                var existingData = MeshManager.GetRenderData(_currentFileId);
                 if (existingData != null) {
+                    lock (_activeUploads) {
+                        _activeUploads.Add(_currentFileId);
+                    }
                     CenterCameraOnObject(existingData);
+
+                    // For setups already in cache, we need to ensure their parts are also ref-counted
+                    if (existingData.IsSetup) {
+                        foreach (var part in existingData.SetupParts) {
+                            if (MeshManager.HasRenderData(part.GfxObjId)) {
+                                var partData = MeshManager.GetRenderData(part.GfxObjId);
+                                if (partData != null) {
+                                    lock (_activeUploads) {
+                                        _activeUploads.Add(part.GfxObjId);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -364,12 +420,14 @@ namespace Chorizite.OpenGLSDLBackend {
                 var renderData = MeshManager.UploadMeshData(meshData);
                 nextFrameNeeded = true;
 
-                if (renderData != null && meshData.ObjectId == _currentFileId) {
-                    CenterCameraOnObject(renderData);
+                if (renderData != null) {
+                    lock (_activeUploads) {
+                        _activeUploads.Add(meshData.ObjectId);
+                    }
                 }
 
-                if (meshData.ObjectId != _currentFileId && meshData.ObjectId != _loadingFileId && meshData.ObjectId != _particleGfxObjId) {
-                    MeshManager.ReleaseRenderData(meshData.ObjectId);
+                if (renderData != null && meshData.ObjectId == _currentFileId) {
+                    CenterCameraOnObject(renderData);
                 }
             }
 
@@ -410,7 +468,7 @@ namespace Chorizite.OpenGLSDLBackend {
 
                 // (Logic moved up for throttling)
 
-                var data = MeshManager.GetRenderData(_currentFileId);
+                var data = MeshManager.TryGetRenderData(_currentFileId);
                 if (data == null && _particleRenderer == null) {
                     // It's possible we are still streaming in the data parts for a Setup, 
                     // but we shouldn't abort the render pass if there are other things to draw.
@@ -501,6 +559,8 @@ namespace Chorizite.OpenGLSDLBackend {
                 drawCalls.Add((data, 1, 0));
                 allInstances.Add(new InstanceData { Transform = transform, CellId = 0 });
             }
+
+            if (drawCalls.Count == 0) return;
 
             if (_useModernRendering) {
                 RenderModernMDI(_shader!, drawCalls, allInstances, RenderPass.SinglePass, ShowCulling);
