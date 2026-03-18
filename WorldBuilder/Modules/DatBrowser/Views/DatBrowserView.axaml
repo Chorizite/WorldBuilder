@@ -19,6 +19,9 @@
         <DataTemplate DataType="vm:SetupBrowserViewModel">
             <v:SetupBrowserView/>
         </DataTemplate>
+        <DataTemplate DataType="vm:ParticleEmitterBrowserViewModel">
+            <v:ParticleEmitterBrowserView/>
+        </DataTemplate>
         <DataTemplate DataType="vm:GfxObjBrowserViewModel">
             <v:GfxObjBrowserView/>
         </DataTemplate>
@@ -39,6 +42,9 @@
         </DataTemplate>
         <DataTemplate DataType="vm:EnvCellOverviewViewModel">
             <v:EnvCellOverviewView/>
+        </DataTemplate>
+        <DataTemplate DataType="vm:ParticleEmitterOverviewViewModel">
+            <v:ParticleEmitterOverviewView/>
         </DataTemplate>
     </UserControl.DataTemplates>
 

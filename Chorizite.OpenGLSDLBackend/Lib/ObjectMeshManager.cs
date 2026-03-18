@@ -409,9 +409,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     CancellationToken ct;
 
                     lock (_pendingRequests) {
-                        // Filter out cancelled requests
-                        _pendingRequests.RemoveAll(r => r.Ct.IsCancellationRequested);
-
                         if (_pendingRequests.Count == 0) {
                             return;
                         }
@@ -428,12 +425,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             uint envId = 0x0D000000u | req.EnvironmentId;
                             if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
                                 if (environment.Cells.TryGetValue(req.CellStructure, out var cellStruct)) {
-                                    data = PrepareCellStructMeshData(id, cellStruct, req.Surfaces, Matrix4x4.Identity, ct);
+                                    data = PrepareCellStructMeshData(id, cellStruct, req.Surfaces, Matrix4x4.Identity, CancellationToken.None);
                                 }
                             }
                         }
                         else {
-                            data = PrepareMeshData(id, isSetup, ct);
+                            // If it's a direct setup or gfxobj, make sure background loads don't abort half-way
+                            data = PrepareMeshData(id, isSetup, CancellationToken.None);
                         }
                         if (data != null) {
                             lock (_cpuMeshCache) {
@@ -596,18 +594,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 var renderData = UploadGfxObjMeshData(meshData);
-                if (renderData != null) {
-                    renderData.BoundingBox = meshData.BoundingBox;
-                    renderData.SelectionSphere = meshData.SelectionSphere;
-                    _renderData.TryAdd(meshData.ObjectId, renderData);
-                    IncrementRefCount(meshData.ObjectId);
-                    _currentGpuMemory += renderData.MemorySize;
+                if (renderData == null) {
+                    renderData = new ObjectRenderData();
+                }
 
-                    // Clear texture data after upload to save RAM
-                    foreach (var batchList in meshData.TextureBatches.Values) {
-                        foreach (var batch in batchList) {
-                            batch.TextureData = Array.Empty<byte>();
-                        }
+                renderData.BoundingBox = meshData.BoundingBox;
+                renderData.SelectionSphere = meshData.SelectionSphere;
+                _renderData.TryAdd(meshData.ObjectId, renderData);
+                IncrementRefCount(meshData.ObjectId);
+                _currentGpuMemory += renderData.MemorySize;
+
+                // Clear texture data after upload to save RAM
+                foreach (var batchList in meshData.TextureBatches.Values) {
+                    foreach (var batch in batchList) {
+                        batch.TextureData = Array.Empty<byte>();
                     }
                 }
                 return renderData;
