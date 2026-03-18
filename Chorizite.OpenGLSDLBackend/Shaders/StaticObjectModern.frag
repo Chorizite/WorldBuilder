@@ -27,7 +27,10 @@ void main() {
         if (isAdditive || color.a < 0.95) discard;
     } else if (renderPass == 1) {
         // Transparent pass - discard pixels that were already drawn in the opaque pass
-        if (!isAdditive && color.a >= 0.95) discard;
+        if (!isAdditive) {
+            if (color.a >= 0.95) discard;
+            if (color.a < 0.05) discard; // Fix for massive Transparent pass overdraw: discard perfectly empty pixels
+        }
     } else if (renderPass == 2) {
         // Single pass mode (or fallback)
         if (color.a < 0.1) discard;
