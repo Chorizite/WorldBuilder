@@ -376,8 +376,11 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
             // If the ID changed but it was our object, it might have been a move between landblocks
             if (!isSameObject && e.Selection.InstanceId != ObjectId.Empty && current.InstanceId != ObjectId.Empty && e.Selection.ObjectId == current.ObjectId) {
                 // If it's the same SetupId and it's currently being "debounced" or just moved, 
-                // we treat it as the same object to preserve focus.
-                isSameObject = true; 
+                // we treat it as the same object to preserve focus, BUT only if the type is the same.
+                // If the type changed (e.g. from static to cell object), we need to re-template.
+                if (current.Type == e.Selection.Type) {
+                    isSameObject = true;
+                }
             }
 
             if (isSameObject || isSameVertex) {
@@ -536,7 +539,8 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
             info.Position = worldPos;
 
             // Preview in real-time
-            var currentCellId = await _landscapeObjectService.ResolveCellIdAsync(ActiveDocument, worldPos, info.Type == ObjectType.EnvCellStaticObject ? info.InstanceId.Context : null);
+            uint? currentCellId = GetEnvCellAt(worldPos);
+            if (currentCellId == 0) currentCellId = null;
             
             _isUpdatingFromSelection = true;
             try {
@@ -555,6 +559,9 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
 
     public void NotifyObjectPositionPreview(ushort landblockId, ObjectId instanceId, Vector3 position, Quaternion rotation, uint currentCellId, uint modelId = 0) {
         _gameScene?.UpdateObjectPreview(landblockId, instanceId, position, rotation, currentCellId, modelId);
+
+        // Don't update UI for a clear signal
+        if (position == Vector3.Zero && rotation == Quaternion.Identity && currentCellId == 0) return;
 
         // Update PropertiesPanel in real-time
         if (PropertiesPanel.SelectedItem is ISelectedObjectInfo info && info.InstanceId == instanceId && ActiveDocument?.Region != null) {
@@ -621,7 +628,8 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
             if (activeDoc.Region == null) return;
 
             // Determine the final cell assignment logically (async)
-            var finalCellId = await _landscapeObjectService.ResolveCellIdAsync(activeDoc, info.Position, info.Type == ObjectType.EnvCellStaticObject ? info.InstanceId.Context : null);
+            uint? finalCellId = GetEnvCellAt(info.Position);
+            if (finalCellId == 0) finalCellId = null;
             
             // Determine if the object crossed landblock boundaries or moved into/out of a cell
             ushort newLandblockId = _landscapeObjectService.ComputeLandblockId(activeDoc.Region, info.Position);

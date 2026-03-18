@@ -476,7 +476,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 var newRot = GizmoState.Rotation;
                 ushort newLandblockId = GizmoState.LandblockId;
 
-                var cellId = await _landscapeObjectService.ResolveCellIdAsync(Context.Document, worldPos, null);
+                uint? cellId = _editorService.GetEnvCellAt(worldPos);
+                if (cellId == 0) cellId = null;
 
                 var lbOrigin = _landscapeObjectService.ComputeWorldPosition(Context!.Document.Region!, newLandblockId, Vector3.Zero);
                 var newLocalPosition = worldPos - lbOrigin;
@@ -634,7 +635,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             _isCommittingManipulation = true;
             try {
                 var worldPos = GizmoState.Position;
-                var finalCellId = await _landscapeObjectService.ResolveCellIdAsync(Context.Document, worldPos, _dragStartObject.CellId);
+                uint? finalCellId = _editorService.GetEnvCellAt(worldPos);
+                if (finalCellId == 0) finalCellId = null;
 
                 ushort newLandblockId = Context.LandscapeObjectService.ComputeLandblockId(Context!.Document.Region!, worldPos);
                 var lbOrigin = Context.LandscapeObjectService.ComputeWorldPosition(Context!.Document.Region!, newLandblockId, Vector3.Zero);
@@ -790,7 +792,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             var groundHit = SceneRaycaster.GetGroundHitPoint(Context!, _raycastService, e, origin, direction, ObjectId.Empty);
             
             var worldPos = groundHit.Position;
-            var cellId = await _landscapeObjectService.ResolveCellIdAsync(Context.Document, worldPos, _clipboardObject.CellId);
+            uint? cellId = _editorService.GetEnvCellAt(worldPos);
+            if (cellId == 0) cellId = null;
 
             ushort newLandblockId = _landscapeObjectService.ComputeLandblockId(Context!.Document.Region!, worldPos);
             var lbOrigin = _landscapeObjectService.ComputeWorldPosition(Context!.Document.Region!, newLandblockId, Vector3.Zero);
