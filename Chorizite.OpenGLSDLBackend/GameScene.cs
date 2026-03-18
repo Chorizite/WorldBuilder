@@ -157,6 +157,7 @@ public class GameScene : IDisposable {
     private Lib.BackendGizmoDrawer? _gizmoDrawer;
 
     private uint _currentEnvCellId;
+    private HashSet<uint>? _visibleEnvCells;
 
     /// <summary>
     /// Gets the number of pending terrain uploads.
@@ -898,6 +899,7 @@ public class GameScene : IDisposable {
 
             _visibilityManager.UpdateFrustum(snapshotVP);
             _visibilityManager.PrepareVisibility(_state, currentEnvCellId, _portalManager, _envCellManager, snapshotVP, isInside, out var visibleEnvCells);
+            _visibleEnvCells = visibleEnvCells;
 
             _portalManager?.ResetNeedsPrepare();
 
@@ -1018,6 +1020,8 @@ public class GameScene : IDisposable {
         if (_state.EnableTransparencyPass) {
             _sceneryShader?.Bind();
             _sceneryShader?.SetUniform("uRenderPass", (int)RenderPass.Transparent);
+            _gl.Enable(EnableCap.Blend);
+            _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
             _gl.DepthMask(false);
 
             if (_state.ShowScenery) {
@@ -1028,7 +1032,26 @@ public class GameScene : IDisposable {
                 _staticObjectManager?.Render(RenderPass.Transparent);
             }
 
+            // Global particle render
+            var view = _graphicsDevice.CurrentSceneData.View;
+            var up = new Vector3(view.M12, view.M22, view.M32);
+            var right = new Vector3(view.M11, view.M21, view.M31);
+            _graphicsDevice.ParticleBatcher.Begin(_graphicsDevice.CurrentSceneData.ViewProjection, up, right);
+
+            if (_state.ShowScenery) {
+                _sceneryManager?.RenderParticles();
+            }
+            if (_state.ShowStaticObjects || _state.ShowBuildings) {
+                _staticObjectManager?.RenderParticles();
+            }
+            if (_state.ShowEnvCells) {
+                _envCellManager?.RenderParticles(_visibleEnvCells);
+            }
+
+            _graphicsDevice.ParticleBatcher.End();
+
             _gl.DepthMask(true);
+            _gl.Disable(EnableCap.Blend);
         }
 
         if (_performanceTracker != null) _performanceTracker.TransparentTime = sw.Elapsed.TotalMilliseconds;

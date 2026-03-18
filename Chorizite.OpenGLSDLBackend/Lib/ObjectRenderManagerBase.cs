@@ -647,10 +647,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public virtual unsafe void Render(RenderPass renderPass) {
-            Render(renderPass, null);
-        }
-
-        public virtual unsafe void Render(RenderPass renderPass, HashSet<uint>? filter) {
             if (IsDisposed || MeshManager.IsDisposed || !_initialized || _shader is null || (_shader is GLSLShader glsl && glsl.Program == 0) || _cameraPosition.Z > 4000) return;
 
             lock (_renderLock) {
@@ -732,34 +728,26 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     CurrentVAO = 0;
                 }
 
-                // Render particles last in the transparent pass so they don't get blocked by depth
-                // Global particle render only if filter is null. EnvCellRenderManager handles filtered particles.
-                if (filter == null && (renderPass == RenderPass.Transparent || renderPass == RenderPass.SinglePass)) {
-                    var sceneData = GraphicsDevice.CurrentSceneData;
-                    var view = sceneData.View;
-                    var up = new Vector3(view.M12, view.M22, view.M32);
-                    var right = new Vector3(view.M11, view.M21, view.M31);
-                    var cameraPos = sceneData.CameraPosition;
-
-                    GraphicsDevice.ParticleBatcher.Begin(sceneData.ViewProjection, up, right);
-
-                    foreach (var (key, lb) in _landblocks) {
-                        if (!lb.InstancesReady || Math.Abs(lb.GridX - _cameraLbX) > ParticleRenderDistance || Math.Abs(lb.GridY - _cameraLbY) > ParticleRenderDistance) continue;
-                        
-                        foreach (var emitter in lb.ParticleEmitters) {
-                            emitter.Render(GraphicsDevice.ParticleBatcher);
-                        }
-                    }
-
-                    GraphicsDevice.ParticleBatcher.End();
-                }
-
                 // Clear MDI dirty flag after all rendering is complete for this frame.
                 // Both opaque and transparent passes will have been issued by now.
                 if (renderPass != RenderPass.Opaque) {
                     _mdiDirty = false;
                 }
                 GLHelpers.CheckErrors(Gl);
+            }
+        }
+
+        public virtual void RenderParticles() {
+            RenderParticles(null);
+        }
+
+        public virtual void RenderParticles(HashSet<uint>? filter) {
+            foreach (var (key, lb) in _landblocks) {
+                if (!lb.InstancesReady || Math.Abs(lb.GridX - _cameraLbX) > ParticleRenderDistance || Math.Abs(lb.GridY - _cameraLbY) > ParticleRenderDistance) continue;
+                
+                foreach (var emitter in lb.ParticleEmitters) {
+                    emitter.Render(GraphicsDevice.ParticleBatcher);
+                }
             }
         }
 

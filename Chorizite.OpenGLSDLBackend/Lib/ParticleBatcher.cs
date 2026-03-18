@@ -150,6 +150,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _shader.SetUniform("uCameraRight", _cameraRight);
             gl.BindVertexArray(_vao);
             gl.DepthMask(false);
+            gl.Enable(EnableCap.DepthTest);
+            gl.Disable(EnableCap.StencilTest);
+            gl.Disable(EnableCap.CullFace);
             gl.Enable(EnableCap.Blend);
 
             int i = 0;
