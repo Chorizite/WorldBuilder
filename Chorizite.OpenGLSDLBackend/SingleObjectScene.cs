@@ -379,10 +379,75 @@ namespace Chorizite.OpenGLSDLBackend {
                     if (_particleGfxObjId != 0) {
                         MeshManager.IncrementRefCount(_particleGfxObjId);
                     }
-                    // Use emitter properties for a default bounding box if needed (minimum of 0.5 to not zoom too close)
-                    var maxBound = Math.Clamp(emitter.MaxOffset + (float)emitter.Lifespan * emitter.MaxA, 0.5f, 30f);
+                    // Auto-calculate tight bounding box from average emitter properties
+                    float avgLife = (float)emitter.Lifespan;
+                    if (avgLife <= 0) avgLife = 1f;
+
+                    // 1. Calculate absolute extents (how large the volume is)
+                    float aAbsMult = (Math.Abs(emitter.MaxA) + Math.Abs(emitter.MinA)) * 0.5f;
+                    var absA = new Vector3(Math.Abs(emitter.A.X), Math.Abs(emitter.A.Y), Math.Abs(emitter.A.Z)) * aAbsMult;
+                    
+                    float bAbsMult = (Math.Abs(emitter.MaxB) + Math.Abs(emitter.MinB)) * 0.5f;
+                    var absB = new Vector3(Math.Abs(emitter.B.X), Math.Abs(emitter.B.Y), Math.Abs(emitter.B.Z)) * bAbsMult;
+
+                    float cAbsMult = (Math.Abs(emitter.MaxC) + Math.Abs(emitter.MinC)) * 0.5f;
+                    var absC = new Vector3(Math.Abs(emitter.C.X), Math.Abs(emitter.C.Y), Math.Abs(emitter.C.Z)) * cAbsMult;
+
+                    float avgOffset = (Math.Abs(emitter.MaxOffset) + Math.Abs(emitter.MinOffset)) * 0.5f;
+                    var extent = new Vector3(avgOffset);
+                    
+                    if (emitter.ParticleType == ParticleType.Explode) {
+                        float explodeSpread = absC.Length() * aAbsMult * Math.Abs(emitter.A.X) * avgLife;
+                        extent += absB * (avgLife * avgLife) + new Vector3(explodeSpread);
+                    } else if (emitter.ParticleType == ParticleType.Implode) {
+                        extent += absB * (avgLife * avgLife) + new Vector3(absC.Length());
+                    } else if (emitter.ParticleType == ParticleType.Swarm) {
+                        extent += (absA * avgLife) + absC;
+                    } else if (emitter.ParticleType == ParticleType.Still) {
+                        // Nothing
+                    } else if (emitter.ParticleType == ParticleType.LocalVelocity || emitter.ParticleType == ParticleType.GlobalVelocity) {
+                        extent += absA * avgLife;
+                    } else if (emitter.ParticleType == ParticleType.ParabolicLVGA || 
+                               emitter.ParticleType == ParticleType.ParabolicLVLA || 
+                               emitter.ParticleType == ParticleType.ParabolicGVGA ||
+                               emitter.ParticleType == ParticleType.ParabolicLVGAGR || 
+                               emitter.ParticleType == ParticleType.ParabolicLVLALR || 
+                               emitter.ParticleType == ParticleType.ParabolicGVGAGR) {
+                        extent += (absA * avgLife) + (absB * (0.5f * avgLife * avgLife));
+                    } else {
+                        extent += absA * avgLife;
+                    }
+
+                    float avgScale = (emitter.StartScale + emitter.FinalScale) * 0.5f;
+                    extent += new Vector3(avgScale);
+                    extent *= 0.5f;
+
+                    extent.X = Math.Clamp(extent.X, 0.1f, 15.0f);
+                    extent.Y = Math.Clamp(extent.Y, 0.1f, 15.0f);
+                    extent.Z = Math.Clamp(extent.Z, 0.1f, 15.0f);
+
+                    // 2. Calculate average directional travel (where the volume is centered)
+                    float aDirMult = (emitter.MaxA + emitter.MinA) * 0.5f;
+                    var dirA = emitter.A * aDirMult;
+                    
+                    float bDirMult = (emitter.MaxB + emitter.MinB) * 0.5f;
+                    var dirB = emitter.B * bDirMult;
+
+                    var avgTravel = Vector3.Zero;
+                    if (emitter.ParticleType == ParticleType.Explode || emitter.ParticleType == ParticleType.Implode) {
+                        avgTravel = dirB * (avgLife * avgLife); // Explode/Implode spread radially, so center drifts mainly by gravity (B)
+                    } else if (emitter.ParticleType == ParticleType.Swarm || emitter.ParticleType == ParticleType.LocalVelocity || emitter.ParticleType == ParticleType.GlobalVelocity) {
+                        avgTravel = dirA * avgLife;
+                    } else if (emitter.ParticleType != ParticleType.Still) {
+                        // Parabolic defaults
+                        avgTravel = (dirA * avgLife) + (dirB * (0.5f * avgLife * avgLife));
+                    }
+
+                    // Particles start at 0,0,0 and travel to avgTravel. The center of this mass is halfway.
+                    var centerOfVolume = avgTravel * 0.5f;
+
                     var mockData = new ObjectRenderData {
-                        BoundingBox = new Chorizite.Core.Lib.BoundingBox(new Vector3(-maxBound), new Vector3(maxBound))
+                        BoundingBox = new Chorizite.Core.Lib.BoundingBox(centerOfVolume - extent, centerOfVolume + extent)
                     };
                     CenterCameraOnObject(mockData);
                 }
