@@ -878,7 +878,7 @@ public class GameScene : IDisposable {
             SpecularPower = 32.0f,
             ViewportSize = new Vector2(_width, _height)
         };
-        _graphicsDevice.SceneDataBuffer.SetData(ref sceneData);
+        _graphicsDevice.SetSceneData(ref sceneData);
         _graphicsDevice.SceneDataBuffer.Bind(0);
 
         var sw = Stopwatch.StartNew();

@@ -3,9 +3,12 @@ using Chorizite.OpenGLSDLBackend.Lib;
 using DatReaderWriter;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
+using DatReaderWriter.Types;
 using Microsoft.Extensions.Logging;
 using Silk.NET.OpenGL;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -49,6 +52,7 @@ namespace Chorizite.OpenGLSDLBackend {
                 if (_needsRender) return true;
                 if (_camera.IsMoving) return true;
                 if (_particleRenderer?.IsActive == true) return true;
+                if (_particleEmitters.Any(e => e.Renderer.IsActive)) return true;
                 return false;
             }
             set {
@@ -64,8 +68,12 @@ namespace Chorizite.OpenGLSDLBackend {
         private DebugRenderer? _debugRenderer;
         private IShader? _lineShader;
 
+        private readonly ConcurrentQueue<StagedEmitter> _stagedEmitters = new();
+
         private ParticleEmitterRenderer? _particleRenderer;
+        private readonly List<ActiveParticleEmitter> _particleEmitters = new();
         private ulong _particleGfxObjId;
+        private ulong _textureGfxObjId;
 
         public ICamera Camera => _camera;
 
@@ -289,6 +297,11 @@ namespace Chorizite.OpenGLSDLBackend {
         private void ReleaseCurrentObject() {
             _particleRenderer?.Dispose();
             _particleRenderer = null;
+            foreach (var emitter in _particleEmitters) {
+                emitter.Renderer.Dispose();
+            }
+            _particleEmitters.Clear();
+
             if (MeshManager != null && !MeshManager.IsDisposed) {
                 lock (_activeUploads) {
                     foreach (var id in _activeUploads) {
@@ -299,6 +312,10 @@ namespace Chorizite.OpenGLSDLBackend {
                 if (_particleGfxObjId != 0) {
                     MeshManager.ReleaseRenderData(_particleGfxObjId);
                     _particleGfxObjId = 0;
+                }
+                if (_textureGfxObjId != 0) {
+                    MeshManager.ReleaseRenderData(_textureGfxObjId);
+                    _textureGfxObjId = 0;
                 }
             }
             _currentFileId = 0;
@@ -313,7 +330,29 @@ namespace Chorizite.OpenGLSDLBackend {
 
         public void Update(float deltaTime) {
             _camera.Update(deltaTime);
-            _particleRenderer?.Update(deltaTime);
+            
+            var center = Vector3.Zero;
+            var currentData = MeshManager.TryGetRenderData(_currentFileId);
+            if (currentData != null) {
+                center = (currentData.BoundingBox.Min + currentData.BoundingBox.Max) / 2f;
+            }
+
+            var transform = Matrix4x4.CreateTranslation(-center)
+                          * Matrix4x4.CreateRotationZ(_rotation)
+                          * Matrix4x4.CreateTranslation(center);
+
+            if (_particleRenderer != null) {
+                _particleRenderer.ParentTransform = transform;
+                _particleRenderer.Update(deltaTime);
+            }
+
+            foreach (var emitter in _particleEmitters) {
+                var partTransform = transform;
+                if (emitter.PartIndex != 0xFFFFFFFF && currentData != null && emitter.PartIndex < currentData.SetupParts.Count) {
+                    partTransform = currentData.SetupParts[(int)emitter.PartIndex].Transform * transform;
+                }
+                emitter.Update(deltaTime, partTransform);
+            }
 
             if (IsAutoCamera) {
                 // Spin if hovered, or if not a tooltip (auto-spin for details view)
@@ -376,8 +415,12 @@ namespace Chorizite.OpenGLSDLBackend {
                 if (!_isSetup && (_currentFileId & 0xFF000000) == 0x32000000 && _dats.Portal.TryGet<ParticleEmitter>(_currentFileId, out var emitter)) {
                     _particleRenderer = new ParticleEmitterRenderer(GraphicsDevice, MeshManager, emitter);
                     _particleGfxObjId = emitter.HwGfxObjId;
+                    _textureGfxObjId = emitter.GfxObjId.DataId;
                     if (_particleGfxObjId != 0) {
                         MeshManager.IncrementRefCount(_particleGfxObjId);
+                    }
+                    if (_textureGfxObjId != 0) {
+                        MeshManager.IncrementRefCount(_textureGfxObjId);
                     }
                     // Auto-calculate tight bounding box from average emitter properties
                     float avgLife = (float)emitter.Lifespan;
@@ -482,7 +525,11 @@ namespace Chorizite.OpenGLSDLBackend {
             }
 
             // Handle staged mesh data
-            bool nextFrameNeeded = !_stagedMeshData.IsEmpty || _loadingFileId != 0;
+            bool nextFrameNeeded = !_stagedMeshData.IsEmpty || !_stagedEmitters.IsEmpty || _loadingFileId != 0;
+
+            while (MeshManager.StagedMeshData.TryDequeue(out var meshData)) {
+                _stagedMeshData.Enqueue(meshData);
+            }
 
             while (_stagedMeshData.TryDequeue(out var meshData)) {
                 var renderData = MeshManager.UploadMeshData(meshData);
@@ -495,8 +542,22 @@ namespace Chorizite.OpenGLSDLBackend {
                 }
 
                 if (renderData != null && meshData.ObjectId == _currentFileId) {
+                    foreach (var emitter in meshData.ParticleEmitters) {
+                        _stagedEmitters.Enqueue(emitter);
+                    }
                     CenterCameraOnObject(renderData);
                 }
+            }
+
+            while (_stagedEmitters.TryDequeue(out var staged)) {
+                var renderer = new ParticleEmitterRenderer(GraphicsDevice, MeshManager, staged.Emitter);
+                _particleEmitters.Add(new ActiveParticleEmitter(renderer, staged.PartIndex, staged.Offset));
+                if (staged.Emitter.HwGfxObjId != 0) {
+                    lock (_activeUploads) {
+                        _activeUploads.Add(staged.Emitter.HwGfxObjId.DataId);
+                    }
+                }
+                nextFrameNeeded = true;
             }
 
             // If we are a setup, verify we have all parts. If not, keep rendering until we do.
@@ -548,6 +609,9 @@ namespace Chorizite.OpenGLSDLBackend {
                 var snapshotView = _camera.ViewMatrix;
                 var snapshotProj = _camera.ProjectionMatrix;
                 var snapshotPos = _camera.Position;
+                
+                var up = new Vector3(snapshotView.M12, snapshotView.M22, snapshotView.M32);
+                var right = new Vector3(snapshotView.M11, snapshotView.M21, snapshotView.M31);
 
                 var sceneData = new SceneData {
                     View = snapshotView,
@@ -557,11 +621,12 @@ namespace Chorizite.OpenGLSDLBackend {
                     LightDirection = Vector3.Normalize(new Vector3(1.2f, 0.0f, 0.5f)),
                     SunlightColor = Vector3.One,
                     AmbientColor = new Vector3(0.4f, 0.4f, 0.4f),
-                    SpecularPower = 16.0f,
+                    SpecularPower = 32.0f,
                     ViewportSize = new Vector2(_width, _height)
                     };
-                    GraphicsDevice.SceneDataBuffer.SetData(ref sceneData);
+                    GraphicsDevice.SetSceneData(ref sceneData);
                     GraphicsDevice.SceneDataBuffer.Bind(0);
+
                 // Disable alpha channel writes so we don't punch holes in the window's alpha
                 // where transparent 3D objects are drawn.
                 Gl.ColorMask(true, true, true, false);
@@ -605,7 +670,10 @@ namespace Chorizite.OpenGLSDLBackend {
                 }
 
                 Gl.Disable(EnableCap.CullFace);
-                _particleRenderer?.Render(snapshotVP, _camera.Up, _camera.Right);
+                _particleRenderer?.Render(snapshotVP, up, right);
+                foreach (var emitter in _particleEmitters) {
+                    emitter.Render(snapshotVP, up, right);
+                }
 
                 Gl.DepthMask(true);
             }

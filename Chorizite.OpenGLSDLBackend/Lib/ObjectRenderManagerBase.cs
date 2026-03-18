@@ -331,12 +331,37 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     }
                 });
             }
+
+            lock (_activeLandblocksLock) {
+                foreach (var lb in _activeLandblocks) {
+                    foreach (var emitter in lb.ParticleEmitters) {
+                        var parentTransform = Matrix4x4.Identity;
+                        if (emitter.ParentInstance.HasValue) {
+                            var instance = emitter.ParentInstance.Value;
+                            parentTransform = instance.Transform;
+
+                            if (emitter.PartIndex != 0xFFFFFFFF && instance.IsSetup) {
+                                var data = MeshManager.TryGetRenderData(instance.ObjectId);
+                                if (data != null && emitter.PartIndex < data.SetupParts.Count) {
+                                    parentTransform = data.SetupParts[(int)emitter.PartIndex].Transform * parentTransform;
+                                }
+                            }
+                        }
+                        emitter.Update(deltaTime, parentTransform);
+                    }
+                }
+            }
         }
 
         public float ProcessUploads(float timeBudgetMs) {
             if (!_initialized) return 0;
 
             var sw = Stopwatch.StartNew();
+
+            while (MeshManager.StagedMeshData.TryDequeue(out var meshData)) {
+                _preparedMeshes[meshData.ObjectId] = meshData;
+            }
+
             while (sw.Elapsed.TotalMilliseconds < timeBudgetMs && !_uploadQueue.IsEmpty) {
                 ObjectLandblock? bestLb = null;
                 float bestPriority = float.MaxValue;
@@ -641,57 +666,89 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         Gl.DepthFunc(GLEnum.Less);
                         Gl.Disable(EnableCap.PolygonOffsetFill);
                     }
-                    return;
                 }
-
-                // 1. Render fully visible landblocks using the consolidated pipeline (extremely fast)
-                if (snapshot.VisibleLandblocks.Count > 0) {
-                    if (_useModernRendering) {
-                        RenderConsolidatedMDI(_shader, snapshot.VisibleLandblocks, renderPass);
-                    }
-                    else {
-                        RenderConsolidated(_shader, snapshot.VisibleLandblocks, renderPass);
-                    }
-                }
-
-                // 2. Render intersecting landblocks using the consolidated buffer (slow path - needs per-frame upload)
-                if (snapshot.VisibleGfxObjIds.Count > 0) {
-                    // Gather all instance data and build draw calls
-                    var allInstances = new List<InstanceData>();
-                    var drawCalls = new List<(ObjectRenderData renderData, int count, int offset)>();
-
-                    foreach (var gfxObjId in snapshot.VisibleGfxObjIds) {
-                        if (snapshot.VisibleGroups.TryGetValue(gfxObjId, out var transforms)) {
-                            var renderData = MeshManager.TryGetRenderData(gfxObjId);
-                            if (renderData != null && !renderData.IsSetup) {
-                                drawCalls.Add((renderData, transforms.Count, allInstances.Count));
-                                allInstances.AddRange(transforms);
-                            }
-                        }
-                    }
-
-                    if (allInstances.Count > 0) {
-                        // For now, intersecting chunks still use the "slow" way (dynamic upload)
-                        // but we could also use a reserved "scratch" area in the world buffer.
+                else {
+                    // 1. Render fully visible landblocks using the consolidated pipeline (extremely fast)
+                    if (snapshot.VisibleLandblocks.Count > 0) {
                         if (_useModernRendering) {
-                            RenderModernMDI(_shader, drawCalls, allInstances, renderPass);
+                            RenderConsolidatedMDI(_shader, snapshot.VisibleLandblocks, renderPass);
                         }
                         else {
-                            GraphicsDevice.UpdateInstanceBuffer(allInstances);
+                            RenderConsolidated(_shader, snapshot.VisibleLandblocks, renderPass);
+                        }
+                    }
 
-                            // Issue draw calls
-                            foreach (var call in drawCalls) {
-                                RenderObjectBatches(_shader, call.renderData, call.count, call.offset, renderPass);
+                    // 2. Render intersecting landblocks using the consolidated buffer (slow path - needs per-frame upload)
+                    if (snapshot.VisibleGfxObjIds.Count > 0) {
+                        // Gather all instance data and build draw calls
+                        var allInstances = new List<InstanceData>();
+                        var drawCalls = new List<(ObjectRenderData renderData, int count, int offset)>();
+
+                        foreach (var gfxObjId in snapshot.VisibleGfxObjIds) {
+                            if (snapshot.VisibleGroups.TryGetValue(gfxObjId, out var transforms)) {
+                                var renderData = MeshManager.TryGetRenderData(gfxObjId);
+                                if (renderData != null && !renderData.IsSetup) {
+                                    drawCalls.Add((renderData, transforms.Count, allInstances.Count));
+                                    allInstances.AddRange(transforms);
+                                }
+                            }
+                        }
+
+                        if (allInstances.Count > 0) {
+                            // For now, intersecting chunks still use the "slow" way (dynamic upload)
+                            // but we could also use a reserved "scratch" area in the world buffer.
+                            if (_useModernRendering) {
+                                RenderModernMDI(_shader, drawCalls, allInstances, renderPass);
+                            }
+                            else {
+                                GraphicsDevice.UpdateInstanceBuffer(allInstances);
+
+                                // Issue draw calls
+                                foreach (var call in drawCalls) {
+                                    RenderObjectBatches(_shader, call.renderData, call.count, call.offset, renderPass);
+                                }
                             }
                         }
                     }
+
+                    // Draw highlighted / selected objects on top
+                    _shader.SetUniform("uHighlightColor", Vector4.Zero);
+                    _shader.SetUniform("uRenderPass", (int)renderPass);
+                    Gl.BindVertexArray(0);
+                    CurrentVAO = 0;
                 }
 
-                // Draw highlighted / selected objects on top
-                _shader.SetUniform("uHighlightColor", Vector4.Zero);
-                _shader.SetUniform("uRenderPass", (int)renderPass);
-                Gl.BindVertexArray(0);
-                CurrentVAO = 0;
+                // Render particles last in the transparent pass so they don't get blocked by depth
+                if (renderPass == RenderPass.Transparent || renderPass == RenderPass.SinglePass) {
+                    var sceneData = GraphicsDevice.CurrentSceneData;
+                    var view = sceneData.View;
+                    var up = new Vector3(view.M12, view.M22, view.M32);
+                    var right = new Vector3(view.M11, view.M21, view.M31);
+                    var cameraPos = sceneData.CameraPosition;
+
+                    var allVisibleEmitters = new List<(ActiveParticleEmitter emitter, float distSq)>();
+
+                    void CollectEmitters(ObjectLandblock lb) {
+                        foreach (var emitter in lb.ParticleEmitters) {
+                            var emitterPos = emitter.ParentInstance?.Transform.Translation ?? Vector3.Zero;
+                            allVisibleEmitters.Add((emitter, Vector3.DistanceSquared(emitterPos, cameraPos)));
+                        }
+                    }
+
+                    foreach (var lb in snapshot.VisibleLandblocks) {
+                        CollectEmitters(lb);
+                    }
+                    foreach (var lb in snapshot.IntersectingLandblocks) {
+                        CollectEmitters(lb);
+                    }
+
+                    // Sort back-to-front
+                    allVisibleEmitters.Sort((a, b) => b.distSq.CompareTo(a.distSq));
+
+                    foreach (var (emitter, _) in allVisibleEmitters) {
+                        emitter.Render(sceneData.ViewProjection, up, right);
+                    }
+                }
 
                 // Clear MDI dirty flag after all rendering is complete for this frame.
                 // Both opaque and transparent passes will have been issued by now.
@@ -874,6 +931,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         private void UnloadLandblockResources(ObjectLandblock lb) {
+            foreach (var emitter in lb.ParticleEmitters) {
+                emitter.Renderer.Dispose();
+            }
+            lb.ParticleEmitters.Clear();
+
             var key = GeometryUtils.PackKey(lb.GridX, lb.GridY);
             OnUnloadResources(lb, key);
             lock (lb) {
@@ -895,6 +957,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private unsafe void UploadLandblockMeshes(ObjectLandblock lb) {
             var instancesToUpload = lb.PendingInstances ?? lb.Instances;
 
+            foreach (var emitter in lb.ParticleEmitters) {
+                emitter.Renderer.Dispose();
+            }
+            lb.ParticleEmitters.Clear();
+
             // Upload any prepared mesh data that hasn't been uploaded yet
             var uniqueObjects = instancesToUpload
                 .Select(s => (s.ObjectId, s.IsSetup))
@@ -903,6 +970,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             foreach (var (objectId, isSetup) in uniqueObjects) {
                 UploadRecursive(objectId, isSetup);
+            }
+
+            foreach (var instance in instancesToUpload) {
+                var data = MeshManager.TryGetRenderData(instance.ObjectId);
+                if (data != null) {
+                    foreach (var staged in data.ParticleEmitters) {
+                        var renderer = new ParticleEmitterRenderer(GraphicsDevice, MeshManager, staged.Emitter);
+                        lb.ParticleEmitters.Add(new ActiveParticleEmitter(renderer, staged.PartIndex, staged.Offset, instance));
+                    }
+                }
             }
 
             // Populate part groups via subclass hook
@@ -1021,9 +1098,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private void UploadRecursive(ulong objectId, bool isSetup) {
             var renderData = UploadPreparedMesh(objectId);
-            if (renderData is { IsSetup: true }) {
-                foreach (var (partId, _) in renderData.SetupParts) {
-                    UploadRecursive(partId, (partId >> 24) == 0x02);
+            if (renderData != null) {
+                if (renderData.IsSetup) {
+                    foreach (var (partId, _) in renderData.SetupParts) {
+                        UploadRecursive(partId, (partId >> 24) == 0x02);
+                    }
+                }
+                foreach (var emitter in renderData.ParticleEmitters) {
+                    if (emitter.Emitter.HwGfxObjId.DataId != 0) {
+                        UploadRecursive(emitter.Emitter.HwGfxObjId.DataId, false);
+                    }
+                    if (emitter.Emitter.GfxObjId.DataId != 0) {
+                        UploadRecursive(emitter.Emitter.GfxObjId.DataId, false);
+                    }
                 }
             }
         }

@@ -46,6 +46,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     }
 
     /// <summary>
+    /// Staged data for a particle emitter to be created on the GL thread.
+    /// </summary>
+    public struct StagedEmitter {
+        public ParticleEmitter Emitter;
+        public uint PartIndex;
+        public Matrix4x4 Offset;
+    }
+
+    /// <summary>
     /// CPU-side mesh data prepared on a background thread.
     /// Contains vertex data and per-batch index/texture info, but NO GPU resources.
     /// </summary>
@@ -60,6 +69,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         /// <summary>For Setup objects: parts with their local transforms.</summary>
         public List<(ulong GfxObjId, Matrix4x4 Transform)> SetupParts { get; set; } = new();
+
+        /// <summary>Particle emitters from physics scripts.</summary>
+        public List<StagedEmitter> ParticleEmitters { get; set; } = new();
 
         /// <summary>Per-format texture atlas data (to be uploaded to GPU on main thread).</summary>
         public Dictionary<(int Width, int Height, TextureFormat Format), List<TextureBatchData>> TextureBatches { get; set; } = new();
@@ -113,6 +125,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public List<ObjectRenderBatch> Batches { get; set; } = new();
         public bool IsSetup { get; set; }
         public List<(ulong GfxObjId, Matrix4x4 Transform)> SetupParts { get; set; } = new();
+
+        /// <summary>Particle emitters from physics scripts.</summary>
+        public List<StagedEmitter> ParticleEmitters { get; set; } = new();
 
         /// <summary>CPU-side vertex positions for raycasting.</summary>
         public Vector3[] CPUPositions { get; set; } = Array.Empty<Vector3>();
@@ -184,6 +199,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly Dictionary<ulong, ObjectMeshData> _cpuMeshCache = new();
         private readonly LinkedList<ulong> _cpuLruList = new();
         private readonly int _maxCpuCacheSize = 1000;
+
+        private readonly ConcurrentQueue<ObjectMeshData> _stagedMeshData = new();
+        public ConcurrentQueue<ObjectMeshData> StagedMeshData => _stagedMeshData;
 
         // Cache for decoded textures to avoid redundant BCn decoding
         private readonly ConcurrentDictionary<uint, byte[]> _decodedTextureCache = new();
@@ -448,6 +466,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 _cpuMeshCache[id] = data;
                                 _cpuLruList.AddLast(id);
                             }
+                            _stagedMeshData.Enqueue(data);
                         }
                         tcs.TrySetResult(data);
                     }
@@ -581,6 +600,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     var data = new ObjectRenderData {
                         IsSetup = true,
                         SetupParts = meshData.SetupParts,
+                        ParticleEmitters = meshData.ParticleEmitters,
                         Batches = new List<ObjectRenderBatch>(),
                         BoundingBox = meshData.BoundingBox,
                         SelectionSphere = meshData.SelectionSphere,
@@ -701,13 +721,61 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             CollectParts((uint)(id & 0xFFFFFFFFu), Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds, ct);
 
+            var emitters = new List<StagedEmitter>();
+            var processedScripts = new HashSet<uint>();
+            if (setup.DefaultScript.DataId != 0) {
+                if (processedScripts.Add(setup.DefaultScript.DataId)) {
+                    CollectEmittersFromScript(setup.DefaultScript.DataId, emitters, ct);
+                }
+            }
+            if (setup.DefaultScriptTable.DataId != 0 && _dats.Portal.TryGet<PhysicsScriptTable>(setup.DefaultScriptTable.DataId, out var table)) {
+                foreach (var entry in table.ScriptTable.Values) {
+                    foreach (var scriptAndMod in entry.Scripts) {
+                        if (processedScripts.Add(scriptAndMod.ScriptId)) {
+                            CollectEmittersFromScript(scriptAndMod.ScriptId, emitters, ct);
+                        }
+                    }
+                }
+            }
+
             return new ObjectMeshData {
                 ObjectId = id,
                 IsSetup = true,
                 SetupParts = parts,
+                ParticleEmitters = emitters,
                 BoundingBox = hasBounds ? new BoundingBox(min, max) : default,
                 SelectionSphere = setup.SelectionSphere
             };
+        }
+
+        private void CollectEmittersFromScript(uint scriptId, List<StagedEmitter> emitters, CancellationToken ct) {
+            if (_dats.Portal.TryGet<PhysicsScript>(scriptId, out var script)) {
+                foreach (var hook in script.ScriptData) {
+                    if (hook.Hook.HookType == AnimationHookType.CreateParticle && hook.Hook is CreateParticleHook particleHook) {
+                        if (_dats.Portal.TryGet<ParticleEmitter>(particleHook.EmitterInfoId.DataId, out var emitter)) {
+                             emitters.Add(new StagedEmitter {
+                                 Emitter = emitter,
+                                 PartIndex = particleHook.PartIndex,
+                                 Offset = Matrix4x4.CreateFromQuaternion(particleHook.Offset.Orientation) * Matrix4x4.CreateTranslation(particleHook.Offset.Origin)
+                             });
+
+                             // Pre-load and stage the particle's GfxObjs
+                             if (emitter.HwGfxObjId.DataId != 0) {
+                                 var meshData = PrepareMeshData(emitter.HwGfxObjId.DataId, false, ct);
+                                 if (meshData != null) {
+                                     _stagedMeshData.Enqueue(meshData);
+                                 }
+                             }
+                             if (emitter.GfxObjId.DataId != 0 && emitter.GfxObjId.DataId != emitter.HwGfxObjId.DataId) {
+                                 var meshData = PrepareMeshData(emitter.GfxObjId.DataId, false, ct);
+                                 if (meshData != null) {
+                                     _stagedMeshData.Enqueue(meshData);
+                                 }
+                             }
+                        }
+                    }
+                }
+            }
         }
 
         private void CollectParts(uint id, Matrix4x4 currentTransform, List<(ulong GfxObjId, Matrix4x4 Transform)> parts, ref Vector3 min, ref Vector3 max, ref bool hasBounds, CancellationToken ct, int depth = 0) {
@@ -1070,6 +1138,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             // Add static objects
+            var emitters = new List<StagedEmitter>();
             foreach (var stab in envCell.StaticObjects) {
                 var orientation = new System.Numerics.Quaternion(
                     (float)stab.Frame.Orientation.X,
@@ -1084,6 +1153,34 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var localizedTransform = transform * invertCellTransform;
 
                 CollectParts(stab.Id, localizedTransform, parts, ref min, ref max, ref hasBounds, ct);
+
+                // For EnvCell static objects, we need to manually collect emitters if they are Setups
+                if (_dats.Portal.TryGet<Setup>(stab.Id, out var stabSetup)) {
+                    var stabEmitters = new List<StagedEmitter>();
+                    var processedScripts = new HashSet<uint>();
+                    if (stabSetup.DefaultScript.DataId != 0) {
+                        if (processedScripts.Add(stabSetup.DefaultScript.DataId)) {
+                            CollectEmittersFromScript(stabSetup.DefaultScript.DataId, stabEmitters, ct);
+                        }
+                    }
+                    if (stabSetup.DefaultScriptTable.DataId != 0 && _dats.Portal.TryGet<PhysicsScriptTable>(stabSetup.DefaultScriptTable.DataId, out var table)) {
+                        foreach (var entry in table.ScriptTable.Values) {
+                            foreach (var scriptAndMod in entry.Scripts) {
+                                if (processedScripts.Add(scriptAndMod.ScriptId)) {
+                                    CollectEmittersFromScript(scriptAndMod.ScriptId, stabEmitters, ct);
+                                }
+                            }
+                        }
+                    }
+
+                    foreach (var emitter in stabEmitters) {
+                        emitters.Add(new StagedEmitter {
+                            Emitter = emitter.Emitter,
+                            PartIndex = emitter.PartIndex, // TODO: this part index is relative to the stabSetup, not the EnvCell
+                            Offset = emitter.Offset * localizedTransform
+                        });
+                    }
+                }
             }
 
             // Load environment and cell structure geometry
@@ -1107,6 +1204,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 ObjectId = id,
                 IsSetup = true,
                 SetupParts = parts,
+                ParticleEmitters = emitters,
                 EnvCellGeometry = cellGeometry,
                 BoundingBox = hasBounds ? new BoundingBox(min, max) : default,
                 SelectionSphere = new Sphere { Origin = hasBounds ? (min + max) / 2f : Vector3.Zero, Radius = hasBounds ? Vector3.Distance(max, min) / 2.0f : 0f }
@@ -1588,6 +1686,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 VBO = vbo,
                 VertexCount = meshData.Vertices.Length,
                 Batches = renderBatches,
+                ParticleEmitters = meshData.ParticleEmitters,
                 CPUPositions = meshData.Vertices.Select(v => v.Position).ToArray(),
                 CPUIndices = meshData.TextureBatches.Values.SelectMany(l => l).SelectMany(b => b.Indices).ToArray(),
                 CPUEdgeLines = meshData.EdgeLines,

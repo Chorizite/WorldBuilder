@@ -148,6 +148,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public int IsTransformOnlyUpdate;
 
         // Optimized rendering data
+        public List<ActiveParticleEmitter> ParticleEmitters { get; } = new();
         public int InstanceBufferOffset { get; set; } = -1;
         public int InstanceCount { get; set; }
 

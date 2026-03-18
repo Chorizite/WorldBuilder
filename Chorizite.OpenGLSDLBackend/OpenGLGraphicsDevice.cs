@@ -57,6 +57,14 @@ namespace Chorizite.OpenGLSDLBackend {
         /// <summary>Shared SceneData UBO.</summary>
         public ManagedGLUniformBuffer SceneDataBuffer => _sceneDataBuffer!;
 
+        private Chorizite.OpenGLSDLBackend.Lib.SceneData _currentSceneData;
+        public Chorizite.OpenGLSDLBackend.Lib.SceneData CurrentSceneData => _currentSceneData;
+
+        public void SetSceneData(ref Chorizite.OpenGLSDLBackend.Lib.SceneData data) {
+            _currentSceneData = data;
+            SceneDataBuffer.SetData(ref data);
+        }
+
         private int _instanceBufferCapacity = 0;
         private int _instanceBufferStride = 0;
 

@@ -25,12 +25,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private uint _ibo;
         private IShader _shader = null!;
         private ObjectRenderData? _gfxRenderData;
+        private ObjectRenderData? _textureRenderData;
         private float _emissionTimer;
         private int _totalEmitted;
         private float _timeRunning;
         private float _deadTimer;
 
         public bool IsActive => true; // Previews always loop
+
+        public Matrix4x4 ParentTransform { get; set; } = Matrix4x4.Identity;
 
         [StructLayout(LayoutKind.Sequential)]
         struct ParticleInstance {
@@ -52,8 +55,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             public float StartTrans;
             public float FinalTrans;
             public bool IsActive;
+            public Matrix4x4 EmissionTransform;
 
             public Vector3 CalculatedPosition;
+            public float DistanceToCameraSq;
         }
 
         public ParticleEmitterRenderer(OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager, ParticleEmitter emitter) {
@@ -246,6 +251,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             p.StartTrans = GetRandomStartTrans();
             p.FinalTrans = GetRandomFinalTrans();
             p.IsActive = true;
+            p.EmissionTransform = ParentTransform;
+
+            bool isGlobal = _emitter.ParticleType == ParticleType.GlobalVelocity ||
+                            _emitter.ParticleType == ParticleType.ParabolicGVGA ||
+                            _emitter.ParticleType == ParticleType.ParabolicGVGAGR;
+
+            if (isGlobal) {
+                // Transform velocities/orientations to world space (rotation only)
+                p.A = Vector3.TransformNormal(p.A, ParentTransform);
+                p.B = Vector3.TransformNormal(p.B, ParentTransform);
+                p.C = Vector3.TransformNormal(p.C, ParentTransform);
+            }
 
             p.CalculatedPosition = CalculatePosition(ref p);
 
@@ -317,7 +334,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private Vector3 CalculatePosition(ref Particle p) {
             float t = p.Lifetime;
-            Vector3 parentOrigin = Vector3.Zero; // Previews always at origin
+            Vector3 parentOrigin = Vector3.Zero;
+
+            bool isGlobal = _emitter.ParticleType == ParticleType.GlobalVelocity ||
+                            _emitter.ParticleType == ParticleType.ParabolicGVGA ||
+                            _emitter.ParticleType == ParticleType.ParabolicGVGAGR;
+
+            if (isGlobal) {
+                parentOrigin = p.EmissionTransform.Translation;
+            }
 
             switch (_emitter.ParticleType) {
                 case ParticleType.Still:
@@ -364,29 +389,86 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (_gfxRenderData == null && _emitter.HwGfxObjId.DataId != 0) {
                 _gfxRenderData = _meshManager.TryGetRenderData(_emitter.HwGfxObjId.DataId);
             }
+            if (_textureRenderData == null && _emitter.GfxObjId.DataId != 0) {
+                _textureRenderData = _meshManager.TryGetRenderData(_emitter.GfxObjId.DataId);
+            }
+
+            // Decide which data to use for texturing
+            var textureData = _textureRenderData ?? _gfxRenderData;
 
             var gl = _graphicsDevice.GL;
+
+            gl.GetInteger(GLEnum.ActiveTexture, out int oldActiveTexture);
+            gl.GetInteger(GLEnum.TextureBinding2DArray, out int oldTextureBinding);
+            gl.GetInteger(GLEnum.CurrentProgram, out int oldProgram);
+            gl.GetInteger(GLEnum.VertexArrayBinding, out int oldVAO);
+            gl.GetInteger(GLEnum.ElementArrayBufferBinding, out int oldIBO);
+
             _shader.Bind();
             _shader.SetUniform("uViewProjection", viewProjection);
             _shader.SetUniform("uCameraUp", cameraUp);
             _shader.SetUniform("uCameraRight", cameraRight);
 
-            float baseSize = 0.9f;
+            var cameraPos = _graphicsDevice.CurrentSceneData.CameraPosition;
+
+            float baseSize = 1.8f;
+            if (_gfxRenderData != null) {
+                baseSize *= (_gfxRenderData.BoundingBox.Max.X - _gfxRenderData.BoundingBox.Min.X);
+            }
+
+            // Update particle world positions and distances for sorting
+            for (int i = 0; i < _particles.Count; i++) {
+                var p = _particles[i];
+                var transform = _emitter.IsParentLocal ? ParentTransform : p.EmissionTransform;
+                
+                bool isGlobal = _emitter.ParticleType == ParticleType.GlobalVelocity ||
+                                _emitter.ParticleType == ParticleType.ParabolicGVGA ||
+                                _emitter.ParticleType == ParticleType.ParabolicGVGAGR;
+
+                Vector3 worldPos;
+                if (isGlobal) {
+                    // For global particles, CalculatedPosition already has the world translation.
+                    // We only want to apply the rotation/scale from the transform.
+                    // Actually, if it's GLOBAL, it probably shouldn't be rotated by the parent's current orientation either.
+                    // But if it was emitted from a moving object, it should have been rotated at emission time.
+                    worldPos = p.CalculatedPosition;
+                } else {
+                    worldPos = Vector3.Transform(p.CalculatedPosition, transform);
+                }
+
+                p.DistanceToCameraSq = Vector3.DistanceSquared(worldPos, cameraPos);
+                _particles[i] = p;
+            }
+
+            // Sort back-to-front
+            _particles.Sort((a, b) => b.DistanceToCameraSq.CompareTo(a.DistanceToCameraSq));
 
             // Prepare instance data
             var instances = new ParticleInstance[_particles.Count];
             for (int i = 0; i < _particles.Count; i++) {
                 var p = _particles[i];
                 float lerp = Math.Clamp(p.Lifetime / p.MaxLifetime, 0f, 1f);
+                var transform = _emitter.IsParentLocal ? ParentTransform : p.EmissionTransform;
+
+                bool isGlobal = _emitter.ParticleType == ParticleType.GlobalVelocity ||
+                                _emitter.ParticleType == ParticleType.ParabolicGVGA ||
+                                _emitter.ParticleType == ParticleType.ParabolicGVGAGR;
+
+                Vector3 worldPos;
+                if (isGlobal) {
+                    worldPos = p.CalculatedPosition;
+                } else {
+                    worldPos = Vector3.Transform(p.CalculatedPosition, transform);
+                }
                 
                 instances[i] = new ParticleInstance {
-                    Position = p.CalculatedPosition,
+                    Position = worldPos,
                     ScaleOpacityActive = new Vector3(
                         (p.StartScale + (p.FinalScale - p.StartScale) * lerp) * baseSize,
                         1.0f - (p.StartTrans + (p.FinalTrans - p.StartTrans) * lerp),
                         1.0f
                     ),
-                    TextureIndex = _gfxRenderData?.Batches.Count > 0 ? _gfxRenderData.Batches[0].TextureIndex : 0,
+                    TextureIndex = textureData?.Batches.Count > 0 ? textureData.Batches[0].TextureIndex : 0,
                     Rotation = 0f
                 };
             }
@@ -398,8 +480,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             // Bind textures
-            if (_gfxRenderData?.Batches.Count > 0) {
-                var batch = _gfxRenderData.Batches[0];
+            if (textureData?.Batches.Count > 0) {
+                var batch = textureData.Batches[0];
 
                 gl.Enable(EnableCap.Blend);
                 if (batch.IsAdditive) {
@@ -412,6 +494,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (batch.Atlas != null && batch.Atlas.TextureArray is ManagedGLTextureArray managedTexArray) {
                     gl.ActiveTexture(TextureUnit.Texture0);
                     gl.BindTexture(GLEnum.Texture2DArray, (uint)managedTexArray.NativePtr);
+                    BaseObjectRenderManager.CurrentAtlas = (uint)batch.Atlas.Slot;
                 }
             }
 
@@ -419,7 +502,18 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             gl.DepthMask(false);
             gl.DrawElementsInstanced(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedShort, (void*)0, (uint)_particles.Count);
             gl.DepthMask(true);
-            gl.BindVertexArray(0);
+            
+            // Restore state
+            gl.BindVertexArray((uint)oldVAO);
+            gl.BindBuffer(GLEnum.ElementArrayBuffer, (uint)oldIBO);
+            gl.UseProgram((uint)oldProgram);
+            gl.ActiveTexture((GLEnum)oldActiveTexture);
+            gl.BindTexture(GLEnum.Texture2DArray, (uint)oldTextureBinding);
+
+            // Reset these so subsequent scenery rendering re-binds them if needed
+            BaseObjectRenderManager.CurrentVAO = 0;
+            BaseObjectRenderManager.CurrentIBO = 0;
+            BaseObjectRenderManager.CurrentAtlas = 0;
         }
 
         public void Dispose() {
@@ -432,6 +526,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             
             if (_gfxRenderData != null) {
                 _meshManager.ReleaseRenderData(_emitter.HwGfxObjId.DataId);
+            }
+            if (_textureRenderData != null && _textureRenderData != _gfxRenderData) {
+                _meshManager.ReleaseRenderData(_emitter.GfxObjId.DataId);
             }
         }
     }
