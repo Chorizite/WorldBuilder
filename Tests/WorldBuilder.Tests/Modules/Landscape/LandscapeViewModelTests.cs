@@ -51,6 +51,7 @@ namespace WorldBuilder.Tests.Modules.Landscape {
             var inputManager = new MockInputManager();
             
             projectMock.Setup(p => p.IsReadOnly).Returns(false);
+            datsMock.Setup(d => d.Portal).Returns(new Mock<IDatDatabase>().Object);
             
             var vm = new LandscapeViewModel(projectMock.Object, datsMock.Object, portalServiceMock.Object, docManagerMock.Object, bookmarksManagerMock.Object, loggerMock.Object, dialogServiceMock.Object, settings, inputManager, landscapeObjectServiceMock.Object, keywordRepositoryMock.Object, projectManager, themeService);
 
@@ -76,6 +77,7 @@ namespace WorldBuilder.Tests.Modules.Landscape {
             var inputManager = new MockInputManager();
             
             projectMock.Setup(p => p.IsReadOnly).Returns(false);
+            datsMock.Setup(d => d.Portal).Returns(new Mock<IDatDatabase>().Object);
             
             var vm = new LandscapeViewModel(projectMock.Object, datsMock.Object, portalServiceMock.Object, docManagerMock.Object, bookmarksManagerMock.Object, loggerMock.Object, dialogServiceMock.Object, settings, inputManager, landscapeObjectServiceMock.Object, keywordRepositoryMock.Object, projectManager, themeService);
 
@@ -102,6 +104,7 @@ namespace WorldBuilder.Tests.Modules.Landscape {
             var inputManager = new MockInputManager();
             
             projectMock.Setup(p => p.IsReadOnly).Returns(false);
+            datsMock.Setup(d => d.Portal).Returns(new Mock<IDatDatabase>().Object);
             
             var vm = new LandscapeViewModel(projectMock.Object, datsMock.Object, portalServiceMock.Object, docManagerMock.Object, bookmarksManagerMock.Object, loggerMock.Object, dialogServiceMock.Object, settings, inputManager, landscapeObjectServiceMock.Object, keywordRepositoryMock.Object, projectManager, themeService);
 
@@ -130,6 +133,7 @@ namespace WorldBuilder.Tests.Modules.Landscape {
             var inputManager = new MockInputManager();
             
             projectMock.Setup(p => p.IsReadOnly).Returns(false);
+            datsMock.Setup(d => d.Portal).Returns(new Mock<IDatDatabase>().Object);
             
             var vm = new LandscapeViewModel(projectMock.Object, datsMock.Object, portalServiceMock.Object, docManagerMock.Object, bookmarksManagerMock.Object, loggerMock.Object, dialogServiceMock.Object, settings, inputManager, landscapeObjectServiceMock.Object, keywordRepositoryMock.Object, projectManager, themeService);
 

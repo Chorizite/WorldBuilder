@@ -83,9 +83,9 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             tool.GizmoState.Position = outsidePos;
             tool.GizmoState.ObjectLocalBounds = new BoundingBox(Vector3.One * -1, Vector3.One);
             
-            // ResolveCellIdAsync returns null for outside
-            landscapeObjectServiceMock.Setup(l => l.ResolveCellIdAsync(context.Document, It.IsAny<Vector3>(), It.IsAny<uint?>()))
-                .ReturnsAsync((uint?)null);
+            // GetEnvCellAt returns 0 for outside
+            editorServiceMock.Setup(e => e.GetEnvCellAt(It.IsAny<Vector3>()))
+                .Returns(0u);
             
             landscapeObjectServiceMock.Setup(l => l.ComputeLandblockId(It.IsAny<ITerrainInfo>(), It.IsAny<Vector3>()))
                 .Returns(lbId);
@@ -178,9 +178,9 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Tools {
             tool.GizmoState.Position = insidePos;
             tool.GizmoState.ObjectLocalBounds = new BoundingBox(Vector3.One * -1, Vector3.One);
             
-            // ResolveCellIdAsync returns newCellId for inside
-            landscapeObjectServiceMock.Setup(l => l.ResolveCellIdAsync(context.Document, It.IsAny<Vector3>(), It.IsAny<uint?>()))
-                .ReturnsAsync(newCellId);
+            // GetEnvCellAt returns newCellId for inside
+            editorServiceMock.Setup(e => e.GetEnvCellAt(It.IsAny<Vector3>()))
+                .Returns(newCellId);
             
             landscapeObjectServiceMock.Setup(l => l.ComputeLandblockId(It.IsAny<ITerrainInfo>(), It.IsAny<Vector3>()))
                 .Returns(lbId);
