@@ -9,10 +9,31 @@
     xmlns:landscape="clr-namespace:WorldBuilder.Modules.Landscape.ViewModels"
     xmlns:viewmodels="clr-namespace:WorldBuilder.ViewModels"
     xmlns:icons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+    xmlns:ctrl="clr-namespace:WorldBuilder.Controls"
     x:CompileBindings="False"
     x:DataType="landscape:BookmarksPanelViewModel">
     <UserControl.Resources>
         <conv:SearchSourceConverter x:Key="SearchSourceConverter" />
+        <conv:TreeListSearchSourceConverter x:Key="TreeListSearchSourceConverter" />
+        
+        <!-- Chevron Path Resources -->
+        <DataTemplate x:Key="CollapsedChevronTemplate">
+            <Path Data="{StaticResource TreeDataGridItemCollapsedChevronPathData}"
+                  Fill="{DynamicResource SemiColorText0}"
+                  Opacity="0.6"
+                  Stretch="Uniform"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center" />
+        </DataTemplate>
+        
+        <DataTemplate x:Key="ExpandedChevronTemplate">
+            <Path Data="{StaticResource TreeDataGridItemExpandedChevronPathData}"
+                  Fill="{DynamicResource SemiColorText0}"
+                  Opacity="0.6"
+                  Stretch="Uniform"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center" />
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid RowDefinitions="Auto, *">
@@ -26,16 +47,16 @@
                 </Button>
                 <Button
                     Command="{Binding DeleteBookmarkCommand}"
-                    CommandParameter="{Binding SelectedItem}"
-                    IsEnabled="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                    CommandParameter="{Binding Bookmarks.SelectedItem}"
+                    IsEnabled="{Binding Bookmarks.SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}"
                     ToolTip.Tip="Delete Selected Bookmark">
                     <icons:MaterialIcon Kind="Delete" Width="16" Height="16" />
                 </Button>
                 <Button
                     x:Name="GoToButton"
                     Command="{Binding GoToBookmarkCommand}"
-                    CommandParameter="{Binding SelectedItem}"
-                    IsEnabled="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                    CommandParameter="{Binding Bookmarks.SelectedItem}"
+                    IsEnabled="{Binding Bookmarks.SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}"
                     ToolTip.Tip="Go To Selected Bookmark">
                     <icons:MaterialIcon Kind="ArrowRight" Width="16" Height="16" />
                 </Button>
@@ -50,52 +71,68 @@
             <Grid Margin="4,0,0,0">
                 <!-- Overlay for drop indicator -->
                 <Canvas x:Name="DropIndicatorCanvas" IsHitTestVisible="False" />
-                
-                <TreeDataGrid
-                    x:Name="BookmarkTreeView"
-                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                    KeyDown="OnTreeDataGridKeyDown"
-                    ShowColumnHeaders="False">
-                    <TreeDataGrid.Resources>
-                        
-                        <!-- Template for bookmark/folder cells -->
-                        <DataTemplate x:Key="BookmarkCellTemplate">
-                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,8" VerticalAlignment="Center"
-                                        PointerEntered="OnBookmarkItemPointerEntered" 
-                                        PointerExited="OnBookmarkItemPointerExited">
-                                <icons:MaterialIcon 
-                                    Width="16" 
-                                    Height="16" 
-                                    Kind="{Binding IconKind}"
-                                    Foreground="{Binding IconColor}"
-                                    Opacity="{Binding IconOpacity}"
-                                    VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </TreeDataGrid.Resources>
-                    <TreeDataGrid.Source>
-                        <MultiBinding Converter="{StaticResource SearchSourceConverter}">
+
+                <ListBox x:Name="BookmarkTreeView" 
+                         SelectedItem="{Binding Bookmarks.SelectedItem}"
+                         KeyDown="OnTreeDataGridKeyDown">
+                    <ListBox.ItemsSource>
+                        <MultiBinding Converter="{StaticResource TreeListSearchSourceConverter}">
                             <Binding Path="SearchText" />
                             <Binding Path="Bookmarks" />
                             <Binding Path="SearchResults" />
                         </MultiBinding>
-                    </TreeDataGrid.Source>
-                    <TreeDataGrid.Styles>
-                        <Style Selector="TreeDataGridRow">
-                            <Setter Property="MinHeight" Value="16" />
-                            <Setter Property="Background" Value="Transparent" />
+                    </ListBox.ItemsSource>
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="Padding" Value="0"/>
                         </Style>
-                    </TreeDataGrid.Styles>
-                    <TreeDataGrid.DataTemplates>
-						<TreeDataTemplate x:DataType="viewmodels:BookmarkFolder" ItemsSource="{Binding Items}">
-                            <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource BookmarkCellTemplate}" />
-                        </TreeDataTemplate>
-                        <DataTemplate x:DataType="viewmodels:Bookmark">
-                            <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource BookmarkCellTemplate}" />
-                        </DataTemplate>
-                    </TreeDataGrid.DataTemplates>
-                </TreeDataGrid>
+                    </ListBox.Styles>
+                    <ListBox.ItemTemplate>
+					    <DataTemplate>
+                            <Border Background="Transparent" MinHeight="28">
+				                <Grid ColumnDefinitions="Auto,20,*">
+                                    <Border Width="{Binding Indent}" />
+						            <Button Grid.Column="1"
+                                            Command="{Binding ToggleExpandedCommand}"
+                                            IsVisible="{Binding HasChildren}"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Padding="0"
+                                            MinHeight="0"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Width="10" Height="10">
+                                            <Grid>
+                                                <ContentControl Content="{Binding}"
+                                                               ContentTemplate="{StaticResource CollapsedChevronTemplate}"
+                                                               IsVisible="{Binding !IsExpanded}" />
+                                                <ContentControl Content="{Binding}"
+                                                               ContentTemplate="{StaticResource ExpandedChevronTemplate}"
+                                                               IsVisible="{Binding IsExpanded}" />
+                                            </Grid>
+                                            <Button.Styles>
+                                                <Style Selector=":pointerover /template/ ContentPresenter">
+                                                    <Setter Property="Background" Value="Transparent" />
+                                                </Style>
+                                            </Button.Styles>
+                                        </Button>
+                                    <StackPanel Grid.Column="2" Spacing="8" Orientation="Horizontal" Background="Transparent"
+                                        PointerEntered="OnBookmarkItemPointerEntered" 
+                                        PointerExited="OnBookmarkItemPointerExited">
+                                        <icons:MaterialIcon 
+                                            Width="16" 
+                                            Height="16" 
+                                            Kind="{Binding Node.IconKind}"
+                                            Foreground="{Binding Node.IconColor}"
+                                            Opacity="{Binding Node.IconOpacity}"
+                                            VerticalAlignment="Center" />
+						                <TextBlock Text="{Binding Node.Name}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>						    
+                        </DataTemplate>	
+                    </ListBox.ItemTemplate>
+                </ListBox>
             </Grid>
         </ScrollViewer>
     </Grid>

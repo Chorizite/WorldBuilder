@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Material.Icons;
+using WorldBuilder.Controls;
 
 namespace WorldBuilder.ViewModels
 {
@@ -14,16 +15,16 @@ namespace WorldBuilder.ViewModels
         Inside
     }
 
-    public abstract partial class BookmarkNode : ObservableObject
+    public abstract class BookmarkNode : ObservableObject, ITreeNode<BookmarkNode>
     {
-        private string _name = string.Empty;
+        private string? _name = string.Empty;
 
         /// <summary>
         /// The name of the Bookmark or BookmarkFolder
         /// </summary>
-        public string Name {
-            get => _name;
-            set => SetProperty(ref _name, value);
+        public string? Name {
+            get => _name ?? string.Empty;
+            set => SetProperty(ref _name, value ?? string.Empty);
         }
 
         private DropPosition _dropPosition = DropPosition.None;
@@ -110,6 +111,17 @@ namespace WorldBuilder.ViewModels
         }
 
         public abstract BookmarkNode Clone();
+
+        // ITreeNode implementation
+
+        [JsonIgnore]
+        public ObservableCollection<BookmarkNode>? Children {
+            get => (this is BookmarkFolder folder) ? folder.Items : null;
+            set {
+                if (this is BookmarkFolder folder)
+                    folder.Items = value ?? new ObservableCollection<BookmarkNode>();
+            }
+        }
     }
 
     public partial class Bookmark : BookmarkNode
@@ -148,8 +160,7 @@ namespace WorldBuilder.ViewModels
         /// </summary>
         public override double IconOpacity => 0.96;
 
-        public Bookmark() {
-        }
+        public Bookmark() { }
 
         /// <summary>
         /// Creates a deep copy of this Bookmark
@@ -168,8 +179,7 @@ namespace WorldBuilder.ViewModels
     {
         private ObservableCollection<BookmarkNode> _items = new();
 
-        public BookmarkFolder() {
-        }
+        public BookmarkFolder() { }
 
         /// <summary>
         /// The collection of bookmarks and subfolders within this folder
