@@ -17,12 +17,18 @@
     <components:ToolPanel Grid.Column="0" IsVisible="{Binding !IsReadOnly}" />
 
     <!-- Center Content -->
-    <Grid Grid.Column="1" RowDefinitions="Auto, *">
+    <Grid x:Name="CenterGrid" Grid.Column="1">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="{Binding BottomPanelHeight, Mode=TwoWay}" />
+      </Grid.RowDefinitions>
       <!-- Top Ribbon: Tool Settings -->
       <components:ToolSettingsPanel Grid.Row="0" IsVisible="{Binding !IsReadOnly}" />
       
       <!-- Viewport -->
-      <Panel Grid.Row="1">
+      <Panel Grid.Row="1" DragDrop.AllowDrop="True" DragDrop.DragOver="OnViewportDragOver" DragDrop.Drop="OnViewportDrop">
         <views:RenderView x:Name="RenderView" 
                           LandscapeDocument="{Binding ActiveDocument}" 
                           Dats="{Binding Dats}"
@@ -125,6 +131,18 @@
           </StackPanel>
         </Border>
       </Panel>
+
+      <!-- Bottom Splitter -->
+      <GridSplitter x:Name="BottomSplitter" Grid.Row="2" Height="4" HorizontalAlignment="Stretch" VerticalAlignment="Center" 
+                    Background="{DynamicResource SemiColorBorder}" 
+                    IsVisible="{Binding IsObjectToolActive}" 
+                    ResizeDirection="Rows" />
+
+      <!-- Setup Browser Panel -->
+      <components:SetupBrowserPanel Grid.Row="3" MinHeight="100"
+                                   VerticalAlignment="Stretch"
+                                   DataContext="{Binding SetupBrowserPanel}" 
+                                   IsVisible="{Binding IsObjectToolActive}" />
     </Grid>
 
     <!-- GridSplitter for resizable right panel -->

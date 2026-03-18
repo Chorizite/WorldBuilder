@@ -43,6 +43,29 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         [ObservableProperty]
         private Vector4 _wireframeColor = new Vector4(0.0f, 1.0f, 0.0f, 0.5f);
 
+        [ObservableProperty]
+        private string _keywordsSearchText = string.Empty;
+
+        [ObservableProperty]
+        private bool _isKeywordsSearchEnabled = true;
+
+        [ObservableProperty]
+        private bool _showKeywordsSearchWarning = false;
+
+        [ObservableProperty]
+        private string _keywordsSearchTooltip = "Search by file ID (e.g., 0x01000001 or 16777217)";
+
+        [ObservableProperty]
+        private bool _isEmbeddingSearchActive = false;
+
+        [ObservableProperty]
+        private bool _isSearchTypeSelectionEnabled = false;
+
+        [ObservableProperty]
+        private SearchType _searchType = SearchType.Keyword;
+
+        public IEnumerable<SearchType> SearchTypes => System.Enum.GetValues<SearchType>();
+
         public bool ShowWireframe {
             get => _settings.DatBrowser.ShowWireframe;
             set {
@@ -58,6 +81,8 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         public bool IsDarkMode => _themeService.IsDarkMode;
 
         public GridBrowserViewModel GridBrowser { get; }
+
+        GridBrowserViewModel? IKeywordSearchViewModel.GridBrowser => GridBrowser;
 
         protected BaseDatBrowserViewModel(DBObjType type, IDatReaderWriter dats, WorldBuilderSettings settings, ThemeService themeService, IDatDatabase? database = null, IEnumerable<uint>? fileIds = null, bool deferInitialization = false) {
             _dats = dats;
@@ -94,6 +119,42 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             var ids = (fileIds ?? _database.GetAllIdsOfType<T>().OrderBy(x => x)).ToList();
             FileIds = ids.Select(x => x.ToString("X8")).ToList();
             GridBrowser.SetFileIds(ids);
+        }
+
+        partial void OnKeywordsSearchTextChanged(string value) => OnKeywordsSearchTextChangedInternal(value);
+
+        protected virtual void OnKeywordsSearchTextChangedInternal(string value) {
+            if (string.IsNullOrWhiteSpace(value)) {
+                GridBrowser.SetFileIds(_database.GetAllIdsOfType<T>().OrderBy(x => x).ToList());
+                return;
+            }
+
+            if (TryParseId(value, out uint id)) {
+                if (_database.TryGet<T>(id, out _)) {
+                    GridBrowser.SetFileIds(new List<uint> { id });
+                }
+                else {
+                    GridBrowser.SetFileIds(Enumerable.Empty<uint>());
+                }
+            }
+            else {
+                GridBrowser.SetFileIds(Enumerable.Empty<uint>());
+            }
+        }
+
+        partial void OnSearchTypeChanged(SearchType value) => OnSearchTypeChangedInternal(value);
+
+        protected virtual void OnSearchTypeChangedInternal(SearchType value) {
+        }
+
+        protected bool TryParseId(string input, out uint id) {
+            id = 0;
+            if (string.IsNullOrWhiteSpace(input)) return false;
+            input = input.Trim();
+            if (input.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) {
+                return uint.TryParse(input.Substring(2), NumberStyles.HexNumber, null, out id);
+            }
+            return uint.TryParse(input, out id);
         }
 
         partial void OnSelectedFileIdChanged(uint value) {

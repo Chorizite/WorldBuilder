@@ -27,6 +27,9 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private readonly PropertyChangedEventHandler _settingsChangedHandler;
 
         [ObservableProperty]
+        private bool _showToolbar = true;
+
+        [ObservableProperty]
         private uint _selectedFileId;
 
         [ObservableProperty]
@@ -53,6 +56,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 if (_settings.DatBrowser.ShowWireframe != value) {
                     _settings.DatBrowser.ShowWireframe = value;
                     OnPropertyChanged(nameof(ShowWireframe));
+                    OnPropertyChanged(nameof(ShowWireframeType));
                 }
             }
         }
@@ -65,7 +69,10 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private string _keywordsSearchText = string.Empty;
 
         [ObservableProperty]
-        private bool _isKeywordsSearchEnabled;
+        private bool _isKeywordsSearchEnabled = true;
+
+        [ObservableProperty]
+        private bool _showKeywordsSearchWarning = false;
 
         [ObservableProperty]
         private bool _isKeywordsSearching;
@@ -120,6 +127,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                 }
                 if (e.PropertyName == nameof(DatBrowserSettings.ShowWireframe)) {
                     OnPropertyChanged(nameof(ShowWireframe));
+                    OnPropertyChanged(nameof(ShowWireframeType));
                 }
             };
             _settings.DatBrowser.PropertyChanged += _settingsChangedHandler;

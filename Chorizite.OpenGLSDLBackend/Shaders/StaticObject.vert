@@ -1,4 +1,4 @@
-﻿#version 330 core
+#version 330 core
 
 layout(location = 0) in vec3 aPosition;
 layout(location = 1) in vec3 aNormal;
@@ -51,5 +51,5 @@ void main() {
     TextureIndex = aTextureIndex;
     
     float diff = max(dot(Normal, normalize(uLightDirection)), 0.0);
-    LightingColor = clamp(uAmbientColor + uSunlightColor * diff, 0.0, 1.0);
+    LightingColor = clamp(uAmbientColor + uSunlightColor * diff + 0.15, 0.0, 1.0);
 }

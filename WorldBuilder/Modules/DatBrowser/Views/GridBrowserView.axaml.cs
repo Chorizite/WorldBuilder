@@ -4,6 +4,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using System.ComponentModel;
 using WorldBuilder.Modules.DatBrowser.ViewModels;
+using System;
+using System.Threading.Tasks;
 
 namespace WorldBuilder.Modules.DatBrowser.Views {
     public partial class GridBrowserView : UserControl {
@@ -55,17 +57,54 @@ namespace WorldBuilder.Modules.DatBrowser.Views {
             }
         }
 
+        private Point _dragStartPoint;
+        private bool _isDragging;
+        private uint? _dragItemId;
+
         private void OnItemPointerPressed(object? sender, PointerPressedEventArgs e) {
-            if ((e.KeyModifiers & KeyModifiers.Control) != 0) {
-                var current = e.Source as Control;
-                while (current != null && current.DataContext is not uint) {
-                    current = current.Parent as Control;
+            var current = e.Source as Control;
+            while (current != null && current.DataContext is not uint) {
+                current = current.Parent as Control;
+            }
+
+            if (current?.DataContext is uint id) {
+                if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) {
+                    _dragStartPoint = e.GetPosition(this);
+                    _isDragging = true;
+                    _dragItemId = id;
                 }
 
-                if (current?.DataContext is uint id && DataContext is GridBrowserViewModel vm) {
+                if ((e.KeyModifiers & KeyModifiers.Control) != 0 && DataContext is GridBrowserViewModel vm) {
                     vm.OpenInNewWindowCommand.Execute(id);
                     e.Handled = true;
                 }
+            }
+        }
+
+        protected override void OnPointerMoved(PointerEventArgs e) {
+            base.OnPointerMoved(e);
+            if (_isDragging && e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) {
+                var currentPoint = e.GetPosition(this);
+                if (Math.Abs(currentPoint.X - _dragStartPoint.X) > 3 || Math.Abs(currentPoint.Y - _dragStartPoint.Y) > 3) {
+                    _isDragging = false;
+                    _ = DoDrag(e);
+                }
+            }
+        }
+
+        protected override void OnPointerReleased(PointerReleasedEventArgs e) {
+            base.OnPointerReleased(e);
+            _isDragging = false;
+            _dragItemId = null;
+        }
+
+        private async Task DoDrag(PointerEventArgs e) {
+            if (_dragItemId.HasValue) {
+#pragma warning disable CS0618
+                var dragData = new DataObject();
+                dragData.Set("WorldBuilder.SetupId", _dragItemId.Value);
+                await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Copy | DragDropEffects.Move);
+#pragma warning restore CS0618
             }
         }
     }

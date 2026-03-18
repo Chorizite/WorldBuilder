@@ -6,8 +6,6 @@ using WorldBuilder.Shared.Modules.Landscape.Models;
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 
 public partial class SceneryViewModel : SelectedObjectViewModelBase {
-    public override ObjectType Type => ObjectType.Scenery;
-
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ObjectIdHex))]
     private uint _objectIdVal;
@@ -24,9 +22,10 @@ public partial class SceneryViewModel : SelectedObjectViewModelBase {
         protected set => SetProperty(ref _disqualificationReason, value);
     }
 
-    public SceneryViewModel(uint objectId, ObjectId instanceId, ushort landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation, SceneryDisqualificationReason reason) 
-        : base(instanceId, landblockId, position, localPosition, rotation) {
+    public SceneryViewModel(uint objectId, ObjectId instanceId, ushort landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation, SceneryDisqualificationReason reason, string layerId = "") 
+        : base(instanceId, landblockId, position, localPosition, rotation, layerId) {
         ObjectIdVal = objectId;
         DisqualificationReason = reason;
+        Type = ObjectType.Scenery;
     }
 }

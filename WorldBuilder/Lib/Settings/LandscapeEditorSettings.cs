@@ -75,6 +75,10 @@ namespace WorldBuilder.Lib.Settings {
         private double _propertiesPanelHeight = 0.50;
         public double PropertiesPanelHeight { get => _propertiesPanelHeight; set => SetProperty(ref _propertiesPanelHeight, value); }
 
+        [SettingHidden]
+        private double _bottomPanelHeight = 200.0;
+        public double BottomPanelHeight { get => _bottomPanelHeight; set => SetProperty(ref _bottomPanelHeight, value); }
+
         public LandscapeEditorSettings() {
             if (_camera != null) _camera.PropertyChanged += OnSubSettingsPropertyChanged;
             if (_rendering != null) _rendering.PropertyChanged += OnSubSettingsPropertyChanged;

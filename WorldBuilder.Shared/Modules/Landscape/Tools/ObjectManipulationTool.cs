@@ -26,6 +26,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         [ObservableProperty] private bool _selectStaticObjects = true;
         [ObservableProperty] private bool _selectEnvCellStaticObjects = true;
         [ObservableProperty] private GizmoMode _mode = GizmoMode.Translate;
+        [ObservableProperty] private bool _isPlacementMode;
+        [ObservableProperty] private uint _placementSetupId;
 
         // Hotkey display properties
         [ObservableProperty] private string? _translateHotkey;
@@ -131,6 +133,13 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 return true;
             }
 
+            if (string.Equals(e.Key, "Escape", StringComparison.OrdinalIgnoreCase)) {
+                if (IsPlacementMode) {
+                    ExitPlacementMode();
+                    return true;
+                }
+            }
+
             return base.OnKeyDown(e);
         }
 
@@ -141,6 +150,41 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 GizmoState.ViewportSize = Context.ViewportSize;
                 GizmoRenderer.Draw(debugRenderer, GizmoState);
             }
+        }
+
+        public void EnterPlacementMode(uint setupId) {
+            ClearSelection();
+            IsPlacementMode = true;
+            PlacementSetupId = setupId;
+
+            // Create a temporary instance ID for the ghost preview
+            // We use a specific context/type that the renderers can recognize as "preview"
+            GizmoState.InstanceId = ObjectId.FromDat(ObjectType.StaticObject, 0, 0xFFFFFFFF, 0xFFFF); // Temp ID
+            GizmoState.ObjectId = setupId;
+            GizmoState.SelectionType = ObjectType.StaticObject;
+            GizmoState.LayerId = Context?.ActiveLayer?.Id ?? Context?.Document.BaseLayerId ?? "";
+
+            // Show properties panel for the ghost object
+            var hit = new SceneRaycastHit {
+                Hit = true,
+                Type = GizmoState.SelectionType,
+                InstanceId = GizmoState.InstanceId,
+                ObjectId = setupId,
+                LayerId = GizmoState.LayerId
+            };
+            Context?.NotifyInspectorSelected(hit);
+        }
+        public void ExitPlacementMode() {
+            if (!IsPlacementMode) return;
+            
+            // Clear the preview
+            if (Context != null) {
+                _editorService.NotifyObjectPositionPreview(GizmoState.LandblockId, GizmoState.InstanceId, Vector3.Zero, Quaternion.Identity, 0, 0);
+            }
+            
+            IsPlacementMode = false;
+            PlacementSetupId = 0;
+            GizmoState.InstanceId = ObjectId.Empty;
         }
 
         #region Event Handlers
@@ -274,7 +318,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             Context?.NotifyInspectorSelected(hit);
 
             // Trigger a preview update to ensure renderers sync immediately
-            _editorService.NotifyObjectPositionPreview(landblockId, obj.InstanceId, worldPos, obj.Rotation, obj.CellId ?? 0);
+            _editorService.NotifyObjectPositionPreview(landblockId, obj.InstanceId, worldPos, obj.Rotation, obj.CellId ?? 0, obj.ModelId);
         }
 
         private ICommand? FindRelevantSelectionCommand(ICommand command, CommandChangeType changeType) {
@@ -377,6 +421,23 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
                 }
             }
 
+            if (IsPlacementMode) {
+                var groundHit = SceneRaycaster.GetGroundHitPoint(Context!, _raycastService, e, origin, direction, GizmoState.InstanceId);
+                var worldPos = groundHit.Position;
+                var rotation = Quaternion.Identity;
+
+                if (AlignToSurface && groundHit.Hit) {
+                    // For placement mode, we align to Z and then hit normal
+                    var axis = Vector3.Cross(Vector3.UnitZ, Vector3.Normalize(groundHit.Normal));
+                    if (axis.LengthSquared() > 0.0001f) {
+                        rotation = Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), MathF.Acos(Math.Clamp(Vector3.Dot(Vector3.UnitZ, Vector3.Normalize(groundHit.Normal)), -1f, 1f)));
+                    }
+                }
+
+                UpdateGhostPreview(worldPos, rotation);
+                return true;
+            }
+
             var hit = SceneRaycaster.PerformRaycast(Context, _raycastService, e, SelectBuildings, SelectStaticObjects, SelectEnvCellStaticObjects, selectEnvCells: false);
             if (IsDifferentHit(hit, _lastHoveredHit)) {
                 _lastHoveredHit = hit;
@@ -386,12 +447,83 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         public override bool OnPointerReleased(ViewportInputEvent e) {
-            if (Context == null || !GizmoState.IsDragging) return false;
+            if (Context == null) return false;
+
+            if (IsPlacementMode) {
+                _ = CommitPlacementAsync(e);
+                return true;
+            }
+
+            if (!GizmoState.IsDragging) return false;
             
             GizmoState.IsDragging = false;
             GizmoState.ActiveComponent = GizmoComponent.None;
             _ = CommitManipulationAsync();
             return true;
+        }
+
+        private bool _isCommittingPlacement = false;
+        private bool _isCommittingManipulation = false;
+
+        public async Task CommitPlacementAsync(ViewportInputEvent e) {
+            if (Context == null || !IsPlacementMode || _isCommittingPlacement) return;
+            
+            // Prevent re-entrancy
+            _isCommittingPlacement = true;
+            try {
+
+                var worldPos = GizmoState.Position;
+                var newRot = GizmoState.Rotation;
+                ushort newLandblockId = GizmoState.LandblockId;
+
+                uint? cellId = _editorService.GetEnvCellAt(worldPos);
+                if (cellId == 0) cellId = null;
+
+                var lbOrigin = _landscapeObjectService.ComputeWorldPosition(Context!.Document.Region!, newLandblockId, Vector3.Zero);
+                var newLocalPosition = worldPos - lbOrigin;
+
+                var newType = cellId.HasValue && cellId.Value != 0 ? ObjectType.EnvCellStaticObject : ObjectType.StaticObject;
+                ObjectId newInstanceId = InstanceIdGenerator.GenerateUniqueInstanceId(Context.Document, newLandblockId, cellId, newType, ObjectId.Empty);
+                
+                var newObject = new StaticObject {
+                    ModelId = PlacementSetupId,
+                    InstanceId = newInstanceId,
+                    LayerId = Context.ActiveLayer?.Id ?? Context.Document.BaseLayerId ?? "",
+                    Position = newLocalPosition,
+                    Rotation = newRot,
+                    CellId = cellId
+                };
+
+                // Clear preview before committing
+                _editorService.NotifyObjectPositionPreview(GizmoState.LandblockId, GizmoState.InstanceId, Vector3.Zero, Quaternion.Identity, 0, 0);
+
+                var bounds = _editorService.GetModelBounds(PlacementSetupId);
+
+                var command = new AddStaticObjectUICommand(Context, newObject.LayerId, newLandblockId, newObject, bounds);
+                Context.CommandHistory.Execute(command);
+                
+                var hit = new SceneRaycastHit {
+                    Hit = true,
+                    Type = newType,
+                    LandblockId = newLandblockId,
+                    InstanceId = newInstanceId,
+                    ObjectId = newObject.ModelId,
+                    Position = worldPos,
+                    LocalPosition = newLocalPosition,
+                    Rotation = newRot,
+                    CellId = cellId
+                };
+                
+                // Exit placement mode FIRST to clear the temp ID and preview properly
+                ExitPlacementMode();
+
+                // THEN select the newly created object
+                SelectObject(hit, bounds);
+                Context.NotifyInspectorSelected(hit);
+                
+            } finally {
+                _isCommittingPlacement = false;
+            }
         }
 
         #endregion
@@ -404,8 +536,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             _dragHandler.BeginDrag(component, GizmoState.Position, GizmoState.Rotation, GizmoState.IsLocalSpace, origin, direction, Context!.Camera);
 
             // Capture surface for snapping
-            var fallback = _dragHandler.UpdateTranslation(origin, direction, Context.Camera);
-            var groundHit = SceneRaycaster.GetGroundHitPoint(Context, _raycastService, e, origin, direction, GizmoState.InstanceId, fallback);
+            var groundHit = SceneRaycaster.GetGroundHitPoint(Context!, _raycastService, e, origin, direction, GizmoState.InstanceId);
             _currentSurfaceNormal = groundHit.Hit ? Vector3.Normalize(groundHit.Normal) : Vector3.UnitZ;
             
             if (component == GizmoComponent.Center) _dragStartNormal = _currentSurfaceNormal;
@@ -438,87 +569,96 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
         }
 
         private void UpdateDragging(Vector3 origin, Vector3 direction, ViewportInputEvent e) {
+            Vector3 newPos = GizmoState.Position;
+            Quaternion newRot = GizmoState.Rotation;
+
             if (GizmoDragHandler.IsTranslationComponent(GizmoState.ActiveComponent)) {
-                Vector3 newPos;
                 if (GizmoState.ActiveComponent == GizmoComponent.Center) {
-                    var fallback = _dragHandler.UpdateTranslation(origin, direction, Context!.Camera);
-                    var groundHit = SceneRaycaster.GetGroundHitPoint(Context, _raycastService, e, origin, direction, GizmoState.InstanceId, fallback);
+                    var groundHit = SceneRaycaster.GetGroundHitPoint(Context!, _raycastService, e, origin, direction, GizmoState.InstanceId);
                     newPos = groundHit.Position;
+                    var fallback = _dragHandler.UpdateTranslation(origin, direction, Context!.Camera);
 
                     // Container constraints
                     newPos = ApplyContainerConstraints(newPos, fallback, e);
 
                     if (AlignToSurface && groundHit.Hit && _dragStartObject != null) {
-                        GizmoState.Rotation = ApplySurfaceSnappingRotation(_dragStartObject, groundHit.Normal);
+                        newRot = ApplySurfaceSnappingRotation(_dragStartObject, groundHit.Normal);
                     }
                 }
                 else {
                     newPos = _dragHandler.UpdateTranslation(origin, direction, Context!.Camera);
                 }
-                GizmoState.Position = newPos;
             }
             else if (GizmoDragHandler.IsRotationComponent(GizmoState.ActiveComponent)) {
                 float snapAngle = e.ShiftDown ? (15f * MathF.PI / 180f) : 0f;
-                GizmoState.Rotation = _dragHandler.UpdateRotation(origin, direction, snapAngle);
+                newRot = _dragHandler.UpdateRotation(origin, direction, snapAngle);
                 GizmoState.IsRotating = true;
                 GizmoState.RotationAxis = _dragHandler.RotationAxis;
                 GizmoState.RotationStartAxis = _dragHandler.RotationStartAxis;
                 GizmoState.RotationAngle = _dragHandler.AngleDelta;
             }
 
-            uint previewCellId = _editorService.GetEnvCellAt(GizmoState.Position);
-            _editorService.NotifyObjectPositionPreview(GizmoState.LandblockId, GizmoState.InstanceId, GizmoState.Position, GizmoState.Rotation, previewCellId);
+            UpdateGhostPreview(newPos, newRot);
+        }
+
+        private void UpdateGhostPreview(Vector3 worldPos, Quaternion rotation) {
+            if (Context == null) return;
+            
+            ushort lbId = _landscapeObjectService.ComputeLandblockId(Context!.Document.Region!, worldPos);
+            uint previewCellId = _editorService.GetEnvCellAt(worldPos);
+            
+            GizmoState.LandblockId = lbId;
+            GizmoState.Position = worldPos;
+            GizmoState.Rotation = rotation;
+
+            // Update SelectionType based on whether we are in a cell
+            if (previewCellId != 0) {
+                if (GizmoState.SelectionType == ObjectType.StaticObject) {
+                    GizmoState.SelectionType = ObjectType.EnvCellStaticObject;
+                }
+            } else {
+                if (GizmoState.SelectionType == ObjectType.EnvCellStaticObject) {
+                    GizmoState.SelectionType = ObjectType.StaticObject;
+                }
+            }
+
+            _editorService.NotifyObjectPositionPreview(GizmoState.LandblockId, GizmoState.InstanceId, GizmoState.Position, GizmoState.Rotation, previewCellId, GizmoState.ObjectId);
         }
 
         private Vector3 ApplyContainerConstraints(Vector3 targetPos, Vector3 fallbackPos, ViewportInputEvent e) {
-            bool startedInside = _dragStartObject?.CellId != null;
-            uint currentCellId = _editorService.GetEnvCellAt(targetPos);
-            bool currentlyInside = currentCellId != 0;
-
-            // If you started inside, you must stay inside. 
-            // If you started outside, you must stay outside.
-            if (startedInside != currentlyInside) return fallbackPos;
-            
             return targetPos;
         }
 
         private async Task CommitManipulationAsync() {
-            if (Context == null || _dragStartObject == null || _isHistoryUpdate) return;
+            if (Context == null || _dragStartObject == null || _isHistoryUpdate || _isCommittingManipulation) return;
 
-            var worldPos = GizmoState.Position;
-            var finalCellId = await _landscapeObjectService.ResolveCellIdAsync(Context.Document, worldPos, _dragStartObject.CellId);
+            _isCommittingManipulation = true;
+            try {
+                var worldPos = GizmoState.Position;
+                uint? finalCellId = _editorService.GetEnvCellAt(worldPos);
+                if (finalCellId == 0) finalCellId = null;
 
-            // Ensure the final calculated cell ID matches the starting container category.
-            bool startingInside = _dragStartObject.CellId != null;
-            bool endingInside = finalCellId != null;
-            
-            if (startingInside && !endingInside) {
-                // We fell out of a cell at the final moment, fallback to previous valid cell
-                finalCellId = _dragStartObject.CellId;
+                ushort newLandblockId = Context.LandscapeObjectService.ComputeLandblockId(Context!.Document.Region!, worldPos);
+                var lbOrigin = Context.LandscapeObjectService.ComputeWorldPosition(Context!.Document.Region!, newLandblockId, Vector3.Zero);
+                var newLocalPosition = worldPos - lbOrigin;
+
+                var newObject = CreateStaticObject(newLocalPosition, GizmoState.Rotation, finalCellId);
+
+                if (_isDuplicating) {
+                    // For duplication, we record a single ADD command at the final state
+                    var command = new AddStaticObjectUICommand(Context, newObject.LayerId, newLandblockId, newObject, GizmoState.ObjectLocalBounds);
+                    Context.CommandHistory.Execute(command);
+                    _isDuplicating = false;
+                }
+                else if (HasChanged(_dragStartLandblockId, _dragStartObject, newLandblockId, newObject)) {
+                    var command = new MoveStaticObjectCommand(Context.Document, Context, GizmoState.LayerId, _dragStartLandblockId, newLandblockId, _dragStartObject, newObject, GizmoState.ObjectLocalBounds);
+                    Context.CommandHistory.Execute(command);
+                }
+
+                _dragStartObject = null;
+            } finally {
+                _isCommittingManipulation = false;
             }
-            else if (!startingInside && endingInside) {
-                // We fell INTO a cell, clear it to stay on landblock
-                finalCellId = null;
-            }
-
-            ushort newLandblockId = Context.LandscapeObjectService.ComputeLandblockId(Context.Document.Region!, worldPos);
-            var lbOrigin = Context.LandscapeObjectService.ComputeWorldPosition(Context.Document.Region!, newLandblockId, Vector3.Zero);
-            var newLocalPosition = worldPos - lbOrigin;
-
-            var newObject = CreateStaticObject(newLocalPosition, GizmoState.Rotation, finalCellId);
-
-            if (_isDuplicating) {
-                // For duplication, we record a single ADD command at the final state
-                var command = new AddStaticObjectUICommand(Context, newObject.LayerId, newLandblockId, newObject, GizmoState.ObjectLocalBounds);
-                Context.CommandHistory.Execute(command);
-                _isDuplicating = false;
-            }
-            else if (HasChanged(_dragStartLandblockId, _dragStartObject, newLandblockId, newObject)) {
-                var command = new MoveStaticObjectCommand(Context.Document, Context, GizmoState.LayerId, _dragStartLandblockId, newLandblockId, _dragStartObject, newObject, GizmoState.ObjectLocalBounds);
-                Context.CommandHistory.Execute(command);
-            }
-
-            _dragStartObject = null;
         }
 
         private void SelectObject(SceneRaycastHit hit, BoundingBox? overrideBounds = null, Vector3? overridePos = null, Quaternion? overrideRot = null) {
@@ -546,6 +686,8 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
 
             var layerId = _landscapeObjectService.GetStaticObjectLayerId(Context!.Document, hit.LandblockId, hit.InstanceId);
             GizmoState.LayerId = string.IsNullOrEmpty(layerId) ? (Context.ActiveLayer?.Id ?? Context.Document.BaseLayerId ?? "") : layerId;
+
+            CaptureObjectStateForUndo();
         }
 
         private void UpdateGizmoFromWorld(ushort lbId, ObjectId instId, Vector3 worldPos, Quaternion rotation) {
@@ -647,13 +789,14 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             if (_clipboardObject == null || Context == null) return;
 
             var (origin, direction) = GetRay(e);
-            var groundHit = SceneRaycaster.GetGroundHitPoint(Context, _raycastService, e, origin, direction, ObjectId.Empty, origin + direction * 10f);
+            var groundHit = SceneRaycaster.GetGroundHitPoint(Context!, _raycastService, e, origin, direction, ObjectId.Empty);
             
             var worldPos = groundHit.Position;
-            var cellId = await _landscapeObjectService.ResolveCellIdAsync(Context.Document, worldPos, _clipboardObject.CellId);
+            uint? cellId = _editorService.GetEnvCellAt(worldPos);
+            if (cellId == 0) cellId = null;
 
-            ushort newLandblockId = _landscapeObjectService.ComputeLandblockId(Context.Document.Region!, worldPos);
-            var lbOrigin = _landscapeObjectService.ComputeWorldPosition(Context.Document.Region!, newLandblockId, Vector3.Zero);
+            ushort newLandblockId = _landscapeObjectService.ComputeLandblockId(Context!.Document.Region!, worldPos);
+            var lbOrigin = _landscapeObjectService.ComputeWorldPosition(Context!.Document.Region!, newLandblockId, Vector3.Zero);
             var newLocalPosition = worldPos - lbOrigin;
 
             var newType = _clipboardType;

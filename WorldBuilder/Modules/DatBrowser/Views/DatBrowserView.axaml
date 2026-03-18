@@ -8,6 +8,7 @@
              xmlns:conv="using:WorldBuilder.Converters"
              xmlns:icon="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              xmlns:materialIcons="using:Material.Icons.Avalonia"
+             xmlns:mainComponents="using:WorldBuilder.Views.Components"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="WorldBuilder.Modules.DatBrowser.Views.DatBrowserView"
              x:DataType="vm:DatBrowserViewModel">
@@ -84,63 +85,8 @@
                             Margin="5"/>
                 </StackPanel>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" Margin="5" VerticalAlignment="Center" IsVisible="{Binding IsKeywordsSearchEnabled}">
-                    <ComboBox ItemsSource="{Binding SearchTypes}" 
-                              SelectedItem="{Binding SearchType}"
-                              ToolTip.Tip="{Binding SearchType, Converter={StaticResource EnumDescriptionConverter}}"
-                              VerticalAlignment="Center"
-                              IsEnabled="{Binding IsEmbeddingSearchActive}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}" 
-                                           VerticalAlignment="Center"
-                                           ToolTip.Tip="{Binding Converter={StaticResource EnumDescriptionConverter}}"/>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-
-                    <TextBox Text="{Binding KeywordsSearchText}" 
-                             Watermark="Search keywords..." 
-                             IsEnabled="{Binding IsKeywordsSearchEnabled}"
-                             ToolTip.Tip="{Binding KeywordsSearchTooltip}"
-                             VerticalAlignment="Center"
-                             MinWidth="250">
-                        <TextBox.InnerRightContent>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,5,0">
-                                <ProgressBar IsIndeterminate="True" 
-                                             IsVisible="{Binding IsKeywordsSearching}" 
-                                             Width="16" Height="16" 
-                                             Classes="Ring"
-                                             Theme="{DynamicResource ProgressRing}"
-                                             Margin="0,0,5,0" />
-                                <materialIcons:MaterialIcon Kind="AutoFix" 
-                                                           IsVisible="{Binding IsEmbeddingSearchActive}"
-                                                           IsEnabled="{Binding IsKeywordsSearchEnabled}"
-                                                           Width="16" Height="16" 
-                                                           Foreground="{DynamicResource SemiColorPrimary}"
-                                                           ToolTip.Tip="{Binding KeywordsSearchTooltip}"
-                                                           Margin="0,0,5,0"/>
-                                <materialIcons:MaterialIcon Kind="TextBoxSearch" 
-                                                           IsVisible="{Binding !IsEmbeddingSearchActive}"
-                                                           IsEnabled="{Binding IsKeywordsSearchEnabled}"
-                                                           Width="16" Height="16" 
-                                                           Foreground="{DynamicResource SemiColorText2}"
-                                                           ToolTip.Tip="{Binding KeywordsSearchTooltip}"
-                                                           Margin="0,0,5,0">
-                                    <materialIcons:MaterialIcon.Styles>
-                                        <Style Selector="materialIcons|MaterialIcon[IsEnabled=False]">
-                                            <Setter Property="IsVisible" Value="False" />
-                                        </Style>
-                                    </materialIcons:MaterialIcon.Styles>
-                                </materialIcons:MaterialIcon>
-                                <PathIcon Data="{DynamicResource WarningIcon}" 
-                                          IsVisible="{Binding !IsKeywordsSearchEnabled}" 
-                                          Width="16" Height="16" 
-                                          Foreground="Orange"
-                                          ToolTip.Tip="{Binding KeywordsSearchTooltip}"/>
-                            </StackPanel>
-                        </TextBox.InnerRightContent>
-                    </TextBox>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" Margin="5" VerticalAlignment="Center" IsVisible="{Binding IsSearchVisible}">
+                    <mainComponents:KeywordsSearchControl DataContext="{Binding}" />
                 </StackPanel>
             </Grid>
             

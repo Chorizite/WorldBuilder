@@ -5,9 +5,9 @@ using DatReaderWriter.Types;
 using DatReaderWriter;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
-    public interface IDatBrowserViewModel {
+    public interface IDatBrowserViewModel : IKeywordSearchViewModel {
         IDBObj? SelectedObject { get; }
         uint SelectedFileId { get; set; }
-        GridBrowserViewModel GridBrowser { get; }
+        new GridBrowserViewModel GridBrowser { get; }
     }
 }

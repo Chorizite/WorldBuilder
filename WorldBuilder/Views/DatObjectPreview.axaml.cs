@@ -301,7 +301,7 @@ namespace WorldBuilder.Views {
             if (change.Property == DataIdProperty || change.Property == DatsProperty || change.Property == TargetTypeProperty) {
                 UpdatePreview();
             }
-            else if (change.Property == TextureBitmapProperty || change.Property == ZoomLevelProperty || change.Property == ImageStretchProperty) {
+            else if (change.Property == TextureBitmapProperty || change.Property == ZoomLevelProperty || change.Property == ImageStretchProperty || change.Property == ShowWireframeProperty) {
                 UpdateZoomedSize();
             }
         }

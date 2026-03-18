@@ -1,0 +1,36 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:WorldBuilder.Modules.Landscape.ViewModels"
+             xmlns:datVm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
+             xmlns:datViews="using:WorldBuilder.Modules.DatBrowser.Views"
+             xmlns:mainComponents="using:WorldBuilder.Views.Components"
+             xmlns:materialIcons="using:Material.Icons.Avalonia"
+             xmlns:conv="using:WorldBuilder.Converters"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="300"
+             x:Class="WorldBuilder.Modules.Landscape.Views.Components.SetupBrowserPanel"
+             x:DataType="vm:SetupBrowserPanelViewModel"
+             Background="{DynamicResource SemiColorBackground0}">
+    <UserControl.Resources>
+        <conv:EnumDescriptionConverter x:Key="EnumDescriptionConverter"/>
+        <StreamGeometry x:Key="WarningIcon">M12,2L1,21H23L12,2M12,6L19.53,19H4.47L12,6M11,10V14H13V10H11M11,16V18H13V16H11Z</StreamGeometry>
+    </UserControl.Resources>
+    <Grid RowDefinitions="Auto, *">
+        <!-- Search Toolbar -->
+        <Border Grid.Row="0" Margin="10,5,10,0" Padding="5" 
+                Background="{DynamicResource SemiColorBackground1}" 
+                CornerRadius="6" BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <mainComponents:KeywordsSearchControl DataContext="{Binding}" />
+                
+                <Separator Classes="Vertical" Margin="5,2" />
+                
+                <mainComponents:GridSettingsControl DataContext="{Binding GridBrowser}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Grid Results -->
+        <datViews:GridBrowserView Grid.Row="1" DataContext="{Binding GridBrowser}" Margin="0,5,0,0" x:Name="SetupGrid" />
+    </Grid>
+</UserControl>

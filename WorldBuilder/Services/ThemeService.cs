@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System;
 using WorldBuilder.Lib.Settings;
@@ -8,8 +9,18 @@ namespace WorldBuilder.Services {
     public partial class ThemeService : ObservableObject {
         private readonly WorldBuilderSettings _settings;
 
-        public bool IsDarkMode => _settings.App.Theme == AppTheme.Dark || 
-                                 (_settings.App.Theme == AppTheme.Default && Application.Current?.ActualThemeVariant == ThemeVariant.Dark);
+        public bool IsDarkMode {
+            get {
+                if (_settings.App.Theme == AppTheme.Dark) return true;
+                if (_settings.App.Theme == AppTheme.Light) return false;
+
+                // Application.ActualThemeVariant requires UI thread access.
+                if (Application.Current != null && Dispatcher.UIThread.CheckAccess()) {
+                    return Application.Current.ActualThemeVariant == ThemeVariant.Dark;
+                }
+                return true;
+            }
+        }
 
         public ThemeService(WorldBuilderSettings settings) {
             _settings = settings;

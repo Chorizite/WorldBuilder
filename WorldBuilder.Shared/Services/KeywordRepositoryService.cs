@@ -142,21 +142,10 @@ namespace WorldBuilder.Shared.Services {
 
         public bool AreKeywordsValid(Guid datId, Guid aceId) {
             var db = GetManagedKeywordDb(datId, aceId);
-            if (db == null) {
-                _log.LogWarning("Keywords not valid for {DatId}/{AceId}: Not found in registry", datId, aceId);
-                return false;
-            }
-            if (db.GeneratorVersion != IKeywordRepositoryService.CurrentGeneratorVersion) {
-                _log.LogWarning("Keywords not valid for {DatId}/{AceId}: Version mismatch (found {V}, expected {E})", datId, aceId, db.GeneratorVersion, IKeywordRepositoryService.CurrentGeneratorVersion);
-                return false;
-            }
-            if (!db.IsComplete) {
-                _log.LogWarning("Keywords not valid for {DatId}/{AceId}: Incomplete (Kw:{K} Name:{N} Desc:{D})", datId, aceId, db.KeywordProgress, db.NameEmbeddingProgress, db.DescEmbeddingProgress);
-                return false;
-            }
-            var exists = File.Exists(GetKeywordDbPath(datId, aceId));
-            if (!exists) _log.LogWarning("Keywords not valid for {DatId}/{AceId}: DB file not found", datId, aceId);
-            return exists;
+            if (db == null) return false;
+            if (db.GeneratorVersion != IKeywordRepositoryService.CurrentGeneratorVersion) return false;
+            if (!db.IsComplete) return false;
+            return File.Exists(GetKeywordDbPath(datId, aceId));
         }
 
         public bool CanSearchKeywords(Guid datId, Guid aceId) {

@@ -59,6 +59,9 @@ namespace WorldBuilder.Shared.Modules.Landscape.Models {
         /// <summary>The environment cell ID containing the hit (if applicable).</summary>
         public uint? CellId { get; set; }
         
+        /// <summary>The layer ID containing the hit.</summary>
+        public string LayerId { get; set; }
+
         /// <summary>The instance ID of the hit object.</summary>
         public ObjectId InstanceId { get; set; }
 

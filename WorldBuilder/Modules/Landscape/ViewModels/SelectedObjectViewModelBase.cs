@@ -10,7 +10,8 @@ using WorldBuilder.ViewModels;
 namespace WorldBuilder.Modules.Landscape.ViewModels;
 
 public abstract partial class SelectedObjectViewModelBase : ViewModelBase, ISelectedObjectInfo {
-    public abstract ObjectType Type { get; }
+    [ObservableProperty] private ObjectType _type;
+    ObjectType ISelectedObjectInfo.Type => Type;
     
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(InstanceIdHex))]
@@ -23,6 +24,8 @@ public abstract partial class SelectedObjectViewModelBase : ViewModelBase, ISele
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CellIdHex))]
     private uint? _cellId;
+
+    [ObservableProperty] private string _layerId;
 
     [ObservableProperty] private Vector3 _position;
     [ObservableProperty] private Vector3 _localPosition;
@@ -84,12 +87,13 @@ public abstract partial class SelectedObjectViewModelBase : ViewModelBase, ISele
     public string LandblockIdHex => $"0x{LandblockId:X4}";
     public virtual string CellIdHex => CellId.HasValue ? $"0x{CellId.Value:X8}" : "None";
 
-    protected SelectedObjectViewModelBase(ObjectId instanceId, ushort landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation) {
+    protected SelectedObjectViewModelBase(ObjectId instanceId, ushort landblockId, Vector3 position, Vector3 localPosition, Quaternion rotation, string layerId = "") {
         InstanceId = instanceId;
         LandblockId = landblockId;
         Position = position;
         LocalPosition = localPosition;
         Rotation = rotation;
+        LayerId = layerId;
     }
 
     partial void OnLocalPositionChanged(Vector3 value) {

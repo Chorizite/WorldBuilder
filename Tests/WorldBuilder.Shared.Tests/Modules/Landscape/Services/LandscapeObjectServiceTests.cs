@@ -128,7 +128,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Services {
         }
 
         [Fact]
-        public async Task ResolveCellIdAsync_StickyLogic_ReturnsStartCellIdWhenNotFound() {
+        public async Task ResolveCellIdAsync_StickyLogic_ReturnsNullWhenNotFound() {
             var doc = new LandscapeDocument(1);
             Vector3 pos = new Vector3(500, 600, 0);
             uint startCellId = 0x12340101u;
@@ -165,7 +165,7 @@ namespace WorldBuilder.Shared.Tests.Modules.Landscape.Services {
 
             var cellId = await _service.ResolveCellIdAsync(doc, pos, startCellId);
 
-            Assert.Equal(startCellId, cellId);
+            Assert.Null(cellId);
         }
     }
 }

@@ -30,6 +30,9 @@ public partial class PropertiesPanelViewModel : ViewModelBase {
     public event PropertyChangedEventHandler? OnSelectedItemPropertyChanged;
 
     private void HandleSelectedItemPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+        if (e.PropertyName == "Type") {
+            OnPropertyChanged(nameof(SelectedItem));
+        }
         OnSelectedItemPropertyChanged?.Invoke(sender, e);
     }
 }
