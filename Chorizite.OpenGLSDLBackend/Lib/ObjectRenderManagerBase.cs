@@ -353,8 +353,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                         if (emitter.PartIndex != 0xFFFFFFFF && instance.IsSetup) {
                             var data = MeshManager.TryGetRenderData(instance.ObjectId);
-                            if (data != null && emitter.PartIndex < data.SetupParts.Count) {
-                                parentTransform = data.SetupParts[(int)emitter.PartIndex].Transform * parentTransform;
+                            if (data != null && (int)emitter.PartIndex < data.SetupParts.Count) {
+                                // parentTransform is the world transform of the specific part.
+                                parentTransform = data.SetupParts[(int)emitter.PartIndex].Transform * instance.Transform;
                             }
                         }
                     }

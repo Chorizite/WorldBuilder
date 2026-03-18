@@ -9,10 +9,14 @@ uniform sampler2DArray uTextureArray;
 out vec4 FragColor;
 
 void main() {
+    // Reverting to standard non-premultiplied sampling.
     vec4 color = texture(uTextureArray, vec3(TexCoord, TextureIndex));
+    
+    // Standard alpha blending: SrcAlpha, OneMinusSrcAlpha.
     color.a *= Opacity;
     
-    if (color.a < 0.01) discard;
+    // Alpha test to discard fully transparent pixels (standard AC behavior)
+    if (color.a < 0.005) discard;
     
     FragColor = color;
 }

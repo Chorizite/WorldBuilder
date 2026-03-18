@@ -47,13 +47,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var fragSource = EmbeddedResourceReader.GetEmbeddedResource("Shaders.Particle.frag");
             _shader = _graphicsDevice.CreateShader("Particle", vertSource, fragSource);
 
-            // Create quad vertices
+            // Create quad vertices - anchored at bottom (0,0)
             float[] vertices = {
                 // x, y, z, u, v
-                -0.5f, 0.0f, -0.5f, 0.0f, 1.0f,
-                 0.5f, 0.0f, -0.5f, 1.0f, 1.0f,
-                 0.5f, 0.0f,  0.5f, 1.0f, 0.0f,
-                -0.5f, 0.0f,  0.5f, 0.0f, 0.0f
+                -0.5f, 0.0f,  0.0f, 0.0f, 1.0f,
+                 0.5f, 0.0f,  0.0f, 1.0f, 1.0f,
+                 0.5f, 0.0f,  1.0f, 1.0f, 0.0f,
+                -0.5f, 0.0f,  1.0f, 0.0f, 0.0f
             };
 
             ushort[] indices = { 0, 1, 2, 2, 3, 0 };
@@ -153,6 +153,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             gl.Enable(EnableCap.DepthTest);
             gl.Disable(EnableCap.StencilTest);
             gl.Disable(EnableCap.CullFace);
+            gl.Disable(EnableCap.SampleAlphaToCoverage);
+            gl.Disable(EnableCap.SampleAlphaToOne);
             gl.Enable(EnableCap.Blend);
 
             int i = 0;

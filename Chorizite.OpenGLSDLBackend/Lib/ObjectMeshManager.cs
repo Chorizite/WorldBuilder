@@ -940,6 +940,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     uint paletteId = 0;
                     bool isDxt3or5 = false;
                     DatReaderWriter.Enums.PixelFormat? sourceFormat = null;
+                    var isAdditive = false;
+                    var isTransparent = false;
 
                     if (isSolid) {
                         texWidth = texHeight = 32;
@@ -1054,26 +1056,26 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 textureData[i] = (byte)(textureData[i] * alphaScale);
                             }
                         }
+
+                        isAdditive = !isSolid && surface.Type.HasFlag(SurfaceType.Additive);
+                        isTransparent = isSolid ? surface.ColorValue.Alpha < 255 :
+                            (surface.Type.HasFlag(SurfaceType.Translucent) ||
+                             surface.Type.HasFlag(SurfaceType.Base1ClipMap) ||
+                             ((uint)surface.Type & 0x100) != 0 || // Alpha
+                             ((uint)surface.Type & 0x200) != 0 || // InvAlpha
+                             isAdditive ||
+                             (surface.Translucency > 0.0f && surface.Translucency < 1.0f) ||
+                             textureFormat == TextureFormat.A8 ||
+                             textureFormat == TextureFormat.Rgba32f ||
+                             isDxt3or5 ||
+                             (sourceFormat != null && (sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_A8R8G8B8 || 
+                                                         sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_A4R4G4B4 ||
+                                                         sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_DXT3 ||
+                                                         sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_DXT5)));
                     }
                     else {
                         return;
                     }
-
-                    var isAdditive = !isSolid && surface.Type.HasFlag(SurfaceType.Additive);
-                    var isTransparent = isSolid ? surface.ColorValue.Alpha < 255 :
-                        (surface.Type.HasFlag(SurfaceType.Translucent) ||
-                         surface.Type.HasFlag(SurfaceType.Base1ClipMap) ||
-                         ((uint)surface.Type & 0x100) != 0 || // Alpha
-                         ((uint)surface.Type & 0x200) != 0 || // InvAlpha
-                         isAdditive ||
-                         (surface.Translucency > 0.0f && surface.Translucency < 1.0f) ||
-                         textureFormat == TextureFormat.A8 ||
-                         textureFormat == TextureFormat.Rgba32f ||
-                         isDxt3or5 ||
-                         (sourceFormat != null && (sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_A8R8G8B8 || 
-                                                     sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_A4R4G4B4 ||
-                                                     sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_DXT3 ||
-                                                     sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_DXT5)));
 
                     var format = (texWidth, texHeight, textureFormat);
                     var key = new TextureAtlasManager.TextureKey {
@@ -1267,6 +1269,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     uint paletteId = 0;
                     bool isDxt3or5 = false;
                     DatReaderWriter.Enums.PixelFormat? sourceFormat = null;
+                    var isAdditive = false;
+                    var isTransparent = false;
 
                     if (isSolid) {
                         texWidth = texHeight = 32;
@@ -1367,8 +1371,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         return;
                     }
 
-                    var isAdditive = !isSolid && surface.Type.HasFlag(SurfaceType.Additive);
-                    var isTransparent = isSolid ? surface.ColorValue.Alpha < 255 :
+                    isAdditive = !isSolid && surface.Type.HasFlag(SurfaceType.Additive);
+                    isTransparent = isSolid ? surface.ColorValue.Alpha < 255 :
                         (surface.Type.HasFlag(SurfaceType.Translucent) ||
                          surface.Type.HasFlag(SurfaceType.Base1ClipMap) ||
                          ((uint)surface.Type & 0x100) != 0 || // Alpha

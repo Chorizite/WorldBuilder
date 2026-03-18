@@ -17,14 +17,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void Update(float deltaTime, Matrix4x4 parentTransform) {
-            var combinedTransform = LocalOffset * parentTransform;
-            if (ParentInstance.HasValue) {
-                // Find part transform if applicable
-                // For GameScene, we'd need to know the part transforms of the model.
-                // For now, let's just use the root transform.
-                combinedTransform = LocalOffset * ParentInstance.Value.Transform;
-            }
-            Renderer.ParentTransform = combinedTransform;
+            Renderer.ParentTransform = parentTransform;
+            Renderer.LocalOffset = LocalOffset;
             Renderer.Update(deltaTime);
         }
 

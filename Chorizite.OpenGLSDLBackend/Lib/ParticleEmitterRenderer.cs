@@ -29,12 +29,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public bool IsActive => true; // Previews always loop
 
         public Matrix4x4 ParentTransform { get; set; } = Matrix4x4.Identity;
+        public Matrix4x4 LocalOffset { get; set; } = Matrix4x4.Identity;
 
         struct Particle {
-            public Vector3 Offset;
-            public Vector3 A;
-            public Vector3 B;
-            public Vector3 C;
+            public Vector3 WorldOffset;
+            public Vector3 WorldA;
+            public Vector3 WorldB;
+            public Vector3 WorldC;
             public float Lifetime;
             public float MaxLifetime;
             public float StartScale;
@@ -42,7 +43,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             public float StartTrans;
             public float FinalTrans;
             public bool IsActive;
-            public Matrix4x4 EmissionTransform;
+            public Vector3 EmissionOrigin;
+            public float Rotation;
 
             public Vector3 CalculatedPosition;
             public float DistanceToCameraSq;
@@ -128,32 +130,75 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             p.MaxLifetime = GetRandomLifespan();
             if (p.MaxLifetime < 0.1f) p.MaxLifetime = 0.1f;
 
-            p.Offset = GetRandomOffset();
-            p.A = GetRandomA();
-            p.B = GetRandomB();
-            p.C = GetRandomC();
+            var localRandomOffset = GetRandomOffset();
+            var localA = GetRandomA();
+            var localB = GetRandomB();
+            var localC = GetRandomC();
+
+            var startFrame = LocalOffset * ParentTransform;
+            p.EmissionOrigin = startFrame.Translation;
+            
+            p.WorldOffset = Vector3.Transform(localRandomOffset, startFrame) - p.EmissionOrigin;
+
+            // Decide which vectors are local vs global based on type
+            bool isLocalA = true;
+            bool isLocalB = true;
+            bool isLocalC = true;
+
+            switch (_emitter.ParticleType) {
+                case ParticleType.GlobalVelocity:
+                    isLocalA = false;
+                    break;
+                case ParticleType.ParabolicGVGA:
+                    isLocalA = false;
+                    isLocalB = false;
+                    break;
+                case ParticleType.ParabolicGVGAGR:
+                    isLocalA = false;
+                    isLocalB = false;
+                    isLocalC = false;
+                    break;
+                case ParticleType.ParabolicLVGA:
+                case ParticleType.ParabolicLVGAGR:
+                case ParticleType.Swarm:
+                    isLocalB = false;
+                    break;
+                case ParticleType.Explode:
+                case ParticleType.Implode:
+                    isLocalA = false;
+                    isLocalB = false;
+                    isLocalC = false;
+                    break;
+            }
+
+            p.WorldA = isLocalA ? Vector3.TransformNormal(localA, startFrame) : localA;
+            p.WorldB = isLocalB ? Vector3.TransformNormal(localB, startFrame) : localB;
+            p.WorldC = isLocalC ? Vector3.TransformNormal(localC, startFrame) : localC;
 
             // Handle specific ParticleType initialization
             switch (_emitter.ParticleType) {
                 case ParticleType.Explode:
                     float ra = (float)(_random.NextDouble() * 2.0 * Math.PI - Math.PI);
                     float po = (float)(_random.NextDouble() * 2.0 * Math.PI - Math.PI);
-                    float rb = (float)Math.Cos(po);
+                    float cosPo = (float)Math.Cos(po);
 
-                    var tempC = p.C;
-                    p.C = new Vector3(
-                        (float)(Math.Cos(ra) * tempC.X * rb),
-                        (float)(Math.Sin(ra) * tempC.Y * rb),
-                        (float)(Math.Sin(po) * tempC.Z * rb)
+                    p.WorldC = new Vector3(
+                        (float)(Math.Cos(ra) * localC.X * cosPo),
+                        (float)(Math.Sin(ra) * localC.Y * cosPo),
+                        (float)(Math.Sin(po) * localC.Z)
                     );
 
-                    if (NormalizeCheckSmall(ref p.C))
-                        p.C = Vector3.Zero;
+                    if (NormalizeCheckSmall(ref p.WorldC))
+                        p.WorldC = Vector3.Zero;
                     break;
 
                 case ParticleType.Implode:
-                    p.Offset *= p.C;
-                    p.C = p.Offset;
+                    p.WorldOffset *= localC.X;
+                    p.WorldC = p.WorldOffset;
+                    break;
+
+                case ParticleType.Swarm:
+                    p.WorldC = new Vector3(localC.X * p.WorldOffset.X, localC.Y * p.WorldOffset.Y, localC.Z * p.WorldOffset.Z);
                     break;
             }
 
@@ -162,18 +207,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             p.StartTrans = GetRandomStartTrans();
             p.FinalTrans = GetRandomFinalTrans();
             p.IsActive = true;
-            p.EmissionTransform = ParentTransform;
-
-            bool isGlobal = _emitter.ParticleType == ParticleType.GlobalVelocity ||
-                            _emitter.ParticleType == ParticleType.ParabolicGVGA ||
-                            _emitter.ParticleType == ParticleType.ParabolicGVGAGR;
-
-            if (isGlobal) {
-                // Transform velocities/orientations to world space (rotation only)
-                p.A = Vector3.TransformNormal(p.A, ParentTransform);
-                p.B = Vector3.TransformNormal(p.B, ParentTransform);
-                p.C = Vector3.TransformNormal(p.C, ParentTransform);
-            }
+            p.Rotation = 0f;
 
             p.CalculatedPosition = CalculatePosition(ref p);
 
@@ -194,13 +228,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             );
 
             var offsetDir = _emitter.OffsetDir;
-            var randomAngle = rng - offsetDir * Vector3.Dot(offsetDir, rng);
+            var dot = Vector3.Dot(offsetDir, rng);
+            var randomAngle = rng - offsetDir * dot;
 
             if (NormalizeCheckSmall(ref randomAngle))
                 return Vector3.Zero;
 
-            var scaled = randomAngle * ((_emitter.MaxOffset - _emitter.MinOffset) + _emitter.MinOffset) * (float)_random.NextDouble();
-            return scaled;
+            var magnitude = (float)(_random.NextDouble() * (_emitter.MaxOffset - _emitter.MinOffset) + _emitter.MinOffset);
+            return randomAngle * magnitude;
         }
 
         private Vector3 GetRandomA() {
@@ -245,50 +280,42 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private Vector3 CalculatePosition(ref Particle p) {
             float t = p.Lifetime;
-            Vector3 parentOrigin = Vector3.Zero;
-
-            bool isGlobal = _emitter.ParticleType == ParticleType.GlobalVelocity ||
-                            _emitter.ParticleType == ParticleType.ParabolicGVGA ||
-                            _emitter.ParticleType == ParticleType.ParabolicGVGAGR;
-
-            if (isGlobal) {
-                parentOrigin = p.EmissionTransform.Translation;
-            }
+            Vector3 parentOrigin = _emitter.IsParentLocal ? (LocalOffset * ParentTransform).Translation : p.EmissionOrigin;
 
             switch (_emitter.ParticleType) {
                 case ParticleType.Still:
-                    return parentOrigin + p.Offset;
+                    return parentOrigin + p.WorldOffset;
 
                 case ParticleType.LocalVelocity:
                 case ParticleType.GlobalVelocity:
-                    return (t * p.A) + parentOrigin + p.Offset;
+                    return parentOrigin + p.WorldOffset + (t * p.WorldA);
 
                 case ParticleType.ParabolicLVGA:
                 case ParticleType.ParabolicLVLA:
                 case ParticleType.ParabolicGVGA:
-                    return (t * t * p.B / 2.0f) + (t * p.A) + parentOrigin + p.Offset;
+                    return parentOrigin + p.WorldOffset + (t * p.WorldA) + (0.5f * t * t * p.WorldB);
 
                 case ParticleType.ParabolicLVGAGR:
                 case ParticleType.ParabolicLVLALR:
                 case ParticleType.ParabolicGVGAGR:
-                    return (t * t * p.B / 2.0f) + (t * p.A) + parentOrigin + p.Offset;
+                    return parentOrigin + p.WorldOffset + (t * p.WorldA) + (0.5f * t * t * p.WorldB);
 
                 case ParticleType.Swarm:
-                    var swarm = (t * p.A) + parentOrigin + p.Offset;
+                    var swarmOrigin = parentOrigin + p.WorldOffset + (t * p.WorldA);
                     return new Vector3(
-                        (float)Math.Cos(t * p.B.X) * p.C.X + swarm.X,
-                        (float)Math.Sin(t * p.B.Y) * p.C.Y + swarm.Y,
-                        (float)Math.Cos(t * p.B.Z) * p.C.Z + swarm.Z
+                        (float)Math.Cos(t * p.WorldB.X) * p.WorldC.X + swarmOrigin.X,
+                        (float)Math.Sin(t * p.WorldB.Y) * p.WorldC.Y + swarmOrigin.Y,
+                        (float)Math.Cos(t * p.WorldB.Z) * p.WorldC.Z + swarmOrigin.Z
                     );
 
                 case ParticleType.Explode:
-                    return (t * p.B + p.C * p.A.X) * t + p.Offset + parentOrigin;
+                    return (t * p.WorldB + p.WorldC * p.WorldA.X) * t + p.WorldOffset + parentOrigin;
 
                 case ParticleType.Implode:
-                    return ((float)Math.Cos(p.A.X * t) * p.C) + (t * t * p.B) + parentOrigin + p.Offset;
+                    return ((float)Math.Cos(p.WorldA.X * t) * p.WorldC) + (t * t * p.WorldB) + parentOrigin + p.WorldOffset;
 
                 default:
-                    return (t * p.A) + parentOrigin + p.Offset;
+                    return parentOrigin + p.WorldOffset + (t * p.WorldA);
             }
         }
 
@@ -304,33 +331,22 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _textureRenderData = _meshManager.TryGetRenderData(_emitter.GfxObjId.DataId);
             }
 
-            // Decide which data to use for texturing
-            var textureData = _textureRenderData ?? _gfxRenderData;
+            // Decide which data to use for texturing. 
+            // ACViewer uses HwGfxObjId for both geometry and texture.
+            var textureData = _gfxRenderData ?? _textureRenderData;
 
             var cameraPos = _graphicsDevice.CurrentSceneData.CameraPosition;
 
             float baseSize = 1.8f;
-            if (_gfxRenderData != null) {
+            if (_gfxRenderData != null && (_gfxRenderData.BoundingBox.Max.X - _gfxRenderData.BoundingBox.Min.X) > 0.001f) {
+                // If the gfxobj is not a unit quad, use its size
                 baseSize *= (_gfxRenderData.BoundingBox.Max.X - _gfxRenderData.BoundingBox.Min.X);
             }
 
-            // Update particle world positions and distances
+            // Update particle distances
             for (int i = 0; i < _particles.Count; i++) {
                 var p = _particles[i];
-                var transform = _emitter.IsParentLocal ? ParentTransform : p.EmissionTransform;
-                
-                bool isGlobal = _emitter.ParticleType == ParticleType.GlobalVelocity ||
-                                _emitter.ParticleType == ParticleType.ParabolicGVGA ||
-                                _emitter.ParticleType == ParticleType.ParabolicGVGAGR;
-
-                Vector3 worldPos;
-                if (isGlobal) {
-                    worldPos = p.CalculatedPosition;
-                } else {
-                    worldPos = Vector3.Transform(p.CalculatedPosition, transform);
-                }
-
-                p.DistanceToCameraSq = Vector3.DistanceSquared(worldPos, cameraPos);
+                p.DistanceToCameraSq = Vector3.DistanceSquared(p.CalculatedPosition, cameraPos);
                 _particles[i] = p;
             }
 
@@ -351,28 +367,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             for (int i = 0; i < _particles.Count; i++) {
                 var p = _particles[i];
                 float lerp = Math.Clamp(p.Lifetime / p.MaxLifetime, 0f, 1f);
-                var transform = _emitter.IsParentLocal ? ParentTransform : p.EmissionTransform;
-
-                bool isGlobal = _emitter.ParticleType == ParticleType.GlobalVelocity ||
-                                _emitter.ParticleType == ParticleType.ParabolicGVGA ||
-                                _emitter.ParticleType == ParticleType.ParabolicGVGAGR;
-
-                Vector3 worldPos;
-                if (isGlobal) {
-                    worldPos = p.CalculatedPosition;
-                } else {
-                    worldPos = Vector3.Transform(p.CalculatedPosition, transform);
-                }
                 
                 var instance = new ParticleInstance {
-                    Position = worldPos,
+                    Position = p.CalculatedPosition,
                     ScaleOpacityActive = new Vector3(
                         (p.StartScale + (p.FinalScale - p.StartScale) * lerp) * baseSize,
                         1.0f - (p.StartTrans + (p.FinalTrans - p.StartTrans) * lerp),
                         1.0f
                     ),
                     TextureIndex = textureIndex,
-                    Rotation = 0f
+                    Rotation = p.Rotation
                 };
 
                 batcher.AddParticle(atlas, isAdditive, instance, p.DistanceToCameraSq);
