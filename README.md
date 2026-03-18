@@ -4,20 +4,6 @@
 
 AC WorldBuilder is a cross-platform, standalone desktop application designed for creating and editing dat content for Asheron's Call emulator servers / clients.
 
-## Getting Started
-
-To clone the repository and initialize all submodules, run:
-
-```bash
-git clone --recursive https://github.com/Chorizite/WorldBuilder.git
-```
-
-If you have already cloned the repository, you can initialize the submodules with:
-
-```bash
-git submodule update --init --recursive
-```
-
 ## Installation
 
 - Grab the latest installer from the [Releases](https://github.com/Chorizite/WorldBuilder/releases) page.
