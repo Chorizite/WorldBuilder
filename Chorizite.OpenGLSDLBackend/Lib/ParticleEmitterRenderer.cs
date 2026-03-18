@@ -341,9 +341,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // Effective scale is 0.9 * BoundingBox size (1.8 * 0.5 in ACViewer shader)
             float baseScale = 0.9f;
             Vector2 particleSize = new Vector2(1.0f, 1.0f);
+            float zOffset = 0.0f;
             if (_gfxRenderData != null) {
                 particleSize.X = (_gfxRenderData.BoundingBox.Max.X - _gfxRenderData.BoundingBox.Min.X);
                 particleSize.Y = (_gfxRenderData.BoundingBox.Max.Z - _gfxRenderData.BoundingBox.Min.Z);
+                zOffset = (_gfxRenderData.BoundingBox.Max.Z + _gfxRenderData.BoundingBox.Min.Z) / 2.0f;
                 // If it's a unit quad, dimensions will be 1.0
                 if (particleSize.X < 0.001f) particleSize.X = 1.0f;
                 if (particleSize.Y < 0.001f) particleSize.Y = 1.0f;
@@ -373,11 +375,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             for (int i = 0; i < _particles.Count; i++) {
                 var p = _particles[i];
                 float lerp = Math.Clamp(p.Lifetime / p.MaxLifetime, 0f, 1f);
+                float currentScale = (p.StartScale + (p.FinalScale - p.StartScale) * lerp) * baseScale;
                 
+                var pos = p.CalculatedPosition;
+                // Align particle to the BoundingBox's vertical center since we render a mathematically centered quad.
+                pos.Z += zOffset * currentScale;
+
                 var instance = new ParticleInstance {
-                    Position = p.CalculatedPosition,
+                    Position = pos,
                     ScaleOpacityActive = new Vector3(
-                        (p.StartScale + (p.FinalScale - p.StartScale) * lerp) * baseScale,
+                        currentScale,
                         1.0f - (p.StartTrans + (p.FinalTrans - p.StartTrans) * lerp),
                         1.0f
                     ),
