@@ -508,6 +508,10 @@ namespace Chorizite.OpenGLSDLBackend {
                     }
                     CenterCameraOnObject(existingData);
 
+                    foreach (var stagedEmitter in existingData.ParticleEmitters) {
+                        _stagedEmitters.Enqueue(stagedEmitter);
+                    }
+
                     // For setups already in cache, we need to ensure their parts are also ref-counted
                     if (existingData.IsSetup) {
                         foreach (var part in existingData.SetupParts) {
