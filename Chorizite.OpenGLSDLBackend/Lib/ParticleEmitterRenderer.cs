@@ -322,7 +322,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     );
 
                 case ParticleType.Explode:
-                    return (t * p.WorldB + p.WorldC * p.WorldA.X) * t + p.WorldOffset + parentOrigin;
+                    return parentOrigin + p.WorldOffset + (t * p.WorldA) + (0.5f * t * t * p.WorldB);
 
                 case ParticleType.Implode:
                     return ((float)Math.Cos(p.WorldA.X * t) * p.WorldC) + (t * t * p.WorldB) + parentOrigin + p.WorldOffset;
@@ -370,11 +370,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             // For DrawGfxObj, it uses actual scale.
             float baseScale = isPointSprite ? 0.9f : 1.0f;
             Vector2 particleSize = new Vector2(1.0f, 1.0f);
-            float zOffset = 0.0f;
+            Vector3 localCenter = Vector3.Zero;
             if (_gfxRenderData != null) {
                 particleSize.X = (_gfxRenderData.BoundingBox.Max.X - _gfxRenderData.BoundingBox.Min.X);
                 particleSize.Y = (_gfxRenderData.BoundingBox.Max.Z - _gfxRenderData.BoundingBox.Min.Z);
-                zOffset = (_gfxRenderData.BoundingBox.Max.Z + _gfxRenderData.BoundingBox.Min.Z) / 2.0f;
+                localCenter = (_gfxRenderData.BoundingBox.Max + _gfxRenderData.BoundingBox.Min) / 2.0f;
                 // If it's a unit quad, dimensions will be 1.0
                 if (particleSize.X < 0.001f) particleSize.X = 1.0f;
                 if (particleSize.Y < 0.001f) particleSize.Y = 1.0f;
@@ -407,9 +407,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 float currentScale = (p.StartScale + (p.FinalScale - p.StartScale) * lerp) * baseScale;
                 
                 var pos = p.CalculatedPosition;
-                // Align particle to the BoundingBox's vertical center since we render a mathematically centered quad.
+                var offset = localCenter * currentScale;
+                // Align particle to the BoundingBox center since we render a mathematically centered quad.
                 if (isPointSprite) {
-                    pos.Z += zOffset * currentScale;
+                    pos.Z += offset.Z; // For billboards we only shift vertically to stay upright
+                } else {
+                    pos += Vector3.Transform(offset, p.Orientation);
                 }
 
                 var instance = new ParticleInstance {
