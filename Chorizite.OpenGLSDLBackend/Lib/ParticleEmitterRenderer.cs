@@ -91,16 +91,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     continue;
                 }
 
-                // Physics update
-                p.CalculatedPosition = CalculatePosition(ref p);
-
-                if (_emitter.ParticleType == ParticleType.GlobalVelocity ||
-                    _emitter.ParticleType == ParticleType.ParabolicLVGAGR ||
+                // Physics update (orientation)
+                if (_emitter.ParticleType == ParticleType.ParabolicLVGAGR ||
                     _emitter.ParticleType == ParticleType.ParabolicLVLALR ||
                     _emitter.ParticleType == ParticleType.ParabolicGVGAGR) {
                     var w = p.WorldC * deltaTime;
                     p.Orientation *= Quaternion.CreateFromYawPitchRoll(w.Y, w.X, w.Z);
                 }
+
+                // Physics update (position)
+                p.CalculatedPosition = CalculatePosition(ref p);
 
                 _particles[i] = p;
             }
@@ -178,64 +178,53 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             
             p.WorldOffset = Vector3.Transform(localRandomOffset, startFrame) - p.EmissionOrigin;
 
-            // Decide which vectors are local vs global based on type
-            bool isLocalA = true;
-            bool isLocalB = true;
-            bool isLocalC = true;
+            // AC Client Logic for vector spaces (Particle::Init):
+            p.WorldA = localA;
+            p.WorldB = localB;
+            p.WorldC = localC;
 
             switch (_emitter.ParticleType) {
-                case ParticleType.GlobalVelocity:
-                    isLocalA = false;
+                case ParticleType.LocalVelocity: // 2
+                case ParticleType.ParabolicLVLA: // 8
+                    p.WorldA = Vector3.TransformNormal(localA, startFrame);
                     break;
-                case ParticleType.ParabolicGVGA:
-                    isLocalA = false;
-                    isLocalB = false;
-                    break;
-                case ParticleType.ParabolicGVGAGR:
-                    isLocalA = false;
-                    isLocalB = false;
-                    isLocalC = false;
-                    break;
-                case ParticleType.ParabolicLVGA:
-                case ParticleType.ParabolicLVGAGR:
-                case ParticleType.Swarm:
-                    isLocalB = false;
-                    break;
-                case ParticleType.Explode:
-                case ParticleType.Implode:
-                    isLocalA = false;
-                    isLocalB = false;
-                    isLocalC = false;
-                    break;
-            }
 
-            p.WorldA = isLocalA ? Vector3.TransformNormal(localA, startFrame) : localA;
-            p.WorldB = isLocalB ? Vector3.TransformNormal(localB, startFrame) : localB;
-            p.WorldC = isLocalC ? Vector3.TransformNormal(localC, startFrame) : localC;
+                case ParticleType.ParabolicLVGAGR: // 4
+                    p.WorldA = Vector3.TransformNormal(localA, startFrame);
+                    p.WorldC = localC;
+                    break;
 
-            // Handle specific ParticleType initialization
-            switch (_emitter.ParticleType) {
-                case ParticleType.Explode:
+                case ParticleType.Swarm: // 5
+                    p.WorldA = Vector3.TransformNormal(localA, startFrame);
+                    break;
+
+                case ParticleType.Explode: // 6
+                    // Type 6 (Explode) transforms A relative to startFrame
+                    p.WorldA = Vector3.TransformNormal(localA, startFrame);
+                    
+                    // Special WorldC initialization for Explode
                     float ra = (float)(_random.NextDouble() * 2.0 * Math.PI - Math.PI);
                     float po = (float)(_random.NextDouble() * 2.0 * Math.PI - Math.PI);
                     float cosPo = (float)Math.Cos(po);
-
                     p.WorldC = new Vector3(
                         (float)(Math.Cos(ra) * localC.X * cosPo),
                         (float)(Math.Sin(ra) * localC.Y * cosPo),
                         (float)(Math.Sin(po) * localC.Z)
                     );
-
-                    if (NormalizeCheckSmall(ref p.WorldC))
-                        p.WorldC = Vector3.Zero;
+                    if (NormalizeCheckSmall(ref p.WorldC)) p.WorldC = Vector3.Zero;
                     break;
 
-                case ParticleType.Implode:
+                case ParticleType.Implode: // 7
                     p.WorldOffset *= localC.X;
                     p.WorldC = p.WorldOffset;
                     break;
 
-                case ParticleType.Swarm:
+                case ParticleType.ParabolicLVLALR: // 9
+                    p.WorldA = Vector3.TransformNormal(localA, startFrame);
+                    p.WorldC = Vector3.TransformNormal(localC, startFrame);
+                    break;
+
+                case ParticleType.ParabolicGVGAGR: // 11
                     p.WorldC = localC;
                     break;
             }
