@@ -80,32 +80,38 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
-            // Update existing particles
+            bool isPersistent = _emitter.TotalParticles == 0 && _emitter.TotalSeconds == 0;
+            bool isPersistentStill = isPersistent && _emitter.ParticleType == ParticleType.Still;
+
+            // 1. Update existing particles and kill immediately if expired
             for (int i = _particles.Count - 1; i >= 0; i--) {
                 var p = _particles[i];
-                p.Lifetime += deltaTime;
+                
+                if (isPersistentStill) {
+                    p.Lifetime = 0;
+                }
+                else {
+                    p.Lifetime += deltaTime;
+                }
 
-                if (p.Lifetime >= p.MaxLifetime) {
+                if (!isPersistentStill && p.Lifetime >= p.MaxLifetime) {
                     _particles.RemoveAt(i);
                     continue;
                 }
 
-                // Physics update (position)
                 p.CalculatedPosition = CalculatePosition(ref p);
-
                 _particles[i] = p;
             }
 
             _timeRunning += deltaTime;
 
-            // Emission
-            bool canEmit = (_emitter.TotalSeconds == 0 || _timeRunning < _emitter.TotalSeconds) && 
+            // 2. Emission check
+            bool canEmit = (isPersistent || _timeRunning < _emitter.TotalSeconds) && 
                            (_emitter.TotalParticles == 0 || _totalEmitted < _emitter.TotalParticles);
 
             if (!canEmit && _particles.Count == 0) {
                 _deadTimer += deltaTime;
                 if (_deadTimer >= 1.0f) {
-                    // Loop the preview
                     _timeRunning = 0;
                     _totalEmitted = 0;
                     _emissionTimer = 0;
@@ -117,7 +123,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             if (canEmit) {
-                // Initial particles on first update
                 if (_totalEmitted == 0 && _emitter.InitialParticles > 0) {
                     for (int i = 0; i < _emitter.InitialParticles; i++) {
                         if (_particles.Count < _emitter.MaxParticles) {
@@ -140,13 +145,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             
                             if (_particles.Count < _emitter.MaxParticles) {
                                 Emit();
+                                _emissionTimer -= interval;
                             }
                             else {
-                                // Cap timer debt if we're full so we don't burst later
+                                // Cap timer debt if we're full
                                 _emissionTimer = interval;
                                 break;
                             }
-                            _emissionTimer -= interval;
                         }
                     }
                 }
