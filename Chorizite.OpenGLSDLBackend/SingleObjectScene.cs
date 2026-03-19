@@ -205,6 +205,7 @@ namespace Chorizite.OpenGLSDLBackend {
             var ct = _loadCts.Token;
 
             // Clear stale staged data from previous cancelled tasks
+            MeshManager.CancelStagedUploads(new[] { (ulong)_loadingFileId });
             while (_stagedMeshData.TryDequeue(out _)) { }
 
             try {

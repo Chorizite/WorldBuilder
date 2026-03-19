@@ -202,7 +202,7 @@ public class Camera3DTests {
         // Start looking (right click)
         camera.HandlePointerPressed(1, new Vector2(400, 300));
         // Move mouse
-        camera.HandlePointerMoved(new Vector2(450, 320), new Vector2(50, 20));
+        camera.HandlePointerMoved(new Vector2(450, 320), new Vector2(50, 20), new Vector2(50, 20));
 
         Assert.NotEqual(initialView, camera.ViewMatrix);
     }
@@ -214,7 +214,7 @@ public class Camera3DTests {
         var initialView = camera.ViewMatrix;
 
         // Move mouse without pressing right click
-        camera.HandlePointerMoved(new Vector2(450, 320), new Vector2(50, 20));
+        camera.HandlePointerMoved(new Vector2(450, 320), new Vector2(50, 20), new Vector2(50, 20));
 
         Assert.Equal(initialView, camera.ViewMatrix);
     }

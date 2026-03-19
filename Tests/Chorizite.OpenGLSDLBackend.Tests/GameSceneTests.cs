@@ -73,7 +73,8 @@ public class GameSceneTests {
         _gameScene.HandlePointerMoved(new ViewportInputEvent {
             IsRightDown = true,
             Position = new Vector2(110, 110),
-            Delta = new Vector2(10, 10)
+            Delta = new Vector2(10, 10),
+            UnscaledDelta = new Vector2(10, 10)
         });
 
         Assert.NotEqual(initialPos, camera2D.Position);
@@ -95,7 +96,8 @@ public class GameSceneTests {
         _gameScene.HandlePointerMoved(new ViewportInputEvent {
             IsRightDown = true,
             Position = new Vector2(410, 310),
-            Delta = new Vector2(10, 10)
+            Delta = new Vector2(10, 10),
+            UnscaledDelta = new Vector2(10, 10)
         });
 
         Assert.NotEqual(initialView, camera3D.ViewMatrix);
