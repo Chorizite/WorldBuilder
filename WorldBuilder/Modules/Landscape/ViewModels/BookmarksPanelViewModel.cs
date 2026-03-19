@@ -443,6 +443,11 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
             return null;
         }
 
+        [RelayCommand]
+        public void ClearSearch() {
+            SearchText = string.Empty;
+        }
+
         private void OnKeyBindingsChanged(object? sender, EventArgs e) {
             UpdateHotkeyDisplay();
         }

@@ -62,10 +62,30 @@
                     <icons:MaterialIcon Kind="ArrowRight" Width="16" Height="16" />
                 </Button>
             </StackPanel>
-            <TextBox Grid.Column="1" 
-                     Text="{Binding SearchText}" 
-                     Watermark="Search bookmarks..." 
-                     Margin="4,0,0,0" />
+            <Grid Grid.Column="1" Margin="4,0,0,0">
+                <TextBox Text="{Binding SearchText}" 
+                         Watermark="Search bookmarks..." />
+                <Button HorizontalAlignment="Right" 
+                        VerticalAlignment="Center"
+                        Margin="0,0,8,0"
+                        Padding="4"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Command="{Binding ClearSearchCommand}"
+                        IsVisible="{Binding SearchText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <icons:MaterialIcon Kind="Close" Width="9" Height="9" />
+                    <Button.Styles>
+                        <Style Selector="Button">
+                            <Setter Property="Foreground" Value="{DynamicResource SemiColorText2}" />
+                        </Style>
+                        <Style Selector="Button:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+                            <Setter Property="Opacity" Value="0.95" />
+                        </Style>
+                    </Button.Styles>
+                </Button>
+            </Grid>
         </Grid>
 
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
