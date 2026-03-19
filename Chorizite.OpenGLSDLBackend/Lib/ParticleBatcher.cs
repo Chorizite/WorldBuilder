@@ -11,8 +11,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public Vector3 Position;
         public Vector3 ScaleOpacityActive; // x=scale, y=opacity, z=active (1.0 or 0.0)
         public float TextureIndex;
-        public float Rotation;
+        public Quaternion Rotation;
         public Vector2 Size;
+        public float IsBillboard; // 1.0 for true, 0.0 for false
     }
 
     public struct ParticleRenderData {
@@ -107,15 +108,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             gl.VertexAttribPointer(4, 1, VertexAttribPointerType.Float, false, stride, (void*)(6 * sizeof(float)));
             gl.VertexAttribDivisor(4, 1);
 
-            // iRotation
+            // iRotation (Quaternion)
             gl.EnableVertexAttribArray(5);
-            gl.VertexAttribPointer(5, 1, VertexAttribPointerType.Float, false, stride, (void*)(7 * sizeof(float)));
+            gl.VertexAttribPointer(5, 4, VertexAttribPointerType.Float, false, stride, (void*)(7 * sizeof(float)));
             gl.VertexAttribDivisor(5, 1);
 
             // iSize
             gl.EnableVertexAttribArray(6);
-            gl.VertexAttribPointer(6, 2, VertexAttribPointerType.Float, false, stride, (void*)(8 * sizeof(float)));
+            gl.VertexAttribPointer(6, 2, VertexAttribPointerType.Float, false, stride, (void*)(11 * sizeof(float)));
             gl.VertexAttribDivisor(6, 1);
+
+            // iIsBillboard
+            gl.EnableVertexAttribArray(7);
+            gl.VertexAttribPointer(7, 1, VertexAttribPointerType.Float, false, stride, (void*)(13 * sizeof(float)));
+            gl.VertexAttribDivisor(7, 1);
 
             gl.BindVertexArray(0);
 

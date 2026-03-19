@@ -21,6 +21,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private ObjectRenderData? _gfxRenderData;
         private ObjectRenderData? _textureRenderData;
+        private GfxObjDegradeInfo? _degradeInfo;
+        private bool _degradeChecked;
         private float _emissionTimer;
         private int _totalEmitted;
         private float _timeRunning;
@@ -44,7 +46,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             public float FinalTrans;
             public bool IsActive;
             public Vector3 EmissionOrigin;
-            public float Rotation;
+            public Quaternion Orientation;
 
             public Vector3 CalculatedPosition;
             public float DistanceToCameraSq;
@@ -207,7 +209,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             p.StartTrans = GetRandomStartTrans();
             p.FinalTrans = GetRandomFinalTrans();
             p.IsActive = true;
-            p.Rotation = 0f;
+            p.Orientation = Quaternion.CreateFromRotationMatrix(startFrame);
 
             p.CalculatedPosition = CalculatePosition(ref p);
 
@@ -278,6 +280,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return false;
         }
 
+        private bool NearZero(Vector3 v) {
+            return Math.Abs(v.X) <= 1.0f && Math.Abs(v.Y) <= 1.0f && Math.Abs(v.Z) <= 1.0f;
+        }
+
         private Vector3 CalculatePosition(ref Particle p) {
             float t = p.Lifetime;
             Vector3 parentOrigin = _emitter.IsParentLocal ? (LocalOffset * ParentTransform).Translation : p.EmissionOrigin;
@@ -331,15 +337,33 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _textureRenderData = _meshManager.TryGetRenderData(_emitter.GfxObjId.DataId);
             }
 
+            if (!_degradeChecked && _emitter.HwGfxObjId.DataId != 0) {
+                _degradeChecked = true;
+                uint degradeId = 0x1A000000 | (_emitter.HwGfxObjId.DataId & 0x00FFFFFF);
+                _meshManager.Dats.Portal.TryGet<GfxObjDegradeInfo>(degradeId, out _degradeInfo);
+            }
+
             // Decide which data to use for texturing. 
             // ACViewer uses HwGfxObjId for both geometry and texture.
             var textureData = _gfxRenderData ?? _textureRenderData;
+
+            bool isPointSprite = false;
+            if (_gfxRenderData != null) {
+                if (_degradeInfo != null && _degradeInfo.Degrades.Count > 0) {
+                    isPointSprite = _degradeInfo.Degrades[0].DegradeMode == 2;
+                }
+                else {
+                    // Default behavior for some specific objects without degrade info
+                    isPointSprite = (_emitter.HwGfxObjId.DataId == 0x0100283B) && NearZero(_gfxRenderData.SortCenter);
+                }
+            }
 
             var cameraPos = _graphicsDevice.CurrentSceneData.CameraPosition;
 
             // ACViewer PointSprite logic:
             // Effective scale is 0.9 * BoundingBox size (1.8 * 0.5 in ACViewer shader)
-            float baseScale = 0.9f;
+            // For DrawGfxObj, it uses actual scale.
+            float baseScale = isPointSprite ? 0.9f : 1.0f;
             Vector2 particleSize = new Vector2(1.0f, 1.0f);
             float zOffset = 0.0f;
             if (_gfxRenderData != null) {
@@ -379,7 +403,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 
                 var pos = p.CalculatedPosition;
                 // Align particle to the BoundingBox's vertical center since we render a mathematically centered quad.
-                pos.Z += zOffset * currentScale;
+                if (isPointSprite) {
+                    pos.Z += zOffset * currentScale;
+                }
 
                 var instance = new ParticleInstance {
                     Position = pos,
@@ -389,8 +415,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         1.0f
                     ),
                     TextureIndex = (float)textureIndex,
-                    Rotation = p.Rotation,
-                    Size = particleSize
+                    Rotation = p.Orientation,
+                    Size = particleSize,
+                    IsBillboard = isPointSprite ? 1.0f : 0.0f
                 };
 
                 batcher.AddParticle(atlas, isAdditive, instance, p.DistanceToCameraSq);

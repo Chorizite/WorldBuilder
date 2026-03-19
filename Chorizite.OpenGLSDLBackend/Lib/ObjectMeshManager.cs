@@ -79,6 +79,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>Local bounding box.</summary>
         public BoundingBox BoundingBox { get; set; }
 
+        /// <summary>Approximate center point used for depth sorting / transparency ordering.</summary>
+        public Vector3 SortCenter { get; set; }
+
         /// <summary>Sphere used for mouse selection.</summary>
         public Sphere? SelectionSphere { get; set; }
 
@@ -141,6 +144,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>Local bounding box.</summary>
         public BoundingBox BoundingBox { get; set; }
 
+        /// <summary>Approximate center point used for depth sorting / transparency ordering.</summary>
+        public Vector3 SortCenter { get; set; }
+
         /// <summary>Sphere used for mouse selection.</summary>
         public Sphere? SelectionSphere { get; set; }
 
@@ -180,6 +186,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private readonly IDatReaderWriter _dats;
         private readonly ILogger _logger;
+
+        internal IDatReaderWriter Dats => _dats;
 
         public bool IsDisposed { get; private set; }
         private readonly ConcurrentDictionary<ulong, ObjectRenderData> _renderData = new();
@@ -603,6 +611,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         ParticleEmitters = meshData.ParticleEmitters,
                         Batches = new List<ObjectRenderBatch>(),
                         BoundingBox = meshData.BoundingBox,
+                        SortCenter = meshData.SortCenter,
                         SelectionSphere = meshData.SelectionSphere,
                         MemorySize = 1024 // Small overhead for the setup itself
                     };
@@ -624,6 +633,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 renderData.BoundingBox = meshData.BoundingBox;
+                renderData.SortCenter = meshData.SortCenter;
                 renderData.SelectionSphere = meshData.SelectionSphere;
                 _renderData.TryAdd(meshData.ObjectId, renderData);
                 IncrementRefCount(meshData.ObjectId);
@@ -988,6 +998,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 }
                                 _decodedTextureCache.TryAdd(renderSurfaceId, textureData);
                             }
+
+                            if (isClipMap && textureData != null) {
+                                // If we got this from the cache, we need to clone it so we don't scale the cached raw data
+                                if (_decodedTextureCache.ContainsKey(renderSurfaceId)) {
+                                    var clonedData = new byte[textureData.Length];
+                                    System.Buffer.BlockCopy(textureData, 0, clonedData, 0, textureData.Length);
+                                    textureData = clonedData;
+                                }
+
+                                for (int i = 0; i < textureData.Length; i += 4) {
+                                    if (textureData[i] == 0 && textureData[i + 1] == 0 && textureData[i + 2] == 0) {
+                                        textureData[i + 3] = 0;
+                                    }
+                                }
+                            }
                         }
                         else {
                             textureFormat = TextureFormat.RGBA8;
@@ -1116,6 +1141,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 Vertices = vertices.ToArray(),
                 TextureBatches = batchesByFormat,
                 BoundingBox = boundingBox,
+                SortCenter = gfxObj?.SortCenter ?? Vector3.Zero,
                 SelectionSphere = new Sphere { Origin = boundingBox.Center, Radius = Vector3.Distance(boundingBox.Max, boundingBox.Min) / 2.0f }
             };
         }
@@ -1315,6 +1341,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 }
                                 _decodedTextureCache.TryAdd(renderSurfaceId, textureData);
                             }
+
+                            if (isClipMap && textureData != null) {
+                                // If we got this from the cache, we need to clone it so we don't scale the cached raw data
+                                if (_decodedTextureCache.ContainsKey(renderSurfaceId)) {
+                                    var clonedData = new byte[textureData.Length];
+                                    System.Buffer.BlockCopy(textureData, 0, clonedData, 0, textureData.Length);
+                                    textureData = clonedData;
+                                }
+
+                                for (int i = 0; i < textureData.Length; i += 4) {
+                                    if (textureData[i] == 0 && textureData[i + 1] == 0 && textureData[i + 2] == 0) {
+                                        textureData[i + 3] = 0;
+                                    }
+                                }
+                            }
                         }
                         else {
                             textureFormat = TextureFormat.RGBA8;
@@ -1405,7 +1446,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         batch = new TextureBatchData {
                             Key = key,
                             CullMode = poly.SidesType,
-                            TextureData = textureData,
+                            TextureData = textureData!,
                             UploadPixelFormat = uploadPixelFormat,
                             UploadPixelType = uploadPixelType,
                             IsTransparent = isTransparent,
@@ -1427,6 +1468,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 Vertices = vertices.ToArray(),
                 TextureBatches = batchesByFormat,
                 BoundingBox = boundingBox,
+                SortCenter = Vector3.Zero,
                 SelectionSphere = new Sphere { Origin = boundingBox.Center, Radius = Vector3.Distance(boundingBox.Max, boundingBox.Min) / 2.0f }
             };
         }
