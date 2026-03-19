@@ -21,6 +21,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private ObjectRenderData? _gfxRenderData;
         private ObjectRenderData? _textureRenderData;
+        private bool _isPointSprite;
         private float _emissionTimer;
         private int _totalEmitted;
         private float _timeRunning;
@@ -38,10 +39,10 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             public Vector3 WorldC;
             public float Lifetime;
             public float MaxLifetime;
-            public float StartScale;
-            public float FinalScale;
-            public float StartTrans;
-            public float FinalTrans;
+            public float FinalStartScale;
+            public float FinalFinalScale;
+            public float FinalStartTrans;
+            public float FinalFinalTrans;
             public bool IsActive;
             public Vector3 EmissionOrigin;
             public Quaternion Orientation;
@@ -57,6 +58,29 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void Update(float deltaTime) {
+            // Make sure textures are loaded
+            if (_gfxRenderData == null && _emitter.HwGfxObjId.DataId != 0) {
+                _gfxRenderData = _meshManager.TryGetRenderData(_emitter.HwGfxObjId.DataId);
+            }
+            if (_textureRenderData == null && _emitter.GfxObjId.DataId != 0) {
+                _textureRenderData = _meshManager.TryGetRenderData(_emitter.GfxObjId.DataId);
+            }
+
+            _isPointSprite = false;
+            if (_gfxRenderData != null) {
+                var degradeId = _gfxRenderData.DIDDegrade;
+                if (degradeId != 0) {
+                    if (_meshManager.Dats.Portal.TryGet<GfxObjDegradeInfo>(degradeId, out var degrades) && degrades.Degrades.Count > 0) {
+                        _isPointSprite = degrades.Degrades[0].DegradeMode == 2;
+                    }
+                }
+
+                if (!_isPointSprite) {
+                    // Fallback for centered quad (the ONLY special ID that billboards without degrade info)
+                    _isPointSprite = (_emitter.HwGfxObjId.DataId == 0x0100283B) && NearZero(_gfxRenderData.SortCenter);
+                }
+            }
+
             // Update existing particles
             for (int i = _particles.Count - 1; i >= 0; i--) {
                 var p = _particles[i];
@@ -125,6 +149,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             
                             if (_particles.Count < _emitter.MaxParticles) {
                                 Emit();
+                            }
+                            else {
+                                // Cap timer debt if we're full so we don't burst later
+                                _emissionTimer = interval;
+                                break;
                             }
                             _emissionTimer -= interval;
                         }
@@ -211,10 +240,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     break;
             }
 
-            p.StartScale = GetRandomStartScale();
-            p.FinalScale = GetRandomFinalScale();
-            p.StartTrans = GetRandomStartTrans();
-            p.FinalTrans = GetRandomFinalTrans();
+            p.FinalStartScale = Math.Clamp(_emitter.StartScale + (float)(_random.NextDouble() * 2.0 - 1.0) * _emitter.ScaleRand, 0.1f, 10.0f);
+            p.FinalFinalScale = Math.Clamp(_emitter.FinalScale + (float)(_random.NextDouble() * 2.0 - 1.0) * _emitter.ScaleRand, 0.1f, 10.0f);
+            p.FinalStartTrans = Math.Clamp(_emitter.StartTrans + (float)(_random.NextDouble() * 2.0 - 1.0) * _emitter.TransRand, 0.0f, 1.0f);
+            p.FinalFinalTrans = Math.Clamp(_emitter.FinalTrans + (float)(_random.NextDouble() * 2.0 - 1.0) * _emitter.TransRand, 0.0f, 1.0f);
+            
             p.IsActive = true;
             p.Orientation = Quaternion.CreateFromRotationMatrix(startFrame);
 
@@ -260,22 +290,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private Vector3 GetRandomC() {
             var magnitude = (_emitter.MaxC - _emitter.MinC) * _random.NextDouble() + _emitter.MinC;
             return _emitter.C * (float)magnitude;
-        }
-
-        private float GetRandomStartScale() {
-            return Math.Clamp((float)((_random.NextDouble() * 2.0 - 1.0) * _emitter.ScaleRand + _emitter.StartScale), 0.01f, 100.0f);
-        }
-
-        private float GetRandomFinalScale() {
-            return Math.Clamp((float)((_random.NextDouble() * 2.0 - 1.0) * _emitter.ScaleRand + _emitter.FinalScale), 0.01f, 100.0f);
-        }
-
-        private float GetRandomStartTrans() {
-            return Math.Clamp((float)((_random.NextDouble() * 2.0 - 1.0) * _emitter.TransRand + _emitter.StartTrans), 0.0f, 1.0f);
-        }
-
-        private float GetRandomFinalTrans() {
-            return Math.Clamp((float)((_random.NextDouble() * 2.0 - 1.0) * _emitter.TransRand + _emitter.FinalTrans), 0.0f, 1.0f);
         }
 
         private bool NormalizeCheckSmall(ref Vector3 v) {
@@ -336,39 +350,16 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public unsafe void Render(ParticleBatcher batcher) {
             if (_particles.Count == 0) return;
 
-            // Make sure textures are loaded
-            if (_gfxRenderData == null && _emitter.HwGfxObjId.DataId != 0) {
-                _gfxRenderData = _meshManager.TryGetRenderData(_emitter.HwGfxObjId.DataId);
-            }
-            if (_textureRenderData == null && _emitter.GfxObjId.DataId != 0) {
-                _textureRenderData = _meshManager.TryGetRenderData(_emitter.GfxObjId.DataId);
-            }
-
             // Decide which data to use for texturing. 
             // ACViewer uses HwGfxObjId for both geometry and texture.
             var textureData = _gfxRenderData ?? _textureRenderData;
-
-            bool isPointSprite = false;
-            if (_gfxRenderData != null) {
-                var degradeId = _gfxRenderData.DIDDegrade;
-                if (degradeId != 0) {
-                    if (_meshManager.Dats.Portal.TryGet<GfxObjDegradeInfo>(degradeId, out var degrades) && degrades.Degrades.Count > 0) {
-                        isPointSprite = degrades.Degrades[0].DegradeMode == 2;
-                    }
-                }
-                
-                if (!isPointSprite) {
-                    // Fallback for centered quad
-                    isPointSprite = (_emitter.HwGfxObjId.DataId == 0x0100283B) && NearZero(_gfxRenderData.SortCenter);
-                }
-            }
 
             var cameraPos = _graphicsDevice.CurrentSceneData.CameraPosition;
 
             // ACViewer PointSprite logic:
             // Effective scale is 0.9 * BoundingBox size (1.8 * 0.5 in ACViewer shader)
             // For DrawGfxObj, it uses actual scale.
-            float baseScale = isPointSprite ? 0.9f : 1.0f;
+            float baseScale = _isPointSprite ? 0.9f : 1.0f;
             Vector2 particleSize = new Vector2(1.0f, 1.0f);
             Vector3 localCenter = Vector3.Zero;
             if (_gfxRenderData != null) {
@@ -404,12 +395,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             for (int i = 0; i < _particles.Count; i++) {
                 var p = _particles[i];
                 float lerp = Math.Clamp(p.Lifetime / p.MaxLifetime, 0f, 1f);
-                float currentScale = (p.StartScale + (p.FinalScale - p.StartScale) * lerp) * baseScale;
+                
+                float currentScale = (p.FinalStartScale + (p.FinalFinalScale - p.FinalStartScale) * lerp) * baseScale;
+                float opacity = 1.0f - (p.FinalStartTrans + (p.FinalFinalTrans - p.FinalStartTrans) * lerp);
                 
                 var pos = p.CalculatedPosition;
                 var offset = localCenter * currentScale;
                 // Align particle to the BoundingBox center since we render a mathematically centered quad.
-                if (isPointSprite) {
+                if (_isPointSprite) {
                     pos.Z += offset.Z; // For billboards we only shift vertically to stay upright
                 } else {
                     pos += Vector3.Transform(offset, p.Orientation);
@@ -419,13 +412,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     Position = pos,
                     ScaleOpacityActive = new Vector3(
                         currentScale,
-                        1.0f - (p.StartTrans + (p.FinalTrans - p.StartTrans) * lerp),
+                        opacity,
                         1.0f
                     ),
                     TextureIndex = (float)textureIndex,
                     Rotation = p.Orientation,
                     Size = particleSize,
-                    IsBillboard = isPointSprite ? 1.0f : 0.0f
+                    IsBillboard = _isPointSprite ? 1.0f : 0.0f
                 };
 
                 batcher.AddParticle(atlas, isAdditive, instance, p.DistanceToCameraSq);
