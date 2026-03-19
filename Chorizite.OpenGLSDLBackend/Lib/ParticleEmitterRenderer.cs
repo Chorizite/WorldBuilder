@@ -60,14 +60,17 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         public void Update(float deltaTime) {
             // Make sure textures are loaded
-            if (_gfxRenderData == null && _emitter.HwGfxObjId.DataId != 0) {
-                _gfxRenderData = _meshManager.TryGetRenderData(_emitter.HwGfxObjId.DataId);
+            if (_gfxRenderData == null) {
+                var gfxId = _emitter.HwGfxObjId.DataId != 0 ? _emitter.HwGfxObjId.DataId : _emitter.GfxObjId.DataId;
+                if (gfxId != 0) {
+                    _gfxRenderData = _meshManager.TryGetRenderData(gfxId);
+                }
             }
             if (_textureRenderData == null && _emitter.GfxObjId.DataId != 0) {
                 _textureRenderData = _meshManager.TryGetRenderData(_emitter.GfxObjId.DataId);
             }
 
-            _isPointSprite = false;
+            _isPointSprite = _gfxRenderData == null;
             if (_gfxRenderData != null) {
                 var degradeId = _gfxRenderData.DIDDegrade;
                 if (degradeId != 0) {
@@ -174,8 +177,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             switch (_emitter.ParticleType) {
                 case ParticleType.LocalVelocity: // 2
                 case ParticleType.ParabolicLVGA: // 3
+                    p.WorldA = Vector3.TransformNormal(localA, startFrame);
+                    break;
+
                 case ParticleType.ParabolicLVLA: // 8
                     p.WorldA = Vector3.TransformNormal(localA, startFrame);
+                    p.WorldB = Vector3.TransformNormal(localB, startFrame);
                     break;
 
                 case ParticleType.ParabolicLVGAGR: // 4
@@ -351,13 +358,52 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var size = _gfxRenderData.BoundingBox.Max - _gfxRenderData.BoundingBox.Min;
                 localCenter = (_gfxRenderData.BoundingBox.Max + _gfxRenderData.BoundingBox.Min) / 2.0f;
 
-                if (size.Y > size.Z + 0.001f && !_isPointSprite) {
-                    particleSize.X = size.X;
-                    particleSize.Y = size.Y;
-                    _planeRotation = Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathF.PI / 2.0f);
+                if (!_isPointSprite) {
+                    if (size.Y > size.X && size.Y > size.Z) {
+                        // Primarily in XY plane (if X is also large) or YZ plane (if Z is also large)
+                        if (size.X > size.Z) {
+                            // XY plane: Map shader X->X, Z->Y
+                            particleSize.X = size.X;
+                            particleSize.Y = size.Y;
+                            _planeRotation = Quaternion.CreateFromAxisAngle(Vector3.UnitX, -MathF.PI / 2.0f);
+                        } else {
+                            // YZ plane: Map shader X->Y, Z->Z
+                            particleSize.X = size.Y;
+                            particleSize.Y = size.Z;
+                            _planeRotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 2.0f);
+                        }
+                    } else if (size.X > size.Y && size.X > size.Z) {
+                        // Primarily in XZ plane (normal Y) or XY plane (normal Z)
+                        if (size.Z > size.Y) {
+                            // XZ plane: Already matches shader
+                            particleSize.X = size.X;
+                            particleSize.Y = size.Z;
+                            _planeRotation = Quaternion.Identity;
+                        } else {
+                            // XY plane: Map shader X->X, Z->Y
+                            particleSize.X = size.X;
+                            particleSize.Y = size.Y;
+                            _planeRotation = Quaternion.CreateFromAxisAngle(Vector3.UnitX, -MathF.PI / 2.0f);
+                        }
+                    } else {
+                        // Primarily in XZ or YZ
+                        if (size.X > size.Y) {
+                            // XZ plane
+                            particleSize.X = size.X;
+                            particleSize.Y = size.Z;
+                            _planeRotation = Quaternion.Identity;
+                        } else {
+                            // YZ plane: Map shader X->Y, Z->Z
+                            particleSize.X = size.Y;
+                            particleSize.Y = size.Z;
+                            _planeRotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 2.0f);
+                        }
+                    }
                 } else {
+                    // Point sprite always uses XZ size
                     particleSize.X = size.X;
                     particleSize.Y = size.Z;
+                    _planeRotation = Quaternion.Identity;
                 }
 
                 // If it's a unit quad, dimensions will be 1.0
