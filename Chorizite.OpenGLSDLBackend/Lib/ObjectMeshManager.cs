@@ -229,7 +229,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly List<(ulong Id, bool IsSetup, TaskCompletionSource<ObjectMeshData?> Tcs, CancellationToken Ct)> _pendingRequests = new();
         private int _activeWorkers = 0;
         private const int MaxParallelLoads = 4;
-
         public ObjectMeshManager(OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats, ILogger<ObjectMeshManager> logger) {
             _graphicsDevice = graphicsDevice;
             _dats = dats;
@@ -583,8 +582,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         public ObjectRenderData? UploadMeshData(ObjectMeshData meshData) {
             try {
-                _preparationTasks.TryRemove(meshData.ObjectId, out _);
                 if (_renderData.TryGetValue(meshData.ObjectId, out var existing)) {
+                    _preparationTasks.TryRemove(meshData.ObjectId, out _);
                     if (existing.IsSetup) {
                         foreach (var (partId, _) in existing.SetupParts) {
                             IncrementRefCount(partId);
@@ -615,7 +614,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 
                 EvictOldResources(estimatedSize);
 
-                _preparationTasks.TryRemove(meshData.ObjectId, out _);
                 _preparationTasks.TryRemove(meshData.ObjectId, out _);
                 if (meshData.IsSetup) {
                     // Upload EnvCell geometry if present to ensure it's in _renderData

@@ -249,7 +249,9 @@ namespace WorldBuilder.Views {
         }
 
         private void UpdateObject() {
-            if (_scene == null && _gl != null && Renderer != null && _renderDats != null) {
+            if (_renderDats == null) return;
+
+            if (_scene == null && _gl != null && Renderer != null && _renderIsEffectivelyVisible) {
                 InitializeScene();
                 _scene?.Resize((int)Bounds.Width, (int)Bounds.Height);
             }
@@ -292,13 +294,16 @@ namespace WorldBuilder.Views {
         }
 
         protected override void OnGlRender(double frameTime) {
-            if (_scene == null) return;
+            if (!_renderIsEffectivelyVisible) return;
+
+            if (_scene == null) {
+                UpdateObject();
+                if (_scene == null) return;
+            }
 
             // Only update scene (spin camera, etc) if we are actually visible
-            if (_renderIsEffectivelyVisible) {
-                _scene.IsHovered = _renderIsPointerOver;
-                _scene.Update((float)frameTime);
-            }
+            _scene.IsHovered = _renderIsPointerOver;
+            _scene.Update((float)frameTime);
 
             _scene.Render();
 
