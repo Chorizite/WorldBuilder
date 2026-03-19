@@ -198,7 +198,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     break;
 
                 case ParticleType.Swarm:
-                    p.WorldC = new Vector3(localC.X * p.WorldOffset.X, localC.Y * p.WorldOffset.Y, localC.Z * p.WorldOffset.Z);
+                    p.WorldC = localC;
                     break;
             }
 
