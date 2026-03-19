@@ -22,6 +22,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private ObjectRenderData? _gfxRenderData;
         private ObjectRenderData? _textureRenderData;
         private bool _isPointSprite;
+        private Quaternion _planeRotation = Quaternion.Identity;
         private float _emissionTimer;
         private int _totalEmitted;
         private float _timeRunning;
@@ -84,13 +85,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (p.Lifetime >= p.MaxLifetime) {
                     _particles.RemoveAt(i);
                     continue;
-                }
-
-                // Physics update (orientation)
-                if (_emitter.ParticleType == ParticleType.ParabolicLVGAGR ||
-                    _emitter.ParticleType == ParticleType.ParabolicLVLALR) {
-                    var w = p.WorldC * deltaTime;
-                    p.Orientation *= Quaternion.CreateFromYawPitchRoll(w.Y, w.X, w.Z);
                 }
 
                 // Physics update (position)
@@ -179,6 +173,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             switch (_emitter.ParticleType) {
                 case ParticleType.LocalVelocity: // 2
+                case ParticleType.ParabolicLVGA: // 3
                 case ParticleType.ParabolicLVLA: // 8
                     p.WorldA = Vector3.TransformNormal(localA, startFrame);
                     break;
@@ -351,10 +346,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             float baseScale = _isPointSprite ? 0.9f : 1.0f;
             Vector2 particleSize = new Vector2(1.0f, 1.0f);
             Vector3 localCenter = Vector3.Zero;
+            _planeRotation = Quaternion.Identity;
             if (_gfxRenderData != null) {
-                particleSize.X = (_gfxRenderData.BoundingBox.Max.X - _gfxRenderData.BoundingBox.Min.X);
-                particleSize.Y = (_gfxRenderData.BoundingBox.Max.Z - _gfxRenderData.BoundingBox.Min.Z);
+                var size = _gfxRenderData.BoundingBox.Max - _gfxRenderData.BoundingBox.Min;
                 localCenter = (_gfxRenderData.BoundingBox.Max + _gfxRenderData.BoundingBox.Min) / 2.0f;
+
+                if (size.Y > size.Z + 0.001f && !_isPointSprite) {
+                    particleSize.X = size.X;
+                    particleSize.Y = size.Y;
+                    _planeRotation = Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathF.PI / 2.0f);
+                } else {
+                    particleSize.X = size.X;
+                    particleSize.Y = size.Z;
+                }
+
                 // If it's a unit quad, dimensions will be 1.0
                 if (particleSize.X < 0.001f) particleSize.X = 1.0f;
                 if (particleSize.Y < 0.001f) particleSize.Y = 1.0f;
@@ -389,26 +394,36 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 float opacity = 1.0f - (p.FinalStartTrans + (p.FinalFinalTrans - p.FinalStartTrans) * lerp);
                 
                 var pos = p.CalculatedPosition;
+                var orientation = p.Orientation;
+
+                if (_emitter.ParticleType == ParticleType.ParabolicLVGAGR ||
+                    _emitter.ParticleType == ParticleType.ParabolicLVLALR ||
+                    _emitter.ParticleType == ParticleType.ParabolicGVGAGR) {
+                    var w = p.WorldC * (lerp * p.MaxLifetime);
+                    var magSq = w.LengthSquared();
+                    if (magSq > 0.00000001f) {
+                        var mag = MathF.Sqrt(magSq);
+                        orientation *= Quaternion.CreateFromAxisAngle(w / mag, mag);
+                    }
+                }
+
                 var offset = localCenter * currentScale;
                 // Align particle to the BoundingBox center since we render a mathematically centered quad.
                 if (_isPointSprite) {
                     pos.Z += offset.Z; // For billboards we only shift vertically to stay upright
                 } else {
-                    pos += Vector3.Transform(offset, p.Orientation);
+                    pos += Vector3.Transform(offset, orientation);
                 }
 
                 var instance = new ParticleInstance {
                     Position = pos,
-                    ScaleOpacityActive = new Vector3(
-                        currentScale,
-                        opacity,
-                        1.0f
-                    ),
+                    ScaleOpacityActive = new Vector3(currentScale, opacity, 1.0f),
                     TextureIndex = (float)textureIndex,
-                    Rotation = p.Orientation,
+                    Rotation = _isPointSprite ? orientation : orientation * _planeRotation,
                     Size = particleSize,
                     IsBillboard = _isPointSprite ? 1.0f : 0.0f
                 };
+
 
                 batcher.AddParticle(atlas, isAdditive, instance, p.DistanceToCameraSq);
             }
