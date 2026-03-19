@@ -18,5 +18,5 @@ void main() {
     // Alpha test to discard fully transparent pixels (standard AC behavior)
     if (color.a < 0.005) discard;
     
-    FragColor = color;
+    FragColor = color * vec4(0.8, 0.8, 0.8, 1.0);
 }

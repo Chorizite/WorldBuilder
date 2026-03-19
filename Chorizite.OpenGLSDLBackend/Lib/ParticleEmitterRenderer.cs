@@ -74,11 +74,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         _isPointSprite = degrades.Degrades[0].DegradeMode == 2;
                     }
                 }
-
-                if (!_isPointSprite) {
-                    // Fallback for centered quad (the ONLY special ID that billboards without degrade info)
-                    _isPointSprite = (_emitter.HwGfxObjId.DataId == 0x0100283B) && NearZero(_gfxRenderData.SortCenter);
-                }
             }
 
             // Update existing particles
@@ -93,8 +88,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 // Physics update (orientation)
                 if (_emitter.ParticleType == ParticleType.ParabolicLVGAGR ||
-                    _emitter.ParticleType == ParticleType.ParabolicLVLALR ||
-                    _emitter.ParticleType == ParticleType.ParabolicGVGAGR) {
+                    _emitter.ParticleType == ParticleType.ParabolicLVLALR) {
                     var w = p.WorldC * deltaTime;
                     p.Orientation *= Quaternion.CreateFromYawPitchRoll(w.Y, w.X, w.Z);
                 }
@@ -166,7 +160,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var p = new Particle();
             p.Lifetime = 0;
             p.MaxLifetime = GetRandomLifespan();
-            if (p.MaxLifetime < 0.1f) p.MaxLifetime = 0.1f;
+            if (p.MaxLifetime < 0.001f) p.MaxLifetime = 0.001f;
 
             var localRandomOffset = GetRandomOffset();
             var localA = GetRandomA();
@@ -199,17 +193,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     break;
 
                 case ParticleType.Explode: // 6
-                    // Type 6 (Explode) transforms A relative to startFrame
-                    p.WorldA = Vector3.TransformNormal(localA, startFrame);
+                    // Type 6 (Explode) A and B are global
+                    p.WorldA = localA;
+                    p.WorldB = localB;
                     
                     // Special WorldC initialization for Explode
-                    float ra = (float)(_random.NextDouble() * 2.0 * Math.PI - Math.PI);
-                    float po = (float)(_random.NextDouble() * 2.0 * Math.PI - Math.PI);
-                    float cosPo = (float)Math.Cos(po);
+                    float randA = (float)(_random.NextDouble() * 2.0 * Math.PI - Math.PI);
+                    float randB = (float)(_random.NextDouble() * 2.0 * Math.PI - Math.PI);
+                    float cosB = (float)Math.Cos(randB);
+
                     p.WorldC = new Vector3(
-                        (float)(Math.Cos(ra) * localC.X * cosPo),
-                        (float)(Math.Sin(ra) * localC.Y * cosPo),
-                        (float)(Math.Sin(po) * localC.Z)
+                        (float)(Math.Cos(randA) * localC.X * cosB),
+                        (float)(Math.Sin(randA) * localC.Y * cosB),
+                        (float)(Math.Sin(randB) * localC.Z)
                     );
                     if (NormalizeCheckSmall(ref p.WorldC)) p.WorldC = Vector3.Zero;
                     break;
@@ -325,7 +321,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     );
 
                 case ParticleType.Explode:
-                    return parentOrigin + p.WorldOffset + (t * p.WorldA) + (0.5f * t * t * p.WorldB);
+                    return new Vector3(
+                        (t * p.WorldB.X + p.WorldC.X * p.WorldA.X) * t + p.WorldOffset.X + parentOrigin.X,
+                        (t * p.WorldB.Y + p.WorldC.Y * p.WorldA.X) * t + p.WorldOffset.Y + parentOrigin.Y,
+                        (t * p.WorldB.Z + p.WorldC.Z * p.WorldA.X + p.WorldA.Z) * t + p.WorldOffset.Z + parentOrigin.Z
+                    );
 
                 case ParticleType.Implode:
                     return ((float)Math.Cos(p.WorldA.X * t) * p.WorldC) + (t * t * p.WorldB) + parentOrigin + p.WorldOffset;
