@@ -69,6 +69,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 // Physics update
                 p.CalculatedPosition = CalculatePosition(ref p);
+
+                if (_emitter.ParticleType == ParticleType.GlobalVelocity ||
+                    _emitter.ParticleType == ParticleType.ParabolicLVGAGR ||
+                    _emitter.ParticleType == ParticleType.ParabolicLVLALR ||
+                    _emitter.ParticleType == ParticleType.ParabolicGVGAGR) {
+                    var w = p.WorldC * deltaTime;
+                    p.Orientation *= Quaternion.CreateFromYawPitchRoll(w.Y, w.X, w.Z);
+                }
+
                 _particles[i] = p;
             }
 
