@@ -32,14 +32,9 @@ void main() {
     vec3 worldPos;
 
     if (iIsBillboard > 0.5) {
-        // Use cylindrical billboarding (upright) to match client's PointSpriteVS
-        vec3 billboardUp = vec3(0.0, 0.0, 1.0);
-        vec3 billboardRight = normalize(vec3(uCameraRight.x, uCameraRight.y, 0.0));
-        
-        // Fallback if looking straight down
-        if (length(billboardRight) < 0.01) {
-            billboardRight = uCameraRight;
-        }
+        // Spherical billboarding - always face camera
+        vec3 billboardRight = uCameraRight;
+        vec3 billboardUp = uCameraUp;
 
         worldPos = iPosition
             + billboardRight * aPosition.x * iSize.x * scale
