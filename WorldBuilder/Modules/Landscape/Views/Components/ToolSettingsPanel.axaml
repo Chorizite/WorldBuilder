@@ -11,6 +11,7 @@
              x:Name="SettingsRoot"
              x:DataType="vm:LandscapeViewModel">
     <UserControl.Resources>
+      <converters:HotkeyTooltipConverter x:Key="HotkeyTooltipConverter" />
       <converters:TextureToViewModelConverter x:Key="TextureConverter" />
       <libconverters:Vector4ToColorConverter x:Key="Vector4ToColorConverter" />
       
@@ -192,17 +193,17 @@
                                    IsChecked="{Binding Mode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static gizmo:GizmoMode.Translate}}" 
                                    FontSize="12"
                                    VerticalAlignment="Center"
-                                   ToolTip.Tip="{Binding TranslateHotkey, StringFormat='Translate ({0})'}" />
+                                   ToolTip.Tip="{Binding TranslateHotkey, Converter={StaticResource HotkeyTooltipConverter}, ConverterParameter='Translate'}" />
                       <RadioButton Content="R" 
                                    IsChecked="{Binding Mode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static gizmo:GizmoMode.Rotate}}" 
                                    FontSize="12"
                                    VerticalAlignment="Center"
-                                   ToolTip.Tip="{Binding RotateHotkey, StringFormat='Rotate ({0})'}" />
+                                   ToolTip.Tip="{Binding RotateHotkey, Converter={StaticResource HotkeyTooltipConverter}, ConverterParameter='Rotate'}" />
                       <RadioButton Content="F" 
                                    IsChecked="{Binding Mode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static gizmo:GizmoMode.Both}}" 
                                    FontSize="12"
                                    VerticalAlignment="Center"
-                                   ToolTip.Tip="{Binding BothHotkey, StringFormat='Both ({0})'}" />
+                                   ToolTip.Tip="{Binding BothHotkey, Converter={StaticResource HotkeyTooltipConverter}, ConverterParameter='Both'}" />
                     </StackPanel>
                   </HeaderedContentControl>
                   <HeaderedContentControl Header="Options" Template="{StaticResource RibbonGroupTemplate}">

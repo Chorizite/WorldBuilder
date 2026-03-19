@@ -13,6 +13,7 @@
     x:CompileBindings="False"
     x:DataType="landscape:BookmarksPanelViewModel">
     <UserControl.Resources>
+        <conv:HotkeyTooltipConverter x:Key="HotkeyTooltipConverter" />
         <conv:SearchSourceConverter x:Key="SearchSourceConverter" />
         <conv:TreeListSearchSourceConverter x:Key="TreeListSearchSourceConverter" />
         
@@ -39,7 +40,7 @@
     <Grid RowDefinitions="Auto, *">
         <Grid Grid.Row="0" Margin="4" ColumnDefinitions="Auto, *">
             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
-                <Button Command="{Binding AddBookmarkCommand}" ToolTip.Tip="{Binding AddBookmarkHotkey, StringFormat='Add New Bookmark ({0})'}">
+                <Button Command="{Binding AddBookmarkCommand}" ToolTip.Tip="{Binding AddBookmarkHotkey, Converter={StaticResource HotkeyTooltipConverter}, ConverterParameter='Add New Bookmark'}">
                     <icons:MaterialIcon Kind="Plus" Width="16" Height="16" />
                 </Button>
                 <Button Command="{Binding AddFolderCommand}" ToolTip.Tip="Add New Folder">
