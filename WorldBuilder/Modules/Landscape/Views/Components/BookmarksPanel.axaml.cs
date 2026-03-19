@@ -153,7 +153,7 @@ public partial class BookmarksPanel : UserControl {
                 if (position.Y < dropZoneSize) {
                     dropPosition = DropPosition.Above;
                 }
-                else if (position.Y > headerHeight + dropZoneSize) {
+                else if (position.Y > headerHeight - dropZoneSize && !targetBookmark.IsExpanded) {
                     dropPosition = DropPosition.Below;
                 }
                 else {
