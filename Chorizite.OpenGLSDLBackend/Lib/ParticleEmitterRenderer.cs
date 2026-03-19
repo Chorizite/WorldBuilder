@@ -21,8 +21,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private ObjectRenderData? _gfxRenderData;
         private ObjectRenderData? _textureRenderData;
-        private GfxObjDegradeInfo? _degradeInfo;
-        private bool _degradeChecked;
         private float _emissionTimer;
         private int _totalEmitted;
         private float _timeRunning;
@@ -337,23 +335,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _textureRenderData = _meshManager.TryGetRenderData(_emitter.GfxObjId.DataId);
             }
 
-            if (!_degradeChecked && _emitter.HwGfxObjId.DataId != 0) {
-                _degradeChecked = true;
-                uint degradeId = 0x1A000000 | (_emitter.HwGfxObjId.DataId & 0x00FFFFFF);
-                _meshManager.Dats.Portal.TryGet<GfxObjDegradeInfo>(degradeId, out _degradeInfo);
-            }
-
             // Decide which data to use for texturing. 
             // ACViewer uses HwGfxObjId for both geometry and texture.
             var textureData = _gfxRenderData ?? _textureRenderData;
 
             bool isPointSprite = false;
             if (_gfxRenderData != null) {
-                if (_degradeInfo != null && _degradeInfo.Degrades.Count > 0) {
-                    isPointSprite = _degradeInfo.Degrades[0].DegradeMode == 2;
+                var degradeId = _gfxRenderData.DIDDegrade;
+                if (degradeId != 0) {
+                    if (_meshManager.Dats.Portal.TryGet<GfxObjDegradeInfo>(degradeId, out var degrades) && degrades.Degrades.Count > 0) {
+                        isPointSprite = degrades.Degrades[0].DegradeMode == 2;
+                    }
                 }
-                else {
-                    // Default behavior for some specific objects without degrade info
+                
+                if (!isPointSprite) {
+                    // Fallback for centered quad
                     isPointSprite = (_emitter.HwGfxObjId.DataId == 0x0100283B) && NearZero(_gfxRenderData.SortCenter);
                 }
             }

@@ -82,6 +82,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>Approximate center point used for depth sorting / transparency ordering.</summary>
         public Vector3 SortCenter { get; set; }
 
+        /// <summary>DataID of a simpler GfxObj to use at long distance / low quality, or GfxObjDegradeInfo.</summary>
+        public uint DIDDegrade { get; set; }
+
         /// <summary>Sphere used for mouse selection.</summary>
         public Sphere? SelectionSphere { get; set; }
 
@@ -146,6 +149,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         /// <summary>Approximate center point used for depth sorting / transparency ordering.</summary>
         public Vector3 SortCenter { get; set; }
+
+        /// <summary>DataID of a simpler GfxObj to use at long distance / low quality, or GfxObjDegradeInfo.</summary>
+        public uint DIDDegrade { get; set; }
 
         /// <summary>Sphere used for mouse selection.</summary>
         public Sphere? SelectionSphere { get; set; }
@@ -612,6 +618,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         Batches = new List<ObjectRenderBatch>(),
                         BoundingBox = meshData.BoundingBox,
                         SortCenter = meshData.SortCenter,
+                        DIDDegrade = meshData.DIDDegrade,
                         SelectionSphere = meshData.SelectionSphere,
                         MemorySize = 1024 // Small overhead for the setup itself
                     };
@@ -634,6 +641,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 renderData.BoundingBox = meshData.BoundingBox;
                 renderData.SortCenter = meshData.SortCenter;
+                renderData.DIDDegrade = meshData.DIDDegrade;
                 renderData.SelectionSphere = meshData.SelectionSphere;
                 _renderData.TryAdd(meshData.ObjectId, renderData);
                 IncrementRefCount(meshData.ObjectId);
@@ -1142,6 +1150,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 TextureBatches = batchesByFormat,
                 BoundingBox = boundingBox,
                 SortCenter = gfxObj?.SortCenter ?? Vector3.Zero,
+                DIDDegrade = gfxObj != null && gfxObj.Flags.HasFlag(GfxObjFlags.HasDIDDegrade) ? gfxObj.DIDDegrade : 0,
                 SelectionSphere = new Sphere { Origin = boundingBox.Center, Radius = Vector3.Distance(boundingBox.Max, boundingBox.Min) / 2.0f }
             };
         }
@@ -1733,6 +1742,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 VertexCount = meshData.Vertices.Length,
                 Batches = renderBatches,
                 ParticleEmitters = meshData.ParticleEmitters,
+                DIDDegrade = meshData.DIDDegrade,
                 CPUPositions = meshData.Vertices.Select(v => v.Position).ToArray(),
                 CPUIndices = meshData.TextureBatches.Values.SelectMany(l => l).SelectMany(b => b.Indices).ToArray(),
                 CPUEdgeLines = meshData.EdgeLines,
