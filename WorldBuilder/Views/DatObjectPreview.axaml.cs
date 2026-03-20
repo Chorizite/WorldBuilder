@@ -358,7 +358,7 @@ namespace WorldBuilder.Views {
             PreviewDetails = null;
 
             IsSetup = type == DBObjType.Setup || type == DBObjType.EnvCell;
-            Is3D = IsSetup || type == DBObjType.GfxObj || type == DBObjType.Environment;
+            Is3D = IsSetup || type == DBObjType.GfxObj || type == DBObjType.Environment || type == DBObjType.ParticleEmitter;
             Is2D = type == DBObjType.SurfaceTexture || type == DBObjType.RenderSurface || type == DBObjType.Surface || type == DBObjType.Palette || type == DBObjType.PalSet;
             IsPalette = type == DBObjType.Palette;
             IsPalSet = type == DBObjType.PalSet;

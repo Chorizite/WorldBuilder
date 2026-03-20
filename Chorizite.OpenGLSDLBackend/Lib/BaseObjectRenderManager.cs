@@ -57,7 +57,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // Reusable arrays to avoid allocations per frame
         private DrawElementsIndirectCommand[] _commands = Array.Empty<DrawElementsIndirectCommand>();
         private ModernBatchData[] _modernBatches = Array.Empty<ModernBatchData>();
-        private readonly List<LandblockMdiCommand>[] _cullGroups = [new(), new(), new(), new()];
+        private readonly List<LandblockMdiCommand>[] _cullGroups = Enumerable.Range(0, 8).Select(_ => new List<LandblockMdiCommand>()).ToArray();
 
         protected unsafe BaseObjectRenderManager(GL gl, OpenGLGraphicsDevice graphicsDevice, ObjectMeshManager meshManager, bool createWorldBuffer = true, int initialCapacity = 4096) {
             Gl = gl;
@@ -332,19 +332,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             shader.Bind();
             shader.SetUniform("uFilterByCell", 0);
 
-            for (int i = 0; i < 4; i++) _cullGroups[i].Clear();
+            for (int i = 0; i < 8; i++) _cullGroups[i].Clear();
             foreach (var lb in landblocks) {
                 lock (lb) {
                     foreach (var kvp in lb.MdiCommands) {
                         var idx = (int)kvp.Key;
-                        if (idx < 0 || idx >= 4) continue;
+                        if (idx < 0 || idx >= 8) continue;
                         _cullGroups[idx].AddRange(kvp.Value);
                     }
                 }
             }
 
             var stride = (uint)sizeof(InstanceData);
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 8; i++) {
                 var group = _cullGroups[i];
                 if (group.Count == 0) continue;
 
@@ -358,17 +358,34 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     group.Sort((a, b) => a.SortKey.CompareTo(b.SortKey));
                 }
 
-                var cullMode = (CullMode)i;
+                var cullMode = (CullMode)(i % 4);
                 if (CurrentCullMode != cullMode) {
                     SetCullMode(cullMode);
                     CurrentCullMode = cullMode;
+                }
+
+                bool isAdditive = i >= 4;
+                if (isAdditive) {
+                    Gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
+                    shader.SetUniform("uRenderPass", (int)renderPass | 0x100);
+                }
+                else {
+                    Gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                    shader.SetUniform("uRenderPass", (int)renderPass);
                 }
 
                 uint? lastBaseInstance = null;
                 uint? lastTextureIndex = null;
 
                 foreach (var cmd in group) {
-                    if (renderPass == RenderPass.Transparent && !cmd.IsTransparent) continue;
+                    if (renderPass != RenderPass.SinglePass) {
+                        if (cmd.IsAdditive) {
+                            if (renderPass == RenderPass.Opaque) continue;
+                        }
+                        else if (!cmd.IsTransparent) {
+                            if (renderPass == RenderPass.Transparent) continue;
+                        }
+                    }
 
                     bool vaoChanged = false;
                     if (CurrentVAO != cmd.VAO) {
@@ -447,16 +464,23 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             bool needsUpload = _mdiDirty;
 
             if (needsUpload) {
-                for (int i = 0; i < 4; i++) _cullGroups[i].Clear();
+                for (int i = 0; i < 8; i++) _cullGroups[i].Clear();
                 int totalDraws = 0;
                 foreach (var lb in landblocks) {
                     lock (lb) {
                         foreach (var kvp in lb.MdiCommands) {
                             var idx = (int)kvp.Key;
-                            if (idx < 0 || idx >= 4) continue;
+                            if (idx < 0 || idx >= 8) continue;
 
                             foreach (var cmd in kvp.Value) {
-                                if (renderPass == RenderPass.Transparent && !cmd.IsTransparent) continue;
+                                if (renderPass != RenderPass.SinglePass) {
+                                    if (cmd.IsAdditive) {
+                                        if (renderPass == RenderPass.Opaque) continue;
+                                    }
+                                    else if (!cmd.IsTransparent) {
+                                        if (renderPass == RenderPass.Transparent) continue;
+                                    }
+                                }
                                 _cullGroups[idx].Add(cmd);
                                 totalDraws++;
                             }
@@ -477,7 +501,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (_modernBatches.Length < totalDraws) Array.Resize(ref _modernBatches, Math.Max(_modernBatches.Length * 2, totalDraws));
 
                 int cmdIndex = 0;
-                for (int i = 0; i < 4; i++) {
+                for (int i = 0; i < 8; i++) {
                     foreach (var cmd in _cullGroups[i]) {
                         _commands[cmdIndex] = cmd.Command;
                         _modernBatches[cmdIndex] = cmd.BatchData;
@@ -505,14 +529,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (lastDrawCount == 0) return;
 
                 // Rebuild cull groups just for draw offsets (lightweight, no GPU ops)
-                for (int i = 0; i < 4; i++) _cullGroups[i].Clear();
+                for (int i = 0; i < 8; i++) _cullGroups[i].Clear();
                 foreach (var lb in landblocks) {
                     lock (lb) {
                         foreach (var kvp in lb.MdiCommands) {
                             var idx = (int)kvp.Key;
-                            if (idx < 0 || idx >= 4) continue;
+                            if (idx < 0 || idx >= 8) continue;
                             foreach (var cmd in kvp.Value) {
-                                if (renderPass == RenderPass.Transparent && !cmd.IsTransparent) continue;
+                                if (renderPass != RenderPass.SinglePass) {
+                                    if (cmd.IsAdditive) {
+                                        if (renderPass == RenderPass.Opaque) continue;
+                                    }
+                                    else if (!cmd.IsTransparent) {
+                                        if (renderPass == RenderPass.Transparent) continue;
+                                    }
+                                }
                                 _cullGroups[idx].Add(cmd);
                             }
                         }
@@ -534,14 +565,24 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             Gl.MemoryBarrier(MemoryBarrierMask.ShaderStorageBarrierBit | MemoryBarrierMask.CommandBarrierBit);
 
             int currentDrawOffset = 0;
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 8; i++) {
                 var group = _cullGroups[i];
                 if (group.Count == 0) continue;
 
-                var cullMode = (CullMode)i;
+                var cullMode = (CullMode)(i % 4);
                 if (CurrentCullMode != cullMode) {
                     SetCullMode(cullMode);
                     CurrentCullMode = cullMode;
+                }
+
+                bool isAdditive = i >= 4;
+                if (isAdditive) {
+                    Gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
+                    shader.SetUniform("uRenderPass", (int)renderPass | 0x100);
+                }
+                else {
+                    Gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                    shader.SetUniform("uRenderPass", (int)renderPass);
                 }
 
                 shader.SetUniform("uDrawIDOffset", currentDrawOffset);
@@ -606,10 +647,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 foreach (var batch in renderData.Batches) {
                     if (renderPass != RenderPass.SinglePass) {
-                        if (batch.IsTransparent && renderPass == RenderPass.Opaque) {
-                            // Transparent batches should be rendered in both passes
+                        if (batch.IsAdditive) {
+                            if (renderPass == RenderPass.Opaque) continue;
                         }
-                        else if (batch.IsTransparent != (renderPass == RenderPass.Transparent)) continue;
+                        else if (!batch.IsTransparent) {
+                            if (renderPass == RenderPass.Transparent) continue;
+                        }
+                    }
+
+                    if (batch.IsAdditive) {
+                        Gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
+                        shader.SetUniform("uRenderPass", (int)renderPass | 0x100);
+                    }
+                    else {
+                        Gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                        shader.SetUniform("uRenderPass", (int)renderPass);
                     }
 
                     var cullMode = showCulling ? batch.CullMode : CullMode.None;
@@ -663,22 +715,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             shader.Bind();
             shader.SetUniform("uFilterByCell", 0);
 
-            var batchesByCullMode = new Dictionary<CullMode, List<(ObjectRenderBatch batch, int instanceCount, int instanceOffset)>>();
+            var batchesByCullMode = new Dictionary<int, List<(ObjectRenderBatch batch, int instanceCount, int instanceOffset)>>();
             int totalDraws = 0;
 
             foreach (var call in drawCalls) {
                 foreach (var batch in call.renderData.Batches) {
                     if (renderPass != RenderPass.SinglePass) {
-                        if (batch.IsTransparent && renderPass == RenderPass.Opaque) {
-                            // Transparent batches should be rendered in both passes
+                        if (batch.IsAdditive) {
+                            if (renderPass == RenderPass.Opaque) continue;
                         }
-                        else if (batch.IsTransparent != (renderPass == RenderPass.Transparent)) continue;
+                        else if (!batch.IsTransparent) {
+                            if (renderPass == RenderPass.Transparent) continue;
+                        }
                     }
 
                     var cullMode = showCulling ? batch.CullMode : CullMode.None;
-                    if (!batchesByCullMode.TryGetValue(cullMode, out var list)) {
+                    var groupIdx = (int)cullMode + (batch.IsAdditive ? 4 : 0);
+                    if (!batchesByCullMode.TryGetValue(groupIdx, out var list)) {
                         list = new();
-                        batchesByCullMode[cullMode] = list;
+                        batchesByCullMode[groupIdx] = list;
                     }
                     list.Add((batch, call.count, call.offset));
                     totalDraws++;
@@ -765,8 +820,19 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             int currentDrawOffset = 0;
             foreach (var group in batchesByCullMode) {
-                if (CurrentCullMode != group.Key) {
-                    SetCullMode(group.Key);
+                var cullMode = (CullMode)(group.Key % 4);
+                if (CurrentCullMode != cullMode) {
+                    SetCullMode(cullMode);
+                }
+
+                bool isAdditive = group.Key >= 4;
+                if (isAdditive) {
+                    Gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
+                    shader.SetUniform("uRenderPass", (int)renderPass | 0x100);
+                }
+                else {
+                    Gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                    shader.SetUniform("uRenderPass", (int)renderPass);
                 }
 
                 shader.SetUniform("uDrawIDOffset", currentDrawOffset);

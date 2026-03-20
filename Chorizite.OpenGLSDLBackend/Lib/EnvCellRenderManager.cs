@@ -392,10 +392,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             list.Add(data);
         }
 
-        public override void Render(RenderPass renderPass) {
-            lock (_renderLock) {
-                Render(renderPass, null);
-            }
+        public override unsafe void Render(RenderPass renderPass) {
+            Render(renderPass, null);
         }
 
         public unsafe void Render(RenderPass renderPass, HashSet<uint>? filter) {
@@ -509,6 +507,37 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 _shader.SetUniform("uRenderPass", (int)renderPass);
                 Gl.BindVertexArray(0);
                 CurrentVAO = 0;
+            }
+        }
+
+        public override void RenderParticles() {
+            RenderParticles(null);
+        }
+
+        public override void RenderParticles(HashSet<uint>? filter) {
+            if (!_showEnvCells) return;
+
+            foreach (var (key, lb) in _landblocks) {
+                if (!lb.InstancesReady || Math.Abs(lb.GridX - _cameraLbX) > ParticleRenderDistance || Math.Abs(lb.GridY - _cameraLbY) > ParticleRenderDistance) continue;
+
+                foreach (var emitter in lb.ParticleEmitters) {
+                    if (filter != null) {
+                        // Check if this emitter is inside one of our filtered cells
+                        if (emitter.ParentLandblock != null && emitter.ParentInstanceId.HasValue) {
+                            var instance = emitter.ParentLandblock.Instances.FirstOrDefault(i => i.InstanceId == emitter.ParentInstanceId.Value);
+                            if (!instance.Equals(default(SceneryInstance))) {
+                                var cellId = instance.CurrentPreviewCellId != 0 ? instance.CurrentPreviewCellId : instance.InstanceId.DataId;
+                                if (filter.Contains(cellId)) {
+                                    emitter.Render(GraphicsDevice.ParticleBatcher);
+                                }
+                            }
+                        }
+                    }
+                    else {
+                        // No filter (RenderOutsideIn or fallback), render all nearby EnvCell particles
+                        emitter.Render(GraphicsDevice.ParticleBatcher);
+                    }
+                }
             }
         }
 

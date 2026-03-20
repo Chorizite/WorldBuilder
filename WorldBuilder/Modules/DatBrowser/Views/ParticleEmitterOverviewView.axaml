@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:WorldBuilder.Modules.DatBrowser.ViewModels"
+             xmlns:v="using:WorldBuilder.Modules.DatBrowser.Views"
+             xmlns:views="using:WorldBuilder.Views"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="800"
+             x:Class="WorldBuilder.Modules.DatBrowser.Views.ParticleEmitterOverviewView"
+             x:DataType="vm:ParticleEmitterOverviewViewModel">
+
+    <ScrollViewer>
+        <StackPanel Margin="10" Spacing="10">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+                <TextBlock Text="ID:" FontWeight="Bold"/>
+                <TextBlock Text="{Binding ParticleEmitter.Id, StringFormat='0x{0:X8}'}"/>
+            </StackPanel>
+
+            <!-- Render area removed as it's now in the center area -->
+
+            <StackPanel Orientation="Horizontal" Spacing="5">
+                <TextBlock Text="Emitter Type:" FontWeight="Bold"/>
+                <TextBlock Text="{Binding EmitterType}"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="5">
+                <TextBlock Text="Particle Type:" FontWeight="Bold"/>
+                <TextBlock Text="{Binding ParticleType}"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="5">
+                <TextBlock Text="Max Particles:" FontWeight="Bold"/>
+                <TextBlock Text="{Binding MaxParticles}"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="5">
+                <TextBlock Text="Birthrate:" FontWeight="Bold"/>
+                <TextBlock Text="{Binding Birthrate, StringFormat='\{0:N4\}'}"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="5">
+                <TextBlock Text="Lifespan:" FontWeight="Bold"/>
+                <TextBlock Text="{Binding Lifespan, StringFormat='\{0:N4\}'}"/>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

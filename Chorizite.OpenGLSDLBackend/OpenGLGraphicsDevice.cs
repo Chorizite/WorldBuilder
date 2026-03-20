@@ -48,6 +48,12 @@ namespace Chorizite.OpenGLSDLBackend {
         public uint InstanceVBO { get; private set; }
         public void* InstanceVBOPtr { get; private set; }
 
+        public uint SharedQuadVBO { get; private set; }
+        public uint SharedDebugVAO { get; private set; }
+        public uint SharedDebugInstanceVBO { get; private set; }
+
+        public Lib.ParticleBatcher ParticleBatcher { get; private set; } = null!;
+
         /// <summary>OpenGL sampler object with TextureWrapMode.Repeat (for meshes with wrapping UVs).</summary>
         public uint WrapSampler { get; private set; }
         /// <summary>OpenGL sampler object with TextureWrapMode.ClampToEdge (for meshes without wrapping UVs).</summary>
@@ -56,6 +62,14 @@ namespace Chorizite.OpenGLSDLBackend {
         private ManagedGLUniformBuffer? _sceneDataBuffer;
         /// <summary>Shared SceneData UBO.</summary>
         public ManagedGLUniformBuffer SceneDataBuffer => _sceneDataBuffer!;
+
+        private Chorizite.OpenGLSDLBackend.Lib.SceneData _currentSceneData;
+        public Chorizite.OpenGLSDLBackend.Lib.SceneData CurrentSceneData => _currentSceneData;
+
+        public void SetSceneData(ref Chorizite.OpenGLSDLBackend.Lib.SceneData data) {
+            _currentSceneData = data;
+            SceneDataBuffer.SetData(ref data);
+        }
 
         private int _instanceBufferCapacity = 0;
         private int _instanceBufferStride = 0;
@@ -119,6 +133,70 @@ namespace Chorizite.OpenGLSDLBackend {
             }
 
             _sceneDataBuffer = new ManagedGLUniformBuffer(this, BufferUsage.Dynamic, Marshal.SizeOf<Chorizite.OpenGLSDLBackend.Lib.SceneData>());
+
+            InitializeSharedDebugResources();
+
+            ParticleBatcher = new Lib.ParticleBatcher(this);
+        }
+
+        private void InitializeSharedDebugResources() {
+            // Unit quad vertices for two triangles (0 to 1 for length, -0.5 to 0.5 for thickness)
+            float[] quadVertices = {
+                0.0f, -0.5f,
+                1.0f, -0.5f,
+                1.0f,  0.5f,
+                0.0f, -0.5f,
+                1.0f,  0.5f,
+                0.0f,  0.5f
+            };
+
+            GL.GenBuffers(1, out uint quadVbo);
+            SharedQuadVBO = quadVbo;
+            GL.BindBuffer(GLEnum.ArrayBuffer, SharedQuadVBO);
+            fixed (float* pQuad = quadVertices) {
+                GL.BufferData(GLEnum.ArrayBuffer, (nuint)(quadVertices.Length * sizeof(float)), pQuad, GLEnum.StaticDraw);
+            }
+
+            GL.GenBuffers(1, out uint debugInstanceVbo);
+            SharedDebugInstanceVBO = debugInstanceVbo;
+            // Initial capacity for debug instances
+            GL.BindBuffer(GLEnum.ArrayBuffer, SharedDebugInstanceVBO);
+            GL.BufferData(GLEnum.ArrayBuffer, (nuint)(1024 * 44), (void*)0, GLEnum.StreamDraw); // 44 bytes is sizeof(LineInstance)
+
+            GL.GenVertexArrays(1, out uint debugVao);
+            SharedDebugVAO = debugVao;
+            GL.BindVertexArray(SharedDebugVAO);
+
+            // Quad Pos attribute (location 0)
+            GL.BindBuffer(GLEnum.ArrayBuffer, SharedQuadVBO);
+            GL.EnableVertexAttribArray(0);
+            GL.VertexAttribPointer(0, 2, GLEnum.Float, false, 2 * sizeof(float), (void*)0);
+
+            // Instance attributes
+            GL.BindBuffer(GLEnum.ArrayBuffer, SharedDebugInstanceVBO);
+            uint lineInstanceSize = 44; // Marshal.SizeOf<LineInstance>() - we'll hardcode or use a constant later
+
+            // aStart (location 1)
+            GL.EnableVertexAttribArray(1);
+            GL.VertexAttribPointer(1, 3, GLEnum.Float, false, lineInstanceSize, (void*)0);
+            GL.VertexAttribDivisor(1, 1);
+
+            // aEnd (location 2)
+            GL.EnableVertexAttribArray(2);
+            GL.VertexAttribPointer(2, 3, GLEnum.Float, false, lineInstanceSize, (void*)12); // OffsetOf End
+            GL.VertexAttribDivisor(2, 1);
+
+            // aColor (location 3)
+            GL.EnableVertexAttribArray(3);
+            GL.VertexAttribPointer(3, 4, GLEnum.Float, false, lineInstanceSize, (void*)24); // OffsetOf Color
+            GL.VertexAttribDivisor(3, 1);
+
+            // aThickness (location 4)
+            GL.EnableVertexAttribArray(4);
+            GL.VertexAttribPointer(4, 1, GLEnum.Float, false, lineInstanceSize, (void*)40); // OffsetOf Thickness
+            GL.VertexAttribDivisor(4, 1);
+
+            GL.BindVertexArray(0);
         }
 
         public void EnsureInstanceBufferCapacity(int count, int stride, bool forceOrphan = false) {
@@ -510,7 +588,14 @@ namespace Chorizite.OpenGLSDLBackend {
             var wrapSampler = WrapSampler;
             var clampSampler = ClampSampler;
 
+            var sharedQuadVbo = SharedQuadVBO;
+            var sharedDebugInstanceVbo = SharedDebugInstanceVBO;
+            var sharedDebugVao = SharedDebugVAO;
+
             QueueGLAction(gl => {
+                if (sharedQuadVbo != 0) gl.DeleteBuffer(sharedQuadVbo);
+                if (sharedDebugInstanceVbo != 0) gl.DeleteBuffer(sharedDebugInstanceVbo);
+                if (sharedDebugVao != 0) gl.DeleteVertexArray(sharedDebugVao);
                 if (instanceVBO != 0) {
                     gl.DeleteBuffer(instanceVBO);
                     if (instanceBufferCapacity > 0) {
@@ -531,6 +616,7 @@ namespace Chorizite.OpenGLSDLBackend {
             ClampSampler = 0;
             _sceneDataBuffer?.Dispose();
             _sceneDataBuffer = null;
+            ParticleBatcher?.Dispose();
         }
 
         public override IUniformBuffer CreateUniformBuffer(BufferUsage usage, int size) {

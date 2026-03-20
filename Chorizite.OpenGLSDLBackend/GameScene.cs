@@ -112,7 +112,6 @@ public class GameScene : IDisposable {
 
         if (_portalManager != null) {
             _portalManager.RenderDistance = _state.ObjectRenderDistance;
-            _portalManager.ShowPortals = _state.ShowPortals;
         }
 
         if (_skyboxManager != null) {
@@ -157,6 +156,7 @@ public class GameScene : IDisposable {
     private Lib.BackendGizmoDrawer? _gizmoDrawer;
 
     private uint _currentEnvCellId;
+    private HashSet<uint>? _visibleEnvCells;
 
     /// <summary>
     /// Gets the number of pending terrain uploads.
@@ -232,12 +232,6 @@ public class GameScene : IDisposable {
     /// Gets the 3D camera.
     /// </summary>
     public Camera3D Camera3D => _cameraController.Camera3D;
-
-    /// <summary>
-    /// Gets the current active camera.
-    /// </summary>
-    public ICamera Camera => _cameraController.CurrentCamera;
-
     /// <summary>
     /// Gets the current active camera.
     /// </summary>
@@ -431,7 +425,6 @@ public class GameScene : IDisposable {
 
         _portalManager = new PortalRenderManager(_gl, _log, landscapeDoc, dats, _portalService, _graphicsDevice, _visibilityManager.CullingFrustum);
         _portalManager.RenderDistance = _state.ObjectRenderDistance;
-        _portalManager.ShowPortals = _state.ShowPortals;
         if (_initialized && _stencilShader != null) {
             _portalManager.InitializeStencilShader(_stencilShader);
         }
@@ -878,7 +871,7 @@ public class GameScene : IDisposable {
             SpecularPower = 32.0f,
             ViewportSize = new Vector2(_width, _height)
         };
-        _graphicsDevice.SceneDataBuffer.SetData(ref sceneData);
+        _graphicsDevice.SetSceneData(ref sceneData);
         _graphicsDevice.SceneDataBuffer.Bind(0);
 
         var sw = Stopwatch.StartNew();
@@ -898,6 +891,7 @@ public class GameScene : IDisposable {
 
             _visibilityManager.UpdateFrustum(snapshotVP);
             _visibilityManager.PrepareVisibility(_state, currentEnvCellId, _portalManager, _envCellManager, snapshotVP, isInside, out var visibleEnvCells);
+            _visibleEnvCells = visibleEnvCells;
 
             _portalManager?.ResetNeedsPrepare();
 
@@ -972,8 +966,10 @@ public class GameScene : IDisposable {
             _terrainManager.Render(RenderPass.Opaque);
         }
 
-        // Render Portals (debug outlines)
-        _portalManager?.SubmitDebugShapes(_debugRenderer);
+        // Render Portals (debug outlines) - only when inspector tool has bounding boxes enabled
+        if (_activeTool is InspectorTool portalInspectorTool && portalInspectorTool.ShowBoundingBoxes && portalInspectorTool.SelectPortals) {
+            _portalManager?.SubmitDebugShapes(_debugRenderer);
+        }
 
         // Pass 1: Opaque Scenery & Static Objects (exterior)
         _meshManager?.GenerateMipmaps();
@@ -1018,6 +1014,8 @@ public class GameScene : IDisposable {
         if (_state.EnableTransparencyPass) {
             _sceneryShader?.Bind();
             _sceneryShader?.SetUniform("uRenderPass", (int)RenderPass.Transparent);
+            _gl.Enable(EnableCap.Blend);
+            _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
             _gl.DepthMask(false);
 
             if (_state.ShowScenery) {
@@ -1028,7 +1026,28 @@ public class GameScene : IDisposable {
                 _staticObjectManager?.Render(RenderPass.Transparent);
             }
 
+            // Global particle render
+            var view = _graphicsDevice.CurrentSceneData.View;
+            var up = new Vector3(view.M12, view.M22, view.M32);
+            var right = new Vector3(view.M11, view.M21, view.M31);
+            _graphicsDevice.ParticleBatcher.Begin(_graphicsDevice.CurrentSceneData.ViewProjection, up, right);
+
+            if (_state.ShowParticles) {
+                if (_state.ShowScenery) {
+                    _sceneryManager?.RenderParticles();
+                }
+                if (_state.ShowStaticObjects || _state.ShowBuildings) {
+                    _staticObjectManager?.RenderParticles();
+                }
+                if (_state.ShowEnvCells) {
+                    _envCellManager?.RenderParticles(_visibleEnvCells);
+                }
+            }
+
+            _graphicsDevice.ParticleBatcher.End();
+
             _gl.DepthMask(true);
+            _gl.Disable(EnableCap.Blend);
         }
 
         if (_performanceTracker != null) _performanceTracker.TransparentTime = sw.Elapsed.TotalMilliseconds;
@@ -1057,7 +1076,7 @@ public class GameScene : IDisposable {
                 debugSettings.SelectScenery |= inspectorTool.SelectScenery && _state.ShowScenery;
                 debugSettings.SelectEnvCells |= inspectorTool.SelectEnvCells && _state.ShowEnvCells;
                 debugSettings.SelectEnvCellStaticObjects |= inspectorTool.SelectEnvCellStaticObjects && _state.ShowEnvCells;
-                debugSettings.SelectPortals |= inspectorTool.SelectPortals && _state.ShowPortals;
+                debugSettings.SelectPortals |= inspectorTool.SelectPortals;
             }
 
             if (_activeTool is ObjectManipulationTool manipulationTool && manipulationTool.ShowBoundingBoxes) {

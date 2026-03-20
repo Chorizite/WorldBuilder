@@ -589,6 +589,9 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             if (obj is EnvCell envCell) {
                 return new EnvCellOverviewViewModel(envCell, _dats);
             }
+            if (obj is ParticleEmitter particleEmitter) {
+                return new ParticleEmitterOverviewViewModel(particleEmitter, _dats);
+            }
             return null;
         }
 

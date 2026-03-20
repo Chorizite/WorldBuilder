@@ -148,13 +148,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public int IsTransformOnlyUpdate;
 
         // Optimized rendering data
+        public List<ActiveParticleEmitter> ParticleEmitters { get; } = new();
         public int InstanceBufferOffset { get; set; } = -1;
         public int InstanceCount { get; set; }
 
         /// <summary>
         /// Pre-calculated draw commands and batch data for this landblock.
-        /// Keyed by CullMode to allow grouped rendering.
+        /// Keyed by (int)CullMode + (isAdditive ? 4 : 0) to allow grouped rendering.
         /// </summary>
-        public Dictionary<DatReaderWriter.Enums.CullMode, List<LandblockMdiCommand>> MdiCommands { get; set; } = new();
+        public Dictionary<int, List<LandblockMdiCommand>> MdiCommands { get; set; } = new();
     }
 }

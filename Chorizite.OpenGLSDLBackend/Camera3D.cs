@@ -87,6 +87,12 @@ public class Camera3D : CameraBase {
     private float _speedMultiplier = 2.0f; // speed multiplier when shift is held
 
     /// <summary>
+    /// Gets a value indicating whether the camera is currently moving or turning.
+    /// </summary>
+    public bool IsMoving => _moveForward || _moveBackward || _moveLeft || _moveRight || _moveUp || _moveDown ||
+                            _turnLeft || _turnRight || _turnUp || _turnDown || _isLooking;
+
+    /// <summary>
     /// Gets or sets the field of view in degrees.
     /// </summary>
     public override float FieldOfView {

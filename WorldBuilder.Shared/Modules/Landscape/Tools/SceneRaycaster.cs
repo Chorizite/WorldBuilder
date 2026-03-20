@@ -46,8 +46,7 @@ namespace WorldBuilder.Shared.Modules.Landscape.Tools {
             }
 
             // Portals
-            if (selectPortals && context.EditorState.ShowPortals &&
-                raycastService.RaycastPortals(origin, direction, out var portalHit)) {
+            if (selectPortals && raycastService.RaycastPortals(origin, direction, out var portalHit)) {
                 if (portalHit.Distance < bestHit.Distance) {
                     bestHit = portalHit;
                 }

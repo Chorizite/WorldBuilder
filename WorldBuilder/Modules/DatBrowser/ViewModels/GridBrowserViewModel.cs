@@ -4,14 +4,14 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using WorldBuilder.ViewModels;
-using DatReaderWriter.DBObjs;
 using DatReaderWriter;
-using CommunityToolkit.Mvvm.Input;
-using WorldBuilder.Shared.Services;
-using CommunityToolkit.Mvvm.Messaging;
+using DatReaderWriter.DBObjs;
 using DatReaderWriter.Enums;
-using WorldBuilder.Services;
+using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using WorldBuilder.Lib.Settings;
+using WorldBuilder.Services;
+using WorldBuilder.Shared.Services;
 using System.Numerics;
 
 
@@ -134,6 +134,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         }
 
         public void SetFileIds(IEnumerable<uint> fileIds) {
+            var oldFileIds = _fileIds;
             _fileIds = fileIds ?? Enumerable.Empty<uint>();
             OnPropertyChanged(nameof(FileIds));
         }

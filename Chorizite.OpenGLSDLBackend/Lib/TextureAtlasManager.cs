@@ -12,6 +12,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     /// Deduplicates textures by a TextureKey and supports reference counting.
     /// </summary>
     public class TextureAtlasManager : IDisposable {
+        private static uint _nextSlot = 1;
         private readonly OpenGLGraphicsDevice _graphicsDevice;
         private readonly int _textureWidth;
         private readonly int _textureHeight;
@@ -22,12 +23,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private int _nextIndex = 0;
         private const int InitialCapacity = 32;
 
+        public uint Slot { get; }
         public ManagedGLTextureArray TextureArray { get; private set; } = null!;
         public int UsedSlots => _textureIndices.Count;
         public int TotalSlots => TextureArray?.Size ?? InitialCapacity;
         public int FreeSlots => TotalSlots - UsedSlots;
 
         public TextureAtlasManager(OpenGLGraphicsDevice graphicsDevice, int width, int height, TextureFormat format = TextureFormat.RGBA8) {
+            Slot = _nextSlot++;
             _graphicsDevice = graphicsDevice;
             _textureWidth = width;
             _textureHeight = height;

@@ -11,7 +11,7 @@ namespace WorldBuilder.Shared.Lib {
         [ObservableProperty] private bool _showStaticObjects = true;
         [ObservableProperty] private bool _showBuildings = true;
         [ObservableProperty] private bool _showEnvCells = true;
-        [ObservableProperty] private bool _showPortals = true;
+        [ObservableProperty] private bool _showParticles = true;
         [ObservableProperty] private bool _showSkybox = true;
         [ObservableProperty] private bool _showDebugShapes = true;
         [ObservableProperty] private bool _showUnwalkableSlopes = false;

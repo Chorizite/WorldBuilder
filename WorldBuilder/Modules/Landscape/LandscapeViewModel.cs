@@ -905,7 +905,7 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
         EditorState.ShowStaticObjects = _settings.Landscape.Rendering.ShowStaticObjects;
         EditorState.ShowBuildings = _settings.Landscape.Rendering.ShowBuildings;
         EditorState.ShowEnvCells = _settings.Landscape.Rendering.ShowEnvCells;
-        EditorState.ShowPortals = _settings.Landscape.Rendering.ShowPortals;
+        EditorState.ShowParticles = _settings.Landscape.Rendering.ShowParticles;
         EditorState.ShowSkybox = _settings.Landscape.Rendering.ShowSkybox;
         EditorState.ShowUnwalkableSlopes = _settings.Landscape.Rendering.ShowUnwalkableSlopes;
         EditorState.ShowDisqualifiedScenery = _settings.Landscape.Rendering.ShowDisqualifiedScenery;
@@ -939,7 +939,7 @@ public partial class LandscapeViewModel : ViewModelBase, ILandscapeRaycastServic
             case nameof(EditorState.ShowStaticObjects): _settings.Landscape.Rendering.ShowStaticObjects = EditorState.ShowStaticObjects; break;
             case nameof(EditorState.ShowBuildings): _settings.Landscape.Rendering.ShowBuildings = EditorState.ShowBuildings; break;
             case nameof(EditorState.ShowEnvCells): _settings.Landscape.Rendering.ShowEnvCells = EditorState.ShowEnvCells; break;
-            case nameof(EditorState.ShowPortals): _settings.Landscape.Rendering.ShowPortals = EditorState.ShowPortals; break;
+            case nameof(EditorState.ShowParticles): _settings.Landscape.Rendering.ShowParticles = EditorState.ShowParticles; break;
             case nameof(EditorState.ShowSkybox): _settings.Landscape.Rendering.ShowSkybox = EditorState.ShowSkybox; break;
             case nameof(EditorState.ShowUnwalkableSlopes): _settings.Landscape.Rendering.ShowUnwalkableSlopes = EditorState.ShowUnwalkableSlopes; break;
             case nameof(EditorState.ObjectRenderDistance): _settings.Landscape.Rendering.ObjectRenderDistance = EditorState.ObjectRenderDistance; break;

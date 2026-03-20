@@ -32,55 +32,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _gl = gl;
             _graphicsDevice = graphicsDevice;
 
-            _gl.GenVertexArrays(1, out _vao);
-            _gl.GenBuffers(1, out _quadVbo);
-            _gl.GenBuffers(1, out _instanceVbo);
-
-            _gl.BindVertexArray(_vao);
-
-            // Unit quad vertices for two triangles (0 to 1 for length, -0.5 to 0.5 for thickness)
-            float[] quadVertices = {
-                0.0f, -0.5f,
-                1.0f, -0.5f,
-                1.0f,  0.5f,
-                0.0f, -0.5f,
-                1.0f,  0.5f,
-                0.0f,  0.5f
-            };
-
-            _gl.BindBuffer(GLEnum.ArrayBuffer, _quadVbo);
-            fixed (float* pQuad = quadVertices) {
-                _gl.BufferData(GLEnum.ArrayBuffer, (nuint)(quadVertices.Length * sizeof(float)), pQuad, GLEnum.StaticDraw);
-            }
-
-            // Quad Pos attribute (location 0)
-            _gl.EnableVertexAttribArray(0);
-            _gl.VertexAttribPointer(0, 2, GLEnum.Float, false, 2 * sizeof(float), (void*)0);
-
-            // Instance attributes
-            _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVbo);
-
-            // aStart (location 1)
-            _gl.EnableVertexAttribArray(1);
-            _gl.VertexAttribPointer(1, 3, GLEnum.Float, false, (uint)Marshal.SizeOf<LineInstance>(), (void*)0);
-            _gl.VertexAttribDivisor(1, 1);
-
-            // aEnd (location 2)
-            _gl.EnableVertexAttribArray(2);
-            _gl.VertexAttribPointer(2, 3, GLEnum.Float, false, (uint)Marshal.SizeOf<LineInstance>(), (void*)Marshal.OffsetOf<LineInstance>("End"));
-            _gl.VertexAttribDivisor(2, 1);
-
-            // aColor (location 3)
-            _gl.EnableVertexAttribArray(3);
-            _gl.VertexAttribPointer(3, 4, GLEnum.Float, false, (uint)Marshal.SizeOf<LineInstance>(), (void*)Marshal.OffsetOf<LineInstance>("Color"));
-            _gl.VertexAttribDivisor(3, 1);
-
-            // aThickness (location 4)
-            _gl.EnableVertexAttribArray(4);
-            _gl.VertexAttribPointer(4, 1, GLEnum.Float, false, (uint)Marshal.SizeOf<LineInstance>(), (void*)Marshal.OffsetOf<LineInstance>("Thickness"));
-            _gl.VertexAttribDivisor(4, 1);
-
-            _gl.BindVertexArray(0);
+            _vao = graphicsDevice.SharedDebugVAO;
+            _quadVbo = graphicsDevice.SharedQuadVBO;
+            _instanceVbo = graphicsDevice.SharedDebugInstanceVBO;
         }
 
         public void SetShader(IShader shader) {
@@ -261,7 +215,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             _gl.BindBuffer(GLEnum.ArrayBuffer, _instanceVbo);
             var instanceSpan = CollectionsMarshal.AsSpan(_lineInstances);
-            _gl.BufferData(GLEnum.ArrayBuffer, (nuint)(_lineInstances.Count * Marshal.SizeOf<LineInstance>()), instanceSpan, GLEnum.StreamDraw);
+            var dataSize = (nuint)(_lineInstances.Count * Marshal.SizeOf<LineInstance>());
+            
+            _gl.BufferData(GLEnum.ArrayBuffer, dataSize, null, GLEnum.StreamDraw);
+            fixed (void* ptr = instanceSpan) {
+                _gl.BufferSubData(GLEnum.ArrayBuffer, 0, dataSize, ptr);
+            }
 
             _gl.DrawArraysInstanced(GLEnum.Triangles, 0, 6, (uint)_lineInstances.Count);
 
@@ -271,14 +230,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void Dispose() {
-            var qVbo = _quadVbo;
-            var iVbo = _instanceVbo;
-            var vao = _vao;
-            _graphicsDevice.QueueGLAction(gl => {
-                if (qVbo != 0) gl.DeleteBuffer(qVbo);
-                if (iVbo != 0) gl.DeleteBuffer(iVbo);
-                if (vao != 0) gl.DeleteVertexArray(vao);
-            });
+            _lineInstances.Clear();
         }
     }
 }

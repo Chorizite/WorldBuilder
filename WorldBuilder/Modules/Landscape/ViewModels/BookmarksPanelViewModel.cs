@@ -51,8 +51,8 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
         [RelayCommand]
         public async Task AddBookmark() {
             var gameScene = _landScapeViewModel.GameScene;
-            var loc = Position.FromGlobal(gameScene.Camera.Position, _landScapeViewModel.ActiveDocument?.Region, gameScene.CurrentEnvCellId != 0 ? gameScene.CurrentEnvCellId : null);
-            loc.Rotation = gameScene.Camera.Rotation;
+            var loc = Position.FromGlobal(gameScene.CurrentCamera.Position, _landScapeViewModel.ActiveDocument?.Region, gameScene.CurrentEnvCellId != 0 ? gameScene.CurrentEnvCellId : null);
+            loc.Rotation = gameScene.CurrentCamera.Rotation;
 
             var bookmarkName = $"{loc.LandblockX:X2}{loc.LandblockY:X2} [{loc.LocalX:0} {loc.LocalY:0} {loc.LocalZ:0}]";
             var bookmarkLocation = loc.ToLandblockString();
@@ -132,8 +132,8 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
             if (node?.Node is not Bookmark bookmark) return;
 
             var gameScene = _landScapeViewModel.GameScene;
-            var loc = Position.FromGlobal(gameScene.Camera.Position, _landScapeViewModel.ActiveDocument?.Region, gameScene.CurrentEnvCellId != 0 ? gameScene.CurrentEnvCellId : null);
-            loc.Rotation = gameScene.Camera.Rotation;
+            var loc = Position.FromGlobal(gameScene.CurrentCamera.Position, _landScapeViewModel.ActiveDocument?.Region, gameScene.CurrentEnvCellId != 0 ? gameScene.CurrentEnvCellId : null);
+            loc.Rotation = gameScene.CurrentCamera.Rotation;
 
             // Update in-place
             bookmark.Location = loc.ToLandblockString();

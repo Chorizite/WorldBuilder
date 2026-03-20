@@ -46,6 +46,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
     }
 
     /// <summary>
+    /// Staged data for a particle emitter to be created on the GL thread.
+    /// </summary>
+    public struct StagedEmitter {
+        public ParticleEmitter Emitter;
+        public uint PartIndex;
+        public Matrix4x4 Offset;
+    }
+
+    /// <summary>
     /// CPU-side mesh data prepared on a background thread.
     /// Contains vertex data and per-batch index/texture info, but NO GPU resources.
     /// </summary>
@@ -61,11 +70,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// <summary>For Setup objects: parts with their local transforms.</summary>
         public List<(ulong GfxObjId, Matrix4x4 Transform)> SetupParts { get; set; } = new();
 
+        /// <summary>Particle emitters from physics scripts.</summary>
+        public List<StagedEmitter> ParticleEmitters { get; set; } = new();
+
         /// <summary>Per-format texture atlas data (to be uploaded to GPU on main thread).</summary>
         public Dictionary<(int Width, int Height, TextureFormat Format), List<TextureBatchData>> TextureBatches { get; set; } = new();
 
         /// <summary>Local bounding box.</summary>
         public BoundingBox BoundingBox { get; set; }
+
+        /// <summary>Approximate center point used for depth sorting / transparency ordering.</summary>
+        public Vector3 SortCenter { get; set; }
+
+        /// <summary>DataID of a simpler GfxObj to use at long distance / low quality, or GfxObjDegradeInfo.</summary>
+        public uint DIDDegrade { get; set; }
 
         /// <summary>Sphere used for mouse selection.</summary>
         public Sphere? SelectionSphere { get; set; }
@@ -99,6 +117,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public List<ushort> Indices { get; set; } = new();
         public DatReaderWriter.Enums.CullMode CullMode { get; set; }
         public bool IsTransparent { get; set; }
+        public bool IsAdditive { get; set; }
         public bool HasWrappingUVs { get; set; }
     }
 
@@ -113,6 +132,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public bool IsSetup { get; set; }
         public List<(ulong GfxObjId, Matrix4x4 Transform)> SetupParts { get; set; } = new();
 
+        /// <summary>Particle emitters from physics scripts.</summary>
+        public List<StagedEmitter> ParticleEmitters { get; set; } = new();
+
         /// <summary>CPU-side vertex positions for raycasting.</summary>
         public Vector3[] CPUPositions { get; set; } = Array.Empty<Vector3>();
 
@@ -124,6 +146,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         /// <summary>Local bounding box.</summary>
         public BoundingBox BoundingBox { get; set; }
+
+        /// <summary>Approximate center point used for depth sorting / transparency ordering.</summary>
+        public Vector3 SortCenter { get; set; }
+
+        /// <summary>DataID of a simpler GfxObj to use at long distance / low quality, or GfxObjDegradeInfo.</summary>
+        public uint DIDDegrade { get; set; }
 
         /// <summary>Sphere used for mouse selection.</summary>
         public Sphere? SelectionSphere { get; set; }
@@ -146,6 +174,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public TextureAtlasManager.TextureKey Key { get; set; }
         public DatReaderWriter.Enums.CullMode CullMode { get; set; }
         public bool IsTransparent { get; set; }
+        public bool IsAdditive { get; set; }
         public bool HasWrappingUVs { get; set; }
 
         // Modern rendering path fields
@@ -164,6 +193,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly IDatReaderWriter _dats;
         private readonly ILogger _logger;
 
+        internal IDatReaderWriter Dats => _dats;
+
         public bool IsDisposed { get; private set; }
         private readonly ConcurrentDictionary<ulong, ObjectRenderData> _renderData = new();
         private readonly ConcurrentDictionary<ulong, int> _usageCount = new();
@@ -173,6 +204,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // LRU Cache for Unused objects
         private readonly LinkedList<ulong> _lruList = new();
         private readonly long _maxGpuMemory = 1024 * 1024 * 1024; // 1GB
+        private readonly int _maxCachedObjects = 50; // Max number of cached objects (count-based limit)
         private long _currentGpuMemory = 0;
 
         // Shared atlases grouped by (Width, Height, Format)
@@ -181,10 +213,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // CPU-side cache for prepared mesh data (to avoid re-reading/decoding from DAT)
         private readonly Dictionary<ulong, ObjectMeshData> _cpuMeshCache = new();
         private readonly LinkedList<ulong> _cpuLruList = new();
-        private readonly int _maxCpuCacheSize = 1000;
+        private readonly int _maxCpuCacheSize = 100;
+
+        private readonly ConcurrentQueue<ObjectMeshData> _stagedMeshData = new();
+        public ConcurrentQueue<ObjectMeshData> StagedMeshData => _stagedMeshData;
 
         // Cache for decoded textures to avoid redundant BCn decoding
+        private readonly ConcurrentQueue<uint> _decodedTextureLru = new();
         private readonly ConcurrentDictionary<uint, byte[]> _decodedTextureCache = new();
+        private const int MaxDecodedTextures = 128;
         private readonly ThreadLocal<BcDecoder> _bcDecoder = new(() => new BcDecoder());
 
         public GlobalMeshBuffer? GlobalBuffer { get; }
@@ -193,7 +230,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly List<(ulong Id, bool IsSetup, TaskCompletionSource<ObjectMeshData?> Tcs, CancellationToken Ct)> _pendingRequests = new();
         private int _activeWorkers = 0;
         private const int MaxParallelLoads = 4;
-
         public ObjectMeshManager(OpenGLGraphicsDevice graphicsDevice, IDatReaderWriter dats, ILogger<ObjectMeshManager> logger) {
             _graphicsDevice = graphicsDevice;
             _dats = dats;
@@ -254,6 +290,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         /// </summary>
         public void IncrementRefCount(ulong id) {
             _usageCount.AddOrUpdate(id, 1, (_, count) => count + 1);
+            lock (_lruList) {
+                _lruList.Remove(id);
+            }
         }
 
         public void GenerateMipmaps() {
@@ -296,7 +335,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private void EvictOldResources(long neededBytes = 0) {
             lock (_lruList) {
-                while ((_currentGpuMemory + neededBytes) > _maxGpuMemory && _lruList.Count > 0) {
+                // Evict based on memory OR count limit
+                while ((_currentGpuMemory + neededBytes) > _maxGpuMemory || _lruList.Count > _maxCachedObjects) {
                     var idToEvict = _lruList.First!.Value;
                     _lruList.RemoveFirst();
 
@@ -305,6 +345,30 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         _usageCount.TryRemove(idToEvict, out _);
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Force evict all unused objects from the cache.
+        /// Use this when navigating away from a view or changing filters to free memory.
+        /// </summary>
+        public void EvictAllUnused() {
+            lock (_lruList) {
+                while (_lruList.Count > 0) {
+                    var idToEvict = _lruList.First!.Value;
+                    _lruList.RemoveFirst();
+
+                    if (_usageCount.TryGetValue(idToEvict, out var count) && count <= 0) {
+                        UnloadObject(idToEvict);
+                        _usageCount.TryRemove(idToEvict, out _);
+                    }
+                }
+            }
+
+            // Also clear CPU mesh cache
+            lock (_cpuMeshCache) {
+                _cpuMeshCache.Clear();
+                _cpuLruList.Clear();
             }
         }
 
@@ -409,9 +473,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     CancellationToken ct;
 
                     lock (_pendingRequests) {
-                        // Filter out cancelled requests
-                        _pendingRequests.RemoveAll(r => r.Ct.IsCancellationRequested);
-
                         if (_pendingRequests.Count == 0) {
                             return;
                         }
@@ -428,12 +489,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             uint envId = 0x0D000000u | req.EnvironmentId;
                             if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
                                 if (environment.Cells.TryGetValue(req.CellStructure, out var cellStruct)) {
-                                    data = PrepareCellStructMeshData(id, cellStruct, req.Surfaces, Matrix4x4.Identity, ct);
+                                    data = PrepareCellStructMeshData(id, cellStruct, req.Surfaces, Matrix4x4.Identity, CancellationToken.None);
                                 }
                             }
                         }
                         else {
-                            data = PrepareMeshData(id, isSetup, ct);
+                            // If it's a direct setup or gfxobj, make sure background loads don't abort half-way
+                            data = PrepareMeshData(id, isSetup, CancellationToken.None);
                         }
                         if (data != null) {
                             lock (_cpuMeshCache) {
@@ -445,6 +507,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 _cpuMeshCache[id] = data;
                                 _cpuLruList.AddLast(id);
                             }
+                            _stagedMeshData.Enqueue(data);
                         }
                         tcs.TrySetResult(data);
                     }
@@ -530,6 +593,15 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         /// <summary>
+        /// Cancel preparation tasks for IDs that are no longer needed.
+        /// </summary>
+        public void CancelStagedUploads(IEnumerable<ulong> ids) {
+            foreach (var id in ids) {
+                _preparationTasks.TryRemove(id, out _);
+            }
+        }
+
+        /// <summary>
         /// Phase 2 (Main Thread): Upload prepared mesh data to GPU.
         /// Creates VAO, VBO, IBOs, and texture arrays.
         /// Must be called from the GL thread.
@@ -537,6 +609,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public ObjectRenderData? UploadMeshData(ObjectMeshData meshData) {
             try {
                 if (_renderData.TryGetValue(meshData.ObjectId, out var existing)) {
+                    _preparationTasks.TryRemove(meshData.ObjectId, out _);
                     if (existing.IsSetup) {
                         foreach (var (partId, _) in existing.SetupParts) {
                             IncrementRefCount(partId);
@@ -578,8 +651,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     var data = new ObjectRenderData {
                         IsSetup = true,
                         SetupParts = meshData.SetupParts,
+                        ParticleEmitters = meshData.ParticleEmitters,
                         Batches = new List<ObjectRenderBatch>(),
                         BoundingBox = meshData.BoundingBox,
+                        SortCenter = meshData.SortCenter,
+                        DIDDegrade = meshData.DIDDegrade,
                         SelectionSphere = meshData.SelectionSphere,
                         MemorySize = 1024 // Small overhead for the setup itself
                     };
@@ -596,18 +672,22 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
 
                 var renderData = UploadGfxObjMeshData(meshData);
-                if (renderData != null) {
-                    renderData.BoundingBox = meshData.BoundingBox;
-                    renderData.SelectionSphere = meshData.SelectionSphere;
-                    _renderData.TryAdd(meshData.ObjectId, renderData);
-                    IncrementRefCount(meshData.ObjectId);
-                    _currentGpuMemory += renderData.MemorySize;
+                if (renderData == null) {
+                    renderData = new ObjectRenderData();
+                }
 
-                    // Clear texture data after upload to save RAM
-                    foreach (var batchList in meshData.TextureBatches.Values) {
-                        foreach (var batch in batchList) {
-                            batch.TextureData = Array.Empty<byte>();
-                        }
+                renderData.BoundingBox = meshData.BoundingBox;
+                renderData.SortCenter = meshData.SortCenter;
+                renderData.DIDDegrade = meshData.DIDDegrade;
+                renderData.SelectionSphere = meshData.SelectionSphere;
+                _renderData.TryAdd(meshData.ObjectId, renderData);
+                IncrementRefCount(meshData.ObjectId);
+                _currentGpuMemory += renderData.MemorySize;
+
+                // Clear texture data after upload to save RAM
+                foreach (var batchList in meshData.TextureBatches.Values) {
+                    foreach (var batch in batchList) {
+                        batch.TextureData = Array.Empty<byte>();
                     }
                 }
                 return renderData;
@@ -696,13 +776,52 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             CollectParts((uint)(id & 0xFFFFFFFFu), Matrix4x4.Identity, parts, ref min, ref max, ref hasBounds, ct);
 
+            var emitters = new List<StagedEmitter>();
+            var processedScripts = new HashSet<uint>();
+            if (setup.DefaultScript.DataId != 0) {
+                if (processedScripts.Add(setup.DefaultScript.DataId)) {
+                    CollectEmittersFromScript(setup.DefaultScript.DataId, emitters, ct);
+                }
+            }
+
             return new ObjectMeshData {
                 ObjectId = id,
                 IsSetup = true,
                 SetupParts = parts,
+                ParticleEmitters = emitters,
                 BoundingBox = hasBounds ? new BoundingBox(min, max) : default,
                 SelectionSphere = setup.SelectionSphere
             };
+        }
+
+        private void CollectEmittersFromScript(uint scriptId, List<StagedEmitter> emitters, CancellationToken ct) {
+            if (_dats.Portal.TryGet<PhysicsScript>(scriptId, out var script)) {
+                foreach (var hook in script.ScriptData) {
+                    if (hook.Hook.HookType == AnimationHookType.CreateParticle && hook.Hook is CreateParticleHook particleHook) {
+                        if (_dats.Portal.TryGet<ParticleEmitter>(particleHook.EmitterInfoId.DataId, out var emitter)) {
+                             emitters.Add(new StagedEmitter {
+                                 Emitter = emitter,
+                                 PartIndex = particleHook.PartIndex,
+                                 Offset = Matrix4x4.CreateFromQuaternion(particleHook.Offset.Orientation) * Matrix4x4.CreateTranslation(particleHook.Offset.Origin)
+                             });
+
+                             // Pre-load and stage the particle's GfxObjs
+                             if (emitter.HwGfxObjId.DataId != 0) {
+                                 var meshData = PrepareMeshData(emitter.HwGfxObjId.DataId, false, ct);
+                                 if (meshData != null) {
+                                     _stagedMeshData.Enqueue(meshData);
+                                 }
+                             }
+                             if (emitter.GfxObjId.DataId != 0 && emitter.GfxObjId.DataId != emitter.HwGfxObjId.DataId) {
+                                 var meshData = PrepareMeshData(emitter.GfxObjId.DataId, false, ct);
+                                 if (meshData != null) {
+                                     _stagedMeshData.Enqueue(meshData);
+                                 }
+                             }
+                        }
+                    }
+                }
+            }
         }
 
         private void CollectParts(uint id, Matrix4x4 currentTransform, List<(ulong GfxObjId, Matrix4x4 Transform)> parts, ref Vector3 min, ref Vector3 max, ref bool hasBounds, CancellationToken ct, int depth = 0) {
@@ -711,6 +830,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 return;
             }
             ct.ThrowIfCancellationRequested();
+
             var resolutions = _dats.ResolveId(id).ToList();
             var selectedResolution = resolutions.OrderByDescending(r => r.Database == _dats.Portal).FirstOrDefault();
             if (selectedResolution == null) return;
@@ -777,6 +897,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                             max = Vector3.Max(max, transformed);
                         }
                         hasBounds = true;
+
+                        // Add synthetic geometry ID to parts list
+                        parts.Add(((ulong)id | 0x1_0000_0000UL, currentTransform));
                     }
                 }
 
@@ -792,7 +915,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     // Localize static object transform relative to the cell
                     var localizedTransform = transform * invertCellTransform;
 
-                    CollectParts(stab.Id, localizedTransform * currentTransform, parts, ref min, ref max, ref hasBounds, ct);
+                    CollectParts(stab.Id, localizedTransform * currentTransform, parts, ref min, ref max, ref hasBounds, ct, depth + 1);
                 }
             }
             else if (type == DBObjType.GfxObj) {
@@ -862,6 +985,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     bool isClipMap = surface.Type.HasFlag(SurfaceType.Base1ClipMap);
                     uint paletteId = 0;
                     bool isDxt3or5 = false;
+                    DatReaderWriter.Enums.PixelFormat? sourceFormat = null;
+                    var isAdditive = false;
+                    var isTransparent = false;
 
                     if (isSolid) {
                         texWidth = texHeight = 32;
@@ -883,6 +1009,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         texWidth = renderSurface.Width;
                         texHeight = renderSurface.Height;
                         paletteId = renderSurface.DefaultPaletteId;
+                        sourceFormat = renderSurface.Format;
 
                         if (TextureHelpers.IsCompressedFormat(renderSurface.Format)) {
                             isDxt3or5 = renderSurface.Format == DatReaderWriter.Enums.PixelFormat.PFID_DXT3 || renderSurface.Format == DatReaderWriter.Enums.PixelFormat.PFID_DXT5;
@@ -907,6 +1034,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 }
                                 _decodedTextureCache.TryAdd(renderSurfaceId, textureData);
                             }
+
+                            if (isClipMap && textureData != null) {
+                                // If we got this from the cache, we need to clone it so we don't scale the cached raw data
+                                if (_decodedTextureCache.ContainsKey(renderSurfaceId)) {
+                                    var clonedData = new byte[textureData.Length];
+                                    System.Buffer.BlockCopy(textureData, 0, clonedData, 0, textureData.Length);
+                                    textureData = clonedData;
+                                }
+
+                                for (int i = 0; i < textureData.Length; i += 4) {
+                                    if (textureData[i] == 0 && textureData[i + 1] == 0 && textureData[i + 2] == 0) {
+                                        textureData[i + 3] = 0;
+                                    }
+                                }
+                            }
                         }
                         else {
                             textureFormat = TextureFormat.RGBA8;
@@ -918,8 +1060,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     uploadPixelFormat = PixelFormat.Rgba;
                                     break;
                                 case DatReaderWriter.Enums.PixelFormat.PFID_R8G8B8:
-                                    uploadPixelFormat = PixelFormat.Rgb;
-                                    textureFormat = TextureFormat.RGB8;
+                                    textureData = new byte[texWidth * texHeight * 4];
+                                    TextureHelpers.FillR8G8B8(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                    uploadPixelFormat = PixelFormat.Rgba;
                                     break;
                                 case DatReaderWriter.Enums.PixelFormat.PFID_INDEX16:
                                     if (!_dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var paletteData))
@@ -945,22 +1088,55 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                     TextureHelpers.FillA4R4G4B4(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
                                     uploadPixelFormat = PixelFormat.Rgba;
                                     break;
+                                case DatReaderWriter.Enums.PixelFormat.PFID_A8:
+                                case DatReaderWriter.Enums.PixelFormat.PFID_CUSTOM_LSCAPE_ALPHA:
+                                    textureData = new byte[texWidth * texHeight * 4];
+                                    if (surface.Type.HasFlag(SurfaceType.Additive)) {
+                                        TextureHelpers.FillA8Additive(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                    }
+                                    else {
+                                        TextureHelpers.FillA8(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                    }
+                                    uploadPixelFormat = PixelFormat.Rgba;
+                                    break;
                                 default:
                                     throw new NotSupportedException($"Unsupported surface format: {renderSurface.Format}");
                             }
                         }
+
+                        if (surface.Translucency > 0.0f && textureData != null) {
+                            // If we got this from the cache, we need to clone it so we don't scale the cached raw data
+                            if (sourceFormat.HasValue && TextureHelpers.IsCompressedFormat(sourceFormat.Value) && _decodedTextureCache.ContainsKey(renderSurfaceId)) {
+                                var clonedData = new byte[textureData.Length];
+                                System.Buffer.BlockCopy(textureData, 0, clonedData, 0, textureData.Length);
+                                textureData = clonedData;
+                            }
+
+                            float alphaScale = 1.0f - surface.Translucency;
+                            for (int i = 3; i < textureData.Length; i += 4) {
+                                textureData[i] = (byte)(textureData[i] * alphaScale);
+                            }
+                        }
+
+                        isAdditive = !isSolid && surface.Type.HasFlag(SurfaceType.Additive);
+                        isTransparent = isSolid ? surface.ColorValue.Alpha < 255 :
+                            (surface.Type.HasFlag(SurfaceType.Translucent) ||
+                             surface.Type.HasFlag(SurfaceType.Base1ClipMap) ||
+                             ((uint)surface.Type & 0x100) != 0 || // Alpha
+                             ((uint)surface.Type & 0x200) != 0 || // InvAlpha
+                             isAdditive ||
+                             (surface.Translucency > 0.0f && surface.Translucency < 1.0f) ||
+                             textureFormat == TextureFormat.A8 ||
+                             textureFormat == TextureFormat.Rgba32f ||
+                             isDxt3or5 ||
+                             (sourceFormat != null && (sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_A8R8G8B8 || 
+                                                         sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_A4R4G4B4 ||
+                                                         sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_DXT3 ||
+                                                         sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_DXT5)));
                     }
                     else {
                         return;
                     }
-
-                    var isTransparent = isSolid ? surface.ColorValue.Alpha < 255 :
-                        (surface.Type.HasFlag(SurfaceType.Translucent) ||
-                         surface.Type.HasFlag(SurfaceType.Additive) ||
-                         (surface.Translucency > 0.0f && surface.Translucency < 1.0f) ||
-                         textureFormat == TextureFormat.A8 ||
-                         textureFormat == TextureFormat.Rgba32f ||
-                         isDxt3or5);
 
                     var format = (texWidth, texHeight, textureFormat);
                     var key = new TextureAtlasManager.TextureKey {
@@ -980,10 +1156,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         batch = new TextureBatchData {
                             Key = key,
                             CullMode = poly.SidesType,
-                            TextureData = textureData,
+                            TextureData = textureData!,
                             UploadPixelFormat = uploadPixelFormat,
                             UploadPixelType = uploadPixelType,
-                            IsTransparent = isTransparent
+                            IsTransparent = isTransparent,
+                            IsAdditive = isAdditive
                         };
                         batches.Add(batch);
                     }
@@ -1000,6 +1177,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 Vertices = vertices.ToArray(),
                 TextureBatches = batchesByFormat,
                 BoundingBox = boundingBox,
+                SortCenter = gfxObj?.SortCenter ?? Vector3.Zero,
+                DIDDegrade = gfxObj != null && gfxObj.Flags.HasFlag(GfxObjFlags.HasDIDDegrade) ? gfxObj.DIDDegrade : 0,
                 SelectionSphere = new Sphere { Origin = boundingBox.Center, Radius = Vector3.Distance(boundingBox.Max, boundingBox.Min) / 2.0f }
             };
         }
@@ -1024,6 +1203,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
 
             // Add static objects
+            var emitters = new List<StagedEmitter>();
             foreach (var stab in envCell.StaticObjects) {
                 var orientation = new System.Numerics.Quaternion(
                     (float)stab.Frame.Orientation.X,
@@ -1038,6 +1218,25 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 var localizedTransform = transform * invertCellTransform;
 
                 CollectParts(stab.Id, localizedTransform, parts, ref min, ref max, ref hasBounds, ct);
+
+                // For EnvCell static objects, we need to manually collect emitters if they are Setups
+                if (_dats.Portal.TryGet<Setup>(stab.Id, out var stabSetup)) {
+                    var stabEmitters = new List<StagedEmitter>();
+                    var processedScripts = new HashSet<uint>();
+                    if (stabSetup.DefaultScript.DataId != 0) {
+                        if (processedScripts.Add(stabSetup.DefaultScript.DataId)) {
+                            CollectEmittersFromScript(stabSetup.DefaultScript.DataId, stabEmitters, ct);
+                        }
+                    }
+
+                    foreach (var emitter in stabEmitters) {
+                        emitters.Add(new StagedEmitter {
+                            Emitter = emitter.Emitter,
+                            PartIndex = emitter.PartIndex,
+                            Offset = emitter.Offset * localizedTransform
+                        });
+                    }
+                }
             }
 
             // Load environment and cell structure geometry
@@ -1045,7 +1244,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             ObjectMeshData? cellGeometry = null;
             if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
                 if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
-                    // Use bit 32 for synthetic cell geometry ID (guaranteed no collision with 32-bit DAT IDs)
                     var cellGeomId = id | 0x1_0000_0000UL;
                     cellGeometry = PrepareCellStructMeshData(cellGeomId, cellStruct, envCell.Surfaces, Matrix4x4.Identity, ct);
                     if (cellGeometry != null) {
@@ -1061,6 +1259,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 ObjectId = id,
                 IsSetup = true,
                 SetupParts = parts,
+                ParticleEmitters = emitters,
                 EnvCellGeometry = cellGeometry,
                 BoundingBox = hasBounds ? new BoundingBox(min, max) : default,
                 SelectionSphere = new Sphere { Origin = hasBounds ? (min + max) / 2f : Vector3.Zero, Radius = hasBounds ? Vector3.Distance(max, min) / 2.0f : 0f }
@@ -1122,6 +1321,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     bool isClipMap = surface.Type.HasFlag(SurfaceType.Base1ClipMap);
                     uint paletteId = 0;
                     bool isDxt3or5 = false;
+                    DatReaderWriter.Enums.PixelFormat? sourceFormat = null;
+                    var isAdditive = false;
+                    var isTransparent = false;
 
                     if (isSolid) {
                         texWidth = texHeight = 32;
@@ -1141,18 +1343,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         texWidth = renderSurface.Width;
                         texHeight = renderSurface.Height;
                         paletteId = renderSurface.DefaultPaletteId;
+                        sourceFormat = renderSurface.Format;
 
-                        if (TextureHelpers.IsCompressedFormat(renderSurface.Format)) {
-                            isDxt3or5 = renderSurface.Format == DatReaderWriter.Enums.PixelFormat.PFID_DXT3 || renderSurface.Format == DatReaderWriter.Enums.PixelFormat.PFID_DXT5;
+                        if (_decodedTextureCache.TryGetValue(renderSurfaceId, out var cachedData)) {
+                            textureData = cachedData;
                             textureFormat = TextureFormat.RGBA8;
                             uploadPixelFormat = PixelFormat.Rgba;
+                        }
+                        else {
+                            if (TextureHelpers.IsCompressedFormat(renderSurface.Format)) {
+                                isDxt3or5 = renderSurface.Format == DatReaderWriter.Enums.PixelFormat.PFID_DXT3 || renderSurface.Format == DatReaderWriter.Enums.PixelFormat.PFID_DXT5;
+                                textureFormat = TextureFormat.RGBA8;
+                                uploadPixelFormat = PixelFormat.Rgba;
 
-                            if (_decodedTextureCache.TryGetValue(renderSurfaceId, out textureData!)) {
-                                // use cached data
-                            }
-                            else {
                                 textureData = new byte[texWidth * texHeight * 4];
-
                                 CompressionFormat compressionFormat = renderSurface.Format switch {
                                     DatReaderWriter.Enums.PixelFormat.PFID_DXT1 => CompressionFormat.Bc1,
                                     DatReaderWriter.Enums.PixelFormat.PFID_DXT3 => CompressionFormat.Bc2,
@@ -1163,45 +1367,79 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                                 using (var image = _bcDecoder.Value!.DecodeRawToImageRgba32(renderSurface.SourceData, texWidth, texHeight, compressionFormat)) {
                                     image.CopyPixelDataTo(textureData);
                                 }
-                                _decodedTextureCache.TryAdd(renderSurfaceId, textureData);
+                            }
+                            else {
+                                textureFormat = TextureFormat.RGBA8;
+                                textureData = renderSurface.SourceData;
+                                switch (renderSurface.Format) {
+                                    case DatReaderWriter.Enums.PixelFormat.PFID_A8R8G8B8:
+                                        textureData = new byte[texWidth * texHeight * 4];
+                                        TextureHelpers.FillA8R8G8B8(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                        uploadPixelFormat = PixelFormat.Rgba;
+                                        break;
+                                    case DatReaderWriter.Enums.PixelFormat.PFID_R8G8B8:
+                                        textureData = new byte[texWidth * texHeight * 4];
+                                        TextureHelpers.FillR8G8B8(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                        uploadPixelFormat = PixelFormat.Rgba;
+                                        break;
+                                    case DatReaderWriter.Enums.PixelFormat.PFID_INDEX16:
+                                        if (!_dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var paletteData)) return;
+                                        textureData = new byte[texWidth * texHeight * 4];
+                                        TextureHelpers.FillIndex16(renderSurface.SourceData, paletteData, textureData.AsSpan(), texWidth, texHeight, isClipMap);
+                                        uploadPixelFormat = PixelFormat.Rgba;
+                                        break;
+                                    case DatReaderWriter.Enums.PixelFormat.PFID_P8:
+                                        if (!_dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var p8PaletteData)) return;
+                                        textureData = new byte[texWidth * texHeight * 4];
+                                        TextureHelpers.FillP8(renderSurface.SourceData, p8PaletteData, textureData.AsSpan(), texWidth, texHeight, isClipMap);
+                                        uploadPixelFormat = PixelFormat.Rgba;
+                                        break;
+                                    case DatReaderWriter.Enums.PixelFormat.PFID_R5G6B5:
+                                        textureData = new byte[texWidth * texHeight * 4];
+                                        TextureHelpers.FillR5G6B5(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                        uploadPixelFormat = PixelFormat.Rgba;
+                                        break;
+                                    case DatReaderWriter.Enums.PixelFormat.PFID_A4R4G4B4:
+                                        textureData = new byte[texWidth * texHeight * 4];
+                                        TextureHelpers.FillA4R4G4B4(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                        uploadPixelFormat = PixelFormat.Rgba;
+                                        break;
+                                    case DatReaderWriter.Enums.PixelFormat.PFID_A8:
+                                    case DatReaderWriter.Enums.PixelFormat.PFID_CUSTOM_LSCAPE_ALPHA:
+                                        textureData = new byte[texWidth * texHeight * 4];
+                                        if (surface.Type.HasFlag(SurfaceType.Additive)) {
+                                            TextureHelpers.FillA8Additive(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                        }
+                                        else {
+                                            TextureHelpers.FillA8(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
+                                        }
+                                        uploadPixelFormat = PixelFormat.Rgba;
+                                        break;
+                                    default: return;
+                                }
+                            }
+
+                            // Add to cache with LRU logic
+                            if (textureData != null && _decodedTextureCache.TryAdd(renderSurfaceId, textureData)) {
+                                _decodedTextureLru.Enqueue(renderSurfaceId);
+                                if (_decodedTextureCache.Count > MaxDecodedTextures) {
+                                    if (_decodedTextureLru.TryDequeue(out var evictedId)) {
+                                        _decodedTextureCache.TryRemove(evictedId, out _);
+                                    }
+                                }
                             }
                         }
-                        else {
-                            textureFormat = TextureFormat.RGBA8;
-                            textureData = renderSurface.SourceData;
-                            switch (renderSurface.Format) {
-                                case DatReaderWriter.Enums.PixelFormat.PFID_A8R8G8B8:
-                                    textureData = new byte[texWidth * texHeight * 4];
-                                    TextureHelpers.FillA8R8G8B8(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
-                                    uploadPixelFormat = PixelFormat.Rgba;
-                                    break;
-                                case DatReaderWriter.Enums.PixelFormat.PFID_R8G8B8:
-                                    uploadPixelFormat = PixelFormat.Rgb;
-                                    textureFormat = TextureFormat.RGB8;
-                                    break;
-                                case DatReaderWriter.Enums.PixelFormat.PFID_INDEX16:
-                                    if (!_dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var paletteData)) return;
-                                    textureData = new byte[texWidth * texHeight * 4];
-                                    TextureHelpers.FillIndex16(renderSurface.SourceData, paletteData, textureData.AsSpan(), texWidth, texHeight, isClipMap);
-                                    uploadPixelFormat = PixelFormat.Rgba;
-                                    break;
-                                case DatReaderWriter.Enums.PixelFormat.PFID_P8:
-                                    if (!_dats.Portal.TryGet<Palette>(renderSurface.DefaultPaletteId, out var p8PaletteData)) return;
-                                    textureData = new byte[texWidth * texHeight * 4];
-                                    TextureHelpers.FillP8(renderSurface.SourceData, p8PaletteData, textureData.AsSpan(), texWidth, texHeight, isClipMap);
-                                    uploadPixelFormat = PixelFormat.Rgba;
-                                    break;
-                                case DatReaderWriter.Enums.PixelFormat.PFID_R5G6B5:
-                                    textureData = new byte[texWidth * texHeight * 4];
-                                    TextureHelpers.FillR5G6B5(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
-                                    uploadPixelFormat = PixelFormat.Rgba;
-                                    break;
-                                case DatReaderWriter.Enums.PixelFormat.PFID_A4R4G4B4:
-                                    textureData = new byte[texWidth * texHeight * 4];
-                                    TextureHelpers.FillA4R4G4B4(renderSurface.SourceData, textureData.AsSpan(), texWidth, texHeight);
-                                    uploadPixelFormat = PixelFormat.Rgba;
-                                    break;
-                                default: return;
+
+                        if (isClipMap && textureData != null) {
+                            // If we got this from the cache, we need to clone it so we don't scale the cached raw data
+                            var clonedData = new byte[textureData.Length];
+                            System.Buffer.BlockCopy(textureData, 0, clonedData, 0, textureData.Length);
+                            textureData = clonedData;
+
+                            for (int i = 0; i < textureData.Length; i += 4) {
+                                if (textureData[i] == 0 && textureData[i + 1] == 0 && textureData[i + 2] == 0) {
+                                    textureData[i + 3] = 0;
+                                }
                             }
                         }
                     }
@@ -1209,13 +1447,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         return;
                     }
 
-                    var isTransparent = isSolid ? surface.ColorValue.Alpha < 255 :
+                    isAdditive = !isSolid && surface.Type.HasFlag(SurfaceType.Additive);
+                    isTransparent = isSolid ? surface.ColorValue.Alpha < 255 :
                         (surface.Type.HasFlag(SurfaceType.Translucent) ||
-                         surface.Type.HasFlag(SurfaceType.Additive) ||
+                         surface.Type.HasFlag(SurfaceType.Base1ClipMap) ||
+                         ((uint)surface.Type & 0x100) != 0 || // Alpha
+                         ((uint)surface.Type & 0x200) != 0 || // InvAlpha
+                         isAdditive ||
                          (surface.Translucency > 0.0f && surface.Translucency < 1.0f) ||
                          textureFormat == TextureFormat.A8 ||
                          textureFormat == TextureFormat.Rgba32f ||
-                         isDxt3or5);
+                         isDxt3or5 ||
+                         (sourceFormat != null && (sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_A8R8G8B8 || 
+                                                     sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_A4R4G4B4 ||
+                                                     sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_DXT3 ||
+                                                     sourceFormat == DatReaderWriter.Enums.PixelFormat.PFID_DXT5)));
 
                     var format = (texWidth, texHeight, textureFormat);
                     var key = new TextureAtlasManager.TextureKey {
@@ -1235,10 +1481,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         batch = new TextureBatchData {
                             Key = key,
                             CullMode = poly.SidesType,
-                            TextureData = textureData,
+                            TextureData = textureData!,
                             UploadPixelFormat = uploadPixelFormat,
                             UploadPixelType = uploadPixelType,
-                            IsTransparent = isTransparent
+                            IsTransparent = isTransparent,
+                            IsAdditive = isAdditive
                         };
                         batches.Add(batch);
                     }
@@ -1256,6 +1503,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 Vertices = vertices.ToArray(),
                 TextureBatches = batchesByFormat,
                 BoundingBox = boundingBox,
+                SortCenter = Vector3.Zero,
                 SelectionSphere = new Sphere { Origin = boundingBox.Center, Radius = Vector3.Distance(boundingBox.Max, boundingBox.Min) / 2.0f }
             };
         }
@@ -1503,6 +1751,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         TextureSize = (format.Width, format.Height),
                         TextureFormat = format.Format,
                         IsTransparent = batch.IsTransparent,
+                        IsAdditive = batch.IsAdditive,
                         HasWrappingUVs = batch.HasWrappingUVs,
                         Key = batch.Key,
                         CullMode = batch.CullMode,
@@ -1518,6 +1767,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 VBO = vbo,
                 VertexCount = meshData.Vertices.Length,
                 Batches = renderBatches,
+                ParticleEmitters = meshData.ParticleEmitters,
+                DIDDegrade = meshData.DIDDegrade,
                 CPUPositions = meshData.Vertices.Select(v => v.Position).ToArray(),
                 CPUIndices = meshData.TextureBatches.Values.SelectMany(l => l).SelectMany(b => b.Indices).ToArray(),
                 CPUEdgeLines = meshData.EdgeLines,
@@ -1645,6 +1896,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     }
                     if (batch.Atlas != null) {
                         batch.Atlas.ReleaseTexture(batch.Key);
+                        if (batch.Atlas.UsedSlots == 0) {
+                            batch.Atlas.Dispose();
+                            var keyTuple = (batch.TextureSize.Width, batch.TextureSize.Height, batch.TextureFormat);
+                            if (_globalAtlases.TryGetValue(keyTuple, out var list)) {
+                                list.Remove(batch.Atlas);
+                            }
+                        }
                     }
                 }
             }
@@ -1652,6 +1910,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 foreach (var batch in data.Batches) {
                     if (batch.Atlas != null) {
                         batch.Atlas.ReleaseTexture(batch.Key);
+                        if (batch.Atlas.UsedSlots == 0) {
+                            batch.Atlas.Dispose();
+                            var keyTuple = (batch.TextureSize.Width, batch.TextureSize.Height, batch.TextureFormat);
+                            if (_globalAtlases.TryGetValue(keyTuple, out var list)) {
+                                list.Remove(batch.Atlas);
+                            }
+                        }
                     }
                 }
             }

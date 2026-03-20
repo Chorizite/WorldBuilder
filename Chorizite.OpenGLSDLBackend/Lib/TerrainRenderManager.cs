@@ -796,6 +796,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             BaseObjectRenderManager.CurrentVAO = 0;
 
             _shader.Bind();
+            _gl.Disable(EnableCap.Blend);
+            _gl.DepthMask(true);
 
             // Set uniforms
             _shader.SetUniform("xWorld", Matrix4x4.Identity); // Chunks are already in world space coordinates

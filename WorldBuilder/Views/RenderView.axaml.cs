@@ -29,7 +29,7 @@ public partial class RenderView : Base3DViewport {
     private bool _cachedIs3DCamera = true;
     private InputManager? _inputManager;
 
-    public WorldBuilder.Shared.Models.ICamera? Camera => _gameScene?.Camera;
+    public WorldBuilder.Shared.Models.ICamera? Camera => _gameScene?.CurrentCamera;
 
     public uint GetEnvCellAt(Vector3 pos) => _gameScene?.GetEnvCellAt(pos) ?? 0;
 
