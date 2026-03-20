@@ -171,7 +171,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             var startFrame = LocalOffset * ParentTransform;
             p.EmissionOrigin = startFrame.Translation;
-            
+
             p.WorldOffset = Vector3.Transform(localRandomOffset, startFrame) - p.EmissionOrigin;
 
             // AC Client Logic for vector spaces (Particle::Init):

@@ -344,18 +344,21 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
             foreach (var (key, lb) in _landblocks) {
                 if (!lb.InstancesReady || Math.Abs(lb.GridX - _cameraLbX) > ParticleRenderDistance || Math.Abs(lb.GridY - _cameraLbY) > ParticleRenderDistance) continue;
-                
+
                 foreach (var emitter in lb.ParticleEmitters) {
                     var parentTransform = Matrix4x4.Identity;
-                    if (emitter.ParentInstance.HasValue) {
-                        var instance = emitter.ParentInstance.Value;
-                        parentTransform = instance.Transform;
+                    if (emitter.ParentLandblock != null && emitter.ParentInstanceId.HasValue) {
+                        // Look up the current instance from the landblock (struct is copied fresh each frame)
+                        var instance = emitter.ParentLandblock.Instances.FirstOrDefault(i => i.InstanceId == emitter.ParentInstanceId.Value);
+                        if (!instance.Equals(default(SceneryInstance))) {
+                            parentTransform = instance.Transform;
 
-                        if (emitter.PartIndex != 0xFFFFFFFF && instance.IsSetup) {
-                            var data = MeshManager.TryGetRenderData(instance.ObjectId);
-                            if (data != null && (int)emitter.PartIndex < data.SetupParts.Count) {
-                                // parentTransform is the world transform of the specific part.
-                                parentTransform = data.SetupParts[(int)emitter.PartIndex].Transform * instance.Transform;
+                            if (emitter.PartIndex != 0xFFFFFFFF && instance.IsSetup) {
+                                var data = MeshManager.TryGetRenderData(instance.ObjectId);
+                                if (data != null && (int)emitter.PartIndex < data.SetupParts.Count) {
+                                    // parentTransform is the world transform of the specific part.
+                                    parentTransform = data.SetupParts[(int)emitter.PartIndex].Transform * instance.Transform;
+                                }
                             }
                         }
                     }
@@ -970,7 +973,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 if (data != null) {
                     foreach (var staged in data.ParticleEmitters) {
                         var renderer = new ParticleEmitterRenderer(GraphicsDevice, MeshManager, staged.Emitter);
-                        lb.ParticleEmitters.Add(new ActiveParticleEmitter(renderer, staged.PartIndex, staged.Offset, instance));
+                        lb.ParticleEmitters.Add(new ActiveParticleEmitter(renderer, staged.PartIndex, staged.Offset, lb, instance.InstanceId));
                     }
                 }
             }

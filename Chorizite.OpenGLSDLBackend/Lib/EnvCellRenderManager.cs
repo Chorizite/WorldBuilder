@@ -523,11 +523,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 foreach (var emitter in lb.ParticleEmitters) {
                     if (filter != null) {
                         // Check if this emitter is inside one of our filtered cells
-                        if (emitter.ParentInstance.HasValue) {
-                            var instance = emitter.ParentInstance.Value;
-                            var cellId = instance.CurrentPreviewCellId != 0 ? instance.CurrentPreviewCellId : instance.InstanceId.DataId;
-                            if (filter.Contains(cellId)) {
-                                emitter.Render(GraphicsDevice.ParticleBatcher);
+                        if (emitter.ParentLandblock != null && emitter.ParentInstanceId.HasValue) {
+                            var instance = emitter.ParentLandblock.Instances.FirstOrDefault(i => i.InstanceId == emitter.ParentInstanceId.Value);
+                            if (!instance.Equals(default(SceneryInstance))) {
+                                var cellId = instance.CurrentPreviewCellId != 0 ? instance.CurrentPreviewCellId : instance.InstanceId.DataId;
+                                if (filter.Contains(cellId)) {
+                                    emitter.Render(GraphicsDevice.ParticleBatcher);
+                                }
                             }
                         }
                     }

@@ -208,10 +208,12 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
                 foreach (var emitter in lb.ParticleEmitters) {
                     // Check if the parent instance should be visible
-                    if (emitter.ParentInstance.HasValue) {
-                        var instance = emitter.ParentInstance.Value;
-                        if (instance.IsBuilding && !_showBuildings) continue;
-                        if (!instance.IsBuilding && !_showStaticObjects) continue;
+                    if (emitter.ParentLandblock != null && emitter.ParentInstanceId.HasValue) {
+                        var instance = emitter.ParentLandblock.Instances.FirstOrDefault(i => i.InstanceId == emitter.ParentInstanceId.Value);
+                        if (!instance.Equals(default(SceneryInstance))) {
+                            if (instance.IsBuilding && !_showBuildings) continue;
+                            if (!instance.IsBuilding && !_showStaticObjects) continue;
+                        }
                     }
                     emitter.Render(GraphicsDevice.ParticleBatcher);
                 }

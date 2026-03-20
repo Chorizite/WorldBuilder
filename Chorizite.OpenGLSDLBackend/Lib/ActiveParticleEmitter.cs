@@ -1,19 +1,24 @@
 using System.Numerics;
 using Chorizite.OpenGLSDLBackend.Lib;
 using DatReaderWriter.Types;
+using WorldBuilder.Shared.Models;
 
 namespace Chorizite.OpenGLSDLBackend.Lib {
     public class ActiveParticleEmitter {
         public ParticleEmitterRenderer Renderer { get; }
         public uint PartIndex { get; }
         public Matrix4x4 LocalOffset { get; }
-        public SceneryInstance? ParentInstance { get; }
+        
+        // Store reference info instead of struct copy
+        public ObjectLandblock? ParentLandblock { get; set; }
+        public ObjectId? ParentInstanceId { get; set; }
 
-        public ActiveParticleEmitter(ParticleEmitterRenderer renderer, uint partIndex, Matrix4x4 localOffset, SceneryInstance? parentInstance = null) {
+        public ActiveParticleEmitter(ParticleEmitterRenderer renderer, uint partIndex, Matrix4x4 localOffset, ObjectLandblock? parentLandblock = null, ObjectId? parentInstanceId = null) {
             Renderer = renderer;
             PartIndex = partIndex;
             LocalOffset = localOffset;
-            ParentInstance = parentInstance;
+            ParentLandblock = parentLandblock;
+            ParentInstanceId = parentInstanceId;
         }
 
         public void Update(float deltaTime, Matrix4x4 parentTransform) {
