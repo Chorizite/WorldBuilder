@@ -25,6 +25,7 @@ void main() {
         if (!isAdditive) {
             if (color.a >= 0.95) discard;
             if (color.a < 0.05) discard;
+        }
     } else if (renderPass == 2) {
         // Single pass mode
         if (color.a < 0.1) discard;
