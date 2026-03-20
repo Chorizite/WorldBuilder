@@ -39,7 +39,6 @@ namespace Chorizite.OpenGLSDLBackend {
         private readonly ConcurrentQueue<ObjectMeshData> _stagedMeshData = new();
         private uint _loadingFileId;
         private bool _loadingIsSetup;
-        private readonly object _lock = new();
 
         private bool _needsRender = true;
         private int _width;

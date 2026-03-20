@@ -293,10 +293,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             return false;
         }
 
-        private bool NearZero(Vector3 v) {
-            return Math.Abs(v.X) <= 1.0f && Math.Abs(v.Y) <= 1.0f && Math.Abs(v.Z) <= 1.0f;
-        }
-
         private Vector3 CalculatePosition(ref Particle p) {
             float t = p.Lifetime;
             Vector3 parentOrigin = _emitter.IsParentLocal ? (LocalOffset * ParentTransform).Translation : p.EmissionOrigin;

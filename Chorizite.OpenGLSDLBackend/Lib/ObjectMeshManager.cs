@@ -1232,7 +1232,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     foreach (var emitter in stabEmitters) {
                         emitters.Add(new StagedEmitter {
                             Emitter = emitter.Emitter,
-                            PartIndex = emitter.PartIndex, // TODO: this part index is relative to the stabSetup, not the EnvCell
+                            PartIndex = emitter.PartIndex,
                             Offset = emitter.Offset * localizedTransform
                         });
                     }
@@ -1244,7 +1244,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             ObjectMeshData? cellGeometry = null;
             if (_dats.Portal.TryGet<DatReaderWriter.DBObjs.Environment>(envId, out var environment)) {
                 if (environment.Cells.TryGetValue(envCell.CellStructure, out var cellStruct)) {
-                    // Use bit 32 for synthetic cell geometry ID (guaranteed no collision with 32-bit DAT IDs)
                     var cellGeomId = id | 0x1_0000_0000UL;
                     cellGeometry = PrepareCellStructMeshData(cellGeomId, cellStruct, envCell.Surfaces, Matrix4x4.Identity, ct);
                     if (cellGeometry != null) {
