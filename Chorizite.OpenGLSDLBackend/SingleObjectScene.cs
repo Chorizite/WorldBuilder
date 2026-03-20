@@ -602,11 +602,6 @@ namespace Chorizite.OpenGLSDLBackend {
                 // (Logic moved up for throttling)
 
                 var data = MeshManager.TryGetRenderData(_currentFileId);
-                if (data == null && _particleRenderer == null) {
-                    // It's possible we are still streaming in the data parts for a Setup, 
-                    // but we shouldn't abort the render pass if there are other things to draw.
-                    // Instead, we just skip drawing the `data` if it's null later on.
-                }
 
                 _shader.Bind();
                 var snapshotVP = _camera.ViewProjectionMatrix;
