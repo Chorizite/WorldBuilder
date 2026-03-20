@@ -204,6 +204,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         // LRU Cache for Unused objects
         private readonly LinkedList<ulong> _lruList = new();
         private readonly long _maxGpuMemory = 1024 * 1024 * 1024; // 1GB
+        private readonly int _maxCachedObjects = 50; // Max number of cached objects (count-based limit)
         private long _currentGpuMemory = 0;
 
         // Shared atlases grouped by (Width, Height, Format)
@@ -334,7 +335,8 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
 
         private void EvictOldResources(long neededBytes = 0) {
             lock (_lruList) {
-                while ((_currentGpuMemory + neededBytes) > _maxGpuMemory && _lruList.Count > 0) {
+                // Evict based on memory OR count limit
+                while ((_currentGpuMemory + neededBytes) > _maxGpuMemory || _lruList.Count > _maxCachedObjects) {
                     var idToEvict = _lruList.First!.Value;
                     _lruList.RemoveFirst();
 
@@ -343,6 +345,30 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                         _usageCount.TryRemove(idToEvict, out _);
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Force evict all unused objects from the cache.
+        /// Use this when navigating away from a view or changing filters to free memory.
+        /// </summary>
+        public void EvictAllUnused() {
+            lock (_lruList) {
+                while (_lruList.Count > 0) {
+                    var idToEvict = _lruList.First!.Value;
+                    _lruList.RemoveFirst();
+
+                    if (_usageCount.TryGetValue(idToEvict, out var count) && count <= 0) {
+                        UnloadObject(idToEvict);
+                        _usageCount.TryRemove(idToEvict, out _);
+                    }
+                }
+            }
+
+            // Also clear CPU mesh cache
+            lock (_cpuMeshCache) {
+                _cpuMeshCache.Clear();
+                _cpuLruList.Clear();
             }
         }
 

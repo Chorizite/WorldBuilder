@@ -22,6 +22,8 @@ namespace WorldBuilder.Views {
         private GL? _gl;
         private SingleObjectScene? _scene;
         private WorldBuilderSettings? _settings;
+        private CancellationTokenSource? _loadCts;
+        private const int LoadDelayMs = 100; // Delay before loading 3D scene to avoid loading off-screen items
 
         // Thread-safe copies for the render thread
         private IDatReaderWriter? _renderDats;
@@ -251,14 +253,44 @@ namespace WorldBuilder.Views {
         private void UpdateObject() {
             if (_renderDats == null) return;
 
-            if (_scene == null && _gl != null && Renderer != null && _renderIsEffectivelyVisible) {
-                InitializeScene();
-                _scene?.Resize((int)Bounds.Width, (int)Bounds.Height);
+            // Cancel any pending load
+            _loadCts?.Cancel();
+            _loadCts?.Dispose();
+            _loadCts = new CancellationTokenSource();
+            var ct = _loadCts.Token;
+
+            // Only load if visible, otherwise wait
+            if (!_renderIsEffectivelyVisible) {
+                return;
             }
 
-            if (_scene != null && _renderFileId != 0) {
-                _ = _scene.LoadObjectAsync(_renderFileId, _renderIsSetup);
-            }
+            // Lazy load with delay to avoid loading off-screen items during scroll
+            _ = Task.Run(async () => {
+                try {
+                    await Task.Delay(LoadDelayMs, ct);
+
+                    if (ct.IsCancellationRequested) return;
+
+                    await Dispatcher.UIThread.InvokeAsync(() => {
+                        if (ct.IsCancellationRequested || !_renderIsEffectivelyVisible) return;
+
+                        if (_scene == null && _gl != null && Renderer != null) {
+                            InitializeScene();
+                            _scene?.Resize((int)Bounds.Width, (int)Bounds.Height);
+                        }
+
+                        if (_scene != null && _renderFileId != 0) {
+                            _ = _scene.LoadObjectAsync(_renderFileId, _renderIsSetup);
+                        }
+                    }, DispatcherPriority.Background);
+                }
+                catch (OperationCanceledException) {
+                    // Ignore
+                }
+                catch (Exception ex) {
+                    _logger?.LogError(ex, "Error during lazy load of 3D object");
+                }
+            }, ct);
         }
 
         private void InitializeScene() {
@@ -297,8 +329,9 @@ namespace WorldBuilder.Views {
             if (!_renderIsEffectivelyVisible) return;
 
             if (_scene == null) {
+                // Trigger lazy load if visible
                 UpdateObject();
-                if (_scene == null) return;
+                return;
             }
 
             // Only update scene (spin camera, etc) if we are actually visible
@@ -318,6 +351,12 @@ namespace WorldBuilder.Views {
         }
 
         protected override void OnGlDestroy() {
+            // Cancel any pending load
+            _loadCts?.Cancel();
+            _loadCts?.Dispose();
+            _loadCts = null;
+
+            // Dispose the scene to free GPU resources
             _scene?.Dispose();
             _scene = null;
             _gl = null;

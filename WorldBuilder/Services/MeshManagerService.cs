@@ -27,6 +27,16 @@ namespace WorldBuilder.Services {
             });
         }
 
+        /// <summary>
+        /// Evict all unused cached objects from all managed ObjectMeshManagers.
+        /// Call this when navigating away from a view or changing filters to free memory.
+        /// </summary>
+        public void EvictAllUnused() {
+            foreach (var manager in _managers.Values) {
+                manager.EvictAllUnused();
+            }
+        }
+
         public void Dispose() {
             foreach (var manager in _managers.Values) {
                 manager.Dispose();

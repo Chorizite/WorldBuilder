@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading.Tasks;
 using WorldBuilder.ViewModels;
 using DatReaderWriter.DBObjs;
 using DatReaderWriter;
@@ -13,6 +14,7 @@ using DatReaderWriter.Enums;
 using WorldBuilder.Services;
 using WorldBuilder.Lib.Settings;
 using System.Numerics;
+using Microsoft.Extensions.DependencyInjection;
 
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
@@ -134,8 +136,23 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         }
 
         public void SetFileIds(IEnumerable<uint> fileIds) {
+            var oldFileIds = _fileIds;
             _fileIds = fileIds ?? Enumerable.Empty<uint>();
             OnPropertyChanged(nameof(FileIds));
+
+            // For 3D views, evict unused cached objects when the file list changes
+            // This prevents memory buildup when browsing/filtering large datasets
+            if (Is3DView && oldFileIds != null) {
+                // Schedule eviction after a short delay to allow new items to load first
+                _ = Task.Run(async () => {
+                    await Task.Delay(500);
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => {
+                        var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
+                        var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
+                        meshManagerService?.EvictAllUnused();
+                    });
+                });
+            }
         }
 
         [RelayCommand]
@@ -151,6 +168,13 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         public void Dispose() {
             _themeService.PropertyChanged -= _themeChangedHandler;
             _settings.DatBrowser.PropertyChanged -= _settingsChangedHandler;
+
+            // For 3D views, evict all unused cached objects when disposed
+            if (Is3DView) {
+                var projectManager = WorldBuilder.App.Services?.GetService<ProjectManager>();
+                var meshManagerService = projectManager?.GetProjectService<MeshManagerService>();
+                meshManagerService?.EvictAllUnused();
+            }
         }
     }
 }
