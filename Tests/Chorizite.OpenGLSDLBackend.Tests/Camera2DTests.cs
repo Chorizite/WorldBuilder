@@ -122,7 +122,7 @@ public class Camera2DTests {
         // Start panning (right click)
         camera.HandlePointerPressed(1, new Vector2(100, 100));
         // Move pointer
-        camera.HandlePointerMoved(new Vector2(150, 150), new Vector2(50, 50), new Vector2(50, 50));
+        camera.HandlePointerMoved(new Vector2(150, 150), new Vector2(50, 50));
 
         Assert.NotEqual(initialPos, camera.Position);
     }
@@ -134,7 +134,7 @@ public class Camera2DTests {
         var initialPos = camera.Position;
 
         // Move pointer without pressing right click
-        camera.HandlePointerMoved(new Vector2(150, 150), new Vector2(50, 50), new Vector2(50, 50));
+        camera.HandlePointerMoved(new Vector2(150, 150), new Vector2(50, 50));
 
         Assert.Equal(initialPos, camera.Position);
     }
@@ -149,7 +149,7 @@ public class Camera2DTests {
         camera.HandlePointerReleased(1, new Vector2(100, 100));
 
         var initialPos = camera.Position;
-        camera.HandlePointerMoved(new Vector2(200, 200), new Vector2(100, 100), new Vector2(100, 100));
+        camera.HandlePointerMoved(new Vector2(200, 200), new Vector2(100, 100));
 
         Assert.Equal(initialPos, camera.Position);
     }
