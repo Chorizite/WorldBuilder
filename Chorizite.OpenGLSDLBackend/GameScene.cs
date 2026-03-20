@@ -233,12 +233,6 @@ public class GameScene : IDisposable {
     /// Gets the 3D camera.
     /// </summary>
     public Camera3D Camera3D => _cameraController.Camera3D;
-
-    /// <summary>
-    /// Gets the current active camera.
-    /// </summary>
-    public ICamera Camera => _cameraController.CurrentCamera;
-
     /// <summary>
     /// Gets the current active camera.
     /// </summary>
