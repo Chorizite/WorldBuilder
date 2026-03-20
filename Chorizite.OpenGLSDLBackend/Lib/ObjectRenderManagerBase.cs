@@ -953,10 +953,28 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private unsafe void UploadLandblockMeshes(ObjectLandblock lb) {
             var instancesToUpload = lb.PendingInstances ?? lb.Instances;
 
-            foreach (var emitter in lb.ParticleEmitters) {
-                emitter.Renderer.Dispose();
+            // Preserve particle emitters for instances that haven't changed.
+            // This prevents particles from restarting when moving objects or painting terrain.
+            var existingEmittersByInstance = new Dictionary<ObjectId, List<ActiveParticleEmitter>>();
+            if (lb.PendingInstances != null && lb.Instances.Count > 0) {
+                // Build a lookup of existing emitters by instance ID
+                foreach (var emitter in lb.ParticleEmitters) {
+                    if (emitter.ParentInstanceId.HasValue) {
+                        var instanceId = emitter.ParentInstanceId.Value;
+                        if (!existingEmittersByInstance.ContainsKey(instanceId)) {
+                            existingEmittersByInstance[instanceId] = new List<ActiveParticleEmitter>();
+                        }
+                        existingEmittersByInstance[instanceId].Add(emitter);
+                    }
+                }
             }
-            lb.ParticleEmitters.Clear();
+            else {
+                // No pending instances or no existing instances - clear all emitters
+                foreach (var emitter in lb.ParticleEmitters) {
+                    emitter.Renderer.Dispose();
+                }
+                lb.ParticleEmitters.Clear();
+            }
 
             // Upload any prepared mesh data that hasn't been uploaded yet
             var uniqueObjects = instancesToUpload
@@ -968,15 +986,37 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 UploadRecursive(objectId, isSetup);
             }
 
+            // Create new particle emitters, reusing existing ones where possible
+            var newEmitters = new List<ActiveParticleEmitter>();
             foreach (var instance in instancesToUpload) {
-                var data = MeshManager.TryGetRenderData(instance.ObjectId);
-                if (data != null) {
-                    foreach (var staged in data.ParticleEmitters) {
-                        var renderer = new ParticleEmitterRenderer(GraphicsDevice, MeshManager, staged.Emitter);
-                        lb.ParticleEmitters.Add(new ActiveParticleEmitter(renderer, staged.PartIndex, staged.Offset, lb, instance.InstanceId));
+                if (existingEmittersByInstance.TryGetValue(instance.InstanceId, out var emitters)) {
+                    // Reuse existing emitters for this instance
+                    newEmitters.AddRange(emitters);
+                }
+                else {
+                    // Create new emitters for this instance
+                    var data = MeshManager.TryGetRenderData(instance.ObjectId);
+                    if (data != null) {
+                        foreach (var staged in data.ParticleEmitters) {
+                            var renderer = new ParticleEmitterRenderer(GraphicsDevice, MeshManager, staged.Emitter);
+                            newEmitters.Add(new ActiveParticleEmitter(renderer, staged.PartIndex, staged.Offset, lb, instance.InstanceId));
+                        }
                     }
                 }
             }
+
+            // Dispose emitters for instances that no longer exist
+            foreach (var kvp in existingEmittersByInstance) {
+                if (!instancesToUpload.Any(i => i.InstanceId == kvp.Key)) {
+                    foreach (var emitter in kvp.Value) {
+                        emitter.Renderer.Dispose();
+                    }
+                }
+            }
+
+            // Replace the particle emitters list
+            lb.ParticleEmitters.Clear();
+            lb.ParticleEmitters.AddRange(newEmitters);
 
             // Populate part groups via subclass hook
             PopulatePartGroups(lb, instancesToUpload);
