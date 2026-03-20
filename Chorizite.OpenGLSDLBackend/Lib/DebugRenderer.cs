@@ -217,9 +217,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             var instanceSpan = CollectionsMarshal.AsSpan(_lineInstances);
             var dataSize = (nuint)(_lineInstances.Count * Marshal.SizeOf<LineInstance>());
             
-            // TODO: Ensure capacity of shared buffer if it's too small
-            // For now, we'll just BufferData it which orbits/reallocates on the shared VBO
-            // This is safe since we draw immediately after.
             _gl.BufferData(GLEnum.ArrayBuffer, dataSize, null, GLEnum.StreamDraw);
             fixed (void* ptr = instanceSpan) {
                 _gl.BufferSubData(GLEnum.ArrayBuffer, 0, dataSize, ptr);
@@ -233,7 +230,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void Dispose() {
-            // Shared resources are handled by GraphicsDevice
             _lineInstances.Clear();
         }
     }
