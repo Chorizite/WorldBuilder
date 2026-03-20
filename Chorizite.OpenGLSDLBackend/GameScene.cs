@@ -112,7 +112,6 @@ public class GameScene : IDisposable {
 
         if (_portalManager != null) {
             _portalManager.RenderDistance = _state.ObjectRenderDistance;
-            _portalManager.ShowPortals = _state.ShowParticles;
         }
 
         if (_skyboxManager != null) {
@@ -426,7 +425,6 @@ public class GameScene : IDisposable {
 
         _portalManager = new PortalRenderManager(_gl, _log, landscapeDoc, dats, _portalService, _graphicsDevice, _visibilityManager.CullingFrustum);
         _portalManager.RenderDistance = _state.ObjectRenderDistance;
-        _portalManager.ShowPortals = _state.ShowParticles;
         if (_initialized && _stencilShader != null) {
             _portalManager.InitializeStencilShader(_stencilShader);
         }
