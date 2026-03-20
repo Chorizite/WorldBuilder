@@ -56,6 +56,13 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _graphicsDevice = graphicsDevice;
             _meshManager = meshManager;
             _emitter = emitter;
+            
+            if (emitter.HwGfxObjId.DataId != 0) {
+                _meshManager.IncrementRefCount(emitter.HwGfxObjId.DataId);
+            }
+            if (emitter.GfxObjId.DataId != 0 && emitter.GfxObjId.DataId != emitter.HwGfxObjId.DataId) {
+                _meshManager.IncrementRefCount(emitter.GfxObjId.DataId);
+            }
         }
 
         public void Update(float deltaTime) {
@@ -477,10 +484,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public void Dispose() {
-            if (_gfxRenderData != null) {
+            // Decrement reference counts that were incremented when the renderer was created/initialized
+            if (_emitter.HwGfxObjId.DataId != 0) {
                 _meshManager.ReleaseRenderData(_emitter.HwGfxObjId.DataId);
             }
-            if (_textureRenderData != null && _textureRenderData != _gfxRenderData) {
+            if (_emitter.GfxObjId.DataId != 0 && _emitter.GfxObjId.DataId != _emitter.HwGfxObjId.DataId) {
                 _meshManager.ReleaseRenderData(_emitter.GfxObjId.DataId);
             }
         }
