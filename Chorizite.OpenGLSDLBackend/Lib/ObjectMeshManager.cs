@@ -757,15 +757,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     CollectEmittersFromScript(setup.DefaultScript.DataId, emitters, ct);
                 }
             }
-            if (setup.DefaultScriptTable.DataId != 0 && _dats.Portal.TryGet<PhysicsScriptTable>(setup.DefaultScriptTable.DataId, out var table)) {
-                foreach (var entry in table.ScriptTable.Values) {
-                    foreach (var scriptAndMod in entry.Scripts) {
-                        if (processedScripts.Add(scriptAndMod.ScriptId)) {
-                            CollectEmittersFromScript(scriptAndMod.ScriptId, emitters, ct);
-                        }
-                    }
-                }
-            }
 
             return new ObjectMeshData {
                 ObjectId = id,
@@ -1209,15 +1200,6 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                     if (stabSetup.DefaultScript.DataId != 0) {
                         if (processedScripts.Add(stabSetup.DefaultScript.DataId)) {
                             CollectEmittersFromScript(stabSetup.DefaultScript.DataId, stabEmitters, ct);
-                        }
-                    }
-                    if (stabSetup.DefaultScriptTable.DataId != 0 && _dats.Portal.TryGet<PhysicsScriptTable>(stabSetup.DefaultScriptTable.DataId, out var table)) {
-                        foreach (var entry in table.ScriptTable.Values) {
-                            foreach (var scriptAndMod in entry.Scripts) {
-                                if (processedScripts.Add(scriptAndMod.ScriptId)) {
-                                    CollectEmittersFromScript(scriptAndMod.ScriptId, stabEmitters, ct);
-                                }
-                            }
                         }
                     }
 
