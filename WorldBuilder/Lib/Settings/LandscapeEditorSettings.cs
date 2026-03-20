@@ -173,10 +173,10 @@ namespace WorldBuilder.Lib.Settings {
         private bool _showEnvCells = true;
         public bool ShowEnvCells { get => _showEnvCells; set => SetProperty(ref _showEnvCells, value); }
 
-        [SettingDescription("Render portals (semi-transparent magenta polys)")]
+        [SettingDescription("Render particles")]
         [SettingOrder(7)]
-        private bool _showPortals = true;
-        public bool ShowPortals { get => _showPortals; set => SetProperty(ref _showPortals, value); }
+        private bool _showParticles = true;
+        public bool ShowParticles { get => _showParticles; set => SetProperty(ref _showParticles, value); }
 
         [SettingDescription("Render skybox")]
         [SettingOrder(8)]

@@ -515,9 +515,11 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         }
 
         public override void RenderParticles(HashSet<uint>? filter) {
+            if (!_showEnvCells) return;
+
             foreach (var (key, lb) in _landblocks) {
                 if (!lb.InstancesReady || Math.Abs(lb.GridX - _cameraLbX) > ParticleRenderDistance || Math.Abs(lb.GridY - _cameraLbY) > ParticleRenderDistance) continue;
-                
+
                 foreach (var emitter in lb.ParticleEmitters) {
                     if (filter != null) {
                         // Check if this emitter is inside one of our filtered cells

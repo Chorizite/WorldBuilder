@@ -198,6 +198,26 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
+        public override void RenderParticles() {
+            RenderParticles(null);
+        }
+
+        public override void RenderParticles(HashSet<uint>? filter) {
+            foreach (var (key, lb) in _landblocks) {
+                if (!lb.InstancesReady || Math.Abs(lb.GridX - _cameraLbX) > ParticleRenderDistance || Math.Abs(lb.GridY - _cameraLbY) > ParticleRenderDistance) continue;
+
+                foreach (var emitter in lb.ParticleEmitters) {
+                    // Check if the parent instance should be visible
+                    if (emitter.ParentInstance.HasValue) {
+                        var instance = emitter.ParentInstance.Value;
+                        if (instance.IsBuilding && !_showBuildings) continue;
+                        if (!instance.IsBuilding && !_showStaticObjects) continue;
+                    }
+                    emitter.Render(GraphicsDevice.ParticleBatcher);
+                }
+            }
+        }
+
         #endregion
 
         #region Protected: Overrides

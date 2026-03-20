@@ -37,7 +37,7 @@ namespace WorldBuilder.Modules.Landscape.Lib {
                     case nameof(EditorState.ShowStaticObjects): _settings.Landscape.Rendering.ShowStaticObjects = _state.ShowStaticObjects; break;
                     case nameof(EditorState.ShowBuildings): _settings.Landscape.Rendering.ShowBuildings = _state.ShowBuildings; break;
                     case nameof(EditorState.ShowEnvCells): _settings.Landscape.Rendering.ShowEnvCells = _state.ShowEnvCells; break;
-                    case nameof(EditorState.ShowPortals): _settings.Landscape.Rendering.ShowPortals = _state.ShowPortals; break;
+                    case nameof(EditorState.ShowParticles): _settings.Landscape.Rendering.ShowParticles = _state.ShowParticles; break;
                     case nameof(EditorState.ShowSkybox): _settings.Landscape.Rendering.ShowSkybox = _state.ShowSkybox; break;
                     case nameof(EditorState.ShowUnwalkableSlopes): _settings.Landscape.Rendering.ShowUnwalkableSlopes = _state.ShowUnwalkableSlopes; break;
                     case nameof(EditorState.ShowDisqualifiedScenery): _settings.Landscape.Rendering.ShowDisqualifiedScenery = _state.ShowDisqualifiedScenery; break;
@@ -69,7 +69,7 @@ namespace WorldBuilder.Modules.Landscape.Lib {
                 _state.ShowStaticObjects = l.Rendering.ShowStaticObjects;
                 _state.ShowBuildings = l.Rendering.ShowBuildings;
                 _state.ShowEnvCells = l.Rendering.ShowEnvCells;
-                _state.ShowPortals = l.Rendering.ShowPortals;
+                _state.ShowParticles = l.Rendering.ShowParticles;
                 _state.ShowSkybox = l.Rendering.ShowSkybox;
                 _state.ShowUnwalkableSlopes = l.Rendering.ShowUnwalkableSlopes;
                 _state.ShowDisqualifiedScenery = l.Rendering.ShowDisqualifiedScenery;

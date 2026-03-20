@@ -115,6 +115,22 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             }
         }
 
+        public override void RenderParticles() {
+            RenderParticles(null);
+        }
+
+        public override void RenderParticles(HashSet<uint>? filter) {
+            if (!_showScenery) return;
+
+            foreach (var (key, lb) in _landblocks) {
+                if (!lb.InstancesReady || Math.Abs(lb.GridX - _cameraLbX) > ParticleRenderDistance || Math.Abs(lb.GridY - _cameraLbY) > ParticleRenderDistance) continue;
+
+                foreach (var emitter in lb.ParticleEmitters) {
+                    emitter.Render(GraphicsDevice.ParticleBatcher);
+                }
+            }
+        }
+
         public bool Raycast(Vector3 origin, Vector3 direction, out SceneRaycastHit hit, bool isCollision = false, float maxDistance = float.MaxValue) {
             hit = SceneRaycastHit.NoHit;
 
