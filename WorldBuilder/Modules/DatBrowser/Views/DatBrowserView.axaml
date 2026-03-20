@@ -14,6 +14,23 @@
              x:DataType="vm:DatBrowserViewModel">
     <UserControl.Resources>
         <StreamGeometry x:Key="WarningIcon">M12,2L1,21H23L12,2M12,6L19.53,19H4.47L12,6M11,10V14H13V10H11M11,16V18H13V16H11Z</StreamGeometry>
+        
+        <!-- Chevron Path Resources -->
+        <DataTemplate x:Key="CollapsedChevronTemplate">
+            <Path Data="{StaticResource TreeDataGridItemCollapsedChevronPathData}"
+                  Fill="{DynamicResource SemiColorTertiary}"
+                  Stretch="Uniform"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center" />
+        </DataTemplate>
+        
+        <DataTemplate x:Key="ExpandedChevronTemplate">
+            <Path Data="{StaticResource TreeDataGridItemExpandedChevronPathData}"
+                  Fill="{DynamicResource SemiColorTertiary}"
+                  Stretch="Uniform"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center" />
+        </DataTemplate>
     </UserControl.Resources>
     <UserControl.DataTemplates>
         <DataTemplate DataType="vm:SetupBrowserViewModel">
@@ -60,12 +77,12 @@
             <Setter Property="Background" Value="Transparent"/>
         </Style>
         <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}"/>
+            <Setter Property="Background" Value="{DynamicResource SemiColorPrimaryLight}"/>
         </Style>
         <Style Selector="ListBoxItem:selected Border#ItemBorder">
             <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}"/>
             <Setter Property="BorderThickness" Value="3"/>
-            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}"/>
+            <Setter Property="Background" Value="{DynamicResource SemiColorPrimaryLight}"/>
         </Style>
         <Style Selector="TreeViewItem">
             <Setter Property="Padding" Value="0,1"/>
@@ -75,7 +92,7 @@
         </Style>
     </UserControl.Styles>
     
-    <Grid ColumnDefinitions="*, Auto, Auto">
+    <Grid ColumnDefinitions="*, Auto, 400">
         <Grid Grid.Column="0" RowDefinitions="Auto, *">
             <Grid Grid.Row="0" ColumnDefinitions="*, Auto">
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
@@ -103,35 +120,78 @@
                       IsVisible="{Binding SelectedObject, Converter={x:Static conv:NumericConverters.IsNotZero}}" />
 
         <TabControl Grid.Column="2" SelectedIndex="{Binding SelectedPropertiesTabIndex}"
-                    Width="400"
-                    IsVisible="{Binding SelectedObject, Converter={x:Static conv:NumericConverters.IsNotZero}}" HorizontalAlignment="Left">
+                    IsVisible="{Binding SelectedObject, Converter={x:Static conv:NumericConverters.IsNotZero}}" HorizontalAlignment="Stretch">
             <TabItem Header="Overview" IsVisible="{Binding ObjectOverview, Converter={x:Static ObjectConverters.IsNotNull}}">
                 <ContentControl Content="{Binding ObjectOverview}" />
             </TabItem>
             <TabItem Header="Props">
-                <TreeView ItemsSource="{Binding ReflectionNodes}" Padding="0,5.5,10,0">
-                    <TreeView.ItemTemplate>
-                        <TreeDataTemplate ItemsSource="{Binding Children}">
-                            <StackPanel Orientation="Horizontal" Background="Transparent">
-                                <StackPanel.ContextMenu>
-                                    <ContextMenu>
-                                        <MenuItem Header="Copy" Command="{Binding CopyCommand}"/>
-                                        <MenuItem Header="Open in New Window" Command="{Binding OpenInNewWindowCommand}" IsVisible="{Binding IsQualifiedDataId}"/>
-                                    </ContextMenu>
-                                </StackPanel.ContextMenu>
-                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
-                                <TextBlock Text=": "/>
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <ListBox ItemsSource="{Binding ReflectionNodes.VisibleRows}" 
+                             SelectedItem="{Binding ReflectionNodes.SelectedItem}"
+                             Padding="0,5.5,10,0"
+                             DoubleTapped="OnDoubleTapped"
+                             KeyDown="OnKeyDown">
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="Padding" Value="0"/>
+                            </Style>
+                        </ListBox.Styles>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="Transparent" MinHeight="27">
+                                    <Grid ColumnDefinitions="Auto,21,*">
+                                        <Border Width="{Binding Indent}"/>
+                                        <Button Grid.Column="1"
+                                                Command="{Binding $parent[TabControl].DataContext.ToggleExpandedCommand}"
+                                                CommandParameter="{Binding}"
+                                                IsVisible="{Binding HasChildren}"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                Padding="6"
+                                                MinHeight="0"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                Width="22" Height="22">
+                                            <Grid>
+                                                <ContentControl Content="{Binding}"
+                                                               ContentTemplate="{StaticResource CollapsedChevronTemplate}"
+                                                               IsVisible="{Binding !IsExpanded}" />
+                                                <ContentControl Content="{Binding}"
+                                                               ContentTemplate="{StaticResource ExpandedChevronTemplate}"
+                                                               IsVisible="{Binding IsExpanded}" />
+                                            </Grid>
+                                            <Button.Styles>
+                                                <Style Selector=":pointerover /template/ ContentPresenter">
+                                                    <Setter Property="Background" Value="Transparent" />
+                                                </Style>
+                                                <Style Selector="Button:pointerover Path">
+                                                    <Setter Property="Fill" Value="{DynamicResource SemiColorText0}" />
+                                                </Style>
+                                            </Button.Styles>
+                                        </Button>
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Background="Transparent">
+                                            <StackPanel.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="Copy" Command="{Binding Node.CopyCommand}"/>
+                                                    <MenuItem Header="Open in New Window" Command="{Binding Node.OpenInNewWindowCommand}" IsVisible="{Binding Node.IsQualifiedDataId}"/>
+                                                </ContextMenu>
+                                            </StackPanel.ContextMenu>
+                                            <TextBlock Text="{Binding Node.Name}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                            <TextBlock Text=": " VerticalAlignment="Center"/>
 
-                                <v:DataIdView IsVisible="{Binding IsQualifiedDataId}" />
+                                            <v:DataIdView IsVisible="{Binding IsQualifiedDataId}" VerticalAlignment="Center" DataContext="{Binding Node}"/>
 
-                                <StackPanel Orientation="Horizontal" IsVisible="{Binding !IsQualifiedDataId}">
-                                    <TextBlock Text="{Binding Value}" Foreground="{DynamicResource SemiColorText2}" IsVisible="{Binding Value, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                                    <TextBlock Text="{Binding TypeName, StringFormat=' ({0})'}" Foreground="{DynamicResource SemiColorText3}" FontSize="10"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </TreeDataTemplate>
-                    </TreeView.ItemTemplate>
-                </TreeView>
+                                            <StackPanel Orientation="Horizontal" IsVisible="{Binding !Node.IsQualifiedDataId}" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Node.Value}" Foreground="{DynamicResource SemiColorText2}" IsVisible="{Binding Node.Value, Converter={x:Static ObjectConverters.IsNotNull}}" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Node.TypeName, StringFormat=' ({0})'}" Foreground="{DynamicResource SemiColorText3}" FontSize="10" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </ScrollViewer>
             </TabItem>
             <TabItem Header="Keywords" IsVisible="{Binding ShowKeywords}">
                 <ScrollViewer>

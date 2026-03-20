@@ -1,30 +1,21 @@
-using CommunityToolkit.Mvvm.ComponentModel;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using WorldBuilder.ViewModels;
-using DatReaderWriter.DBObjs;
-using DatReaderWriter.Enums;
-using DatReaderWriter.Lib.IO;
-using DatReaderWriter.Types;
-using DatReaderWriter;
 using System.Collections.ObjectModel;
-using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
-using System;
-using WorldBuilder.Shared.Services;
-using WorldBuilder.Services;
-using HanumanInstitute.MvvmDialogs;
-using System.Threading.Tasks;
-using WorldBuilder.Lib;
-using WorldBuilder.Lib.Input;
-using WorldBuilder.Modules.DatBrowser.Factories;
-
-using CommunityToolkit.Mvvm.Input;
-
+using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using HanumanInstitute.MvvmDialogs;
+using DatReaderWriter.DBObjs;
+using DatReaderWriter.Enums;
+using DatReaderWriter.Lib.IO;
+using WorldBuilder.Controls;
+using WorldBuilder.Lib;
+using WorldBuilder.Lib.Input;
+using WorldBuilder.Modules.DatBrowser.Factories;
+using WorldBuilder.Services;
+using WorldBuilder.Shared.Services;
+using WorldBuilder.ViewModels;
 
 namespace WorldBuilder.Modules.DatBrowser.ViewModels {
     public partial class DatBrowserViewModel : ViewModelBase, IToolModule, IHotkeyHandler, IKeywordSearchViewModel {
@@ -114,7 +105,7 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private uint _previewFileId;
 
         [ObservableProperty]
-        private ObservableCollection<ReflectionNodeViewModel> _reflectionNodes = new();
+        private TreeList<ReflectionNodeViewModel> _reflectionNodes;
 
         [ObservableProperty]
         private string? _currentKeywordsNames;
@@ -233,6 +224,8 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
             _keywordRepository = keywordRepository;
             _projectManager = projectManager;
 
+            ReflectionNodes = new TreeList<ReflectionNodeViewModel>(new ObservableCollection<ReflectionNodeViewModel>());
+
             SelectedType = DBObjType.Setup;
             // Don't create browser here - let the lazy loading handle it
             CurrentBrowser = null;
@@ -251,6 +244,13 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
         private void Back() {
             if (CurrentBrowser is IDatBrowserViewModel browser) {
                 browser.SelectedFileId = 0;
+            }
+        }
+
+        [RelayCommand]
+        private void ToggleExpanded(TreeListNode<ReflectionNodeViewModel>? node) {
+            if (node != null) {
+                ReflectionNodes.Toggle(node);
             }
         }
 
@@ -513,9 +513,9 @@ namespace WorldBuilder.Modules.DatBrowser.ViewModels {
                     var root = ReflectionNodeViewModel.Create("Root", value, _dats);
                     var children = root.Children?.ToList() ?? new List<ReflectionNodeViewModel>();
                     Avalonia.Threading.Dispatcher.UIThread.Post(() => {
-                        foreach (var child in children) {
-                            ReflectionNodes.Add(child);
-                        }
+                        // Create new TreeList with the children
+                        ReflectionNodes = new TreeList<ReflectionNodeViewModel>(children);
+                        OnPropertyChanged(nameof(ReflectionNodes));
                     });
                 });
             }

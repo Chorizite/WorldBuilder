@@ -1,9 +1,9 @@
 using System.Collections.ObjectModel;
 using Avalonia.Controls;
-using Avalonia.Controls.Models.TreeDataGrid;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HanumanInstitute.MvvmDialogs;
+using WorldBuilder.Controls;
 using WorldBuilder.Services;
 using WorldBuilder.Shared.Lib;
 using WorldBuilder.Shared.Models;
@@ -23,19 +23,17 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
 
         private readonly ObservableCollection<BookmarkNode> _searchResultsCollection = new();
 
-        public HierarchicalTreeDataGridSource<BookmarkNode> Bookmarks { get; }
+        public TreeList<BookmarkNode> Bookmarks { get; }
 
-        public HierarchicalTreeDataGridSource<BookmarkNode> SearchResults { get; }
+        public TreeList<BookmarkNode> SearchResults { get; }
 
         [ObservableProperty]
         private string _searchText = string.Empty;
 
         partial void OnSearchTextChanged(string value) {
             FilterBookmarks(value);
+            Bookmarks.SelectedItem = null;
         }
-
-        [ObservableProperty]
-        private BookmarkNode? _selectedItem;
 
         public BookmarksPanelViewModel(WorldBuilderSettings settings, IInputManager inputManager, BookmarksManager bookmarksManager, LandscapeViewModel landScapeViewModel, IDialogService dialogService) {
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -46,41 +44,8 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
             _inputManager.KeyBindingsChanged += OnKeyBindingsChanged;
             UpdateHotkeyDisplay();
 
-            Bookmarks = new HierarchicalTreeDataGridSource<BookmarkNode>(_bookmarksManager.Bookmarks) {
-                Columns = {
-                    new HierarchicalExpanderColumn<BookmarkNode>(
-                        new TemplateColumn<BookmarkNode>("", "BookmarkCellTemplate"),
-                        x => x is BookmarkFolder folder ? folder.Items : null,
-                        null,
-                        x => x.IsExpanded)
-                }
-            };
-
-            SearchResults = new HierarchicalTreeDataGridSource<BookmarkNode>(_searchResultsCollection) {
-                Columns = {
-                    new HierarchicalExpanderColumn<BookmarkNode>(
-                        new TemplateColumn<BookmarkNode>("", "BookmarkCellTemplate"),
-                        x => x is BookmarkFolder folder ? folder.Items : null,
-                        null,
-                        x => x.IsExpanded)
-                }
-            };
-
-            Avalonia.Threading.Dispatcher.UIThread.Post(() => {
-                // Sync TreeDataGrid selection with ViewModel SelectedItem (TreeView → TreeDataGrid)
-                if (Bookmarks.RowSelection != null) {
-                    Bookmarks.RowSelection.SelectionChanged += (s, e) => {
-                        SelectedItem = Bookmarks.RowSelection.SelectedItem;
-                    };
-                }
-
-                // Sync SearchResults selection with ViewModel SelectedItem (TreeView → TreeDataGrid)
-                if (SearchResults.RowSelection != null) {
-                    SearchResults.RowSelection.SelectionChanged += (s, e) => {
-                        SelectedItem = SearchResults.RowSelection.SelectedItem;
-                    };
-                }
-            });
+            Bookmarks = new TreeList<BookmarkNode>(BookmarksManager.Bookmarks);
+            SearchResults  = new TreeList<BookmarkNode>(_searchResultsCollection);
         }
 
         [RelayCommand]
@@ -94,32 +59,34 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
             
             // Check if a folder is selected, or if a bookmark is selected, use its parent folder
             BookmarkFolder? targetFolder = null;
-            if (SelectedItem is BookmarkFolder folder) {
+            if (Bookmarks.SelectedItem?.Node is BookmarkFolder folder) {
                 targetFolder = folder;
-            } else if (SelectedItem is Bookmark bookmark) {
+            } else if (Bookmarks.SelectedItem?.Node is Bookmark bookmark) {
                 targetFolder = bookmark.Parent;
             }
 
+            Bookmark? newBookmark = null;
             if (_settings.Landscape.Bookmarks.ShowEditorWhenSaving) {
-                var result = await ShowAddBookmarkDialog(bookmarkName, bookmarkLocation);
-                if (result == null) return;
-                targetFolder = result?.Parent;
+                newBookmark = await ShowAddBookmarkDialog(bookmarkName, bookmarkLocation);
+                targetFolder = newBookmark?.Parent;
             }
             else {
                 // Add bookmark to the selected folder or root level
-                await _bookmarksManager.AddBookmark(bookmarkLocation, bookmarkName, targetFolder);
+                newBookmark = await _bookmarksManager.AddBookmark(bookmarkLocation, bookmarkName, targetFolder);
             }
+
+            if (newBookmark == null) return;
             
             // If added to a folder that was collapsed, expand it
-            if (targetFolder != null && !targetFolder.IsExpanded) {
-                targetFolder.IsExpanded = true;
+            if (targetFolder != null) {
+                var targetFolderView = Bookmarks.FindItem(targetFolder);
+                if (targetFolderView != null && !targetFolderView.IsExpanded) {
+                    Bookmarks.Toggle(targetFolderView);
+                }
             }
-            
+
             // Select the newly added bookmark
-            var container = targetFolder?.Items ?? _bookmarksManager.Bookmarks;
-            if (container.Count > 0) {
-                SelectedItem = container.Last();
-            }
+            Bookmarks.SelectedItem = Bookmarks.FindItem(newBookmark);
         }
 
         [RelayCommand]
@@ -129,29 +96,30 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
 
             // Check if a folder is selected, or if a bookmark is selected, use its parent folder
             BookmarkFolder? parentFolder = null;
-            if (SelectedItem is BookmarkFolder folder) {
+            if (Bookmarks.SelectedItem?.Node is BookmarkFolder folder) {
                 parentFolder = folder;
-            } else if (SelectedItem is Bookmark bookmark) {
+            } else if (Bookmarks.SelectedItem?.Node is Bookmark bookmark) {
                 parentFolder = bookmark.Parent;
             }
 
-            await _bookmarksManager.AddFolder(folderName, parentFolder);
+            var newFolder = await _bookmarksManager.AddFolder(folderName, parentFolder);
+            if (newFolder == null) return;
 
             // If added to a folder that was collapsed, expand it
-            if (parentFolder != null && !parentFolder.IsExpanded) {
-                parentFolder.IsExpanded = true;
+            if (parentFolder != null) {
+                var parentFolderView = Bookmarks.FindItem(parentFolder);
+                if (parentFolderView != null && !parentFolderView.IsExpanded) {
+                    Bookmarks.Toggle(parentFolderView);
+                }
             }
 
             // Select the newly added folder
-            var container = parentFolder?.Items ?? _bookmarksManager.Bookmarks;
-            if (container.Count > 0) {
-                SelectedItem = container.Last();
-            }
+            Bookmarks.SelectedItem = Bookmarks.FindItem(newFolder);
         }
 
         [RelayCommand]
-        public void GoToBookmark(BookmarkNode? node) {
-            if (node is Bookmark bookmark && !string.IsNullOrEmpty(bookmark.Location) && Position.TryParse(bookmark.Location, out var pos, _landScapeViewModel.ActiveDocument?.Region)) {
+        public void GoToBookmark(TreeListNode<BookmarkNode>? node) {
+            if (node?.Node is Bookmark bookmark && !string.IsNullOrEmpty(bookmark.Location) && Position.TryParse(bookmark.Location, out var pos, _landScapeViewModel.ActiveDocument?.Region)) {
                 _landScapeViewModel.GameScene.Teleport(pos!.GlobalPosition, (uint)((pos.LandblockId << 16) | pos.CellId));
                 if (pos.Rotation.HasValue) {
                     _landScapeViewModel.GameScene.CurrentCamera.Rotation = pos.Rotation.Value;
@@ -160,8 +128,8 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
         }
 
         [RelayCommand]
-        public async Task UpdateBookmark(BookmarkNode? node) {
-            if (node is not Bookmark bookmark) return;
+        public async Task UpdateBookmark(TreeListNode<BookmarkNode>? node) {
+            if (node?.Node is not Bookmark bookmark) return;
 
             var gameScene = _landScapeViewModel.GameScene;
             var loc = Position.FromGlobal(gameScene.CurrentCamera.Position, _landScapeViewModel.ActiveDocument?.Region, gameScene.CurrentEnvCellId != 0 ? gameScene.CurrentEnvCellId : null);
@@ -173,25 +141,26 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
         }
 
         [RelayCommand]
-        public async Task RenameBookmark(BookmarkNode? node) {
-            if (node == null) return;
+        public async Task RenameBookmark(TreeListNode<BookmarkNode>? node) {
+            if (node?.Node == null) return;
 
-            var promptText = node is BookmarkFolder ? "Enter new name for folder:" : "Enter new name for bookmark:";
-            var newName = await ShowTextInputDialog(promptText, node.Name, "Rename");
-            if (string.IsNullOrWhiteSpace(newName) || newName == node.Name) return;
+            var promptText = node.Node is BookmarkFolder ? "Enter new name for folder:" : "Enter new name for bookmark:";
+            var newName = await ShowTextInputDialog(promptText, node.Node.Name ?? string.Empty, "Rename");
+            if (string.IsNullOrWhiteSpace(newName) || newName == node.Node.Name) return;
 
-            var nodeToRename = node.Ref ?? node;
+            var nodeToRename = node.Node.Ref ?? node.Node;
             
             // Update in-place
             nodeToRename.Name = newName;
             await _bookmarksManager.SaveBookmarks();
 
-            if (nodeToRename != node)   // maintain consistency for search view
-                node.Name = newName;
+            if (nodeToRename != node.Node)   // maintain consistency for search view
+                node.Node.Name = newName;
         }
 
         [RelayCommand]
-        public async Task DeleteBookmark(BookmarkNode? node) {
+        public async Task DeleteBookmark(TreeListNode<BookmarkNode>? _node) {
+            var node = _node?.Node;
             if (node == null) return;
             var nodeToRemove = node.Ref ?? node;    // if deleting from search, delete the original node
             await _bookmarksManager.RemoveBookmark(nodeToRemove);
@@ -200,22 +169,22 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
                 var container = node.Parent?.Items ?? _searchResultsCollection;
                 container.Remove(node);
             }
-            if (SelectedItem == node) SelectedItem = null;
+            if (Bookmarks.SelectedItem?.Node == node) Bookmarks.SelectedItem = null;
         }
 
         [RelayCommand]
-        public async Task MoveUp(BookmarkNode? node) {
+        public async Task MoveUp(TreeListNode<BookmarkNode>? node) {
             if (node != null) {
-                await _bookmarksManager.MoveUp(node);
-                SelectedItem = node;
+                await _bookmarksManager.MoveUp(node.Node);
+                //Bookmarks.SelectedItem = Bookmarks.FindItem(node.Node);
             }
         }
 
         [RelayCommand]
-        public async Task MoveDown(BookmarkNode? node) {
+        public async Task MoveDown(TreeListNode<BookmarkNode>? node) {
             if (node != null) {
-                await _bookmarksManager.MoveDown(node);
-                SelectedItem = node;
+                await _bookmarksManager.MoveDown(node.Node);
+                //Bookmarks.SelectedItem = Bookmarks.FindItem(node.Node);
             }
         }
 
@@ -223,10 +192,9 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
         /// Copies the current bookmark's location string to the clipboard
         /// </summary>
         [RelayCommand]
-        public async Task CopyLocation(BookmarkNode? node) {
-            if (node is Bookmark bookmark && !string.IsNullOrEmpty(bookmark.Location)) {
-                var app = App.Current;
-                var lifetime = app?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+        public async Task CopyLocation(TreeListNode<BookmarkNode>? node) {
+            if (node?.Node is Bookmark bookmark && !string.IsNullOrEmpty(bookmark.Location)) {
+                var lifetime = App.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
                 var mainWindow = lifetime?.MainWindow;
                     
                 if (mainWindow?.Clipboard != null) {
@@ -256,69 +224,102 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
         }
 
         [RelayCommand]
-        public void EnterKey(BookmarkNode? node) {
-            if (node is BookmarkFolder folder) {
-                folder.IsExpanded = !folder.IsExpanded;
-            }
-            else if (node is Bookmark bookmark) {
-                GoToBookmark(bookmark);
+        public void ToggleFolderExpansion(TreeListNode<BookmarkNode>? node) {
+            if (node?.Node is BookmarkFolder folder) {
+                Bookmarks.Toggle(node);
             }
         }
 
         [RelayCommand]
-        public void ToggleFolderExpansion(BookmarkNode? node) {
-            if (node is BookmarkFolder folder) {
-                folder.IsExpanded = !folder.IsExpanded;
-            }
-        }
-
-        [RelayCommand]
-        public void ExpandAll(BookmarkNode? node) {
-            if (node is BookmarkFolder folder) {
+        public void ExpandAll(TreeListNode<BookmarkNode>? node) {
+            if (node?.Node is BookmarkFolder folder) {
+                // Preserve the original selection
+                var originalSelection = Bookmarks.SelectedItem;
+                
                 // Check if folder and all subfolders are already expanded
-                if (IsFolderAndSubfoldersExpanded(folder)) {
-                    CollapseFolderRecursive(folder);
+                if (IsFolderAndSubfoldersExpanded(node)) {
+                    CollapseFolderRecursive(node);
                 } else {
-                    ExpandFolderRecursive(folder);
+                    ExpandFolderRecursive(node);
                 }
+                
+                // Restore the original selection
+                Bookmarks.SelectedItem = originalSelection;
+                
+                // Ensure the original folder retains focus after expand/collapse all
+                RestoreFocusToNode(originalSelection);
             }
         }
 
-        public bool IsFolderAndSubfoldersExpanded(BookmarkFolder folder) {
+        public bool IsFolderAndSubfoldersExpanded(TreeListNode<BookmarkNode> folder) {
             if (!folder.IsExpanded) return false;
 
-            foreach (var item in folder.Items) {
-                if (item is BookmarkFolder subFolder) {
-                    // Recursively check if this subfolder and all its descendants are expanded
-                    if (!IsFolderAndSubfoldersExpanded(subFolder)) {
-                        return false;
+            if (folder.Children != null) {
+                foreach (var child in folder.Children) {
+                    if (child.Node is BookmarkFolder subFolder) {
+                        // Recursively check if this subfolder and all its descendants are expanded
+                        if (!IsFolderAndSubfoldersExpanded(child))
+                            return false;
                     }
                 }
             }
             return true;
         }
 
-        private void ExpandFolderRecursive(BookmarkFolder folder) {
-            folder.IsExpanded = true;
-            foreach (var item in folder.Items) {
-                if (item is BookmarkFolder subFolder) {
-                    ExpandFolderRecursive(subFolder);
+        private void ExpandFolderRecursive(TreeListNode<BookmarkNode>? folder) {
+            if (folder == null) return;
+            if (!folder.IsExpanded)
+                Bookmarks.Toggle(folder);
+            if (folder.Children != null) {
+                foreach (var child in folder.Children) {
+                    if (child.Node is BookmarkFolder subFolder) {
+                        ExpandFolderRecursive(child);
+                    }
                 }
             }
         }
 
-        private void CollapseFolderRecursive(BookmarkFolder folder) {
-            folder.IsExpanded = false;
-            foreach (var item in folder.Items) {
-                if (item is BookmarkFolder subFolder) {
-                    CollapseFolderRecursive(subFolder);
+        private void CollapseFolderRecursive(TreeListNode<BookmarkNode>? folder) {
+            if (folder == null || !folder.IsExpanded) return;
+            
+            // Walk the entire tree structure and collect all folders that need to be collapsed
+            var foldersToCollapse = new List<TreeListNode<BookmarkNode>>();
+            CollectFoldersToCollapse(folder, foldersToCollapse);
+            
+            // Collapse folders in reverse order (deepest first)
+            for (int i = foldersToCollapse.Count - 1; i >= 0; i--) {
+                Bookmarks.CollapseWithoutSelection(foldersToCollapse[i]);
+            }
+        }
+
+        private void CollectFoldersToCollapse(TreeListNode<BookmarkNode> folder, List<TreeListNode<BookmarkNode>> collection) {
+            collection.Add(folder);
+            
+            if (folder.Children != null) {
+                foreach (var child in folder.Children) {
+                    if (child.Node is BookmarkFolder subFolder && child.IsExpanded)
+                        CollectFoldersToCollapse(child, collection);
                 }
             }
+        }
+
+        // Event to request focus restoration
+        public event EventHandler<TreeListNode<BookmarkNode>?>? RequestFocusRestore;
+
+        private void RestoreFocusToNode(TreeListNode<BookmarkNode>? node) {
+            if (node == null) return;
+
+            // Use dispatcher to ensure focus is set after UI updates
+            // Follow the same pattern as the key event handlers by raising an event for the view to handle
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                RequestFocusRestore?.Invoke(this, node);
+            }, Avalonia.Threading.DispatcherPriority.Background);
         }
 
         private void FilterBookmarks(string searchText) {
             if (string.IsNullOrWhiteSpace(searchText)) {
                 _searchResultsCollection.Clear();
+                SearchResults.RebuildVisibleRows();
                 return;
             }
 
@@ -336,13 +337,19 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
             foreach (var item in filteredItems) {
                 _searchResultsCollection.Add(item);
             }
+
+            // Rebuild the SearchResults TreeList to reflect changes
+            SearchResults.RebuildVisibleRows();
+            
+            // Auto-expand folders in search results that have matching children
+            AutoExpandSearchResultFolders();
         }
 
         private BookmarkNode? FilterBookmarkNode(BookmarkNode node, string searchLower) {
             if (node is Bookmark bookmark) {
                 var clonedBookmark = bookmark.Clone();
                 clonedBookmark.Ref = bookmark;
-                return bookmark.Name.ToLowerInvariant().Contains(searchLower) ? clonedBookmark : null;
+                return bookmark.Name != null && bookmark.Name.ToLowerInvariant().Contains(searchLower) ? clonedBookmark : null;
             }
             else if (node is BookmarkFolder folder) {
                 var filteredFolder = folder.Clone();
@@ -359,15 +366,41 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
                     }
                 }
 
-                // Also include the folder itself if its name matches
-                if (folder.Name.ToLowerInvariant().Contains(searchLower) || hasMatchingChildren) {
+                // Also include the folder itself if its name matches or has matching children
+                if (folder.Name != null && folder.Name.ToLowerInvariant().Contains(searchLower) || hasMatchingChildren)
                     return filteredFolder;
-                }
 
                 return null;
             }
 
             return null;
+        }
+
+        private void AutoExpandSearchResultFolders() {
+            // Collect nodes to expand first to avoid collection modification during iteration
+            var nodesToExpand = new List<TreeListNode<BookmarkNode>>();
+            CollectFoldersToExpand(SearchResults.VisibleRows, nodesToExpand);
+            
+            // Expand the collected nodes
+            foreach (var node in nodesToExpand) {
+                SearchResults.ExpandWithoutSelection(node);
+            }
+        }
+
+        private void CollectFoldersToExpand(IEnumerable<TreeListNode<BookmarkNode>> nodes, List<TreeListNode<BookmarkNode>> nodesToExpand) {
+            // Create a copy of the nodes to avoid collection modification during iteration
+            var nodesArray = nodes.ToArray();
+            
+            foreach (var node in nodesArray) {
+                if (node.Node is BookmarkFolder folder && folder.Items.Count > 0) {
+                    nodesToExpand.Add(node);
+                    
+                    // Recursively collect children if they are folders with items
+                    if (node.Children != null) {
+                        CollectFoldersToExpand(node.Children, nodesToExpand);
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -383,25 +416,6 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
                 bookmark.UpdateThemeColor();
                 if (bookmark is BookmarkFolder folder) {
                     UpdateBookmarkColorsRecursive(folder.Items);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Programmatically sets the selection in the active TreeDataGrid source
-        /// When converting from TreeView to TreeDataGrid, we lose the ability to directly bind SelectedItem, so we need to manually find and set the selection index
-        /// </summary>
-        partial void OnSelectedItemChanged(BookmarkNode? value) {
-            // Sync ViewModel selection back to TreeDataGrid (ViewModel → TreeDataGrid)
-            if (value != null) {
-                var activeSource = string.IsNullOrWhiteSpace(SearchText) ? Bookmarks : SearchResults;
-                if (activeSource.RowSelection == null) return;
-
-                // Find the IndexPath of the node in the collection
-                var indexPath = FindNodeIndex(activeSource.Items.ToList(), value, new List<int>());
-                if (indexPath != null) {
-                    // Set selection by IndexPath
-                    activeSource.RowSelection.SelectedIndex = indexPath.Value;
                 }
             }
         }
@@ -427,6 +441,11 @@ namespace WorldBuilder.Modules.Landscape.ViewModels {
                 }
             }
             return null;
+        }
+
+        [RelayCommand]
+        public void ClearSearch() {
+            SearchText = string.Empty;
         }
 
         private void OnKeyBindingsChanged(object? sender, EventArgs e) {

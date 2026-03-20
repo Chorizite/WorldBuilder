@@ -1,12 +1,14 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
-using Avalonia.Interactivity;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
+using WorldBuilder.Controls;
 using WorldBuilder.Modules.Landscape.ViewModels;
 using WorldBuilder.ViewModels;
+
 using DropPosition = WorldBuilder.ViewModels.DropPosition;
 
 namespace WorldBuilder.Modules.Landscape.Views.Components;
@@ -15,11 +17,11 @@ public partial class BookmarksPanel : UserControl {
     private bool _isDragging;
     private BookmarkNode? _draggedBookmark;
 
-    private TreeDataGridRow? _currentTargetRow;
+    private ListBoxItem? _currentTargetRow;
     private BookmarkNode? _currentTargetBookmark;
     private DropPosition _currentDropPosition = DropPosition.None;
 
-    private TreeDataGridRow? _lastClickItem;
+    private ListBoxItem? _lastClickItem;
     private DateTime _lastClickTime;
     private static readonly TimeSpan _doubleClickTime = TimeSpan.FromMilliseconds(500);
 
@@ -33,6 +35,10 @@ public partial class BookmarksPanel : UserControl {
         BookmarkTreeView.AddHandler(PointerPressedEvent, OnPointerPressed, handledEventsToo: true);
         BookmarkTreeView.AddHandler(PointerMovedEvent, OnPointerMoved);
         BookmarkTreeView.AddHandler(PointerReleasedEvent, OnPointerReleased);
+        
+        // Subscribe to DataContext changes and focus restore events
+        DataContextChanged += OnDataContextChanged;
+        OnDataContextChanged(null, null);
     }
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e) {
@@ -42,9 +48,9 @@ public partial class BookmarksPanel : UserControl {
 
         // Get the visual element under the cursor
         var visual = e.Source as Visual;
-        var treeDataGridRow = visual?.FindAncestorOfType<TreeDataGridRow>();
+        var treeDataGridRow = visual?.FindAncestorOfType<ListBoxItem>();
 
-        if (treeDataGridRow?.DataContext is BookmarkNode bookmarkNode) {
+        if (treeDataGridRow?.DataContext is TreeListNode<BookmarkNode> bookmarkNode) {
             var point = e.GetCurrentPoint(treeDataGridRow);
             
             if (point.Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonPressed) {
@@ -66,7 +72,7 @@ public partial class BookmarksPanel : UserControl {
 
                 // Start new dragging event.
                 // Even if this isn't a "true" drag yet, LMB release will be handled in OnPointerMoved and OnPointerReleased
-                _draggedBookmark = bookmarkNode;
+                _draggedBookmark = bookmarkNode.Node;
                 _isDragging = true;
 
             }
@@ -79,30 +85,30 @@ public partial class BookmarksPanel : UserControl {
     /// <summary>
     /// Creates a context menu based on BookmarkNode type (Bookmark, Folder)
     /// </summary>
-    private ContextMenu? BuildContextMenu(BookmarkNode bookmarkNode, BookmarksPanelViewModel viewModel) {
-        if (bookmarkNode is Bookmark bookmark) {
+    private ContextMenu? BuildContextMenu(TreeListNode<BookmarkNode> bookmarkNode, BookmarksPanelViewModel viewModel) {
+        if (bookmarkNode.Node is Bookmark bookmark) {
             var bookmarkContextMenu = new ContextMenu();
-            bookmarkContextMenu.Items.Add(new MenuItem { Header = "Go To", Command = viewModel.GoToBookmarkCommand, CommandParameter = bookmark });
-            bookmarkContextMenu.Items.Add(new MenuItem { Header = "Update to Current Location", Command = viewModel.UpdateBookmarkCommand, CommandParameter = bookmark });
-            bookmarkContextMenu.Items.Add(new MenuItem { Header = "Rename", Command = viewModel.RenameBookmarkCommand, CommandParameter = bookmark });
+            bookmarkContextMenu.Items.Add(new MenuItem { Header = "Go To", Command = viewModel.GoToBookmarkCommand, CommandParameter = bookmarkNode });
+            bookmarkContextMenu.Items.Add(new MenuItem { Header = "Update to Current Location", Command = viewModel.UpdateBookmarkCommand, CommandParameter = bookmarkNode });
+            bookmarkContextMenu.Items.Add(new MenuItem { Header = "Rename", Command = viewModel.RenameBookmarkCommand, CommandParameter = bookmarkNode });
             bookmarkContextMenu.Items.Add(new Separator());
-            bookmarkContextMenu.Items.Add(new MenuItem { Header = "Copy Location", Command = viewModel.CopyLocationCommand, CommandParameter = bookmark });
+            bookmarkContextMenu.Items.Add(new MenuItem { Header = "Copy Location", Command = viewModel.CopyLocationCommand, CommandParameter = bookmarkNode });
             bookmarkContextMenu.Items.Add(new Separator());
-            bookmarkContextMenu.Items.Add(new MenuItem { Header = "Move Up", Command = viewModel.MoveUpCommand, CommandParameter = bookmark });
-            bookmarkContextMenu.Items.Add(new MenuItem { Header = "Move Down", Command = viewModel.MoveDownCommand, CommandParameter = bookmark });
+            bookmarkContextMenu.Items.Add(new MenuItem { Header = "Move Up", Command = viewModel.MoveUpCommand, CommandParameter = bookmarkNode });
+            bookmarkContextMenu.Items.Add(new MenuItem { Header = "Move Down", Command = viewModel.MoveDownCommand, CommandParameter = bookmarkNode });
             bookmarkContextMenu.Items.Add(new Separator());
-            bookmarkContextMenu.Items.Add(new MenuItem { Header = "Delete", Command = viewModel.DeleteBookmarkCommand, CommandParameter = bookmark });
+            bookmarkContextMenu.Items.Add(new MenuItem { Header = "Delete", Command = viewModel.DeleteBookmarkCommand, CommandParameter = bookmarkNode });
             return bookmarkContextMenu;
         }
-        else if (bookmarkNode is BookmarkFolder folder) {
+        else if (bookmarkNode.Node is BookmarkFolder folder) {
             var folderContextMenu = new ContextMenu();
-            folderContextMenu.Items.Add(new MenuItem { Header = viewModel.IsFolderAndSubfoldersExpanded(folder) ? "Collapse All" : "Expand All", Command = viewModel.ExpandAllCommand, CommandParameter = folder });
-            folderContextMenu.Items.Add(new MenuItem { Header = "Rename", Command = viewModel.RenameBookmarkCommand, CommandParameter = folder });
+            folderContextMenu.Items.Add(new MenuItem { Header = viewModel.IsFolderAndSubfoldersExpanded(bookmarkNode) ? "Collapse All" : "Expand All", Command = viewModel.ExpandAllCommand, CommandParameter = bookmarkNode });
+            folderContextMenu.Items.Add(new MenuItem { Header = "Rename", Command = viewModel.RenameBookmarkCommand, CommandParameter = bookmarkNode });
             folderContextMenu.Items.Add(new Separator());
-            folderContextMenu.Items.Add(new MenuItem { Header = "Move Up", Command = viewModel.MoveUpCommand, CommandParameter = folder });
-            folderContextMenu.Items.Add(new MenuItem { Header = "Move Down", Command = viewModel.MoveDownCommand, CommandParameter = folder });
+            folderContextMenu.Items.Add(new MenuItem { Header = "Move Up", Command = viewModel.MoveUpCommand, CommandParameter = bookmarkNode });
+            folderContextMenu.Items.Add(new MenuItem { Header = "Move Down", Command = viewModel.MoveDownCommand, CommandParameter = bookmarkNode });
             folderContextMenu.Items.Add(new Separator());
-            folderContextMenu.Items.Add(new MenuItem { Header = "Delete", Command = viewModel.DeleteBookmarkCommand, CommandParameter = folder });
+            folderContextMenu.Items.Add(new MenuItem { Header = "Delete", Command = viewModel.DeleteBookmarkCommand, CommandParameter = bookmarkNode });
             return folderContextMenu;
         }
         return null;
@@ -124,11 +130,11 @@ public partial class BookmarksPanel : UserControl {
         var hitTestResult = this.InputHitTest(pointerPosition) as Visual;
 
         // Find the TreeDataGridRow under the cursor
-        var treeViewItem = hitTestResult?.FindAncestorOfType<TreeDataGridRow>();
+        var treeViewItem = hitTestResult?.FindAncestorOfType<ListBoxItem>();
 
-        if (treeViewItem != null && treeViewItem.DataContext is BookmarkNode targetBookmark) {
+        if (treeViewItem != null && treeViewItem.DataContext is TreeListNode<BookmarkNode> targetBookmark) {
             // Cannot drop into yourself or your children
-            if (IsChildOf(targetBookmark, _draggedBookmark) || targetBookmark == _draggedBookmark) {
+            if (IsChildOf(targetBookmark.Node, _draggedBookmark) || targetBookmark.Node == _draggedBookmark) {
                 ClearDropIndicators();
                 return;
             }
@@ -138,7 +144,7 @@ public partial class BookmarksPanel : UserControl {
             var height = treeViewItem.Bounds.Height;
 
             DropPosition dropPosition = DropPosition.None;
-            if (targetBookmark is BookmarkFolder) {
+            if (targetBookmark.Node is BookmarkFolder) {
                 // Find the actual folder header StackPanel to get its real height
                 var headerPanel = treeViewItem.FindDescendantOfType<StackPanel>();
                 var headerHeight = headerPanel?.Bounds.Height ?? 24;
@@ -147,12 +153,12 @@ public partial class BookmarksPanel : UserControl {
                 if (position.Y < dropZoneSize) {
                     dropPosition = DropPosition.Above;
                 }
-                else if (position.Y > headerHeight + dropZoneSize) {
+                else if (position.Y > headerHeight - dropZoneSize && !targetBookmark.IsExpanded) {
                     dropPosition = DropPosition.Below;
                 }
                 else {
                     // Check if trying to drop into the same folder
-                    if (targetBookmark != _draggedBookmark.Parent)
+                    if (targetBookmark.Node != _draggedBookmark.Parent)
                         dropPosition = DropPosition.Inside;
                 }
             }
@@ -169,7 +175,7 @@ public partial class BookmarksPanel : UserControl {
             if (_currentTargetRow != treeViewItem || _currentDropPosition != dropPosition) {
 
                 _currentTargetRow = treeViewItem;
-                _currentTargetBookmark = targetBookmark;
+                _currentTargetBookmark = targetBookmark.Node;
                 _currentDropPosition = dropPosition;
             }
 
@@ -259,7 +265,7 @@ public partial class BookmarksPanel : UserControl {
         return false;
     }
 
-    private void DrawDropIndicator(TreeDataGridRow treeViewItem, DropPosition dropPosition) {
+    private void DrawDropIndicator(ListBoxItem treeViewItem, DropPosition dropPosition) {
         if (DropIndicatorCanvas == null) return;
 
         var itemPosition = treeViewItem.TranslatePoint(new Point(0, 0), DropIndicatorCanvas);
@@ -308,9 +314,9 @@ public partial class BookmarksPanel : UserControl {
     }
 
     private void OnBookmarkItemPointerEntered(object? sender, PointerEventArgs e) {
-        if (!_isDragging && sender is StackPanel stackPanel && stackPanel.DataContext is BookmarkNode bookmarkNode) {
+        if (!_isDragging && sender is StackPanel stackPanel && stackPanel.DataContext is TreeListNode<BookmarkNode> bookmarkNode) {
             // Only show tooltip when not dragging
-            if (bookmarkNode is Bookmark bookmark) {
+            if (bookmarkNode.Node is Bookmark bookmark) {
                 ToolTip.SetTip(stackPanel, bookmark.Location);
             }
         }
@@ -324,36 +330,89 @@ public partial class BookmarksPanel : UserControl {
 
     private void OnTreeDataGridKeyDown(object? sender, KeyEventArgs e) {
         if (DataContext is not BookmarksPanelViewModel viewModel) return;
-        
-        var selectedItem = viewModel.SelectedItem;
-        if (selectedItem == null) return;
-        
+
         if (e.Key == Key.Delete) {
-            viewModel.DeleteBookmarkCommand.Execute(selectedItem);
+            viewModel.DeleteBookmarkCommand.Execute(viewModel.Bookmarks.SelectedItem);
             e.Handled = true;
         }
         else if (e.Key == Key.Enter) {
-            HandleExecuteItem(viewModel, selectedItem, e);
+            HandleExecuteItem(viewModel, viewModel.Bookmarks.SelectedItem, e);
+            e.Handled = true;
+            
+            // Ensure the ListBoxItem retains focus after Enter key
+            Dispatcher.UIThread.Post(() => {
+                var listBox = sender as ListBox;
+                if (listBox != null) {
+                    // Find the ListBoxItem for the selected item
+                    var listBoxItem = listBox.GetRealizedContainers()
+                        .OfType<ListBoxItem>()
+                        .FirstOrDefault(item => item.DataContext == viewModel.Bookmarks.SelectedItem);
+                    
+                    if (listBoxItem != null) {
+                        listBoxItem.Focus();
+                    }
+                }
+            }, DispatcherPriority.Background);
         }
     }
 
     private void OnDoubleTapped(object? sender, PointerPressedEventArgs e) {
         //Console.WriteLine("BookmarkTreeView_DoubleTapped");
-        var treeDataGrid = sender as TreeDataGrid;
-        var selectedItem = treeDataGrid?.RowSelection?.SelectedItem as BookmarkNode;
+        var treeDataGrid = sender as ListBox;
+        //var selectedItem = treeDataGrid?.RowSelection?.SelectedItem as BookmarkNode;
+        var selectedItem = treeDataGrid?.SelectedItem as TreeListNode<BookmarkNode>;
         if (selectedItem != null && DataContext is BookmarksPanelViewModel viewModel) {
             HandleExecuteItem(viewModel, selectedItem, e);
+            
+            // Ensure the ListBoxItem retains focus after double-click
+            Dispatcher.UIThread.Post(() => {
+                if (treeDataGrid != null) {
+                    // Find the ListBoxItem for the selected item
+                    var listBoxItem = treeDataGrid.GetRealizedContainers()
+                        .OfType<ListBoxItem>()
+                        .FirstOrDefault(item => item.DataContext == selectedItem);
+                    
+                    if (listBoxItem != null) {
+                        listBoxItem.Focus();
+                    }
+                }
+            }, DispatcherPriority.Background);
         }
     }
 
-    private void HandleExecuteItem(BookmarksPanelViewModel viewModel, BookmarkNode selectedItem, RoutedEventArgs e) {
-        if (selectedItem is Bookmark) {
+    private void HandleExecuteItem(BookmarksPanelViewModel viewModel, TreeListNode<BookmarkNode>? selectedItem, RoutedEventArgs e) {
+        if (selectedItem?.Node is Bookmark) {
             viewModel.GoToBookmarkCommand.Execute(selectedItem);
             e.Handled = true;
         }
-        else if (selectedItem is BookmarkFolder) {
+        else if (selectedItem?.Node is BookmarkFolder) {
             viewModel.ToggleFolderExpansionCommand.Execute(selectedItem);
             e.Handled = true;
+        }
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs? e) {
+        // Unsubscribe from previous ViewModel
+        if (DataContext is BookmarksPanelViewModel oldViewModel) {
+            oldViewModel.RequestFocusRestore -= OnRequestFocusRestore;
+        }
+
+        // Subscribe to new ViewModel
+        if (DataContext is BookmarksPanelViewModel newViewModel) {
+            newViewModel.RequestFocusRestore += OnRequestFocusRestore;
+        }
+    }
+
+    private void OnRequestFocusRestore(object? sender, TreeListNode<BookmarkNode>? node) {
+        if (node == null) return;
+
+        // Follow the same pattern as the key event handlers for focus restoration
+        var listBoxItem = BookmarkTreeView.GetRealizedContainers()
+            .OfType<ListBoxItem>()
+            .FirstOrDefault(item => item.DataContext == node);
+
+        if (listBoxItem != null) {
+            listBoxItem.Focus();
         }
     }
 }
