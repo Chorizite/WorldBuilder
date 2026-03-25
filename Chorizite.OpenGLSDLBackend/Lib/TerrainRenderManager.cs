@@ -27,6 +27,9 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         private readonly ConcurrentDictionary<ushort, TerrainChunk> _chunks = new();
         private readonly CancellationTokenSource _cts = new();
 
+        // Minimap render
+        private MinimapRenderer? _minimapRenderer;
+
         // Job queues
         private readonly ConcurrentDictionary<ushort, TerrainChunk> _pendingGeneration = new();
         private readonly ConcurrentDictionary<ushort, TerrainChunk> _uploadQueue = new();
@@ -201,6 +204,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
         public void Initialize(IShader shader) {
             _shader = shader;
             _initialized = true;
+            _minimapRenderer = new MinimapRenderer(_gl);
 
             // Initialize Surface Manager
             if (_landscapeDoc.Region is ITerrainInfo regionInfo) {
@@ -897,6 +901,20 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
+            bool isOrtho = projectionMatrix.M44 == 1f;
+
+            bool useOptimizedMap = isOrtho && cameraPosition.Z > 10000;
+
+            if (useOptimizedMap && _minimapRenderer != null) {
+                RenderMapQuad(_minimapRenderer.MinimapTexture);
+                return;
+            }
+
+            if (useOptimizedMap && _minimapRenderer != null) {
+                RenderMapQuad(_minimapRenderer.MinimapTexture);
+                return;
+            }
+
             _gl.BindVertexArray(0);
             BaseObjectRenderManager.CurrentVAO = 0;
             GLHelpers.CheckErrors(_gl);
@@ -950,6 +968,7 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             _cts.Cancel();
             _cts.Dispose();
             _landscapeDoc.LandblockChanged -= OnLandblockChanged;
+            _minimapRenderer?.Dispose();
             foreach (var chunk in _chunks.Values) {
                 chunk.Dispose();
             }
@@ -976,6 +995,30 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
             if (_ownsSurfaceManager) {
                 _surfaceManager?.Dispose();
             }
+        }
+
+        public void UpdateMinimap() {
+            if (_minimapRenderer == null || !_initialized) return;
+
+            float range = 20 * 192f; 
+
+            _minimapRenderer.RenderToMap(this, _cameraPosition, range);
+        }
+
+        private unsafe void RenderMapQuad(uint textureId) {
+            if (_shader == null || _gl == null) return;
+
+            _gl.Disable(EnableCap.DepthTest);
+            _gl.BindTexture(TextureTarget.Texture2D, textureId);
+
+            _shader.Bind();
+            _shader.SetUniform("uProjection", Matrix4x4.Identity);
+            _shader.SetUniform("uView", Matrix4x4.Identity);
+            _shader.SetUniform("xWorld", Matrix4x4.Identity);
+
+            _gl.DrawArrays(PrimitiveType.TriangleStrip, 0, 4);
+
+            _gl.Enable(EnableCap.DepthTest);
         }
     }
 }
