@@ -901,7 +901,14 @@ namespace Chorizite.OpenGLSDLBackend.Lib {
                 }
             }
 
-            bool useOptimizedMap = !_graphicsDevice.Is3DMode && _cameraPosition.Z > 10000; 
+            bool isOrtho = projectionMatrix.M44 == 1f;
+
+            bool useOptimizedMap = isOrtho && cameraPosition.Z > 10000;
+
+            if (useOptimizedMap && _minimapRenderer != null) {
+                RenderMapQuad(_minimapRenderer.MinimapTexture);
+                return;
+            }
 
             if (useOptimizedMap && _minimapRenderer != null) {
                 RenderMapQuad(_minimapRenderer.MinimapTexture);
