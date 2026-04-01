@@ -24,6 +24,8 @@ public partial class LandscapeView : UserControl {
     private GridSplitter? _rightSplitter;
     private GridSplitter? _sideBarSplitter;
     private WorldBuilderSettings? _settings;
+    private Avalonia.Controls.Image? _minimapImage;
+    private Avalonia.Controls.Shapes.Ellipse? _minimapIndicator;
 
     // Setting Grid.Width at DesignTime causes the content in the right column to not stretch to greater widths
     // Setting Grid.MinWidth sets the starting width properly, but doesn't actually enforce a MinWidth constraint when dragging GridSplitter
@@ -56,6 +58,12 @@ public partial class LandscapeView : UserControl {
         _rightSplitter = this.FindControl<GridSplitter>("RightSplitter");
         _sideBarSplitter = this.FindControl<GridSplitter>("SideBarSplitter");
         _settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
+        _minimapImage = this.FindControl<Avalonia.Controls.Image>("MinimapImage");
+        _minimapIndicator = this.FindControl<Avalonia.Controls.Shapes.Ellipse>("MinimapPlayerIndicator");
+
+        if (_minimapIndicator != null) {
+            _minimapIndicator.Margin = new Avalonia.Thickness(100 - 4, 100 - 4, 0, 0);
+        }
 
         var rootLayoutGrid = this.FindControl<Grid>("RootLayoutGrid");
         if (rootLayoutGrid != null && rootLayoutGrid.ColumnDefinitions.Count >= 4) {
@@ -396,5 +404,36 @@ public partial class LandscapeView : UserControl {
             };
         }
         return new ViewportInputEvent();
+    }
+
+    private void OnMinimapPointerPressed(object? sender, PointerPressedEventArgs e) {
+        if (DataContext is LandscapeViewModel vm && _renderView?.Camera != null) {
+            // Dobimo X, Y koordinate klika znotraj slike (vrednosti med 0 in 200)
+            var point = e.GetPosition(_minimapImage);
+            
+            // Range najine minimape je 20 landblockov (enako kot v TerrainRenderManager)
+            float range = 20 * 192f;
+            
+            // Izračunamo odmik od centra. 
+            // X: 0 je levo (-range/2), 200 je desno (+range/2)
+            float offsetX = (float)(((point.X / 200.0) - 0.5) * range);
+            
+            // Y: UI koordinate gredo navzdol, svetovne pa navzgor, zato obrnemo
+            float offsetY = (float)((0.5 - (point.Y / 200.0)) * range);
+    
+            // Trenutna pozicija
+            var currentPos = _renderView.Camera.Position;
+            
+            // Nova pozicija
+            var newPos = new Vector3(currentPos.X + offsetX, currentPos.Y + offsetY, currentPos.Z);
+    
+            // Najdemo cellId na novi lokaciji (zaradi teleportacije)
+            uint cellId = _renderView.GetEnvCellAt(newPos);
+            
+            // Teleportacija!
+            vm.GameScene?.Teleport(newPos, cellId);
+            
+            e.Handled = true;
+        }
     }
 }
