@@ -408,29 +408,28 @@ public partial class LandscapeView : UserControl {
 
     private void OnMinimapPointerPressed(object? sender, PointerPressedEventArgs e) {
         if (DataContext is LandscapeViewModel vm && _renderView?.Camera != null) {
-            // Dobimo X, Y koordinate klika znotraj slike (vrednosti med 0 in 200)
+            // Get X, Y coordinates of the click within the image (0-200)
             var point = e.GetPosition(_minimapImage);
             
-            // Range najine minimape je 20 landblockov (enako kot v TerrainRenderManager)
+            // Minimap range is 20 landblocks (same as TerrainRenderManager)
             float range = 20 * 192f;
             
-            // Izračunamo odmik od centra. 
-            // X: 0 je levo (-range/2), 200 je desno (+range/2)
+            // Calculate offset from center. X: 0 is left (-range/2), 200 is right (+range/2)
             float offsetX = (float)(((point.X / 200.0) - 0.5) * range);
             
-            // Y: UI koordinate gredo navzdol, svetovne pa navzgor, zato obrnemo
+            // Y: UI coordinates go down, world coordinates go up, so invert
             float offsetY = (float)((0.5 - (point.Y / 200.0)) * range);
     
-            // Trenutna pozicija
+            // Current position
             var currentPos = _renderView.Camera.Position;
             
-            // Nova pozicija
+            // New position
             var newPos = new Vector3(currentPos.X + offsetX, currentPos.Y + offsetY, currentPos.Z);
     
-            // Najdemo cellId na novi lokaciji (zaradi teleportacije)
+            // Find cellId at the new location for teleportation
             uint cellId = _renderView.GetEnvCellAt(newPos);
             
-            // Teleportacija!
+            // Teleport
             vm.GameScene?.Teleport(newPos, cellId);
             
             e.Handled = true;
