@@ -24,6 +24,8 @@ public partial class LandscapeView : UserControl {
     private GridSplitter? _rightSplitter;
     private GridSplitter? _sideBarSplitter;
     private WorldBuilderSettings? _settings;
+    private Avalonia.Controls.Image? _minimapImage;
+    private Avalonia.Controls.Shapes.Ellipse? _minimapIndicator;
 
     // Setting Grid.Width at DesignTime causes the content in the right column to not stretch to greater widths
     // Setting Grid.MinWidth sets the starting width properly, but doesn't actually enforce a MinWidth constraint when dragging GridSplitter
@@ -56,6 +58,12 @@ public partial class LandscapeView : UserControl {
         _rightSplitter = this.FindControl<GridSplitter>("RightSplitter");
         _sideBarSplitter = this.FindControl<GridSplitter>("SideBarSplitter");
         _settings = WorldBuilder.App.Services?.GetService<WorldBuilderSettings>();
+        _minimapImage = this.FindControl<Avalonia.Controls.Image>("MinimapImage");
+        _minimapIndicator = this.FindControl<Avalonia.Controls.Shapes.Ellipse>("MinimapPlayerIndicator");
+
+        if (_minimapIndicator != null) {
+            _minimapIndicator.Margin = new Avalonia.Thickness(100 - 4, 100 - 4, 0, 0);
+        }
 
         var rootLayoutGrid = this.FindControl<Grid>("RootLayoutGrid");
         if (rootLayoutGrid != null && rootLayoutGrid.ColumnDefinitions.Count >= 4) {
@@ -396,5 +404,35 @@ public partial class LandscapeView : UserControl {
             };
         }
         return new ViewportInputEvent();
+    }
+
+    private void OnMinimapPointerPressed(object? sender, PointerPressedEventArgs e) {
+        if (DataContext is LandscapeViewModel vm && _renderView?.Camera != null) {
+            // Get X, Y coordinates of the click within the image (0-200)
+            var point = e.GetPosition(_minimapImage);
+            
+            // Minimap range is 20 landblocks (same as TerrainRenderManager)
+            float range = 20 * 192f;
+            
+            // Calculate offset from center. X: 0 is left (-range/2), 200 is right (+range/2)
+            float offsetX = (float)(((point.X / 200.0) - 0.5) * range);
+            
+            // Y: UI coordinates go down, world coordinates go up, so invert
+            float offsetY = (float)((0.5 - (point.Y / 200.0)) * range);
+    
+            // Current position
+            var currentPos = _renderView.Camera.Position;
+            
+            // New position
+            var newPos = new Vector3(currentPos.X + offsetX, currentPos.Y + offsetY, currentPos.Z);
+    
+            // Find cellId at the new location for teleportation
+            uint cellId = _renderView.GetEnvCellAt(newPos);
+            
+            // Teleport
+            vm.GameScene?.Teleport(newPos, cellId);
+            
+            e.Handled = true;
+        }
     }
 }

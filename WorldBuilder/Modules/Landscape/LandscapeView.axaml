@@ -130,6 +130,17 @@
             </Button>
           </StackPanel>
         </Border>
+
+        <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="10, 10, 10, 50" 
+                Background="#AA000000" BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1"
+                CornerRadius="4" Padding="4" Width="208" Height="208">
+          <Panel>
+            <Image x:Name="MinimapImage" Width="200" Height="200" PointerPressed="OnMinimapPointerPressed" Cursor="Hand" />
+            
+            <Ellipse x:Name="MinimapPlayerIndicator" Width="8" Height="8" Fill="Red" 
+                     HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False" />
+          </Panel>
+        </Border>
       </Panel>
 
       <!-- Bottom Splitter -->
