@@ -31,6 +31,7 @@
 		<PackageReference Include="HanumanInstitute.MvvmDialogs.Avalonia.MessageBox" />
 		<PackageReference Include="Serilog.Extensions.Logging" />
 		<PackageReference Include="Serilog.Sinks.File" />
+		<PackageReference Include="Tmds.DBus.Protocol" />
 		<PackageReference Include="Velopack" />
 	</ItemGroup>
 
