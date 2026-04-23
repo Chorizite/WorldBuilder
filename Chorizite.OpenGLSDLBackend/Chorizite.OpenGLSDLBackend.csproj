@@ -21,6 +21,7 @@
 		<PackageReference Include="Silk.NET.SDL" />
 		<PackageReference Include="SixLabors.ImageSharp" />
 		<PackageReference Include="Microsoft.Extensions.Logging" />
+		<PackageReference Include="Tmds.DBus.Protocol" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\WorldBuilder.Shared\WorldBuilder.Shared.csproj" />

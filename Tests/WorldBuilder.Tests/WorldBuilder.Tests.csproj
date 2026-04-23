@@ -13,6 +13,7 @@
 	  <PackageReference Include="Chorizite.DatReaderWriter.Extensions" />
 	  <PackageReference Include="Microsoft.NET.Test.Sdk" />
 	  <PackageReference Include="Moq" />
+	  <PackageReference Include="Tmds.DBus.Protocol" />
 	  <PackageReference Include="xunit" />
 	  <PackageReference Include="xunit.runner.visualstudio">
 		  <PrivateAssets>all</PrivateAssets>

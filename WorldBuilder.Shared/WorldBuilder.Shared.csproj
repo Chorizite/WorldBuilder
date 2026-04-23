@@ -29,6 +29,7 @@
         <PackageReference Include="Microsoft.SemanticKernel.Connectors.Onnx" />
         <PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" />
         <PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" />
+        <PackageReference Include="Tmds.DBus.Protocol" />
 	</ItemGroup>
 
 	<ItemGroup>

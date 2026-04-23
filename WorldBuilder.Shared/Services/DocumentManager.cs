@@ -372,7 +372,7 @@ public partial class DocumentManager : IDocumentManager, IDisposable {
                 _logger.LogTrace("Terrain patch with ID {DocumentId} not found in database", id);
                 return null;
             }
-            _logger.LogDebug("Terrain patch with ID {DocumentId} loaded from database", id);
+            _logger.LogTrace("Terrain patch with ID {DocumentId} loaded from database", id);
             return BaseDocument.Deserialize<T>(blobResult.Value);
         }
 
